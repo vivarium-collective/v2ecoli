@@ -1,0 +1,449 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aerobic acetate overflow — acetate-carbon yield vs growth rate — report card</title><style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}
+*{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+header.top{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}
+header.top h1{margin:0;font-size:20px;font-weight:650} header.top .sub{margin-top:4px;color:#cbd5e1;font-size:13px}
+.obadge{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:999px;font-weight:700;background:#c62828;color:#fff}
+nav.sticky{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid var(--line);padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}
+nav.sticky a{text-decoration:none;color:var(--ink);font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+nav.sticky a:hover{background:var(--bg)}
+main{padding:24px 28px 64px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card>.head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card>.head h2{margin:0;font-size:16px;font-weight:620}
+.chips{display:flex;gap:7px;flex-wrap:wrap} .chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;color:#fff}
+table{border-collapse:collapse;width:100%} thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:9px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+tbody td{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;font-size:13px}
+.axhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .metric{font-weight:600}
+.badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}
+.how{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px} .crit{font-size:12px;margin-top:4px;color:#374151}
+.val{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%} .spread{color:var(--muted);font-size:11px;margin-top:2px}
+.meter{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}
+tbody td:first-child{min-width:420px}
+.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 #1a7f37} .verdict-drift td:first-child{box-shadow:inset 3px 0 0 #ef6c00}
+.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 #c62828} .verdict-ungraded td:first-child{box-shadow:inset 3px 0 0 #757575}
+details{margin-top:8px} summary{cursor:pointer;font-size:12px;color:#1f6feb} .plotwrap{margin-top:8px} .plotwrap svg{max-width:100%;height:auto}
+.fluxwrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap} .fluxwrap svg{flex:0 0 auto;max-width:420px}
+.ftbl{flex:1 1 100%;overflow-x:auto} .ftbl table{width:auto} .ftbl thead th{padding:5px 10px;font-size:10px}
+.ftbl tbody td{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px} .ftbl .fid{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}
+.ftbl .fnum{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}
+.ftbl tr.flux-appeared{background:#fdecea} .ftbl tr.flux-appeared .fid{color:#c62828;font-weight:600}
+.ftbl tr.flux-lost{background:#fff3e0} .ftbl tr.flux-lost .fid{color:#ef6c00;font-weight:600}
+.ftbl tr.flux-subfloor .fid{color:#9aa3af;font-style:italic}
+.ftnote{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}
+.omicswrap{display:flex;flex-direction:column;gap:14px} .omicswrap svg{max-width:400px}
+.otbl{width:100%}
+.otgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.otcol{min-width:0}
+.oth{font-size:11.5px;font-weight:600;margin-bottom:3px} .otn{color:var(--muted);font-weight:400}
+.otbl table{width:100%;table-layout:fixed} .otbl thead th{padding:4px 8px;font-size:9.5px}
+.otbl tbody td{padding:3px 8px;border-bottom:1px solid #f4f5f7;font-size:11px}
+.otbl th.ohgene,.ogene{width:auto} .otbl th.ohnum,.onum,.ofc{width:62px}
+.ogene{overflow:hidden} .ogene b{font-family:"SF Mono",ui-monospace,Menlo,monospace;font-size:11px}
+.odesc{display:block;color:var(--muted);font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onum{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;color:#374151}
+.ofc{font-family:"SF Mono",ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;font-weight:600}
+.otmore,.otnone{color:var(--muted);font-size:10px;margin-top:3px} .otnone{font-style:italic}
+.ploterr{color:var(--muted);font-size:11px} dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0} dt{color:#cbd5e1}
+.var{font-size:11px;color:var(--muted);margin-top:4px} .var.varflag{color:#ef6c00;font-weight:600}
+.simhealth .shbody{padding:12px 18px;font-size:13.5px}
+.simhealth.ok{border-left:4px solid #1a7f37} .simhealth.ok .shbody{color:#14532d}
+.simhealth.warn{border-left:4px solid #ef6c00;background:#fff8f0} .simhealth.warn .shbody{color:#7c4a03}
+.stat-callout{border-left:4px solid #ef6c00} .stat-callout .statbody{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}
+.statbody code{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}
+.findings{margin:0;padding:14px 34px;color:#374151;font-size:13px} footer{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}
+.coverage{border-left:4px solid #6b7280} .covbody{padding:14px 18px}
+.cov-lede{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}
+.covlist{list-style:none;margin:0;padding:0} .covlist li{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}
+.cov-mark{font-weight:700;text-align:center} .cov-yes .cov-mark{color:#1a7f37} .cov-no .cov-mark{color:#b0b6bd}
+.cov-cat{font-weight:600;color:#1a1d21} .cov-no .cov-cat{color:#6b7280} .cov-detail{color:var(--muted)}
+.cov-tag{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}
+.cov-fit{color:#7c5a00;background:#fdf3da}
+.cov-invite{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}
+</style></head><body>
+<header class="top"><h1>Aerobic acetate overflow — acetate-carbon yield vs growth rate — report card</h1>
+<div class="sub">model <b>v2ecoli baseline FBA · GUR titration (exchange_data.glc_uptake_cap_aerobic)</b> · 1×2 per cap · reference populated</div>
+<div class="obadge">MISMATCH &nbsp;·&nbsp; 0 ✓ &nbsp; 0 ≈ &nbsp; 1 ✗ &nbsp; 0 –</div></header>
+<nav class="sticky"><a href='#overflow'>Overflow</a></nav>
+<main><section class='card' id='overflow'><div class='head'><h2>Overflow</h2><div class='chips'><span class='chip' style='background:#1a7f37'>✓ 0 within tol</span><span class='chip' style='background:#ef6c00'>≈ 0 drift</span><span class='chip' style='background:#c62828'>✗ 1 mismatch</span><span class='chip' style='background:#757575'>– 0 ungraded</span></div></div><table><thead><tr><th>axis</th><th>value</th><th>summary</th></tr></thead><tbody><tr class='verdict-mismatch'><td><div class='axhd'><span class='metric'>Acetate overflow (carbon yield vs growth rate)</span><span class='badge' style='background:#c62828'>✗ mismatch</span></div><div class='how'>Model: acetate-carbon yield Y_ac = (2·acetate)/(6·glucose) at the emergent growth rate of each glucose-uptake-cap setting (GUR titration). Graded vs Vemuri 2006 (MG1655 glucose-limited chemostat; Y_ac raw from co-measured glucose uptake) by the threshold_linear criterion: the response shape (Y_ac rising ~0 → linear above a threshold) and the yield slope; the threshold is reported but secondary (it shifts strain-to-strain). Basan 2015 (NCM3722 batch, SI-derived yield) and an independent MG1655 ¹³C yield point are overlaid as context.</div><div class='crit'><b>criterion:</b> shape-first: linear-rise R² ≥ 0.9 (drift ≥ 0.7); slope within 30% (drift 60%); threshold reported (secondary)</div><details><summary>plot + detail</summary><div class='plotwrap'><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="294.935215pt" height="229.850277pt" viewBox="0 0 294.935215 229.850277" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-07-29T15:20:22.053205</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.1, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 229.850277 
+L 294.935215 229.850277 
+L 294.935215 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 42.215215 195.696 
+L 287.735215 195.696 
+L 287.735215 7.2 
+L 42.215215 7.2 
+z
+" style="fill: #ffffff"/>
+   </g>
+   <g id="line2d_1">
+    <path d="M 42.215215 179.988 
+L 287.735215 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #d0d4d9; stroke-width: 0.6; stroke-linecap: square"/>
+   </g>
+   <g id="matplotlib.axis_1">
+    <g id="xtick_1">
+     <g id="line2d_2">
+      <defs>
+       <path id="m49f116d02d" d="M 0 0 
+L 0 3.5 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#m49f116d02d" x="90.05643" y="195.696" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_1">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: middle" x="90.05643" y="208.520219" transform="rotate(-0 90.05643 208.520219)">0.2</text>
+     </g>
+    </g>
+    <g id="xtick_2">
+     <g id="line2d_3">
+      <g>
+       <use xlink:href="#m49f116d02d" x="139.515361" y="195.696" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_2">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: middle" x="139.515361" y="208.520219" transform="rotate(-0 139.515361 208.520219)">0.4</text>
+     </g>
+    </g>
+    <g id="xtick_3">
+     <g id="line2d_4">
+      <g>
+       <use xlink:href="#m49f116d02d" x="188.974291" y="195.696" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_3">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: middle" x="188.974291" y="208.520219" transform="rotate(-0 188.974291 208.520219)">0.6</text>
+     </g>
+    </g>
+    <g id="xtick_4">
+     <g id="line2d_5">
+      <g>
+       <use xlink:href="#m49f116d02d" x="238.433221" y="195.696" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_4">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: middle" x="238.433221" y="208.520219" transform="rotate(-0 238.433221 208.520219)">0.8</text>
+     </g>
+    </g>
+    <g id="text_5">
+     <text style="font-size: 9px; font-family: 'Arial'; text-anchor: middle" x="164.975215" y="220.756059" transform="rotate(-0 164.975215 220.756059)">growth rate (1/h)</text>
+    </g>
+   </g>
+   <g id="matplotlib.axis_2">
+    <g id="ytick_1">
+     <g id="line2d_6">
+      <defs>
+       <path id="mb2dfbaba20" d="M 0 0 
+L -3.5 0 
+" style="stroke: #000000; stroke-width: 0.8"/>
+      </defs>
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="179.988" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_6">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="182.900109" transform="rotate(-0 35.215215 182.900109)">0.00</text>
+     </g>
+    </g>
+    <g id="ytick_2">
+     <g id="line2d_7">
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="149.112036" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_7">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="152.024145" transform="rotate(-0 35.215215 152.024145)">0.05</text>
+     </g>
+    </g>
+    <g id="ytick_3">
+     <g id="line2d_8">
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="118.236072" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_8">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="121.148181" transform="rotate(-0 35.215215 121.148181)">0.10</text>
+     </g>
+    </g>
+    <g id="ytick_4">
+     <g id="line2d_9">
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="87.360108" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_9">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="90.272217" transform="rotate(-0 35.215215 90.272217)">0.15</text>
+     </g>
+    </g>
+    <g id="ytick_5">
+     <g id="line2d_10">
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="56.484143" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_10">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="59.396253" transform="rotate(-0 35.215215 59.396253)">0.20</text>
+     </g>
+    </g>
+    <g id="ytick_6">
+     <g id="line2d_11">
+      <g>
+       <use xlink:href="#mb2dfbaba20" x="42.215215" y="25.608179" style="stroke: #000000; stroke-width: 0.8"/>
+      </g>
+     </g>
+     <g id="text_11">
+      <text style="font-size: 8px; font-family: 'Arial'; text-anchor: end" x="35.215215" y="28.520289" transform="rotate(-0 35.215215 28.520289)">0.25</text>
+     </g>
+    </g>
+    <g id="text_12">
+     <text style="font-size: 9px; font-family: 'Arial'; text-anchor: middle" x="13.752246" y="101.448" transform="rotate(-90 13.752246 101.448)">acetate-carbon yield</text>
+    </g>
+   </g>
+   <g id="line2d_12">
+    <path d="M 184.028398 179.988 
+L 198.866077 178.996797 
+L 243.379114 156.714682 
+L 275.527418 116.877284 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #9aa3af; stroke-opacity: 0.7; stroke-width: 0.8; stroke-linecap: square"/>
+    <defs>
+     <path id="m9272ef153f" d="M 0 1.5 
+C 0.397805 1.5 0.77937 1.341951 1.06066 1.06066 
+C 1.341951 0.77937 1.5 0.397805 1.5 0 
+C 1.5 -0.397805 1.341951 -0.77937 1.06066 -1.06066 
+C 0.77937 -1.341951 0.397805 -1.5 0 -1.5 
+C -0.397805 -1.5 -0.77937 -1.341951 -1.06066 -1.06066 
+C -1.341951 -0.77937 -1.5 -0.397805 -1.5 0 
+C -1.5 0.397805 -1.341951 0.77937 -1.06066 1.06066 
+C -0.77937 1.341951 -0.397805 1.5 0 1.5 
+z
+" style="stroke: #9aa3af; stroke-opacity: 0.7"/>
+    </defs>
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#m9272ef153f" x="184.028398" y="179.988" style="fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7"/>
+     <use xlink:href="#m9272ef153f" x="198.866077" y="178.996797" style="fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7"/>
+     <use xlink:href="#m9272ef153f" x="243.379114" y="156.714682" style="fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7"/>
+     <use xlink:href="#m9272ef153f" x="275.527418" y="116.877284" style="fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7"/>
+    </g>
+   </g>
+   <g id="patch_3">
+    <path d="M 42.215215 195.696 
+L 42.215215 7.2 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 42.215215 195.696 
+L 287.735215 195.696 
+" style="fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square"/>
+   </g>
+   <g id="PathCollection_1">
+    <defs>
+     <path id="m459bb8e063" d="M -0 4.582576 
+L 4.582576 0 
+L 0 -4.582576 
+L -4.582576 -0 
+z
+" style="stroke: #ffffff; stroke-width: 0.6"/>
+    </defs>
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#m459bb8e063" x="208.015979" y="44.561982" style="fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6"/>
+     <use xlink:href="#m459bb8e063" x="211.230809" y="86.293767" style="fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6"/>
+    </g>
+   </g>
+   <g id="LineCollection_1">
+    <path d="M 53.375215 179.988 
+L 53.375215 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 65.648448 179.988 
+L 65.648448 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 88.003885 179.988 
+L 88.003885 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 114.044012 179.988 
+L 114.044012 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 142.161413 174.597375 
+L 142.161413 173.409166 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 162.686869 117.683482 
+L 162.686869 116.647376 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+    <path d="M 188.479701 23.377596 
+L 188.479701 22.908 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7"/>
+   </g>
+   <g id="line2d_13">
+    <defs>
+     <path id="m15e4a32222" d="M 2 0 
+L -2 -0 
+" style="stroke: #111827; stroke-opacity: 0.7"/>
+    </defs>
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#m15e4a32222" x="53.375215" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="65.648448" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="88.003885" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="114.044012" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="142.161413" y="174.597375" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="162.686869" y="117.683482" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="188.479701" y="23.377596" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+    </g>
+   </g>
+   <g id="line2d_14">
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#m15e4a32222" x="53.375215" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="65.648448" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="88.003885" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="114.044012" y="179.988" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="142.161413" y="173.409166" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="162.686869" y="116.647376" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+     <use xlink:href="#m15e4a32222" x="188.479701" y="22.908" style="fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7"/>
+    </g>
+   </g>
+   <g id="line2d_15">
+    <path d="M 53.375215 179.988 
+L 65.648448 179.988 
+L 88.003885 179.988 
+L 114.044012 179.988 
+L 142.161413 174.00327 
+L 162.686869 117.165429 
+L 188.479701 23.142798 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #111827; stroke-linecap: square"/>
+    <defs>
+     <path id="me649176fdb" d="M 0 2 
+C 0.530406 2 1.03916 1.789267 1.414214 1.414214 
+C 1.789267 1.03916 2 0.530406 2 0 
+C 2 -0.530406 1.789267 -1.03916 1.414214 -1.414214 
+C 1.03916 -1.789267 0.530406 -2 0 -2 
+C -0.530406 -2 -1.03916 -1.789267 -1.414214 -1.414214 
+C -1.789267 -1.03916 -2 -0.530406 -2 0 
+C -2 0.530406 -1.789267 1.03916 -1.414214 1.414214 
+C -1.03916 1.789267 -0.530406 2 0 2 
+z
+" style="stroke: #111827"/>
+    </defs>
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#me649176fdb" x="53.375215" y="179.988" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="65.648448" y="179.988" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="88.003885" y="179.988" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="114.044012" y="179.988" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="142.161413" y="174.00327" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="162.686869" y="117.165429" style="fill: #111827; stroke: #111827"/>
+     <use xlink:href="#me649176fdb" x="188.479701" y="23.142798" style="fill: #111827; stroke: #111827"/>
+    </g>
+   </g>
+   <g id="legend_1">
+    <g id="line2d_16">
+     <path d="M 48.515215 16.146191 
+L 55.515215 16.146191 
+L 62.515215 16.146191 
+" style="fill: none; stroke: #9aa3af; stroke-opacity: 0.7; stroke-width: 0.8; stroke-linecap: square"/>
+     <g>
+      <use xlink:href="#m9272ef153f" x="55.515215" y="16.146191" style="fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7"/>
+     </g>
+    </g>
+    <g id="text_13">
+     <text style="font-size: 7px; font-family: 'Arial'; text-anchor: start" x="68.115215" y="18.596191" transform="rotate(-0 68.115215 18.596191)">Basan 2015 (NCM3722 batch, SI-derived)</text>
+    </g>
+    <g id="PathCollection_2">
+     <g>
+      <use xlink:href="#m459bb8e063" x="55.515215" y="26.828164" style="fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6"/>
+     </g>
+    </g>
+    <g id="text_14">
+     <text style="font-size: 7px; font-family: 'Arial'; text-anchor: start" x="68.115215" y="28.665664" transform="rotate(-0 68.115215 28.665664)">MG1655 ¹³C anchor</text>
+    </g>
+    <g id="line2d_17">
+     <path d="M 48.515215 36.285 
+L 55.515215 36.285 
+L 62.515215 36.285 
+" style="fill: none; stroke: #111827; stroke-linecap: square"/>
+     <g>
+      <use xlink:href="#me649176fdb" x="55.515215" y="36.285" style="fill: #111827; stroke: #111827"/>
+     </g>
+    </g>
+    <g id="text_15">
+     <text style="font-size: 7px; font-family: 'Arial'; text-anchor: start" x="68.115215" y="38.735" transform="rotate(-0 68.115215 38.735)">Vemuri 2006 (MG1655 chemostat)</text>
+    </g>
+    <g id="line2d_18">
+     <path d="M 48.515215 46.354473 
+L 55.515215 46.354473 
+L 62.515215 46.354473 
+" style="fill: none; stroke: #1f6feb; stroke-width: 1.4; stroke-linecap: square"/>
+     <defs>
+      <path id="mb71f82654c" d="M 0 2.25 
+C 0.596707 2.25 1.169055 2.012926 1.59099 1.59099 
+C 2.012926 1.169055 2.25 0.596707 2.25 0 
+C 2.25 -0.596707 2.012926 -1.169055 1.59099 -1.59099 
+C 1.169055 -2.012926 0.596707 -2.25 0 -2.25 
+C -0.596707 -2.25 -1.169055 -2.012926 -1.59099 -1.59099 
+C -2.012926 -1.169055 -2.25 -0.596707 -2.25 0 
+C -2.25 0.596707 -2.012926 1.169055 -1.59099 1.59099 
+C -1.169055 2.012926 -0.596707 2.25 0 2.25 
+z
+" style="stroke: #1f6feb"/>
+     </defs>
+     <g>
+      <use xlink:href="#mb71f82654c" x="55.515215" y="46.354473" style="fill: #1f6feb; stroke: #1f6feb"/>
+     </g>
+    </g>
+    <g id="text_16">
+     <text style="font-size: 7px; font-family: 'Arial'; text-anchor: start" x="68.115215" y="48.804473" transform="rotate(-0 68.115215 48.804473)">v2ecoli (model)</text>
+    </g>
+   </g>
+   <g id="line2d_19">
+    <path d="M 269.188618 179.988 
+L 269.358102 179.988 
+L 269.782913 179.988 
+L 270.765991 179.988 
+L 271.411685 179.988 
+L 276.575215 179.988 
+" clip-path="url(#pafdedd9139)" style="fill: none; stroke: #1f6feb; stroke-width: 1.4; stroke-linecap: square"/>
+    <g clip-path="url(#pafdedd9139)">
+     <use xlink:href="#mb71f82654c" x="269.188618" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+     <use xlink:href="#mb71f82654c" x="269.358102" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+     <use xlink:href="#mb71f82654c" x="269.782913" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+     <use xlink:href="#mb71f82654c" x="270.765991" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+     <use xlink:href="#mb71f82654c" x="271.411685" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+     <use xlink:href="#mb71f82654c" x="276.575215" y="179.988" style="fill: #1f6feb; stroke: #1f6feb"/>
+    </g>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pafdedd9139">
+   <rect x="42.215215" y="7.2" width="245.52" height="188.496"/>
+  </clipPath>
+ </defs>
+</svg>
+</div></details></td><td class='val'>{'slope': 0.0, 'slope_ref': 1.3108651183481144, 'onset_ref': 0.40787974992700016}<div class='spread'></div></td><td class='meter'>no threshold-linear rise (y ≤ 0.005 through x=0.954; reference rises)</td></tr></tbody></table></section><section class='card'><div class='head'><h2>Findings</h2></div><ul class='findings'><li>The model's acetate-overflow response is graded as a dimensionless acetate-carbon yield vs growth rate (per-OD vs per-gDW cancels), shape-first — the 0→linear rise and its slope, threshold secondary.</li><li>Primary reference: Vemuri 2006 MG1655 glucose-limited chemostat (Y_ac raw from co-measured glucose uptake). Basan 2015 + an MG1655 ¹³C point are context.</li></ul></section></main>
+<footer>Behavioral report card (threshold_linear grader) · aerobic acetate overflow.</footer>
+</body></html>

@@ -1,0 +1,32 @@
+series_type,series,condition,inducer_3MBA_uM,growth_rate_per_h,acetate_excretion_mM_per_OD600_per_h,symbol_note
+uptake_titration,ptsG_glucose,glucose 0.2% (Pu-ptsG titratable glucose uptake; strain NQ1243),0,0.58,0,filled-square
+uptake_titration,ptsG_glucose,glucose 0.2% (Pu-ptsG titratable glucose uptake; strain NQ1243),20,0.64,0.02,filled-square
+uptake_titration,ptsG_glucose,glucose 0.2% (Pu-ptsG titratable glucose uptake; strain NQ1243),300,0.82,0.62,filled-square
+uptake_titration,ptsG_glucose,glucose 0.2% (Pu-ptsG titratable glucose uptake; strain NQ1243),800,0.95,2.06,filled-square
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),0,0.35,-0.01,filled-circle
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),25,0.55,-0.01,filled-circle
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),50,0.65,-0.01,filled-circle
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),100,0.76,-0.01,filled-circle
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),400,0.87,0.96,filled-circle
+uptake_titration,lacY_lactose,lactose 0.2% (titratable LacY; strain NQ381),800,0.92,2.30,filled-circle
+uptake_mutant,glpK,glycerol 0.2% (glpK mutant; strain NQ636),,0.97,1.98,open-square
+uptake_mutant,glpK,glycerol 0.2% (glpK mutant; strain NQ638),,0.90,1.38,open-square
+uptake_mutant,glpK,glycerol 0.2% (glpK mutant; strain NQ640),,0.95,1.76,open-square
+carbon_source,wt_ncm3722,glucose 0.2%,,1.01,2.32,black
+carbon_source,wt_ncm3722,lactose 0.2%,,1.03,2.84,black
+carbon_source,wt_ncm3722,glycerol 0.2%,,0.72,0.07,black
+carbon_source,wt_ncm3722,arabinose 0.2%,,0.99,2.67,black
+carbon_source,wt_ncm3722,sorbitol 0.2%,,0.55,-0.01,black
+carbon_source,wt_ncm3722,galactose 0.2%,,0.56,-0.01,black
+carbon_source,wt_ncm3722,melibiose 0.2%,,0.69,0,black
+carbon_source,wt_ncm3722,maltose 0.2%,,0.78,-0.09,black
+carbon_source,wt_ncm3722,fructose 0.2%,,0.72,0,black
+carbon_source,wt_ncm3722,mannitol 0.2%,,0.93,1.44,black
+carbon_source,wt_ncm3722,mannose 0.2%,,0.45,0,black
+carbon_source,wt_ncm3722,glucose-6-phosphate 20mM,,1.14,4.07,black
+carbon_source_aa,wt_ncm3722_plus7aa,glucose 0.2% + 7 amino acids,,1.09,3.78,diamond
+carbon_source_aa,wt_ncm3722_plus7aa,lactose 0.2% + 7 amino acids,,1.16,4.15,diamond
+carbon_source_aa,wt_ncm3722_plus7aa,mannitol 0.2% + 7 amino acids,,1.04,3.06,diamond
+carbon_source_aa,wt_ncm3722_plus7aa,maltose 0.2% + 7 amino acids,,0.78,0.58,diamond
+carbon_source_aa,wt_ncm3722_plus7aa,glycerol 0.2% + 7 amino acids,,0.80,-0.01,diamond
+carbon_source_aa,wt_ncm3722_plus7aa,glucose-6-phosphate 20mM + 7 amino acids,,1.26,4.18,diamond

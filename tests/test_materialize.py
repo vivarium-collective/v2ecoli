@@ -17,17 +17,41 @@ def _spec(study_path, name="basal_4x4", cards=("config", "parca", "statistical")
                      study_path=str(study_path))
 
 
-def test_materialize_pipeline_gate_from_depends_on(tmp_path):
+def test_materialize_retires_depends_on_and_emits_no_prerequisites(tmp_path):
+    # Pipeline ordering is `inputs.from` now (single source of truth). materialize
+    # must NOT copy the legacy `depends_on` into pipeline_gate.prerequisites (the
+    # workspace-conformance guard forbids that field); it retires depends_on
+    # instead and leaves a conformance-clean pipeline_gate.
     sp = tmp_path / "study.yaml"
     sp.write_text(
         "name: basal\ninvestigation: v2ecoli-vecoli-comparison\ncondition: basal\n"
         "depends_on: [parca]\n"
+        "inputs:\n  - {artifact: sim_data, from: parca}\n"
         "comparison: {seeds: 1, generations: 4, cards: [config, standard]}\n",
         encoding="utf-8")
     spec = _spec(sp, name="basal", cards=["config", "standard"])
     materialize_study(spec)
     data = yaml.safe_load(sp.read_text(encoding="utf-8"))
-    assert data["pipeline_gate"]["prerequisites"] == ["parca"]
+    assert "depends_on" not in data                      # legacy field retired
+    assert "prerequisites" not in data["pipeline_gate"]  # ordering is inputs.from
+    assert data["pipeline_gate"] == {"enables": []}
+    # inputs.from is preserved untouched as the real dependency edge
+    assert [e["from"] for e in data["inputs"]] == ["parca"]
+
+
+def test_materialize_strips_stray_prerequisites_from_existing_gate(tmp_path):
+    # A study.yaml carried over from before the migration may still have a
+    # pipeline_gate.prerequisites; materialize must scrub it (conformance).
+    sp = tmp_path / "study.yaml"
+    sp.write_text(
+        "name: basal\ninvestigation: v2ecoli-vecoli-comparison\ncondition: basal\n"
+        "pipeline_gate: {prerequisites: [parca], enables: []}\n"
+        "comparison: {seeds: 1, generations: 4, cards: [config, standard]}\n",
+        encoding="utf-8")
+    spec = _spec(sp, name="basal", cards=["config", "standard"])
+    materialize_study(spec)
+    data = yaml.safe_load(sp.read_text(encoding="utf-8"))
+    assert data["pipeline_gate"] == {"enables": []}
 
 
 def test_materialized_fields_one_test_per_graded_card():
@@ -147,7 +171,8 @@ def test_materialize_preserves_narrative_and_is_idempotent(tmp_path):
     graded = [t for t in data["tests"] if "measure" in t]
     assert [t["measure"]["group"] for t in graded] == ["parca", "statistical"]
     assert "behavior_tests" not in data
-    assert data["pipeline_gate"] == {"prerequisites": [], "enables": []}
+    # ordering is inputs.from now; the gate carries no prerequisites
+    assert data["pipeline_gate"] == {"enables": []}
     # idempotent
     materialize_study(spec)
     assert sp.read_text(encoding="utf-8") == first

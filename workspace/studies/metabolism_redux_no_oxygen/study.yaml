@@ -87,8 +87,6 @@ conditions:
     params:
       condition: no_oxygen
       swap: ecoli-metabolism-redux
-depends_on:
-- parca
 confidence: Accepted
 findings:
 - id: metabolism_redux_no_oxygen-vs-vecoli-result

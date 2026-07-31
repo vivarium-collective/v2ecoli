@@ -50,8 +50,6 @@ conditions:
     params:
       media: minimal_minus_oxygen  # migrated from condition:no_oxygen; calibrated per-condition ParCa cache lives at out/cache/.regen_no_oxygen_seed00
   model_settings: []
-depends_on:
-  - parca
 confidence: Accepted
 findings:
   - id: no_oxygen-rpobc-fix

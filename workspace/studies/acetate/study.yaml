@@ -50,8 +50,6 @@ conditions:
     params:
       media: minimal_acetate  # migrated from condition:acetate; calibrated per-condition ParCa cache lives at out/cache/.regen_acetate_seed00
   model_settings: []
-depends_on:
-  - parca
 confidence: Accepted
 findings:
   - id: acetate-rpobc-fix

@@ -133,3 +133,79 @@ class GrowthCard(Step):
             return {'view': '', 'data': {}}
         verdict, html = self.build(handle)
         return {'view': html, 'data': verdict}
+
+
+class ResultsAnalysis(Step):
+    """Aggregate this run's trajectory into an analysis **data artifact**.
+
+    The third flush kind. Where a visualization emits a figure and a report
+    card emits a verdict, an *analysis* emits a data file — a table derived
+    from the whole trajectory. This is the results-native analogue of the
+    DuckDB/parquet analyses in ``v2ecoli/workflow/analyses/`` (e.g. the mass
+    analyses): the same per-generation aggregate, but fed from this run's
+    resolved ``results`` handle rather than a parquet re-read.
+
+    Kept deliberately thin: a per-generation summary (n, first, last, min,
+    max, mean) of one variable, emitted as CSV — the ``{filename, csv}`` shape
+    an analysis artifact takes. Like the other flush steps it needs nothing but
+    the handle, and fires once after the run.
+    """
+
+    config_schema = {
+        'variable': {'_type': 'string', '_default': 'dry_mass'},
+        'filename': {'_type': 'string', '_default': 'analysis.csv'}}
+
+    #: Columns of the emitted per-generation summary table, in order.
+    COLUMNS = ('generation', 'variable', 'n', 'first', 'last',
+               'min', 'max', 'mean')
+
+    def inputs(self):
+        return {'results': 'node'}
+
+    def outputs(self):
+        return {'artifact': 'quote'}
+
+    def analyze(self, history: list[dict]) -> dict:
+        """Aggregate flat per-tick rows into a per-generation summary artifact.
+
+        Pure over ``history`` (the shape ``datatree_to_history`` returns), so
+        the aggregation is unit-testable without an engine or a store.
+        """
+        variable = self.config['variable']
+
+        by_generation: dict[int, list[float]] = {}
+        for row in history:
+            if variable in row:
+                generation = int(row.get('generation', 0))
+                by_generation.setdefault(generation, []).append(
+                    float(row[variable]))
+
+        summary = []
+        for generation in sorted(by_generation):
+            values = by_generation[generation]
+            summary.append({
+                'generation': generation,
+                'variable': variable,
+                'n': len(values),
+                'first': values[0],
+                'last': values[-1],
+                'min': min(values),
+                'max': max(values),
+                'mean': sum(values) / len(values)})
+
+        lines = [','.join(self.COLUMNS)]
+        lines.extend(
+            ','.join(str(row[column]) for column in self.COLUMNS)
+            for row in summary)
+
+        return {
+            'filename': self.config['filename'],
+            'csv': '\n'.join(lines) + '\n',
+            'summary': summary}
+
+    def update(self, state):
+        handle = state.get('results')
+        if handle is None:
+            return {'artifact': {}}
+        history = datatree_to_history(handle.resolve())
+        return {'artifact': self.analyze(history)}

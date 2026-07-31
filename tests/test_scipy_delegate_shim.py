@@ -56,10 +56,12 @@ def test_stale_dict_object_rehydrates_lazily():
 
 
 def test_fresh_objects_unaffected():
-    """The shim must never fire for a freshly built (new-format) interpolator."""
+    """The shim must never fire for a freshly built interpolator."""
     _scipy_compat.install()
     cs = CubicSpline([0.0, 1.0, 2.0], [0.0, 2.0, 8.0])
-    assert "_delegate_to" in cs.__dict__  # already new-format; no rehydration
+    if _is_new_scipy():
+        assert "_delegate_to" in cs.__dict__  # already new-format; no rehydration
+    # Sane values regardless of scipy version.
     assert np.isfinite(float(cs(0.5)))
     assert np.isclose(float(cs(1.0)), 2.0)  # interpolates the knot exactly
 
@@ -67,4 +69,6 @@ def test_fresh_objects_unaffected():
 def test_install_is_idempotent():
     _scipy_compat.install()
     _scipy_compat.install()  # must not raise or double-wrap
-    assert getattr(PPoly, "_v2e_delegate_shim", False) is True
+    # On the new (delegate-backed) scipy the shim installs; on older scipy there
+    # is nothing to bridge and install() is a deliberate no-op.
+    assert getattr(PPoly, "_v2e_delegate_shim", False) is _is_new_scipy()

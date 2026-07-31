@@ -35,7 +35,7 @@ WHOLE_CELL_FACE: Dict[str, Dict[str, str]] = {
         'dry_mass': 'float',
         'protein_mass': 'float',
         'rna_mass': 'float',
-        'growth': 'float'}}
+        'dry_mass_fold_change': 'float'}}
 
 #: Where each observable lives in vEcoli's mass listener.
 #:
@@ -44,18 +44,28 @@ WHOLE_CELL_FACE: Dict[str, Dict[str, str]] = {
 #: object (``proteinMassInitial``) — those are its initial values, and reading
 #: them as emitted keys yields 0.0 silently.
 #:
-#: ``growth`` is deliberately not called ``growth_rate``: vEcoli computes it as
-#: ``dry_mass - old_dry_mass``, a per-timestep mass *increment* in fg, not a
-#: normalised rate. v2ecoli's listener emits the same quantity under the same
-#: name, so the face matches both sides verbatim. (v2ecoli additionally emits
-#: ``instantaneous_growth_rate``; vEcoli does not, so it is not in the face.)
+#: Growth is graded as ``dry_mass_fold_change`` (``dry_mass / dryMassInitial``),
+#: NOT the listener's raw ``growth`` field. ``growth`` is a *single-tick
+#: first-difference*, ``dry_mass - old_dry_mass`` over one ~1 s step — the value
+#: the listener holds when the face is read is the most-recent tick's delta
+#: alone, an n=1 first difference whose discrepancy (~0.02 fg) is ~1/64th of the
+#: dry_mass discrepancy we already accept as agreement. Grading it produced a
+#: false "+51% divergence" (~1σ of pure sampling noise) even though the engines
+#: agree: ``dry_mass(t)`` IS cumulative growth and it matches to ~0.3%. So we
+#: grade the *cumulative* growth ratio, which both engines compute identically
+#: from the same ``dryMassInitial`` and emit under the same key — meaningful
+#: growth comparison without the single-tick sampling noise. (A *rate* form,
+#: ``instantaneous_growth_rate``, is graded elsewhere as a multi-tick MEAN over
+#: the matched window in ``scripts/comparison_report_card.py`` — also not a
+#: one-tick delta. vEcoli does not emit ``instantaneous_growth_rate``, so the
+#: face uses the fold-change, which both engines do emit.)
 MASS_LISTENER = ('listeners', 'mass')
 OBSERVABLE_PATHS = {
     'cell_mass': 'cell_mass',
     'dry_mass': 'dry_mass',
     'protein_mass': 'protein_mass',
     'rna_mass': 'rna_mass',
-    'growth': 'growth'}
+    'dry_mass_fold_change': 'dry_mass_fold_change'}
 
 
 def _mass_listener(state: Any) -> dict:

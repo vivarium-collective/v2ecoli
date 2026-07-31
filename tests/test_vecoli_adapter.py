@@ -66,8 +66,29 @@ def test_the_adapter_declares_the_whole_cell_face():
 
     assert face['inputs'] == {}
     assert set(face['outputs']) == {
-        'cell_mass', 'dry_mass', 'protein_mass', 'rna_mass', 'growth'}
+        'cell_mass', 'dry_mass', 'protein_mass', 'rna_mass',
+        'dry_mass_fold_change'}
     assert all(kind == 'float' for kind in face['outputs'].values())
+
+
+def test_the_face_does_not_grade_a_single_tick_growth_delta():
+    """Regression guard: the graded face must NOT grade the raw ``growth``
+    field. ``growth = dry_mass - old_dry_mass`` is a single-tick first
+    difference (n=1) — pure sampling noise that produced a false "+51%
+    divergence" while the cumulative masses agree to ~0.3%. Growth is graded
+    as the *cumulative* ``dry_mass_fold_change`` (both engines emit it under
+    the same key), never the one-tick delta. If this fails, someone re-added
+    single-tick growth to the graded set."""
+    adapter = _adapter()
+    face = adapter.face()
+
+    assert 'growth' not in face['outputs'], (
+        "single-tick 'growth' (dry_mass - old_dry_mass over one tick) is an "
+        "n=1 first difference — grade cumulative 'dry_mass_fold_change' instead")
+    assert 'growth' not in adapter.OBSERVABLE_PATHS
+    # the cumulative, windowed growth metric IS graded.
+    assert 'dry_mass_fold_change' in face['outputs']
+    assert adapter.OBSERVABLE_PATHS['dry_mass_fold_change'] == 'dry_mass_fold_change'
 
 
 def test_the_adapter_answers_its_interface_without_building():

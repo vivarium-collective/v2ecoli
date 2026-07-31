@@ -301,8 +301,8 @@ def grade_axis(measured: dict | bool | None, criterion: dict) -> dict[str, Any]:
         # overflow graded as a dimensionless carbon yield Y_ac = (2·acetate)/
         # (6·glucose) vs glucose uptake rate, against the Vemuri 2006 chemostat
         # curve — exercised by the `overflow-acetate-vs-growth` study in the
-        # `metabolic-perturbation-response` investigation. Nothing about the
-        # criterion is specific to that phenomenon.
+        # `metabolism-overflow` investigation. Nothing about the criterion is
+        # specific to that phenomenon.
         #
         #   measured  = {x: [driver], y: [response], ...}
         #   criterion = {ref_x, ref_y, active_eps, lin_good/lin_warn,

@@ -42,9 +42,32 @@ MASS_LISTENER = ('listeners', 'mass')
 OBSERVABLE_PATHS = {
     'cell_mass': 'cell_mass',
     'dry_mass': 'dry_mass',
-    'protein_mass': 'proteinMass',
-    'rna_mass': 'rnaMass',
+    'protein_mass': 'protein_mass',
+    'rna_mass': 'rna_mass',
     'growth_rate': 'growth'}
+
+
+def _mass_listener(state: Any) -> dict:
+    """Find the mass listener wherever the run nested it.
+
+    vEcoli nests the whole cell under ``agents/<agent_id>/`` whenever
+    division or a spatial environment is on — which the default config turns
+    on — so the listener is not at the top level. Look there first, then fall
+    back to an unnested layout.
+    """
+    def descend(node: Any) -> dict:
+        for step in MASS_LISTENER:
+            node = (node or {}).get(step, {})
+        return node if isinstance(node, dict) else {}
+
+    agents = (state or {}).get('agents')
+    if isinstance(agents, dict):
+        for agent in agents.values():
+            found = descend(agent)
+            if found:
+                return found
+
+    return descend(state)
 
 
 class VEcoliProcess:
@@ -98,6 +121,8 @@ class VEcoliProcess:
         for key in ('emitter', 'seed', 'max_duration', 'time_step'):
             if key in self.config:
                 setattr(sim, key, self.config[key])
+        # `run()` refuses to start without this: `build_ecoli` assembles the
+        # composite, `run` builds the Engine from it. Both are required.
         sim.build_ecoli()
 
         self.sim = sim
@@ -110,11 +135,7 @@ class VEcoliProcess:
         if experiment is None:
             return {name: 0.0 for name in WHOLE_CELL_FACE['outputs']}
 
-        state = experiment.state.get_value()
-        node: Any = state
-        for step in MASS_LISTENER:
-            node = (node or {}).get(step, {})
-
+        node = _mass_listener(experiment.state.get_value())
         return {
             name: float(node.get(source, 0.0) or 0.0)
             for name, source in OBSERVABLE_PATHS.items()}
@@ -129,16 +150,22 @@ class VEcoliProcess:
         """
         if not self._built:
             self._build()
-            self.sim.ecoli_experiment = getattr(
-                self.sim, 'ecoli_experiment', None)
 
-        experiment = getattr(self.sim, 'ecoli_experiment', None)
-        if experiment is None:
+        # vEcoli builds its Engine inside `run()`, not inside
+        # `build_ecoli()` — `build_ecoli` only assembles the composite
+        # (`self.ecoli`), and `run()` is what constructs
+        # `self.ecoli_experiment` from it, advances it by `max_duration`, and
+        # ends it. So a tick is `max_duration = interval` and its own `run()`;
+        # driving the engine directly would mean re-assembling the whole
+        # experiment config by hand.
+        self.sim.max_duration = float(interval)
+        self.sim.run()
+
+        if getattr(self.sim, 'ecoli_experiment', None) is None:
             raise RuntimeError(
-                'EcoliSim.build_ecoli() did not produce an experiment to '
-                'advance; vEcoli changed its construction path.')
+                'EcoliSim.run() produced no experiment to read; vEcoli '
+                'changed its construction path.')
 
-        experiment.update(float(interval))
         return self._observables()
 
 

@@ -185,3 +185,91 @@ def test_a_non_conforming_face_is_refused_by_name():
 
     assert not ok
     assert 'atp_flux' in reason
+
+
+# ── the ParCa compute entrypoint ────────────────────────────────────
+
+def _parca_entry():
+    import sys
+    if str(ADAPTER_DIR) not in sys.path:
+        sys.path.insert(0, str(ADAPTER_DIR))
+    import vecoli_parca
+    return vecoli_parca
+
+
+def test_the_parca_build_declares_a_reference_producing_face():
+    """A build step produces a *reference*, not a trajectory — that is what
+    keeps the bulk pickle inside the venv's checkout."""
+    parca = _parca_entry()
+    build = parca.build_sim_data({'outdir': '/tmp/whatever'})
+
+    assert build.interface() == {
+        'inputs': {}, 'outputs': {'artifact_ref': 'quote'}}
+
+
+def test_the_parca_build_needs_an_outdir():
+    parca = _parca_entry()
+    with pytest.raises(ValueError, match='outdir'):
+        parca.build_sim_data({}).update()
+
+
+def test_the_parca_build_reports_an_existing_fit_without_refitting(tmp_path):
+    """Idempotent on a warm checkout: an existing calibration object is
+    fingerprinted and returned, not rebuilt."""
+    parca = _parca_entry()
+
+    kb = tmp_path / parca.KB_DIR
+    kb.mkdir()
+    (kb / parca.SIM_DATA_FILE).write_bytes(b'not really a fit, but bytes')
+
+    ref = parca.build_sim_data(
+        {'outdir': str(tmp_path)}).update()['artifact_ref']
+
+    assert ref['kind'] == 'sim_data'
+    assert ref['rebuilt'] is False
+    assert ref['file'] == parca.SIM_DATA_FILE
+    assert ref['bytes'] == len(b'not really a fit, but bytes')
+    assert len(ref['fingerprint']) == 16
+
+
+def test_the_reference_records_the_environment_that_built_it(tmp_path):
+    """The artifact is only valid for the env that wrote it — recording that
+    is what makes a stale pickle detectable rather than a crash at read."""
+    parca = _parca_entry()
+
+    kb = tmp_path / parca.KB_DIR
+    kb.mkdir()
+    (kb / parca.SIM_DATA_FILE).write_bytes(b'bytes')
+
+    ref = parca.build_sim_data(
+        {'outdir': str(tmp_path)}).update()['artifact_ref']
+
+    assert ref['context']['built_in_venv'] is True
+    assert 'scipy' in ref['context'] and 'numpy' in ref['context']
+
+
+def test_the_fingerprint_follows_the_bytes(tmp_path):
+    parca = _parca_entry()
+
+    kb = tmp_path / parca.KB_DIR
+    kb.mkdir()
+    target = kb / parca.SIM_DATA_FILE
+
+    target.write_bytes(b'one')
+    first = parca.build_sim_data(
+        {'outdir': str(tmp_path)}).update()['artifact_ref']['fingerprint']
+
+    target.write_bytes(b'two')
+    second = parca.build_sim_data(
+        {'outdir': str(tmp_path)}).update()['artifact_ref']['fingerprint']
+
+    assert first != second
+
+
+def test_parcas_own_hash_is_used_as_the_fingerprint_when_available():
+    """`run_parca` returns a SHA256 of the pickled bytes — a fingerprint of
+    the *result*, which is exactly what detects a nondeterministic refit at
+    the same address."""
+    parca = _parca_entry()
+
+    assert parca._fingerprint('/nonexistent', 'a' * 64) == 'a' * 16

@@ -176,6 +176,12 @@ def parca_fit_inputs() -> dict:
 #: ``v2ecoli/comparison/`` on PYTHONPATH, not the repo root.
 VECOLI_ENTRY = 'vecoli_adapter:make_process'
 
+#: The *compute* entrypoint for vEcoli's ParCa root. It runs the fit inside
+#: the fetched per-SHA venv, so the calibration object is written by the same
+#: interpreter and scipy that will later read it — the stale-pickle failure
+#: cannot arise.
+VECOLI_PARCA_ENTRY = 'vecoli_parca:build_sim_data'
+
 
 def vecoli_address(commit: str, repo: str = 'CovertLab/vEcoli',
                    entry: str = VECOLI_ENTRY) -> str:
@@ -200,6 +206,9 @@ def investigation_document(
         parca_address: str = 'local:ParcaStep',
         study_address_: str = 'local:ComparisonStudy',
         cache_root: Path | None = None,
+        vecoli_parca_config: dict | None = None,
+        vecoli_parca_outdir: str | None = None,
+        parca_cpus: int = 4,
 ) -> tuple[dict, dict]:
     """Build the composite document, and a report of what it could not model.
 
@@ -215,10 +224,32 @@ def investigation_document(
     unresolved: dict = {}
     modelled: list = []
 
-    # -- the two ParCa roots -----------------------------------------
+    # -- the two ParCa roots, each pull-OR-compute --------------------
+    # A root is not merely "pulled if present": it carries a *compute recipe*
+    # too, so a miss recomputes rather than failing. The two recipes differ in
+    # kind, which is the point — v2ecoli fits in this workspace, vEcoli fits
+    # inside its own fetched venv.
     for root, cache_key in PARCA_ROOTS.items():
         cache = context.get(cache_key) or ''
-        config = {'fit': root, 'cache': cache, **parca_fit_inputs()}
+        if root == 'parca_vecoli':
+            config = {
+                'fit': root,
+                'cache': cache,
+                # The vEcoli commit is *in the address*: a different repo
+                # state is a different fit, and its artifact is only valid
+                # for the environment that resolved commit produces.
+                'vecoli_commit': vecoli_commit,
+                'parca_config': dict(vecoli_parca_config or {})}
+            node = compute_node(
+                vecoli_address(vecoli_commit, entry=VECOLI_PARCA_ENTRY),
+                {'name': root, 'outdir': vecoli_parca_outdir or '',
+                 'cpus': int(parca_cpus)})
+        else:
+            config = {'fit': root, 'cache': cache, **parca_fit_inputs()}
+            node = compute_node(
+                parca_address,
+                {'name': root, 'mode': 'full', **config})
+
         document[root] = {
             '_study': {
                 'id': root,
@@ -226,7 +257,7 @@ def investigation_document(
                 'inputs': [],
                 'kind': SIM_DATA},
             'results': {},
-            'sim': compute_node(parca_address, {'name': root, **config})}
+            'sim': node}
         modelled.append(root)
 
     # -- the shared, pinned implementation under comparison ----------

@@ -50,8 +50,6 @@ conditions:
     params:
       media: minimal_plus_amino_acids  # migrated from condition:with_aa; calibrated per-condition ParCa cache lives at out/cache/.regen_with_aa_seed00
   model_settings: []
-depends_on:
-  - parca
 confidence: Accepted
 findings:
   - id: with_aa-rpobc-fix

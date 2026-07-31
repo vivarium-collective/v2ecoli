@@ -46,8 +46,6 @@ conditions:
     # condition:basal was legacy; ecoli_baseline defaults to media:minimal
     params: {}
   model_settings: []
-depends_on:
-  - basal
 status: evaluated
 confidence: Accepted
 findings:

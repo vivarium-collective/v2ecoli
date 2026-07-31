@@ -50,8 +50,6 @@ conditions:
     # condition:basal was legacy; ecoli_baseline defaults to media:minimal
     params: {}
   model_settings: []
-depends_on:
-  - parca
 confidence: Accepted
 findings:
   - id: basal-rpobc-fix

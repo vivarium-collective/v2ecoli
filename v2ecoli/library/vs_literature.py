@@ -526,11 +526,88 @@ BASAL_SPEC = [
 ]
 
 
+# Physically plausible range for E. coli biomass carbon content (gC/gDW). A cell's
+# dry-weight carbon fraction sits ~0.45–0.50; the ~0.40–0.55 band is a generous
+# sanity window. The "carbon is conserved" narrative is only asserted when the
+# implied biomass carbon actually falls inside this window (issue #422: the claim
+# used to be emitted with no comparison against any range).
+_PLAUSIBLE_BIOMASS_C = (0.40, 0.55)
+
+
+def _biomass_yield_finding(model: dict, axis: dict | None, card_node: dict | None) -> str:
+    """Narrate the biomass-yield finding from the ACTUAL graded verdict, not fixed
+    prose. Grades the same axis the report card grades (``grade_axis`` on the
+    literature criterion) so the sentence a human reads follows the machine
+    verdict: only a genuine ceiling crossing is called a "first-principles
+    violation"; a within-band / under-ceiling model is narrated as compliant.
+
+    Fixes issue #422, where the finding unconditionally asserted a violation and
+    an untested "carbon is conserved" claim regardless of the yield."""
+    from v2ecoli.library.card_criteria import grade_axis
+
+    iC = model.get("implied_biomass_C_gC_per_gDW")
+    if axis is None or card_node is None:
+        # No gradeable axis (e.g. missing literature spec) — state only what we know.
+        return ("Biomass yield could not be graded against the literature band "
+                "(no reference criterion available).")
+
+    crit = axis.get("criterion", {})
+    grade = grade_axis(card_node, crit)
+    verdict = grade.get("verdict", "ungraded")
+    detail = grade.get("detail", {})
+    violates = bool(detail.get("first_principles_violation"))
+    got = model.get("biomass_yield")
+    meas = crit.get("measured") or []
+    lo, hi = (min(meas), max(meas)) if meas else (None, None)
+    tmax = crit.get("theoretical_max")
+
+    # The implied-biomass-carbon / conservation clause: assert conservation ONLY
+    # when the implied carbon is inside the physically plausible window.
+    carbon = ""
+    if iC is not None:
+        plo, phi = _PLAUSIBLE_BIOMASS_C
+        if plo <= iC <= phi:
+            carbon = (f" The implied biomass carbon (≈ {iC:.2f} gC/gDW) sits within "
+                      f"the physically plausible range ({plo:.2f}–{phi:.2f} gC/gDW), "
+                      "consistent with carbon conservation.")
+        else:
+            carbon = (f" The implied biomass carbon (≈ {iC:.2f} gC/gDW) falls OUTSIDE "
+                      f"the physically plausible range ({plo:.2f}–{phi:.2f} gC/gDW) — "
+                      "carbon is not conserved.")
+
+    got_s = f"{got:.3g}" if got is not None else "n/a"
+    max_s = f"{tmax:.3g}" if tmax is not None else "n/a"
+    band_s = f"{lo:.3g}–{hi:.3g}" if lo is not None else "the measured band"
+
+    if violates:
+        return ("The yield "
+                f"({got_s}) EXCEEDS the theoretical_max stoichiometric ceiling "
+                f"({max_s}) — a first-principles violation (no carbon- and "
+                "energy-balanced cell can exceed it)." + carbon)
+    if verdict == "within_tol":
+        return ("The yield "
+                f"({got_s}) sits within the measured band ({band_s}) and below the "
+                f"theoretical_max stoichiometric ceiling ({max_s}) — no "
+                "first-principles violation." + carbon)
+    # Under the ceiling but off the measured band (drift / mismatch).
+    off = "drifts from" if verdict == "drift" else "falls outside"
+    return ("The yield "
+            f"({got_s}) is below the theoretical_max stoichiometric ceiling "
+            f"({max_s}) — no first-principles violation — but {off} the measured "
+            f"band ({band_s}).") + carbon
+
+
 def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
     """Return (card, reference, model) — the gradeable inputs (importable for tests)."""
     model = model_physiology(model_json)
     lit = literature(bundle_path)
-    iC = model.get("implied_biomass_C_gC_per_gDW")
+    # Build the gradeable inputs FIRST so the findings narrative can follow the
+    # actual per-axis verdict (issue #422) instead of hardcoded prose.
+    axes = build_reference(lit, model)
+    card = build_card(model)
+    biomass_finding = _biomass_yield_finding(
+        model, axes.get("physiology.biomass_yield"),
+        card.get("physiology", {}).get("biomass_yield"))
     reference = {
         "title": "Basal-condition physiology — v2ecoli vs experimental literature",
         "status": "populated",
@@ -545,12 +622,7 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
             "Biomass yield is computed by DIRECT mass balance (ΔDW / ∫q_glc·DW dt) "
             "per cell — a true g-DW-made / g-glucose-eaten ratio, robust to the "
             "steady-state assumption (the μ/(q·M) shortcut ran ~7% higher).",
-            "The yield exceeds the theoretical_max stoichiometric ceiling — a "
-            "first-principles violation (no carbon- and energy-balanced cell can "
-            f"exceed it). The implied biomass carbon (≈ {iC:.2f} gC/gDW) sits within "
-            "the physically plausible range, so total carbon is conserved." if iC is not None else
-            "The yield exceeds the theoretical_max stoichiometric ceiling — a "
-            "first-principles violation.",
+            biomass_finding,
         ],
         "footer": "Behavioral report card (PR #134 grader) · vs_literature mode · "
                   "physiology · metabolism · proteome.",
@@ -565,9 +637,8 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
                        "(a behavior + a reference) and it becomes the next row."),
             "rows": BASAL_SPEC,
         },
-        "axes": build_reference(lit, model),
+        "axes": axes,
     }
-    card = build_card(model)
 
     # Metabolism + Proteome sections (present only if their fixtures are baked).
     if _MET_JSON.exists():

@@ -1,0 +1,31 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli baseline FBA \u00b7 GUR titration (exchange_data.glc_uptake_cap_aerobic)",
+ "reference_model": "experimental literature (Vemuri 2006 chemostat; Basan 2015 context)",
+ "generated": "",
+ "overall": "mismatch",
+ "groups": {
+  "overflow": {
+   "verdict": "mismatch",
+   "axes": [
+    {
+     "id": "metabolism.acetate_overflow",
+     "label": "Acetate overflow (carbon yield vs growth rate)",
+     "verdict": "mismatch",
+     "value": {
+      "slope": 0.0,
+      "slope_ref": 1.3108651183481144,
+      "onset_ref": 0.40787974992700016
+     },
+     "meter": "no threshold-linear rise (y \u2264 0.005 through x=0.954; reference rises)",
+     "detail": {
+      "reason": "no rise in model (flat) \u2014 wrong shape",
+      "onset_ref": 0.40787974992700016,
+      "slope_ref": 1.3108651183481144
+     }
+    }
+   ]
+  }
+ },
+ "title": "Aerobic acetate overflow \u2014 acetate-carbon yield vs growth rate"
+}

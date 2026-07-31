@@ -552,6 +552,13 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 label=axis.get("label", ""),
                 ref_label=ref_label, meas_label=meas_label)
             return f"<div class='fluxwrap'>{svg}{_flux_table(measured, crit)}</div>"
+        if kind == "overflow_curve" and isinstance(measured, dict) and measured.get("x"):
+            return card_plots.overflow_curve(
+                measured.get("x"), measured.get("y"),
+                ref_x=crit.get("ref_x"), ref_y=crit.get("ref_y"),
+                ref_err=crit.get("ref_err"), ref_label=crit.get("ref_label", ref_label),
+                context_curves=crit.get("context_curves"), anchor=crit.get("anchor"),
+                label=axis.get("label", ""))
     except Exception as e:  # a plot failure must not blank the report
         return f"<div class='ploterr'>plot unavailable: {type(e).__name__}</div>"
     return ""

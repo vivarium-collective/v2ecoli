@@ -82,3 +82,47 @@ tests:
     measure:
       kind: derived
       detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.
+
+findings:
+  - id: biomass-yield-exceeds-thermodynamic-limit
+    kind: computational
+    status: contradicts
+    statement: >-
+      The baseline ensemble makes 0.826 gDW of biomass per gram of glucose consumed —
+      1.86× the top of the measured band (0.355–0.444) and 1.54× the first-principles
+      ceiling of 0.538. No carbon- and energy-balanced cell can exceed that ceiling, so
+      this is a model defect, not a calibration mismatch. The dispersion is tight
+      (CV 1.55% across 20 cells), so it is a systematic property of the model rather than
+      noise. Carbon is nonetheless conserved at baseline — implied biomass carbon
+      ≈ 0.457 gC/gDW is physically plausible — which locates the defect on the energetic
+      side: the ensemble barely respires (O₂:glucose ≈ 0.09, CO₂:glucose ≈ 0.33,
+      RQ ≈ 3.6 against ~1 for full oxidation), so almost no glucose carbon is burned for
+      maintenance and ATP, and nearly all of it is retained as biomass.
+    evidence:
+      from_card: vs_literature
+      observed: 0.825746175353658
+      units: gDW/g glucose
+      divergence_factor: 0.8598
+      n_cells: 20
+      dispersion: CV 1.55% (sd 0.0128 over 20 post-burn-in cells)
+      provenance_limitation: >-
+        The measured side is the committed tests/fixtures/population_phenotype_basal/
+        fixtures, which stamp reconstructed: True, commit: None, sweep_dir: None,
+        baked: unknown. The exact code and sweep that produced 0.826 were never recorded,
+        so this value cannot be attributed to any particular revision of the model.
+    expected:
+      range: [0.355, 0.444]
+      threshold: 0.538
+      summary: >-
+        Measured band 0.355–0.444 gDW/g glucose from four aerobic glucose-minimal
+        determinations — varma_1994 (0.355, W3110 aerobic batch), kavvas_2022 (0.42,
+        ¹³C-MFA MG1655), lacroix_2015 (0.44, MG1655 M9), long_2017 (0.444, ¹³C-MFA
+        MG1655). The threshold is the first-principles ceiling, varma_1993 = 0.538
+        (FBA, fully aerobic, no maintenance energy); a value above it is forbidden by
+        carbon and energy balance rather than merely unusual.
+    next_action: >-
+      Re-measure Yxs on a fresh basal run whose commit is recorded, and compute carbon
+      closure and RQ on the same run, to establish whether the baseline defect is
+      energetic and distinct from the carbon creation seen under a binding uptake cap.
+      Tracked as study metabolism-biomass-yield-s1-diagnostic.
+    next_action_type: replicate

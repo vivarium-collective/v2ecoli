@@ -169,14 +169,24 @@ def parca_fit_inputs() -> dict:
     return {'n_seeds': int(os.environ.get('V2PARCA_N_SEEDS', '10'))}
 
 
-def vecoli_address(commit: str, repo: str = 'CovertLab/vEcoli') -> str:
+#: The entrypoint the vEcoli address resolves to. It is a **top-level**
+#: module name, not ``v2ecoli.comparison.vecoli_adapter``: the git: worker
+#: imports it inside vEcoli's own venv, where the ``v2ecoli`` package (and
+#: everything its ``__init__`` pulls in) does not exist. Put
+#: ``v2ecoli/comparison/`` on PYTHONPATH, not the repo root.
+VECOLI_ENTRY = 'vecoli_adapter:make_process'
+
+
+def vecoli_address(commit: str, repo: str = 'CovertLab/vEcoli',
+                   entry: str = VECOLI_ENTRY) -> str:
     """The pinned implementation the comparison runs against.
 
     Replaces the ``V2E_VECOLI_DIR`` environment variable and the empty
-    ``commit:`` in the declaration — the address names *which* vEcoli, in the
-    document, rather than whatever happens to be checked out.
+    ``commit:`` in the declaration — the address names *which* vEcoli, and
+    which entrypoint in it, rather than whatever happens to be checked out.
     """
-    return f'git:{repo}@{commit}' if commit else f'git:{repo}'
+    pinned = f'git:{repo}@{commit}' if commit else f'git:{repo}'
+    return f'{pinned}#{entry}' if entry else pinned
 
 
 # ── the document ────────────────────────────────────────────────────

@@ -159,7 +159,8 @@ def test_the_vecoli_implementation_is_pinned():
     an environment variable; the document pins it instead."""
     document, report = _document()
 
-    assert report['vecoli_address'] == f'git:CovertLab/vEcoli@{VECOLI_COMMIT}'
+    assert report['vecoli_address'] == (
+        f'git:CovertLab/vEcoli@{VECOLI_COMMIT}#vecoli_adapter:make_process')
     assert document['_vecoli']['declared_commit'] == ''      # what it replaces
     assert document['_vecoli']['legacy_env'] == 'V2E_VECOLI_DIR'
 

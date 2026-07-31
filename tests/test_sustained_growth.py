@@ -13,7 +13,8 @@ in the test suite caught it because the 60s growth window was clean.
 
 These tests enforce:
 1. Sustained growth: >=12 fg over 300s (healthy cell adds ~20 fg).
-2. Chromosome replication: oriC count goes 1 -> 2 within 1500s. (slow)
+2. Chromosome replication: the fast-growth baseline starts multifork (2 oriCs
+   + 2 active replisomes at t=0) and keeps replicating DNA over 1500s. (slow)
 """
 
 import os
@@ -82,20 +83,50 @@ def test_baseline_sustained_growth_300s():
 
 @pytest.mark.slow
 def test_baseline_chromosome_replication_initiates():
-    """Chromosome replication must be active over 1500s (~25 min).
+    """Baseline chromosome replication stays active over 1500s (~25 min).
 
-    A viable cell starts with >= 1 oriC (the basal cache starts mid-cycle with
-    overlapping rounds, so >= 2). Over 1500s a healthy cell replicates its DNA:
-    either a new round opens (more origins) or DNA mass increases. A stalled
-    cell — the regression this guards against — does neither."""
+    Stale premise this replaces (#106): the test used to assume the cell starts
+    with a single pre-initiation origin ("oriC 1 -> 2"). It does not. The
+    fast-growth baseline (seed 0) starts *mid-cycle with overlapping/multifork
+    rounds*: the initial state already carries 2 active oriCs and 2 active
+    replisomes at t=0. So an ``oriC >= 2`` post-run check is already satisfied
+    before the sim even runs and could never detect a replication stall.
+
+    Two things this test now gets right:
+      * The initial origin count is read from the ``unique.oriC`` molecules
+        (their true entryState count == 2), NOT from the
+        ``replication_data.number_of_oric`` *listener*, which reads the schema
+        default 0 until the listener first ticks (the root bug in #106).
+      * The teeth are a real progress check: over 1500s a replicating cell makes
+        DNA (``dna_mass`` strictly rises as forks synthesize) and/or opens a new
+        round (more origins). A stalled cell — the regression this guards
+        against — does neither. We also confirm the listener itself populates to
+        the live origin count after ticking, so downstream analyses are valid.
+    """
     from v2ecoli import build_composite
     composite = build_composite("ecoli_baseline", cache_dir=CACHE_DIR, seed=0)
+
+    # True molecule count at t=0 (deterministic fast-growth baseline, seed 0).
     n0 = _n_oric(composite)
+    assert n0 == 2, (
+        f'Fast-growth baseline should start multifork with 2 oriCs, got {n0} '
+        f'(read from unique.oriC entryState, not the pre-tick listener).')
+
     dna0 = _dna_mass(composite)
-    assert n0 >= 1, f'A viable cell starts with >= 1 oriC, got {n0}'
     composite.run(1500)
     n1 = _n_oric(composite)
     dna1 = _dna_mass(composite)
+
+    # Progress teeth: DNA synthesized and/or a new round opened.
     assert dna1 > dna0 or n1 > n0, (
         f'No chromosome replication over 1500s: oriC {n0}->{n1}, '
         f'dna_mass {dna0:.3f}->{dna1:.3f} fg. A healthy cell replicates DNA.')
+
+    # Guard the exact #106 bug: the number_of_oric listener is the schema
+    # default until it ticks. After the run it must reflect real origins.
+    listener_oric = composite.state['agents']['0'][
+        'listeners']['replication_data']['number_of_oric']
+    assert listener_oric == n1 and listener_oric >= 2, (
+        f'replication_data.number_of_oric listener ({listener_oric}) should '
+        f'match live oriC molecules ({n1}) after ticking; a stale 0 means the '
+        f'listener never populated.')

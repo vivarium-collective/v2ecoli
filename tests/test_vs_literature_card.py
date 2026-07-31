@@ -102,3 +102,65 @@ def test_verdict_matches_pre_migration_golden(core, tmp_path):
     vjson, _ = VsLiteratureCard({}, core=core).build(ctx)
     assert vjson["overall"] == _GOLDEN_OVERALL
     assert _axis_verdicts(vjson) == _GOLDEN_AXES
+
+
+# --- issue #422: the Findings narrative must FOLLOW the graded verdict ---------
+# The biomass-yield finding used to be hardcoded prose that asserted a
+# "first-principles violation" regardless of the actual grade. Grade a compliant
+# model and a genuine-violation model and check the human-readable sentence
+# tracks the machine verdict. Uses vs_literature.build() directly on an edited
+# copy of the committed physiology fixture (no ParCa / full sim needed).
+import json
+import tempfile
+
+from v2ecoli.library import vs_literature as V
+from v2ecoli.library.report_card import grade_card
+
+_PHYS_FIXTURE = REPO / _FIXTURES_REL / "model_physiology.json"
+
+
+def _build_with_yield(y):
+    """(graded biomass_yield axis, biomass finding text) for a model whose yield
+    is overridden to ``y`` — everything else from the committed fixture."""
+    m = json.loads(_PHYS_FIXTURE.read_text())
+    m["biomass_yield"] = y
+    m["biomass_yield_cells"] = [y] * len(m.get("biomass_yield_cells", [y]))
+    d = tempfile.mkdtemp()
+    p = Path(d) / "model_physiology.json"
+    p.write_text(json.dumps(m))
+    card, reference, _ = V.build(model_json=p)
+    ax = grade_card(card, reference)["axes"]["physiology.biomass_yield"]
+    finding = next(f for f in reference["findings"]
+                   if "ceiling" in f or "violation" in f)
+    return ax, finding
+
+
+def _claims_violation(text):
+    """Does the narrative ASSERT a first-principles violation? (Distinguish the
+    positive assertion from the negated 'no first-principles violation'.)"""
+    return "first-principles violation" in text and "no first-principles violation" not in text
+
+
+def test_finding_compliant_model_does_not_claim_violation():
+    # yield 0.40: inside the measured band, under the 0.538 ceiling → within_tol.
+    ax, finding = _build_with_yield(0.40)
+    assert ax["verdict"] == "within_tol"
+    assert ax["detail"]["first_principles_violation"] is False
+    # THE BUG (pre-fix): this hardcoded sentence claimed a violation anyway.
+    assert not _claims_violation(finding), finding
+    assert "no first-principles violation" in finding
+
+
+def test_finding_real_violation_still_narrates_violation():
+    # yield 0.826 (the committed fixture value): above the 0.538 ceiling → mismatch.
+    ax, finding = _build_with_yield(0.825746175353658)
+    assert ax["verdict"] == "mismatch"
+    assert ax["detail"]["first_principles_violation"] is True
+    assert _claims_violation(finding), finding
+
+
+def test_finding_offband_under_ceiling_is_not_a_violation():
+    # yield 0.30: below the measured band but under the ceiling → drift, no violation.
+    ax, finding = _build_with_yield(0.30)
+    assert ax["detail"]["first_principles_violation"] is False
+    assert not _claims_violation(finding), finding

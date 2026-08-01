@@ -54,11 +54,53 @@ def _read_yaml(path: Path) -> dict:
         return yaml.safe_load(handle) or {}
 
 
+def _declared_members(
+        declaration: dict, workspace: Path | None = None,
+        name: str = INVESTIGATION) -> list:
+    """The investigation's member list, however it is declared.
+
+    A legacy investigation lists ``members:`` explicitly. The
+    ``comparison.configs[]`` model that replaced it instead carries one entry
+    per per-condition study — but two root studies, ``parca`` (the t=0
+    initial-state check) and ``statistical`` (the multi-seed gate), are
+    structurally not "one config, one study" and so were deliberately left
+    out of ``configs[]`` (see the Task 6 migration, commit 4c759527). Those
+    still declare this investigation via their own ``investigation:``
+    back-reference in their ``study.yaml``, so — when ``workspace`` is given
+    — pick them up by scanning the top-level registry, the same approach
+    ``reports/_summary/aggregate.py`` already uses for this investigation.
+    """
+    members = declaration.get('members')
+    if members:
+        return list(members)
+
+    configs = (declaration.get('comparison') or {}).get('configs') or []
+    derived = [entry['name'] for entry in configs if entry.get('name')]
+
+    if workspace is not None:
+        known = set(derived)
+        studies_dir = Path(workspace) / 'studies'
+        if studies_dir.is_dir():
+            for study_yaml in sorted(studies_dir.glob('*/study.yaml')):
+                slug = study_yaml.parent.name
+                if slug in known:
+                    continue
+                if (_read_yaml(study_yaml) or {}).get('investigation') == name:
+                    derived.append(slug)
+                    known.add(slug)
+
+    return derived
+
+
 def load_investigation(workspace: Path, name: str = INVESTIGATION) -> dict:
     """Read an investigation's declaration.
 
     Reads ``members:`` and top-level ``workspace/studies/<name>/`` — the
-    layout the migration moved to.
+    layout the migration moved to. When the declaration has no ``members:``
+    (the ``comparison.configs[]`` model), the returned dict is normalized to
+    carry one anyway, derived via ``_declared_members`` — so every caller,
+    including this module's own ``investigation_document``, sees a single
+    consistent member list regardless of which schema the investigation uses.
 
     ``scripts/_compare/study_spec.load_investigation`` already reads the same
     thing (``members`` with a legacy ``studies`` fallback, resolved against
@@ -70,7 +112,11 @@ def load_investigation(workspace: Path, name: str = INVESTIGATION) -> dict:
     path = Path(workspace) / 'investigations' / name / 'investigation.yaml'
     if not path.is_file():
         raise FileNotFoundError(f'no investigation at {path}')
-    return _read_yaml(path)
+    declaration = _read_yaml(path)
+    if not declaration.get('members'):
+        declaration = dict(declaration)
+        declaration['members'] = _declared_members(declaration, workspace, name)
+    return declaration
 
 
 def study_path(workspace: Path, member: str) -> Path | None:
@@ -195,6 +241,27 @@ def vecoli_address(commit: str, repo: str = 'CovertLab/vEcoli',
     return f'{pinned}#{entry}' if entry else pinned
 
 
+def _reference_repo_and_env(context: dict) -> tuple[str, str]:
+    """The reference engine's declared repo and the env var it falls back to.
+
+    Legacy schema: a ``vecoli: {repo, commit}`` block plus a top-level
+    ``vecoli_dir_env`` key. The ``comparison.configs[]`` schema replaces both
+    with a single ``reference: {repo, kind}`` block whose ``repo`` may itself
+    be an ``env:VAR`` sentinel — mirroring
+    ``scripts/_compare/reference.py::ReferenceEngine.from_spec``, which reads
+    the same field the same way. Either way this returns ``(repo, env_var)``
+    with exactly one of the two populated.
+    """
+    legacy = context.get('vecoli') or {}
+    if legacy:
+        return legacy.get('repo', ''), context.get('vecoli_dir_env', '')
+
+    raw = (context.get('reference') or {}).get('repo', '')
+    if isinstance(raw, str) and raw.startswith('env:'):
+        return '', raw[4:]
+    return raw, ''
+
+
 # ── the document ────────────────────────────────────────────────────
 
 def investigation_document(
@@ -261,11 +328,12 @@ def investigation_document(
         modelled.append(root)
 
     # -- the shared, pinned implementation under comparison ----------
+    reference_repo, reference_env = _reference_repo_and_env(context)
     document['_vecoli'] = {
         'address': vecoli_address(vecoli_commit),
-        'repo': (context.get('vecoli') or {}).get('repo', ''),
+        'repo': reference_repo,
         'declared_commit': (context.get('vecoli') or {}).get('commit', ''),
-        'legacy_env': context.get('vecoli_dir_env', '')}
+        'legacy_env': reference_env}
 
     # -- one node per condition study --------------------------------
     for member in members:

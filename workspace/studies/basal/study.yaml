@@ -8,58 +8,95 @@ comparison:
   seeds: 4
   generations: 4
 report_cards:
-  - viz/report_card/config.html
-  - viz/report_card/standard.html
-  - viz/report_card/statistical.html
+- viz/report_card/summary.html
+- viz/report_card/parca.html
+- viz/report_card/statistical.html
+- viz/report_card/standard.html
+- viz/report_card/trajectory.html
+- viz/report_card/distribution.html
+- viz/report_card/metabolism.html
+- viz/report_card/composition.html
 runs:
-  - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    name: basal-comparison
-    kind: analysis
-    canonical: true
-    description: v2e-compare study basal
-    status: completed
-    result: PASS
-    outcomes:
-      statistical-vs-vecoli:
-        result: WITHIN_TOL
-        detail: 'report card ''statistical'': ungraded'
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  name: basal-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study basal
+  status: completed
+  result: PASS
+  outcomes:
+    statistical-vs-vecoli:
+      result: WITHIN_TOL
+      detail: 'report card ''statistical'': ungraded'
 status: evaluated
 tests:
-  - name: config-vs-vecoli
-    kind: report_card
-    card: config
-    classification: primary
-    question: Does v2ecoli reproduce vEcoli on basal (config card)?
-  - name: standard-vs-vecoli
-    kind: report_card
-    card: standard
-    classification: primary
-    question: Does v2ecoli reproduce vEcoli on basal (standard card)?
-  - name: statistical-vs-vecoli
-    kind: report_card
-    card: statistical
-    classification: primary
-    question: Does v2ecoli reproduce vEcoli on basal (statistical card)?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/whole-cell-model-comparison/basal
-      group: statistical
+- name: summary-vs-vecoli
+  kind: report_card
+  card: summary
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (summary card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/basal
+    group: parca
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (statistical card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/basal
+    group: statistical
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (standard card)?
+- name: trajectory-vs-vecoli
+  kind: report_card
+  card: trajectory
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (trajectory card)?
+- name: distribution-vs-vecoli
+  kind: report_card
+  card: distribution
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (distribution card)?
+- name: metabolism-vs-vecoli
+  kind: report_card
+  card: metabolism
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (metabolism card)?
+- name: composition-vs-vecoli
+  kind: report_card
+  card: composition
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on basal (composition card)?
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    # condition:basal was legacy; ecoli_baseline defaults to media:minimal
     params: {}
   model_settings: []
 confidence: Accepted
 findings:
-  - id: basal-vs-vecoli-result
-    kind: computational
-    status: confirms
-    statement: 'CONTROL -- v2ecoli reproduces vEcoli on basal (the ParCa fit point): all observables within tolerance (4-seed gen-1).'
-    evidence:
-      from_card: statistical
-      observed: 'cell/dry +1.x%, protein/RNA <1.5%, growth ~+5% at seed-noise level -- all within_tol.'
+- id: basal-vs-vecoli-result
+  kind: computational
+  status: confirms
+  statement: 'CONTROL -- v2ecoli reproduces vEcoli on basal (the ParCa fit point):
+    all observables within tolerance (4-seed gen-1).'
+  evidence:
+    from_card: statistical
+    observed: cell/dry +1.x%, protein/RNA <1.5%, growth ~+5% at seed-noise level --
+      all within_tol.
 inputs:
-  - artifact: sim_data
-    from: parca
-    into: cache_dir
+- artifact: sim_data
+  from: parca
+  into: cache_dir
+pipeline_gate:
+  enables: []

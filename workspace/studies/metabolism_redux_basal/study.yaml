@@ -3,7 +3,8 @@ name: metabolism_redux_basal
 investigation: whole-cell-model-comparison
 title: v2ecoli reproduces vEcoli with MetabolismRedux (basal)
 condition: basal
-question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism for MetabolismRedux?
+question: Does v2ecoli reproduce vEcoli on basal when both engines swap FBA Metabolism
+  for MetabolismRedux?
 comparison:
   seeds: 6
   generations: 1
@@ -19,10 +20,10 @@ comparison:
   - composition
 from_vecoli_config: configs/metabolism_redux_basal.json
 report_cards:
-- viz/report_card/config.html
+- viz/report_card/summary.html
 - viz/report_card/parca.html
-- viz/report_card/standard.html
 - viz/report_card/statistical.html
+- viz/report_card/standard.html
 - viz/report_card/trajectory.html
 - viz/report_card/distribution.html
 - viz/report_card/metabolism.html
@@ -30,28 +31,26 @@ report_cards:
 pipeline_gate:
   enables: []
 runs:
-- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  name: metabolism_redux_basal-comparison
+- name: metabolism_redux_basal-comparison
   kind: analysis
   canonical: true
   description: v2e-compare study metabolism_redux_basal
 status: evaluated
 tests:
-- name: config-vs-vecoli
+- name: summary-vs-vecoli
   kind: report_card
-  card: config
+  card: summary
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (config card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (summary card)?
 - name: parca-vs-vecoli
   kind: report_card
   card: parca
   classification: primary
   question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (parca card)?
-- name: standard-vs-vecoli
-  kind: report_card
-  card: standard
-  classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (standard card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/metabolism_redux_basal
+    group: parca
 - name: statistical-vs-vecoli
   kind: report_card
   card: statistical
@@ -61,6 +60,11 @@ tests:
     kind: report_card_axis
     card: docs/report_cards/whole-cell-model-comparison/metabolism_redux_basal
     group: statistical
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (standard card)?
 - name: trajectory-vs-vecoli
   kind: report_card
   card: trajectory
@@ -70,7 +74,8 @@ tests:
   kind: report_card
   card: distribution
   classification: primary
-  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (distribution card)?
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_basal (distribution
+    card)?
 - name: metabolism-vs-vecoli
   kind: report_card
   card: metabolism
@@ -92,12 +97,18 @@ findings:
 - id: metabolism_redux_basal-vs-vecoli-result
   kind: computational
   status: confirms
-  statement: "Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints): parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched gen-1 median |delta|: cell 0.14%, dry 0.15%, protein 0.09%, rna 0.60%, growth 10.4%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader's observable set)."
+  statement: 'Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints):
+    parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall
+    verdict drift -- driven solely by growth-rate -- all four masses within_tol. Matched
+    gen-1 median |delta|: cell 0.14%, dry 0.15%, protein 0.09%, rna 0.60%, growth
+    10.4%. No mismatch on any axis; active_RNAP/active_ribosome are ungraded (not
+    in the local reader''s observable set).'
   evidence:
     from_card: statistical
-    observed: parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta| 0.14%/0.15%/0.09%/0.60%); growth-rate median |delta| 10.4% (sole driver of the drift verdict).
+    observed: parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta|
+      0.14%/0.15%/0.09%/0.60%); growth-rate median |delta| 10.4% (sole driver of the
+      drift verdict).
 inputs:
 - artifact: sim_data
   from: parca
   into: cache_dir
-

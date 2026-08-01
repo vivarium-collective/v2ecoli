@@ -51,12 +51,20 @@ def test_aggregate_per_study_metadata_and_rollup():
     assert by["statistical"]["prerequisites"] == ["parca", "basal"]
     # post-fix finding states acetate reproduces vEcoli natively
     assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
-    # config + standard cards discovered for acetate; parca card for parca
-    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard", "statistical"}
+    # post-Task-12 re-materialize: acetate carries the investigation's 8-card
+    # default (comparison.defaults.cards), not the old 3-card {config,
+    # standard, statistical} set; parca card for the parca study is unchanged.
+    assert {c["name"] for c in by["acetate"]["cards"]} == {
+        "summary", "parca", "statistical", "standard",
+        "trajectory", "distribution", "metabolism", "composition",
+    }
     assert {c["name"] for c in by["parca"]["cards"]} == {"parca"}
-    # config card is ungraded, standard is graded
+    # summary card has no rendered viz/report_card/summary.html yet (only the
+    # pre-existing config/standard/statistical cards were ever rendered for
+    # acetate) -> ungraded; standard (single-seed, illustrative) still has its
+    # rendered html + verdict
     acards = {c["name"]: c for c in by["acetate"]["cards"]}
-    assert acards["config"]["graded"] is False
+    assert acards["summary"]["graded"] is False
     assert acards["standard"]["graded"] is True
     # standard (single-seed, illustrative) still carries its pre-fix verdict;
     # the gold-standard statistical card + conclusions reflect the fix.
@@ -172,9 +180,14 @@ def test_badge_class_whitelisted():
     from reports._summary.aggregate import aggregate
     from reports._summary.render import render
 
-    # real graded study produces a legitimate badge class
+    # real graded study produces a legitimate badge class. The study-level
+    # badge is the FIRST graded card's overall verdict in cards order; the
+    # 8-card default (Task 12 re-materialize) puts `statistical`/`parca`
+    # ahead of `standard`, so several condition studies (acetate, basal,
+    # succinate, no_oxygen) now badge "drift" off their statistical/parca
+    # card rather than standard's "mismatch".
     html = render(aggregate(SLUG, WS))
-    assert "badge mismatch" in html
+    assert "badge drift" in html
 
     # synthetic: an attacker-controlled overall value must not land in the
     # class attribute unescaped, even though it's still shown (escaped) as text

@@ -137,6 +137,107 @@ def resolve_run_store(run_ref, *, study_dir=None, runs_db=None) -> Path:
     return _resolve_zarr_store(p)
 
 
+def _run_dir_candidate(run_ref, *, study_dir=None) -> "Path | None":
+    """Best-effort filesystem directory for ``run_ref``, for the PARQUET
+    fallback below — used only when zarr resolution fails, so a missing/odd
+    ``run_ref`` shape here just means "no parquet fallback available" rather
+    than a hard error (the original zarr ``RunStoreError`` still surfaces).
+    """
+    if isinstance(run_ref, Mapping):
+        p = run_ref.get("path")
+        if p is not None:
+            return Path(p)
+        return None
+    candidate = Path(run_ref)
+    if candidate.exists():
+        return candidate
+    if study_dir is not None:
+        joined = Path(study_dir) / str(run_ref)
+        if joined.exists():
+            return joined
+    return None
+
+
+def _resolve_parquet_history(path: "str | Path") -> "list[Path] | None":
+    """Hive-partitioned ``*.pq`` history files under a run directory, or
+    ``None`` if none are found.
+
+    Matches the local layout ``vivarium_workbench.lib.emitters``' parquet
+    branch actually writes for a ``run composite``/``run study`` whose
+    composite DECLARES a default emitter (e.g. ``ecoli_baseline``'s
+    ``@composite_generator(..., emitters=[...])`` — see
+    ``vivarium_workbench.lib.run_runner._select_emitter_name``, which forces
+    ``"parquet"`` for any composite with a declared default, REGARDLESS of
+    the workspace's own ``runtime.default_emitter`` (``xarray`` here) — so a
+    candidate ``ecoli_baseline`` run through the general runner lands as
+    parquet, not zarr, even though the reference ``vecoli`` composite (no
+    declared default) lands as zarr under the same workspace. Confirmed
+    empirically (Phase-2 Task 5 gate): ``<run_dir>/parquet/<run_id>/history/
+    experiment_id=<run_id>/variant=*/lineage_seed=*/generation=*/agent_id=*/
+    <tick>.pq``.
+    """
+    p = Path(path)
+    if not p.is_dir():
+        return None
+    files = sorted(p.glob("parquet/**/history/**/*.pq"))
+    if not files:
+        files = sorted(p.glob("**/history/**/*.pq"))
+    return files or None
+
+
+def _load_local_parquet_observables(files: "list[Path]", observables) -> dict:
+    """``{obs: (times, values), ..., "_generation": (times, gens)}`` off a
+    LOCAL hive-partitioned parquet history — the same shape
+    ``read_pbg_local`` returns for zarr, so callers don't need to branch.
+
+    Reuses ``scripts._compare.vecoli_parquet_reader``'s dotted/leaf ->
+    flattened-column mapping (``_observable_to_column``, e.g. ``"cell_mass"``
+    -> ``"listeners__mass__cell_mass"``) READ-ONLY — the same convention this
+    repo's own local ``ParquetEmitter`` output uses (confirmed empirically:
+    both flatten dotted paths to ``__``). DuckDB reads local files directly
+    (no S3/AWS creds needed, unlike ``vecoli_parquet_reader``'s S3 callers);
+    the local emitter's time column is ``global_time`` (S3 vEcoli's is
+    ``time``), so this queries ``global_time`` explicitly rather than
+    reusing ``read_vecoli_trajectory``'s SQL verbatim.
+    """
+    import duckdb
+    import numpy as np
+
+    from scripts._compare.vecoli_parquet_reader import _observable_to_column
+
+    obs = list(observables)
+    uris = [str(f) for f in files]
+    con = duckdb.connect()
+    present_cols = {r[0] for r in con.execute(
+        f"DESCRIBE SELECT * FROM read_parquet('{uris[0]}')").fetchall()}
+    obs_to_col = {}
+    for o in obs:
+        col = _observable_to_column(o)
+        if col in present_cols:
+            obs_to_col[o] = col
+    if not obs_to_col:
+        raise RunStoreError(
+            f"none of {obs!r} found as columns in local parquet history "
+            f"({len(present_cols)} columns present, e.g. {sorted(present_cols)[:5]})")
+
+    file_list = ", ".join(f"'{u}'" for u in uris)
+    sel = ", ".join(f'"{c}" AS "{o}"' for o, c in obs_to_col.items())
+    query = (f"SELECT global_time, generation, {sel} "
+             f"FROM read_parquet([{file_list}], hive_partitioning=true) "
+             f"ORDER BY global_time")
+    cur = con.execute(query)
+    col_names = [d[0] for d in cur.description]
+    rows = cur.fetchall()
+    arr = {c: np.array([r[i] for r in rows], dtype=float)
+           for i, c in enumerate(col_names)}
+    out: dict = {}
+    t = arr["global_time"]
+    for o in obs_to_col:
+        out[o] = (t, arr[o])
+    out["_generation"] = (t, arr["generation"])
+    return out
+
+
 def load_run_observables(run_ref, observables=None, *, study_dir=None,
                          runs_db=None) -> dict:
     """One workbench run's observables, in the shape the trajectory/
@@ -151,9 +252,32 @@ def load_run_observables(run_ref, observables=None, *, study_dir=None,
     ``observables`` defaults to
     ``scripts.compare_matched_trajectories.OBSERVABLES`` (the standard
     comparison set) when not given.
+
+    **Parquet fallback (Phase-2 Task 5 gate finding):** a composite whose
+    generator DECLARES a default emitter (``ecoli_baseline``) lands as a
+    local hive-partitioned parquet history under the general runner, not
+    zarr — confirmed against a real ``vivarium-workbench run composite``
+    run, not assumed. When zarr resolution fails, this falls back to
+    ``_resolve_parquet_history``/``_load_local_parquet_observables`` before
+    raising; a run_ref that resolves to neither zarr nor parquet still
+    raises the original ``RunStoreError``.
     """
     from scripts.compare_matched_trajectories import OBSERVABLES, read_pbg_local
 
-    store = resolve_run_store(run_ref, study_dir=study_dir, runs_db=runs_db)
     obs = list(observables) if observables is not None else list(OBSERVABLES)
+    try:
+        store = resolve_run_store(run_ref, study_dir=study_dir, runs_db=runs_db)
+    except RunStoreError as zarr_err:
+        run_dir = _run_dir_candidate(run_ref, study_dir=study_dir)
+        files = _resolve_parquet_history(run_dir) if run_dir is not None else None
+        if not files:
+            raise
+        try:
+            return _load_local_parquet_observables(files, obs)
+        except RunStoreError:
+            raise
+        except Exception as parquet_err:  # noqa: BLE001 — report both attempts
+            raise RunStoreError(
+                f"neither zarr ({zarr_err}) nor local parquet ({parquet_err}) "
+                f"could be read for run_ref={run_ref!r}") from parquet_err
     return read_pbg_local(str(store), obs)

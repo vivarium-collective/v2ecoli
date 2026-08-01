@@ -132,16 +132,45 @@ just a config whose JSON declares it.
   no fix-history phrasing is emitted. Findings are objective facts about the
   latest run.
 
-### 5. Report cards & gating (unchanged, applied uniformly)
+### 5. Report cards & gating
 
-- Cards per config from `defaults.cards` (overridable): `parca`, `statistical`,
-  `standard`, `trajectory`; `composition`/`distribution`/`metabolism` available
-  opt-in.
-- **Gates: `{parca, statistical}`** — multi-seed Welch t-test over ≥4 seeds plus
-  the t=0 initial-state match. `standard` (single-seed) stays illustrative-only,
-  not a gate (single-seed cannot separate a port divergence from seed noise).
-- Verdict → outcome map unchanged: `within_tol→PASS`, `drift→PARTIAL`,
-  `mismatch→FAIL`.
+Gating is **unchanged**: **`{parca, statistical}`** — multi-seed Welch t-test
+over ≥4 seeds plus the t=0 initial-state match. `standard` (single-seed) stays
+illustrative-only (single-seed cannot separate a port divergence from seed
+noise). Verdict → outcome map unchanged: `within_tol→PASS`, `drift→PARTIAL`,
+`mismatch→FAIL`. Cards per config come from `defaults.cards` (overridable).
+
+### 5a. Visualization overhaul (all studies, both surfaces)
+
+Redesign the report cards and charts. Both output surfaces get it: the
+standalone HTML report (`docs/report_cards/`) **and** the workbench study
+report-card views. Follow the `dataviz` method (form → color-by-job → validate
+palette with `scripts/validate_palette.js` → mark specs → hover → a11y pass).
+
+- **Unified visual system.** Today `report.py` and `plotly_helpers.py` each carry
+  an ad-hoc palette (engine colors indigo/amber; status green/amber/red). Extract
+  ONE token set — surfaces, ink, a validated 2-hue **categorical** pair for the
+  two engines (candidate vs reference), and a reserved **status** palette
+  (within_tol / drift / mismatch, each with glyph + label, never color-alone) —
+  into a single shared module (`scripts/_compare/theme.py`) consumed by every
+  card and by `report.py`. Seed the tokens from the workbench design system
+  (`vivarium_workbench/static/style.css` `:root`) so cards read as the new
+  workbench look; run the validator (light + dark) and snap to passing steps.
+  Cards render **theme-aware** (light/dark).
+- **Richer per-observable charts.** Candidate-vs-reference overlays with a
+  cross-seed mean line + confidence band (not one line per seed); a per-observable
+  Δ panel with tolerance shading; inline KS / Welch-t annotation. One axis per
+  chart (never dual-axis); crosshair+tooltip hover.
+- **Study-level summary card.** New `summary` card at the top of every study: the
+  verdict pill strip, a per-observable |Δ| status row (heat row, status palette),
+  seed count, and gate status — the at-a-glance objective summary before the
+  detailed cards. It is informational (no new gate).
+- **Cross-config overview.** New investigation-level view: a configs × observables
+  matrix of verdict/|Δ| (status fill + value label), so reproduction across the
+  whole config set reads at once. Rendered on both the HTML report index and the
+  investigation dashboard view.
+
+Non-gating: the visuals present the same verdicts; they do not change grading.
 
 ### 6. CLI
 
@@ -163,6 +192,11 @@ just a config whose JSON declares it.
   This is the only heavy-compute step (full ParCa + Nextflow 2-gen lineages per
   config; hours) and is sequenced last to avoid re-running if output layout
   changes.
+- **Render vs. run are separate.** The heavy step produces cached per-engine
+  zarr stores; rendering cards/charts from them is seconds
+  (`v2e-compare run … --render-only`). So the viz overhaul (§5a) iterates against
+  already-cached stores without re-running engines — do the full run once, then
+  re-render freely.
 
 ### 8. Testing
 
@@ -176,6 +210,12 @@ Extend `tests/compare/`:
 - **Objective-narrative lint:** rendered cards + executive contain no
   fix-history keywords (`before`, `after fix`, `root cause`, `we fixed`,
   `rpoBC`).
+- **Theme/palette:** the shared `theme.py` categorical (engine) pair + status
+  palette PASS `scripts/validate_palette.js` in light and dark.
+- **Summary card:** builds a per-observable status row + verdict strip from a
+  verdict fixture; status is glyph+label, not color-alone.
+- **Cross-config overview:** builds a configs × observables matrix from a
+  multi-study verdict set.
 - E2E cross-engine run stays gated behind `COMPARE_E2E=1`.
 
 ## Risks / notes

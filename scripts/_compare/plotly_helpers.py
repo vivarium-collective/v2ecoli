@@ -144,19 +144,56 @@ def overlay_band_html(per_obs: dict, title: str = "") -> str:
     return "".join(parts)
 
 
+def _median_relative_deltas(ve_traces: list, v2_traces: list):
+    """Per-timepoint median relative delta ``(v2 - ve) / ve``, pairing v2/ve
+    seed traces by index (seed N of v2 against seed N of ve — the harness's
+    matched-timepoint convention), truncated to the shortest paired trace
+    length. Returns ``(times, deltas)``, or ``(None, None)`` if there are no
+    v2/ve pairs.
+
+    A timepoint where EVERY pair has ``ve == 0`` gets ``math.nan`` rather
+    than ``0.0``: the relative delta is undefined there (division by the
+    reference value), and rendering it as ``0.0`` would draw a false
+    "agrees / within tolerance" point at a spot of undefined-or-unbounded
+    divergence. Plotly renders a NaN y-value as a gap in the line, not a
+    point, so the gap is visible instead of a misleading zero.
+    """
+    import math
+    import statistics
+
+    n_pairs = min(len(ve_traces), len(v2_traces))
+    if n_pairs == 0:
+        return None, None
+    n_t = min(min(len(v) for _, v in ve_traces[:n_pairs]),
+              min(len(v) for _, v in v2_traces[:n_pairs]))
+    if n_t == 0:
+        return None, None
+    times = list(ve_traces[0][0])[:n_t]
+    deltas = []
+    for i in range(n_t):
+        rel = []
+        for p in range(n_pairs):
+            ve_v = ve_traces[p][1][i]
+            v2_v = v2_traces[p][1][i]
+            if ve_v == 0:
+                continue
+            rel.append((v2_v - ve_v) / ve_v)
+        deltas.append(statistics.median(rel) if rel else math.nan)
+    return times, deltas
+
+
 def delta_panel_html(per_obs: dict, tol: float, stat: dict | None = None) -> str:
     """One relative-delta-vs-time figure per observable.
 
     For each observable, pairs v2/ve seed traces by index (seed N of v2
     against seed N of ve — the harness's matched-timepoint convention) and
     plots the MEDIAN relative delta ``(v2 - ve) / ve`` across those pairs at
-    each timepoint, truncated to the shortest paired trace length. Shades
+    each timepoint (see ``_median_relative_deltas``; a timepoint where every
+    pair's reference value is 0 renders as a gap, never a fake 0.0). Shades
     the tolerance band ``[-tol, +tol]`` in a neutral (non-engine, non-status)
     gray. If ``stat`` (e.g. ``{"kind": "Welch-t", "p": 0.4}``) is given, adds
     an inline annotation naming the stat and its p-value.
     """
-    import statistics
-
     import plotly.graph_objects as go
 
     parts = []
@@ -164,24 +201,9 @@ def delta_panel_html(per_obs: dict, tol: float, stat: dict | None = None) -> str
     for obs, d in per_obs.items():
         ve_traces = d.get("ve") or []
         v2_traces = d.get("v2") or []
-        n_pairs = min(len(ve_traces), len(v2_traces))
-        if n_pairs == 0:
+        times, median_delta = _median_relative_deltas(ve_traces, v2_traces)
+        if times is None:
             continue
-        n_t = min(min(len(v) for _, v in ve_traces[:n_pairs]),
-                  min(len(v) for _, v in v2_traces[:n_pairs]))
-        if n_t == 0:
-            continue
-        times = list(ve_traces[0][0])[:n_t]
-        median_delta = []
-        for i in range(n_t):
-            rel = []
-            for p in range(n_pairs):
-                ve_v = ve_traces[p][1][i]
-                v2_v = v2_traces[p][1][i]
-                if ve_v == 0:
-                    continue
-                rel.append((v2_v - ve_v) / ve_v)
-            median_delta.append(statistics.median(rel) if rel else 0.0)
 
         fig = go.Figure()
         fig.add_hrect(y0=-tol, y1=tol, fillcolor="rgba(156, 163, 175, 0.18)",
@@ -190,6 +212,7 @@ def delta_panel_html(per_obs: dict, tol: float, stat: dict | None = None) -> str
         fig.add_scatter(
             x=times, y=median_delta, mode="lines+markers",
             name="median relative Δ (v2 vs ve)",
+            connectgaps=False,
             line=dict(color=V2_COLOR, width=2))
         if stat:
             kind = stat.get("kind", "")

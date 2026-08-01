@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from typing import Iterable
 
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 CACHE_VERSION_FILENAME = "cache_version.json"
 
 # Files whose content determines whether an existing cache is compatible with
@@ -48,16 +48,29 @@ INPUT_FILES: tuple[str, ...] = (
     "v2ecoli/types/quantity.py",
     # Seeds bulk/unique molecules into initial_state.json.
     "v2ecoli/library/initial_conditions.py",
+    # This module itself. Self-referential on purpose: editing INPUT_FILES
+    # (or the hashing/raise logic below) changes this file's own bytes, so
+    # future additions here automatically bust every existing cache without
+    # requiring a separate SCHEMA_VERSION bump.
+    "v2ecoli/library/cache_version.py",
     # save_cache + shared composite infrastructure.
     "v2ecoli/core.py",
     # Per-architecture document builders. A change here can shift the
     # document shape and silently invalidate a cache built against the
-    # old architecture.
-    "v2ecoli/composites/baseline.py",
-    "v2ecoli/composites/baseline_population.py",
-    "v2ecoli/composites/baseline_time_varying_env.py",
-    "v2ecoli/composites/colony.py",
-    "v2ecoli/composites/baseline_millard.py",
+    # old architecture. Renamed to the ecoli_* scheme in 645fe178; keep
+    # this list in sync per AGENTS.md's "Adding a new composite
+    # architecture" step 3.
+    "v2ecoli/composites/ecoli_baseline.py",
+    "v2ecoli/composites/ecoli_population.py",
+    "v2ecoli/composites/ecoli_time_varying_env.py",
+    "v2ecoli/composites/ecoli_colony.py",
+    "v2ecoli/composites/ecoli_millard.py",
+    # Shared builders imported by the composites above (make_edge,
+    # _make_instance, _get_special_step, per-step config dispatch, ...).
+    # A change here shifts document shape for every composite that imports
+    # it, exactly like a change to the composite file itself.
+    "v2ecoli/composites/_helpers.py",
+    "v2ecoli/composites/_millard_helpers.py",
 )
 
 
@@ -122,10 +135,18 @@ def compute_cache_version(repo_root: str | None = None,
     for rel in sorted(files):
         path = os.path.join(repo_root, rel)
         if not os.path.exists(path):
-            # Missing input is itself part of the fingerprint — encode as
-            # a sentinel so a file appearing/disappearing changes the hash.
-            per_file[rel] = "MISSING"
-            continue
+            # A vanished fingerprint input is a bug, not a state: hashing it
+            # to a stable "MISSING" sentinel silently drops the file from
+            # the fingerprint forever (its edits stop moving inputs_hash).
+            # That is exactly how 5/11 INPUT_FILES went dead unnoticed after
+            # the ecoli_* composite rename in 645fe178. Fail loudly instead.
+            raise FileNotFoundError(
+                f"cache_version INPUT_FILES entry does not exist: {path!r} "
+                f"(from repo_root={repo_root!r}, rel={rel!r}). This file was "
+                f"renamed or deleted without updating "
+                f"v2ecoli/library/cache_version.py:INPUT_FILES — see "
+                f"AGENTS.md 'Adding a new composite architecture' step 3."
+            )
         per_file[rel] = _hash_file(path)
 
     agg = hashlib.sha256()

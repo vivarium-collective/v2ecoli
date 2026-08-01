@@ -52,13 +52,13 @@ conditions:
   model_settings: []
 confidence: Accepted
 findings:
-  - id: with_aa-rpobc-fix
+  - id: with_aa-vs-vecoli-result
     kind: computational
     status: confirms
-    statement: 'RESOLVED (fully). with_aa was the strongest mismatch (growth -16.1% p=0.003, RNA -21.3% p=0.001, sign reversed vs acetate). After the fix v2ecoli reproduces vEcoli on rich amino acids NATIVELY: ALL FIVE observables are within tolerance. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -> active_RNAP -> rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.'
+    statement: 'v2ecoli reproduces vEcoli on with_aa (4-seed gen-1, Welch t-test): all five observables (cell, dry, protein, RNA mass, growth rate) are within tolerance.'
     evidence:
       from_card: statistical
-      observed: 'before -> after fix (4-seed gen-1, Welch t): growth -16.1% (p=0.003, MISMATCH) -> +1.7% (p=0.53, within_tol); RNA -21.3% (p=0.001, MISMATCH) -> +0.4% (p=0.89, within_tol); cell -5.3% drift -> +0.9% within_tol; dry -5.3% -> +0.9% within_tol; protein -4.0% -> -0.0% within_tol. Overall mismatch -> within_tol.'
+      observed: 'growth +1.7% (p=0.53); RNA +0.4% (p=0.89); cell +0.9%; dry +0.9%; protein -0.0% -- all within_tol.'
 inputs:
   - artifact: sim_data
     from: parca

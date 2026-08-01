@@ -29,7 +29,7 @@ DEFAULT_INVEST = "whole-cell-model-comparison"
 # single-seed "mismatch" it was flagged for). `standard` is kept as an illustrative
 # trajectory card only. See project memory `project_v2e_compare_singleseed_stochastic`.
 GRADED = {"statistical", "parca"}   # cards that produce a gating test
-_DEFAULT_CARDS = ["config", "parca", "standard", "statistical"]
+_DEFAULT_CARDS = ["summary", "config", "parca", "standard", "statistical"]
 _DEFAULT_V2_CACHE = "out/cache_full"
 _DEFAULT_VE_CACHE = "out/compare_harness/vecoli_parca"
 

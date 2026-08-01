@@ -24,6 +24,7 @@ from v2ecoli.workflow.comparison_materialize import (
     CANDIDATE_COMPOSITE, REFERENCE_COMPOSITE, ComparisonPair,
     MaterializedInvestigation, RunSpec, materialize_comparison,
     matrix_analysis_entry, to_study_specs)
+from v2ecoli.workflow.parca_study import PARCA_STUDY_NAME
 
 
 def _comparison_block(ve_cache: str) -> dict:
@@ -166,6 +167,7 @@ def test_to_study_specs_shape_matches_study_yaml_conditions_baseline(tmp_path):
     specs = to_study_specs(materialized)
 
     assert set(specs) == {
+        "parca",
         "basal-candidate", "basal-reference",
         "with_aa-candidate", "with_aa-reference",
     }
@@ -180,6 +182,69 @@ def test_to_study_specs_shape_matches_study_yaml_conditions_baseline(tmp_path):
     # The comparison_cards Analysis lives on the candidate study only -- not
     # duplicated onto the reference study (avoids running it twice per pair).
     assert ref["analyses"] == []
+
+
+# --- ParCa study prerequisite (pull-or-compute) -----------------------------
+
+def test_materialized_investigation_includes_parca_prerequisite(tmp_path):
+    materialized, ve_cache = _materialize(tmp_path)
+    parca = materialized.parca
+    assert parca.name == PARCA_STUDY_NAME
+    assert parca.candidate_cache_dir == "out/cache_full"
+    assert parca.reference_cache_dir == ve_cache
+    assert parca.reference_repo == "/fake/vecoli-fork"
+
+
+def test_every_candidate_and_reference_run_depends_on_parca_study(tmp_path):
+    materialized, _ = _materialize(tmp_path)
+    for pair in materialized.pairs:
+        assert pair.candidate.prerequisites == [PARCA_STUDY_NAME]
+        assert pair.reference.prerequisites == [PARCA_STUDY_NAME]
+
+
+def test_candidate_and_reference_cache_dirs_route_through_parca_study_output(tmp_path):
+    """cache_dir/match_simdata must come from the ParCa study's resolved
+    output (materialized.parca), not be independently re-derived per config
+    -- otherwise a candidate/reference pair and the ParCa study could
+    silently disagree on which cache dir is "the" cache dir."""
+    materialized, ve_cache = _materialize(tmp_path)
+    for pair in materialized.pairs:
+        assert pair.candidate.params["cache_dir"] == materialized.parca.candidate_cache_dir
+        assert pair.reference.params["cache_dir"] == materialized.parca.reference_cache_dir
+        assert pair.candidate.params["match_simdata"] == \
+            f"{materialized.parca.reference_cache_dir}/simData.cPickle"
+        assert pair.candidate.params["match_simdata"] == f"{ve_cache}/simData.cPickle"
+
+
+def test_to_study_specs_includes_parca_study_entry(tmp_path):
+    materialized, _ = _materialize(tmp_path)
+    specs = to_study_specs(materialized)
+
+    parca_spec = specs[PARCA_STUDY_NAME]
+    assert parca_spec["kind"] == "parca_prerequisite"
+    assert parca_spec["engines"]["candidate"]["cache_dir"] == \
+        materialized.parca.candidate_cache_dir
+    assert parca_spec["engines"]["reference"]["cache_dir"] == \
+        materialized.parca.reference_cache_dir
+    assert parca_spec["engines"]["reference"]["reference_repo"] == \
+        materialized.parca.reference_repo
+
+
+def test_to_study_specs_candidate_and_reference_depend_on_parca_via_pipeline_gate(tmp_path):
+    """The per-config studies express their dependency on the ParCa study the
+    SAME way vivarium_workbench.lib.study_seed already expresses study->study
+    DAG edges elsewhere: pipeline_gate.prerequisites: [{study, relation}]."""
+    materialized, _ = _materialize(tmp_path)
+    specs = to_study_specs(materialized)
+
+    for name in ("basal-candidate", "basal-reference",
+                 "with_aa-candidate", "with_aa-reference"):
+        prereqs = specs[name]["pipeline_gate"]["prerequisites"]
+        assert prereqs == [{"study": PARCA_STUDY_NAME, "relation": "leads-to"}]
+
+    # The ParCa study itself carries no pipeline_gate -- it is the root of
+    # this investigation's dependency graph, not a dependent.
+    assert "pipeline_gate" not in specs[PARCA_STUDY_NAME]
 
 
 # --- ecoli_baseline declares match_condition (sanity against Task 1's fix) -

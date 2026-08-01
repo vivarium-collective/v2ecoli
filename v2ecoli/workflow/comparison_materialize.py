@@ -70,6 +70,8 @@ from typing import Any
 from scripts._compare.study_spec import StudySpec, specs_from_configs
 from scripts._compare.reference import ReferenceEngine
 from v2ecoli.composites.vecoli import _resolve_sim_data_path
+from v2ecoli.workflow.parca_study import (
+    CANDIDATE_ENGINE, PARCA_STUDY_NAME, REFERENCE_ENGINE, prerequisite_edge)
 
 CANDIDATE_COMPOSITE = "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
 REFERENCE_COMPOSITE = "v2ecoli.composites.vecoli.vecoli"
@@ -86,10 +88,18 @@ _DEFAULT_VE_CACHE = "out/compare_harness/vecoli_parca"
 @dataclass
 class RunSpec:
     """One materialized engine run: a workbench study's ``conditions.baseline``
-    (composite + params), keyed by its study/run name."""
+    (composite + params), keyed by its study/run name.
+
+    ``prerequisites``: study names this run's ``pipeline_gate.prerequisites``
+    (Task: ParCa pull-or-compute) must list — every candidate/reference
+    ``RunSpec`` this module materializes carries ``[PARCA_STUDY_NAME]`` so the
+    per-config study DEPENDS ON the ParCa study, expressed via the same
+    ``{study, relation}`` DAG-edge shape ``vivarium_workbench.lib.study_seed``
+    already writes elsewhere (see ``parca_study.prerequisite_edge``)."""
     name: str
     composite: str
     params: dict = field(default_factory=dict)
+    prerequisites: list = field(default_factory=list)
 
 
 @dataclass
@@ -104,10 +114,31 @@ class ComparisonPair:
 
 
 @dataclass
+class ParcaPrerequisite:
+    """The ParCa study: a first-class member of the comparison investigation
+    that both engines' per-config studies depend on (``pipeline_gate.
+    prerequisites``). Not a Composite sim -- a pull-or-compute check+build
+    step (``v2ecoli.workflow.parca_study.resolve_or_build_parca``) per engine,
+    resolved BEFORE any candidate/reference study runs.
+
+    ``candidate_cache_dir``/``reference_cache_dir`` are the SINGLE source
+    every per-config candidate/reference ``RunSpec``'s ``cache_dir``/
+    ``match_simdata`` params are derived from (see ``materialize_comparison``)
+    -- not independently re-read from the raw ``comparison:`` block per
+    config, so a candidate/reference pair and the ParCa study can never
+    silently disagree on which cache dir is "the" cache dir."""
+    name: str = PARCA_STUDY_NAME
+    candidate_cache_dir: str = ""
+    reference_cache_dir: str = ""
+    reference_repo: str = ""
+
+
+@dataclass
 class MaterializedInvestigation:
     invest_name: str
     pairs: list  # [ComparisonPair, ...]
     matrix_analysis: dict  # {"name": "comparison_matrix", "params": {...}}
+    parca: ParcaPrerequisite = field(default_factory=ParcaPrerequisite)
 
 
 def _run_name(config_name: str, role: str) -> str:
@@ -154,22 +185,38 @@ def materialize_comparison(comparison: dict, invest_name: str = "comparison",
     ``comparison`` is the raw block dict (as it appears under an
     investigation.yaml's ``comparison:`` key — candidate/reference/defaults/
     configs[], per ``scripts/_compare/study_spec.py``'s schema, read-only).
+
+    Every candidate/reference ``RunSpec`` DEPENDS ON the ParCa study
+    (``prerequisites=[PARCA_STUDY_NAME]``) and its ``cache_dir``/
+    ``match_simdata`` params are derived from the single
+    ``ParcaPrerequisite`` built here (``parca.candidate_cache_dir``/
+    ``parca.reference_cache_dir``) rather than re-reading ``sp.v2_cache``/
+    ``sp.ve_cache`` per config — see ``ParcaPrerequisite``'s docstring for why
+    that single-source routing matters.
     """
     ctx = _build_ctx(comparison, invest_name)
     specs = specs_from_configs(ctx)
 
+    parca = ParcaPrerequisite(
+        name=PARCA_STUDY_NAME,
+        candidate_cache_dir=ctx["v2_cache"],
+        reference_cache_dir=ctx["ve_cache"],
+        reference_repo=ctx["reference"].repo if ctx["reference"] else "",
+    )
+    match_simdata = _resolve_sim_data_path(parca.reference_cache_dir)
+
     pairs: list[ComparisonPair] = []
     for sp in specs:
-        match_simdata = _resolve_sim_data_path(sp.ve_cache)
         candidate = RunSpec(
             name=_run_name(sp.name, "candidate"),
             composite=CANDIDATE_COMPOSITE,
             params={
-                "cache_dir": sp.v2_cache,
+                "cache_dir": parca.candidate_cache_dir,
                 "seed": seed,
                 "match_simdata": match_simdata,
                 "match_condition": sp.condition,
             },
+            prerequisites=[parca.name],
         )
         reference = RunSpec(
             name=_run_name(sp.name, "reference"),
@@ -179,8 +226,9 @@ def materialize_comparison(comparison: dict, invest_name: str = "comparison",
                 "condition": sp.condition,
                 "seed": seed,
                 "fork_config": _fork_config_for(sp),
-                "cache_dir": sp.ve_cache,
+                "cache_dir": parca.reference_cache_dir,
             },
+            prerequisites=[parca.name],
         )
         analyses = [{
             "name": COMPARISON_CARDS_ANALYSIS,
@@ -197,7 +245,7 @@ def materialize_comparison(comparison: dict, invest_name: str = "comparison",
 
     matrix_analysis = matrix_analysis_entry(pairs)
     return MaterializedInvestigation(invest_name=invest_name, pairs=pairs,
-                                     matrix_analysis=matrix_analysis)
+                                     matrix_analysis=matrix_analysis, parca=parca)
 
 
 def matrix_analysis_entry(pairs: "list[ComparisonPair]") -> dict:
@@ -217,6 +265,29 @@ def matrix_analysis_entry(pairs: "list[ComparisonPair]") -> dict:
     }
 
 
+def parca_study_spec(parca: ParcaPrerequisite) -> dict:
+    """The ParCa study's own entry: not a Composite sim -- a pull-or-compute
+    check+build step (``v2ecoli.workflow.parca_study.resolve_or_build_parca``)
+    run once per engine, ahead of every candidate/reference study that
+    depends on it. ``kind: parca_prerequisite`` distinguishes this from an
+    ordinary ``conditions.baseline``-shaped study spec; ``engines`` carries
+    exactly the kwargs ``resolve_or_build_parca(engine, cache_dir,
+    reference_repo=...)`` needs per engine."""
+    return {
+        "name": parca.name,
+        "kind": "parca_prerequisite",
+        "engines": {
+            CANDIDATE_ENGINE: {"cache_dir": parca.candidate_cache_dir},
+            REFERENCE_ENGINE: {"cache_dir": parca.reference_cache_dir,
+                               "reference_repo": parca.reference_repo},
+        },
+    }
+
+
+def _pipeline_gate(run: RunSpec) -> dict:
+    return {"prerequisites": [prerequisite_edge(name) for name in run.prerequisites]}
+
+
 def to_study_specs(materialized: MaterializedInvestigation) -> "dict[str, dict]":
     """``{study_name: study-spec dict}`` for every materialized run, in the
     ``conditions.baseline.{composite,params}`` + top-level ``analyses:``
@@ -227,19 +298,29 @@ def to_study_specs(materialized: MaterializedInvestigation) -> "dict[str, dict]"
     engine directly. The reference run carries no ``analyses`` entry of its
     own (the pair's ``comparison_cards`` entry is attached to the CANDIDATE
     study only, avoiding a double-run of the same Analysis when both studies
-    in a pair execute)."""
-    out: dict[str, dict] = {}
+    in a pair execute).
+
+    Includes the ParCa study itself (keyed by ``PARCA_STUDY_NAME``, see
+    ``parca_study_spec``) and stamps every candidate/reference entry's
+    ``pipeline_gate.prerequisites`` with an edge back to it -- the general
+    runner's existing DAG machinery (``investigation_graph_views.py``'s
+    ``pipeline_gate.prerequisites`` edge reader) is what makes that a real,
+    renderable dependency rather than a convention only this module knows
+    about."""
+    out: dict[str, dict] = {materialized.parca.name: parca_study_spec(materialized.parca)}
     for pair in materialized.pairs:
         out[pair.candidate.name] = {
             "name": pair.candidate.name,
             "conditions": {"baseline": {"composite": pair.candidate.composite,
                                         "params": pair.candidate.params}},
             "analyses": list(pair.analyses),
+            "pipeline_gate": _pipeline_gate(pair.candidate),
         }
         out[pair.reference.name] = {
             "name": pair.reference.name,
             "conditions": {"baseline": {"composite": pair.reference.composite,
                                         "params": pair.reference.params}},
             "analyses": [],
+            "pipeline_gate": _pipeline_gate(pair.reference),
         }
     return out

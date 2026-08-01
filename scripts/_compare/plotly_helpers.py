@@ -4,13 +4,17 @@ fragment per axis/observable, loading plotly.js via CDN once (the first
 figure) and inlining nothing thereafter (`include_plotlyjs=False`) so a card
 with several figures doesn't re-download the library per figure.
 
-Color convention (matches the rest of the comparison report): vEcoli is
-indigo, v2ecoli is amber.
+Color convention (matches the rest of the comparison report): colors come
+from the shared theme (`scripts/_compare/theme.py`) so charts and the HTML
+report never drift apart — vEcoli is the ``reference`` engine color,
+v2ecoli is the ``candidate`` engine color.
 """
 from __future__ import annotations
 
-VE_COLOR = "#4f46e5"   # vEcoli — indigo
-V2_COLOR = "#d97706"   # v2ecoli — amber
+from scripts._compare import theme
+
+VE_COLOR = theme.ENGINE["reference"]   # vEcoli
+V2_COLOR = theme.ENGINE["candidate"]   # v2ecoli
 
 
 def overlay_html(per_obs: dict, title: str = "") -> str:

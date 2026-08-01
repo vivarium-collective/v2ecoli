@@ -26,6 +26,42 @@ from typing import Any
 import numpy as np
 
 
+def _apply_match_simdata(cell_state: dict, *, match_simdata: str, seed: int,
+                         condition: str = "basal") -> dict:
+    """Overlay matched-initial-state bulk counts onto ``cell_state`` IN PLACE.
+
+    Declarative counterpart of ``scripts/run_comparison_ensemble.py``'s
+    ``--match-vecoli-simdata``/``--match-initial-state`` flags: reuses the
+    SAME mechanism (not a reimplementation) —
+    ``_vecoli_reference_state`` builds the genuine upstream vEcoli engine
+    from ``match_simdata`` (a reference ``simData.cPickle`` path) and reads
+    its pre-run bulk molecule counts; ``_apply_bulk_overlay`` overwrites the
+    matching v2 bulk counts in place, molecule-id by molecule-id, for
+    whatever is present in both engines. Net effect: this composite's t=0
+    bulk state becomes the reference's, so a candidate/reference pair driven
+    from the same ``simData.cPickle`` starts identical (removes the
+    stochastic low-copy sampling divergence — e.g. SpoT — that otherwise
+    dominates single-seed comparisons; see run_comparison_ensemble.py's
+    "Matched-initial-state seeding" section for the full rationale).
+
+    ``condition`` defaults to "basal" (matching ``build_vivarium_ecoli``'s
+    own default) — Task 1 only wires the single-param (``match_simdata``)
+    path; per-config condition threading is Task 4's job (materializing the
+    comparison investigation's paired studies).
+
+    Imports the ``scripts`` package lazily so the default (``match_simdata``
+    unset) path never pays for it.
+    """
+    from types import SimpleNamespace
+    from scripts.run_comparison_ensemble import (
+        _vecoli_reference_state, _apply_bulk_overlay)
+    ref_bulk, _ref_unique = _vecoli_reference_state(
+        os.path.abspath(match_simdata), condition, seed,
+        os.environ.get("V2E_VECOLI_DIR"))
+    fake_composite = SimpleNamespace(state={"agents": {"0": cell_state}})
+    return _apply_bulk_overlay(fake_composite, ref_bulk)
+
+
 def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """Derive a per-process RNG seed from (master_seed, process_name).
 
@@ -633,6 +669,21 @@ def _build_batch_document(
             "default": "out/cache",
             "description": "Path to ParCa cache directory",
         },
+        "match_simdata": {
+            "type": "string",
+            "default": None,
+            "description": "Optional path to a REFERENCE vEcoli simData.cPickle "
+                           "(e.g. from a paired comparison run). When set, this "
+                           "composite's initial bulk molecule counts are "
+                           "overlaid from that reference's genuine-vEcoli "
+                           "pre-run state, so a candidate/reference pair driven "
+                           "from the same simData start from an identical t=0 — "
+                           "the same matched-initial-state mechanism "
+                           "scripts/run_comparison_ensemble.py applies via "
+                           "--match-vecoli-simdata/--match-initial-state, "
+                           "expressed declaratively. Default None/empty leaves "
+                           "the baseline's own cached initial state untouched.",
+        },
         "transcript_initiation_mode": {
             "type": "string", "default": "discrete",
             "description": (
@@ -829,6 +880,7 @@ def baseline(
     *,
     seed: int = 0,
     cache_dir: str = "out/cache",
+    match_simdata: str | None = None,
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
@@ -869,6 +921,13 @@ def baseline(
         seed: Random seed for stochastic initialisation.
         cache_dir: Path to the ParCa cache directory (must contain
             ``initial_state.json`` and ``sim_data_cache.dill``).
+        match_simdata: optional path to a reference vEcoli simData.cPickle.
+            When set, overlays that reference's genuine-vEcoli pre-run bulk
+            molecule counts onto this composite's initial state (the same
+            matched-initial-state mechanism run_comparison_ensemble.py
+            applies via --match-vecoli-simdata/--match-initial-state).
+            None (default) leaves the baseline's own cached initial state
+            unchanged.
         transcript_initiation_mode: Phase-2 opt-in for the PDMP transcript
             initiation dispatch — ``discrete`` (default) or the piecewise-
             deterministic mode.
@@ -916,6 +975,15 @@ def baseline(
     # former batch_baseline composite). The single-cell path below is untouched
     # for n_seeds==1, n_generations==1 (bit-identical to plain baseline).
     if int(n_seeds) > 1 or int(n_generations) > 1:
+        if match_simdata:
+            # Batch mode builds per-seed lineages via BatchBaselineRunner at
+            # RUN time, outside this document-building call, so match_simdata
+            # (a single-cell, build-time overlay) has no wiring there yet.
+            # Fail loud rather than silently ignoring it.
+            raise ValueError(
+                "match_simdata is not yet supported with n_seeds>1 or "
+                "n_generations>1 (batch mode); pass n_seeds=1, "
+                "n_generations=1 or omit match_simdata.")
         return _build_batch_document(
             core, seed=seed, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, time_step=time_step,
@@ -991,6 +1059,14 @@ def baseline(
     cell_state.update(initial_state)
 
     _normalize_boundary_units(cell_state)
+
+    # Matched-initial-state (opt-in, declarative): overlay a reference vEcoli's
+    # pre-run bulk counts onto this composite's initial state so a paired
+    # candidate/reference comparison starts from an identical t=0. See
+    # _apply_match_simdata for the reused mechanism. No-op when unset (the
+    # default), leaving the cache's own initial state untouched.
+    if match_simdata:
+        _apply_match_simdata(cell_state, match_simdata=match_simdata, seed=seed)
 
     # Media perturbation (from the existing cache — no ParCa re-fit). The cache's
     # initial environment is 'minimal'; the media_update step swaps in a different

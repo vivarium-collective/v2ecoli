@@ -45,12 +45,27 @@ def _pill(label: str, verdict: str) -> str:
     )
 
 
+def _magnitude(detail: dict) -> float | None:
+    """Extract |Δ| from a detail dict, tolerating all three key conventions
+    the real card producers use: `median_rel` (standard/summary fixtures),
+    `init_rel` (parca, scripts/_compare/report_cards/parca.py), and
+    `delta_rel` (statistical/ttest, v2ecoli/library/card_criteria.py — can be
+    negative, so it's abs()'d). Returns None if none of the three are present."""
+    detail = detail or {}
+    val = detail.get("median_rel")
+    if val is None:
+        val = detail.get("init_rel")
+    if val is None and detail.get("delta_rel") is not None:
+        val = abs(detail["delta_rel"])
+    return val
+
+
 def _heat_cell(axis: dict) -> str:
     label = _html.escape(str(axis.get("label", "")))
     verdict = axis.get("verdict", "ungraded")
     entry = _status(verdict)
-    median_rel = (axis.get("detail") or {}).get("median_rel")
-    value = f"{median_rel * 100:.1f}%" if isinstance(median_rel, (int, float)) else "--"
+    magnitude = _magnitude(axis.get("detail"))
+    value = f"{magnitude * 100:.1f}%" if isinstance(magnitude, (int, float)) else "--"
     return (
         '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;'
         f'padding:6px 12px;border-radius:6px;background:{entry["color"]}1a;min-width:76px">'
@@ -82,9 +97,12 @@ def build_summary_html(verdict: dict, seeds: int) -> str:
 
     `verdict` is the standard report_card_verdict/v1 shape: {"overall": str,
     "groups": {group_name: {"verdict": str, "axes": [{"label", "verdict",
-    "detail": {"median_rel": float}}, ...]}}}. `seeds` is the study's seed
-    count. Returns a self-contained HTML fragment. Status is always conveyed
-    by glyph + label together, never color alone.
+    "detail": {...}}, ...]}}}. Each axis's `detail` |Δ| magnitude is read via
+    `_magnitude`, tolerating `median_rel` / `init_rel` / `delta_rel` (the
+    latter abs()'d) — see `_magnitude`'s docstring for which real card
+    producers emit which key. `seeds` is the study's seed count. Returns a
+    self-contained HTML fragment. Status is always conveyed by glyph + label
+    together, never color alone.
     """
     verdict = verdict or {}
     groups = verdict.get("groups") or {}

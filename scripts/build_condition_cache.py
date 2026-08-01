@@ -46,7 +46,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 
 from v2ecoli.core import save_sim_input
-from v2ecoli.library.cache_version import write_cache_version
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )
@@ -201,11 +200,18 @@ def build(condition: str, fixture: str, cache_dir: str,
               f"{d_period_seconds} s ({d_period_seconds/60} min)")
 
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
+    # save_sim_input (-> v2ecoli.core._write_sim_input_bundle) already writes
+    # a complete cache_version.json as its last step, with build_params
+    # (condition/fixed_media, T3/A7-A9) and configs (A6) recorded. A second
+    # write_cache_version(cache_dir, repo_root=repo_root) call used to run
+    # here — before condition.json below even exists, so it wasn't for
+    # picking up the manifest hash either — re-deriving a version with
+    # neither build_params nor configs and clobbering the correct file with
+    # it. Removed; nothing here needs a second write.
     save_sim_input(sim_data, cache_dir,
                    condition=media_condition, fixed_media=fixed_media,
                    c_period_minutes=c_period_minutes,
                    d_period_seconds=d_period_seconds)
-    write_cache_version(cache_dir, repo_root=repo_root)
 
     manifest = {
         "condition": condition,

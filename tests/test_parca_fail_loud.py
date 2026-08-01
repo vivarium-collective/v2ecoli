@@ -31,6 +31,20 @@ without running the full ParCa pipeline" approach. The A3 tests exercise
 the heavy ``create_bulk_container`` call out of the way; the A6 tests
 exercise ``v2ecoli.core._write_sim_input_bundle`` with a fake loader and
 ``v2ecoli.library.cache_version.{write,verify}_cache_version`` directly.
+
+Fix-round 1 (Medium finding): ``scripts/build_cache.py`` and
+``scripts/build_condition_cache.py`` each made a second, redundant
+``write_cache_version(cache_dir, repo_root=repo_root)`` call *after*
+``save_sim_input`` had already written a complete ``cache_version.json``
+(configs + build_params + context) — clobbering it back to empty
+``configs``/``build_params`` on every real cache build through those two
+scripts, which silently no-op'd A6's verify-time second line of defense
+for the normal build path. Fixed by dropping the redundant call in
+``build_condition_cache.py`` (it wasn't even needed to pick up the
+``condition.json`` manifest hash — that write happens *after* it) and by
+reading the already-written version back in ``build_cache.py`` instead of
+re-deriving+overwriting it. See
+``test_build_scripts_do_not_clobber_configs_or_build_params`` below.
 """
 from __future__ import annotations
 
@@ -283,3 +297,72 @@ def test_empty_recorded_configs_does_not_fail_verification(tmp_path):
     write_cache_version(str(cache_dir))  # configs=None -> recorded as ()
 
     verify_cache_version(str(cache_dir))  # no raise
+
+
+# ---------------------------------------------------------------------------
+# Fix-round 1 — scripts/build_cache.py + scripts/build_condition_cache.py
+# must not clobber the configs/build_params that save_sim_input already
+# wrote correctly.
+# ---------------------------------------------------------------------------
+
+def test_build_scripts_do_not_clobber_configs_or_build_params(tmp_path):
+    """Regression for the Fix-round-1 Medium finding.
+
+    Both scripts funnel their real bundle-write through
+    ``v2ecoli.core._write_sim_input_bundle`` (the shared body of
+    ``save_cache``/``save_sim_input``), which already writes a complete
+    ``cache_version.json`` — configs (A6) + build_params (T3/A7-A9) — as its
+    last step. Before this fix, each script then made a SECOND
+    ``write_cache_version(cache_dir, repo_root=repo_root)`` call with no
+    ``configs=``/``build_params=``, silently overwriting that file back to
+    an empty ``configs`` tuple and all-``None`` ``build_params``.
+
+    This exercises the real write path with a fake loader (hermetic — no
+    ParCa fixture) and asserts:
+      1. The fixed sequence (write once, read back — what
+         ``build_cache.py`` now does; ``build_condition_cache.py`` just
+         doesn't write again at all) leaves ``configs``/``build_params``
+         intact and non-empty/non-default.
+      2. Re-introducing the OLD buggy second call (a bare
+         ``write_cache_version(cache_dir)``) is what clobbers them — i.e.
+         this test would have caught the exact bug reported, proving it's
+         not a vacuous assertion.
+    """
+    from v2ecoli.core import _write_sim_input_bundle
+    from v2ecoli.library.cache_version import (
+        REQUIRED_CACHE_CONFIG_NAMES,
+        read_cache_version,
+        write_cache_version,
+    )
+
+    bundle_dir = tmp_path / "cache"
+    loader = _FakeLoader()  # no fail_names -> every config builds
+
+    _write_sim_input_bundle(
+        loader, str(bundle_dir),
+        seed=3, condition="acetate", fixed_media="minimal_acetate")
+
+    # 1. What build_cache.py's FIXED sequence does: read back, don't
+    #    rewrite. build_condition_cache.py's fix is simpler still (no
+    #    second call at all) but the persisted file is the same either way.
+    fixed = read_cache_version(str(bundle_dir))
+    assert fixed.configs, "configs must be non-empty after the fixed sequence"
+    assert set(REQUIRED_CACHE_CONFIG_NAMES) <= set(fixed.configs)
+    assert fixed.build_params == {
+        "condition": "acetate",
+        "fixed_media": "minimal_acetate",
+        "seed": 3,
+        "n_seeds": fixed.build_params["n_seeds"],  # resolved independently
+        "condition_manifest_hash": None,
+    }
+
+    # 2. Proof this is a real regression guard, not a vacuous assertion:
+    #    the OLD buggy pattern — a bare second write_cache_version(cache_dir)
+    #    with no configs=/build_params= — is exactly what clobbers them.
+    write_cache_version(str(bundle_dir))
+    clobbered = read_cache_version(str(bundle_dir))
+    assert clobbered.configs == (), (
+        "sanity check: the pre-fix pattern really did drop configs — if "
+        "this assertion ever fails, write_cache_version's default changed "
+        "and the fixed-sequence assertions above are the ones that matter")
+    assert clobbered.build_params["condition"] is None

@@ -59,7 +59,14 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd == "scaffold":
-        _ctx, specs = runner.load_investigation(args.investigation)
+        # Build specs from `comparison.configs[]` the same way run/init do --
+        # NOT via runner.load_investigation(), which resolves studies from
+        # the legacy `members:` list. Since the config-is-the-unit migration
+        # (Task 6), an investigation only carries `comparison.configs[]`, so
+        # load_investigation() silently returns an empty spec list here.
+        from scripts._compare.study_spec import _context, _invest_dir, specs_from_configs
+        ctx = _context(_invest_dir(args.investigation))
+        specs = specs_from_configs(ctx)
         for spec in specs:
             _materialize(spec)
         print(f"scaffolded {len(specs)} studies in {args.investigation}")

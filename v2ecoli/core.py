@@ -19,6 +19,7 @@ from bigraph_schema import allocate_core
 
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 from v2ecoli.library.cache_version import (
+    REQUIRED_CACHE_CONFIG_NAMES,
     StaleCacheError,
     verify_cache_version,
     write_cache_version,
@@ -301,6 +302,33 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
         for name, exc in failed:
             print(f"    - {name}: {type(exc).__name__}: {exc}")
 
+    # PARCA_REVIEW A6: a bundle missing a REQUIRED config must never be
+    # fingerprinted as valid — it passes verify_cache_version today and the
+    # sim then dies on a divide-by-zero in listeners.mass.cell_mass /
+    # crashes in Equilibrium. Abort before writing sim_data_cache.dill,
+    # simData.cPickle, metadata.json, or cache_version.json: no marker means
+    # verify_cache_version already refuses this bundle_dir as stale/partial
+    # (same convention as an interrupted build). Unlike A3's mechanistic
+    # fits, there is no opt-in bypass here — the review's fix is "hard-fail
+    # the build", not "write it anyway with a flag".
+    missing_required = sorted(
+        name for name in REQUIRED_CACHE_CONFIG_NAMES if name not in configs)
+    if missing_required:
+        failed_by_name = dict(failed)
+        detail = "; ".join(
+            f"{name}: {type(failed_by_name[name]).__name__}: "
+            f"{failed_by_name[name]}" if name in failed_by_name
+            else f"{name}: not attempted"
+            for name in missing_required)
+        raise RuntimeError(
+            f"sim-input bundle at {bundle_dir!r} is missing required "
+            f"config(s) {missing_required} ({detail}). Refusing to write "
+            f"sim_data_cache.dill / cache_version.json for a bundle that "
+            f"would pass verify_cache_version but crash the online sim "
+            f"(PARCA_REVIEW A6). Fix the underlying config-getter failure "
+            f"— there is no bypass for a required config."
+        )
+
     unique_names = list(
         loader.sim_data.internal_state.unique_molecule
         .unique_molecule_definitions.keys())
@@ -360,7 +388,8 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
         'n_seeds': _resolve_n_seeds(),
         'condition_manifest_hash': resolved_manifest_hash,
     }
-    write_cache_version(bundle_dir, build_params=build_params)
+    write_cache_version(bundle_dir, build_params=build_params,
+                        configs=sorted(configs.keys()))
     print(f"Sim-input bundle saved to {bundle_dir}")
 
 

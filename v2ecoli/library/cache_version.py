@@ -51,6 +51,20 @@ DEFAULT_BUILD_PARAMS: dict = {
     "condition_manifest_hash": None,
 }
 
+#: Config names whose absence from a built bundle is fatal (PARCA_REVIEW A6).
+#: The online sim divides by zero on ``listeners.mass.cell_mass`` /
+#: crashes in Equilibrium when either is missing (see the comment at
+#: ``v2ecoli/core.py``'s ``_write_sim_input_bundle``), so a bundle missing
+#: them must never be stamped valid by ``verify_cache_version``. This is a
+#: deliberately small subset of ``v2ecoli.core._CACHE_CONFIG_NAMES`` — the
+#: other config-getters can legitimately fail against legacy vEcoli sim_data
+#: (e.g. redux-specific attrs) without making the bundle unusable for the
+#: baseline sim, so only the two configs the review calls out are required.
+REQUIRED_CACHE_CONFIG_NAMES: tuple[str, ...] = (
+    "ecoli-mass-listener",
+    "ecoli-metabolism",
+)
+
 
 def _module_version(name: str) -> str:
     """Installed version of ``name``, or the sentinel ``"absent"``.
@@ -152,6 +166,16 @@ class CacheVersion:
     # passing these.
     context: dict = field(default_factory=dict)
     build_params: dict = field(default_factory=dict)
+    # Config names actually built into this bundle's sim_data_cache.dill
+    # (PARCA_REVIEW A6) — a completeness record, not a fingerprint input.
+    # Deliberately NOT folded into inputs_hash: which configs happen to
+    # build successfully is a property of a specific build attempt (can be
+    # flaky/environment-dependent), not of the inputs that determine
+    # whether a cache is *compatible* with the current code. Folding it in
+    # would make inputs_hash move on a run-to-run basis for identical
+    # inputs. default_factory=tuple keeps old callers (and pre-A6 cache_
+    # version.json files, which lack this key) working without passing it.
+    configs: tuple = field(default_factory=tuple)
 
     def to_dict(self) -> dict:
         return {
@@ -160,6 +184,7 @@ class CacheVersion:
             "per_file_hashes": dict(self.per_file_hashes),
             "context": dict(self.context),
             "build_params": dict(self.build_params),
+            "configs": sorted(self.configs),
         }
 
     @classmethod
@@ -170,6 +195,7 @@ class CacheVersion:
             per_file_hashes=dict(d.get("per_file_hashes", {})),
             context=dict(d.get("context", {})),
             build_params=dict(d.get("build_params", {})),
+            configs=tuple(d.get("configs", ())),
         )
 
 
@@ -198,7 +224,8 @@ def _default_repo_root() -> str:
 def compute_cache_version(repo_root: str | None = None,
                           files: Iterable[str] = INPUT_FILES,
                           build_params: dict | None = None,
-                          context: dict | None = None) -> CacheVersion:
+                          context: dict | None = None,
+                          configs: Iterable[str] | None = None) -> CacheVersion:
     """Compute the fingerprint over INPUT_FILES + context + build_params.
 
     ``context`` defaults to a fresh live probe (see ``probe_context``) so two
@@ -210,6 +237,14 @@ def compute_cache_version(repo_root: str | None = None,
     ``save_sim_input`` / ``save_cache``) — unlike ``context`` there is no
     environment to "probe" for build params, they are inherent to the
     artifact (A7).
+
+    ``configs`` (PARCA_REVIEW A6): the config names actually built into this
+    bundle's ``sim_data_cache.dill``, recorded on the returned
+    ``CacheVersion`` for ``verify_cache_version`` to check completeness
+    against. ``None`` (the default) records an empty set — callers that
+    don't build a bundle (most, which just want ``inputs_hash``) shouldn't
+    have to pass an empty list. Deliberately excluded from ``inputs_hash``
+    — see the field docstring on ``CacheVersion.configs``.
     """
     if repo_root is None:
         repo_root = _default_repo_root()
@@ -251,15 +286,19 @@ def compute_cache_version(repo_root: str | None = None,
         per_file_hashes=per_file,
         context=dict(context),
         build_params=resolved_build_params,
+        configs=tuple(sorted(configs)) if configs is not None else (),
     )
 
 
 def write_cache_version(cache_dir: str, version: CacheVersion | None = None,
                         repo_root: str | None = None,
-                        build_params: dict | None = None) -> CacheVersion:
+                        build_params: dict | None = None,
+                        configs: Iterable[str] | None = None) -> CacheVersion:
     """Write cache_version.json inside ``cache_dir``.  Called by save_cache."""
     if version is None:
-        version = compute_cache_version(repo_root=repo_root, build_params=build_params)
+        version = compute_cache_version(repo_root=repo_root,
+                                        build_params=build_params,
+                                        configs=configs)
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, CACHE_VERSION_FILENAME)
     with open(path, "w") as f:
@@ -294,6 +333,18 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
     not that this function detects a mismatched --cache-dir on its own.
     ``context`` (A9) is the opposite: it is re-probed fresh here so an
     environment change between build and load is exactly what this catches.
+
+    ``configs`` (A6): if the stored version recorded a non-empty config set
+    (bundles written after this check existed), assert
+    ``REQUIRED_CACHE_CONFIG_NAMES`` is a subset of it — a bundle missing
+    ``ecoli-mass-listener``/``ecoli-metabolism`` must never verify clean,
+    even though neither config participates in ``inputs_hash``. A bundle
+    with an *empty* recorded config set (pre-A6, or written by a caller
+    that doesn't build a ``configs`` dict at all — e.g. a hand-built test
+    fixture) is not asserted against: we can't distinguish "nothing was
+    recorded" from "nothing is required" from the marker alone, and the
+    primary defense against an incomplete bundle is the build itself
+    refusing to write one (``v2ecoli.core._write_sim_input_bundle``).
     """
     stored = read_cache_version(cache_dir)
     current = compute_cache_version(
@@ -333,6 +384,19 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
             expected=current,
             actual=stored,
         ))
+
+    if stored.configs:
+        missing_required = sorted(
+            set(REQUIRED_CACHE_CONFIG_NAMES) - set(stored.configs))
+        if missing_required:
+            raise StaleCacheError(_rebuild_message(
+                cache_dir,
+                reason=f"required config(s) missing from bundle: "
+                       f"{missing_required} (stored configs: "
+                       f"{sorted(stored.configs)}) — PARCA_REVIEW A6",
+                expected=current,
+                actual=stored,
+            ))
 
 
 def _rebuild_message(cache_dir: str, reason: str,

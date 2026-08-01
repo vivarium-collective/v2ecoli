@@ -1,0 +1,285 @@
+"""PARCA_REVIEW.md A3 + A6: fail loud instead of silently writing a
+partially-fit or incomplete ParCa cache/pickle.
+
+A3 (``v2ecoli/processes/parca/steps/step_09_final_adjustments.py``): the
+three ``mechanistic_*`` fits were wrapped in ``try/except: print(...);
+continue``, so a failure still produced a ``parca_state.pkl`` that is
+byte-shaped exactly like a complete one. Fixed: a per-fit ``{label:
+"ok"|"error"}`` status is always recorded at the ``mechanistic_fit_status``
+output port, and a failure now raises (aborting the step, so the CLI never
+reaches its ``pickle.dump``) unless ``allow_partial_fit=True`` (CLI:
+``--allow-partial-fit``) is passed.
+
+A6 (``v2ecoli/core.py``'s ``_write_sim_input_bundle``): per-config build
+failures were collected and printed, then the bundle was written and
+fingerprinted as valid anyway. Fixed: ``REQUIRED_CACHE_CONFIG_NAMES``
+(``ecoli-mass-listener``, ``ecoli-metabolism`` — the two configs whose
+absence PARCA_REVIEW documents as crashing the online sim) must be present
+in ``configs`` or the build raises before writing ``sim_data_cache.dill`` /
+``cache_version.json``. The config set actually built is also recorded onto
+``CacheVersion.configs`` (not folded into ``inputs_hash`` — see that
+field's docstring) so ``verify_cache_version`` can independently reject a
+stored bundle that recorded an incomplete required subset, as a second line
+of defense for any write path other than ``_write_sim_input_bundle``.
+
+Everything here is hermetic: no ParCa fixture, no real SimulationDataEcoli,
+no multi-hour pipeline run — consistent with
+``tests/test_parca_ports_and_wiring.py``'s "validate the architecture
+without running the full ParCa pipeline" approach. The A3 tests exercise
+``FinalAdjustmentsStep.update()`` directly with a synthetic port-value dict
+(mirroring ``make_sim_data_facade``'s documented contract) and monkeypatch
+the heavy ``create_bulk_container`` call out of the way; the A6 tests
+exercise ``v2ecoli.core._write_sim_input_bundle`` with a fake loader and
+``v2ecoli.library.cache_version.{write,verify}_cache_version`` directly.
+"""
+from __future__ import annotations
+
+import inspect
+from unittest.mock import MagicMock
+
+import pytest
+
+
+# ---------------------------------------------------------------------------
+# A3 — Step 9 mechanistic fits must not silently land a partial pickle.
+# ---------------------------------------------------------------------------
+
+def _make_step9_state():
+    """Minimal port-value dict FinalAdjustmentsStep.update() needs.
+
+    Only the keys the step's code path actually reads (see
+    ``make_sim_data_facade``'s docstring for which port names populate
+    which sim_data-shaped attribute) — everything else in INPUT_PORTS is
+    only needed for *composite* wiring, not a direct unit call.
+    """
+    return {
+        'transcription': MagicMock(name='transcription'),
+        'metabolism': MagicMock(name='metabolism'),
+        'cell_specs': {},
+        'constants': MagicMock(name='constants'),
+    }
+
+
+@pytest.fixture
+def step9_core():
+    from bigraph_schema import allocate_core
+    return allocate_core()
+
+
+def _patch_bulk_container(monkeypatch):
+    """create_bulk_container drives real bulk-molecule fitting machinery
+    that needs a fully-hydrated SimulationDataEcoli — irrelevant to the
+    try/except-loop behavior under test, so replace it with a stub."""
+    import v2ecoli.processes.parca.steps.step_09_final_adjustments as step9
+    monkeypatch.setattr(step9, 'create_bulk_container',
+                        lambda *a, **k: MagicMock(name='bulk_container'))
+
+
+def test_partial_mechanistic_fit_aborts_by_default(monkeypatch, step9_core):
+    """A mechanistic_* fit raising aborts the step (no pickle-worthy output)
+    unless allow_partial_fit is set — the direct regression test for A3."""
+    from v2ecoli.processes.parca.steps.step_09_final_adjustments import (
+        FinalAdjustmentsStep,
+    )
+
+    _patch_bulk_container(monkeypatch)
+    state = _make_step9_state()
+    state['metabolism'].set_mechanistic_supply_constants.side_effect = (
+        ValueError("Could not find positive forward and reverse kcat for CYS[c]"))
+
+    step = FinalAdjustmentsStep(config={}, core=step9_core)  # default: allow_partial_fit=False
+
+    with pytest.raises(RuntimeError, match="mechanistic_supply"):
+        step.update(state)
+
+    # Execution must not reach the ppGpp kinetics fit after the abort —
+    # proof the step stopped rather than "logged and continued".
+    state['transcription'].set_ppgpp_kinetics_parameters.assert_not_called()
+
+
+def test_partial_mechanistic_fit_allowed_with_flag(monkeypatch, step9_core):
+    """allow_partial_fit=True opts back into the old behavior: the step
+    completes and records {label: "error"} instead of raising."""
+    from v2ecoli.processes.parca.steps.step_09_final_adjustments import (
+        FinalAdjustmentsStep,
+    )
+
+    _patch_bulk_container(monkeypatch)
+    state = _make_step9_state()
+    state['metabolism'].set_mechanistic_supply_constants.side_effect = (
+        ValueError("Could not find positive forward and reverse kcat for CYS[c]"))
+
+    step = FinalAdjustmentsStep(config={'allow_partial_fit': True}, core=step9_core)
+
+    result = step.update(state)
+
+    assert result['mechanistic_fit_status'] == {
+        'mechanistic_supply': 'error',
+        'mechanistic_export': 'ok',
+        'mechanistic_uptake': 'ok',
+    }
+    # The pipeline DID continue past the failure this time.
+    state['transcription'].set_ppgpp_kinetics_parameters.assert_called_once()
+
+
+def test_all_mechanistic_fits_ok_records_all_ok(monkeypatch, step9_core):
+    """Calibration-neutral success path: when nothing fails, status is all
+    'ok' and the step behaves exactly as before (no raise either way)."""
+    from v2ecoli.processes.parca.steps.step_09_final_adjustments import (
+        FinalAdjustmentsStep,
+    )
+
+    _patch_bulk_container(monkeypatch)
+    state = _make_step9_state()
+
+    step = FinalAdjustmentsStep(config={}, core=step9_core)
+    result = step.update(state)
+
+    assert result['mechanistic_fit_status'] == {
+        'mechanistic_supply': 'ok',
+        'mechanistic_export': 'ok',
+        'mechanistic_uptake': 'ok',
+    }
+
+
+def test_cli_allow_partial_fit_flag_threads_to_build_parca_composite():
+    """cli/parca.py must expose --allow-partial-fit and forward it into
+    build_parca_composite(...).
+
+    A full ``main()`` invocation is deliberately avoided: it unconditionally
+    monkeypatches the real Step classes' ``.update`` (module-global, not
+    instance-scoped) for per-step checkpointing, which would leak across the
+    rest of the test session. Assert the wiring statically instead.
+    """
+    from v2ecoli.cli import parca as parca_cli
+
+    src = inspect.getsource(parca_cli.main)
+    assert '"--allow-partial-fit"' in src, (
+        "cli/parca.py:main() no longer defines --allow-partial-fit")
+    assert 'allow_partial_fit=args.allow_partial_fit' in src, (
+        "cli/parca.py:main() no longer forwards --allow-partial-fit into "
+        "build_parca_composite(...)")
+
+
+# ---------------------------------------------------------------------------
+# A6 — an incomplete sim-input bundle must not be fingerprinted as valid.
+# ---------------------------------------------------------------------------
+
+class _FakeUniqueMolecule:
+    unique_molecule_definitions: dict = {}
+
+
+class _FakeInternalState:
+    unique_molecule = _FakeUniqueMolecule()
+
+
+class _FakeSimData:
+    """Module-level (picklable) stand-in for a hydrated SimulationDataEcoli
+    — only the two attributes ``_write_sim_input_bundle`` reads past the
+    configs loop (unique_molecule_definitions, expectedDryMassIncreaseDict)."""
+
+    internal_state = _FakeInternalState()
+    expectedDryMassIncreaseDict: dict = {}
+
+
+class _FakeLoader:
+    """Duck-types the surface ``_write_sim_input_bundle`` needs from a
+    ``LoadSimData`` instance, without a real SimulationDataEcoli."""
+
+    def __init__(self, fail_names=()):
+        self._fail_names = set(fail_names)
+        self.sim_data = _FakeSimData()
+
+    def generate_initial_state(self):
+        return {}
+
+    def get_config_by_name(self, name):
+        if name in self._fail_names:
+            raise ValueError(f"boom building {name}")
+        return {'name': name}
+
+
+def test_incomplete_bundle_build_aborts(tmp_path):
+    """A required config (PARCA_REVIEW A6: ecoli-mass-listener /
+    ecoli-metabolism) failing to build raises before any bundle file that
+    verify_cache_version would treat as a valid marker is written."""
+    from v2ecoli.core import _write_sim_input_bundle
+
+    bundle_dir = tmp_path / "cache"
+    loader = _FakeLoader(fail_names={"ecoli-mass-listener"})
+
+    with pytest.raises(RuntimeError, match="ecoli-mass-listener"):
+        _write_sim_input_bundle(loader, str(bundle_dir))
+
+    assert not (bundle_dir / "cache_version.json").exists(), (
+        "cache_version.json must not exist after an aborted build — it is "
+        "the marker verify_cache_version treats as 'this bundle is valid'")
+    assert not (bundle_dir / "sim_data_cache.dill").exists()
+
+
+def test_complete_bundle_build_succeeds(tmp_path):
+    """Sanity/positive-control: no required config missing -> build proceeds
+    normally and writes the marker."""
+    from v2ecoli.core import _write_sim_input_bundle
+
+    bundle_dir = tmp_path / "cache"
+    loader = _FakeLoader(fail_names={"some-non-required-config"})
+
+    _write_sim_input_bundle(loader, str(bundle_dir))
+
+    assert (bundle_dir / "cache_version.json").exists()
+    assert (bundle_dir / "sim_data_cache.dill").exists()
+
+
+def test_incomplete_bundle_fails_verification(tmp_path):
+    """verify_cache_version rejects a stored bundle whose recorded configs
+    are missing a required entry, independent of the build-time guard —
+    the second line of defense named in PARCA_REVIEW A6."""
+    from v2ecoli.library.cache_version import (
+        REQUIRED_CACHE_CONFIG_NAMES,
+        StaleCacheError,
+        verify_cache_version,
+        write_cache_version,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    incomplete_configs = sorted(
+        set(REQUIRED_CACHE_CONFIG_NAMES) - {"ecoli-mass-listener"}
+        | {"some-other-config"})
+    write_cache_version(str(cache_dir), configs=incomplete_configs)
+
+    with pytest.raises(StaleCacheError, match="ecoli-mass-listener"):
+        verify_cache_version(str(cache_dir))
+
+
+def test_complete_bundle_configs_pass_verification(tmp_path):
+    """Positive control for the verify-time check: a stored config set that
+    covers REQUIRED_CACHE_CONFIG_NAMES verifies clean."""
+    from v2ecoli.library.cache_version import (
+        REQUIRED_CACHE_CONFIG_NAMES,
+        verify_cache_version,
+        write_cache_version,
+    )
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    write_cache_version(
+        str(cache_dir),
+        configs=list(REQUIRED_CACHE_CONFIG_NAMES) + ["some-other-config"])
+
+    verify_cache_version(str(cache_dir))  # no raise
+
+
+def test_empty_recorded_configs_does_not_fail_verification(tmp_path):
+    """A stored bundle with no recorded configs (pre-A6, or a caller that
+    never passed configs=...) is not asserted against — only the build
+    path is a hard gate for those; verify_cache_version can't tell 'nothing
+    recorded' from 'nothing required' from the marker alone."""
+    from v2ecoli.library.cache_version import verify_cache_version, write_cache_version
+
+    cache_dir = tmp_path / "cache"
+    cache_dir.mkdir()
+    write_cache_version(str(cache_dir))  # configs=None -> recorded as ()
+
+    verify_cache_version(str(cache_dir))  # no raise

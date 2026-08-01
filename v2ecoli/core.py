@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import functools
 import os
+import warnings
 from typing import Any
 
 import dill
@@ -18,6 +19,7 @@ from bigraph_schema import allocate_core
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 from v2ecoli.library.cache_version import (
     StaleCacheError,
+    verify_cache_version,
     write_cache_version,
 )
 # Import at module load so the shared pint UnitRegistry has
@@ -123,9 +125,46 @@ except Exception:
     pass
 
 
+_SKIP_CACHE_VERIFY_ENV = "V2ECOLI_SKIP_CACHE_VERIFY"
+_skip_cache_verify_warned = False
+
+
+def _cache_verify_skipped() -> bool:
+    """Whether the cache-version staleness check should be bypassed.
+
+    Reads ``V2ECOLI_SKIP_CACHE_VERIFY`` at call time (not import time) so
+    tests/scripts can toggle it via ``monkeypatch.setenv`` /
+    ``os.environ`` without needing a fresh process. This is an escape
+    hatch for deliberate cross-version work (e.g. comparing a cache built
+    on a different commit); it warns once per process so a skip never
+    goes unnoticed in logs.
+    """
+    global _skip_cache_verify_warned
+    if not os.environ.get(_SKIP_CACHE_VERIFY_ENV):
+        return False
+    if not _skip_cache_verify_warned:
+        warnings.warn(
+            f"{_SKIP_CACHE_VERIFY_ENV} is set: skipping ParCa cache "
+            "staleness verification. A stale or mis-calibrated cache may "
+            "load silently. Unset this env var for normal use.",
+            stacklevel=2,
+        )
+        _skip_cache_verify_warned = True
+    return True
+
+
 @functools.lru_cache(maxsize=4)
 def _load_cache_bundle_cached(cache_dir):
-    """Raw loader — memoized by cache_dir."""
+    """Raw loader — memoized by cache_dir.
+
+    Staleness verification is deliberately NOT done here: this function's
+    result is memoized by ``cache_dir`` alone, so a check performed only on
+    the first (cache-miss) call would silently stop running on every
+    subsequent call for the same ``cache_dir`` within this process — and
+    the escape-hatch env var wouldn't be re-read at call time either. See
+    ``load_cache_bundle``, the public entry point, which verifies on every
+    call before delegating to this memoized loader.
+    """
     initial_state = load_initial_state(
         os.path.join(cache_dir, 'initial_state.json'))
     cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
@@ -150,11 +189,20 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
     underlying dill cache provides (typically ``configs``, ``unique_names``,
     ``dry_mass_inc_dict``).
 
+    Verifies ``cache_dir`` against the current cache fingerprint
+    (``v2ecoli.library.cache_version.verify_cache_version``) on every call,
+    raising ``StaleCacheError`` if the cache was built from a different
+    ParCa fixture / sim_data / unit-bridge / composite code. Set
+    ``V2ECOLI_SKIP_CACHE_VERIFY=1`` to bypass this for deliberate
+    cross-version work; doing so logs a one-time warning.
+
     The heavy work (reading the dill, rebinding pint Quantities onto the
     shared UnitRegistry) is memoized per ``cache_dir``; ``initial_state`` is
     deep-copied because ``build_document`` mutates it, while the cache dict
     is returned by reference (read-only).
     """
+    if not _cache_verify_skipped():
+        verify_cache_version(cache_dir)
     initial_state, cache = _load_cache_bundle_cached(cache_dir)
     # The translation_supply / trna_charging selector flags were removed from
     # the elongation process config_schema (model choice is now a wiring

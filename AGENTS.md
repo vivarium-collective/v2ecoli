@@ -284,13 +284,18 @@ HTML and see the exact state of the simulation the PR is claiming.
 - Behavior fixtures live in `tests/fixtures/`. The pre-division state
   (`pre_division_state.json.gz`) and ParCa cache (`cache/`) are load-bearing.
 - `out/cache/` is fingerprinted by `v2ecoli/library/cache_version.py`.
-  `build_composite` calls `verify_cache_version` before loading, so a cache
-  that was built from a different `models/parca/parca_state.pkl.gz`,
+  `v2ecoli.core.load_cache_bundle` — the production loader that
+  `build_composite` and every composite architecture route through — calls
+  `verify_cache_version` on every call before loading, so a cache that was
+  built from a different `models/parca/parca_state.pkl.gz`,
   `v2ecoli/library/sim_data.py`, or unit-bridge raises `StaleCacheError`
   with a one-line rebuild command instead of a 10-frame-deep `AttributeError`.
   Rebuild with `python scripts/build_cache.py` (fast; reuses the committed
   ParCa fixture — no ParCa re-run). See `docs/generate_full_parca.md` for
-  the full ParCa path.
+  the full ParCa path. Set `V2ECOLI_SKIP_CACHE_VERIFY=1` to bypass the check
+  for deliberate cross-version work (e.g. comparing a cache built on a
+  different commit); this logs a one-time warning and should not be used
+  routinely.
 
 ## What NOT to do
 

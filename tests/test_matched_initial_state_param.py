@@ -110,8 +110,10 @@ def test_match_simdata_overlays_bulk_from_reference_simdata(
     bulk = doc["state"]["agents"]["0"]["bulk"]
 
     # Routed into the reused mechanism with the right args (abspath, seed
-    # threaded through; condition defaults to "basal" — Task 4 threads the
-    # per-config condition explicitly).
+    # threaded through; condition defaults to "basal" when match_condition is
+    # left unset — see test_match_condition_defaults_to_basal_when_unset and
+    # test_match_condition_threads_into_reference_state below for the
+    # per-config condition path, Task 4's materializer).
     assert len(calls) == 1
     sim_data_path, condition, seed, fork_dir = calls[0]
     assert sim_data_path.endswith("/fake/reference/simData.cPickle")
@@ -125,6 +127,46 @@ def test_match_simdata_overlays_bulk_from_reference_simdata(
     assert counts["B"] == 5
     # 'C' is not in the reference bulk: left as the cache's own value.
     assert counts["C"] == 30
+
+
+def test_match_condition_defaults_to_basal_when_unset(
+        hermetic_baseline_build, monkeypatch):
+    """``match_condition`` defaults to "basal" (matching the old hardcode)
+    when the caller doesn't pass it — the CALIBRATION-NEUTRAL requirement:
+    the default path is unchanged by this param's addition."""
+    calls = []
+
+    def fake_reference_state(sim_data_path, condition, seed, fork_dir):
+        calls.append(condition)
+        return {}, {}
+
+    monkeypatch.setattr(rce, "_vecoli_reference_state", fake_reference_state)
+
+    eb.baseline(cache_dir="fake_cache", seed=0,
+               match_simdata="/fake/reference/simData.cPickle")  # match_condition omitted
+
+    assert calls == ["basal"]
+
+
+def test_match_condition_threads_into_reference_state(
+        hermetic_baseline_build, monkeypatch):
+    """A non-default ``match_condition`` (e.g. a with_aa config) is threaded
+    all the way into ``_vecoli_reference_state``'s ``condition`` argument —
+    proves Task 4's per-config condition threading fixes the old hardcoded
+    condition="basal" in ``_apply_match_simdata``."""
+    calls = []
+
+    def fake_reference_state(sim_data_path, condition, seed, fork_dir):
+        calls.append(condition)
+        return {}, {}
+
+    monkeypatch.setattr(rce, "_vecoli_reference_state", fake_reference_state)
+
+    eb.baseline(cache_dir="fake_cache", seed=0,
+               match_simdata="/fake/reference/simData.cPickle",
+               match_condition="with_aa")
+
+    assert calls == ["with_aa"]
 
 
 def test_match_simdata_batch_mode_fails_loud(monkeypatch):

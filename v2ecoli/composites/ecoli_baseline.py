@@ -684,6 +684,22 @@ def _build_batch_document(
                            "expressed declaratively. Default None/empty leaves "
                            "the baseline's own cached initial state untouched.",
         },
+        "match_condition": {
+            "type": "string",
+            "default": "basal",
+            "description": "vEcoli growth condition to build the REFERENCE "
+                           "engine under when resolving match_simdata's "
+                           "overlay (matches build_vivarium_ecoli's own "
+                           "condition param). Only consulted when "
+                           "match_simdata is set. A paired comparison must "
+                           "pass the SAME condition its config drives on "
+                           "both engines -- e.g. a with_aa config's candidate "
+                           "must set match_condition='with_aa', not the "
+                           "default 'basal', or the overlay is drawn from "
+                           "the wrong reference condition. Default 'basal' "
+                           "for back-compat with match_simdata callers that "
+                           "predate per-config condition threading (Task 4).",
+        },
         "transcript_initiation_mode": {
             "type": "string", "default": "discrete",
             "description": (
@@ -881,6 +897,7 @@ def baseline(
     seed: int = 0,
     cache_dir: str = "out/cache",
     match_simdata: str | None = None,
+    match_condition: str = "basal",
     transcript_initiation_mode: str = "discrete",
     polypeptide_initiation_mode: str = "discrete",
     config_overrides: dict | None = None,
@@ -928,6 +945,13 @@ def baseline(
             applies via --match-vecoli-simdata/--match-initial-state).
             None (default) leaves the baseline's own cached initial state
             unchanged.
+        match_condition: vEcoli growth condition to build the reference
+            engine under when resolving match_simdata's overlay. Only
+            consulted when match_simdata is set. Threads a paired
+            comparison's per-config condition into the matched-init overlay
+            (Task 4's materializer sets this to the same condition it drives
+            on the reference `vecoli` composite); defaults to "basal" for
+            back-compat.
         transcript_initiation_mode: Phase-2 opt-in for the PDMP transcript
             initiation dispatch — ``discrete`` (default) or the piecewise-
             deterministic mode.
@@ -1064,9 +1088,12 @@ def baseline(
     # pre-run bulk counts onto this composite's initial state so a paired
     # candidate/reference comparison starts from an identical t=0. See
     # _apply_match_simdata for the reused mechanism. No-op when unset (the
-    # default), leaving the cache's own initial state untouched.
+    # default), leaving the cache's own initial state untouched. match_condition
+    # threads the config's own condition (Task 4's materializer) into the
+    # reference-engine build; defaults to "basal" for back-compat.
     if match_simdata:
-        _apply_match_simdata(cell_state, match_simdata=match_simdata, seed=seed)
+        _apply_match_simdata(cell_state, match_simdata=match_simdata, seed=seed,
+                              condition=match_condition)
 
     # Media perturbation (from the existing cache — no ParCa re-fit). The cache's
     # initial environment is 'minimal'; the media_update step swaps in a different

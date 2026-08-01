@@ -18,6 +18,9 @@ comparison:
     - statistical
     - standard
     - trajectory
+    - distribution
+    - metabolism
+    - composition
   configs:
   - name: basal
     config: basal

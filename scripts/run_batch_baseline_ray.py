@@ -98,13 +98,18 @@ def main() -> None:
             cache_dir=CACHE_DIR,
             out_dir=str(OUT_ROOT),
             experiment_id=args.experiment_id,
-            emitter="xarray",
+            # "both" (not "xarray") so the sweep ALSO gets hive-parquet under
+            # OUT_ROOT/history/ -- what the DuckDB-based Analysis family
+            # (v2ecoli.workflow.analysis.Analysis, e.g. the cd1/ptools suite)
+            # reads via analysis_runner.run_analyses(). Without this, an
+            # xarray-only sweep has nothing for those analyses to query.
+            emitter="both",
             parallel=None if args.parallel == "off" else args.parallel,
             # Post-hoc standalone analysis (scripts/run_standalone_analysis.py)
             # handles analyses separately over the landed S3 output -- skip
-            # dispatch_batch's own inline analysis dispatch (parquet/DuckDB-
-            # based, a different code path entirely from the S3 zarr summaries
-            # the standalone script reads).
+            # dispatch_batch's own inline analysis dispatch (this pipeline's
+            # local-only flush; the standalone script now runs the same
+            # analysis_runner.run_analyses() directly against the S3 sweep).
             analyses="none",
         )
     except Exception as e:  # noqa: BLE001 -- must still report failure, not crash silently

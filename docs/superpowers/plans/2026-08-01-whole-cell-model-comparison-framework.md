@@ -969,61 +969,58 @@ git commit -m "feat(compare): per-study summary card (verdict strip + observable
 
 ---
 
-### Task 12: Cross-config overview (matrix, both surfaces)
+### Task 12: Cross-config overview — theme + configs[]-ify the existing summary generator
+
+> **RE-SCOPED (discovery):** the cross-config overview already exists —
+> `reports/_summary/aggregate.py` builds the investigation summary (incl. a
+> `matrix` of studies × observables verdicts) and `reports/_summary/render.py`
+> renders it (`table.matrix`, `render(summary, style_css="")` accepts injected
+> CSS). Entry point: `reports/investigation_summary.py::main`. Do NOT build a
+> parallel `scripts/_compare/overview.py`. Instead: (a) make the aggregator
+> configs[]-aware so it finds the migrated investigation's studies, (b) theme
+> the renderer via `theme.py`, and (c) re-materialize the studies so their
+> `study.yaml` card/test lists match the new 8-card default. This is what fixes
+> the 13 currently-failing `tests/test_investigation_summary.py` (12) +
+> `tests/test_modular_tests_integration.py` (1).
 
 **Files:**
-- Create: `scripts/_compare/overview.py`
-- Modify: `scripts/_compare/report.py` (embed overview on the investigation index)
-- Test: `tests/compare/test_overview.py`
+- Modify: `reports/_summary/aggregate.py` (configs[]-aware study resolution)
+- Modify: `reports/_summary/render.py` (theme injection: `style_css` + verdict/badge/pill colors from `theme.STATUS`, glyph+label)
+- Regenerate: `workspace/studies/<member>/study.yaml` for the 10 members (via `v2e-compare scaffold whole-cell-model-comparison`, which re-materializes report_cards/tests from the 8-card default)
+- Test: existing `tests/test_investigation_summary.py`, `tests/test_modular_tests_integration.py` (must pass); optionally a small themed-render assertion.
 
 **Interfaces:**
-- Consumes: `theme.STATUS`; a mapping `config_name -> verdict dict` (Task 11's verdict shape).
-- Produces: `build_overview_html(verdicts: dict[str, dict], observables: list[str]) -> str` — a configs × observables matrix, each cell a status fill + median-|Δ| label, row/col headers, glyph+label legend, per-cell hover. Embedded on the HTML report index and exposed for the dashboard investigation view.
+- Consumes: `theme.STATUS`, `theme.css_vars` (Task 8); `load_investigation`/`specs_from_configs` (config-aware study list).
+- Produces: `aggregate(...)` resolves studies for a `configs[]` investigation (not only `members:`); `render(summary, style_css=...)` applies the shared theme (matrix verdict cells + badges/pills from `theme.STATUS`, never color-alone); every member `study.yaml` declares the 8 default cards + matching `tests`.
 
-- [ ] **Step 1: Write the failing test**
+- [ ] **Step 1: Reproduce the 13 failures**
 
-```python
-# tests/compare/test_overview.py
-from scripts._compare.overview import build_overview_html
+Run: `PYTHONPATH=$PWD ~/code/v2ecoli/.venv/bin/python -m pytest tests/test_investigation_summary.py tests/test_modular_tests_integration.py -q`
+Expected: 13 FAIL (aggregator can't resolve configs[] studies / stale study.yaml card lists).
 
-VERDICTS = {
-  "basal":   {"groups": {"statistical": {"axes": [
-      {"label": "cell", "verdict": "within_tol", "detail": {"median_rel": 0.001}},
-      {"label": "growth", "verdict": "drift", "detail": {"median_rel": 0.104}}]}}},
-  "with_aa": {"groups": {"statistical": {"axes": [
-      {"label": "cell", "verdict": "within_tol", "detail": {"median_rel": 0.009}},
-      {"label": "growth", "verdict": "within_tol", "detail": {"median_rel": 0.043}}]}}},
-}
+- [ ] **Step 2: Make the aggregator configs[]-aware**
 
+In `reports/_summary/aggregate.py`, replace the direct `inv.get("members") or inv.get("studies")` study resolution with the config-aware path: when `comparison.configs[]` is present, resolve the study list from it (reuse `scripts._compare.study_spec.load_investigation` — now configs[]-aware — or `specs_from_configs(_context(...))`; import lazily to avoid a heavy import at module load). Keep the legacy `members:` path for old investigations. Preserve the existing `matrix`/DAG-order/rollup output shape the render + tests expect.
 
-def test_matrix_has_a_cell_per_config_observable():
-    html = build_overview_html(VERDICTS, observables=["cell", "growth"])
-    assert "basal" in html and "with_aa" in html
-    assert "cell" in html and "growth" in html
-    assert "10.4%" in html and "0.1%" in html
-    # every (config,observable) rendered → 2x2 status cells
-    assert html.count("data-status") == 4
-```
+- [ ] **Step 3: Re-materialize the studies to the 8-card default**
 
-- [ ] **Step 2: Run test to verify it fails**
+Run: `PYTHONPATH=$PWD ~/code/v2ecoli/.venv/bin/python scripts/compare_cli.py scaffold whole-cell-model-comparison`
+This rewrites each member `study.yaml`'s `report_cards` + `tests` from `spec.cards` (the 8-card default), so the per-study lists match. Confirm `test_modular_tests_integration.py` passes after this.
 
-Run: `~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_overview.py -v`
-Expected: FAIL — module undefined.
+- [ ] **Step 4: Theme the renderer**
 
-- [ ] **Step 3: Implement**
+In `reports/_summary/render.py`: pass `theme.css_vars("light")` + a dark block into the emitted `<style>` (the `render(summary, style_css=...)` param already exists — wire the caller `investigation_summary.py` to pass it, and/or default it), and replace the hardcoded verdict/badge/pill hex literals (`#d1fae5`/`#fef3c7`/`#fee2e2` etc.) with `theme.STATUS[*]["color"]`, showing each verdict's glyph+label (never color-alone). Keep the matrix structure + column ordering.
 
-Write `build_overview_html` producing an HTML table/grid; each cell carries `data-status="<verdict>"` (for hover + CSS status fill from `theme.STATUS`) and the median-|Δ| percent label. Embed it near the top of `report.py`'s investigation index (a new "Reproduction across configs" section). Expose the same fragment for the dashboard investigation view (write it into the investigation's rendered artifacts alongside the report cards).
+- [ ] **Step 5: Run tests to verify they pass**
 
-- [ ] **Step 4: Run tests to verify they pass**
+Run: `PYTHONPATH=$PWD ~/code/v2ecoli/.venv/bin/python -m pytest tests/test_investigation_summary.py tests/test_modular_tests_integration.py tests/compare/ -q`
+Expected: the 13 now PASS; tests/compare stays green.
 
-Run: `~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_overview.py -v`
-Expected: PASS.
-
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit** (by explicit path; never `git add -A`)
 
 ```bash
-git add scripts/_compare/overview.py scripts/_compare/report.py tests/compare/test_overview.py
-git commit -m "feat(compare): cross-config reproduction matrix on report + dashboard"
+git add reports/_summary/aggregate.py reports/_summary/render.py workspace/studies tests
+git commit -m "feat(compare): themed, configs[]-aware cross-config overview matrix"
 ```
 
 ---

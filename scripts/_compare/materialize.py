@@ -35,8 +35,16 @@ _FINDING_STATUS = {"within_tol": "confirms", "drift": "partial",
 
 
 def _pct(axis) -> str:
-    """median relative error of an axis as a percent string, or ''."""
-    mr = (axis.get("detail") or {}).get("median_rel")
+    """|Δ| of an axis as a percent string, or ''. Tolerates all three key
+    conventions the real card producers use: `median_rel` (standard/summary),
+    `init_rel` (parca), and `delta_rel` (statistical/ttest, can be negative,
+    abs()'d) — same fallback as report_cards/summary.py's `_magnitude`."""
+    detail = axis.get("detail") or {}
+    mr = detail.get("median_rel")
+    if mr is None:
+        mr = detail.get("init_rel")
+    if mr is None and detail.get("delta_rel") is not None:
+        mr = abs(detail["delta_rel"])
     return f"{mr * 100:.1f}%" if isinstance(mr, (int, float)) else ""
 
 

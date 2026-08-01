@@ -36,7 +36,14 @@ dependencies = [
     # pickled interpolators are not portable across that boundary. Cap at <1.18
     # until the blob migrates off pickle (bigraph-schema ``.pbg``; see
     # ``v2ecoli/processes/parca/data_loader.py`` + ``models/parca/README.md``).
-    "scipy<1.18",
+    # Floor: 1.14 predates BOTH breaking changes this repo already carries
+    # compat shims for — the array-API ``PPoly``/``CubicSpline`` refactor at
+    # 1.15 (``_scipy_compat.py``) and the vendored
+    # ``scipy._lib.array_api_compat`` removal at 1.16 (``data_loader.py``).
+    # Below 1.14 is untested here and unpinned before this change (see
+    # PARCA_REVIEW A9); locked/installed is 1.17.1, comfortably inside
+    # [1.14, 1.18).
+    "scipy>=1.14,<1.18",
     "pymunk",
     # ParCa (v2ecoli/processes/parca/) runtime dependencies
     "cvxpy",

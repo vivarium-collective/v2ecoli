@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import copy
 import functools
+import hashlib
 import os
 import warnings
 from typing import Any
@@ -230,12 +231,49 @@ _CACHE_CONFIG_NAMES = [
     'unique_molecule_counts', 'allocator',
 ]
 
-def _write_sim_input_bundle(loader, bundle_dir):
+def _hash_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _resolve_n_seeds() -> int | None:
+    """The fit's actual V2PARCA_N_SEEDS, for recording into build_params.
+
+    Lazy + defensive: step_05 pulls in the heavy ParCa stack
+    (stochastic_arrow, ...), which callers of the generic composite path
+    (not building a cache bundle) shouldn't be forced to import. Never
+    raises — a missing/broken import just records ``None`` rather than
+    crashing bundle-saving (PARCA_REVIEW A9's "gracefully handle a package
+    not being importable" applies here too).
+    """
+    try:
+        from v2ecoli.processes.parca.steps.step_05_fit_condition import (
+            resolved_n_seeds,
+        )
+        return resolved_n_seeds()
+    except Exception:
+        return None
+
+
+def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
+                            fixed_media=None, condition_manifest_hash=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
     (live-object). Emits ``initial_state.json``, ``sim_data_cache.dill``,
     ``metadata.json``, and the cache-version marker into ``bundle_dir``.
+
+    ``seed``/``condition``/``fixed_media``/``condition_manifest_hash`` are
+    the actual build parameters this specific bundle was built with
+    (PARCA_REVIEW A7) — recorded into ``cache_version.json``'s
+    ``build_params`` (folded into ``inputs_hash``) so two bundles built with
+    different parameters no longer produce byte-identical fingerprints.
+    ``n_seeds`` is resolved independently (A8) since it isn't a parameter of
+    ``LoadSimData`` — it governs the *fit* upstream of this bundle-writing
+    step, not sim-data hydration.
     """
     os.makedirs(bundle_dir, exist_ok=True)
 
@@ -300,7 +338,29 @@ def _write_sim_input_bundle(loader, bundle_dir):
         pass
     save_json({'unique_names': unique_names, 'media_id': _bundle_media_id},
               os.path.join(bundle_dir, 'metadata.json'))
-    write_cache_version(bundle_dir)
+
+    # A rebuild-in-place (e.g. re-running scripts/build_condition_cache.py at
+    # the same --cache dir) leaves a condition.json manifest from the PRIOR
+    # build already on disk; fold its hash in when no explicit
+    # condition_manifest_hash/patch id was supplied. On a fresh build of a
+    # patched cache there is no condition.json yet at this point (it's
+    # written by the caller after save_sim_input returns), so this stays
+    # None there — pass condition_manifest_hash explicitly if that ordering
+    # ever changes.
+    resolved_manifest_hash = condition_manifest_hash
+    if resolved_manifest_hash is None:
+        manifest_path = os.path.join(bundle_dir, 'condition.json')
+        if os.path.exists(manifest_path):
+            resolved_manifest_hash = _hash_file(manifest_path)
+
+    build_params = {
+        'condition': condition,
+        'fixed_media': fixed_media,
+        'seed': seed,
+        'n_seeds': _resolve_n_seeds(),
+        'condition_manifest_hash': resolved_manifest_hash,
+    }
+    write_cache_version(bundle_dir, build_params=build_params)
     print(f"Sim-input bundle saved to {bundle_dir}")
 
 
@@ -313,11 +373,12 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     """
     from v2ecoli.library.sim_data import LoadSimData
     loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
-    _write_sim_input_bundle(loader, cache_dir)
+    _write_sim_input_bundle(loader, cache_dir, seed=seed)
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
-                   condition=None, fixed_media=None):
+                   condition=None, fixed_media=None,
+                   condition_manifest_hash=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -331,6 +392,13 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     reflects that condition's growth rate / doubling time — both already live in
     the ParCa state's ``condition_to_doubling_time`` / saved media, so no refit
     is needed. Omitted → default basal / minimal (glucose).
+
+    ``condition_manifest_hash`` (PARCA_REVIEW A7): pass the hash/id of a
+    patch manifest (e.g. ``build_condition_cache.py``'s in-memory
+    ``patch_record`` before its ``condition.json`` is written) when the
+    caller already knows it, so it lands in ``cache_version.json``'s
+    ``build_params`` on the very first build rather than only on a rebuild
+    (see ``_write_sim_input_bundle``'s condition.json auto-detection).
     """
     from v2ecoli.library.sim_data import LoadSimData
     kwargs = {"sim_data": sim_data, "seed": seed}
@@ -339,4 +407,6 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     if fixed_media is not None:
         kwargs["fixed_media"] = fixed_media
     loader = LoadSimData(**kwargs)
-    _write_sim_input_bundle(loader, bundle_dir)
+    _write_sim_input_bundle(loader, bundle_dir, seed=seed, condition=condition,
+                            fixed_media=fixed_media,
+                            condition_manifest_hash=condition_manifest_hash)

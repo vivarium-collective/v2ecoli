@@ -22,15 +22,32 @@ carries no per-axis numeric value -- elsewhere in this codebase
 additionally surfaced next to the glyph, and this Analysis is asked to do the
 same for the matrix. Rather than reinvent ``_matrix_table``'s table markup /
 CSS / escaping / glyph+label lookup, ``comparison_matrix`` calls the REAL
-function to get the verdict-graded skeleton, then does a minimal,
-order-matched regex splice to append each graded cell's "Delta N.N%" (from
-``detail.median_rel``) -- the one thing ``_matrix_table`` doesn't already do.
-Table markup, CSS classes, colors, glyphs, and labels are 100% reused from
-``render.py``/``theme.py``; only the delta annotation is new, thin, and
-mechanical (an adapter, not a re-render).
+function to get the verdict-graded skeleton, then decorates it with each
+graded cell's "Delta N.N%" (from ``detail.median_rel``) -- the one thing
+``_matrix_table`` doesn't already do. Table markup, CSS classes, colors,
+glyphs, and labels are 100% reused from ``render.py``/``theme.py``; only the
+delta annotation is new.
+
+Delta injection is KEYED, not positional (fix-round 1): an earlier version
+spliced deltas in by a flat, order-assumed pass over every graded `<td>`,
+which a future `_matrix_table` change that reorders cells (resorted columns,
+an inserted row) but keeps the same classes/count could silently mislabel --
+no crash, just the wrong |Delta| on the wrong (config, observable) cell.
+``_inject_deltas`` instead re-derives cell identity from the table's OWN
+structure: it reads the header's column order (``_parse_header_columns``)
+and, per body row, the row's config identity from its
+``<td class="study">`` cell (``_parse_body_rows``), then zips each row's
+cells against the header's column order to look up that (config, observable)
+pair's delta from ``matrix``'s per-config ``_deltas``. This survives a
+`_matrix_table` change that resorts columns (header and row cells move
+together, from the same ``cols`` loop) and FAILS LOUD
+(``_MatrixStructureError``) the moment that structure breaks -- a row whose
+study cell isn't a known config, or whose cell count doesn't match the
+header -- rather than guessing.
 """
 from __future__ import annotations
 
+import html as _html
 import re
 from typing import Any
 
@@ -41,10 +58,24 @@ from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY  # noqa: F401
 from reports._summary import render as _render
 from scripts._compare import theme
 
-# Matches exactly the graded `<td>` cells `_matrix_table` emits (verdict-none
-# cells -- a config missing that observable -- deliberately excluded, same as
-# the delta lookup below).
-_CELL_RE = re.compile(r'(<td class="verdict-(?:within_tol|drift|mismatch)">[^<]*)</td>')
+# Structural parsing of `_matrix_table`'s own (fixed) markup -- see module
+# docstring "Delta injection is KEYED, not positional".
+_HEADER_ROW_RE = re.compile(r"<thead><tr>(.*?)</tr></thead>", re.DOTALL)
+_TH_RE = re.compile(r"<th[^>]*>(.*?)</th>")
+_TBODY_RE = re.compile(r"<tbody>(.*)</tbody>", re.DOTALL)
+_ROW_RE = re.compile(r"<tr>(.*?)</tr>", re.DOTALL)
+_STUDY_CELL_RE = re.compile(r'<td class="study">(.*?)</td>')
+_DATA_CELL_RE = re.compile(r'<td class="([\w-]+)">(.*?)</td>', re.DOTALL)
+
+_GRADED_CLASSES = ("verdict-within_tol", "verdict-drift", "verdict-mismatch")
+
+
+class _MatrixStructureError(ValueError):
+    """The reused ``_matrix_table`` output no longer has the row=config /
+    per-row-cells=header-columns structure ``_inject_deltas`` needs to place
+    a delta on the correct (config, observable) cell. Raised instead of
+    guessing -- see module docstring."""
+
 
 _EXTRA_CSS = (
     ".comparison-matrix .delta{display:block;font-size:0.75em;opacity:0.85}"
@@ -90,29 +121,94 @@ def _config_verdicts_to_matrix(config_verdicts: dict[str, dict]) -> dict[str, An
     return {"columns": columns, "rows": rows}
 
 
+def _parse_header_columns(table_html: str) -> list[str]:
+    """The header's observable-column order, AS ACTUALLY RENDERED (not
+    assumed from our own input) -- `_matrix_table`'s header and each row's
+    cells are built from the same `cols` loop, so reading the header back is
+    what lets `_inject_deltas` follow a resorted-columns change instead of
+    silently mislabeling against a stale assumed order."""
+    m = _HEADER_ROW_RE.search(table_html)
+    if not m:
+        raise _MatrixStructureError(
+            "comparison_matrix: no <thead><tr>...</tr></thead> header row "
+            "found in the reused _matrix_table output")
+    ths = _TH_RE.findall(m.group(1))
+    if not ths or ths[0] != "study":
+        raise _MatrixStructureError(
+            f"comparison_matrix: expected the header's first column to be "
+            f"'study', got {ths[:1]!r} -- _matrix_table's markup changed in "
+            "a way this adapter can no longer safely map deltas onto")
+    return [_html.unescape(h) for h in ths[1:]]
+
+
+def _parse_body_rows(table_html: str) -> list[tuple[str, list[tuple[str, str]]]]:
+    """[(config_name, [(css_class, cell_text), ...]), ...] -- one entry per
+    body row, config identity read from that row's OWN
+    ``<td class="study">`` cell (never assumed from row position), cells in
+    the order `_matrix_table` emitted them for that row."""
+    m = _TBODY_RE.search(table_html)
+    if not m:
+        raise _MatrixStructureError(
+            "comparison_matrix: no <tbody>...</tbody> body found in the "
+            "reused _matrix_table output")
+    rows: list[tuple[str, list[tuple[str, str]]]] = []
+    for row_html in _ROW_RE.findall(m.group(1)):
+        study_m = _STUDY_CELL_RE.search(row_html)
+        if not study_m:
+            raise _MatrixStructureError(
+                'comparison_matrix: a matrix row has no <td class="study">'
+                "...</td> identifying its config -- cannot map deltas onto "
+                "it without guessing")
+        config_name = _html.unescape(study_m.group(1))
+        rest = row_html[study_m.end():]
+        cells = [(klass, text) for klass, text in _DATA_CELL_RE.findall(rest)]
+        rows.append((config_name, cells))
+    return rows
+
+
 def _inject_deltas(table_html: str, matrix: dict[str, Any]) -> str:
-    """Splice each graded cell's "Delta N.N%" into HTML `_matrix_table`
-    already produced from `matrix` (columns/rows, ignoring the `_deltas`
-    key). `_matrix_table` walks rows then columns in that exact order when
-    emitting `<td>`s, so the deltas stream in the same order -- matched only
-    to cells that actually got a `verdict-{within_tol,drift,mismatch}` class
-    (an ungraded or missing observable is left as `_matrix_table` rendered
-    it, untouched)."""
-    deltas_in_order: list[str | None] = []
-    for row in matrix["rows"]:
-        for col in matrix["columns"]:
-            v = row["cells"].get(col)
-            if v in ("within_tol", "drift", "mismatch"):
-                deltas_in_order.append(row["_deltas"].get(col))
-    it = iter(deltas_in_order)
+    """Decorate each graded cell of the REUSED `_matrix_table` HTML with its
+    "Delta N.N%" (from `matrix`'s per-config `_deltas`), keyed by (config,
+    observable) identity parsed back out of the table's own header + each
+    row's study cell -- see module docstring "Delta injection is KEYED, not
+    positional". Raises `_MatrixStructureError` (fails loud) rather than
+    guessing if that structure doesn't line up. A table with no columns (no
+    configs graded any observable) is passed through unchanged -- there is
+    nothing to key against."""
+    if not table_html:
+        return table_html
 
-    def _repl(m: re.Match) -> str:
-        delta = next(it, None)
-        if not delta:
-            return m.group(0)
-        return f'{m.group(1)}<br><span class="delta">Δ {delta}</span></td>'
+    header_columns = _parse_header_columns(table_html)
+    deltas_by_config = {row["study"]: row["_deltas"] for row in matrix["rows"]}
+    known_configs = set(deltas_by_config)
 
-    return _CELL_RE.sub(_repl, table_html)
+    rebuilt_rows: list[str] = []
+    for config_name, cells in _parse_body_rows(table_html):
+        if config_name not in known_configs:
+            raise _MatrixStructureError(
+                f"comparison_matrix: matrix row study-cell {config_name!r} "
+                f"doesn't match any known config {sorted(known_configs)} -- "
+                "refusing to guess which config's deltas belong on this row "
+                "(e.g. a transposed table, or a non-config row)")
+        if len(cells) != len(header_columns):
+            raise _MatrixStructureError(
+                f"comparison_matrix: row {config_name!r} has {len(cells)} "
+                f"cell(s) but the header has {len(header_columns)} "
+                "column(s) -- refusing to guess the (config, observable) "
+                "mapping")
+        row_deltas = deltas_by_config[config_name]
+        rebuilt_cells = [f'<td class="study">{_html.escape(config_name)}</td>']
+        for column_label, (klass, text) in zip(header_columns, cells):
+            cell_html = f'<td class="{klass}">{text}'
+            if klass in _GRADED_CLASSES:
+                delta = row_deltas.get(column_label)
+                if delta:
+                    cell_html += f'<br><span class="delta">Δ {delta}</span>'
+            rebuilt_cells.append(cell_html + "</td>")
+        rebuilt_rows.append(f"<tr>{''.join(rebuilt_cells)}</tr>")
+
+    new_body = "".join(rebuilt_rows)
+    return _TBODY_RE.sub(lambda _m: f"<tbody>{new_body}</tbody>", table_html)
 
 
 def _legend_html() -> str:

@@ -8,9 +8,14 @@ function / registered Step.
 """
 from __future__ import annotations
 
+import re
+
+import pytest
+
 from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
+from v2ecoli.workflow.analyses import comparison_matrix as comparison_matrix_mod
 from v2ecoli.workflow.analyses.comparison_matrix import (
-    ComparisonMatrix, comparison_matrix)
+    ComparisonMatrix, _MatrixStructureError, comparison_matrix)
 
 
 def _verdict(overall: str, axes: list[dict]) -> dict:
@@ -125,3 +130,111 @@ def test_comparison_matrix_analysis_step_wraps_the_function():
     assert set(out) == {"matrix_html"}
     assert "growth_rate" in out["matrix_html"]
     assert "baseline" in out["matrix_html"]
+
+
+# --------------------------------------------------------------------------- #
+# Fix-round 1 (Important finding): delta injection must be KEYED by
+# (config, observable) identity parsed back out of the reused table's own
+# header + study cells, NOT a flat positional pass over graded `<td>`s -- a
+# future `_matrix_table` change that reorders cells (resorted columns, an
+# inserted row) but keeps the same classes/count must not silently attach
+# the wrong |Delta| to the wrong cell.
+# --------------------------------------------------------------------------- #
+
+def _row_cells(html: str, config_name: str) -> list[tuple[str, str]]:
+    """[(css_class, cell_text), ...] for `config_name`'s row, in DOCUMENT
+    order -- an independent extraction (not reusing the module's own
+    parsing helpers) so this test can't be fooled by a bug shared between
+    production code and its own verification."""
+    m = re.search(
+        r'<td class="study">' + re.escape(config_name) + r'</td>'
+        r'((?:<td class="[\w-]+">.*?</td>)+)', html, re.DOTALL)
+    assert m, f"no row found for config {config_name!r} in:\n{html}"
+    return re.findall(r'<td class="([\w-]+)">(.*?)</td>', m.group(1), re.DOTALL)
+
+
+def test_reordered_columns_still_map_correct_delta_to_correct_cell(monkeypatch):
+    """Simulate a future `_matrix_table` that emits columns in a DIFFERENT
+    order than `matrix["columns"]` (e.g. resorted alphabetically) -- header
+    and each row's cells reordered TOGETHER, same classes/count as the real
+    renderer would produce. `_inject_deltas` must still attach each delta to
+    its correct (config, observable) cell by reading that order back off the
+    table, not by assuming `matrix["columns"]`'s order.
+
+    `reduced_media`'s two cells are both `verdict-within_tol` (4.0% growth
+    rate, 3.0% cell mass) -- indistinguishable by class alone, so getting
+    this one right proves the mapping is positional-within-row keyed by the
+    header, not a lucky class-based guess. Under the pre-fix flat positional
+    splice (deltas streamed in `matrix["columns"]` order: cell_mass then
+    growth_rate) this reordered table would have received cell_mass's delta
+    on the growth_rate cell and vice versa for every row.
+    """
+    reordered_html = (
+        '<table class="matrix"><thead><tr><th class="study">study</th>'
+        '<th>growth_rate</th><th>cell_mass</th></tr></thead><tbody>'
+        '<tr><td class="study">baseline</td>'
+        '<td class="verdict-drift">◐ Drift</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td></tr>'
+        '<tr><td class="study">no_regulation</td>'
+        '<td class="verdict-mismatch">✗ Mismatch</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td></tr>'
+        '<tr><td class="study">reduced_media</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td></tr>'
+        '</tbody></table>'
+    )
+    monkeypatch.setattr(
+        comparison_matrix_mod._render, "_matrix_table",
+        lambda summary: reordered_html)
+
+    html = comparison_matrix(CONFIG_VERDICTS)["matrix_html"]
+
+    for config, expect_growth, expect_mass in (
+        ("baseline", "7.0%", "2.0%"),
+        ("no_regulation", "15.0%", "1.0%"),
+        ("reduced_media", "4.0%", "3.0%"),
+    ):
+        (growth_klass, growth_text), (mass_klass, mass_text) = _row_cells(html, config)
+        assert expect_growth in growth_text, (config, growth_text)
+        assert expect_mass not in growth_text, (config, growth_text)
+        assert expect_mass in mass_text, (config, mass_text)
+        assert expect_growth not in mass_text, (config, mass_text)
+
+
+def test_matrix_table_change_that_breaks_row_structure_raises_not_mislabels(
+        monkeypatch):
+    """A row whose cell count no longer matches the header (a genuine
+    structural desync -- e.g. an inserted rollup column/row) must fail loud,
+    not silently attach a delta to the wrong cell."""
+    broken_html = (
+        '<table class="matrix"><thead><tr><th class="study">study</th>'
+        '<th>cell_mass</th><th>growth_rate</th></tr></thead><tbody>'
+        '<tr><td class="study">baseline</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td></tr>'
+        '</tbody></table>'
+    )
+    monkeypatch.setattr(
+        comparison_matrix_mod._render, "_matrix_table",
+        lambda summary: broken_html)
+
+    with pytest.raises(_MatrixStructureError):
+        comparison_matrix(CONFIG_VERDICTS)
+
+
+def test_matrix_table_row_for_unknown_config_raises_not_mislabels(monkeypatch):
+    """A row whose study cell doesn't match any known config (e.g. a
+    transposed table, where rows are now observables) must fail loud rather
+    than guess which config's deltas belong on it."""
+    transposed_like_html = (
+        '<table class="matrix"><thead><tr><th class="study">study</th>'
+        '<th>baseline</th></tr></thead><tbody>'
+        '<tr><td class="study">cell_mass</td>'
+        '<td class="verdict-within_tol">✓ Within tolerance</td></tr>'
+        '</tbody></table>'
+    )
+    monkeypatch.setattr(
+        comparison_matrix_mod._render, "_matrix_table",
+        lambda summary: transposed_like_html)
+
+    with pytest.raises(_MatrixStructureError):
+        comparison_matrix(CONFIG_VERDICTS)

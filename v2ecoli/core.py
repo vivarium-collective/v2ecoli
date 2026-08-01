@@ -9,7 +9,9 @@ from __future__ import annotations
 
 import copy
 import functools
+import hashlib
 import os
+import warnings
 from typing import Any
 
 import dill
@@ -17,7 +19,9 @@ from bigraph_schema import allocate_core
 
 from v2ecoli.cache import load_initial_state, save_initial_state, save_json
 from v2ecoli.library.cache_version import (
+    REQUIRED_CACHE_CONFIG_NAMES,
     StaleCacheError,
+    verify_cache_version,
     write_cache_version,
 )
 # Import at module load so the shared pint UnitRegistry has
@@ -123,9 +127,46 @@ except Exception:
     pass
 
 
+_SKIP_CACHE_VERIFY_ENV = "V2ECOLI_SKIP_CACHE_VERIFY"
+_skip_cache_verify_warned = False
+
+
+def _cache_verify_skipped() -> bool:
+    """Whether the cache-version staleness check should be bypassed.
+
+    Reads ``V2ECOLI_SKIP_CACHE_VERIFY`` at call time (not import time) so
+    tests/scripts can toggle it via ``monkeypatch.setenv`` /
+    ``os.environ`` without needing a fresh process. This is an escape
+    hatch for deliberate cross-version work (e.g. comparing a cache built
+    on a different commit); it warns once per process so a skip never
+    goes unnoticed in logs.
+    """
+    global _skip_cache_verify_warned
+    if not os.environ.get(_SKIP_CACHE_VERIFY_ENV):
+        return False
+    if not _skip_cache_verify_warned:
+        warnings.warn(
+            f"{_SKIP_CACHE_VERIFY_ENV} is set: skipping ParCa cache "
+            "staleness verification. A stale or mis-calibrated cache may "
+            "load silently. Unset this env var for normal use.",
+            stacklevel=2,
+        )
+        _skip_cache_verify_warned = True
+    return True
+
+
 @functools.lru_cache(maxsize=4)
 def _load_cache_bundle_cached(cache_dir):
-    """Raw loader — memoized by cache_dir."""
+    """Raw loader — memoized by cache_dir.
+
+    Staleness verification is deliberately NOT done here: this function's
+    result is memoized by ``cache_dir`` alone, so a check performed only on
+    the first (cache-miss) call would silently stop running on every
+    subsequent call for the same ``cache_dir`` within this process — and
+    the escape-hatch env var wouldn't be re-read at call time either. See
+    ``load_cache_bundle``, the public entry point, which verifies on every
+    call before delegating to this memoized loader.
+    """
     initial_state = load_initial_state(
         os.path.join(cache_dir, 'initial_state.json'))
     cache_path = os.path.join(cache_dir, 'sim_data_cache.dill')
@@ -150,11 +191,20 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
     underlying dill cache provides (typically ``configs``, ``unique_names``,
     ``dry_mass_inc_dict``).
 
+    Verifies ``cache_dir`` against the current cache fingerprint
+    (``v2ecoli.library.cache_version.verify_cache_version``) on every call,
+    raising ``StaleCacheError`` if the cache was built from a different
+    ParCa fixture / sim_data / unit-bridge / composite code. Set
+    ``V2ECOLI_SKIP_CACHE_VERIFY=1`` to bypass this for deliberate
+    cross-version work; doing so logs a one-time warning.
+
     The heavy work (reading the dill, rebinding pint Quantities onto the
     shared UnitRegistry) is memoized per ``cache_dir``; ``initial_state`` is
     deep-copied because ``build_document`` mutates it, while the cache dict
     is returned by reference (read-only).
     """
+    if not _cache_verify_skipped():
+        verify_cache_version(cache_dir)
     initial_state, cache = _load_cache_bundle_cached(cache_dir)
     # The translation_supply / trna_charging selector flags were removed from
     # the elongation process config_schema (model choice is now a wiring
@@ -182,12 +232,49 @@ _CACHE_CONFIG_NAMES = [
     'unique_molecule_counts', 'allocator',
 ]
 
-def _write_sim_input_bundle(loader, bundle_dir):
+def _hash_file(path: str) -> str:
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _resolve_n_seeds() -> int | None:
+    """The fit's actual V2PARCA_N_SEEDS, for recording into build_params.
+
+    Lazy + defensive: step_05 pulls in the heavy ParCa stack
+    (stochastic_arrow, ...), which callers of the generic composite path
+    (not building a cache bundle) shouldn't be forced to import. Never
+    raises — a missing/broken import just records ``None`` rather than
+    crashing bundle-saving (PARCA_REVIEW A9's "gracefully handle a package
+    not being importable" applies here too).
+    """
+    try:
+        from v2ecoli.processes.parca.steps.step_05_fit_condition import (
+            resolved_n_seeds,
+        )
+        return resolved_n_seeds()
+    except Exception:
+        return None
+
+
+def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
+                            fixed_media=None, condition_manifest_hash=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
     (live-object). Emits ``initial_state.json``, ``sim_data_cache.dill``,
     ``metadata.json``, and the cache-version marker into ``bundle_dir``.
+
+    ``seed``/``condition``/``fixed_media``/``condition_manifest_hash`` are
+    the actual build parameters this specific bundle was built with
+    (PARCA_REVIEW A7) — recorded into ``cache_version.json``'s
+    ``build_params`` (folded into ``inputs_hash``) so two bundles built with
+    different parameters no longer produce byte-identical fingerprints.
+    ``n_seeds`` is resolved independently (A8) since it isn't a parameter of
+    ``LoadSimData`` — it governs the *fit* upstream of this bundle-writing
+    step, not sim-data hydration.
     """
     os.makedirs(bundle_dir, exist_ok=True)
 
@@ -214,6 +301,33 @@ def _write_sim_input_bundle(loader, bundle_dir):
               f"and were omitted:")
         for name, exc in failed:
             print(f"    - {name}: {type(exc).__name__}: {exc}")
+
+    # PARCA_REVIEW A6: a bundle missing a REQUIRED config must never be
+    # fingerprinted as valid — it passes verify_cache_version today and the
+    # sim then dies on a divide-by-zero in listeners.mass.cell_mass /
+    # crashes in Equilibrium. Abort before writing sim_data_cache.dill,
+    # simData.cPickle, metadata.json, or cache_version.json: no marker means
+    # verify_cache_version already refuses this bundle_dir as stale/partial
+    # (same convention as an interrupted build). Unlike A3's mechanistic
+    # fits, there is no opt-in bypass here — the review's fix is "hard-fail
+    # the build", not "write it anyway with a flag".
+    missing_required = sorted(
+        name for name in REQUIRED_CACHE_CONFIG_NAMES if name not in configs)
+    if missing_required:
+        failed_by_name = dict(failed)
+        detail = "; ".join(
+            f"{name}: {type(failed_by_name[name]).__name__}: "
+            f"{failed_by_name[name]}" if name in failed_by_name
+            else f"{name}: not attempted"
+            for name in missing_required)
+        raise RuntimeError(
+            f"sim-input bundle at {bundle_dir!r} is missing required "
+            f"config(s) {missing_required} ({detail}). Refusing to write "
+            f"sim_data_cache.dill / cache_version.json for a bundle that "
+            f"would pass verify_cache_version but crash the online sim "
+            f"(PARCA_REVIEW A6). Fix the underlying config-getter failure "
+            f"— there is no bypass for a required config."
+        )
 
     unique_names = list(
         loader.sim_data.internal_state.unique_molecule
@@ -252,7 +366,30 @@ def _write_sim_input_bundle(loader, bundle_dir):
         pass
     save_json({'unique_names': unique_names, 'media_id': _bundle_media_id},
               os.path.join(bundle_dir, 'metadata.json'))
-    write_cache_version(bundle_dir)
+
+    # A rebuild-in-place (e.g. re-running scripts/build_condition_cache.py at
+    # the same --cache dir) leaves a condition.json manifest from the PRIOR
+    # build already on disk; fold its hash in when no explicit
+    # condition_manifest_hash/patch id was supplied. On a fresh build of a
+    # patched cache there is no condition.json yet at this point (it's
+    # written by the caller after save_sim_input returns), so this stays
+    # None there — pass condition_manifest_hash explicitly if that ordering
+    # ever changes.
+    resolved_manifest_hash = condition_manifest_hash
+    if resolved_manifest_hash is None:
+        manifest_path = os.path.join(bundle_dir, 'condition.json')
+        if os.path.exists(manifest_path):
+            resolved_manifest_hash = _hash_file(manifest_path)
+
+    build_params = {
+        'condition': condition,
+        'fixed_media': fixed_media,
+        'seed': seed,
+        'n_seeds': _resolve_n_seeds(),
+        'condition_manifest_hash': resolved_manifest_hash,
+    }
+    write_cache_version(bundle_dir, build_params=build_params,
+                        configs=sorted(configs.keys()))
     print(f"Sim-input bundle saved to {bundle_dir}")
 
 
@@ -265,11 +402,12 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
     """
     from v2ecoli.library.sim_data import LoadSimData
     loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
-    _write_sim_input_bundle(loader, cache_dir)
+    _write_sim_input_bundle(loader, cache_dir, seed=seed)
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
-                   condition=None, fixed_media=None):
+                   condition=None, fixed_media=None,
+                   condition_manifest_hash=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -283,6 +421,13 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     reflects that condition's growth rate / doubling time — both already live in
     the ParCa state's ``condition_to_doubling_time`` / saved media, so no refit
     is needed. Omitted → default basal / minimal (glucose).
+
+    ``condition_manifest_hash`` (PARCA_REVIEW A7): pass the hash/id of a
+    patch manifest (e.g. ``build_condition_cache.py``'s in-memory
+    ``patch_record`` before its ``condition.json`` is written) when the
+    caller already knows it, so it lands in ``cache_version.json``'s
+    ``build_params`` on the very first build rather than only on a rebuild
+    (see ``_write_sim_input_bundle``'s condition.json auto-detection).
     """
     from v2ecoli.library.sim_data import LoadSimData
     kwargs = {"sim_data": sim_data, "seed": seed}
@@ -291,4 +436,6 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     if fixed_media is not None:
         kwargs["fixed_media"] = fixed_media
     loader = LoadSimData(**kwargs)
-    _write_sim_input_bundle(loader, bundle_dir)
+    _write_sim_input_bundle(loader, bundle_dir, seed=seed, condition=condition,
+                            fixed_media=fixed_media,
+                            condition_manifest_hash=condition_manifest_hash)

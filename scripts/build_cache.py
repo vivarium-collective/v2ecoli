@@ -28,7 +28,7 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from v2ecoli.core import save_sim_input
-from v2ecoli.library.cache_version import write_cache_version
+from v2ecoli.library.cache_version import read_cache_version
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )
@@ -64,10 +64,18 @@ def build_cache(fixture: str, cache_dir: str,
 
     t2 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
+    # save_sim_input (-> v2ecoli.core._write_sim_input_bundle) already writes
+    # a complete cache_version.json — with build_params (condition/
+    # fixed_media/seed/n_seeds, T3/A7-A9) and configs (A6) — as its last
+    # step. A SECOND write_cache_version(cache_dir, repo_root=repo_root)
+    # call here used to re-derive a version with none of that (build_params
+    # all None, configs empty) and clobber the correct file with it, purely
+    # to have a `version` object to print inputs_hash from. Read the
+    # already-written file back instead: same print, no clobber.
     save_sim_input(sim_data, cache_dir,
                    condition=media_condition, fixed_media=fixed_media)
 
-    version = write_cache_version(cache_dir, repo_root=repo_root)
+    version = read_cache_version(cache_dir)
     print(f"    bundle built in {time.time()-t2:.1f}s")
     print(f"    inputs_hash: {version.inputs_hash[:16]}...")
 

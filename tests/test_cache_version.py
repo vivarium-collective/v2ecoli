@@ -72,11 +72,34 @@ def test_mass_listener_config_doubling_times_are_pint(sim_data_cache):
 # ---------------------------------------------------------------------------
 
 def test_cache_version_file_exists_and_matches(sim_data_cache):
+    """inputs_hash folds in build_params (PARCA_REVIEW A7) — condition/
+    seed/media/n_seeds identity of *this artifact* — which a bare
+    ``compute_cache_version()`` can't independently re-derive (it defaults
+    build_params to :data:`DEFAULT_BUILD_PARAMS`, all-None). A real built
+    cache legitimately carries non-default build_params (e.g. condition=
+    basal, seed=0), so comparing against the all-None default would fail
+    even on a freshly built, fully current cache.
+
+    Mirror ``verify_cache_version``'s own echo of ``stored.build_params``
+    back into the recompute (see that function's docstring for why: build_
+    params describe *which artifact* the cache is, not something "current
+    code" can re-derive) so this stays a genuine input-files/context
+    freshness check rather than a false positive on build_params identity.
+    ``context`` is still re-probed fresh by ``compute_cache_version``, so a
+    real staleness (changed INPUT_FILES content, or a dep upgrade between
+    build and test run) still moves ``current.inputs_hash`` and fails here,
+    same as before.
+
+    Complementary to ``test_verify_cache_version_passes_on_current_cache``
+    below: that one is a smoke test of the production call path (no raise);
+    this one does the explicit hash comparison so a genuine mismatch names
+    the stored vs. current hash prefixes directly in the assertion message.
+    """
     stored = read_cache_version(sim_data_cache)
     assert stored is not None, (
         f'{sim_data_cache}/{CACHE_VERSION_FILENAME} missing — rebuild cache'
     )
-    current = compute_cache_version()
+    current = compute_cache_version(build_params=stored.build_params)
     assert stored.inputs_hash == current.inputs_hash, (
         f'inputs_hash mismatch; stored={stored.inputs_hash[:16]}, '
         f'current={current.inputs_hash[:16]}. Rebuild cache.'

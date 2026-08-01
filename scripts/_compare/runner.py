@@ -25,31 +25,24 @@ def _run_engines(spec, out: str, mode: str) -> None:
     ref_sd = f"{spec.ve_cache}/simData.cPickle"
     per_gen = spec.max_steps_per_gen        # study-overridable (default 15000)
     v2_cap = str(spec.gens * per_gen)
-    # A study may drive a process swap on BOTH engines from a reference-relative
-    # vEcoli config (e.g. metabolism_redux): the v2 side convert+injects it, the
-    # vecoli side applies it natively via EcoliSim. `spec.config` is a condition
-    # NAME for a plain baseline comparison, or a config PATH for a swap -- treat
-    # it as a swap only when it looks like a path.
-    # TODO(task 3/4): runner.py resolution of spec.config is expected to be
-    # revisited once specs_from_configs() becomes the primary spec source.
-    is_swap_path = "/" in spec.config or spec.config.endswith(".json")
-    swap_flags = (["--from-vecoli-config", spec.config] if is_swap_path else [])
+    # config is the unit: a path drives a process swap on BOTH engines; a bare
+    # condition name is a plain baseline comparison (no swap flag).
+    is_path = str(spec.config).endswith(".json")
+    swap_flags = ["--from-vecoli-config", spec.config] if is_path else []
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "v2ecoli", "--condition", spec.condition,
                     "--cache-dir", spec.v2_cache, "--n-seeds", str(spec.seeds),
                     "--max-generations", str(spec.gens), "--max-steps", v2_cap,
                     "--chunk", "60", "--mode", mode,
                     "--match-initial-state", "--match-vecoli-simdata", ref_sd,
-                    *swap_flags,
-                    "--out-root", out_c], cwd=REPO, check=True)
+                    *swap_flags, "--out-root", out_c], cwd=REPO, check=True)
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "vecoli", "--condition", spec.condition,
                     "--cache-dir", spec.ve_cache, "--n-seeds", str(spec.seeds),
-                    "--max-generations", str(spec.gens), "--max-steps",
-                    str(per_gen), "--chunk", "60", "--mode", mode,
+                    "--max-generations", str(spec.gens), "--max-steps", str(per_gen),
+                    "--chunk", "60", "--mode", mode,
                     "--vecoli-source", "vivarium-process",
-                    *swap_flags,
-                    "--out-root", out_c], cwd=REPO, check=True)
+                    *swap_flags, "--out-root", out_c], cwd=REPO, check=True)
 
 
 def _render(invest_ref: str, out: str, max_seeds: int, study: str | None = None) -> None:
@@ -76,7 +69,9 @@ def run_study(spec, out: str = "out/report", mode: str = "serial",
 def run_investigation(inv_ref: str, out: str = "out/report", mode: str = "serial",
                       render_only: bool = False) -> int:
     """Run every study in an investigation, then render + verdict + materialize."""
-    _ctx, specs = load_investigation(inv_ref)
+    from scripts._compare.study_spec import _context, _invest_dir, specs_from_configs
+    ctx = _context(_invest_dir(inv_ref))
+    specs = specs_from_configs(ctx)
     if not specs:
         raise SystemExit(f"investigation {inv_ref!r} has no studies")
     if not render_only:

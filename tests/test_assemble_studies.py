@@ -6,7 +6,7 @@ from scripts._compare.study_spec import StudySpec
 def _spec(name, condition, cards):
     return StudySpec(name=name, condition=condition, seeds=1, gens=4, cards=list(cards),
                      invest_name="v2ecoli-vecoli-comparison", v2_cache="c", ve_cache="c",
-                     fork="", study_path="/x")
+                     study_path="/x")
 
 
 def _stub_core(monkeypatch, crc, captured=None):

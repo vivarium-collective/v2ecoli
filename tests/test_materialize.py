@@ -13,7 +13,7 @@ CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's inv
 def _spec(study_path, name="basal_4x4", cards=("config", "parca", "statistical")):
     return StudySpec(name=name, condition="basal", seeds=4, gens=4, cards=list(cards),
                      invest_name="v2ecoli-vecoli-comparison", v2_cache="out/cache_full",
-                     ve_cache="out/compare_harness/vecoli_parca", fork="",
+                     ve_cache="out/compare_harness/vecoli_parca",
                      study_path=str(study_path))
 
 

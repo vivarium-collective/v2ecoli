@@ -33,7 +33,7 @@ def test_assemble_sections_from_studies(monkeypatch):
     cond_data = {"basal": ({"cell_mass": [seed_stat]}, {}, {})}
     spec = StudySpec(name="basal", condition="basal", seeds=1, gens=4,
                      cards=["parca", "standard"], invest_name="inv",
-                     v2_cache="c", ve_cache="c", fork="", study_path="/x")
+                     v2_cache="c", ve_cache="c", study_path="/x")
     secs = crc.assemble_from_studies(
         [spec], cond_data, conds={"basal": ("v2dir", "vedir")},
         verdict_root=str(tmp_verdict := __import__("tempfile").mkdtemp()))

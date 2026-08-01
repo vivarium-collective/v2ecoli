@@ -10,7 +10,7 @@ def _spec(name="basal", condition="basal", seeds=1, gens=4, cards=("config", "pa
     return StudySpec(name=name, condition=condition, seeds=seeds, gens=gens,
                      cards=list(cards), invest_name="v2ecoli-vecoli-comparison",
                      v2_cache="out/cache_full", ve_cache="out/compare_harness/vecoli_parca",
-                     fork="", study_path="/x/study.yaml")
+                     study_path="/x/study.yaml")
 
 
 def test_run_engines_passes_condition_seeds_gens_and_store_dir(monkeypatch):

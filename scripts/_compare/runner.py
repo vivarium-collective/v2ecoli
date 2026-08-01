@@ -25,11 +25,15 @@ def _run_engines(spec, out: str, mode: str) -> None:
     ref_sd = f"{spec.ve_cache}/simData.cPickle"
     per_gen = spec.max_steps_per_gen        # study-overridable (default 15000)
     v2_cap = str(spec.gens * per_gen)
-    # A study may drive a process swap on BOTH engines from a fork-relative vEcoli
-    # config (e.g. metabolism_redux): the v2 side convert+injects it, the vecoli
-    # side applies it natively via EcoliSim. "" = plain baseline comparison.
-    swap_flags = (["--from-vecoli-config", spec.from_vecoli_config]
-                  if spec.from_vecoli_config else [])
+    # A study may drive a process swap on BOTH engines from a reference-relative
+    # vEcoli config (e.g. metabolism_redux): the v2 side convert+injects it, the
+    # vecoli side applies it natively via EcoliSim. `spec.config` is a condition
+    # NAME for a plain baseline comparison, or a config PATH for a swap -- treat
+    # it as a swap only when it looks like a path.
+    # TODO(task 3/4): runner.py resolution of spec.config is expected to be
+    # revisited once specs_from_configs() becomes the primary spec source.
+    is_swap_path = "/" in spec.config or spec.config.endswith(".json")
+    swap_flags = (["--from-vecoli-config", spec.config] if is_swap_path else [])
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "v2ecoli", "--condition", spec.condition,
                     "--cache-dir", spec.v2_cache, "--n-seeds", str(spec.seeds),

@@ -49,3 +49,9 @@ from v2ecoli.workflow.analyses import scorecard  # noqa: F401
 # Comparison-convergence Phase 1, Task 4: candidate-vs-reference workbench-run
 # comparison, rendering the `summary` report card via scripts/_compare (reuse).
 from v2ecoli.workflow.analyses import comparison_summary  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 2: the same candidate-vs-reference
+# comparison, but rendering the FULL wired card set (summary/standard/parca/
+# trajectory/distribution/metabolism/composition) -- see comparison_cards.py
+# module docstring for which cards are wired vs deferred.
+from v2ecoli.workflow.analyses import comparison_cards  # noqa: F401

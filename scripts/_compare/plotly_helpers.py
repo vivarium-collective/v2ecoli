@@ -59,6 +59,157 @@ def overlay_html(per_obs: dict, title: str = "") -> str:
     return "".join(parts)
 
 
+def _mean_std_by_timepoint(traces: list):
+    """Reduce a list of ``(times, values)`` seed traces to per-timepoint
+    mean/σ, aligning on the SHORTEST trace among ``traces`` (seeds are not
+    guaranteed to share a length, e.g. divergent generation counts). Returns
+    ``(times, means, stds)`` truncated to that shortest length, or
+    ``(None, None, None)`` if ``traces`` is empty.
+    """
+    import statistics
+
+    if not traces:
+        return None, None, None
+    n = min(len(v) for _, v in traces)
+    if n == 0:
+        return None, None, None
+    times = list(traces[0][0])[:n]
+    means = []
+    stds = []
+    for i in range(n):
+        vals = [v[i] for _, v in traces]
+        means.append(statistics.fmean(vals))
+        stds.append(statistics.pstdev(vals) if len(vals) > 1 else 0.0)
+    return times, means, stds
+
+
+def _hex_to_rgba(hex_color: str, alpha: float) -> str:
+    hex_color = hex_color.lstrip("#")
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r}, {g}, {b}, {alpha})"
+
+
+def overlay_band_html(per_obs: dict, title: str = "") -> str:
+    """One value-vs-time overlay figure per observable, cross-seed band form.
+
+    Same ``per_obs`` shape as :func:`overlay_html`, but instead of drawing
+    one raw line per seed, reduces each engine's seed traces to a
+    per-timepoint mean +/- 1 sigma (see ``_mean_std_by_timepoint``) and draws
+    a 2px mean line with a low-opacity shaded band in the engine's identity
+    color. Single y-axis, unified crosshair hover (dataviz method: never
+    dual-axis).
+    """
+    import plotly.graph_objects as go
+
+    parts = []
+    first = True
+    for obs, d in per_obs.items():
+        ve_traces = d.get("ve") or []
+        v2_traces = d.get("v2") or []
+        if not ve_traces and not v2_traces:
+            continue
+        fig = go.Figure()
+        for label, traces, color, legendgroup in (
+            ("v2ecoli", v2_traces, V2_COLOR, "v2"),
+            ("vEcoli", ve_traces, VE_COLOR, "ve"),
+        ):
+            times, means, stds = _mean_std_by_timepoint(traces)
+            if times is None:
+                continue
+            upper = [m + s for m, s in zip(means, stds)]
+            lower = [m - s for m, s in zip(means, stds)]
+            fig.add_scatter(
+                x=times, y=upper, mode="lines",
+                line=dict(width=0, color=color),
+                legendgroup=legendgroup, showlegend=False, hoverinfo="skip")
+            fig.add_scatter(
+                x=times, y=lower, mode="lines",
+                line=dict(width=0, color=color),
+                fill="tonexty", fillcolor=_hex_to_rgba(color, 0.15),
+                legendgroup=legendgroup, showlegend=False, hoverinfo="skip",
+                name=f"{label} ±1σ")
+            fig.add_scatter(
+                x=times, y=means, mode="lines", name=label,
+                legendgroup=legendgroup, showlegend=True,
+                line=dict(color=color, width=2))
+        for gb in d.get("gen_bounds") or []:
+            fig.add_vline(x=float(gb), line=dict(color="#9ca3af", dash="dot", width=1))
+        fig.update_layout(
+            title=f"{title} — {obs}".strip(" —"), height=280,
+            margin=dict(l=40, r=10, t=30, b=30),
+            hovermode="x unified", template="simple_white")
+        parts.append(fig.to_html(include_plotlyjs=("cdn" if first else False),
+                                 full_html=False))
+        first = False
+    return "".join(parts)
+
+
+def delta_panel_html(per_obs: dict, tol: float, stat: dict | None = None) -> str:
+    """One relative-delta-vs-time figure per observable.
+
+    For each observable, pairs v2/ve seed traces by index (seed N of v2
+    against seed N of ve — the harness's matched-timepoint convention) and
+    plots the MEDIAN relative delta ``(v2 - ve) / ve`` across those pairs at
+    each timepoint, truncated to the shortest paired trace length. Shades
+    the tolerance band ``[-tol, +tol]`` in a neutral (non-engine, non-status)
+    gray. If ``stat`` (e.g. ``{"kind": "Welch-t", "p": 0.4}``) is given, adds
+    an inline annotation naming the stat and its p-value.
+    """
+    import statistics
+
+    import plotly.graph_objects as go
+
+    parts = []
+    first = True
+    for obs, d in per_obs.items():
+        ve_traces = d.get("ve") or []
+        v2_traces = d.get("v2") or []
+        n_pairs = min(len(ve_traces), len(v2_traces))
+        if n_pairs == 0:
+            continue
+        n_t = min(min(len(v) for _, v in ve_traces[:n_pairs]),
+                  min(len(v) for _, v in v2_traces[:n_pairs]))
+        if n_t == 0:
+            continue
+        times = list(ve_traces[0][0])[:n_t]
+        median_delta = []
+        for i in range(n_t):
+            rel = []
+            for p in range(n_pairs):
+                ve_v = ve_traces[p][1][i]
+                v2_v = v2_traces[p][1][i]
+                if ve_v == 0:
+                    continue
+                rel.append((v2_v - ve_v) / ve_v)
+            median_delta.append(statistics.median(rel) if rel else 0.0)
+
+        fig = go.Figure()
+        fig.add_hrect(y0=-tol, y1=tol, fillcolor="rgba(156, 163, 175, 0.18)",
+                     line_width=0, layer="below")
+        fig.add_hline(y=0, line=dict(color="#9ca3af", width=1, dash="dot"))
+        fig.add_scatter(
+            x=times, y=median_delta, mode="lines+markers",
+            name="median relative Δ (v2 vs ve)",
+            line=dict(color=V2_COLOR, width=2))
+        if stat:
+            kind = stat.get("kind", "")
+            p_val = stat.get("p")
+            text = f"{kind}: p={p_val}" if p_val is not None else str(kind)
+            fig.add_annotation(
+                xref="paper", yref="paper", x=0.98, y=0.95,
+                showarrow=False, align="right", text=text,
+                bgcolor="rgba(255,255,255,0.7)")
+        fig.update_layout(
+            title=f"Δ {obs}", height=240,
+            margin=dict(l=40, r=10, t=30, b=30),
+            hovermode="x unified", template="simple_white",
+            yaxis_title="relative Δ")
+        parts.append(fig.to_html(include_plotlyjs=("cdn" if first else False),
+                                 full_html=False))
+        first = False
+    return "".join(parts)
+
+
 def grouped_bar_html(categories: list, ve_values: list, v2_values: list,
                      title: str = "", yaxis_title: str = "", first: bool = False) -> str:
     """One grouped-bar figure: vEcoli vs v2ecoli value per category.

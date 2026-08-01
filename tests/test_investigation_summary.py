@@ -2,7 +2,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 WS = REPO / "workspace"
-SLUG = "v2ecoli-vecoli-comparison"
+SLUG = "whole-cell-model-comparison"
 
 
 def test_aggregate_discovers_studies_in_dag_order():

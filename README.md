@@ -98,7 +98,7 @@ Every investigation under `workspace/investigations/`, with its research questio
 | [Surrogate Modeling — can a neural net emulate the v2ecoli baseline? _(complete)_](https://vivarium-collective.github.io/v2ecoli/investigations/surrogate-modeling.html) | Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate the model's per-step dynamics across a broad observable panel (growth/mass, exchange fluxes, metabolic fluxes, protein an… |
 | [v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html) | Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the ParCa in full, run a wild-type baseline single-cell→division ensemble that reproduces measured E. coli properties (doubling ti… |
 | [v2ecoli → PDMP Whole-Cell Model Reformulation _(in_progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-pdmp.html) | Can v2ecoli's hybrid algorithmic whole-cell model be incrementally transformed into a piecewise-deterministic Markov process (PDMP) suitable for likelihood-based inference and causal discovery, witho… |
-| [v2ecoli ↔ vEcoli comparison](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-vecoli-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions? |
+| [Whole-Cell Model Comparison](https://vivarium-collective.github.io/v2ecoli/investigations/whole-cell-model-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions? |
 <!-- END:investigations -->
 
 ### 3D whole-cell structural model — *molecular-scale, in your browser*

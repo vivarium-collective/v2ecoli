@@ -1,6 +1,6 @@
 """Turn the comparison investigation into a composite the engine can trigger.
 
-`workspace/investigations/v2ecoli-vecoli-comparison/` already declares the
+`workspace/investigations/whole-cell-model-comparison/` already declares the
 right data model — members, per-condition configs, and the ParCa dependency
 edge each study carries. This is a re-expression of that into a
 process-bigraph document whose member regions carry the ``_study`` metadata
@@ -30,7 +30,7 @@ from typing import Any
 
 import yaml
 
-INVESTIGATION = 'v2ecoli-vecoli-comparison'
+INVESTIGATION = 'whole-cell-model-comparison'
 
 #: The declared ParCa member each condition depends on.
 PARCA_MEMBER = 'parca'

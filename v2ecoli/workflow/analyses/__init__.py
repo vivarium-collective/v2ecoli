@@ -55,3 +55,8 @@ from v2ecoli.workflow.analyses import comparison_summary  # noqa: F401
 # trajectory/distribution/metabolism/composition) -- see comparison_cards.py
 # module docstring for which cards are wired vs deferred.
 from v2ecoli.workflow.analyses import comparison_cards  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 3: investigation-level cross-config
+# matrix -- configs x observables verdicts, reusing reports/_summary's matrix
+# builder (Task 2's per-config verdicts fanned out across configs).
+from v2ecoli.workflow.analyses import comparison_matrix  # noqa: F401

@@ -156,17 +156,23 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
 def load_investigation(ref: str) -> tuple[dict, list]:
     """Return (context, [StudySpec, ...]) for an investigation name or path.
 
-    Studies are loaded in the order listed in the investigation's `members:`
-    (legacy `studies:` for any un-migrated investigation); each is resolved
-    from the canonical TOP-LEVEL workspace/studies/<slug>/study.yaml (Study
-    Pipeline registry model, post-#390) -- NOT the legacy nested
-    inv_dir/studies/<slug>/. A listed study whose study.yaml is missing is
-    skipped.
+    Supports BOTH investigation schemas. If `comparison.configs[]` is present
+    (the config-is-the-unit model, post-Task-6), specs are built directly via
+    specs_from_configs() -- the same source run/init/scaffold already use, so
+    render/run/scaffold/init all agree on one spec list. Otherwise (legacy
+    investigations not yet migrated off `members:`), studies are loaded in
+    the order listed in `members:` (legacy `studies:` for any un-migrated
+    investigation); each is resolved from the canonical TOP-LEVEL
+    workspace/studies/<slug>/study.yaml (Study Pipeline registry model,
+    post-#390) -- NOT the legacy nested inv_dir/studies/<slug>/. A listed
+    study whose study.yaml is missing is skipped.
     """
     inv_dir = _invest_dir(ref)
     if not (inv_dir / "investigation.yaml").exists():
         raise FileNotFoundError(f"investigation not found: {inv_dir}/investigation.yaml")
     ctx = _context(inv_dir)
+    if ctx.get("configs"):
+        return ctx, specs_from_configs(ctx)
     # Top-level studies live as a SIBLING of investigations/ under the same
     # workspace root (inv_dir is always <workspace>/investigations/<name>);
     # derive it from inv_dir rather than hardcoding REPO so a caller pointing

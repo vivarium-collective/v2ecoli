@@ -59,11 +59,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     if args.cmd == "scaffold":
-        # Build specs from `comparison.configs[]` the same way run/init do --
-        # NOT via runner.load_investigation(), which resolves studies from
-        # the legacy `members:` list. Since the config-is-the-unit migration
-        # (Task 6), an investigation only carries `comparison.configs[]`, so
-        # load_investigation() silently returns an empty spec list here.
+        # Build specs from `comparison.configs[]` directly (same source
+        # run/init use). load_investigation() now also supports configs[]
+        # investigations (it delegates to specs_from_configs() internally
+        # when `comparison.configs[]` is present), so this could call it
+        # too -- kept explicit here since scaffold has no legacy-members:
+        # use case to fall back to.
         from scripts._compare.study_spec import _context, _invest_dir, specs_from_configs
         ctx = _context(_invest_dir(args.investigation))
         specs = specs_from_configs(ctx)
@@ -79,13 +80,12 @@ def main(argv=None) -> int:
                 if Path(args.configs).is_dir() else args.configs.split(","))
         p = scaffold_investigation(name=args.name, reference_repo=args.reference,
                                    configs=cfgs, out_root=args.out_root)
-        # NOTE: runner.load_investigation() resolves studies via the top-level
-        # `members:`/workspace/studies/<slug>/study.yaml registry (Study Pipeline
-        # model, post-#390) -- a freshly scaffolded investigation only has a
-        # `comparison.configs[]` block and no `members:` entry yet, so
-        # load_investigation() would return an empty spec list here. Build specs
-        # directly from the scaffolded configs instead, the same way
-        # runner.run_investigation() does.
+        # NOTE: a freshly scaffolded investigation only has a
+        # `comparison.configs[]` block and no `members:` entry, so build
+        # specs directly from the scaffolded configs, the same way
+        # runner.run_investigation() (and load_investigation(), which now
+        # also delegates to specs_from_configs() when configs[] is present)
+        # does.
         ctx = _context(_invest_dir(str(p.parent)))
         specs = specs_from_configs(ctx)
         for spec in specs:

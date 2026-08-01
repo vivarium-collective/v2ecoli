@@ -564,17 +564,27 @@ git commit -m "feat(compare): v2e-compare init scaffolds a comparison investigat
 
 ## Phase 2 — Rename + objective cleanup
 
-### Task 6: Rename investigation → `whole-cell-model-comparison`
+### Task 6: Study layout fix + rename investigation → `whole-cell-model-comparison`
+
+> **Layout decision (resolved by human):** config-derived studies live in the
+> **top-level registry** `workspace/studies/<name>/` (dashboard-visible; matches
+> the July registry migration + the dashboard list scanner which only scans root
+> `investigations/` + `studies/`). NOT nested under the investigation. This task
+> corrects `specs_from_configs` (Task 2 set `study_path` nested) and `init`
+> (Task 5 seeded nested stubs) to the top-level registry, then does the rename +
+> `configs[]` migration referencing the existing top-level member studies by name.
 
 **Files:**
+- Modify: `scripts/_compare/study_spec.py` (`specs_from_configs` → top-level `study_path`)
+- Modify: `scripts/compare_cli.py` (`init` seeds stubs at `workspace/studies/<name>/`)
 - Rename dir: `workspace/investigations/v2ecoli-vecoli-comparison/` → `workspace/investigations/whole-cell-model-comparison/`
 - Rename dir: `docs/report_cards/v2ecoli-vecoli-comparison/` → `docs/report_cards/whole-cell-model-comparison/`
-- Modify: the investigation.yaml `name:`; every study.yaml `investigation:` back-reference; any workspace/dashboard reference to the old id.
+- Modify: the investigation.yaml `name:`/`title:`/`question:` + `comparison:` block; every `workspace/studies/*/study.yaml` `investigation:` back-reference; any other reference to the old id.
 - Test: `tests/compare/test_rename_integrity.py`
 
 **Interfaces:**
-- Consumes: nothing new.
-- Produces: no stale `v2ecoli-vecoli-comparison` id anywhere under `workspace/` or `docs/report_cards/`.
+- Consumes: `specs_from_configs` (Task 2).
+- Produces: `specs_from_configs` sets `study_path = REPO / "workspace" / "studies" / <name> / "study.yaml"` (top-level registry). No stale `v2ecoli-vecoli-comparison` id anywhere under `workspace/` or `docs/report_cards/`. The renamed investigation's `comparison.configs[]` names match existing top-level study dirs (`basal`, `with_aa`, `acetate`, `succinate`, `no_oxygen`, `metabolism_redux_*`).
 
 - [ ] **Step 1: Write the failing test**
 
@@ -582,14 +592,16 @@ git commit -m "feat(compare): v2e-compare init scaffolds a comparison investigat
 # tests/compare/test_rename_integrity.py
 import subprocess
 from pathlib import Path
+from scripts._compare.study_spec import specs_from_configs, REPO
+from scripts._compare.reference import ReferenceEngine
 
-REPO = Path(__file__).resolve().parents[2]
+TOP = Path(__file__).resolve().parents[2]
 
 
 def test_no_stale_investigation_id():
     hits = subprocess.run(
         ["grep", "-rl", "v2ecoli-vecoli-comparison",
-         str(REPO / "workspace"), str(REPO / "docs" / "report_cards")],
+         str(TOP / "workspace"), str(TOP / "docs" / "report_cards")],
         capture_output=True, text=True).stdout.strip()
     assert hits == "", f"stale id remains in:\n{hits}"
 
@@ -599,34 +611,54 @@ def test_new_investigation_loads():
     ctx = _context(_invest_dir("whole-cell-model-comparison"))
     assert ctx["invest_name"] == "whole-cell-model-comparison"
     assert ctx["reference"].kind == "vecoli"
+
+
+def test_specs_use_top_level_registry_path():
+    ctx = {"invest_name": "whole-cell-model-comparison",
+           "reference": ReferenceEngine.from_spec({"repo": "/abs/vEcoli", "kind": "vecoli"}),
+           "configs": [{"name": "basal", "config": "basal"}],
+           "v2_cache": "vc", "ve_cache": "vec",
+           "defaults": {"seeds": 4, "gens": 1, "cards": ["parca"]}, "inv_dir": None}
+    sp = specs_from_configs(ctx)[0].study_path
+    assert sp == str(REPO / "workspace" / "studies" / "basal" / "study.yaml")
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_rename_integrity.py -v`
-Expected: FAIL — stale ids present; new dir absent.
+Run: `PYTHONPATH=$PWD ~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_rename_integrity.py -v`
+Expected: FAIL — `study_path` is nested (`inv_dir/studies/...`); stale ids present; new dir absent.
 
-- [ ] **Step 3: Do the rename**
+- [ ] **Step 3: Fix the study layout in code**
+
+In `scripts/_compare/study_spec.py`, `specs_from_configs`, change the `study_path` to the top-level registry (drop the `inv_dir/"studies"` nesting):
+
+```python
+            study_path=str(REPO / "workspace" / "studies" / name / "study.yaml"),
+```
+
+In `scripts/compare_cli.py`, the `init` dispatch: seed any per-config stub study.yaml at `REPO/workspace/studies/<name>/study.yaml` (top-level), not under the investigation dir, so scaffolded studies are registry+dashboard visible and match `specs_from_configs`. (Reuse the study path from `specs_from_configs` rather than recomputing.)
+
+- [ ] **Step 4: Do the rename + `configs[]` migration**
 
 ```bash
 git mv workspace/investigations/v2ecoli-vecoli-comparison workspace/investigations/whole-cell-model-comparison
 git mv docs/report_cards/v2ecoli-vecoli-comparison docs/report_cards/whole-cell-model-comparison
 ```
-Then edit `investigation.yaml` (`name: whole-cell-model-comparison`, `title`, `question`), and rewrite the `comparison:` block to the new schema (Task 2/5 shape: `candidate`, `reference`, `defaults`, `configs` — one config per current member: `basal`, `with_aa`, `acetate`, `succinate`, `no_oxygen`, and the `metabolism_redux_*` variants as `.json`-config entries). Update each `workspace/studies/*/study.yaml` `investigation:` value. Grep-fix any remaining hits:
+Edit `investigation.yaml`: set `name: whole-cell-model-comparison`, `title: "Whole-Cell Model Comparison"`, `question:` (framework framing), and replace the legacy `members:`/`comparison` block with the new schema — `candidate: v2ecoli`, `reference: {repo: env:V2E_VECOLI_DIR, kind: vecoli}`, `defaults: {seeds: 4, gens: 1, cards: [summary, parca, statistical, standard, trajectory]}`, and `configs:` with one entry per **existing** top-level member study dir: `basal`, `with_aa`, `acetate`, `succinate`, `no_oxygen` (bare `config: <name>`), and each `metabolism_redux_*` as `{name: metabolism_redux_<cond>, config: configs/metabolism_redux_<cond>.json, condition: <cond>}` (read the swap path from each existing study.yaml's legacy `from_vecoli_config` before deleting it). Update every `workspace/studies/*/study.yaml` `investigation:` value to the new id. Grep-fix remaining hits:
 ```bash
 grep -rl v2ecoli-vecoli-comparison workspace docs/report_cards
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] **Step 5: Run test to verify it passes**
 
-Run: `~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_rename_integrity.py -v`
-Expected: PASS.
+Run: `PYTHONPATH=$PWD ~/code/v2ecoli/.venv/bin/python -m pytest tests/compare/test_rename_integrity.py tests/compare/ -q`
+Expected: PASS (rename-integrity green; suite still green).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
-git commit -m "refactor(compare): rename investigation to whole-cell-model-comparison"
+git commit -m "refactor(compare): top-level study registry + rename to whole-cell-model-comparison"
 ```
 
 ---

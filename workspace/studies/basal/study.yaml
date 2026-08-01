@@ -1,6 +1,6 @@
 schema_version: 4
 name: basal
-investigation: v2ecoli-vecoli-comparison
+investigation: whole-cell-model-comparison
 title: v2ecoli reproduces vEcoli on basal
 condition: basal
 question: Does v2ecoli reproduce vEcoli on the basal condition?
@@ -42,7 +42,7 @@ tests:
     question: Does v2ecoli reproduce vEcoli on basal (statistical card)?
     measure:
       kind: report_card_axis
-      card: docs/report_cards/v2ecoli-vecoli-comparison/basal
+      card: docs/report_cards/whole-cell-model-comparison/basal
       group: statistical
 conditions:
   baseline:

@@ -1,6 +1,6 @@
 schema_version: 4
 name: no_oxygen
-investigation: v2ecoli-vecoli-comparison
+investigation: whole-cell-model-comparison
 title: v2ecoli reproduces vEcoli on no_oxygen
 condition: no_oxygen
 question: Does v2ecoli reproduce vEcoli on the no_oxygen condition?
@@ -42,7 +42,7 @@ tests:
     question: Does v2ecoli reproduce vEcoli on no_oxygen (statistical card)?
     measure:
       kind: report_card_axis
-      card: docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen
+      card: docs/report_cards/whole-cell-model-comparison/no_oxygen
       group: statistical
 conditions:
   baseline:

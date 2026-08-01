@@ -1,6 +1,6 @@
 schema_version: 4
 name: acetate
-investigation: v2ecoli-vecoli-comparison
+investigation: whole-cell-model-comparison
 title: v2ecoli reproduces vEcoli on acetate
 condition: acetate
 question: Does v2ecoli reproduce vEcoli on the acetate condition?
@@ -42,7 +42,7 @@ tests:
     question: Does v2ecoli reproduce vEcoli on acetate (statistical card)?
     measure:
       kind: report_card_axis
-      card: docs/report_cards/v2ecoli-vecoli-comparison/acetate
+      card: docs/report_cards/whole-cell-model-comparison/acetate
       group: statistical
 conditions:
   baseline:

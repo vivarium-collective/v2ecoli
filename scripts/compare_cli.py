@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO))
 from scripts._compare import runner  # noqa: E402
 from scripts._compare.materialize import materialize_study as _materialize  # noqa: E402
 
-DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
+DEFAULT_INVEST = "whole-cell-model-comparison"
 
 
 def main(argv=None) -> int:
@@ -85,8 +85,9 @@ def main(argv=None) -> int:
             # materialize_study() rewrites an EXISTING study.yaml's report_cards
             # + tests, preserving other keys -- it does not create the file. A
             # freshly scaffolded investigation has no per-study study.yaml yet
-            # (specs_from_configs() points at inv_dir/studies/<name>/study.yaml),
-            # so seed a minimal stub before materializing it.
+            # (specs_from_configs() points at the top-level registry
+            # workspace/studies/<name>/study.yaml), so seed a minimal stub
+            # before materializing it.
             study_path = Path(spec.study_path)
             if not study_path.exists():
                 study_path.parent.mkdir(parents=True, exist_ok=True)

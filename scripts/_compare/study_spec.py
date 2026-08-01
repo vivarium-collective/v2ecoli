@@ -20,7 +20,7 @@ from scripts._compare.reference import ReferenceEngine
 REPO = Path(__file__).resolve().parent.parent.parent
 INVEST_ROOT = REPO / "workspace" / "investigations"
 STUDIES_ROOT = REPO / "workspace" / "studies"
-DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
+DEFAULT_INVEST = "whole-cell-model-comparison"
 # Cards that GATE (pass/fail). The multi-seed `statistical` card (Welch t-test over
 # >=4 seeds) is the gold standard for trajectory reproduction; `parca` gates the
 # t=0 initial-state match. The single-seed `standard` card is DELIBERATELY NOT a
@@ -111,7 +111,7 @@ def specs_from_configs(ctx: dict) -> list:
             v2_cache=ctx["v2_cache"],
             ve_cache=ctx["ve_cache"],
             reference=ctx["reference"],
-            study_path=str((ctx["inv_dir"] or Path(".")) / "studies" / name / "study.yaml"),
+            study_path=str(REPO / "workspace" / "studies" / name / "study.yaml"),
             max_steps_per_gen=int(entry.get("max_steps_per_gen") or 15000),
         ))
     return out

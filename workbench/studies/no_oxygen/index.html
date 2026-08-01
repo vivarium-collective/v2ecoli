@@ -234,7 +234,7 @@
       
       <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
         <em>Derived from findings (shown until you write an override):</em>
-        <p style="margin:4px 0 0">RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT: 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</p>
+        <p style="margin:4px 0 0">v2ecoli reproduces vEcoli on no_oxygen (4-seed gen-1, Welch t-test): cell, dry, protein and RNA mass within tolerance (4/5 within_tol); growth rate shows a non-significant drift. 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge case (BIOTIN homeostatic target near zero); graded on the clean seeds.</p>
       </div>
       
       <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
@@ -251,20 +251,20 @@
       
       
       
-      <div class="finding-card finding-kind-computational finding-status-confirms">
+      <div class="finding-card finding-kind-computational finding-status-partial">
         <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">no_oxygen-rpobc-fix</span>
+          <span class="finding-status-glyph">◐</span>
+          <span class="finding-id">no_oxygen-vs-vecoli-result</span>
           <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
+          <span class="finding-status-text">partial literature</span>
         </div>
-        <div class="finding-statement">RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT: 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.</div>
+        <div class="finding-statement">v2ecoli reproduces vEcoli on no_oxygen (4-seed gen-1, Welch t-test): cell, dry, protein and RNA mass within tolerance (4/5 within_tol); growth rate shows a non-significant drift. 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge case (BIOTIN homeostatic target near zero); graded on the clean seeds.</div>
         
         
         
         
         <div class="finding-evidence">
-          <strong>observed:</strong> before -&gt; after fix (4-seed gen-1, Welch t): growth +14.4% (p=0.08) -&gt; +6.7% (p=0.50, not significant); RNA +5.5% drift -&gt; +1.0% within_tol; cell +2.4% -&gt; +1.0% within_tol; dry +2.4% -&gt; +1.0% within_tol; protein +0.3% -&gt; +0.5% within_tol. Overall drift -&gt; drift (4/5 within_tol, non-significant). · 
+          <strong>observed:</strong> growth +6.7% (p=0.50, not significant); RNA +1.0%; cell +1.0%; dry +1.0%; protein +0.5% -- 4/5 within_tol, overall drift. · 
           
           
           
@@ -349,7 +349,7 @@
     <div class="overview-section conclusion-block">
       <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">RESOLVED. no_oxygen was a borderline drift (growth +14.4%, p=0.08). After the fix v2ecoli reproduces vEcoli natively: growth drift more than halved to +6.7% (p=0.50, not significant), RNA now within tolerance (4/5 within_tol). Residual growth just outside +/-5% but non-significant. CAVEAT: 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge (BIOTIN homeostatic target ~ -2e-6, unrelated to the rpoBC fix); graded on the clean seeds. Root cause: the ParCa ppGpp-expression NNLS set exp_free[rpoBC operon]=0 (a non-negativity boundary solution), inverting the RNAP-core (rpoB/rpoC) nutrient response and compressing assembled APORNAP-CPLX -&gt; active_RNAP -&gt; rRNA/growth. The fix restores a fold-change-consistent, basal-preserving rpoBC split.<span class="computed-tag">computed from findings</span></p>
+      <p class="conclusion-insight">v2ecoli reproduces vEcoli on no_oxygen (4-seed gen-1, Welch t-test): cell, dry, protein and RNA mass within tolerance (4/5 within_tol); growth rate shows a non-significant drift. 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical edge case (BIOTIN homeostatic target near zero); graded on the clean seeds.<span class="computed-tag">computed from findings</span></p>
       
       
     <div class="narrative-field">
@@ -390,6 +390,18 @@
       <summary class="overview-label">Plan &amp; provenance</summary>
 
       
+      <div class="overview-section">
+        <h3 class="overview-label">Pipeline gate</h3>
+        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+        </p>
+        
+        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+        
+        
+        
+      </div>
+      
 
       
 
@@ -403,8 +415,8 @@
         
         
         <p style="margin:0">
-          <strong>3</strong> tests defined —
-            <span class="classification-pill classification-primary">3 primary</span>
+          <strong>8</strong> tests defined —
+            <span class="classification-pill classification-primary">8 primary</span>
           <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
         </p>
       </div>
@@ -596,7 +608,7 @@
     </p>
     <p style="margin:4px 0;font-size:0.86em" class="muted">
       
-      <strong>Tests applied:</strong> 3 · 
+      <strong>Tests applied:</strong> 8 · 
       <strong>Runs recorded:</strong> 1
     </p>
     
@@ -829,10 +841,10 @@
     
     
     
-    <li class="expected-behavior-item" id="bt-config-vs-vecoli"
+    <li class="expected-behavior-item" id="bt-summary-vs-vecoli"
         data-test-kind="behavioral"
         
-        data-pytest-node="config-vs-vecoli"
+        data-pytest-node="summary-vs-vecoli"
         data-classification="primary"
         data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
@@ -841,11 +853,90 @@
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">config-vs-vecoli</strong>
+        <strong style="font-size: 0.9em;">summary-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (config card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (summary card)?</div>
       
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-parca-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="parca-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">parca-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (parca card)?</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/whole-cell-model-comparison/no_oxygen", "group": "parca", "kind": "report_card_axis"}
+expect:  null</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-statistical-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="statistical-vs-vecoli"
+        data-classification="primary"
+        data-result="WITHIN_TOL"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (statistical card)?</div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;statistical&#39;: ungraded</code>
+        
+      </div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/whole-cell-model-comparison/no_oxygen", "group": "statistical", "kind": "report_card_axis"}
+expect:  null</pre>
+      </details>
       
       
       
@@ -889,36 +980,113 @@
     
     
     
-    <li class="expected-behavior-item" id="bt-statistical-vs-vecoli"
+    <li class="expected-behavior-item" id="bt-trajectory-vs-vecoli"
         data-test-kind="behavioral"
         
-        data-pytest-node="statistical-vs-vecoli"
+        data-pytest-node="trajectory-vs-vecoli"
         data-classification="primary"
-        data-result="WITHIN_TOL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">statistical-vs-vecoli</strong>
+        <strong style="font-size: 0.9em;">trajectory-vs-vecoli</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (statistical card)?</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (trajectory card)?</div>
       
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-distribution-vs-vecoli"
+        data-test-kind="behavioral"
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: report card &#39;statistical&#39;: ungraded</code>
+        data-pytest-node="distribution-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">distribution-vs-vecoli</strong>
         
       </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (distribution card)?</div>
       
       
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"card": "docs/report_cards/v2ecoli-vecoli-comparison/no_oxygen", "group": "statistical", "kind": "report_card_axis"}
-expect:  null</pre>
-      </details>
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-metabolism-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="metabolism-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">metabolism-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (metabolism card)?</div>
+      
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-composition-vs-vecoli"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="composition-vs-vecoli"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">composition-vs-vecoli</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli reproduce vEcoli on no_oxygen (composition card)?</div>
+      
       
       
       
@@ -1064,7 +1232,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "1662d25d6a2a29e61f2e828bb04afc25b27660ea", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/1662d25d6a2a29e61f2e828bb04afc25b27660ea", "branch": "main", "lockfile": "uv.lock@f2c546e23561", "generated_at": "2026-07-31 19:17 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "c53017b776b1f6c33fdffde63f012fa3f871c482", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/c53017b776b1f6c33fdffde63f012fa3f871c482", "branch": "main", "lockfile": "uv.lock@e8c318c12027", "generated_at": "2026-08-01 18:12 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "no_oxygen";

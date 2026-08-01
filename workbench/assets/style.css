@@ -1854,13 +1854,35 @@ textarea.loom-in-field{
 :root[data-theme="dark"] .pcard-json-btn:hover{ background:var(--active); color:#c7d2fe; }
 :root[data-theme="dark"] .pcard-json-view{ background:var(--surface-2); border-color:var(--border); }
 
-/* header pop-out control */
+/* header maximize + pop-out controls (sit together at the right edge) */
+.pcard-maximize,
 .pcard-popout{
-  margin-left:auto; flex:none; align-self:center;
+  flex:none; align-self:center;
   background:none; border:1px solid transparent; border-radius:5px; cursor:pointer;
   color:#94a3b8; font-size:0.95em; line-height:1; padding:2px 7px;
 }
+.pcard-maximize{ margin-left:auto; }                 /* push the pair to the right */
+.pcard-maximize + .pcard-popout{ margin-left:6px; }  /* pop-out sits beside maximize */
+.pcard-popout{ margin-left:auto; }                   /* still right-aligned when alone */
+.pcard-maximize:hover,
 .pcard-popout:hover{ background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
+.pcard-maximized .pcard-maximize{ background:#2563eb; color:#fff; border-color:#2563eb; }
+
+/* Maximized card: fills the content pane (right of the rail). Geometry is
+   CSS-driven off --vw-rail-right (published by JS) so a card re-render can't
+   strip the positioning. Lock page scroll so only the card scrolls. */
+body.pcard-maximized{ overflow:hidden; }
+.registry-entry-full.pcard-maximized{
+  position:fixed !important;
+  top:0 !important; right:0 !important; bottom:0 !important;
+  left:var(--vw-rail-right, 240px) !important;
+  width:auto !important; height:auto !important;
+  max-width:none !important; z-index:900;
+  margin:0 !important; border-radius:0;
+  background:#fff; overflow:auto;
+  box-shadow:-4px 0 18px rgba(15,23,42,.10);
+}
+:root[data-theme="dark"] .registry-entry-full.pcard-maximized{ background:var(--surface-1, #0f1728); }
 
 /* pop-out (?popcard=) window: focus-mode strips the rail; hide the registry
    tabs + toolbar too so only the single card shows, full-window. */
@@ -1873,18 +1895,35 @@ body.popcard-mode #registry-status,
 body.popcard-mode .registry-imports-section{ display:none !important; }
 body.popcard-mode .popcard-single{ margin:0; }
 body.popcard-mode .popcard-single .pcard{ border-radius:10px; }
-body.popcard-mode .pcard-popout{ display:none; }   /* no nested pop-out */
+body.popcard-mode .pcard-popout,
+body.popcard-mode .pcard-maximize{ display:none; }   /* already full-window */
 :root[data-theme="dark"] .pcard-popout:hover{ background:var(--active); color:#c7d2fe; border-color:var(--border-2); }
 
 /* persistent Run bar (not an accordion) — always visible at the card's top level */
+/* Run bar: the ▶ RUN label IS the run button (cyan, matching a section head),
+   with the Steps selector beside it — one compact group at the bar's start. */
 .pcard-runbar{
-  display:flex; align-items:center; flex-wrap:wrap; gap:12px;
-  padding:9px 16px; border-top:1px solid #eef2f7; border-bottom:1px solid #eef2f7;
-  background:#fbfcfe;
+  display:flex; align-items:center; flex-wrap:wrap; gap:10px;
+  padding:6px 16px; border-top:1px solid #eef2f7; border-bottom:1px solid #eef2f7;
+  background:#fff; box-shadow:inset 3px 0 0 #0891b2;   /* cyan run accent */
 }
-.pcard-runbar .action-btn{ flex:none; }
+/* The RUN button: looks like the section-head label, acts like a button. */
+.pcard-run-go{
+  display:inline-flex; align-items:center; gap:6px; flex:none;
+  font-family:inherit; font-size:0.72em; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.07em; line-height:1;
+  color:#0891b2; background:none;
+  border:1px solid transparent; border-radius:6px;
+  padding:6px 12px; cursor:pointer; transition:background .12s, border-color .12s;
+}
+.pcard-run-go:hover{ background:#ecfeff; border-color:#a5f3fc; }
+.pcard-run-go:active{ background:#cffafe; }
+.pcard-run-go:disabled, .pcard-run-go-disabled{ opacity:.5; cursor:default; }
+.pcard-runbar .loom-run-field{ margin-left:6px; }      /* Steps sits next to the button */
+.pcard-runbar .pcard-run-note{ margin-left:10px; }     /* read-only note next to the button */
 .pcard-run-out{ font-size:0.8em; color:#64748b; }
-:root[data-theme="dark"] .pcard-runbar{ background:var(--surface-2); border-color:var(--border-faint); }
+:root[data-theme="dark"] .pcard-runbar{ background:var(--surface-1, #0f1728); border-color:var(--border-faint); }
+:root[data-theme="dark"] .pcard-run-go:hover{ background:rgba(8,145,178,.15); border-color:#0e7490; }
 
 /* resizable sections: capped, scrollable body + a drag grip (dbl-click = fit) */
 .pcard-sec-resizable.pcard-sec-open > .pcard-sec-body{ max-height:var(--pch,300px); overflow:auto; }
@@ -1935,6 +1974,23 @@ body.pcard-sec-resizing{ cursor:ns-resize; user-select:none; }
 .pcard-sec-explore.pcard-sec-open   > .pcard-sec-head{ box-shadow:inset 3px 0 0 #7c3aed; }
 .pcard-sec-run.pcard-sec-open       > .pcard-sec-head{ box-shadow:inset 3px 0 0 #0891b2; }
 .pcard-sec-outputs.pcard-sec-open   > .pcard-sec-head{ box-shadow:inset 3px 0 0 #10b981; }
+
+/* Feature section (Explore): the primary way in, so it reads as a call-to-action
+   even when collapsed — violet accent bar + tint + colored caret/name always on,
+   and an inline "click to open" hint pill. */
+.pcard-sec-feature{ background:linear-gradient(90deg,#faf7ff,#fcfbff); }
+.pcard-sec-feature > .pcard-sec-head{ box-shadow:inset 3px 0 0 #7c3aed; padding-top:12px; padding-bottom:12px; }
+.pcard-sec-feature > .pcard-sec-head:hover{ background:#f4efff; }
+.pcard-sec-feature > .pcard-sec-head .pcard-sec-caret{ color:#7c3aed; }
+.pcard-sec-feature > .pcard-sec-head .pcard-sec-name{ color:#6d28d9; }
+.pcard-sec-hint{
+  font-size:0.78em; font-weight:600; color:#7c3aed;
+  background:#f1e9ff; border:1px solid #e2d3ff; border-radius:999px;
+  padding:2px 9px; white-space:nowrap;
+}
+:root[data-theme="dark"] .pcard-sec-feature{ background:linear-gradient(90deg,rgba(124,58,237,.10),rgba(124,58,237,.04)); }
+:root[data-theme="dark"] .pcard-sec-feature > .pcard-sec-head:hover{ background:rgba(124,58,237,.16); }
+:root[data-theme="dark"] .pcard-sec-hint{ color:#c4b5fd; background:rgba(124,58,237,.18); border-color:rgba(124,58,237,.35); }
 
 .pcard-run-note, .pcard-run-hint{ font-size:0.82em; }
 .pcard-run-status{ font-size:0.82em; }

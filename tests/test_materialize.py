@@ -4,7 +4,7 @@ import yaml
 
 from scripts._compare.study_spec import StudySpec
 from scripts._compare.materialize import (
-    materialized_fields, materialize_study, _graph_fields,
+    materialized_fields, materialize_study, _graph_fields, _pct,
 )
 
 CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's invest_name
@@ -13,7 +13,7 @@ CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's inv
 def _spec(study_path, name="basal_4x4", cards=("config", "parca", "statistical")):
     return StudySpec(name=name, condition="basal", seeds=4, gens=4, cards=list(cards),
                      invest_name="v2ecoli-vecoli-comparison", v2_cache="out/cache_full",
-                     ve_cache="out/compare_harness/vecoli_parca", fork="",
+                     ve_cache="out/compare_harness/vecoli_parca",
                      study_path=str(study_path))
 
 
@@ -106,6 +106,19 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
 def _axis(label, verdict, median_rel):
     return {"label": label, "verdict": verdict,
             "detail": {"median_rel": median_rel}}
+
+
+def test_pct_falls_back_across_median_rel_init_rel_delta_rel():
+    # median_rel (standard/summary axes) — existing behavior unchanged.
+    assert _pct({"detail": {"median_rel": 0.037}}) == "3.7%"
+    # init_rel (parca axes) — no median_rel present.
+    assert _pct({"detail": {"init_rel": 0.002}}) == "0.2%"
+    # delta_rel (statistical/ttest axes) can be negative — abs()'d.
+    assert _pct({"detail": {"delta_rel": -0.104}}) == "10.4%"
+    # no recognized key -> empty string.
+    assert _pct({"detail": {"other": 1}}) == ""
+    assert _pct({"detail": {}}) == ""
+    assert _pct({}) == ""
 
 
 def test_graph_fields_within_tol_is_accepted_and_confirms():

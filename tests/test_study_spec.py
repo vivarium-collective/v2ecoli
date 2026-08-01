@@ -20,7 +20,7 @@ def _make_invest(tmp_path):
         schema_version: 4
         name: v2ecoli-vecoli-comparison
         comparison:
-          vecoli_dir_env: V2E_TEST_FORK
+          reference: {repo: "env:V2E_TEST_FORK", kind: vecoli}
           v2_cache: out/cache_full
           ve_cache: out/compare_harness/vecoli_parca
           defaults: {cards: [config, parca, standard, statistical]}
@@ -75,11 +75,11 @@ def test_study_card_override_and_graded_subset(tmp_path):
     assert s44.graded_cards == ["parca", "statistical"]
 
 
-def test_context_reads_fork_from_named_env(tmp_path, monkeypatch):
+def test_context_reads_reference_repo_from_env(tmp_path, monkeypatch):
     inv = _make_invest(tmp_path)
     monkeypatch.setenv("V2E_TEST_FORK", "/some/vEcoli")
     ctx = _context(inv)
-    assert ctx["fork"] == "/some/vEcoli"
+    assert ctx["reference"].repo == "/some/vEcoli"
     assert ctx["v2_cache"] == "out/cache_full"
     assert ctx["ve_cache"] == "out/compare_harness/vecoli_parca"
 

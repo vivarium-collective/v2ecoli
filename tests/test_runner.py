@@ -10,7 +10,7 @@ def _spec(name="basal", condition="basal", seeds=1, gens=4, cards=("config", "pa
     return StudySpec(name=name, condition=condition, seeds=seeds, gens=gens,
                      cards=list(cards), invest_name="v2ecoli-vecoli-comparison",
                      v2_cache="out/cache_full", ve_cache="out/compare_harness/vecoli_parca",
-                     fork="", study_path="/x/study.yaml")
+                     study_path="/x/study.yaml")
 
 
 def test_run_engines_passes_condition_seeds_gens_and_store_dir(monkeypatch):
@@ -58,25 +58,19 @@ def test_run_study_render_only_skips_engines(monkeypatch):
 
 
 def test_run_investigation_loops_studies(monkeypatch, tmp_path):
-    # Canonical top-level layout (post-#390): studies/ is a SIBLING of
-    # investigations/ under the workspace root, referenced via `members:`.
+    # config-is-the-unit model (Task 4): run_investigation builds specs from
+    # comparison.configs[], not from a `members:`/`studies:` name list.
     ws = tmp_path / "workspace"
     inv = ws / "investigations/v2ecoli-vecoli-comparison"
-    (ws / "studies/basal").mkdir(parents=True)
-    (ws / "studies/with_aa").mkdir(parents=True)
     inv.mkdir(parents=True)
     (inv / "investigation.yaml").write_text(textwrap.dedent("""
         name: v2ecoli-vecoli-comparison
-        comparison: {defaults: {cards: [config, parca, standard]}}
-        members: [basal, with_aa]
+        comparison:
+          defaults: {cards: [config, parca, standard], seeds: 1, gens: 4}
+          configs:
+          - {name: basal, config: basal}
+          - {name: with_aa, config: with_aa}
     """), encoding="utf-8")
-    for n in ("basal", "with_aa"):
-        (ws / f"studies/{n}/study.yaml").write_text(textwrap.dedent(f"""
-            name: {n}
-            investigation: v2ecoli-vecoli-comparison
-            condition: {n}
-            comparison: {{seeds: 1, generations: 4}}
-        """), encoding="utf-8")
     ran, rendered, mat = [], [], []
     monkeypatch.setattr(runner, "_run_engines", lambda spec, out, mode: ran.append(spec.name))
     monkeypatch.setattr(runner, "_render", lambda inv_ref, out, ms, study=None: rendered.append((inv_ref, ms)))

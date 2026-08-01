@@ -72,3 +72,4 @@ from scripts._compare.report_cards import standard, statistical  # noqa: E402,F4
 from scripts._compare.report_cards import parca, config_diff, config  # noqa: E402,F401
 from scripts._compare.report_cards import trajectory, distribution  # noqa: E402,F401
 from scripts._compare.report_cards import metabolism, composition  # noqa: E402,F401
+from scripts._compare.report_cards import summary  # noqa: E402,F401

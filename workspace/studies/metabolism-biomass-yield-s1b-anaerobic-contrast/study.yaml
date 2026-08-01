@@ -54,7 +54,7 @@ tests:
 # NOT RUN. Scoped and wired, deliberately unexecuted in this PR.
 #
 # The planning docs assumed this contrast was free because a `no_oxygen` study already
-# exists in the v2ecoli-vecoli-comparison investigation. It is not free. That study records
+# exists in the whole-cell-model-comparison investigation. It is not free. That study records
 # v1-v2 equivalence outcomes only and carries no yield number, its calibrated per-condition
 # ParCa cache (out/cache/.regen_no_oxygen_seed00) is absent from this worktree, and there is
 # no anaerobic entry in v2ecoli/configs/. Running this therefore costs a per-condition ParCa

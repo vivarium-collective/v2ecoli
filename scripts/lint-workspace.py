@@ -182,6 +182,8 @@ def check_canonical_layout() -> None:
             errors.append(f"{slug} has a stray top-level baseline: (should be conditions.baseline)")
         if "parent_studies" in spec:
             errors.append(f"{slug} retains parent_studies (ordering must be inputs.from)")
+        if "depends_on" in spec:
+            errors.append(f"{slug} retains legacy depends_on (ordering must be inputs.from)")
         pg = spec.get("pipeline_gate") or {}
         if "prerequisites" in pg:
             errors.append(f"{slug} retains pipeline_gate.prerequisites (must be inputs.from)")

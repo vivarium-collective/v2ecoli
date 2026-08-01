@@ -79,6 +79,7 @@ def test_studies_canonical_conditions_form():
             continue
         assert "baseline" not in spec, f"{slug} has a stray top-level baseline: (should be conditions.baseline)"
         assert "parent_studies" not in spec, f"{slug} retains parent_studies (ordering must be inputs.from)"
+        assert "depends_on" not in spec, f"{slug} retains legacy depends_on (ordering must be inputs.from)"
         pg = spec.get("pipeline_gate") or {}
         assert "prerequisites" not in pg, f"{slug} retains pipeline_gate.prerequisites (must be inputs.from)"
         if slug not in NO_MODEL:

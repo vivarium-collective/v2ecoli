@@ -15,21 +15,50 @@ def register_evaluators(registry: dict) -> None:
     registry["report_card_axis"] = evaluate_report_card_group
 
 
+def _find_verdict(card_dir: Path, card_name: "str | None" = None) -> "Path | None":
+    """Locate a card's verdict JSON, spanning both naming conventions.
+
+    Gen-1 render CLIs write ``<card_dir>/report_card_verdict.json``; the Gen-2 flush
+    writes ``<study>/viz/report_card/<card>.verdict.json``
+    (``v2ecoli/workflow/report_cards/__init__.py::write_card``). Reading only the
+    Gen-1 name made a flush-produced verdict unreachable from a `report_card_axis`
+    study test — the join between a report card and the acceptance spine — so a
+    Gen-2 study could not gate on its own card.
+
+    Resolution order: the Gen-1 filename, then ``<card_name>.verdict.json`` when the
+    test names one, then a unique ``*.verdict.json`` in the directory. The last step
+    stays deliberately strict: with several cards flushed to one directory the
+    correct one is ambiguous, so the test must name it rather than have us guess.
+    """
+    gen1 = card_dir / "report_card_verdict.json"
+    if gen1.is_file():
+        return gen1
+    if card_name:
+        named = card_dir / f"{card_name}.verdict.json"
+        return named if named.is_file() else None
+    if card_dir.is_dir():
+        found = sorted(card_dir.glob("*.verdict.json"))
+        if len(found) == 1:
+            return found[0]
+    return None
+
+
 def evaluate_report_card_group(test: dict, reader, ws_root) -> dict:
     """Grade one study test against one group of a report card's verdict JSON.
 
-    measure: {kind: report_card_axis, card: <dir relative to ws_root>, group: <name>}
+    measure: {kind: report_card_axis, card: <dir relative to ws_root>, group: <name>,
+              card_name: <optional Gen-2 card name>}
     Aggregation: any mismatch -> FAIL; any drift (no mismatch) -> PASS + caveat;
     only within_tol -> PASS; all ungraded / missing -> result 'ungraded' (skip).
     """
     measure = test.get("measure") or {}
     card_dir = measure.get("card", "")
     group = measure.get("group", "")
-    vpath = Path(ws_root) / card_dir / "report_card_verdict.json"
+    vpath = _find_verdict(Path(ws_root) / card_dir, measure.get("card_name"))
 
-    if not vpath.is_file():
+    if vpath is None:
         return {"result": "ungraded", "evaluated_by": "report_card",
-                "detail": f"verdict json not found: {vpath}"}
+                "detail": f"verdict json not found under: {Path(ws_root) / card_dir}"}
     try:
         verdict = json.loads(vpath.read_text(encoding="utf-8"))
     except Exception as exc:  # noqa: BLE001

@@ -1,6 +1,6 @@
 schema_version: 4
 name: parca
-investigation: v2ecoli-vecoli-comparison
+investigation: whole-cell-model-comparison
 title: ParCa initial-state agreement — v2ecoli vs vEcoli
 condition: basal
 question: Do v2ecoli and vEcoli start from the same ParCa-fit initial state (basal)?
@@ -19,7 +19,7 @@ tests:
     question: Does v2ecoli reproduce vEcoli on parca (parca card)?
     measure:
       kind: report_card_axis
-      card: docs/report_cards/v2ecoli-vecoli-comparison/parca
+      card: docs/report_cards/whole-cell-model-comparison/parca
       group: parca
 runs:
   - composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline

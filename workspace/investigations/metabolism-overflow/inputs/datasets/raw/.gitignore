@@ -1,0 +1,7 @@
+# Local staging for raw source files (paper PDFs, supplement xlsx/csv, figure
+# grabs, WIP extraction). NEVER committed — copyrighted + bulky + not the clean
+# artifact. The curated, ingest-ready curve goes to the tracked sibling
+# ../basan2015_acetate_vs_growth.csv. Ignore everything here except this rule + the README.
+*
+!.gitignore
+!README.md

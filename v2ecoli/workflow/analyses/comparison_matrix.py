@@ -226,15 +226,24 @@ def _legend_html() -> str:
 
 # Gap 2 (docs/superpowers/specs/2026-08-02-phase-b-comparison-on-composite-
 # substrate-design.md): on the composite substrate, the investigation-level
-# ``comparison_matrix`` step is wired to every member study's RESULT STORE
-# (the ``run_study`` reply) for ordering, but that reply's ``verdict`` key is
-# harvested from a DIFFERENT card (``<study>/viz/report_card/
+# ``comparison_matrix`` step used to be wired to every member study's RESULT
+# STORE (the ``run_study`` reply) for ordering, but that reply's ``verdict``
+# key was harvested from a DIFFERENT card (``<study>/viz/report_card/
 # conclusion.verdict.json``, written by ``conclusion_card.write_conclusion_
 # card`` -- confirmed by reading ``vivarium_workbench.env_worker._run_study``
 # directly), never from ``comparison_cards``'s own per-study analysis output.
-# So this module reads each config's verdict from disk BY STUDY SLUG instead
-# of trusting whatever ``config_verdicts`` the substrate's
-# ``InvestigationAnalysisStep`` auto-assembles from wired state.
+# This module's disk-by-slug reader (below) was built as the workaround, and
+# for a time TOOK PRECEDENCE over ``config_verdicts`` for exactly that
+# reason.
+#
+# REVERTED (Task 3, comparison convergence Phase 2): the substrate's
+# ``InvestigationAnalysisStep`` now extracts each wired study's actual
+# ``report_card_verdict/v1`` and hands it to this Analysis as
+# ``config_verdicts`` directly, so that mistrust no longer applies --
+# ``config_verdicts`` is PRIMARY again (see ``comparison_matrix()``'s
+# docstring). The disk-by-slug reader below remains as a FALLBACK for
+# callers that pass ``config_studies`` + ``workspace`` (study slugs) instead
+# of already-resolved verdicts.
 #
 # Canonical on-disk location: ``<workspace>/studies/<slug>/
 # report_card_verdict.json`` -- the Gen-1 convention
@@ -314,25 +323,23 @@ def comparison_matrix(config_verdicts: "dict[str, dict] | None" = None, *,
 
     Two ways to supply the per-config verdicts:
       - ``config_verdicts`` -- an explicit ``{config_name: report_card_
-        verdict/v1}`` dict (the original, backward-compatible call shape).
+        verdict/v1}`` dict (the primary, original call shape).
       - ``config_studies`` + ``workspace`` -- a list of config study slugs;
         each one's verdict is loaded from disk under
         ``<workspace>/studies/<slug>/`` (Gap 2, see the module-level note
         above ``_VERDICT_FILENAMES``).
 
-    When ``config_studies`` is given it takes precedence over
-    ``config_verdicts`` (rather than merely filling a gap when the latter is
-    empty): on the real composite substrate, ``InvestigationAnalysisStep``
-    ALWAYS hands this Analysis a non-empty ``config_verdicts`` dict -- one
-    entry per wired study, but each value is that study's raw ``run_study``
-    reply, not a ``report_card_verdict/v1`` -- so a plain "use config_verdicts
-    if truthy" check would never reach the disk-read path in production. A
-    caller that wants disk verdicts must not also expect a same-named
-    ``config_verdicts`` argument to silently win.
+    ``config_verdicts`` is PRIMARY: when it is a non-empty dict, it is used
+    directly. ``config_studies`` + ``workspace`` is a FALLBACK, only
+    consulted when ``config_verdicts`` is empty/absent -- on the composite
+    substrate, ``InvestigationAnalysisStep`` now extracts each wired study's
+    actual ``report_card_verdict/v1`` (not the raw ``run_study`` reply) and
+    hands it to this Analysis as ``config_verdicts``, so the disk-read path
+    is only needed for callers that pass study slugs instead of verdicts.
 
     Returns ``{"matrix_html": <self-contained HTML fragment>}``.
     """
-    if config_studies:
+    if not config_verdicts and config_studies:
         config_verdicts = _config_verdicts_from_disk(config_studies, workspace)
     matrix = _config_verdicts_to_matrix(config_verdicts or {})
     summary_matrix = {
@@ -357,10 +364,11 @@ class ComparisonMatrix(Analysis):
     are) -- an investigation-level Analysis consuming several configs' worth
     of already-graded verdicts, not raw run data.
 
-    ``config_studies`` + ``workspace`` are the Gap 2 alternative: the member
+    ``config_studies`` + ``workspace`` are the Gap 2 fallback: the member
     config study slugs and the workspace root to read each one's persisted
-    verdict from disk (see :func:`comparison_matrix`'s docstring for the
-    precedence rule -- ``config_studies``, when set, wins).
+    verdict from disk, used only when ``config_verdicts`` is empty/absent
+    (see :func:`comparison_matrix`'s docstring -- ``config_verdicts`` is
+    primary).
     """
 
     name = "comparison_matrix"

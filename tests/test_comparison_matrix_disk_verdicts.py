@@ -8,6 +8,16 @@ Hermetic -- fixture verdict JSON files are written under a tmp workspace's
 ``scripts/_compare/verdict.py::write_condition_verdict`` writes -- see
 ``comparison_matrix.py``'s module-level Gap 2 note for why this is the
 canonical location this loader reads).
+
+Precedence reverted (Task 3, comparison convergence Phase 2 -- see
+``comparison_matrix.py``'s docstring): the substrate's
+``InvestigationAnalysisStep`` now hands this Analysis each wired study's
+actual extracted ``report_card_verdict/v1`` as ``config_verdicts`` (not the
+raw ``run_study`` reply as before), so ``config_verdicts`` is PRIMARY again
+and the disk read (``config_studies`` + ``workspace``) is only a FALLBACK
+for callers that pass study slugs instead of verdicts. The test below that
+used to assert ``config_studies`` wins over an explicit ``config_verdicts``
+has been updated to assert the opposite.
 """
 from __future__ import annotations
 
@@ -109,22 +119,46 @@ def test_comparison_matrix_explicit_config_verdicts_still_works_without_config_s
     assert "1.0%" in html
 
 
-def test_comparison_matrix_config_studies_takes_precedence_over_explicit_config_verdicts(
+def test_comparison_matrix_explicit_config_verdicts_takes_precedence_over_config_studies(
         tmp_path):
-    """On the real composite substrate, InvestigationAnalysisStep always
-    hands this Analysis a non-empty (but non-verdict-shaped) config_verdicts
-    dict alongside the static config_studies param -- config_studies must
-    still win, or the disk-read path would be dead code in production (see
-    comparison_matrix.py's module docstring on comparison_matrix())."""
+    """Reverted precedence (Task 3): on the real composite substrate,
+    InvestigationAnalysisStep now hands this Analysis each wired study's
+    actual extracted report_card_verdict/v1 as config_verdicts, so a
+    non-empty config_verdicts is the PRIMARY source and wins even when a
+    config_studies/workspace disk fallback is also passed -- the disk read
+    is only consulted when config_verdicts is empty/absent (see
+    comparison_matrix.py's module docstring on comparison_matrix()).
+
+    This test used to assert the opposite (config_studies wins); that
+    precedence has been reverted, so the disk-backed "mismatch" verdict for
+    "basal" must NOT appear -- the explicit config_verdicts's "within_tol"
+    verdict must render instead."""
     _write_verdict(tmp_path, "basal", overall="mismatch", median_rel=0.5)
 
-    bogus_config_verdicts = {"basal": {"study": "basal", "ran": True}}
+    explicit_config_verdicts = {
+        "basal": {
+            "schema": "report_card_verdict/v1",
+            "overall": "within_tol",
+            "groups": {
+                "mass": {
+                    "verdict": "within_tol",
+                    "axes": [{"label": "cell_mass", "verdict": "within_tol",
+                              "detail": {"median_rel": 0.02}}],
+                },
+            },
+        },
+    }
 
-    out = comparison_matrix(bogus_config_verdicts,
+    out = comparison_matrix(explicit_config_verdicts,
                              config_studies=["basal"], workspace=tmp_path)
     html = out["matrix_html"]
-    assert "✗" in html and "Mismatch" in html
-    assert "50.0%" in html
+    assert "✓" in html and "Within tolerance" in html
+    assert "2.0%" in html
+    # the disk-backed verdict must NOT have won: no graded mismatch cell
+    # (the legend always lists every possible glyph/label, so check the
+    # verdict CSS class and the disk fixture's own delta instead).
+    assert 'class="verdict-mismatch"' not in html
+    assert "50.0%" not in html
 
 
 def test_comparison_matrix_analysis_step_reads_from_disk(tmp_path):

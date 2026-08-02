@@ -15,6 +15,7 @@ Two data sources, matching comparison_summary's test split:
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -238,3 +239,97 @@ def test_comparison_cards_honors_a_requested_subset_from_real_fixtures():
     # reports ungraded (never a fabricated significance test).
     assert all(ax["verdict"] == "ungraded"
               for ax in out["verdict"]["groups"]["distribution"]["axes"])
+
+
+# --------------------------------------------------------------------------- #
+# Phase B Task A: verdict persistence to the canonical per-study path, so
+# comparison_matrix (Task 4) can read it from disk.
+# --------------------------------------------------------------------------- #
+
+def _fake_load_factory(cand_obs, ref_obs):
+    def fake_load(run_ref, observables=None, *, study_dir=None, runs_db=None):
+        return dict(cand_obs) if run_ref == "candidate" else dict(ref_obs)
+    return fake_load
+
+
+def test_comparison_cards_persists_verdict_when_study_dir_given(monkeypatch, tmp_path):
+    """When called as a per-study analysis (study_dir given), the verdict
+    must land at the exact path comparison_matrix's disk loader reads:
+    ``<study_dir>/report_card_verdict.json`` (directly under study_dir, not
+    nested under a per-condition subdirectory)."""
+    times = np.array([0.0, 10.0, 20.0, 30.0])
+    ref_cell = np.array([100.0, 101.0, 99.0, 100.0])
+    cand_obs = {"cell_mass": (times, ref_cell)}
+    ref_obs = {"cell_mass": (times, ref_cell)}
+
+    monkeypatch.setattr(
+        "v2ecoli.workflow.analyses.comparison_cards.load_run_observables",
+        _fake_load_factory(cand_obs, ref_obs))
+
+    study_dir = tmp_path / "studies" / "basal"
+    out = comparison_cards("candidate", "reference",
+                           observables=["cell_mass"], seeds=1,
+                           cards=["standard"], study_dir=study_dir)
+
+    verdict_path = study_dir / "report_card_verdict.json"
+    assert verdict_path.is_file()
+    persisted = json.loads(verdict_path.read_text(encoding="utf-8"))
+    assert persisted == out["verdict"]
+    assert persisted["groups"]["standard"]["verdict"] == "within_tol"
+
+
+def test_comparison_cards_skips_persistence_when_study_dir_is_none(monkeypatch, tmp_path,
+                                                                    capfd):
+    """Direct/unit callers (study_dir=None, the default) get the verdict back
+    but nothing is written to disk -- no accidental cwd pollution."""
+    times = np.array([0.0, 10.0])
+    obs = {"cell_mass": (times, np.array([10.0, 10.0]))}
+
+    monkeypatch.setattr(
+        "v2ecoli.workflow.analyses.comparison_cards.load_run_observables",
+        _fake_load_factory(obs, obs))
+    monkeypatch.chdir(tmp_path)
+
+    out = comparison_cards("candidate", "reference",
+                           observables=["cell_mass"], cards=["standard"])
+
+    assert out["verdict"]["groups"]["standard"]["verdict"] == "within_tol"
+    assert not (tmp_path / "report_card_verdict.json").exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_comparison_cards_verdict_round_trips_through_comparison_matrix(
+        monkeypatch, tmp_path):
+    """The write path (comparison_cards -> write_study_verdict) and the read
+    path (comparison_matrix -> _load_study_verdict) must agree: a verdict
+    written by comparison_cards for study "basal" must be the SAME verdict
+    comparison_matrix reads back for config_studies=["basal"], not a
+    placeholder."""
+    from v2ecoli.workflow.analyses.comparison_matrix import comparison_matrix
+
+    times = np.array([0.0, 10.0, 20.0, 30.0])
+    ref_cell = np.array([100.0, 101.0, 99.0, 100.0])
+    ref_dry = np.array([50.0, 51.0, 49.0, 50.0])
+    ref_obs = {"cell_mass": (times, ref_cell), "dry_mass": (times, ref_dry)}
+    # dry_mass +15% -> beyond drift band -> mismatch, so the round-tripped
+    # matrix HTML must show a real mismatch glyph, not an ungraded placeholder.
+    cand_obs = {"cell_mass": (times, ref_cell), "dry_mass": (times, ref_dry * 1.15)}
+
+    monkeypatch.setattr(
+        "v2ecoli.workflow.analyses.comparison_cards.load_run_observables",
+        _fake_load_factory(cand_obs, ref_obs))
+
+    workspace = tmp_path
+    study_dir = workspace / "studies" / "basal"
+    written = comparison_cards("candidate", "reference",
+                               observables=["cell_mass", "dry_mass"], seeds=1,
+                               cards=["standard"], study_dir=study_dir)["verdict"]
+
+    out = comparison_matrix(config_studies=["basal"], workspace=workspace)
+    html = out["matrix_html"]
+
+    # Not the ungraded placeholder: the matrix actually rendered the
+    # standard group's real axes, matching what comparison_cards computed.
+    assert "basal" in html
+    assert "✗" in html and "Mismatch" in html
+    assert written["groups"]["standard"]["verdict"] == "mismatch"

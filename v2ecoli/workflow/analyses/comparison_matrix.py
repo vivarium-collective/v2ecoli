@@ -247,15 +247,16 @@ def _legend_html() -> str:
 # same evaluator's second resolution rule / ``v2ecoli/workflow/report_cards/
 # __init__.py::write_card``'s naming) is tried second.
 #
-# CAVEAT (flagged, not fixed here -- out of this module's scope): as of this
-# writing NEITHER path is actually written by ``comparison_cards`` when it
-# runs as a per-study ``analyses:`` entry -- that path only ever produces a
-# nested, experiment-id-keyed ``<study>/parquet-runs/<experiment_id>/
-# analysis.json`` blob (``run_analyses``'s generic output), not a stable
-# per-study file. Wiring a real persistence step (so a study's
-# ``comparison_cards`` verdict actually lands at the canonical path below) is
-# a follow-up; this loader is deliberately tolerant of the file being absent
-# -- a missing verdict yields a placeholder ungraded row, never a crash.
+# FIXED (Phase B Task A, see scripts/_compare/verdict.py::write_study_verdict):
+# ``comparison_cards`` now persists its verdict to the FIRST path above
+# (``<study_dir>/report_card_verdict.json``) whenever it is called with a
+# ``study_dir`` (i.e. when it runs as a per-study ``analyses:`` entry) --
+# it no longer only produces the nested, experiment-id-keyed
+# ``<study>/parquet-runs/<experiment_id>/analysis.json`` blob. This loader
+# remains deliberately tolerant of the file being absent regardless (e.g. a
+# direct/unit call with no ``study_dir``, or the analysis simply hasn't run
+# yet) -- a missing verdict still yields a placeholder ungraded row, never a
+# crash.
 _VERDICT_FILENAMES = ("report_card_verdict.json",)
 _VERDICT_NAMED_CARD_DIR = ("viz", "report_card")
 _VERDICT_NAMED_CARD_FILE = "comparison_cards.verdict.json"

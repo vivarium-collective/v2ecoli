@@ -86,7 +86,8 @@ from scripts._compare.report_cards.distribution import update_distribution_repor
 from scripts._compare.report_cards.metabolism import update_metabolism_report_card
 from scripts._compare.report_cards.composition import update_composition_report_card
 from scripts._compare.report_cards.trajectory import _gen_bounds
-from scripts._compare.verdict import build_condition_verdict, worst
+from scripts._compare.verdict import (
+    build_condition_verdict, worst, write_study_verdict)
 from scripts.compare_matched_trajectories import OBSERVABLES, _gen1_window, matched_stats
 
 # {card name -> its as_step-wrapped update function}. Called via
@@ -270,6 +271,16 @@ def comparison_cards(candidate_run, reference_run, config=None, *,
 
     if "summary" in wired:
         cards_html["summary"] = build_summary_html(verdict, seeds)
+
+    # Persist to the canonical per-study path (`comparison_matrix`'s
+    # `_load_study_verdict` reads `<workspace>/studies/<slug>/
+    # report_card_verdict.json` -- see comparison_matrix.py's module-level
+    # Gap 2 note) so the investigation-level matrix can read this study's
+    # verdict from disk. `study_dir` is only populated when this runs as a
+    # per-study `analyses:` entry; direct/unit callers (study_dir=None) skip
+    # persistence and just get the verdict back, as before.
+    if study_dir is not None:
+        write_study_verdict(study_dir, verdict)
 
     return {"cards": cards_html, "verdict": verdict, "deferred": deferred}
 

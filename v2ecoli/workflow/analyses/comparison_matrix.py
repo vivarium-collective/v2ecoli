@@ -48,7 +48,9 @@ header -- rather than guessing.
 from __future__ import annotations
 
 import html as _html
+import json
 import re
+from pathlib import Path
 from typing import Any
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY  # noqa: F401
@@ -222,16 +224,116 @@ def _legend_html() -> str:
     return f'<div class="matrix-legend">{items}</div>'
 
 
-def comparison_matrix(config_verdicts: dict[str, dict]) -> dict[str, str]:
-    """Render the configs x observables verdict matrix from Task 2's
-    per-config verdict dicts (``comparison_summary``/``comparison_cards``'s
-    ``verdict`` output, one per config), reusing
-    ``reports/_summary.render._matrix_table`` for the table/CSS/glyph/label
-    machinery -- see module docstring for the delta-annotation adapter.
+# Gap 2 (docs/superpowers/specs/2026-08-02-phase-b-comparison-on-composite-
+# substrate-design.md): on the composite substrate, the investigation-level
+# ``comparison_matrix`` step is wired to every member study's RESULT STORE
+# (the ``run_study`` reply) for ordering, but that reply's ``verdict`` key is
+# harvested from a DIFFERENT card (``<study>/viz/report_card/
+# conclusion.verdict.json``, written by ``conclusion_card.write_conclusion_
+# card`` -- confirmed by reading ``vivarium_workbench.env_worker._run_study``
+# directly), never from ``comparison_cards``'s own per-study analysis output.
+# So this module reads each config's verdict from disk BY STUDY SLUG instead
+# of trusting whatever ``config_verdicts`` the substrate's
+# ``InvestigationAnalysisStep`` auto-assembles from wired state.
+#
+# Canonical on-disk location: ``<workspace>/studies/<slug>/
+# report_card_verdict.json`` -- the Gen-1 convention
+# ``scripts/_compare/verdict.py::write_condition_verdict`` writes (comparison_
+# cards.py's own module docstring calls ``build_condition_verdict`` "the
+# exact function the real harness uses to write a study's
+# report_card_verdict.json"), and the FIRST path
+# ``pbg_v2ecoli/evaluators.py::_find_verdict`` checks. A Gen-2 named-card
+# fallback (``<study>/viz/report_card/comparison_cards.verdict.json``, that
+# same evaluator's second resolution rule / ``v2ecoli/workflow/report_cards/
+# __init__.py::write_card``'s naming) is tried second.
+#
+# CAVEAT (flagged, not fixed here -- out of this module's scope): as of this
+# writing NEITHER path is actually written by ``comparison_cards`` when it
+# runs as a per-study ``analyses:`` entry -- that path only ever produces a
+# nested, experiment-id-keyed ``<study>/parquet-runs/<experiment_id>/
+# analysis.json`` blob (``run_analyses``'s generic output), not a stable
+# per-study file. Wiring a real persistence step (so a study's
+# ``comparison_cards`` verdict actually lands at the canonical path below) is
+# a follow-up; this loader is deliberately tolerant of the file being absent
+# -- a missing verdict yields a placeholder ungraded row, never a crash.
+_VERDICT_FILENAMES = ("report_card_verdict.json",)
+_VERDICT_NAMED_CARD_DIR = ("viz", "report_card")
+_VERDICT_NAMED_CARD_FILE = "comparison_cards.verdict.json"
+
+# A config whose verdict file is missing/unreadable renders as an ungraded
+# row (every cell "verdict-none", per render._matrix_table's `.get(c)`-is-
+# None handling) rather than being dropped or crashing the matrix.
+_UNGRADED_PLACEHOLDER: dict[str, Any] = {
+    "schema": "report_card_verdict/v1",
+    "overall": "ungraded",
+    "groups": {},
+}
+
+
+def _study_verdict_candidates(workspace: "str | Path", slug: str) -> list[Path]:
+    study_dir = Path(workspace) / "studies" / slug
+    candidates = [study_dir / name for name in _VERDICT_FILENAMES]
+    candidates.append(study_dir.joinpath(*_VERDICT_NAMED_CARD_DIR, _VERDICT_NAMED_CARD_FILE))
+    return candidates
+
+
+def _load_study_verdict(workspace: "str | Path", slug: str) -> "dict | None":
+    """One config study's persisted ``comparison_cards`` verdict, or ``None``
+    if no known verdict-file location under ``<workspace>/studies/<slug>/``
+    exists or parses -- never raises (see module-level Gap 2 note)."""
+    for path in _study_verdict_candidates(workspace, slug):
+        if not path.is_file():
+            continue
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def _config_verdicts_from_disk(config_studies: list[str],
+                                workspace: "str | Path") -> dict[str, dict]:
+    """``{slug: <persisted verdict, or the ungraded placeholder>}`` for every
+    ``config_studies`` slug, read from disk under ``workspace`` -- see the
+    module-level Gap 2 note for the exact resolution order and its caveat."""
+    return {
+        slug: _load_study_verdict(workspace, slug) or dict(_UNGRADED_PLACEHOLDER)
+        for slug in config_studies
+    }
+
+
+def comparison_matrix(config_verdicts: "dict[str, dict] | None" = None, *,
+                       config_studies: "list[str] | None" = None,
+                       workspace: "str | Path | None" = None) -> dict[str, str]:
+    """Render the configs x observables verdict matrix from per-config
+    verdict dicts (``comparison_summary``/``comparison_cards``'s ``verdict``
+    output, one per config), reusing ``reports/_summary.render._matrix_table``
+    for the table/CSS/glyph/label machinery -- see module docstring for the
+    delta-annotation adapter.
+
+    Two ways to supply the per-config verdicts:
+      - ``config_verdicts`` -- an explicit ``{config_name: report_card_
+        verdict/v1}`` dict (the original, backward-compatible call shape).
+      - ``config_studies`` + ``workspace`` -- a list of config study slugs;
+        each one's verdict is loaded from disk under
+        ``<workspace>/studies/<slug>/`` (Gap 2, see the module-level note
+        above ``_VERDICT_FILENAMES``).
+
+    When ``config_studies`` is given it takes precedence over
+    ``config_verdicts`` (rather than merely filling a gap when the latter is
+    empty): on the real composite substrate, ``InvestigationAnalysisStep``
+    ALWAYS hands this Analysis a non-empty ``config_verdicts`` dict -- one
+    entry per wired study, but each value is that study's raw ``run_study``
+    reply, not a ``report_card_verdict/v1`` -- so a plain "use config_verdicts
+    if truthy" check would never reach the disk-read path in production. A
+    caller that wants disk verdicts must not also expect a same-named
+    ``config_verdicts`` argument to silently win.
 
     Returns ``{"matrix_html": <self-contained HTML fragment>}``.
     """
-    matrix = _config_verdicts_to_matrix(config_verdicts)
+    if config_studies:
+        config_verdicts = _config_verdicts_from_disk(config_studies, workspace)
+    matrix = _config_verdicts_to_matrix(config_verdicts or {})
     summary_matrix = {
         "columns": matrix["columns"],
         "rows": [{"study": r["study"], "cells": r["cells"]} for r in matrix["rows"]],
@@ -253,12 +355,19 @@ class ComparisonMatrix(Analysis):
     scoped to a single run the way ``comparison_summary``/``comparison_cards``
     are) -- an investigation-level Analysis consuming several configs' worth
     of already-graded verdicts, not raw run data.
+
+    ``config_studies`` + ``workspace`` are the Gap 2 alternative: the member
+    config study slugs and the workspace root to read each one's persisted
+    verdict from disk (see :func:`comparison_matrix`'s docstring for the
+    precedence rule -- ``config_studies``, when set, wins).
     """
 
     name = "comparison_matrix"
     scale = "single"
     config_schema = {
         "config_verdicts": {"_type": "maybe[map]", "_default": None},
+        "config_studies": {"_type": "maybe[list[string]]", "_default": None},
+        "workspace": {"_type": "maybe[string]", "_default": None},
     }
 
     def inputs(self):
@@ -268,7 +377,12 @@ class ComparisonMatrix(Analysis):
         return {"matrix_html": "string"}
 
     def analyze(self, **ctx) -> dict:
-        return comparison_matrix(self.config.get("config_verdicts") or {})
+        cfg = self.config
+        return comparison_matrix(
+            cfg.get("config_verdicts") or {},
+            config_studies=cfg.get("config_studies"),
+            workspace=cfg.get("workspace"),
+        )
 
     def update(self, state=None, interval=None):
         return self.analyze()

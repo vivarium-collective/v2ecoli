@@ -341,6 +341,14 @@ def comparison_matrix(config_verdicts: "dict[str, dict] | None" = None, *,
     """
     if not config_verdicts and config_studies:
         config_verdicts = _config_verdicts_from_disk(config_studies, workspace)
+    elif config_verdicts and config_studies:
+        # config_studies is the intended ROW list; config_verdicts (from the
+        # substrate) is keyed by EVERY wired composite member — including
+        # non-config members like ``parca`` (InvestigationAnalysisStep wires all
+        # members for run-ordering). Filter to the config studies so the matrix
+        # renders only their rows, not a spurious ``parca`` row.
+        config_verdicts = {k: v for k, v in config_verdicts.items()
+                           if k in set(config_studies)}
     matrix = _config_verdicts_to_matrix(config_verdicts or {})
     summary_matrix = {
         "columns": matrix["columns"],

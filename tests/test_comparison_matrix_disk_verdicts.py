@@ -119,6 +119,28 @@ def test_comparison_matrix_explicit_config_verdicts_still_works_without_config_s
     assert "1.0%" in html
 
 
+def _one_verdict(overall="within_tol", median_rel=0.01):
+    return {"schema": "report_card_verdict/v1", "overall": overall,
+            "groups": {"mass": {"verdict": overall, "axes": [
+                {"label": "cell_mass", "verdict": overall,
+                 "detail": {"median_rel": median_rel}}]}}}
+
+
+def test_config_studies_filters_extra_members_from_config_verdicts():
+    """The substrate wires ALL composite members (incl. ``parca``) into
+    config_verdicts for run-ordering. When config_studies names the intended
+    ROWS, the matrix must render only those — not a spurious ``parca`` row."""
+    config_verdicts = {
+        "basal": _one_verdict("within_tol", 0.02),
+        "parca": _one_verdict("ungraded", 0.0),   # extra non-config member
+    }
+    out = comparison_matrix(config_verdicts, config_studies=["basal"])
+    html = out["matrix_html"]
+    assert "basal" in html
+    assert "parca" not in html   # filtered out — not a matrix row
+    assert "2.0%" in html
+
+
 def test_comparison_matrix_explicit_config_verdicts_takes_precedence_over_config_studies(
         tmp_path):
     """Reverted precedence (Task 3): on the real composite substrate,

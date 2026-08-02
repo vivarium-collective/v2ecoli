@@ -16,14 +16,9 @@
   <h1 class="study-title">
     <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">colonies-01</span><span class="study-name" id="study-name" data-slug="colonies-01-hpc-readiness" title="colonies-01-hpc-readiness">HPC scaling readiness for the colony composite</span>
     
+    <span class="study-kind-tag study-kind-computational" data-study-kind="computational" title="Study kind">computational</span>
+    
     <span class="phase-pill phase-decide" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Decide</span>
-    
-    
-    
-    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
-    
-    
-    
     
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
@@ -31,21 +26,204 @@
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
   </div>
+  <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
+    
+    
+    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
+    
+
+    
+    <div id="readiness-panel" data-slug="colonies-01-hpc-readiness"></div>
+
+    
+    
+    
+    
+    
+    
+    <details class="status-detail-panel" aria-label="Six-gate lifecycle status">
+      <summary>
+        <span class="status-stepper-more">status</span>
+        
+        <span class="status-stepper">
+          
+          <span class="status-step gate-step axis-design_status gate-state-passed set" title="Gate 1 · Plan">
+            <span class="dot"></span>1&nbsp;·&nbsp;Plan<span class="step-val">approved</span>
+          </span>
+          
+          <span class="status-step gate-step axis-simulation_status gate-state-passed set" title="Gate 2 · Execution">
+            <span class="dot"></span>2&nbsp;·&nbsp;Execution<span class="step-val">ran</span>
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-passed set" title="Gate 3 · Evidence">
+            <span class="dot"></span>3&nbsp;·&nbsp;Evidence<span class="step-val">evaluated</span>
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-passed set" title="Gate 4 · Quality">
+            <span class="dot"></span>4&nbsp;·&nbsp;Quality<span class="step-val">evaluated</span>
+          </span>
+          
+          <span class="status-step gate-step axis-gate_status gate-state-blocked set" title="Gate 5 · Decision">
+            <span class="dot"></span>5&nbsp;·&nbsp;Decision<span class="step-val">passed</span>
+          </span>
+          
+          <span class="status-step gate-step axis-expert_review_status gate-state-not-assessed set" title="Gate 6 · Release">
+            <span class="dot"></span>6&nbsp;·&nbsp;Release<span class="step-val">not_requested</span>
+          </span>
+          
+          
+          <span class="status-step axis-implementation_status set">
+            <span class="dot"></span>Implementation<span class="step-val">complete</span>
+          </span>
+          
+        </span>
+      </summary>
+      <div class="status-stepper-body">
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">1 · Plan</span>
+          <span class="status-chip gate-state-passed">approved</span>
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">2 · Execution</span>
+          <span class="status-chip gate-state-passed">ran</span>
+          
+          <span class="gate-computed-chip gate-state-passed" title="5 completed run(s)">◆ computed: ran</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">3 · Evidence</span>
+          <span class="status-chip gate-state-passed">evaluated</span>
+          
+          <span class="gate-computed-chip gate-state-passed" title="completed run + recorded verdicts">◆ computed: evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">4 · Quality</span>
+          <span class="status-chip gate-state-passed">evaluated</span>
+          
+          <span class="gate-computed-chip gate-state-passed" title="completed run + recorded verdicts">◆ computed: evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-blocked">
+          <span class="status-detail-axis">5 · Decision</span>
+          <span class="status-chip gate-state-passed">passed</span>
+          
+          <span class="gate-computed-chip gate-state-blocked" title="spine gate evaluator (study_verdict.roll_up_verdict / pipeline_gate.gate_evaluator)">◆ computed: blocked</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">6 · Release</span>
+          <span class="status-chip gate-state-not-assessed">not_requested</span>
+          
+          
+        </div>
+        
+        
+        <div class="status-detail-row">
+          <span class="status-detail-axis">Implementation</span>
+          <span class="status-chip">complete</span>
+        </div>
+        
+      </div>
+    </details>
+    
+  </div>
 </header>
 
 
 
 
 
-<div id="readiness-panel" data-slug="colonies-01-hpc-readiness"></div>
 
 
 
 
+<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> Is the pure whole-cell colony composite ready to scale on HPC? Can N
+parallel EcoliWCMs grow and divide cleanly for ≥2 generations inside one
+composite, and how does wall-time / RAM / per-tick cost scale with N on one
+machine — well enough to project a cells-per-HPC-node budget?
+</p>
 
-
+<nav class="study-tabs" aria-label="Study sections">
+  
+  <div class="act-cluster" data-act="study">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="study" data-gate-state="blocked"></span>
+      <span class="act-label">The Study</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar active" data-kind="overview" onclick="_setStudyTab('overview')">Overview</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="design">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="design" data-gate-state="passed"></span>
+      <span class="act-label">Design</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
+      <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="evidence">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="evidence" data-gate-state="passed"></span>
+      <span class="act-label">Evidence</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="assurance">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="assurance" data-gate-state="passed"></span>
+      <span class="act-label">Assurance</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="decision">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="decision" data-gate-state="blocked"></span>
+      <span class="act-label">Decision</span>
+    </div>
+    <div class="act-tabs">
+      
+      <button class="study-pillar" data-kind="conclusions" onclick="_setStudyTab('conclusions')">Decide</button>
+    </div>
+  </div>
+</nav>
 <style>
-.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+/* Task 4: header restructure — kind tag, promoted question, tightened status row.
+   The 6-axis stepper + gate-status colors below are carried over verbatim from
+   the pre-restructure Pass A styling (the <details> markup was repositioned,
+   not rebuilt). */
+.study-kind-tag{display:inline-block;font-size:0.5em;font-weight:600;padding:3px 9px;border-radius:9999px;vertical-align:middle;margin-left:8px;background:#f1f5f9;color:#475569;text-transform:capitalize}
+.study-kind-tag.study-kind-biological{background:#ecfdf5;color:#065f46}
+.study-kind-tag.study-kind-computational{background:#eff6ff;color:#1e40af}
+.study-kind-tag.study-kind-theoretical{background:#faf5ff;color:#6b21a8}
+.study-question-headline{margin:6px 0 0 0;font-size:1.05em;line-height:1.5;color:#1e293b;font-family:Georgia,"Times New Roman",serif}
+.study-question-headline .q-glyph{display:inline-block;font-size:0.78em;font-weight:700;font-family:ui-monospace,monospace;color:#64748b;background:#f1f5f9;padding:1px 7px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.study-status-row{font-size:0.95em}
+.status-detail-panel{margin:0;padding:2px 0;background:transparent;border:none;border-radius:0;font-size:0.92em}
 .status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
 .status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
 .status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
@@ -56,7 +234,7 @@
 .gate-status-failed           { background:#fee2e2; color:#991b1b }
 .gate-status-stale            { background:#ede9fe; color:#5b21b6 }
 .status-pill.gate-status{font-weight:500}
-/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
+/* Compact one-line lifecycle stepper; full per-axis rows behind the "status ▾" expander. */
 .status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .status-detail-panel > summary::-webkit-details-marker{display:none}
 .status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
@@ -70,136 +248,31 @@
 .status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
 .status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
 .status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
-.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
+/* Fable G2 (§13.2 gate-state vocab; §9.3 palette: grey/green/amber/red/violet).
+   One palette for the gate-ladder stepper dots + detail rows AND (via the
+   [data-gate-state] selectors below) the act-rail dots, so "how urgent is
+   this gate" reads identically in both places. Rules below `.status-step.set
+   .dot` on purpose so a "set" gate's real state wins over the generic green. */
+.status-step.gate-state-not-assessed .dot{background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.gate-state-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-state-passed-with-conditions .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-state-blocked .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-state-waived .dot{background:#8b5cf6;box-shadow:none}
+.status-chip.gate-state-not-assessed{background:#e2e8f0;color:#334155}
+.status-chip.gate-state-passed{background:#d1fae5;color:#065f46}
+.status-chip.gate-state-passed-with-conditions{background:#fef3c7;color:#92400e}
+.status-chip.gate-state-blocked{background:#fee2e2;color:#991b1b}
+.status-chip.gate-state-waived{background:#ede9fe;color:#5b21b6}
+.gate-computed-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-left:6px;font-family:ui-monospace,monospace;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.gate-divergence-chip-inline{display:inline-block;font-size:0.78em;font-weight:700;padding:2px 9px;border-radius:9999px;margin-left:6px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e}
+.act-gate-dot[data-gate-state="passed"]{background:#10b981;box-shadow:none}
+.act-gate-dot[data-gate-state="passed-with-conditions"]{background:#f59e0b;box-shadow:none}
+.act-gate-dot[data-gate-state="blocked"]{background:#ef4444;box-shadow:none}
+.act-gate-dot[data-gate-state="waived"]{background:#8b5cf6;box-shadow:none}
+.status-stepper-more{font-size:0.82em;font-weight:600;color:#475569;white-space:nowrap}
 .status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
 .status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
 .status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
-</style>
-<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
-  <summary>
-    <span class="status-stepper">
-      
-      <span class="status-step axis-design_status set">
-        <span class="dot"></span>Design<span class="step-val">approved</span>
-      </span>
-      
-      <span class="status-step axis-implementation_status set">
-        <span class="dot"></span>Implementation<span class="step-val">complete</span>
-      </span>
-      
-      <span class="status-step axis-simulation_status set">
-        <span class="dot"></span>Simulation<span class="step-val">ran</span>
-      </span>
-      
-      <span class="status-step axis-evaluation_status set">
-        <span class="dot"></span>Evaluation<span class="step-val">evaluated</span>
-      </span>
-      
-      <span class="status-step axis-gate_status set gate-status-passed">
-        <span class="dot"></span>Gate<span class="step-val">passed</span>
-      </span>
-      
-      <span class="status-step axis-expert_review_status set">
-        <span class="dot"></span>Expert review<span class="step-val">not_requested</span>
-      </span>
-      
-    </span>
-    <span class="status-stepper-more">details</span>
-  </summary>
-  <div class="status-stepper-body">
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Design</span>
-      <span class="status-chip ">approved</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Implementation</span>
-      <span class="status-chip ">complete</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Simulation</span>
-      <span class="status-chip ">ran</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Evaluation</span>
-      <span class="status-chip ">evaluated</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Gate</span>
-      <span class="status-chip gate-status-passed">passed</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Expert review</span>
-      <span class="status-chip ">not_requested</span>
-    </div>
-    
-    
-  </div>
-</details>
-
-
-
-
-
-
-<style>
-.spine-summary{margin:8px 0 0 0;border:1px solid #cbd5e1;border-left-width:5px;border-bottom:none;border-radius:6px 6px 0 0;background:#f8fafc;font-size:0.9em}
-.spine-summary:empty{display:none}
-.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
-.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
-.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
-.spine-val{flex:1;color:#1e293b}
-.spine-jump{white-space:nowrap}
-.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
-.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
-.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
-.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
-.spine-div{font-weight:600;color:#92400e}
-</style>
-<div id="spine-summary" class="spine-summary" data-slug="colonies-01-hpc-readiness"></div>
-
-<nav class="study-tabs" aria-label="Study sections">
-  <div class="study-pillars">
-    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Overview</button>
-    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Model</button>
-    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulations</button>
-    <button class="study-pillar"        data-pillar="readouts"   onclick="_setStudyPillar('readouts')">Readouts</button>
-    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualizations</button>
-    <button class="study-pillar"        data-pillar="tests"      onclick="_setStudyPillar('tests')">Tests</button>
-    <button class="study-pillar"        data-pillar="decide"     onclick="_setStudyPillar('decide')">Decide</button>
-    <button class="study-pillar"        data-pillar="data"       onclick="_setStudyPillar('data')">Exports</button>
-  </div>
-  <div class="study-subnav" id="study-subnav">
-    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
-    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Model</button>
-    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulations</button>
-    <button class="study-tab" data-kind="readouts" data-pillar="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
-    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
-    
-    <button class="study-tab" data-kind="report-cards" data-pillar="tests" onclick="_setStudyTab('report-cards')">Report Cards</button>
-    <button class="study-tab" data-kind="tests" data-pillar="tests" onclick="_setStudyTab('tests')">Behavioral Tests</button>
-    
-    <button class="study-tab" data-kind="conclusions" data-pillar="decide" onclick="_setStudyTab('conclusions')">Decide</button>
-    <button class="study-tab" data-kind="data" data-pillar="data" onclick="_setStudyTab('data')">Exports</button>
-  </div>
-</nav>
-<style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
 .phase-design   { background:#e0e7ff; color:#3730a3 }
 .phase-build    { background:#fef3c7; color:#92400e }
@@ -236,12 +309,31 @@
 .followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
 .btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
 .btn-seed-followup:hover{background:#3b82f6;color:#fff}
-.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
-.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
-/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+/* ── One flowing figure gallery (Fable §4.5, Task V2) ──────────────────
+   The native gallery, embedded-HTML previews, and latest-run charts all
+   render as the same `.figure-card`: a bordered figure container + a muted
+   caption-row footer (source chip + title + optional run link), instead of
+   three differently-chrome'd sections under their own headings. The three
+   async mounts stay separate (`#native-gallery-panel`, the embed cards,
+   `#viz-charts-panel`) but each is a flex column with the same gap, so they
+   read as one continuous gallery. */
+.figure-gallery{display:flex;flex-direction:column;gap:16px}
+.figure-mount{display:flex;flex-direction:column;gap:16px}
+.charts-panel{display:flex;flex-direction:column;gap:16px}
+.figure-card{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff}
+.figure-media-frame{display:block;width:100%;border:0;background:#fff}
+.figure-media-frame--native{height:480px}
+.figure-media-frame--embed{min-height:200px}
+/* SVGs/PNGs scale to fit their card; preserves aspect ratio so a 1400×484
    chart shrinks instead of overflowing horizontally + clipping. */
-.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
-.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+.figure-card svg,.figure-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.figure-desc{margin:8px 12px 0;font-size:0.85em;color:#475569}
+.figure-caption-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;font-size:0.85em;color:#475569;border-top:1px solid #f1f5f9;background:#f8fafc}
+.figure-source-chip{font-size:0.68em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#64748b;flex-shrink:0}
+.figure-title{font-weight:600;color:#334155;flex:1;min-width:100px}
+.figure-run-link,.figure-open-link{font-size:0.85em;color:#2563eb;text-decoration:none;white-space:nowrap;cursor:pointer}
+.figure-run-link:hover,.figure-open-link:hover{text-decoration:underline}
+.chart-caption{font-size:0.83em;color:#475569;margin:8px 12px 0;line-height:1.4}
 /* findings */
 .findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
 .finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
@@ -249,6 +341,13 @@
 .finding-card.finding-status-partial{border-left-color:#f59e0b}
 .finding-card.finding-status-contradicts{border-left-color:#dc2626}
 .finding-card.finding-status-novel{border-left-color:#8b5cf6}
+/* C2: compact ledger row (<summary>) + native <details> evidence drawer */
+.finding-details{border:none}
+.finding-details>summary{list-style:none;cursor:pointer}
+.finding-details>summary::-webkit-details-marker{display:none}
+.finding-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.finding-chip{font-size:0.78em;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:9999px;white-space:nowrap}
+.finding-drawer{margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0}
 .finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
 .finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
 .finding-status-confirms .finding-status-glyph{color:#10b981}
@@ -259,6 +358,7 @@
 .finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
 .finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
 .finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-claim{flex:1;min-width:200px;margin:0}
 .finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
 .finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
 .finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
@@ -303,6 +403,15 @@
   padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
 .add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
 .conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+/* Markdown-rendered conclusion blob: flows full-width (reflows authored hard-wraps), keeps paragraphs + ordered list. */
+.conclusion-md{color:#1e293b}
+.conclusion-md > :first-child{margin-top:0}
+.conclusion-md > :last-child{margin-bottom:0}
+.conclusion-md p{margin:0 0 10px}
+.conclusion-md ol,.conclusion-md ul{margin:0 0 10px;padding-left:22px}
+.conclusion-md li{margin:2px 0}
+.conclusion-md code{background:#eef2f7;padding:1px 4px;border-radius:3px;font-size:0.92em}
+.conclusion-md pre{background:#eef2f7;padding:8px 10px;border-radius:4px;overflow-x:auto;white-space:pre-wrap}
 .conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
 .computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
   letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
@@ -363,62 +472,8 @@ N ∈ {1,2,4,8} and instrument per-tick costs.
     
 
     
-    <div class="overview-section biology-summary-callout">
-      <h2 class="biology-glance-label">Biology — what this study is about</h2>
-      
-      
-      <div class="biology-derived-preview muted small" style="margin-top:2px;padding:8px 12px;background:#f8fafc;border-left:3px solid #cbd5e1;border-radius:4px">
-        <em>Derived from findings (shown until you write an override):</em>
-        <p style="margin:4px 0 0">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
-decrease with N as Python/import overhead amortizes). Composite scales
-linearly on one machine.
-</p><p style="margin:4px 0 0">The GIL is the dominant bottleneck at colony scale. Process-bigraph
-composites are single-threaded by design — one process uses ~1 CPU core
-regardless of how many cells it holds. Scaling means more processes, not
-more cells/process.
-</p><p style="margin:4px 0 0">Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each
-extra cell costs far less than a fresh sim_data load, because
-v2ecoli/core.py::_load_cache_bundle_cached is @lru_cache&#39;d by cache_dir and
-ecoli_baseline deep-copies only initial_state per cell. Original N-sweep (commit
-2f950d9, emit_cells=True): ~450 MB/cell atop a ~1 GB baseline → 384 cells/node.
-HARDENING re-measurement (2026-07-27, current main, bounded
-ColonyPhenotypeRecorder + emit_cells=False): ~291 MB/cell atop an ~888 MB
-baseline; the gc-visible numpy footprint stays flat (+39 MB) as N goes 1→4,
-directly confirming sim_data is shared by reference and the per-cell increment
-is mutable state, not a duplicated bundle. Per-cell RSS DROPPED ~450→~291 MB
-because the bounded phenotype recorder replaced the in-RAM cells-map
-accumulation. Reconciled current-main budget: ~700 cells/node (see
-expected.summary), superseding both the stale 384 and the unsupported ~1000 in
-the investigation executive.
-</p><p style="margin:4px 0 0">pymunk 2D physics is essentially free at the N values we tested
-(≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
-</p><p style="margin:4px 0 0">Three independent bugs blocked daughter hydration through the engine
-and had to be fixed before the Decide phase could run.
-</p><p style="margin:4px 0 0">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
-(1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
-either accumulating state in the EcoliWCM internal composite or a leak;
-visible only in long runs, not in the 60s N-sweep windows.
 
-Characterised by the 2026-07-26 leak hunt (supersedes the leak framing): the
-growth is localized to the inner WCM&#39;s polypeptide-elongation step (~82%) +
-mass-listener (~17%), and is NOT an unbounded native leak. Only ~0.2 MB/tick is
-truly retained (tracemalloc-visible: scipy LSODA integrator work arrays held
-per solve); the remainder is macOS allocator arena churn — large per-tick numpy
-working arrays that are freed but not returned to the OS. Linux validation (glibc
-container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
-periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
-target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
-~5 MB/s reading here was substantially a macOS measurement artifact.
-</p>
-      </div>
-      
-      <button type="button" class="add-field-btn" data-reveal-field="biological_summary" style="margin-top:8px">+ Add biology narrative</button>
-      <textarea class="biology-prose narrative-input narrative-textarea is-hidden" rows="4"
-                data-narrative-path="biological_summary" data-field-editor="biological_summary"
-                placeholder="Plain-English mechanism narrative — the 'textbook write-up' a non-modeler would read."></textarea>
-      
-    </div>
-
+    
     
     
     <div class="overview-section findings-section">
@@ -426,112 +481,131 @@ target the colony&#39;s memory is bounded, so the cells-per-node budget stands; 
       
       
       
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">F-01-per-cell-wall-flat</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">✓</span>
+            <span class="finding-claim finding-statement">Per-cell wall time is flat at 70–74 ms across N ∈ {1, 2, 4, 8} (slight
 decrease with N as Python/import overhead amortizes). Composite scales
 linearly on one machine.
+</span>
+            
+            <span class="finding-chip">via <code>per-cell-cost-within-2x-reference</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-01-per-cell-wall-flat</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">confirms literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> n1: 73.6 · n2: 73.2 · n4: 72.7 · n8: 70.4 ms/tick/cell · 
+              
+              via test <a href="#bt-per-cell-cost-within-2x-reference" onclick="_gotoStudyTab('tests','bt-per-cell-cost-within-2x-reference');return false;"><code>per-cell-cost-within-2x-reference</code></a> · 
+              
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
+            </div>
+            
+            
+            
+            <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: op: ratio_at_most · ratio: 2.0</code></div>
+            
+            
+            
+            <div class="finding-expected">
+              
+              
+              
+            </div>
+            <div class="finding-exp-summary"><em>Reference says:</em> per-cell wall stays within 2× of the N=1 reference; flat is the strongest pass condition.</div>
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Use 73 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
 </div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> {&#39;n1&#39;: 73.6, &#39;n2&#39;: 73.2, &#39;n4&#39;: 72.7, &#39;n8&#39;: 70.4} ms/tick/cell · 
-          via test <a href="#bt-per-cell-cost-within-2x-reference"><code>per-cell-cost-within-2x-reference</code></a> · 
-          
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
-        </div>
-        
-        
-        
-        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "ratio_at_most", "ratio": 2.0}</code></div>
-        
-        
-        
-        <div class="finding-expected">
-          
-          
-          
-        </div>
-        <div class="finding-exp-summary"><em>Reference says:</em> per-cell wall stays within 2× of the N=1 reference; flat is the strongest pass condition.</div>
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Use 73 ms/tick/cell as the projection input for colonies-02-hpc-deployment.
-</div>
+          </div>
+        </details>
       </div>
+      
+      
       
       
       
       <div class="finding-card finding-kind-computational finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id">F-02-gil-bottleneck</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">novel literature</span>
-        </div>
-        <div class="finding-statement">The GIL is the dominant bottleneck at colony scale. Process-bigraph
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">The GIL is the dominant bottleneck at colony scale. Process-bigraph
 composites are single-threaded by design — one process uses ~1 CPU core
 regardless of how many cells it holds. Scaling means more processes, not
 more cells/process.
-</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> pymunk_step_ms ≈ 0.1 ms/tick (free); ecoli_ms grows linearly with N ms/tick · 
-          
-          in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-6"><code>6</code></a>
-        </div>
-        
-        
-        
-        
-        
-        <div class="finding-explanation"><em>Why:</em> All 55 inner WCM steps are walked sequentially in one Python thread.
+</span>
+            
+            <span class="finding-chip">in run <code>nsweep-n8</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-02-gil-bottleneck</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> pymunk_step_ms ≈ 0.1 ms/tick (free); ecoli_ms grows linearly with N ms/tick · 
+              
+              
+              in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-6"><code>6</code></a>
+            </div>
+            
+            
+            
+            
+            
+            <div class="finding-explanation"><em>Why:</em> All 55 inner WCM steps are walked sequentially in one Python thread.
 pymunk is free even at N=8, so any super-linear cost would have to be in
 the EcoliWCM update — but per-cell stays flat. The only ceiling visible
 is total wall vs realtime per process, which crosses ~1.0 around N≈13.
 </div>
-        
-        <div class="finding-next"><strong>→ Next:</strong> Seed gil-aware-engine-research follow-up.
+            
+            <div class="finding-next"><strong>→ Next:</strong> Seed gil-aware-engine-research follow-up.
 </div>
+          </div>
+        </details>
       </div>
       
       
       
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">F-03-per-cell-rss</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">✓</span>
+            <span class="finding-claim finding-statement">Per-cell RSS is ADDITIVE and sim_data is shared WITHIN a process: each
 extra cell costs far less than a fresh sim_data load, because
 v2ecoli/core.py::_load_cache_bundle_cached is @lru_cache&#39;d by cache_dir and
 ecoli_baseline deep-copies only initial_state per cell. Original N-sweep (commit
@@ -545,38 +619,47 @@ because the bounded phenotype recorder replaced the in-RAM cells-map
 accumulation. Reconciled current-main budget: ~700 cells/node (see
 expected.summary), superseding both the stale 384 and the unsupported ~1000 in
 the investigation executive.
-</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> {&#39;n1_mb&#39;: 1508, &#39;n2_mb&#39;: 2013, &#39;n4_mb&#39;: 2946, &#39;n8_mb&#39;: 4712} MB · 
-          via test <a href="#bt-per-cell-cost-within-2x-reference"><code>per-cell-cost-within-2x-reference</code></a> · 
-          in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
-        </div>
-        
-        
-        
-        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "ratio_at_most", "ratio": 2.0}</code></div>
-        
-        
-        
-        <div class="finding-expected">
-          
-          
-          
-        </div>
-        <div class="finding-exp-summary"><em>Reference says:</em> Additive in N within one process (sim_data lru-shared). HPC budget with
+</span>
+            
+            <span class="finding-chip">via <code>per-cell-cost-within-2x-reference</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-03-per-cell-rss</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">confirms literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> n1_mb: 1508 · n2_mb: 2013 · n4_mb: 2946 · n8_mb: 4712 MB · 
+              
+              via test <a href="#bt-per-cell-cost-within-2x-reference" onclick="_gotoStudyTab('tests','bt-per-cell-cost-within-2x-reference');return false;"><code>per-cell-cost-within-2x-reference</code></a> · 
+              in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-3"><code>3</code></a>, <a href="#run-4"><code>4</code></a>, <a href="#run-5"><code>5</code></a>, <a href="#run-6"><code>6</code></a>
+            </div>
+            
+            
+            
+            <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: op: ratio_at_most · ratio: 2.0</code></div>
+            
+            
+            
+            <div class="finding-expected">
+              
+              
+              
+            </div>
+            <div class="finding-exp-summary"><em>Reference says:</em> Additive in N within one process (sim_data lru-shared). HPC budget with
 topology made explicit: deployment uses Ray actors (one OS process each) to
 lift the single-process GIL ceiling, so EACH actor pays its own ~888 MB
 sim_data+imports baseline; cells within an actor add ~291 MB each and share that
@@ -587,90 +670,110 @@ actor&#39;s sim_data. Packing K cells per actor on 64 actors / 256 GB:
 ~215 cells/node. The unsupported ~1000 in the investigation executive is
 reconciled to this ~700 figure.
 </div>
-        
-        
-        
-        
+            
+            
+            
+            
+          </div>
+        </details>
       </div>
+      
+      
       
       
       
       <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">F-04-pymunk-negligible</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">pymunk 2D physics is essentially free at the N values we tested
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">✓</span>
+            <span class="finding-claim finding-statement">pymunk 2D physics is essentially free at the N values we tested
 (≤ 0.2 ms/tick at N=8). All wall-time cost is the inner EcoliWCM.
-</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> pymunk_step_ms ≤ 0.2 ms/tick · 
-          
-          in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-6"><code>6</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        
+</span>
+            
+            <span class="finding-chip">in run <code>nsweep-n8</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-04-pymunk-negligible</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">confirms literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> pymunk_step_ms ≤ 0.2 ms/tick · 
+              
+              
+              in run <a href="#run-nsweep-n8"><code>nsweep-n8</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-6"><code>6</code></a>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+          </div>
+        </details>
       </div>
       
       
       
+      
+      
       <div class="finding-card finding-kind-methodological finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id">F-05-build-phase-bugs</span>
-          <span class="finding-kind">methodological</span>
-          <span class="finding-status-text">novel literature</span>
-        </div>
-        <div class="finding-statement">Three independent bugs blocked daughter hydration through the engine
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">Three independent bugs blocked daughter hydration through the engine
 and had to be fixed before the Decide phase could run.
-</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> After all three fixes, pure-WC N=2 force-divided to 4 hydrated daughters that all advance on the next tick. · 
-          via test <a href="#bt-daughters-hydrated"><code>daughters-hydrated</code></a> · 
-          in run <a href="#run-build-smoke-n2"><code>build-smoke-n2</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-2"><code>2</code></a>
-        </div>
-        
-        
-        
-        <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: {"op": "all_daughters_advance"}</code></div>
-        
-        
-        
-        <div class="finding-explanation"><em>Why:</em> (1) viva-munk apply_updates_with_realize unpacked 2 values from
+</span>
+            
+            <span class="finding-chip">via <code>daughters-hydrated</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-05-build-phase-bugs</span>
+              <span class="finding-kind">methodological</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> After all three fixes, pure-WC N=2 force-divided to 4 hydrated daughters that all advance on the next tick. · 
+              
+              via test <a href="#bt-daughters-hydrated" onclick="_gotoStudyTab('tests','bt-daughters-hydrated');return false;"><code>daughters-hydrated</code></a> · 
+              in run <a href="#run-build-smoke-n2"><code>build-smoke-n2</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-2"><code>2</code></a>
+            </div>
+            
+            
+            
+            <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: op: all_daughters_advance</code></div>
+            
+            
+            
+            <div class="finding-explanation"><em>Why:</em> (1) viva-munk apply_updates_with_realize unpacked 2 values from
 bigraph_schema.core.realize, which now returns 3 (escape_merges) —
 every structural _add crashed.
 (2) v2ecoli/colony.py wired only mass/volume/exchange outputs on
@@ -680,20 +783,21 @@ so mother updates had nowhere to land.
 daughters; `interval` is not in config_schema, so daughters ticked
 once per 60s instead of inheriting the mother&#39;s 1s cadence.
 </div>
-        
-        
+            
+            
+          </div>
+        </details>
       </div>
       
       
       
+      
+      
       <div class="finding-card finding-kind-computational finding-status-novel">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◆</span>
-          <span class="finding-id">F-06-rss-growth-over-time</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">novel literature</span>
-        </div>
-        <div class="finding-statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">RSS grows continuously during a single long N=1 run at ~5 MB/sim-second
 (1126 MB at tick 0 → 7016 MB by tick 1050, before division). Originally read as
 either accumulating state in the EcoliWCM internal composite or a leak;
 visible only in long runs, not in the 60s N-sweep windows.
@@ -708,37 +812,48 @@ container) showed RSS growth of only 0.017 MB/tick with no fix and 0.000 with
 periodic malloc_trim(0), versus ~1.6 MB/tick on the macOS mini. On the Linux HPC
 target the colony&#39;s memory is bounded, so the cells-per-node budget stands; the
 ~5 MB/s reading here was substantially a macOS measurement artifact.
-</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> rss_mb climbs monotonically across the pre-division window MB/sim-second · 
-          
-          in run <a href="#run-bio-1cell-natural-division"><code>bio-1cell-natural-division</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-7"><code>7</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Source identified (elongation + mass-listener; scipy LSODA retention);
+</span>
+            
+            <span class="finding-chip">in run <code>bio-1cell-natural-division</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-06-rss-growth-over-time</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> rss_mb climbs monotonically across the pre-division window MB/sim-second · 
+              
+              
+              in run <a href="#run-bio-1cell-natural-division"><code>bio-1cell-natural-division</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-7"><code>7</code></a>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Source identified (elongation + mass-listener; scipy LSODA retention);
 growth is Linux-bounded. Residual ~0.2 MB/tick scipy retention is a small
 optimization target (solver reuse / method change / periodic malloc_trim),
 tracked in the multi-gen-perf-drift follow-up.
 </div>
+          </div>
+        </details>
       </div>
       
     </div>
@@ -837,104 +952,6 @@ linearly on one machine.
     </div>
 
     
-    <details class="overview-section">
-      <summary class="overview-label">Plan &amp; provenance</summary>
-
-      
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-        
-        
-        
-        <div><strong>Proceed when:</strong> <span class="muted">Build-phase acceptance test passes (N=2 pure-WC → 4 daughters,
-no manual hydration) AND the N-sweep completes for at least
-N ∈ {1,2,4}. N=8 is best-effort on a laptop and may be deferred
-to the HPC follow-up.
-</span></div>
-        
-      </div>
-      
-
-      
-      <div class="overview-section">
-        <h3 class="overview-label">Key assumptions</h3>
-        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-          <li style="margin:2px 0">Pure-WC colony at N=2 is feasible to run past 2 generations within ~90 min sim time on a developer laptop (40-min doubling × 2 + slack).</li><li style="margin:2px 0">The dominant per-tick cost is the inner EcoliWCM update, not pymunk integration (validated by per-tick split in the harness).</li><li style="margin:2px 0">Peak RSS measured with psutil after each run captures the steady-state RAM cost per cell accurately enough for HPC extrapolation (±20%).</li><li style="margin:2px 0">Single-machine N-sweep extrapolates monotonically to per-node HPC sizing — i.e. no surprise breakdowns from network or filesystem at HPC scale that aren&#39;t visible here. (This is the assumption colonies-02 will test directly.)</li>
-        </ul>
-      </div>
-      
-
-      
-      
-      <div class="overview-section">
-        <h2 class="overview-label">Behavioral tests</h2>
-        
-        
-        
-        
-        
-        <p style="margin:0">
-          <strong>4</strong> tests defined —
-            <span class="classification-pill classification-primary">3 primary</span>
-            <span class="classification-pill classification-supporting">1 supporting</span>
-          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-        </p>
-      </div>
-      
-
-      
-
-      
-      <div class="overview-section">
-        <h2 class="overview-label">Limitations</h2>
-        <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
-        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-          <li style="margin:2px 0">Single-machine only; cross-node HPC scaling is colonies-02&#39;s job.</li><li style="margin:2px 0">90 min sim window is one full doubling plus a buffer for the second division, not an N-generation run.</li><li style="margin:2px 0">Per-cell EcoliWCM internal cache is shared (same cache_dir path); RAM extrapolation may underestimate HPC RAM if HPC runs use per-cell caches.</li><li style="margin:2px 0">pymunk is single-threaded; GIL contention may dominate before any HPC-relevant bottleneck shows up.</li>
-        </ul>
-      </div>
-      
-
-      
-      
-
-      
-      
-
-      <div class="overview-section">
-        <h3 class="overview-label">Status</h3>
-        
-        
-
-        
-        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Decide</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-        
-      </div>
-
-      <div class="study-counts-strip">
-        <div class="count-cell">
-          <strong>6</strong>
-          <span class="count-label">simulations</span>
-        </div>
-        <div class="count-cell">
-          <strong>8</strong>
-          <span class="count-label">readouts</span>
-        </div>
-        <div class="count-cell">
-          <strong>2</strong>
-          <span class="count-label">requirements</span>
-        </div>
-        <div class="count-cell">
-          <strong>5</strong>
-          <span class="count-label">runs</span>
-        </div>
-      </div>
-
-    </details>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -952,9 +969,13 @@ to the HPC follow-up.
 
   
   
+  
+  
+  
+  
+  
   <div class="overview-section" id="model-section">
-    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
-    <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
+    <h3>Runnable models <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_colony.ecoli_colony" data-model-overrides='{"cache_dir": "out/cache", "ecoli_interval": 1.0, "env_size": 30, "n_cells": 2, "physics_interval": 1.0, "seed": 0}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -975,6 +996,26 @@ to the HPC follow-up.
       </div>
       <div class="baseline-composite-status muted" data-baseline-name="colonies-01-hpc-readiness" style="font-size:0.8em;margin-top:2px"></div>
       
+      
+      
+      
+      
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+      
+      
+      
       <div class="model-config-mount" style="margin-top:8px">
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
@@ -989,52 +1030,16 @@ to the HPC follow-up.
       
     </div>
     
-  </div>
-  
-
-  
-  
-  
-  
-  <div class="overview-section" id="conditions-section">
-    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
-    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
-
-    
-    
-    <div class="cond-block">
-      <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></div>
-      
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">seed</span>=<code>0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">n_cells</span>=<code>2</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">env_size</span>=<code>30</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">physics_interval</span>=<code>1.0</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">ecoli_interval</span>=<code>1.0</code></span>
-        
-      </div>
-      
-    </div>
-    
-
-    
-
     
   </div>
+  
+
+  
   
 
   
   <div class="overview-section">
     <h3>Model change</h3>
-    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
     <p><strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code></p>
     
     
@@ -1042,8 +1047,24 @@ to the HPC follow-up.
     
     
     <p><strong>Modified processes:</strong></p>
-    <ul style="margin:0 0 8px 18px">
-      <li>{&#39;name&#39;: &#39;EcoliWCM._handle_division&#39;, &#39;why&#39;: &#39;Current emission of {agents: {_remove, _add}} does not appear to\nhydrate daughter EcoliWCMs through the outer composite engine\n(reports/colony_report.py works around this by manually building\nstandalone EcoliWCMs for daughter IDs). Fix is required for Build\nacceptance.\n&#39;, &#39;status&#39;: &#39;required&#39;, &#39;requirement_id&#39;: &#39;req-2-daughter-hydration-fix&#39;}</li>
+    <ul style="margin:0 0 8px 18px;list-style:none;padding-left:0">
+      
+      <li style="margin:0 0 8px 0;padding:8px 10px;background:#fff;border:1px solid #e5e7eb;border-radius:6px">
+        
+        <div>
+          <code>EcoliWCM._handle_division</code>
+          <span class="status-chip" style="margin-left:6px">required</span>
+          <code class="muted" style="margin-left:6px;font-size:0.85em">req: req-2-daughter-hydration-fix</code>
+        </div>
+        <div class="muted" style="margin-top:4px;font-size:0.88em;white-space:pre-wrap;line-height:1.5">Current emission of {agents: {_remove, _add}} does not appear to
+hydrate daughter EcoliWCMs through the outer composite engine
+(reports/colony_report.py works around this by manually building
+standalone EcoliWCMs for daughter IDs). Fix is required for Build
+acceptance.
+</div>
+        
+      </li>
+      
     </ul>
     
     <p class="muted" style="font-size:0.88em">No biological model changes. The only code work is (a) fix daughter
@@ -1122,320 +1143,46 @@ so daughters tick normally after division.
   
 
   
-  <div class="overview-section" id="analyses-section">
-    <h3>Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <p class="muted" style="font-size:0.88em">One analysis name per line (e.g. <code>doubling_time_distribution</code>). Threaded into <code>analysis_options</code> on both local and remote dispatch.</p>
+  <div class="overview-section" id="analyses-section" style="margin-top:22px">
+    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
     <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
     <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
     <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
   </div>
+
 </section>
 
 
 
 <section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
 
-  <div id="reproduce-card" class="reproduce-card"
-       style="margin:0 0 14px 0;padding:10px 12px;background:#f8fafc;
-              border:1px solid #e2e8f0;border-radius:6px;font-size:0.9em"></div>
-
-
 <div class="overview-section" id="simulations-section">
-  <h3 style="display:flex;align-items:center;gap:8px">Simulations
-    <span class="muted" style="font-size:0.85em;font-weight:normal">— this study's runs</span>
-    <button type="button" class="btn-mini" title="Reload this study's runs"
-            onclick="_loadStudySims(true)" style="margin-left:auto;font-size:0.8em">↻ Refresh</button>
-  </h3>
-  <p class="muted" style="font-size:0.88em">Every run recorded for this study (the same view as the Simulations DB, scoped here) — data location, origin, emitter, time, status, and downloads. Click a run to open its results; launch new runs below.</p>
+  <h2>Simulations</h2>
   <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
-  
-  
-  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(6 runs planned)</span></h3>
-  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">build-smoke-n2</strong>
-      <span class="sim-status-pill sim-status-completed">completed</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, 2 cells, env_size=30</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 90 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      <strong>Runs recorded:</strong> 5
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>colony_cell_count</code> · <code>per_cell_dry_mass</code> · <code>division_events</code> · <code>wall_seconds</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>daughters-hydrated</code> · <code>two-generations-complete</code>
-    </p>
-    
-    
+
+<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
+  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=colonies-01-hpc-readiness">Download all (.zip)</a>
   </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">nsweep-n1</strong>
-      <span class="sim-status-pill sim-status-gated">gated</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, single cell, baseline reference</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <details style="margin:4px 0">
-      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
-      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
-  "n_cells": 1
-}</pre>
-    </details>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 90 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>wall_seconds</code> · <code>peak_rss_mb</code> · <code>per_tick_latency_ms</code> · <code>per_cell_update_ms</code> · <code>pymunk_step_ms</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>reference-perf-recorded</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.85em;color:#92400e">🔒 <strong>Blocked by:</strong>
-      <code>req-1-perf-harness</code>
-    </p>
-    
+  <div id="data-files" data-study="colonies-01-hpc-readiness">
+    <p class="empty-message">Loading result files…</p>
   </div>
+
   
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">nsweep-n2</strong>
-      <span class="sim-status-pill sim-status-gated">gated</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, 2 cells</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <details style="margin:4px 0">
-      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
-      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
-  "n_cells": 2
-}</pre>
-    </details>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 90 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>wall_seconds</code> · <code>peak_rss_mb</code> · <code>per_tick_latency_ms</code> · <code>per_cell_update_ms</code> · <code>pymunk_step_ms</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>per-cell-cost-within-2x-reference</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.85em;color:#92400e">🔒 <strong>Blocked by:</strong>
-      <code>req-1-perf-harness</code> · <code>req-2-daughter-hydration-fix</code>
-    </p>
-    
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+    <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
+    <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
+            onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
   </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">nsweep-n4</strong>
-      <span class="sim-status-pill sim-status-gated">gated</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, 4 cells</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <details style="margin:4px 0">
-      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
-      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
-  "n_cells": 4
-}</pre>
-    </details>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 90 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>wall_seconds</code> · <code>peak_rss_mb</code> · <code>per_tick_latency_ms</code> · <code>per_cell_update_ms</code> · <code>pymunk_step_ms</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>per-cell-cost-within-2x-reference</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.85em;color:#92400e">🔒 <strong>Blocked by:</strong>
-      <code>req-1-perf-harness</code> · <code>req-2-daughter-hydration-fix</code>
-    </p>
-    
-  </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">nsweep-n8</strong>
-      <span class="sim-status-pill sim-status-gated">gated</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, 8 cells — best-effort on laptop</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <details style="margin:4px 0">
-      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
-      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
-  "n_cells": 8
-}</pre>
-    </details>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 90 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>wall_seconds</code> · <code>peak_rss_mb</code> · <code>per_tick_latency_ms</code> · <code>per_cell_update_ms</code> · <code>pymunk_step_ms</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>per-cell-cost-within-2x-reference</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.85em;color:#92400e">🔒 <strong>Blocked by:</strong>
-      <code>req-1-perf-harness</code> · <code>req-2-daughter-hydration-fix</code>
-    </p>
-    
-  </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">bio-1cell-natural-division</strong>
-      <span class="sim-status-pill sim-status-ready">ready</span>
-      <span class="muted" style="font-size:0.85em">condition: pure-WC, 1 cell, run past one natural division</span>
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli.composites.ecoli_colony.ecoli_colony</code>
-    </div>
-    
-    <details style="margin:4px 0">
-      <summary style="cursor:pointer;font-size:0.9em"><strong>Perturbation</strong></summary>
-      <pre style="background:#f1f5f9;padding:8px 10px;border-radius:4px;font-size:0.85em;overflow-x:auto;margin:6px 0">{
-  "n_cells": 1
-}</pre>
-    </details>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> 75 min
-      · <strong>Seeds:</strong> <code>0</code>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      <strong>Tests applied:</strong> 4 · 
-      
-    </p>
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Readouts:</strong>
-      <code>colony_cell_count</code> · <code>per_cell_dry_mass</code> · <code>division_events</code> · <code>wall_seconds</code> · <code>per_tick_latency_ms</code> · <code>per_cell_update_ms</code> · <code>pymunk_step_ms</code> · <code>peak_rss_mb</code>
-    </p>
-    
-    
-    <p style="margin:4px 0;font-size:0.88em"><strong>Applies tests:</strong>
-      <code>daughters-hydrated</code> · <code>per-cell-cost-within-2x-reference</code>
-    </p>
-    
-    
-  </div>
-  
-  
-  
-  <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
-  <div id="study-configure-run" style="margin-bottom:18px"></div>
-  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
-    <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
-    <p class="muted" style="font-size:0.9em">
-      Pushes the workspace's current branch, builds a simulator from that commit, and runs
-      it on the Ray backend. Results land as a run on this study. Requires GitHub login.
-    </p>
-    <form id="remote-run-form" onsubmit="return _submitRemoteRun(event)">
-      <label>Generations: <input name="num_generations" type="number" min="1" value="1" required></label>
-      <label>Seeds: <input name="num_seeds" type="number" min="1" value="1" required></label>
-      <label><input type="checkbox" name="run_parca" checked> Run ParCa</label>
-      <button type="submit" class="btn-mini" id="remote-run-btn">▶ Run on remote</button>
-    </form>
-    <div id="remote-run-progress" hidden></div>
-  </div>
+  <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+</div>
 
 </section>
 
@@ -1459,81 +1206,64 @@ so daughters tick normally after division.
 
 <section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
 
-  <div class="viz-section">
+  <div class="overview-section study-figures figure-gallery" id="visualize-section">
 
-    <h3 class="section-title">Visualizations</h3>
-    <p class="muted" style="margin:0 0 12px 0;font-size:0.88em">Figures for this study: the native analysis gallery from its latest run, any embedded HTML artefacts, and charts auto-rendered from <code>runs.db</code>.</p>
-    <div class="native-gallery-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Baseline analysis gallery <span style="font-weight:normal">— latest completed run</span></h4>
-      <div id="native-gallery-panel"><p class="empty-message">Loading baseline figures…</p></div>
-    </div>
+    <div id="native-gallery-panel" class="figure-mount"><p class="empty-message">Loading figures…</p></div>
 
     
     
 
-    <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
-    <div id="viz-charts-panel" class="charts-panel"></div>
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="report-cards" id="panel-report-cards" hidden>
-  <div class="report-cards-section">
-    <h3 class="section-title">Report cards</h3>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.9em">
-      Graded comparison scorecards for this study (v2ecoli vs vEcoli / literature).
-      Each card's verdict summarises whether the compared observables fall within
-      tolerance. Cards are produced during the post-sim flush from the study's
-      <code>report_cards:</code> declaration into <code>viz/report_card/</code>.
-    </p>
-    <div id="report-cards-panel"><p class="empty-message">Loading report cards…</p></div>
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="data" id="panel-data" hidden>
-  <div class="data-section">
-    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-      <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
-      <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=colonies-01-hpc-readiness">Download all (.zip)</a>
-    </div>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
-      Analysis steps — e.g. per-run analysis tables and exports. Click a file to
-      download it.
-    </p>
-    <div id="data-files" data-study="colonies-01-hpc-readiness">
-      <p class="empty-message">Loading result files…</p>
-    </div>
+    <div id="viz-charts-panel" class="charts-panel figure-mount"></div>
 
     
-    <h3 class="section-title" style="margin-top:22px">Raw simulation data</h3>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each run's raw emitter store (zarr / parquet / <code>runs.db</code>) — the full
-      per-step trajectory. Analysis outputs above are derived from these.
-    </p>
-    <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+    <p id="figures-empty-message" class="empty-message" style="display:none">No figures yet.</p>
   </div>
 </section>
 
 <section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
-  <div class="tests-header">
-    <h3>Behavioral Tests</h3>
-    <p class="muted" style="margin: 0 0 8px 0;">
-      Each prediction below is paired with a precise <code>given / measure / expect</code>
-      rule so one English sentence auto-generates one pytest assertion. The
-      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
-      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
-      against the latest simulation run.
-    </p>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <button id="run-tests-btn" class="btn-primary">Run tests</button>
-      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+  <h2>Tests</h2>
+  <p class="muted" style="margin:0 0 12px 0">Audit — does this study pass its own bar (report cards + behavioral gates).</p>
+
+  
+  
+
+  
+  
+  
+
+  
+  <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
+
+  
+  <div class="checks-band" style="margin-top:22px">
+    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
+
+    
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
+      <p class="empty-message">Loading quality checks…</p>
     </div>
-    <div class="tests-config" style="margin-top: 6px;">
-      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
-      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+
+    
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
     </div>
   </div>
+
+  
+  
+
+  <div class="behavioral-tests-section" style="margin-top:22px">
+    <h3 class="section-title">Behavioral tests</h3>
+    <div class="tests-header">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="run-tests-btn" class="btn-primary">Run tests</button>
+        <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+      </div>
+      <div class="tests-config" style="margin-top: 6px;">
+        <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+        <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+      </div>
+    </div>
 
   
   
@@ -1575,6 +1305,7 @@ reports/colony_report.py.
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"advance_signal": "mass_delta_nonzero", "cells_path": "cells", "kind": "post_division_advance", "window": "post_first_division"}
 pass_if: {"op": "all_daughters_advance"}</pre>
       </details>
@@ -1615,6 +1346,7 @@ mothers divided), with all four cells advancing on the final tick.
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"advance_signal": "mass_delta_nonzero", "cells_path": "cells", "kind": "live_cell_count", "window": "final_tick"}
 pass_if: {"op": "at_least", "threshold": 4}</pre>
       </details>
@@ -1656,6 +1388,7 @@ rows into runs.db.
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "harness_row_present", "sim_name": "nsweep-n1", "table": "runs"}
 pass_if: {"op": "row_exists"}</pre>
       </details>
@@ -1697,6 +1430,7 @@ blow-up that would block HPC scaling.
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "per_cell_wall_ratio", "reference_sim": "nsweep-n1", "window": "full"}
 pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
       </details>
@@ -1708,6 +1442,7 @@ pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
     
   </ul>
   
+  </div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1720,27 +1455,19 @@ pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
 
   
   <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+    
+    <p class="muted small verdict-attribution" style="margin:0 0 8px 0" title="actor kind: unattributed">
+      <span class="actor-glyph">○</span> unattributed
+    </p>
 
     
-    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
-      Synthesises the latest run's outcomes against the pre-stated
-      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
-      you can either review (existing studies) or seed (new ones).
-    </p>
+    
     
 
     <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
       <h3 class="overview-label">⚖️ Verdicts — three-track outcome
-        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+        <span class="narrative-card-hint">(regression / empirical / explanatory)</span>
       </h3>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-        Each track is independent. <em>Regression</em> answers "does the code
-        still build and run cleanly?", <em>biological</em> answers "does the
-        model match the literature?", <em>explanatory</em> answers "did we
-        learn something new?". Each <strong>result is computed</strong> from
-        canonical fields (gate evaluator, run status, finding tiers) — author
-        only the <em>basis</em> (the rationale) for each track.
-      </p>
       <div class="narrative-grid">
         <label class="narrative-row">
           <span class="narrative-label">Regression compatibility</span>
@@ -1756,14 +1483,14 @@ pass_if: {"op": "ratio_at_most", "ratio": 2.0}</pre>
                     placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
         </label>
         <label class="narrative-row">
-          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-label">Empirical validation</span>
           <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
                 title="Computed from the gate evaluator (read-only)"
                 style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Biological basis</span>
+          <span class="narrative-label">Empirical basis</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="conclusion_verdicts.biological_validation.basis"
                     placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
@@ -1826,84 +1553,126 @@ the engine, per-cell cost stays bounded as N grows on one machine.
     
     <div class="decide-section" style="margin-top:18px">
       <h3 class="overview-label">Conclusion</h3>
-      <pre style="background:#f8fafc;padding:12px;border-left:3px solid #94a3b8;border-radius:3px;white-space:pre-wrap;font-family:inherit;font-size:0.9em;line-height:1.5;margin:0">Phase = Decide. Pipeline-open to colonies-02-hpc-deployment with the caveats
-below.
-
-Build-phase fixes required to get here:
-
-1. viva-munk apply_updates_with_realize unpacked 2 values from
-   bigraph_schema.core.realize, which now returns 3 (escape_merges), so every
-   structural `_add` crashed. Patched (viva-munk branch
-   rename-multi-cell-to-viva-munk, commit &#34;fix: handle 3-tuple return from
-   bigraph_schema core.realize&#34;).
-2. v2ecoli/colony.py wired only `mass`/`volume`/`exchange` outputs on initial
-   cells. `_handle_division` writes to `agents`, but with no `agents` wire the
-   update had nowhere to land, so mothers stayed put. Fixed by mirroring the
-   full daughter wiring (`agent_id`/`location`/`angle` inputs, `length`/`agents`
-   outputs).
-3. v2ecoli/bridge.py `_handle_division` hard-coded
-   `interval=self.config.get(&#39;interval&#39;, 60.0)` for daughters; `interval` is
-   not in `config_schema`, so the fallback always won and daughters ticked once
-   per 60s instead of inheriting the mother&#39;s 1s cadence. Fixed by passing
-   `interval` through.
-
-After all three fixes, a pure-WC N=2 colony with both initial cells
-force-divided produces 4 hydrated daughters that all advance.
-
-Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):
-
-- Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease with N as
-  Python/import overhead amortizes); per-cell-cost-within-2x-reference passes
-  at all N.
-- pymunk is essentially free (&lt;0.2 ms/tick even at N=8). All cost is the inner
-  EcoliWCM composite (55 biological steps × N cells, walked sequentially in one
-  Python thread).
-- RSS grows ~450 MB per added cell, atop a ~1 GB Python baseline.
-
-Bottleneck at scale is the GIL: process-bigraph composites are single-threaded,
+      <div class="conclusion-md" style="background:#f8fafc;padding:12px;border-left:3px solid #94a3b8;border-radius:3px;font-size:0.9em;line-height:1.5"><p>Phase = Decide. Pipeline-open to colonies-02-hpc-deployment with the caveats
+below.</p>
+<p>Build-phase fixes required to get here:</p>
+<ol>
+<li>viva-munk apply_updates_with_realize unpacked 2 values from
+bigraph_schema.core.realize, which now returns 3 (escape_merges), so every
+structural <code>_add</code> crashed. Patched (viva-munk branch
+rename-multi-cell-to-viva-munk, commit &quot;fix: handle 3-tuple return from
+bigraph_schema core.realize&quot;).</li>
+<li>v2ecoli/colony.py wired only <code>mass</code>/<code>volume</code>/<code>exchange</code> outputs on initial
+cells. <code>_handle_division</code> writes to <code>agents</code>, but with no <code>agents</code> wire the
+update had nowhere to land, so mothers stayed put. Fixed by mirroring the
+full daughter wiring (<code>agent_id</code>/<code>location</code>/<code>angle</code> inputs, <code>length</code>/<code>agents</code>
+outputs).</li>
+<li>v2ecoli/bridge.py <code>_handle_division</code> hard-coded
+<code>interval=self.config.get('interval', 60.0)</code> for daughters; <code>interval</code> is
+not in <code>config_schema</code>, so the fallback always won and daughters ticked once
+per 60s instead of inheriting the mother's 1s cadence. Fixed by passing
+<code>interval</code> through.</li>
+</ol>
+<p>After all three fixes, a pure-WC N=2 colony with both initial cells
+force-divided produces 4 hydrated daughters that all advance.</p>
+<p>Perf findings (steady-state, N ∈ {1, 2, 4, 8}, 60-tick window):</p>
+<ul>
+<li>Per-cell wall is flat at 70-74 ms across N=1..8 (slight decrease with N as
+Python/import overhead amortizes); per-cell-cost-within-2x-reference passes
+at all N.</li>
+<li>pymunk is essentially free (&lt;0.2 ms/tick even at N=8). All cost is the inner
+EcoliWCM composite (55 biological steps × N cells, walked sequentially in one
+Python thread).</li>
+<li>RSS grows ~450 MB per added cell, atop a ~1 GB Python baseline.</li>
+</ul>
+<p>Bottleneck at scale is the GIL: process-bigraph composites are single-threaded,
 so one process uses ~1 CPU core regardless of cell count. Scaling to many cells
-means scaling processes, not cells-per-process.
-
-HPC node sizing (64-core / 256 GB target):
-
-- RAM-limited ceiling per node: 256 GB / 0.45 GB ≈ 570 cells (RAM-bound, single
-  process — not practical at speed).
-- CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈ 950 ms,
-  ~realtime).
-- Recommendation: 8 cells/process × 64 processes = 512 cells/node uses
-  64 × (1 GB + 8 × 0.45 GB) = ~290 GB, just over budget. Drop to
-  6 cells/process × 64 = 384 cells/node, fits 256 GB with ~10% headroom;
-  per-process tick wall ~440 ms (~2× realtime).
-
-Not validated here (handed to colonies-02):
-
-- Cross-node scaling, distributed environment field.
-- Process-bigraph composite parallelism within a single process (unsupported;
-  needs engine work).
-- Multi-generation drift in per-tick cost (daughters&#39; internal composites may
-  bloat over many divisions).
-- Per-cell ParCa cache contention if processes share cache_dir.
-
-Memory (2026-07-26 leak hunt): the per-tick RSS growth in the long N=1 run
+means scaling processes, not cells-per-process.</p>
+<p>HPC node sizing (64-core / 256 GB target):</p>
+<ul>
+<li>RAM-limited ceiling per node: 256 GB / 0.45 GB ≈ 570 cells (RAM-bound, single
+process — not practical at speed).</li>
+<li>CPU-limited realtime ceiling per process: ~13 cells (13 × 73 ms ≈ 950 ms,
+~realtime).</li>
+<li>Recommendation: 8 cells/process × 64 processes = 512 cells/node uses
+64 × (1 GB + 8 × 0.45 GB) = ~290 GB, just over budget. Drop to
+6 cells/process × 64 = 384 cells/node, fits 256 GB with ~10% headroom;
+per-process tick wall ~440 ms (~2× realtime).</li>
+</ul>
+<p>Not validated here (handed to colonies-02):</p>
+<ul>
+<li>Cross-node scaling, distributed environment field.</li>
+<li>Process-bigraph composite parallelism within a single process (unsupported;
+needs engine work).</li>
+<li>Multi-generation drift in per-tick cost (daughters' internal composites may
+bloat over many divisions).</li>
+<li>Per-cell ParCa cache contention if processes share cache_dir.</li>
+</ul>
+<p>Memory (2026-07-26 leak hunt): the per-tick RSS growth in the long N=1 run
 (finding F-06) is now characterised, not an unbounded native leak. It is
-localized to the inner WCM&#39;s elongation step (~82%) + mass-listener (~17%),
+localized to the inner WCM's elongation step (~82%) + mass-listener (~17%),
 with only ~0.2 MB/tick truly retained (scipy LSODA work arrays) and the rest
 macOS allocator arena churn. On Linux (glibc) the growth is 0.017 MB/tick
 unfixed and 0.000 with periodic malloc_trim(0), versus ~1.6 MB/tick on the
 macOS mini, so memory on the HPC target is bounded and the cells-per-node
-budget stands. The &#34;unbounded native leak&#34; framing was substantially a macOS
-measurement artifact.
-
-Role: this study is Part A - enabling compute infrastructure (correct
+budget stands. The &quot;unbounded native leak&quot; framing was substantially a macOS
+measurement artifact.</p>
+<p>Role: this study is Part A - enabling compute infrastructure (correct
 division, flat per-cell cost, Linux-bounded memory) for the phenotype-first
 colonies investigation. The memory behaviour is a characterised, Linux-bounded,
-mitigated footnote, not the result and not an HPC blocker.
-</pre>
+mitigated footnote, not the result and not an HPC blocker.</p>
+</div>
     </div>
     
     
 
   </div>
+
+  
+  
+  <div class="overview-section"><h2 class="overview-label">Plan &amp; assumptions</h2>
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Pipeline gate</h3>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+      
+      
+      
+      <div><strong>Proceed when:</strong> <span class="muted">Build-phase acceptance test passes (N=2 pure-WC → 4 daughters,
+no manual hydration) AND the N-sweep completes for at least
+N ∈ {1,2,4}. N=8 is best-effort on a laptop and may be deferred
+to the HPC follow-up.
+</span></div>
+      
+    </div>
+    
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Key assumptions</h3>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">Pure-WC colony at N=2 is feasible to run past 2 generations within ~90 min sim time on a developer laptop (40-min doubling × 2 + slack).</li><li style="margin:2px 0">The dominant per-tick cost is the inner EcoliWCM update, not pymunk integration (validated by per-tick split in the harness).</li><li style="margin:2px 0">Peak RSS measured with psutil after each run captures the steady-state RAM cost per cell accurately enough for HPC extrapolation (±20%).</li><li style="margin:2px 0">Single-machine N-sweep extrapolates monotonically to per-node HPC sizing — i.e. no surprise breakdowns from network or filesystem at HPC scale that aren&#39;t visible here. (This is the assumption colonies-02 will test directly.)</li>
+      </ul>
+    </div>
+    
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Limitations</h3>
+      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">Single-machine only; cross-node HPC scaling is colonies-02&#39;s job.</li><li style="margin:2px 0">90 min sim window is one full doubling plus a buffer for the second division, not an N-generation run.</li><li style="margin:2px 0">Per-cell EcoliWCM internal cache is shared (same cache_dir path); RAM extrapolation may underestimate HPC RAM if HPC runs use per-cell caches.</li><li style="margin:2px 0">pymunk is single-threaded; GIL contention may dominate before any HPC-relevant bottleneck shows up.</li>
+      </ul>
+    </div>
+    
+
+  </div>
+  
 
   
   <div class="overview-section"><h2 class="overview-label">Evidence</h2>
@@ -1937,6 +1706,9 @@ mitigated footnote, not the result and not an HPC blocker.
 
     
     
+
+    
+    
     
     
 
@@ -1948,7 +1720,7 @@ mitigated footnote, not the result and not an HPC blocker.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "c53017b776b1f6c33fdffde63f012fa3f871c482", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/c53017b776b1f6c33fdffde63f012fa3f871c482", "branch": "main", "lockfile": "uv.lock@e8c318c12027", "generated_at": "2026-08-01 18:12 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "62bdf9d6d5682d44450a8ae6dcadeab2f9f0b412", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/62bdf9d6d5682d44450a8ae6dcadeab2f9f0b412", "branch": "main", "lockfile": "uv.lock@58adb67bb42f", "generated_at": "2026-08-02 02:23 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "colonies-01-hpc-readiness";
@@ -2063,9 +1835,6 @@ window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
-<!-- ProgressTrack must load BEFORE study-detail.js: _renderRemoteRunProgress
-     (the pinned-build run card's progress adapter) depends on window.ProgressTrack. -->
-<script src="/v2ecoli/workbench/assets/progress-track.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
@@ -2077,33 +1846,26 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script>
 (function () {
-  var el = document.getElementById("study-configure-run");
-  if (!el || !window.ConfigureRun) return;
-  
-  var compositeRef = "v2ecoli.composites.ecoli_colony.ecoli_colony";
-  
-  var slug = window._studyName || "colonies-01-hpc-readiness";
-  ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
-  // Read-only bundle: there's no live backend to run on — hide the remote-run
-  // launcher (the Configure & Run widget already renders a disabled preview).
-  // The ProgressTrack progress bar (progress-track.js) is inert here by
-  // construction: it makes ZERO network calls and only ever renders via
-  // _renderRemoteRunProgress, which is reachable only from the run button
-  // inside this now-hidden panel — so snapshots never invoke it.
+  // Task 8: the Configure & Run mount and the remote-run (smsvpctest) panel
+  // were both removed from the Simulate tab — launching now lives entirely
+  // in the header buttons (Reproduce / Run current spec). This block used
+  // to also mount ConfigureRun into the (now-deleted) mount div and, in an
+  // else-if, relabel the remote-run card via window._initRemoteRunPinned()
+  // if pinned mode was enabled; Fable A #7 deleted that now-fully-dormant
+  // remote-run subsystem from study-detail.js (its DOM anchors — the
+  // #remote-run-panel/-btn/-progress mounts — never existed in this
+  // template to begin with), so the else-if branch is gone too. Only the
+  // still-relevant header-button snapshot handling remains below, now
+  // unconditional (it used to be gated behind a lookup of that deleted div).
+  //
+  // Read-only bundle: there's no live backend to run on — hide the header
+  // run buttons in a published read-only snapshot (reproducible-rerun-spine
+  // Task 4 / G2: both equally inert with no live backend to launch against).
   if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
-    var rp = document.getElementById("remote-run-panel");
-    if (rp) rp.style.display = "none";
-    // "Reproduce" / "Run current spec" both POST to live-only endpoints —
-    // hide them alongside the remote-run launcher in a published read-only
-    // snapshot (reproducible-rerun-spine Task 4 / G2: two distinct buttons,
-    // both equally inert with no live backend to launch against).
     var reproduceBtn = document.getElementById("study-reproduce");
     if (reproduceBtn) reproduceBtn.style.display = "none";
     var runCurrentBtn = document.getElementById("study-run-current-spec");
     if (runCurrentBtn) runCurrentBtn.style.display = "none";
-  } else if (window._initRemoteRunPinned) {
-    // Live backend: relabel the remote-run card if pinned mode is enabled.
-    window._initRemoteRunPinned();
   }
 })();
 </script>

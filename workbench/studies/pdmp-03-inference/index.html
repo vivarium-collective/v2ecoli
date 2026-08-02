@@ -16,20 +16,133 @@
   <h1 class="study-title">
     <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">pdmp-03</span><span class="study-name" id="study-name" data-slug="pdmp-03-inference" title="pdmp-03-inference">Phase 3 — Inference Infrastructure: Likelihoods and Bayesian Interface</span>
     
+    <span class="study-kind-tag study-kind-computational" data-study-kind="computational" title="Study kind">computational</span>
+    
     <span class="phase-pill phase-build" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Build</span>
-    
-    
-    
-    <span class="status-pill gate-status gate-status-blocked" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: blocked</span>
-    
-    
-    
     
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
+  </div>
+  <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
+    
+    
+    <span class="status-pill gate-status gate-status-blocked" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: blocked</span>
+    
+
+    
+    <div id="readiness-panel" data-slug="pdmp-03-inference"></div>
+
+    
+    
+    
+    
+    
+    
+    <details class="status-detail-panel" aria-label="Six-gate lifecycle status">
+      <summary>
+        <span class="status-stepper-more">status</span>
+        
+        <span class="status-stepper">
+          
+          <span class="status-step gate-step axis-design_status gate-state-not-assessed set" title="Gate 1 · Plan">
+            <span class="dot"></span>1&nbsp;·&nbsp;Plan<span class="step-val">in_progress</span>
+          </span>
+          
+          <span class="status-step gate-step axis-simulation_status gate-state-not-assessed set" title="Gate 2 · Execution">
+            <span class="dot"></span>2&nbsp;·&nbsp;Execution<span class="step-val">not_started</span>
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-not-assessed set" title="Gate 3 · Evidence">
+            <span class="dot"></span>3&nbsp;·&nbsp;Evidence<span class="step-val">not_started</span>
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-not-assessed set" title="Gate 4 · Quality">
+            <span class="dot"></span>4&nbsp;·&nbsp;Quality<span class="step-val">not_started</span>
+          </span>
+          
+          <span class="status-step gate-step axis-gate_status gate-state-blocked set" title="Gate 5 · Decision">
+            <span class="dot"></span>5&nbsp;·&nbsp;Decision<span class="step-val">blocked</span>
+          </span>
+          
+          <span class="status-step gate-step axis-expert_review_status gate-state-not-assessed set" title="Gate 6 · Release">
+            <span class="dot"></span>6&nbsp;·&nbsp;Release<span class="step-val">not_requested</span>
+          </span>
+          
+          
+          <span class="status-step axis-implementation_status set">
+            <span class="dot"></span>Implementation<span class="step-val">not_started</span>
+          </span>
+          
+        </span>
+      </summary>
+      <div class="status-stepper-body">
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">1 · Plan</span>
+          <span class="status-chip gate-state-not-assessed">in_progress</span>
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">2 · Execution</span>
+          <span class="status-chip gate-state-not-assessed">not_started</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="no runs in runs.db">◆ computed: not_run</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">3 · Evidence</span>
+          <span class="status-chip gate-state-not-assessed">not_started</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="nothing run to evaluate">◆ computed: not_evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">4 · Quality</span>
+          <span class="status-chip gate-state-not-assessed">not_started</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="nothing run to evaluate">◆ computed: not_evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-blocked">
+          <span class="status-detail-axis">5 · Decision</span>
+          <span class="status-chip gate-state-blocked">blocked</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="spine gate evaluator (study_verdict.roll_up_verdict / pipeline_gate.gate_evaluator)">◆ computed: not_started</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">6 · Release</span>
+          <span class="status-chip gate-state-not-assessed">not_requested</span>
+          
+          
+        </div>
+        
+        
+        <div class="status-detail-row">
+          <span class="status-detail-axis">Implementation</span>
+          <span class="status-chip">not_started</span>
+        </div>
+        
+      </div>
+    </details>
+    
   </div>
 </header>
 
@@ -49,15 +162,79 @@
 
 
 
-<div id="readiness-panel" data-slug="pdmp-03-inference"></div>
 
 
 
 
+<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> Can the Phase 2 PDMP support well-formed observation likelihoods for the dominant cell-biology
+measurement modalities (RNA-seq, proteomics, growth rate, metabolomics) and recover posteriors via
+ABC-SMC on synthetic data — establishing the inference-ready substrate that motivated the DUF rescoping?
+</p>
 
-
+<nav class="study-tabs" aria-label="Study sections">
+  
+  <div class="act-cluster" data-act="study">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="study" data-gate-state="blocked"></span>
+      <span class="act-label">The Study</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar active" data-kind="overview" onclick="_setStudyTab('overview')">Overview</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="design">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="design" data-gate-state="not-assessed"></span>
+      <span class="act-label">Design</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
+      <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="evidence">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="evidence" data-gate-state="not-assessed"></span>
+      <span class="act-label">Evidence</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="assurance">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="assurance" data-gate-state="not-assessed"></span>
+      <span class="act-label">Assurance</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="decision">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="decision" data-gate-state="blocked"></span>
+      <span class="act-label">Decision</span>
+    </div>
+    <div class="act-tabs">
+      
+      <button class="study-pillar" data-kind="conclusions" onclick="_setStudyTab('conclusions')">Decide</button>
+    </div>
+  </div>
+</nav>
 <style>
-.status-detail-panel{margin:8px 0 12px 0;padding:6px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;font-size:0.88em}
+/* Task 4: header restructure — kind tag, promoted question, tightened status row.
+   The 6-axis stepper + gate-status colors below are carried over verbatim from
+   the pre-restructure Pass A styling (the <details> markup was repositioned,
+   not rebuilt). */
+.study-kind-tag{display:inline-block;font-size:0.5em;font-weight:600;padding:3px 9px;border-radius:9999px;vertical-align:middle;margin-left:8px;background:#f1f5f9;color:#475569;text-transform:capitalize}
+.study-kind-tag.study-kind-biological{background:#ecfdf5;color:#065f46}
+.study-kind-tag.study-kind-computational{background:#eff6ff;color:#1e40af}
+.study-kind-tag.study-kind-theoretical{background:#faf5ff;color:#6b21a8}
+.study-question-headline{margin:6px 0 0 0;font-size:1.05em;line-height:1.5;color:#1e293b;font-family:Georgia,"Times New Roman",serif}
+.study-question-headline .q-glyph{display:inline-block;font-size:0.78em;font-weight:700;font-family:ui-monospace,monospace;color:#64748b;background:#f1f5f9;padding:1px 7px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.study-status-row{font-size:0.95em}
+.status-detail-panel{margin:0;padding:2px 0;background:transparent;border:none;border-radius:0;font-size:0.92em}
 .status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
 .status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
 .status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
@@ -68,7 +245,7 @@
 .gate-status-failed           { background:#fee2e2; color:#991b1b }
 .gate-status-stale            { background:#ede9fe; color:#5b21b6 }
 .status-pill.gate-status{font-weight:500}
-/* Redesign: compact one-line lifecycle stepper; full per-axis rows behind the expander. */
+/* Compact one-line lifecycle stepper; full per-axis rows behind the "status ▾" expander. */
 .status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .status-detail-panel > summary::-webkit-details-marker{display:none}
 .status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
@@ -82,136 +259,31 @@
 .status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
 .status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
 .status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
-.status-stepper-more{font-size:0.76em;color:#64748b;white-space:nowrap}
+/* Fable G2 (§13.2 gate-state vocab; §9.3 palette: grey/green/amber/red/violet).
+   One palette for the gate-ladder stepper dots + detail rows AND (via the
+   [data-gate-state] selectors below) the act-rail dots, so "how urgent is
+   this gate" reads identically in both places. Rules below `.status-step.set
+   .dot` on purpose so a "set" gate's real state wins over the generic green. */
+.status-step.gate-state-not-assessed .dot{background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.gate-state-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-state-passed-with-conditions .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-state-blocked .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-state-waived .dot{background:#8b5cf6;box-shadow:none}
+.status-chip.gate-state-not-assessed{background:#e2e8f0;color:#334155}
+.status-chip.gate-state-passed{background:#d1fae5;color:#065f46}
+.status-chip.gate-state-passed-with-conditions{background:#fef3c7;color:#92400e}
+.status-chip.gate-state-blocked{background:#fee2e2;color:#991b1b}
+.status-chip.gate-state-waived{background:#ede9fe;color:#5b21b6}
+.gate-computed-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-left:6px;font-family:ui-monospace,monospace;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.gate-divergence-chip-inline{display:inline-block;font-size:0.78em;font-weight:700;padding:2px 9px;border-radius:9999px;margin-left:6px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e}
+.act-gate-dot[data-gate-state="passed"]{background:#10b981;box-shadow:none}
+.act-gate-dot[data-gate-state="passed-with-conditions"]{background:#f59e0b;box-shadow:none}
+.act-gate-dot[data-gate-state="blocked"]{background:#ef4444;box-shadow:none}
+.act-gate-dot[data-gate-state="waived"]{background:#8b5cf6;box-shadow:none}
+.status-stepper-more{font-size:0.82em;font-weight:600;color:#475569;white-space:nowrap}
 .status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
 .status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
 .status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
-</style>
-<details class="status-detail-panel" aria-label="Multi-axis lifecycle status">
-  <summary>
-    <span class="status-stepper">
-      
-      <span class="status-step axis-design_status set">
-        <span class="dot"></span>Design<span class="step-val">in_progress</span>
-      </span>
-      
-      <span class="status-step axis-implementation_status set">
-        <span class="dot"></span>Implementation<span class="step-val">not_started</span>
-      </span>
-      
-      <span class="status-step axis-simulation_status set">
-        <span class="dot"></span>Simulation<span class="step-val">not_started</span>
-      </span>
-      
-      <span class="status-step axis-evaluation_status set">
-        <span class="dot"></span>Evaluation<span class="step-val">not_started</span>
-      </span>
-      
-      <span class="status-step axis-gate_status set gate-status-blocked">
-        <span class="dot"></span>Gate<span class="step-val">blocked</span>
-      </span>
-      
-      <span class="status-step axis-expert_review_status set">
-        <span class="dot"></span>Expert review<span class="step-val">not_requested</span>
-      </span>
-      
-    </span>
-    <span class="status-stepper-more">details</span>
-  </summary>
-  <div class="status-stepper-body">
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Design</span>
-      <span class="status-chip ">in_progress</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Implementation</span>
-      <span class="status-chip ">not_started</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Simulation</span>
-      <span class="status-chip ">not_started</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Evaluation</span>
-      <span class="status-chip ">not_started</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Gate</span>
-      <span class="status-chip gate-status-blocked">blocked</span>
-    </div>
-    
-    
-    
-    <div class="status-detail-row">
-      <span class="status-detail-axis">Expert review</span>
-      <span class="status-chip ">not_requested</span>
-    </div>
-    
-    
-  </div>
-</details>
-
-
-
-
-
-
-<style>
-.spine-summary{margin:8px 0 0 0;border:1px solid #cbd5e1;border-left-width:5px;border-bottom:none;border-radius:6px 6px 0 0;background:#f8fafc;font-size:0.9em}
-.spine-summary:empty{display:none}
-.spine-summary-head{padding:7px 14px 4px 14px;font-size:0.78em;text-transform:uppercase;letter-spacing:0.05em;color:#475569;font-weight:700}
-.spine-row{display:flex;align-items:baseline;gap:10px;padding:4px 14px;border-top:1px solid #eef2f6}
-.spine-key{min-width:92px;color:#475569;font-weight:600;font-size:0.85em;text-transform:uppercase;letter-spacing:0.03em}
-.spine-val{flex:1;color:#1e293b}
-.spine-jump{white-space:nowrap}
-.spine-jump a,.spine-val a{color:#3b82f6;text-decoration:none}
-.spine-jump a:hover,.spine-val a:hover{text-decoration:underline}
-.spine-label{font-size:0.8em;color:#64748b;font-weight:500}
-.spine-chip-warn{display:inline-block;font-size:0.82em;font-weight:600;padding:1px 8px;border-radius:9999px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e;margin-left:6px}
-.spine-div{font-weight:600;color:#92400e}
-</style>
-<div id="spine-summary" class="spine-summary" data-slug="pdmp-03-inference"></div>
-
-<nav class="study-tabs" aria-label="Study sections">
-  <div class="study-pillars">
-    <button class="study-pillar active" data-pillar="understand" onclick="_setStudyPillar('understand')">Overview</button>
-    <button class="study-pillar"        data-pillar="compose"    onclick="_setStudyPillar('compose')">Model</button>
-    <button class="study-pillar"        data-pillar="simulate"   onclick="_setStudyPillar('simulate')">Simulations</button>
-    <button class="study-pillar"        data-pillar="readouts"   onclick="_setStudyPillar('readouts')">Readouts</button>
-    <button class="study-pillar"        data-pillar="visualize"  onclick="_setStudyPillar('visualize')">Visualizations</button>
-    <button class="study-pillar"        data-pillar="tests"      onclick="_setStudyPillar('tests')">Tests</button>
-    <button class="study-pillar"        data-pillar="decide"     onclick="_setStudyPillar('decide')">Decide</button>
-    <button class="study-pillar"        data-pillar="data"       onclick="_setStudyPillar('data')">Exports</button>
-  </div>
-  <div class="study-subnav" id="study-subnav">
-    <button class="study-tab active" data-kind="overview" data-pillar="understand" onclick="_setStudyTab('overview')">Overview</button>
-    <button class="study-tab" data-kind="compose" data-pillar="compose" onclick="_setStudyTab('compose')">Model</button>
-    <button class="study-tab" data-kind="simulate" data-pillar="simulate" onclick="_setStudyTab('simulate')">Simulations</button>
-    <button class="study-tab" data-kind="readouts" data-pillar="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
-    <button class="study-tab" data-kind="visualize" data-pillar="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
-    
-    <button class="study-tab" data-kind="report-cards" data-pillar="tests" onclick="_setStudyTab('report-cards')">Report Cards</button>
-    <button class="study-tab" data-kind="tests" data-pillar="tests" onclick="_setStudyTab('tests')">Behavioral Tests</button>
-    
-    <button class="study-tab" data-kind="conclusions" data-pillar="decide" onclick="_setStudyTab('conclusions')">Decide</button>
-    <button class="study-tab" data-kind="data" data-pillar="data" onclick="_setStudyTab('data')">Exports</button>
-  </div>
-</nav>
-<style>
 .phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
 .phase-design   { background:#e0e7ff; color:#3730a3 }
 .phase-build    { background:#fef3c7; color:#92400e }
@@ -248,12 +320,31 @@
 .followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
 .btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
 .btn-seed-followup:hover{background:#3b82f6;color:#fff}
-.charts-panel{margin-top:18px;display:flex;flex-direction:column;gap:18px}
-.chart-card{background:#fff;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px 12px 12px}
-/* SVGs scale to fit their card; preserves aspect ratio so a 1400×484
+/* ── One flowing figure gallery (Fable §4.5, Task V2) ──────────────────
+   The native gallery, embedded-HTML previews, and latest-run charts all
+   render as the same `.figure-card`: a bordered figure container + a muted
+   caption-row footer (source chip + title + optional run link), instead of
+   three differently-chrome'd sections under their own headings. The three
+   async mounts stay separate (`#native-gallery-panel`, the embed cards,
+   `#viz-charts-panel`) but each is a flex column with the same gap, so they
+   read as one continuous gallery. */
+.figure-gallery{display:flex;flex-direction:column;gap:16px}
+.figure-mount{display:flex;flex-direction:column;gap:16px}
+.charts-panel{display:flex;flex-direction:column;gap:16px}
+.figure-card{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff}
+.figure-media-frame{display:block;width:100%;border:0;background:#fff}
+.figure-media-frame--native{height:480px}
+.figure-media-frame--embed{min-height:200px}
+/* SVGs/PNGs scale to fit their card; preserves aspect ratio so a 1400×484
    chart shrinks instead of overflowing horizontally + clipping. */
-.chart-card svg,.chart-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
-.chart-caption{font-size:0.83em;color:#475569;margin-top:4px;line-height:1.4}
+.figure-card svg,.figure-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+.figure-desc{margin:8px 12px 0;font-size:0.85em;color:#475569}
+.figure-caption-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;font-size:0.85em;color:#475569;border-top:1px solid #f1f5f9;background:#f8fafc}
+.figure-source-chip{font-size:0.68em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#64748b;flex-shrink:0}
+.figure-title{font-weight:600;color:#334155;flex:1;min-width:100px}
+.figure-run-link,.figure-open-link{font-size:0.85em;color:#2563eb;text-decoration:none;white-space:nowrap;cursor:pointer}
+.figure-run-link:hover,.figure-open-link:hover{text-decoration:underline}
+.chart-caption{font-size:0.83em;color:#475569;margin:8px 12px 0;line-height:1.4}
 /* findings */
 .findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
 .finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
@@ -261,6 +352,13 @@
 .finding-card.finding-status-partial{border-left-color:#f59e0b}
 .finding-card.finding-status-contradicts{border-left-color:#dc2626}
 .finding-card.finding-status-novel{border-left-color:#8b5cf6}
+/* C2: compact ledger row (<summary>) + native <details> evidence drawer */
+.finding-details{border:none}
+.finding-details>summary{list-style:none;cursor:pointer}
+.finding-details>summary::-webkit-details-marker{display:none}
+.finding-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.finding-chip{font-size:0.78em;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:9999px;white-space:nowrap}
+.finding-drawer{margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0}
 .finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
 .finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
 .finding-status-confirms .finding-status-glyph{color:#10b981}
@@ -271,6 +369,7 @@
 .finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
 .finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
 .finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-claim{flex:1;min-width:200px;margin:0}
 .finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
 .finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
 .finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
@@ -315,6 +414,15 @@
   padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
 .add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
 .conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+/* Markdown-rendered conclusion blob: flows full-width (reflows authored hard-wraps), keeps paragraphs + ordered list. */
+.conclusion-md{color:#1e293b}
+.conclusion-md > :first-child{margin-top:0}
+.conclusion-md > :last-child{margin-bottom:0}
+.conclusion-md p{margin:0 0 10px}
+.conclusion-md ol,.conclusion-md ul{margin:0 0 10px;padding-left:22px}
+.conclusion-md li{margin:2px 0}
+.conclusion-md code{background:#eef2f7;padding:1px 4px;border-radius:3px;font-size:0.92em}
+.conclusion-md pre{background:#eef2f7;padding:8px 10px;border-radius:4px;overflow-x:auto;white-space:pre-wrap}
 .conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
 .computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
   letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
@@ -354,15 +462,14 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
     
 
     
-    <div class="overview-section biology-summary-callout">
-      <h2 class="biology-glance-label">Biology — what this study is about</h2>
-      
-      <textarea class="biology-prose narrative-input narrative-textarea" rows="4"
-                data-narrative-path="biological_summary"
-                placeholder="Plain-English mechanism narrative.">Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12.</textarea>
-      
+    <div class="overview-section">
+      <div class="purpose-callout" style="background:#f8fafc;border-left:4px solid #94a3b8">
+        <strong>Summary.</strong> Builds the likelihood + Bayesian-inference layer that lets the PDMP whole-cell model be fit to (and questioned by) data: per-modality likelihoods, a streaming log-likelihood accumulator, ABC-SMC posteriors, and SBC/PPC validation. A methodological result fell out: the WCM Poisson count posterior is sharp (~300× tighter than a toy), so ABC needs n_generations=12 to converge, and SBC correctly rejected an under-converged ng=6 run before passing at ng=12.
+      </div>
     </div>
+    
 
+    
     
     
     <div class="overview-section findings-section">
@@ -370,116 +477,146 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
       
       
       
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">abc-smc-sbc-validated-on-count-surrogate</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> recovery theta_true=1.2 -&gt; post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -&gt; 0.0034 (100) -&gt; 0.0019 (400) -&gt; 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end) · 
-          
-          in run <a href="#run-phase3"><code>phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-phase3-surrogate-calibration"><code>phase3-surrogate-calibration</code></a>, <a href="#run-phase3-abc-smc-recovery"><code>phase3-abc-smc-recovery</code></a>, <a href="#run-phase3-sbc-k150"><code>phase3-sbc-k150</code></a>, <a href="#run-phase3-ppc"><code>phase3-ppc</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.</div>
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">✓</span>
+            <span class="finding-claim finding-statement">Phase-3 increment 1: a real ABC-SMC (importance weights + Gaussian perturbation kernel + adaptive-epsilon schedule) recovers a transcription-init rate from count-level observations, validated by Simulation-Based Calibration and a posterior-predictive check. The forward model is a negative-binomial count surrogate calibrated once to real WCM rna_init_event statistics (mu0=12593, Poisson limit). This replaces the prior grid-diagnostic phase3_abc_* scripts with the cited-but-missing run_abc_smc / run_sbc / run_ppc. Scope: validated on the WCM-calibrated count likelihood (single parameter, K=150 SBC), not the full WCM in the ABC loop (deferred to the Phase-4 compiled runtime) and not the K=1000 multi-modality full gate. A methodological result fell out: the WCM Poisson posterior is sharp (~300x tighter than a toy), so ABC needs n_generations=12 to converge; SBC correctly rejected an under-converged ng=6 run before passing at ng=12 (the gate is doing its job).</span>
+            
+            <span class="finding-chip">in run <code>phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">abc-smc-sbc-validated-on-count-surrogate</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">confirms literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> recovery theta_true=1.2 -&gt; post_mean 1.1995, 90% CI [1.1984, 1.2006]; SBC K=150 chi2_p=0.576 (uniform, PASS); PPC 90% coverage=0.907 (PASS). Posterior shrinks with data: CI90 width 0.0068 (n_obs=25) -&gt; 0.0034 (100) -&gt; 0.0019 (400) -&gt; 0.0013 (1600), truth contained at every n; ~1/sqrt(n) through n=400 (ABC eps-resolution floors the shrinkage at the tightest end) · 
+              
+              
+              in run <a href="#run-phase3"><code>phase3 ABC-SMC/SBC/PPC on the WCM-calibrated count surrogate (run_abc_smc/run_sbc/run_ppc)</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-phase3-surrogate-calibration"><code>phase3-surrogate-calibration</code></a>, <a href="#run-phase3-abc-smc-recovery"><code>phase3-abc-smc-recovery</code></a>, <a href="#run-phase3-sbc-k150"><code>phase3-sbc-k150</code></a>, <a href="#run-phase3-ppc"><code>phase3-ppc</code></a>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Extend to multi-modality summaries + full-WCM-in-the-loop (needs Phase-4 compiled runtime) for the K=1000 inference-ready gate.</div>
+          </div>
+        </details>
       </div>
       
       
       
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
-        <div class="finding-header">
-          <span class="finding-status-glyph">✓</span>
-          <span class="finding-id">abc-smc-multiparameter-identifiable</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">confirms literature</span>
-        </div>
-        <div class="finding-statement">Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -&gt; identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS · 
-          
-          in run <a href="#run-scripts/run_abc_smc_2d.py"><code>scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-phase3-abc-smc-2d"><code>phase3-abc-smc-2d</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.</div>
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">✓</span>
+            <span class="finding-claim finding-statement">Phase-3 increment 2: the ABC-SMC engine generalizes to vector theta (independent per-dim perturbation kernel + product importance weights; scalar back-compat preserved). A 2-parameter joint inference of (count mean-scale, dispersion-scale) from count data is recovered and per-parameter SBC-validated, with a weak posterior correlation -- i.e. the two parameters are jointly identifiable from the [mean, std] summary. Scope: uses a synthetic overdispersed surrogate (mu0=40, phi0=8) because the real WCM transcription count is Poisson (no dispersion to infer); this validates the multi-parameter machinery for when richer overdispersed/multi-modal WCM observables are added.</span>
+            
+            <span class="finding-chip">in run <code>scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">abc-smc-multiparameter-identifiable</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">confirms literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> recovery [1.185, 0.993] vs truth [1.2, 1.0]; posterior corr=+0.12 (weak -&gt; identifiable); 2-param SBC K=80 chi2_p mean-scale=0.78 PASS, disp-scale=0.62 PASS · 
+              
+              
+              in run <a href="#run-scripts/run_abc_smc_2d.py"><code>scripts/run_abc_smc_2d.py (N-D ABC-SMC + 2-param SBC on a synthetic NegBinom)</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-phase3-abc-smc-2d"><code>phase3-abc-smc-2d</code></a>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Ground the 2 parameters in two real WCM count channels (transcription rna_init + translation/ribosome) to test the (Ts,Ps) anti-diagonal identifiability the grid-ABC scripts saw.</div>
+          </div>
+        </details>
       </div>
+      
+      
       
       
       
       <div class="finding-card finding-kind-computational finding-status-partial">
-        <div class="finding-header">
-          <span class="finding-status-glyph">◐</span>
-          <span class="finding-id">sbc-k150-pass-is-knife-edge-not-robust</span>
-          <span class="finding-kind">computational</span>
-          <span class="finding-status-text">partial literature</span>
-        </div>
-        <div class="finding-statement">Hardening re-derivation (2026-07-27): the recorded SBC K=150 PASS (chi2_p=0.576) reproduces EXACTLY under the current committed engine at the recorded calibration (mu0=12593.5, Poisson; rng seed 0) -- so it was not fabricated -- but it is a knife-edge single-seed result, NOT a robust calibration certificate. A 5-seed sweep passes only 4/5 (seed 2 chi2_p=0.0081 FAIL), and at seed 0 the pass is razor-thin in the calibration mean: mu0 in {12592, 12593, 12594, 12595} ALL FAIL (chi2_p 0.004-0.011); only the recorded mu0=12593.5 passes (0.576). Root cause (understood, no bug): the WCM Poisson count posterior is extraordinarily sharp -- theta std ~ 1/sqrt(mu0*n_obs) ~ 4.5e-4 vs prior width 2.8 (~6000x narrower) -- so at K=150 the ABC epsilon-resolution floor leaves the rank histogram only marginally uniform and the chi2 test sits on a knife edge. This is precisely why the study&#39;s own gate spec requires K=1000 (rank resolution 1/(K+1) ~ 1e-3); K=150 is under-resolved for this posterior. Separately verified and EXONERATED: engine refactor 28cad208 (&#34;N-D generalization; scalar back-compat preserved&#34;) does NOT change scalar-mode numerics -- both the pre- and post-refactor engines give byte-identical SBC results across all 5 seeds -- so there is no regression and the back-compat claim holds. The recovery (theta=1.2 -&gt; post_mean 1.1995, CI [1.1984,1.2006]) and PPC (script gate cov&gt;=0.80; cov 0.84-0.91 by seed) remain robust; only the SBC uniformity leg is thin.</div>
-        
-        
-        
-        
-        <div class="finding-evidence">
-          <strong>observed:</strong> SBC K=150 seed sweep {0:0.576 PASS, 1:0.081 PASS, 2:0.008 FAIL, 3:0.181 PASS, 4:0.052 PASS} = 4/5 PASS; mu0 sweep at seed 0 {12592:0.009 FAIL, 12593:0.004 FAIL, 12593.5:0.576 PASS, 12594:0.011 FAIL, 12595:0.005 FAIL}; pre- vs post-28cad208 engine byte-identical across the 5 seeds. · 
-          
-          in run <a href="#run-hardening"><code>hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)</code></a>
-          
-          
-        </div>
-        
-        
-        <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
-          
-          
-          runs: <a href="#run-phase3-sbc-k150-robustness-sweep"><code>phase3-sbc-k150-robustness-sweep</code></a>
-        </div>
-        
-        
-        
-        
-        
-        
-        
-        <div class="finding-next"><strong>→ Next:</strong> Do NOT cite the K=150 pass as a calibration certificate. Gate on K&gt;=1000 SBC with a multi-seed robustness summary (median chi2_p over &gt;=5 seeds) on the full-WCM-in-the-loop pipeline (needs the Phase-4 compiled runtime). NOTE: the committed .pbg/runs/phase3-surrogate-calibration.json artifact is absent in this checkout; regenerate + commit it so the recorded mu0=12593.5 is reproducible without hand-supplied calibration.</div>
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◐</span>
+            <span class="finding-claim finding-statement">Hardening re-derivation (2026-07-27): the recorded SBC K=150 PASS (chi2_p=0.576) reproduces EXACTLY under the current committed engine at the recorded calibration (mu0=12593.5, Poisson; rng seed 0) -- so it was not fabricated -- but it is a knife-edge single-seed result, NOT a robust calibration certificate. A 5-seed sweep passes only 4/5 (seed 2 chi2_p=0.0081 FAIL), and at seed 0 the pass is razor-thin in the calibration mean: mu0 in {12592, 12593, 12594, 12595} ALL FAIL (chi2_p 0.004-0.011); only the recorded mu0=12593.5 passes (0.576). Root cause (understood, no bug): the WCM Poisson count posterior is extraordinarily sharp -- theta std ~ 1/sqrt(mu0*n_obs) ~ 4.5e-4 vs prior width 2.8 (~6000x narrower) -- so at K=150 the ABC epsilon-resolution floor leaves the rank histogram only marginally uniform and the chi2 test sits on a knife edge. This is precisely why the study&#39;s own gate spec requires K=1000 (rank resolution 1/(K+1) ~ 1e-3); K=150 is under-resolved for this posterior. Separately verified and EXONERATED: engine refactor 28cad208 (&#34;N-D generalization; scalar back-compat preserved&#34;) does NOT change scalar-mode numerics -- both the pre- and post-refactor engines give byte-identical SBC results across all 5 seeds -- so there is no regression and the back-compat claim holds. The recovery (theta=1.2 -&gt; post_mean 1.1995, CI [1.1984,1.2006]) and PPC (script gate cov&gt;=0.80; cov 0.84-0.91 by seed) remain robust; only the SBC uniformity leg is thin.</span>
+            
+            <span class="finding-chip">in run <code>hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)</code></span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">sbc-k150-pass-is-knife-edge-not-robust</span>
+              <span class="finding-kind">computational</span>
+              <span class="finding-status-text">partial literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> SBC K=150 seed sweep {0:0.576 PASS, 1:0.081 PASS, 2:0.008 FAIL, 3:0.181 PASS, 4:0.052 PASS} = 4/5 PASS; mu0 sweep at seed 0 {12592:0.009 FAIL, 12593:0.004 FAIL, 12593.5:0.576 PASS, 12594:0.011 FAIL, 12595:0.005 FAIL}; pre- vs post-28cad208 engine byte-identical across the 5 seeds. · 
+              
+              
+              in run <a href="#run-hardening"><code>hardening seed+calibration sweep of scripts/run_sbc.py params (n_particles=300, n_generations=12, prior (0.2,3.0), n_obs=400)</code></a>
+              
+              
+            </div>
+            
+            
+            <div class="finding-traceability" style="font-size:0.84em;color:#475569;padding:4px 10px;margin:4px 0">
+              
+              
+              runs: <a href="#run-phase3-sbc-k150-robustness-sweep"><code>phase3-sbc-k150-robustness-sweep</code></a>
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Do NOT cite the K=150 pass as a calibration certificate. Gate on K&gt;=1000 SBC with a multi-seed robustness summary (median chi2_p over &gt;=5 seeds) on the full-WCM-in-the-loop pipeline (needs the Phase-4 compiled runtime). NOTE: the committed .pbg/runs/phase3-surrogate-calibration.json artifact is absent in this checkout; regenerate + commit it so the recorded mu0=12593.5 is reproducible without hand-supplied calibration.</div>
+          </div>
+        </details>
       </div>
       
     </div>
@@ -611,131 +748,6 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
     </div>
 
     
-    <details class="overview-section">
-      <summary class="overview-label">Plan &amp; provenance</summary>
-
-      
-      <div class="overview-section">
-        <h3 class="overview-label">Pipeline gate</h3>
-        <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-          Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-        </p>
-        
-        <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-        
-        
-        
-        <div><strong>Proceed when:</strong> <span class="muted">Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</span></div>
-        
-      </div>
-      
-
-      
-      <div class="overview-section">
-        <h3 class="overview-label">Key assumptions</h3>
-        <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-          <li style="margin:2px 0">A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.</li><li style="margin:2px 0">ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.</li><li style="margin:2px 0">A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.</li>
-        </ul>
-      </div>
-      
-
-      
-      
-      <div class="overview-section">
-        <h2 class="overview-label">Behavioral tests</h2>
-        
-        
-        
-        
-        
-        <p style="margin:0">
-          <strong>3</strong> tests defined —
-            <span class="classification-pill classification-primary">2 primary</span>
-            <span class="classification-pill classification-supporting">1 supporting</span>
-          <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline;margin-left:6px">View on Tests tab →</a>
-        </p>
-      </div>
-      
-
-      
-
-      
-
-      
-      
-
-      
-      
-      <div class="overview-section literature-anchors">
-        <h3 class="overview-label">Literature anchors</h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
-          The biological expectations this study tests, mapped to the
-          model observable that will measure each one. Full citations
-          live in the Tests tab.
-        </p>
-        <ul class="literature-anchor-list">
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-          <li class="literature-anchor-card">
-            <div class="anchor-expectation"></div>
-            <div class="anchor-observable">
-              <em>Model observable:</em> <code></code>
-            </div>
-            
-            
-          </li>
-        
-        </ul>
-      </div>
-      
-
-      <div class="overview-section">
-        <h3 class="overview-label">Status</h3>
-        
-        
-
-        
-        <p class="muted" style="margin:6px 0 0 0;font-size:0.85em">Lifecycle phase: <strong>Build</strong> (Design → Build → Simulate → Evaluate → Decide).</p>
-        
-      </div>
-
-      <div class="study-counts-strip">
-        <div class="count-cell">
-          <strong>4</strong>
-          <span class="count-label">simulations</span>
-        </div>
-        <div class="count-cell">
-          <strong>4</strong>
-          <span class="count-label">readouts</span>
-        </div>
-        <div class="count-cell">
-          <strong>3</strong>
-          <span class="count-label">requirements</span>
-        </div>
-        <div class="count-cell">
-          <strong>0</strong>
-          <span class="count-label">runs</span>
-        </div>
-      </div>
-
-    </details>
 
     
     <div id="feedback-tracked-panel"></div>
@@ -753,9 +765,13 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
 
   
   
+  
+  
+  
+  
+  
   <div class="overview-section" id="model-section">
-    <h3>Model <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
-    <p class="muted" style="font-size:0.88em">Each row runs one composite. Below it: the composite address (open it in the bigraph-loom explorer), the resolved configuration that actually executes, and the run settings.</p>
+    <h3>Runnable models <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     
     <div class="cond-block" data-model-composite="v2ecoli_pdmp.composites.inference.pdmp_with_likelihood" data-model-overrides='{"emitter": "xarray", "summary_only": true}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -776,6 +792,18 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
       </div>
       <div class="baseline-composite-status muted" data-baseline-name="pdmp-03-inference" style="font-size:0.8em;margin-top:2px"></div>
       
+      
+      
+      
+      
+      
+        
+      
+        
+      
+      
+      
+      
       <div class="model-config-mount" style="margin-top:8px">
         <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
       
@@ -783,33 +811,15 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
       
     </div>
     
+    
   </div>
   
 
   
   
-  
-  
   <div class="overview-section" id="conditions-section">
     <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
-    <p class="muted" style="font-size:0.88em">The experimental knobs: which composite forms the baseline, how variants perturb it, and which model settings still need a human-set value.</p>
-
-    
-    
-    <div class="cond-block">
-      <div class="cond-block-title">Baseline</div>
-      <div style="font-size:0.92em;margin-bottom:4px">Composite: <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code></div>
-      
-      <div style="display:flex;flex-wrap:wrap;gap:6px">
-        
-        <span class="cond-pill"><span class="cond-pill-k">emitter</span>=<code>xarray</code></span>
-        
-        <span class="cond-pill"><span class="cond-pill-k">summary_only</span>=<code>True</code></span>
-        
-      </div>
-      
-    </div>
-    
+    <p class="muted" style="font-size:0.88em">The experimental knobs: how variants perturb the baseline, and which model settings still need a human-set value.</p>
 
     
     <div class="cond-block">
@@ -921,7 +931,6 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
   
   <div class="overview-section">
     <h3>Model change</h3>
-    <p class="muted" style="font-size:0.88em">What code lands in this study. Separated from biology (which lives in Key assumptions on Overview).</p>
     
     
     
@@ -959,173 +968,46 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
   
 
   
-  <div class="overview-section" id="analyses-section">
-    <h3>Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <p class="muted" style="font-size:0.88em">One analysis name per line (e.g. <code>doubling_time_distribution</code>). Threaded into <code>analysis_options</code> on both local and remote dispatch.</p>
+  <div class="overview-section" id="analyses-section" style="margin-top:22px">
+    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
     <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
     <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
     <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
   </div>
+
 </section>
 
 
 
 <section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
 
-  <div id="reproduce-card" class="reproduce-card"
-       style="margin:0 0 14px 0;padding:10px 12px;background:#f8fafc;
-              border:1px solid #e2e8f0;border-radius:6px;font-size:0.9em"></div>
-
-
 <div class="overview-section" id="simulations-section">
-  <h3 style="display:flex;align-items:center;gap:8px">Simulations
-    <span class="muted" style="font-size:0.85em;font-weight:normal">— this study's runs</span>
-    <button type="button" class="btn-mini" title="Reload this study's runs"
-            onclick="_loadStudySims(true)" style="margin-left:auto;font-size:0.8em">↻ Refresh</button>
-  </h3>
-  <p class="muted" style="font-size:0.88em">Every run recorded for this study (the same view as the Simulations DB, scoped here) — data location, origin, emitter, time, status, and downloads. Click a run to open its results; launch new runs below.</p>
+  <h2>Simulations</h2>
   <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
-  
-  
-  <h3 style="margin-top:16px">Simulation set <span class="muted" style="font-size:0.85em;font-weight:normal">(4 runs planned)</span></h3>
-  <p class="muted" style="font-size:0.88em">Each entry is a concrete run plan: baseline or perturbation, condition, duration, seeds, readouts collected, and tests applied. Sweep entries (Pass B) render their axes, per-run results, candidates, and rejection reasons.</p>
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">likelihood-dispersion-fit</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
+
+<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
+  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=pdmp-03-inference">Download all (.zip)</a>
   </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">accumulator-numerical-stability</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
+  <div id="data-files" data-study="pdmp-03-inference">
+    <p class="empty-message">Loading result files…</p>
   </div>
+
   
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">abc-smc-synthetic-recovery</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+    <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
+    <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
+            onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
   </div>
-  
-  
-  
-  
-  <div class="panel" style="padding:14px 18px;margin-bottom:12px">
-    <header style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:6px">
-      <strong style="font-size:1.05em">sbc-K1000-validation</strong>
-      <span class="sim-status-pill sim-status-planned">planned</span>
-      
-    </header>
-    <div style="font-size:0.9em;margin-bottom:6px">
-      <strong>Base model:</strong> <code>v2ecoli_pdmp.composites.inference.pdmp_with_likelihood</code>
-    </div>
-    
-    <p style="margin:4px 0;font-size:0.9em" class="muted">No perturbation (baseline run)</p>
-    
-    <p style="margin:6px 0;font-size:0.9em">
-      <strong>Simulation time:</strong> ?
-      · <strong>Seeds:</strong> <em>not set</em>
-    </p>
-    <p style="margin:4px 0;font-size:0.86em" class="muted">
-      
-      
-      
-    </p>
-    
-    
-    
-  </div>
-  
-  
-  
-  <!-- Configure & Run widget (SP-C) — native run launcher for this study -->
-  <div id="study-configure-run" style="margin-bottom:18px"></div>
-  <div class="panel" id="remote-run-panel" style="margin-bottom:18px">
-    <h3 style="margin-top:0">Run on remote (smsvpctest)</h3>
-    <p class="muted" style="font-size:0.9em">
-      Pushes the workspace's current branch, builds a simulator from that commit, and runs
-      it on the Ray backend. Results land as a run on this study. Requires GitHub login.
-    </p>
-    <form id="remote-run-form" onsubmit="return _submitRemoteRun(event)">
-      <label>Generations: <input name="num_generations" type="number" min="1" value="1" required></label>
-      <label>Seeds: <input name="num_seeds" type="number" min="1" value="1" required></label>
-      <label><input type="checkbox" name="run_parca" checked> Run ParCa</label>
-      <button type="submit" class="btn-mini" id="remote-run-btn">▶ Run on remote</button>
-    </form>
-    <div id="remote-run-progress" hidden></div>
-  </div>
+  <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+</div>
 
 </section>
 
@@ -1158,251 +1040,299 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
 
 <section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
 
-  <div class="viz-section">
+  <div class="overview-section study-figures figure-gallery" id="visualize-section">
 
-    <h3 class="section-title">Visualizations</h3>
-    <p class="muted" style="margin:0 0 12px 0;font-size:0.88em">Figures for this study: the native analysis gallery from its latest run, any embedded HTML artefacts, and charts auto-rendered from <code>runs.db</code>.</p>
-    <div class="native-gallery-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Baseline analysis gallery <span style="font-weight:normal">— latest completed run</span></h4>
-      <div id="native-gallery-panel"><p class="empty-message">Loading baseline figures…</p></div>
-    </div>
+    <div id="native-gallery-panel" class="figure-mount"><p class="empty-message">Loading figures…</p></div>
 
     
     
-    <div class="embed-viz-section" style="margin-bottom:22px">
-      <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Embedded visualizations <span style="font-weight:normal">— self-contained HTML</span></h4>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_workflow.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="SBC workflow"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
       
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">SBC workflow</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_workflow.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
+      <p class="figure-desc muted">Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded report as iframe srcdoc.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">SBC workflow</span>
         
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Per-study visualization rendered from reports/figures/pdmp-03/sbc_workflow.html. Inlined into the downloaded report as iframe srcdoc.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_workflow.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="SBC workflow"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_workflow.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
       </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 — ABC-SMC posterior shrinkage over rounds</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_posterior_shrinkage.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Posterior shrinkage diagnostic over SMC generations.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_posterior_shrinkage.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 — ABC-SMC posterior shrinkage over rounds"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 12 — count-based ABC distance</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_count_metric.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">On a self-generated 3×3 (Ts, Ps) parameter grid (N=4 replicates, 60 s), the combined count vector sqrt(d_rna² + d_ribosome²) gives a higher truth-vs-next-nearest-cell grid-separation ratio (3.06×) than the aggregate log-likelihood (2.39×). A grid-separation diagnostic on a self-generated toy grid, not a posterior, credible interval, or validated &#34;canonical&#34; ABC distance.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_count_metric.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 12 — count-based ABC distance"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 11 — multi-observable ABC</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_multi_observable.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Per-channel vs aggregate ABC. Diagnoses the self-calibration issue that motivated the pivot to count-based distances.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_multi_observable.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 11 — multi-observable ABC"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_2d.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Reveals the anti-diagonal ridge under aggregate log-likelihood: reducing transcription while raising translation partially cancels. Per-channel distances break the ridge.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_2d.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 9 — sequential ε refinement</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_sequential.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">On the self-generated scale grid, the smallest-distance node is retained as ε tightens through p95/p75/p50/p25/p05 quantiles. The &#34;observed&#34; data is generated at scale=1.0 — itself a grid node — so retaining scale=1.0 is tautological, not a posterior collapse. (The &#34;~4× below the next-closest&#34; figure is a hardcoded string literal in the script, not a computed value.)</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_sequential.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 9 — sequential ε refinement"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 7 — ABC-SMC stub</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_stub.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">First ABC stub at scale-vs-distance, before the noise-floor recalibration.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_stub.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 7 — ABC-SMC stub"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Phase 3 sprint 5 — ensemble likelihood figure</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/likelihood_ensemble.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Per-replicate log-likelihood trajectories + intra-ensemble noise floor band.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/likelihood_ensemble.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Phase 3 sprint 5 — ensemble likelihood figure"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Posterior Predictive Check</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/posterior_predictive_check.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Auto-wired existing figure at /reports/figures/pdmp-03/posterior_predictive_check.html. Promoted from disk by the embed-wiring sweep — refine the name and description if a richer caption is wanted.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/posterior_predictive_check.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Posterior Predictive Check"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">Sbc Per Parameter</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_per_parameter.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">PLANNED / synthetic placeholder. The on-disk sbc_per_parameter.html is a labelled-PLANNED stub with synthetic content; no SBC per-parameter analysis has been run.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_per_parameter.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="Sbc Per Parameter"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
-      <div class="embed-viz-card" style="border:1px solid #e2e8f0;border-radius:6px;margin-bottom:14px;background:#fff">
-        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid #e5e7eb;background:#f9fafb">
-          <strong style="flex:1">study_plan_summary</strong>
-          <a href="/v2ecoli/workbench/reports/figures/pdmp-03-inference/study_plan_summary.html" target="_blank" class="btn-mini">Open in new tab ↗</a>
-        </div>
-        
-        <p class="muted" style="margin:6px 12px;font-size:0.88em">Hand-authored figure (12 KB) from reports/figures/pdmp-03-inference/.</p>
-        
-        <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03-inference/study_plan_summary.html"
-                style="width:100%;min-height:200px;border:0;display:block"
-                loading="lazy" title="study_plan_summary"
-                onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-                ></iframe>
-      </div>
-      
     </div>
     
-
-    <h4 class="muted" style="margin:0 0 6px;font-size:0.9em;font-weight:600">Latest-run charts <span style="font-weight:normal">— re-rendered from <code>runs.db</code></span></h4>
-    <div id="viz-charts-panel" class="charts-panel"></div>
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="report-cards" id="panel-report-cards" hidden>
-  <div class="report-cards-section">
-    <h3 class="section-title">Report cards</h3>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.9em">
-      Graded comparison scorecards for this study (v2ecoli vs vEcoli / literature).
-      Each card's verdict summarises whether the compared observables fall within
-      tolerance. Cards are produced during the post-sim flush from the study's
-      <code>report_cards:</code> declaration into <code>viz/report_card/</code>.
-    </p>
-    <div id="report-cards-panel"><p class="empty-message">Loading report cards…</p></div>
-  </div>
-</section>
-
-<section class="study-tab-panel" data-kind="data" id="panel-data" hidden>
-  <div class="data-section">
-    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-      <h3 class="section-title" style="margin-right:auto">Analysis result files</h3>
-      <a id="data-download-all" class="btn-mini" style="display:none"
-         href="/api/study-analysis-zip?study=pdmp-03-inference">Download all (.zip)</a>
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_posterior_shrinkage.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 — ABC-SMC posterior shrinkage over rounds"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Posterior shrinkage diagnostic over SMC generations.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 — ABC-SMC posterior shrinkage over rounds</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_posterior_shrinkage.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
     </div>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Tabular outputs (<code>.csv</code> / <code>.tsv</code>) written by this study's
-      Analysis steps — e.g. per-run analysis tables and exports. Click a file to
-      download it.
-    </p>
-    <div id="data-files" data-study="pdmp-03-inference">
-      <p class="empty-message">Loading result files…</p>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_count_metric.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 12 — count-based ABC distance"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">On a self-generated 3×3 (Ts, Ps) parameter grid (N=4 replicates, 60 s), the combined count vector sqrt(d_rna² + d_ribosome²) gives a higher truth-vs-next-nearest-cell grid-separation ratio (3.06×) than the aggregate log-likelihood (2.39×). A grid-separation diagnostic on a self-generated toy grid, not a posterior, credible interval, or validated &#34;canonical&#34; ABC distance.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 12 — count-based ABC distance</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_count_metric.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
     </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_multi_observable.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 11 — multi-observable ABC"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Per-channel vs aggregate ABC. Diagnoses the self-calibration issue that motivated the pivot to count-based distances.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 11 — multi-observable ABC</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_multi_observable.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_2d.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Reveals the anti-diagonal ridge under aggregate log-likelihood: reducing transcription while raising translation partially cancels. Per-channel distances break the ridge.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 10 — 2D (Ts, Ps) ABC sweep</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_2d.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_sequential.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 9 — sequential ε refinement"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">On the self-generated scale grid, the smallest-distance node is retained as ε tightens through p95/p75/p50/p25/p05 quantiles. The &#34;observed&#34; data is generated at scale=1.0 — itself a grid node — so retaining scale=1.0 is tautological, not a posterior collapse. (The &#34;~4× below the next-closest&#34; figure is a hardcoded string literal in the script, not a computed value.)</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 9 — sequential ε refinement</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_sequential.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_stub.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 7 — ABC-SMC stub"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">First ABC stub at scale-vs-distance, before the noise-floor recalibration.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 7 — ABC-SMC stub</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/abc_smc_stub.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/likelihood_ensemble.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Phase 3 sprint 5 — ensemble likelihood figure"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Per-replicate log-likelihood trajectories + intra-ensemble noise floor band.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Phase 3 sprint 5 — ensemble likelihood figure</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/likelihood_ensemble.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/posterior_predictive_check.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Posterior Predictive Check"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Auto-wired existing figure at /reports/figures/pdmp-03/posterior_predictive_check.html. Promoted from disk by the embed-wiring sweep — refine the name and description if a richer caption is wanted.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Posterior Predictive Check</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/posterior_predictive_check.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_per_parameter.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="Sbc Per Parameter"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">PLANNED / synthetic placeholder. The on-disk sbc_per_parameter.html is a labelled-PLANNED stub with synthetic content; no SBC per-parameter analysis has been run.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">Sbc Per Parameter</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03/sbc_per_parameter.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    <div class="figure-card embed-viz-card">
+      <iframe src="/v2ecoli/workbench/reports/figures/pdmp-03-inference/study_plan_summary.html"
+              class="figure-media-frame figure-media-frame--embed"
+              loading="lazy" title="study_plan_summary"
+              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              ></iframe>
+      
+      <p class="figure-desc muted">Hand-authored figure (12 KB) from reports/figures/pdmp-03-inference/.</p>
+      
+      <div class="figure-caption-row">
+        <span class="figure-source-chip">embed</span>
+        <span class="figure-title">study_plan_summary</span>
+        
+        <a href="/v2ecoli/workbench/reports/figures/pdmp-03-inference/study_plan_summary.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
+      </div>
+    </div>
+    
+    
+
+    <div id="viz-charts-panel" class="charts-panel figure-mount"></div>
 
     
-    <h3 class="section-title" style="margin-top:22px">Raw simulation data</h3>
-    <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-      Each run's raw emitter store (zarr / parquet / <code>runs.db</code>) — the full
-      per-step trajectory. Analysis outputs above are derived from these.
-    </p>
-    <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+    <p id="figures-empty-message" class="empty-message" style="display:none">No figures yet.</p>
   </div>
 </section>
 
 <section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
-  <div class="tests-header">
-    <h3>Behavioral Tests</h3>
-    <p class="muted" style="margin: 0 0 8px 0;">
-      Each prediction below is paired with a precise <code>given / measure / expect</code>
-      rule so one English sentence auto-generates one pytest assertion. The
-      generic evaluator in <code>tests/_behaviors.py</code> dispatches on
-      <code>measure.kind</code> + <code>expect.op</code> to compute pass/fail
-      against the latest simulation run.
-    </p>
-    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-      <button id="run-tests-btn" class="btn-primary">Run tests</button>
-      <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+  <h2>Tests</h2>
+  <p class="muted" style="margin:0 0 12px 0">Audit — does this study pass its own bar (report cards + behavioral gates).</p>
+
+  
+  
+  
+  <div class="overview-section expectations-band" id="expectations-band">
+    <h3 class="section-title">Expectations
+      <span class="muted" style="font-size:0.85em;font-weight:normal">— from literature, mapped to the model observable that measures each</span>
+    </h3>
+    <ul class="literature-anchor-list" style="list-style:none;padding-left:0">
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span></span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code></code>
+        </div>
+        
+      </li>
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span></span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code></code>
+        </div>
+        
+      </li>
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span></span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code></code>
+        </div>
+        
+      </li>
+    
+    </ul>
+  </div>
+  
+
+  
+  
+  
+
+  
+  <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
+
+  
+  <div class="checks-band" style="margin-top:22px">
+    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
+
+    
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
+      <p class="empty-message">Loading quality checks…</p>
     </div>
-    <div class="tests-config" style="margin-top: 6px;">
-      <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
-      <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+
+    
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
     </div>
   </div>
+
+  
+  
+
+  <div class="behavioral-tests-section" style="margin-top:22px">
+    <h3 class="section-title">Behavioral tests</h3>
+    <div class="tests-header">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="run-tests-btn" class="btn-primary">Run tests</button>
+        <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+      </div>
+      <div class="tests-config" style="margin-top: 6px;">
+        <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+        <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+      </div>
+    </div>
 
   
   
@@ -1437,6 +1367,7 @@ ABC-SMC on synthetic data — establishing the inference-ready substrate that mo
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "rank of \u03b8_true within N=100 posterior draws, repeated L=200 times", "reduce": "Cram\u00e9r-von Mises test of rank histogram vs Uniform(0, N)", "source": "scripts/run_sbc.py"}
 expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}</pre>
       </details>
@@ -1473,6 +1404,7 @@ expect:  {"field": "CvM_p_value", "operator": "greater-than", "threshold": 0.05}
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "posterior 95% interval width per parameter", "reduce": "ratio to prior width", "source": "scripts/run_abc_smc.py --vary-data-size"}
 expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 0.3}</pre>
       </details>
@@ -1509,6 +1441,7 @@ expect:  {"field": "shrinkage_at_N=1000", "operator": "less-than", "threshold": 
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"observable": "held-out observation coverage by posterior predictive 95% CI", "reduce": "fraction", "source": "scripts/run_ppc.py"}
 expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper": 0.99}</pre>
       </details>
@@ -1520,6 +1453,7 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
     
   </ul>
   
+  </div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1532,27 +1466,19 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
 
   
   <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+    
+    <p class="muted small verdict-attribution" style="margin:0 0 8px 0" title="actor kind: unattributed">
+      <span class="actor-glyph">○</span> unattributed
+    </p>
 
     
-    <p class="muted" style="margin:0 0 16px 0;font-size:0.9em">
-      Synthesises the latest run's outcomes against the pre-stated
-      <code>conclusion_logic</code>, then surfaces concrete follow-up actions
-      you can either review (existing studies) or seed (new ones).
-    </p>
+    
     
 
     <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
       <h3 class="overview-label">⚖️ Verdicts — three-track outcome
-        <span class="narrative-card-hint">(regression / biological / explanatory)</span>
+        <span class="narrative-card-hint">(regression / empirical / explanatory)</span>
       </h3>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">
-        Each track is independent. <em>Regression</em> answers "does the code
-        still build and run cleanly?", <em>biological</em> answers "does the
-        model match the literature?", <em>explanatory</em> answers "did we
-        learn something new?". Each <strong>result is computed</strong> from
-        canonical fields (gate evaluator, run status, finding tiers) — author
-        only the <em>basis</em> (the rationale) for each track.
-      </p>
       <div class="narrative-grid">
         <label class="narrative-row">
           <span class="narrative-label">Regression compatibility</span>
@@ -1568,14 +1494,14 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
                     placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged."></textarea>
         </label>
         <label class="narrative-row">
-          <span class="narrative-label">Biological validation</span>
+          <span class="narrative-label">Empirical validation</span>
           <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
                 title="Computed from the gate evaluator (read-only)"
                 style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
           <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
         </label>
         <label class="narrative-row narrative-row-wide">
-          <span class="narrative-label">Biological basis</span>
+          <span class="narrative-label">Empirical basis</span>
           <textarea class="narrative-input narrative-textarea" rows="2"
                     data-narrative-path="conclusion_verdicts.biological_validation.basis"
                     placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5]."></textarea>
@@ -1607,6 +1533,40 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
   </div>
 
   
+  
+  <div class="overview-section"><h2 class="overview-label">Plan &amp; assumptions</h2>
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Pipeline gate</h3>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+      
+      
+      
+      <div><strong>Proceed when:</strong> <span class="muted">Likelihood library covers all 4 modalities (RNA-seq, proteomics, growth, metabolomics) with dispersion CIs. Log-likelihood accumulator runs alongside the PDMP with zero underflows over 10⁴ test runs. ABC-SMC posterior recovery: SBC rank-histogram passes χ² uniformity (p &gt; 0.05), 90% credible intervals achieve ≥85% empirical coverage.</span></div>
+      
+    </div>
+    
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Key assumptions</h3>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">A count-level likelihood (NegBin for RNA-seq, log-normal for proteomics, etc.) is an adequate observation model for Bayesian inference over the PDMP.</li><li style="margin:2px 0">ABC-SMC, Simulation-Based Calibration, and posterior-predictive checks together validate the inference machinery.</li><li style="margin:2px 0">A surrogate forward model calibrated once to real WCM count statistics is a faithful stand-in until the compiled full-WCM-in-the-loop runtime (Phase 4) lands.</li>
+      </ul>
+    </div>
+    
+
+    
+
+  </div>
+  
+
+  
   <div class="overview-section"><h2 class="overview-label">Evidence</h2>
 
     
@@ -1619,6 +1579,9 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
 
   
   <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
 
     
     
@@ -1746,7 +1709,7 @@ expect:  {"field": "coverage", "lower": 0.9, "operator": "within-band", "upper":
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "c53017b776b1f6c33fdffde63f012fa3f871c482", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/c53017b776b1f6c33fdffde63f012fa3f871c482", "branch": "main", "lockfile": "uv.lock@e8c318c12027", "generated_at": "2026-08-01 18:12 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "62bdf9d6d5682d44450a8ae6dcadeab2f9f0b412", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/62bdf9d6d5682d44450a8ae6dcadeab2f9f0b412", "branch": "main", "lockfile": "uv.lock@58adb67bb42f", "generated_at": "2026-08-02 02:23 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "pdmp-03-inference";
@@ -1861,9 +1824,6 @@ window._seedFollowupStudy = _seedFollowupStudy;
 window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
-<!-- ProgressTrack must load BEFORE study-detail.js: _renderRemoteRunProgress
-     (the pinned-build run card's progress adapter) depends on window.ProgressTrack. -->
-<script src="/v2ecoli/workbench/assets/progress-track.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
@@ -1875,33 +1835,26 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script>
 (function () {
-  var el = document.getElementById("study-configure-run");
-  if (!el || !window.ConfigureRun) return;
-  
-  var compositeRef = "v2ecoli_pdmp.composites.inference.pdmp_with_likelihood";
-  
-  var slug = window._studyName || "pdmp-03-inference";
-  ConfigureRun.mount(el, { composite: compositeRef, target: "study", study: slug });
-  // Read-only bundle: there's no live backend to run on — hide the remote-run
-  // launcher (the Configure & Run widget already renders a disabled preview).
-  // The ProgressTrack progress bar (progress-track.js) is inert here by
-  // construction: it makes ZERO network calls and only ever renders via
-  // _renderRemoteRunProgress, which is reachable only from the run button
-  // inside this now-hidden panel — so snapshots never invoke it.
+  // Task 8: the Configure & Run mount and the remote-run (smsvpctest) panel
+  // were both removed from the Simulate tab — launching now lives entirely
+  // in the header buttons (Reproduce / Run current spec). This block used
+  // to also mount ConfigureRun into the (now-deleted) mount div and, in an
+  // else-if, relabel the remote-run card via window._initRemoteRunPinned()
+  // if pinned mode was enabled; Fable A #7 deleted that now-fully-dormant
+  // remote-run subsystem from study-detail.js (its DOM anchors — the
+  // #remote-run-panel/-btn/-progress mounts — never existed in this
+  // template to begin with), so the else-if branch is gone too. Only the
+  // still-relevant header-button snapshot handling remains below, now
+  // unconditional (it used to be gated behind a lookup of that deleted div).
+  //
+  // Read-only bundle: there's no live backend to run on — hide the header
+  // run buttons in a published read-only snapshot (reproducible-rerun-spine
+  // Task 4 / G2: both equally inert with no live backend to launch against).
   if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
-    var rp = document.getElementById("remote-run-panel");
-    if (rp) rp.style.display = "none";
-    // "Reproduce" / "Run current spec" both POST to live-only endpoints —
-    // hide them alongside the remote-run launcher in a published read-only
-    // snapshot (reproducible-rerun-spine Task 4 / G2: two distinct buttons,
-    // both equally inert with no live backend to launch against).
     var reproduceBtn = document.getElementById("study-reproduce");
     if (reproduceBtn) reproduceBtn.style.display = "none";
     var runCurrentBtn = document.getElementById("study-run-current-spec");
     if (runCurrentBtn) runCurrentBtn.style.display = "none";
-  } else if (window._initRemoteRunPinned) {
-    // Live backend: relabel the remote-run card if pinned mode is enabled.
-    window._initRemoteRunPinned();
   }
 })();
 </script>

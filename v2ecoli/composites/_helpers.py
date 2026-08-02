@@ -185,6 +185,12 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
     },
     {
+        'name': 'chromosome_state',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Chromosome state (animated)',
+                   'analysis': 'chromosome_state_view'},
+    },
+    {
         'name': 'ribosome_components',
         'address': 'local:ParquetAnalysisView',
         'config': {'title': 'Ribosome components',
@@ -1246,6 +1252,11 @@ def _get_special_step(loader, step_name, core):
                     'number_of_oric': 'integer',
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
+                    # Per-tick replication-fork genomic positions (variable length:
+                    # 0 before initiation, 2/4/… after). Emitted as a ragged list
+                    # so the chromosome-state GIF can place the replisomes; the
+                    # listener default is [] so pre-initiation ticks are empty.
+                    'fork_coordinates': 'array[integer]',
                 },
                 # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
                 # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so

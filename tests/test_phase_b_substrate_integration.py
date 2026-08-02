@@ -73,6 +73,94 @@ def _recorder(calls: list):
     return _fn
 
 
+def _recorder_with_comparison_verdict(calls: list):
+    """Like ``_recorder`` but the reply also carries a per-study
+    ``analyses.comparison_cards.verdict`` -- the store-data-flow refactor's
+    canonical source (design: docs/superpowers/specs/2026-08-02-store-
+    dataflow-refactor-design.md) -- DISTINCT from the top-level conclusion
+    ``verdict``, so a test using this stub proves
+    ``InvestigationAnalysisStep`` extracts the comparison verdict
+    specifically, not just whatever sits under ``"verdict"``."""
+    def _fn(workspace, study_slug):
+        calls.append(study_slug)
+        return {
+            "run_refs": [{"run_id": study_slug, "status": "completed"}],
+            "verdict": {"overall": "cnc"},
+            "analyses": {
+                "comparison_cards": {
+                    "verdict": {"overall": "within_tol", "cfg": study_slug},
+                },
+            },
+        }
+    return _fn
+
+
+def test_matrix_receives_config_verdicts_from_wired_stores(tmp_path, monkeypatch):
+    """Store data-flow proof (design: docs/superpowers/specs/2026-08-02-
+    store-dataflow-refactor-design.md, integration test): the investigation-
+    level ``comparison_matrix`` analysis is dispatched with
+    ``config["config_verdicts"]`` assembled from each config study's WIRED
+    result store (``state["study_<slug>"]["analyses"]["comparison_cards"]
+    ["verdict"]``, per ``InvestigationAnalysisStep.update``/
+    ``_extract_study_verdict``) -- not the raw ``run_study`` reply, not the
+    top-level conclusion ``verdict``, and not a disk read of
+    ``report_card_verdict.json`` (no such file exists anywhere in this tmp
+    workspace)."""
+    workspace, written = _write(
+        tmp_path, configs=[{"name": "basal", "condition": "basal"},
+                           {"name": "with_aa", "condition": "with_aa"}])
+    assert set(written["study_paths"]) == {PARCA_STUDY_NAME, "basal", "with_aa"}
+
+    class _FakePool:
+        def __init__(self):
+            self.calls = []
+
+        def call(self, workspace, method, params):
+            self.calls.append((workspace, method, params))
+            return {"written": ["matrix.html"], "errors": []}
+
+    fake_pool = _FakePool()
+    monkeypatch.setattr(
+        "vivarium_workbench.lib.env_worker_pool.get_pool", lambda: fake_pool)
+
+    calls: list = []
+    summary = run_investigation_composite(
+        workspace, INVEST_SLUG,
+        run_study_fn=_recorder_with_comparison_verdict(calls))
+
+    assert set(calls) == {PARCA_STUDY_NAME, "basal", "with_aa"}
+    assert summary["errors"] == []
+
+    assert len(fake_pool.calls) == 1
+    _, method, params = fake_pool.calls[0]
+    assert method == "run_investigation_analysis"
+    assert params["name"] == "comparison_matrix"
+
+    # The matrix was dispatched with the PER-CONFIG COMPARISON verdicts
+    # (analyses.comparison_cards.verdict), extracted from the wired study
+    # result stores -- NOT the raw run_study reply, and NOT the top-level
+    # conclusion verdict ({"overall": "cnc"}), which would prove the
+    # extraction picked the wrong field. config_verdicts is keyed by every
+    # composite member (InvestigationAnalysisStep wires ALL studies, incl.
+    # parca, not just the config studies), so parca's extracted entry is
+    # present too -- the assertion below checks each config study's entry
+    # specifically (the thing the matrix actually renders, via
+    # config_studies) while still proving the dict as a whole came from
+    # per-slug store extraction, not a single copied value.
+    config_verdicts = params["config"]["config_verdicts"]
+    assert config_verdicts["basal"] == {"overall": "within_tol", "cfg": "basal"}
+    assert config_verdicts["with_aa"] == {"overall": "within_tol", "cfg": "with_aa"}
+    assert params["config"]["config_studies"] == ["basal", "with_aa"]
+
+    # No report_card_verdict.json exists anywhere in the tmp workspace for
+    # either config study -- the matrix nonetheless received real
+    # (non-placeholder) verdicts above, proving they arrived via the
+    # composite's wired stores, not a disk read.
+    for slug in ("basal", "with_aa"):
+        verdict_path = workspace / "studies" / slug / "report_card_verdict.json"
+        assert not verdict_path.exists(), verdict_path
+
+
 def test_parca_runs_before_each_config_study_and_matrix_runs_after(tmp_path, monkeypatch):
     """Full (a)-(d): ordering, dispatch, and matrix-analysis wiring, all
     driven through the real substrate (stubbed worker + stubbed analysis

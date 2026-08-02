@@ -100,6 +100,75 @@ def test_run_records_error_for_missing_seed_summary(tmp_path, monkeypatch):
     assert "no summary.json" in manifest["errors"][0]["error"]
 
 
+def test_run_routes_duckdb_analysis_name_to_run_analyses(tmp_path, monkeypatch):
+    """cd1_metabolomics is a real, registered Analysis (DuckDB) subclass at
+    scale=multiseed -- the same scale doubling_time_distribution (an
+    AnalysisStep) uses. Requesting it must route to run_analyses(), not the
+    row-building path (which would TypeError against Analysis.analyze's
+    conn/history_sql/sim_data signature)."""
+    import scripts.run_standalone_analysis as mod
+
+    written: dict[str, str] = {}
+    _fake_aws_cp(monkeypatch, {}, written)
+
+    calls: list[dict] = []
+
+    def fake_run_analyses(*, sweep_dir, analysis_options, out_dir):
+        calls.append({"sweep_dir": sweep_dir, "analysis_options": analysis_options, "out_dir": out_dir})
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / "analysis.json").write_text(json.dumps({"multiseed": {"cd1_metabolomics": {}}}))
+
+    synced: list[tuple[str, str]] = []
+    monkeypatch.setattr(mod, "_aws_sync", lambda src, dst: synced.append((src, dst)))
+
+    import v2ecoli.workflow.analysis_runner as analysis_runner_mod
+    monkeypatch.setattr(analysis_runner_mod, "run_analyses", fake_run_analyses)
+
+    manifest = run(
+        out_uri="s3://bucket/exp", n_seeds=1,
+        modules={"multiseed": {"cd1_metabolomics": {}}},
+        analysis_name="test-analysis", tmp=tmp_path,
+    )
+
+    assert manifest["status"] == "done"
+    assert manifest["written"] == ["s3://bucket/exp/analyses/test-analysis/analysis.json"]
+    assert len(calls) == 1
+    assert calls[0]["sweep_dir"] == "s3://bucket/exp"
+    assert calls[0]["analysis_options"] == {"multiseed": {"cd1_metabolomics": {}}}
+    assert len(synced) == 1
+    assert synced[0][1] == "s3://bucket/exp/analyses/test-analysis"
+
+
+def test_run_splits_mixed_scale_between_both_families(tmp_path, monkeypatch):
+    """Same scale (multiseed), one AnalysisStep name + one Analysis (DuckDB)
+    name in the same request -- both must run, via their own paths."""
+    import scripts.run_standalone_analysis as mod
+
+    written: dict[str, str] = {}
+    _fake_aws_cp(monkeypatch, {0: {"seed": 0, "dry_mass_fg": 200.0}}, written)
+
+    duckdb_calls: list[dict] = []
+
+    def fake_run_analyses(*, sweep_dir, analysis_options, out_dir):
+        duckdb_calls.append(analysis_options)
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / "analysis.json").write_text("{}")
+
+    monkeypatch.setattr(mod, "_aws_sync", lambda src, dst: None)
+    import v2ecoli.workflow.analysis_runner as analysis_runner_mod
+    monkeypatch.setattr(analysis_runner_mod, "run_analyses", fake_run_analyses)
+
+    manifest = run(
+        out_uri="s3://bucket/exp", n_seeds=1,
+        modules={"multiseed": {"doubling_time_distribution": {}, "cd1_metabolomics": {}}},
+        analysis_name="test-analysis", tmp=tmp_path,
+    )
+
+    assert manifest["status"] == "done"
+    assert duckdb_calls == [{"multiseed": {"cd1_metabolomics": {}}}]  # DuckDB name only
+    assert "s3://bucket/exp/analyses/test-analysis/doubling_time_distribution.json" in written  # AnalysisStep name
+
+
 def test_main_reads_config_file(tmp_path, monkeypatch, capsys):
     """The K8s job template writes args to a ConfigMap-mounted JSON file
     rather than embedding the modules JSON in a shell command string."""

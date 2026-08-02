@@ -72,6 +72,10 @@ STORE_PATH.update({
     'external_state':                   ['external_state'],
     'condition':                        ['condition'],
     'sim_data_root':                    ['sim_data_root'],
+    # PARCA_REVIEW A3: per-fit ok/error status for the three mechanistic_*
+    # calls in step 9, written into the composite state (and hence the
+    # pickled parca_state.pkl) alongside every other pure-data top-level dict.
+    'mechanistic_fit_status':           ['mechanistic_fit_status'],
 })
 
 
@@ -87,7 +91,8 @@ STEP_ORDER = [
 ]
 
 
-def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong):
+def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong,
+                      allow_partial_fit=False):
     """Build the 9 step entries with addresses, configs, and wiring.
 
     Shared by ``build_parca_composite`` (which fires the pipeline) and
@@ -165,7 +170,7 @@ def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong):
         },
         'final_adjustments': {
             '_type': 'step', 'address': 'local:FinalAdjustmentsStep',
-            'config': {},
+            'config': {'allow_partial_fit': allow_partial_fit},
             'inputs': s9i, 'outputs': s9o,
         },
     }
@@ -235,7 +240,8 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
                           variable_elongation_translation=False,
                           disable_ribosome_capacity_fitting=False,
                           disable_rnapoly_capacity_fitting=False,
-                          resume_from_step=1, resume_state=None):
+                          resume_from_step=1, resume_state=None,
+                          allow_partial_fit=False):
     """Build a Composite that runs the 9-step ParCa pipeline.
 
     Args:
@@ -253,6 +259,11 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
             steps without re-running the expensive Step 5.
         resume_state: store-state dict from a prior run, required when
             ``resume_from_step > 1``.
+        allow_partial_fit: forwarded to FinalAdjustmentsStep's config
+            (PARCA_REVIEW A3). Default False: a failed mechanistic_* fit
+            in step 9 raises instead of silently landing a partially-fit
+            pickle. Set True to opt into the old "log and continue"
+            behavior (a per-fit ok/error status is recorded either way).
     Returns:
         The ``Composite`` instance with the pipeline already executed.
         The final store state is at ``composite.state``.
@@ -276,6 +287,7 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
     step_slots = _build_step_slots(
         raw_data=raw_data, debug=debug, cpus=cpus,
         cache_dir=cache_dir, _elong=_elong,
+        allow_partial_fit=allow_partial_fit,
     )
 
     state = {}

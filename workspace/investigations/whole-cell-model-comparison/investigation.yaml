@@ -1,23 +1,52 @@
 schema_version: 4
-name: v2ecoli-vecoli-comparison
-title: "v2ecoli ↔ vEcoli comparison"
-question: Does v2ecoli reproduce vEcoli across nutrient conditions?
+name: whole-cell-model-comparison
+title: "Whole-Cell Model Comparison"
+question: Does v2ecoli reproduce vEcoli across nutrient conditions and metabolism process swaps?
 comparison:
-  v2ecoli:
-    repo: https://github.com/vivarium-collective/v2ecoli
-    commit: ''
-  vecoli:
-    repo: https://github.com/CovertLab/vEcoli
-    commit: ''
-  vecoli_dir_env: V2E_VECOLI_DIR
+  candidate: v2ecoli
+  reference:
+    repo: env:V2E_VECOLI_DIR
+    kind: vecoli
   v2_cache: out/cache_full
   ve_cache: out/compare_harness/vecoli_parca
   defaults:
-    cards:
-    - config
-    - standard
-    - statistical
     seeds: 4
+    gens: 1
+    cards:
+    - summary
+    - parca
+    - statistical
+    - standard
+    - trajectory
+    - distribution
+    - metabolism
+    - composition
+  configs:
+  - name: basal
+    config: basal
+  - name: with_aa
+    config: with_aa
+  - name: acetate
+    config: acetate
+  - name: succinate
+    config: succinate
+  - name: no_oxygen
+    config: no_oxygen
+  - name: metabolism_redux_basal
+    config: configs/metabolism_redux_basal.json
+    condition: basal
+  - name: metabolism_redux_with_aa
+    config: configs/metabolism_redux_with_aa.json
+    condition: with_aa
+  - name: metabolism_redux_acetate
+    config: configs/metabolism_redux_acetate.json
+    condition: acetate
+  - name: metabolism_redux_succinate
+    config: configs/metabolism_redux_succinate.json
+    condition: succinate
+  - name: metabolism_redux_no_oxygen
+    config: configs/metabolism_redux_no_oxygen.json
+    condition: no_oxygen
 executive:
   what_is_this: |
     Does v2ecoli reproduce vEcoli across nutrient conditions when both engines swap FBA Metabolism for MetabolismRedux? Five studies (basal, with_aa, succinate, no_oxygen, acetate) run both engines from matched ParCa initial states, single generation, 6 seeds requested per condition (5 effective vEcoli seeds; 4 for acetate), and grade v2ecoli against a live vEcoli reference on cell, dry, protein and RNA mass, and growth rate.
@@ -32,19 +61,6 @@ executive:
       acetate    cell 0.53%  dry 0.53%  protein 1.09%  rna 2.19%  growth 12.1%
 
     INTERPRETATION: masses are within tolerance everywhere and initial states are identical (parca within_tol on all five conditions); the only residual is a growth-rate DRIFT (amber, not a mismatch) on 4 of 5 conditions, plausibly the noisy per-tick instantaneous-growth-rate derivative at single-generation shape with ~5 seeds. Multi-generation was deferred: a pbg division bug surfaces with injected processes, so this run is single-generation by design, not by failure.
-members:
-- acetate
-- basal
-- metabolism_redux_acetate
-- metabolism_redux_basal
-- metabolism_redux_no_oxygen
-- metabolism_redux_succinate
-- metabolism_redux_with_aa
-- no_oxygen
-- parca
-- statistical
-- succinate
-- with_aa
 biological_story: |-
   v2ecoli and vEcoli are two implementations of the same idea: a mechanistic whole-cell model of E. coli that simulates metabolism, gene expression, replication, and division for a single cell over its cycle. vEcoli is the established Covert-lab process-bigraph model; v2ecoli is the reimplementation this workspace develops.
 

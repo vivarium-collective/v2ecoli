@@ -13,8 +13,12 @@ import html as _html
 import json as _json
 from typing import Any
 
+from scripts._compare import theme
+
 # verdict -> (human label, glyph, css token). The css token is also used as
-# the row class `verdict-<token>` (kept stable for tests + styling).
+# the row class `verdict-<token>` (kept stable for tests + styling). Glyph +
+# label always accompany the theme color below, so a verdict is never
+# conveyed by color alone.
 _VERDICTS = {
     "within_tol": ("within tolerance", "✓", "within_tol"),
     "drift": ("drift", "≈", "drift"),
@@ -23,11 +27,19 @@ _VERDICTS = {
 }
 _VERDICT_ORDER = ["within_tol", "drift", "mismatch", "not_compared"]
 
-_CSS = """
-:root {
-  --green:#2e7d32; --amber:#ef6c00; --red:#c62828; --grey:#757575;
-  --bg:#f6f7f9; --card:#fff; --ink:#1a1d21; --muted:#6b7280; --line:#e5e7eb;
-}
+# Theme-sourced CSS custom properties: light tokens as the default `:root`,
+# dark tokens gated behind `prefers-color-scheme` so the report follows the
+# reader's OS/browser theme without any JS. `--grey` (the "not compared"
+# status) isn't part of theme.STATUS, so it's pinned once here alongside it.
+_THEME_CSS = (
+    theme.css_vars("light") + "\n"
+    ":root { --grey:#757575; }\n"
+    "@media (prefers-color-scheme: dark) {\n"
+    + theme.css_vars("dark") + "\n"
+    "}\n"
+)
+
+_CSS = _THEME_CSS + """
 * { box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin:0; background:var(--bg); color:var(--ink); line-height:1.45; }
@@ -39,8 +51,8 @@ header.top .sub { margin-top:4px; color:#cbd5e1; font-size:13px; }
 .legend .item { display:flex; align-items:center; gap:6px; font-size:12px;
   color:#e5e7eb; }
 .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-.dot.within_tol{background:var(--green)} .dot.drift{background:var(--amber)}
-.dot.mismatch{background:var(--red)} .dot.not_compared{background:var(--grey)}
+.dot.within_tol{background:var(--status-within-tol)} .dot.drift{background:var(--status-drift)}
+.dot.mismatch{background:var(--status-mismatch)} .dot.not_compared{background:var(--grey)}
 nav.sticky { position:sticky; top:0; z-index:5; background:rgba(255,255,255,.95);
   backdrop-filter:saturate(1.4) blur(6px); border-bottom:1px solid var(--line);
   padding:10px 28px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
@@ -65,8 +77,8 @@ main { padding:24px 28px 64px; max-width:1180px; margin:0 auto; }
 .chips { display:flex; gap:7px; flex-wrap:wrap; }
 .chip { font-size:12px; font-weight:600; padding:3px 9px; border-radius:999px;
   color:#fff; display:inline-flex; gap:5px; align-items:center; }
-.chip.within_tol{background:var(--green)} .chip.drift{background:var(--amber)}
-.chip.mismatch{background:var(--red)} .chip.not_compared{background:var(--grey)}
+.chip.within_tol{background:var(--status-within-tol)} .chip.drift{background:var(--status-drift)}
+.chip.mismatch{background:var(--status-mismatch)} .chip.not_compared{background:var(--grey)}
 .chip.zero{ background:#eceff1; color:#90a4ae; }
 table { border-collapse:collapse; width:100%; }
 thead th { text-align:left; font-size:11px; text-transform:uppercase;
@@ -83,13 +95,13 @@ tbody tr:hover { background:#fbfcfe; }
 .col-left, .col-right { width:34%; }
 .badge { font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:6px;
   color:#fff; margin-left:8px; white-space:nowrap; }
-.verdict-within_tol .badge{background:var(--green)}
-.verdict-drift .badge{background:var(--amber)}
-.verdict-mismatch .badge{background:var(--red)}
+.verdict-within_tol .badge{background:var(--status-within-tol)}
+.verdict-drift .badge{background:var(--status-drift)}
+.verdict-mismatch .badge{background:var(--status-mismatch)}
 .verdict-not_compared .badge{background:var(--grey)}
-.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 var(--green)}
-.verdict-drift td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
-.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 var(--red)}
+.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 var(--status-within-tol)}
+.verdict-drift td:first-child{box-shadow:inset 3px 0 0 var(--status-drift)}
+.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 var(--status-mismatch)}
 .verdict-not_compared td:first-child{box-shadow:inset 3px 0 0 var(--grey)}
 .reason { color:var(--muted); font-size:11.5px; margin-top:3px; }
 .metersmall { font-size:11px; color:var(--muted); margin-top:2px; }
@@ -340,7 +352,7 @@ def converted_processes_section(specs: list, ran_in_both: dict) -> dict:
         cards.append(
             f'<div class="convcard">'
             f'<div class="ch"><span class="nm">{_e(s["name"])}</span>'
-            f'<span class="badge" style="background:var(--green)">{status}</span>'
+            f'<span class="badge" style="background:var(--status-within-tol)">{status}</span>'
             f'</div>'
             f'<div class="convbody">'
             f'<div class="k">Source</div>'

@@ -8,7 +8,7 @@ def test_run_invokes_run_investigation_with_defaults(monkeypatch):
                             inv=inv, out=out, mode=mode, render_only=render_only) or 0)
     rc = cli.main(["run"])
     assert rc == 0
-    assert captured == {"inv": "v2ecoli-vecoli-comparison", "out": "out/report",
+    assert captured == {"inv": "whole-cell-model-comparison", "out": "out/report",
                         "mode": "serial", "render_only": False}
 
 
@@ -46,11 +46,17 @@ def test_study_render_only_propagates(monkeypatch):
     assert captured["render_only"] is True
 
 
-def test_scaffold_materializes_all_studies(monkeypatch):
+def test_scaffold_cli_builds_specs_from_configs_not_members(monkeypatch, tmp_path):
+    """Regression test for the Task 6 fix-round finding: `scaffold` must build
+    its specs via specs_from_configs(_context(...)) -- the same path `run`/`init`
+    use -- not runner.load_investigation(), which resolves the legacy `members:`
+    list and is empty for any configs[]-only (post-Task-6) investigation."""
+    from scripts._compare.scaffold import scaffold_investigation
+    inv_path = scaffold_investigation(
+        name="scaffold-cli-test", reference_repo="/abs/vEcoli",
+        configs=["basal", "with_aa", "acetate"], out_root=tmp_path)
     seen = []
-    fake_specs = [type("S", (), {"name": "basal"})(), type("S", (), {"name": "with_aa"})()]
-    monkeypatch.setattr(cli.runner, "load_investigation",
-                        lambda ref: ({}, fake_specs))
     monkeypatch.setattr(cli, "_materialize", lambda spec: seen.append(spec.name))
-    rc = cli.main(["scaffold", "v2ecoli-vecoli-comparison"])
-    assert rc == 0 and seen == ["basal", "with_aa"]
+    rc = cli.main(["scaffold", str(inv_path)])
+    assert rc == 0
+    assert seen == ["basal", "with_aa", "acetate"]

@@ -1,0 +1,155 @@
+"""Phase B, Task 5: prove the comparison runs THROUGH the
+investigation-as-composite substrate -- not a real e2e (the worker is
+stubbed), but the wiring/ordering: materialize -> write native files -> the
+substrate's ``run_investigation_composite`` runs ``parca`` before every
+config study, then the investigation-level ``comparison_matrix`` analysis
+after all config studies, with dependency order coming entirely from the
+composite graph the substrate builds off ``pipeline_gate.prerequisites`` +
+the investigation's ``analyses:`` wiring (see
+``vivarium_workbench.lib.investigation_execution.build_investigation_composite``).
+
+Requires ``process_bigraph``/``bigraph_schema`` from the substrate worktree on
+PYTHONPATH (v2ecoli venv):
+
+    PYTHONPATH=/Users/eranagmon/code/vivarium-workbench--inv-composite \\
+        .venv/bin/python -m pytest tests/test_phase_b_substrate_integration.py -v
+
+Fixture style (``_comparison_block``/``_materialize``) reused verbatim from
+``test_write_native_investigation.py`` (Task 3) so this file materializes +
+writes exactly the same shape that file already asserts field-by-field --
+this file's job is only to prove the SUBSTRATE executes it in the right
+order, not to re-assert the written YAML shape.
+
+The real paired e2e (candidate + reference actually simulating) is a
+DEFERRED follow-up tracked on the mini (design doc "Testing" section) -- not
+attempted here.
+"""
+from __future__ import annotations
+
+import v2ecoli.workflow.analyses  # noqa: F401 -- registers comparison_cards/comparison_matrix
+from v2ecoli.workflow.comparison_materialize import (
+    materialize_comparison, write_native_investigation)
+from v2ecoli.workflow.parca_study import PARCA_STUDY_NAME
+
+from vivarium_workbench.lib.investigation_execution import run_investigation_composite
+
+INVEST_SLUG = "wcm-comparison"
+
+
+def _comparison_block(ve_cache: str, configs=None) -> dict:
+    return {
+        "reference": {"repo": "/fake/vecoli-fork", "kind": "vecoli"},
+        "v2_cache": "out/cache_full",
+        "ve_cache": ve_cache,
+        "defaults": {"seeds": 1, "generations": 1, "cards": ["summary", "standard"]},
+        "configs": configs or [{"name": "basal", "condition": "basal"}],
+    }
+
+
+def _write(tmp_path, configs=None):
+    """Materialize + write the native investigation into ``tmp_path`` (the
+    workspace root) -- same pattern as ``test_write_native_investigation.py``.
+    Returns the workspace root ``run_investigation_composite`` runs against."""
+    ve_cache = tmp_path / "vecoli_parca"
+    ve_cache.mkdir()
+    (ve_cache / "simData.cPickle").write_bytes(b"fake-simdata")
+    block = _comparison_block(str(ve_cache), configs=configs)
+    materialized = materialize_comparison(block, invest_name="test-comparison")
+    workspace = tmp_path / "workspace"
+    result = write_native_investigation(materialized, workspace, INVEST_SLUG)
+    return workspace, result
+
+
+def _recorder(calls: list):
+    """The ``run_study_fn`` stub hook: records the study slug it was called
+    for and returns the minimal reply shape ``run_investigation_composite``
+    / ``StudyStep`` expect, with no real worker/pool involved."""
+    def _fn(workspace, study_slug):
+        calls.append(study_slug)
+        return {
+            "run_refs": [{"run_id": study_slug, "status": "completed"}],
+            "verdict": {"overall": "within_tol"},
+        }
+    return _fn
+
+
+def test_parca_runs_before_each_config_study_and_matrix_runs_after(tmp_path, monkeypatch):
+    """Full (a)-(d): ordering, dispatch, and matrix-analysis wiring, all
+    driven through the real substrate (stubbed worker + stubbed analysis
+    pool -- no live sims, no live env worker)."""
+    workspace, written = _write(
+        tmp_path, configs=[{"name": "basal", "condition": "basal"},
+                           {"name": "with_aa", "condition": "with_aa"}])
+    assert set(written["study_paths"]) == {PARCA_STUDY_NAME, "basal", "with_aa"}
+
+    # Stub the investigation-level analysis dispatch (comparison_matrix runs
+    # via the env worker pool, same as any other study/analysis run) -- same
+    # pattern the substrate's own test_runner_unification.py uses. Only the
+    # analysis path needs this; run_study_fn (below) covers study dispatch.
+    class _FakePool:
+        def __init__(self):
+            self.calls = []
+
+        def call(self, workspace, method, params):
+            self.calls.append((workspace, method, params))
+            return {"written": ["matrix.html"], "errors": []}
+
+    fake_pool = _FakePool()
+    monkeypatch.setattr(
+        "vivarium_workbench.lib.env_worker_pool.get_pool", lambda: fake_pool)
+
+    calls: list = []
+    summary = run_investigation_composite(
+        workspace, INVEST_SLUG, run_study_fn=_recorder(calls))
+
+    # (a) the recorder saw run_study for parca AND each config study.
+    assert set(calls) == {PARCA_STUDY_NAME, "basal", "with_aa"}
+    assert set(summary["studies_ran"]) == {PARCA_STUDY_NAME, "basal", "with_aa"}
+
+    # (b) parca ran before every config study.
+    order = summary["studies_ran"]
+    assert order.index(PARCA_STUDY_NAME) < order.index("basal"), order
+    assert order.index(PARCA_STUDY_NAME) < order.index("with_aa"), order
+
+    # (c) the comparison_matrix analysis is present -- it only runs once its
+    # InvestigationAnalysisStep's inputs (every config study's result store)
+    # are available, so the scheduler necessarily ran it after both configs.
+    assert summary["analyses"] == ["comparison_matrix"]
+    assert len(fake_pool.calls) == 1
+    _, method, params = fake_pool.calls[0]
+    assert method == "run_investigation_analysis"
+    assert params["name"] == "comparison_matrix"
+    # config_studies (the member slug list Task 2 wires the matrix to) is
+    # exactly the two config slugs -- assembled from the written study.yaml,
+    # not hardcoded here.
+    assert params["config"]["config_studies"] == ["basal", "with_aa"]
+
+    # (d) no errors from ordering/dispatch itself (the worker/analysis are
+    # stubbed, so this is not asserting real verdicts -- only that the
+    # RUN/order succeeded).
+    assert summary["errors"] == []
+
+
+def test_single_config_study_results_carry_the_stubbed_reply(tmp_path, monkeypatch):
+    """1-config variant of the same wiring proof, plus a check that
+    study_results (the composite's per-study reply map) actually carries the
+    recorder's stub reply through to the summary -- proving the StudyStep's
+    output store is the thing the InvestigationAnalysisStep would read a real
+    verdict from, not a side channel the substrate ignores."""
+    workspace, written = _write(tmp_path)
+    assert set(written["study_paths"]) == {PARCA_STUDY_NAME, "basal"}
+
+    monkeypatch.setattr(
+        "vivarium_workbench.lib.env_worker_pool.get_pool",
+        lambda: type("P", (), {"call": staticmethod(
+            lambda workspace, method, params: {"written": [], "errors": []})})())
+
+    calls: list = []
+    summary = run_investigation_composite(
+        workspace, INVEST_SLUG, run_study_fn=_recorder(calls))
+
+    assert calls == [PARCA_STUDY_NAME, "basal"]
+    assert summary["studies_ran"] == [PARCA_STUDY_NAME, "basal"]
+    assert summary["analyses"] == ["comparison_matrix"]
+    assert summary["errors"] == []
+    assert summary["study_results"]["basal"]["verdict"] == {"overall": "within_tol"}

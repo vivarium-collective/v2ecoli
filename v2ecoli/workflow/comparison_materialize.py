@@ -75,9 +75,17 @@ from v2ecoli.workflow.parca_study import (
 
 CANDIDATE_COMPOSITE = "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
 REFERENCE_COMPOSITE = "v2ecoli.composites.vecoli.vecoli"
+#: Task 1's ParCa pull-or-compute composite (Gap 1) -- the ``parca`` native
+#: study's ``baseline`` composite (see ``to_native_study_specs``).
+PARCA_PREP_COMPOSITE = "v2ecoli.composites.parca_prep.parca_prep"
 
 COMPARISON_CARDS_ANALYSIS = "comparison_cards"
 COMPARISON_MATRIX_ANALYSIS = "comparison_matrix"
+
+#: The variant name every per-config native study's reference run registers
+#: under (the v4 workbench sim_name convention: baseline's sim_name is the
+#: study slug itself, i.e. the config name -- see ``to_native_study_specs``).
+REFERENCE_VARIANT_NAME = "reference"
 
 # Mirrors scripts/_compare/study_spec.py's own defaults so a `comparison:`
 # block that omits v2_cache/ve_cache resolves identically here and there.
@@ -324,3 +332,171 @@ def to_study_specs(materialized: MaterializedInvestigation) -> "dict[str, dict]"
             "pipeline_gate": _pipeline_gate(pair.reference),
         }
     return out
+
+
+# --- Phase B: workbench-NATIVE single-study-per-config materializer --------
+#
+# Re-models the paired emission above (two studies per config) into the
+# workbench-native model: ONE study per config, with the candidate as the
+# study's `baseline` and the reference as a `variants` entry in the SAME
+# study (see docs/superpowers/specs/2026-08-02-phase-b-comparison-on-
+# composite-substrate-design.md, "Re-model: paired studies -> one native
+# study per config"). `to_study_specs`/`matrix_analysis_entry` above are left
+# untouched (parallel-safe with any other in-flight work against the paired
+# path); everything below is additive.
+#
+# Convention this enforces: the candidate's run registers with
+# `sim_name = <config>` (the v4 slug convention -- a study's baseline run
+# takes the study's own slug), and the reference's run registers with
+# `sim_name = "reference"` (`REFERENCE_VARIANT_NAME`). `comparison_cards`'s
+# `candidate_run`/`reference_run` params and `comparative_visualizations`'
+# `runs[].sim_name` entries below all reference exactly those two sim_names
+# -- a mismatch would silently render empty overlays / missing verdicts (the
+# design doc's own risk note).
+
+#: Key observables overlaid per config's `comparative_visualizations` --
+#: cell/dry/protein/RNA mass + instantaneous growth rate, the same
+#: observable set `scripts/compare_matched_trajectories.py`'s `OBSERVABLES`
+#: names (its `cell_mass`/`dry_mass`/`protein_mass`/`rna_mass`/
+#: `instantaneous_growth_rate`), mapped onto their dotted state-tree paths
+#: under `listeners.mass.*` (confirmed against `v2ecoli/workflow/analyses/
+#: growth_overlay.py` and `dummy.py`'s observable-name catalogue -- not
+#: guessed). A reasonable default set per the task brief; refining this list
+#: (e.g. more listeners) is a cheap follow-up, not a shape change.
+_COMPARATIVE_OBSERVABLES: "list[dict]" = [
+    {"name": "cell_mass", "title": "Cell mass over time",
+     "observable_path": "listeners.mass.cell_mass", "y_label": "Cell mass (fg)"},
+    {"name": "dry_mass", "title": "Dry mass over time",
+     "observable_path": "listeners.mass.dry_mass", "y_label": "Dry mass (fg)"},
+    {"name": "protein_mass", "title": "Protein mass over time",
+     "observable_path": "listeners.mass.protein_mass", "y_label": "Protein mass (fg)"},
+    {"name": "rna_mass", "title": "RNA mass over time",
+     "observable_path": "listeners.mass.rna_mass", "y_label": "RNA mass (fg)"},
+    {"name": "growth_rate", "title": "Instantaneous growth rate over time",
+     "observable_path": "listeners.mass.instantaneous_growth_rate",
+     "y_label": "Growth rate (1/s)"},
+]
+
+
+def _comparative_visualizations(config_name: str) -> "list[dict]":
+    """One ``comparative_visualizations`` entry per key observable, each
+    overlaying the config's two runs -- ``sim_name=<config_name>`` (the
+    candidate/baseline) and ``sim_name=REFERENCE_VARIANT_NAME`` (the
+    reference/variant) -- in the exact shape
+    ``vivarium_workbench.lib.comparative_runs.
+    render_investigation_comparative_visualisations`` reads from a study.yaml
+    (verified against the installed package's own docstring/schema, not
+    guessed): ``{name, title, observable_path, y_label, runs: [{sim_name,
+    label}, ...]}``."""
+    return [
+        {
+            "name": obs["name"],
+            "title": obs["title"],
+            "observable_path": obs["observable_path"],
+            "y_label": obs["y_label"],
+            "runs": [
+                {"sim_name": config_name, "label": "candidate (v2ecoli)"},
+                {"sim_name": REFERENCE_VARIANT_NAME, "label": "reference (vEcoli)"},
+            ],
+        }
+        for obs in _COMPARATIVE_OBSERVABLES
+    ]
+
+
+def _native_parca_study_spec(parca: ParcaPrerequisite) -> dict:
+    """The ``parca`` native study: an ORDINARY study (no special ``kind``,
+    Gap 1) whose single ``baseline`` run is the ``parca_prep``
+    ``@composite_generator`` (Task 1) wrapping ``resolve_or_build_parca``'s
+    pull-or-compute contract for both engines. Cache dirs/repo are wired
+    straight from ``parca`` -- the SAME ``ParcaPrerequisite`` every
+    candidate/reference ``RunSpec``'s own ``cache_dir``/``match_simdata``
+    params are derived from (see ``materialize_comparison``), so this study
+    and the per-config studies can never disagree on which cache dir is
+    "the" cache dir. No ``pipeline_gate`` -- this study is the root of the
+    comparison investigation's dependency graph, not a dependent."""
+    return {
+        "name": parca.name,
+        "baseline": [{
+            "name": parca.name,
+            "composite": PARCA_PREP_COMPOSITE,
+            "params": {
+                "candidate_cache_dir": parca.candidate_cache_dir,
+                "reference_cache_dir": parca.reference_cache_dir,
+                "reference_repo": parca.reference_repo,
+            },
+        }],
+    }
+
+
+def to_native_study_specs(materialized: MaterializedInvestigation) -> "dict[str, dict]":
+    """``{study_name: study-spec dict}`` in the workbench-NATIVE
+    single-study-per-config shape (Phase B's re-model): the ``parca`` study
+    (see ``_native_parca_study_spec``) plus, per config, ONE study keyed by
+    the config's own name --
+
+        {"name": <config>,
+         "baseline": [{"name": <config>, "composite": CANDIDATE_COMPOSITE,
+                       "params": {...match_simdata, match_condition, cache_dir, seed}}],
+         "variants": [{"name": "reference", "composite": REFERENCE_COMPOSITE,
+                       "params": {...reference_repo, condition, seed, fork_config, cache_dir}}],
+         "comparative_visualizations": [...],
+         "analyses": [{"name": "comparison_cards",
+                       "params": {"candidate_run": <config>, "reference_run": "reference",
+                                  "seeds": ..., "cards": [...]}}],
+         "pipeline_gate": {"prerequisites": [{"study": "parca", "relation": "leads-to"}]}}
+
+    Every candidate/reference ``params`` dict is reused VERBATIM from the
+    existing paired emission (``pair.candidate.params``/``pair.reference.
+    params``, built by ``materialize_comparison``) -- no science change, only
+    the study-shape re-model. Only ``comparison_cards``'s ``candidate_run``/
+    ``reference_run`` are overridden (from the old ``<config>-candidate``/
+    ``<config>-reference`` run names to the native sim_names ``<config>``/
+    ``"reference"``), and ``seeds``/``cards`` are pulled through from the
+    same already-computed ``pair.analyses`` entry.
+
+    Does NOT touch/replace ``to_study_specs`` (the old paired emission) --
+    additive, parallel-safe."""
+    out: dict[str, dict] = {materialized.parca.name: _native_parca_study_spec(materialized.parca)}
+    for pair in materialized.pairs:
+        old_cards_entry = pair.analyses[0]["params"]
+        out[pair.config] = {
+            "name": pair.config,
+            "baseline": [{
+                "name": pair.config,
+                "composite": pair.candidate.composite,
+                "params": dict(pair.candidate.params),
+            }],
+            "variants": [{
+                "name": REFERENCE_VARIANT_NAME,
+                "composite": pair.reference.composite,
+                "params": dict(pair.reference.params),
+            }],
+            "comparative_visualizations": _comparative_visualizations(pair.config),
+            "analyses": [{
+                "name": COMPARISON_CARDS_ANALYSIS,
+                "params": {
+                    "candidate_run": pair.config,
+                    "reference_run": REFERENCE_VARIANT_NAME,
+                    "seeds": old_cards_entry["seeds"],
+                    "cards": list(old_cards_entry["cards"]),
+                },
+            }],
+            "pipeline_gate": {"prerequisites": [prerequisite_edge(materialized.parca.name)]},
+        }
+    return out
+
+
+def to_native_investigation_analyses(materialized: MaterializedInvestigation) -> "list[dict]":
+    """The investigation-level ``comparison_matrix`` Analysis entry for the
+    NATIVE model: ``params.config_studies`` is the member config SLUG LIST
+    (``[pair.config, ...]``), not the old paired-model's
+    ``"<candidate_run>::comparison_cards"`` token map (``matrix_analysis_entry``
+    above, kept for the paired path). Gap 2 (a later task) makes
+    ``comparison_matrix`` read each config study's persisted
+    ``comparison_cards`` verdict from disk BY these slugs -- this function's
+    scope is only the wiring shape, matching ``to_native_study_specs``'s
+    per-config study keys 1:1."""
+    return [{
+        "name": COMPARISON_MATRIX_ANALYSIS,
+        "params": {"config_studies": [pair.config for pair in materialized.pairs]},
+    }]

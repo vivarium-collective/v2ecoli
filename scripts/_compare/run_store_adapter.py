@@ -80,7 +80,22 @@ def _resolve_zarr_store(path: "str | Path") -> Path:
 
 
 def _lookup_emitter_path(runs_db: "str | Path", run_id: str) -> str:
-    """Read ``runs_meta.emitter_path`` for ``run_id`` out of a study's runs.db."""
+    """Read ``runs_meta.emitter_path`` for ``run_id`` (tried first) or,
+    failing that, ``sim_name`` (tried second) out of a study's runs.db.
+
+    A bare-string ``run_ref`` reaching this function may be a real run_id OR
+    a **sim_name** — Phase B's native ``comparison_cards`` passes
+    ``candidate_run``/``reference_run`` as sim_names (``<config>`` for the
+    baseline/candidate, ``"reference"`` for the variant; the substrate
+    writes ``runs_meta.sim_name`` = the baseline entry's name for a baseline
+    run, and the variant's name for a variant run — see
+    ``vivarium_workbench.lib.run_registry``). run_id is tried first because
+    it's the primary key (unambiguous); sim_name is a non-unique label, so
+    if MULTIPLE rows share it, the most recently started row wins (``ORDER
+    BY started_at DESC, rowid DESC`` — ``started_at`` is the semantic
+    ordering, ``rowid`` breaks exact ties deterministically rather than
+    picking arbitrarily).
+    """
     runs_db = Path(runs_db)
     if not runs_db.is_file():
         raise RunStoreError(f"runs.db not found: {runs_db}")
@@ -89,11 +104,17 @@ def _lookup_emitter_path(runs_db: "str | Path", run_id: str) -> str:
         row = conn.execute(
             "SELECT emitter_path FROM runs_meta WHERE run_id=?", (run_id,)
         ).fetchone()
+        if not row or not row[0]:
+            row = conn.execute(
+                "SELECT emitter_path FROM runs_meta WHERE sim_name=?"
+                " ORDER BY started_at DESC, rowid DESC LIMIT 1", (run_id,)
+            ).fetchone()
     finally:
         conn.close()
     if not row or not row[0]:
         raise RunStoreError(
-            f"no emitter_path recorded for run_id={run_id!r} in {runs_db}")
+            f"no emitter_path recorded for run_id or sim_name={run_id!r} "
+            f"in {runs_db}")
     return row[0]
 
 
@@ -103,9 +124,12 @@ def resolve_run_store(run_ref, *, study_dir=None, runs_db=None) -> Path:
     ``run_ref`` may be:
       - a path (str/Path) directly to a ``.zarr`` store or a run directory
         containing one (see ``_resolve_zarr_store``);
-      - a bare run id (str), resolved via ``runs_db`` (or
+      - a bare run id OR sim_name (str), resolved via ``runs_db`` (or
         ``<study_dir>/runs.db``) — the study's ``runs_meta.emitter_path``,
-        joined onto ``study_dir`` if relative;
+        joined onto ``study_dir`` if relative. run_id is tried first (the
+        primary key); sim_name is tried second (see
+        ``_lookup_emitter_path``) — Phase B's native ``comparison_cards``
+        passes ``candidate_run``/``reference_run`` as sim_names, not run_ids;
       - a mapping with any of ``{"path", "run_id", "study_dir", "runs_db"}``
         (keys mirror the keyword args; ``study_dir``/``runs_db`` keyword
         args are used as fallbacks when absent from the mapping).

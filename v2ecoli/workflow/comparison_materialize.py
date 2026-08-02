@@ -65,13 +65,27 @@ called exactly as investigations that still drive the legacy runner do.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from scripts._compare.study_spec import StudySpec, specs_from_configs
 from scripts._compare.reference import ReferenceEngine
 from v2ecoli.composites.vecoli import _resolve_sim_data_path
 from v2ecoli.workflow.parca_study import (
     CANDIDATE_ENGINE, PARCA_STUDY_NAME, REFERENCE_ENGINE, prerequisite_edge)
+
+try:
+    # The substrate's single-source atomic write (write-to-.tmp then
+    # os.replace) -- reused so a concurrent reader (e.g. the dashboard) never
+    # observes a half-written study.yaml/investigation.yaml. Optional import:
+    # this module must still work if the substrate isn't on PYTHONPATH (e.g.
+    # a hermetic unit test importing only v2ecoli), falling back to a plain
+    # write below.
+    from vivarium_workbench.lib.atomic_io import atomic_write_text
+except ImportError:  # pragma: no cover - exercised when substrate absent
+    atomic_write_text = None
 
 CANDIDATE_COMPOSITE = "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
 REFERENCE_COMPOSITE = "v2ecoli.composites.vecoli.vecoli"
@@ -500,3 +514,66 @@ def to_native_investigation_analyses(materialized: MaterializedInvestigation) ->
         "name": COMPARISON_MATRIX_ANALYSIS,
         "params": {"config_studies": [pair.config for pair in materialized.pairs]},
     }]
+
+
+def _write_text(path: Path, text: str) -> None:
+    """Write ``text`` to ``path``, creating parent dirs first. Uses the
+    substrate's ``atomic_write_text`` (write-to-``.tmp`` then ``os.replace``)
+    when available (see the module-level optional import), else a plain
+    ``Path.write_text`` -- this module must still work hermetically when the
+    substrate isn't on ``PYTHONPATH``."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if atomic_write_text is not None:
+        atomic_write_text(path, text)
+    else:
+        path.write_text(text, encoding="utf-8")
+
+
+def write_native_investigation(materialized: MaterializedInvestigation,
+                                workspace: "str | Path",
+                                invest_slug: str) -> dict:
+    """Write the NATIVE materialization (Phase B's re-model) to actual
+    workspace files the investigation-as-composite substrate runs:
+
+    - Every ``to_native_study_specs(materialized)`` entry (the ``parca``
+      study + one study per config) -> ``<workspace>/studies/<name>/
+      study.yaml``.
+    - The investigation itself -> ``<workspace>/investigations/<invest_slug>/
+      investigation.yaml``, with ``studies:`` (the member-slug list the
+      substrate's ``investigation_member_slugs`` reads -- ``parca`` FIRST,
+      then each config in materialization order; real ordering is still
+      enforced by each config study's ``pipeline_gate.prerequisites``, this
+      list is just declared-order hygiene) and ``analyses:``
+      (``to_native_investigation_analyses(materialized)``, the
+      investigation-level ``comparison_matrix`` entry).
+
+    Returns ``{"investigation_path": Path, "study_paths": {name: Path}}`` --
+    every path written, for a caller (or this module's own tests) to load
+    back and verify.
+    """
+    workspace = Path(workspace)
+
+    study_specs = to_native_study_specs(materialized)
+    study_paths: dict[str, Path] = {}
+    for name, spec in study_specs.items():
+        study_path = workspace / "studies" / name / "study.yaml"
+        _write_text(study_path, yaml.safe_dump(spec, sort_keys=False))
+        study_paths[name] = study_path
+
+    members = [materialized.parca.name] + [pair.config for pair in materialized.pairs]
+    investigation_spec = {
+        "schema_version": 4,
+        "name": invest_slug,
+        "studies": members,
+        "analyses": to_native_investigation_analyses(materialized),
+    }
+    # MaterializedInvestigation doesn't currently retain the source
+    # `comparison:` block (see its dataclass fields) -- if a future caller
+    # attaches one, preserve it verbatim rather than silently dropping it.
+    source_comparison = getattr(materialized, "comparison", None)
+    if source_comparison:
+        investigation_spec["comparison"] = source_comparison
+    investigation_path = workspace / "investigations" / invest_slug / "investigation.yaml"
+    _write_text(investigation_path, yaml.safe_dump(investigation_spec, sort_keys=False))
+
+    return {"investigation_path": investigation_path, "study_paths": study_paths}

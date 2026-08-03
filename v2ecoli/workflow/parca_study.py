@@ -259,6 +259,12 @@ def _build_reference(cache_dir: str, reference_repo: str) -> None:
     from scripts._compare.config_adapter import resolve_vecoli_config
     from scripts._compare.reference import ReferenceEngine
 
+    # ABSOLUTE cache_dir: run_vecoli_parca runs the fork's runscripts/parca.py
+    # with cwd=reference_repo, so a relative config_path / outdir would resolve
+    # against the fork dir (e.g. <vEcoli>/out/...), not this workspace — parca.py
+    # then fails with FileNotFoundError on the config. Resolve up front so every
+    # path handed to the subprocess is absolute.
+    cache_dir = os.path.abspath(cache_dir)
     os.makedirs(cache_dir, exist_ok=True)
     reference = ReferenceEngine(repo=reference_repo, kind="vecoli")
     default_config = os.path.join(reference_repo, "configs", "default.json")

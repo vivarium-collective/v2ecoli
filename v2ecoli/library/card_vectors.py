@@ -13,6 +13,12 @@ a 4x8 ensemble), so it runs at report-render time, not in the workflow step.
 """
 from __future__ import annotations
 
+# Bump whenever the aggregation semantics change (the column set, the ragged-row
+# rule, the cell-first order). It is part of the sim_vector_cache key, so a bump
+# invalidates every cached vector rather than silently serving one built by
+# older code — the vector is a function of this code as much as of the run.
+EXTRACTOR_VERSION = 1
+
 # observable column -> card path it populates
 _VECTOR_COLS = {
     "listeners__rna_counts__mRNA_cistron_counts": ("omics", "transcriptome"),

@@ -12,13 +12,16 @@ Needs the installed ecoli-sources validation bundle + the committed
 ``tests/fixtures/population_phenotype_basal/model_*.json`` fixtures (same inputs
 the standalone card + golden test use).
 """
+import shutil
 import sys
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO))
+from v2ecoli.library import vs_literature as vsl
 from v2ecoli.workflow.report_cards import StudyContext
 from v2ecoli.workflow.report_cards.vs_literature_card import VsLiteratureCard
 
@@ -94,6 +97,32 @@ def test_build_returns_valid_verdict(core, tmp_path):
     # rich HTML (plots + coverage), not the minimal render_verdict_html
     assert "Basal-condition physiology" in html
     assert "Scope &amp; coverage" in html
+
+
+@pytest.mark.parametrize("fixture,section", [
+    ("model_metabolism.json", "metabolism"),
+    ("model_proteome.json", "proteome"),
+    ("model_composition.json", "composition"),
+    ("model_metabolite_pools.json", "pools"),
+])
+def test_all_five_fixtures_honour_the_redirect(fixture, section, tmp_path):
+    """Pointing at another fixtures dir must redirect ALL five model fixtures.
+
+    ``build()`` used to parameterize ``model_json`` (physiology) only and read
+    the other four from the module-level ``FIXTURES`` constant, so a caller
+    pointed elsewhere silently mixed one redirected fixture with four repo
+    copies. Dropping a fixture from the target dir must drop its card section;
+    before the fix the repo copy kept the section alive.
+    """
+    fdir = tmp_path / "fixtures"
+    fdir.mkdir()
+    for f in (REPO / _FIXTURES_REL).glob("model_*.json"):
+        if f.name != fixture:
+            shutil.copy(f, fdir / f.name)
+    card, _, _ = vsl.build(model_json=fdir / "model_physiology.json")
+    assert section not in card, (
+        f"{fixture} was absent from the target dir but '{section}' still built — "
+        "it was read from the repo copy, not the redirect")
 
 
 def test_verdict_matches_pre_migration_golden(core, tmp_path):

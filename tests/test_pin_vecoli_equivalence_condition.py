@@ -170,3 +170,155 @@ def test_pin_writes_the_default_location_when_out_is_omitted(
         "--template", str(_PIN.parents[1] / pin._DEFAULT_TEMPLATE)])
     pin.main()
     assert (tmp_path / pin._default_out("succinate")).is_file()
+
+
+# --- Measurement symmetry with the v2 side -------------------------------------
+# Both sides of an equivalence card must select cells the same way, or the verdict
+# confounds a reader difference with an engine difference. These pin the v1 reader
+# against PopulationPhenotypeBasalCard.analyze's filters
+# (v2ecoli/workflow/analysis.py) rather than against a remembered description.
+
+def test_axis_filters_match_the_v2_card_exactly(pin):
+    """The v1 filter map must name the same filter per axis as the v2 card.
+
+    Read out of the v2 source rather than restated, so drift on either side fails
+    here instead of silently skewing a reference.
+    """
+    import re
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "v2ecoli" / "workflow" / "analysis.py").read_text(encoding="utf-8")
+    # e.g.  "doubling_time": _stat(_lab("division_time", _divided)),
+    found = dict(re.findall(r'"(\w+)":\s*_stat\(_lab\("(?:\w+)",\s*_(\w+)\)\)', src))
+    assert found, "could not read the v2 card's per-axis filters — did it move?"
+    for axis, kind in pin._AXIS_FILTER.items():
+        leaf = axis.split(".", 1)[1]
+        assert leaf in found, f"{axis} has no counterpart in the v2 card"
+        assert found[leaf] == kind, (
+            f"{axis}: v1 filters '{kind}', v2 filters '{found[leaf]}' — the two "
+            f"sides would select different cells")
+
+
+def test_doubling_time_excludes_cells_that_never_divided(pin):
+    """A non-divided cell's division_time is the duration cap, not a doubling time.
+
+    v2 drops those; before this, the v1 reader had no `divided` field at all, so a
+    capped cell entered the reference as though it were a fast divider. Latent on
+    basal (every cell divides) and live on a condition where division stalls.
+    """
+    capped = {"divided": False}
+    assert pin._keep_cell("divided", capped, 10800.0) is False
+    assert pin._keep_cell("divided", {"divided": True}, 3000.0) is True
+    # a zero/negative duration is not a doubling time either
+    assert pin._keep_cell("divided", {"divided": True}, 0.0) is False
+
+
+def test_missing_divided_signal_declines_to_filter_rather_than_dropping_all(pin):
+    """`divided is None` means "cannot know", not "did not divide".
+
+    A remote sweep has no daughter_states to read. Treating that as False would
+    empty the axis; the reader must fall back to v2's other condition instead.
+    """
+    assert pin._keep_cell("divided", {"divided": None}, 3000.0) is True
+    assert pin._keep_cell("divided", {"divided": None}, 0.0) is False
+
+
+def test_pos_filter_drops_zero_valued_cells(pin):
+    """v2 skips zero/absent levels; this reader's mean() yields 0.0, not None, for
+    a cell with no valid timepoints — so `is not None` would have kept it."""
+    assert pin._keep_cell("pos", {}, 0.0) is False
+    assert pin._keep_cell("pos", {}, 0.42) is True
+    # event-time axes keep a legitimate zero, and drop only None
+    assert pin._keep_cell("any", {}, 0.0) is True
+    assert pin._keep_cell("any", {}, None) is False
+
+
+def test_divided_signal_is_absent_for_a_sweep_without_daughter_states(pin, tmp_path):
+    """No daughter_states -> None (unknown), never an empty map (all-false)."""
+    assert pin._divided_by_cell(str(tmp_path)) is None
+    assert pin._divided_by_cell("s3://bucket/sweep") is None
+
+
+def test_divided_signal_reads_daughter_state_directories(pin, tmp_path):
+    """A cell divided iff it wrote daughter states; an empty agent dir does not."""
+    root = tmp_path / "daughter_states" / "variant=0" / "seed=1" / "generation=4"
+    (root / "agent_id=01").mkdir(parents=True)
+    (root / "agent_id=01" / "daughter_state_0.json").write_text("{}")
+    (root / "agent_id=01" / "daughter_state_1.json").write_text("{}")
+    (root / "agent_id=02").mkdir(parents=True)          # ran, never divided
+    got = pin._divided_by_cell(str(tmp_path))
+    assert got == {(0, 1, 4, "01"): True}
+    assert (0, 1, 4, "02") not in got
+
+
+# --- 30S/50S subunit indices ---------------------------------------------------
+
+def test_wrong_subunit_index_is_rejected_rather_than_silently_measured(
+        pin, tmp_path, monkeypatch):
+    """A wrong bulk index does not raise in DuckDB — list_extract returns NULL,
+    which reads downstream as a zero count and collapses the active fraction to
+    1.0. Wrong quietly, on all four ribosome axes. Resolve by id and refuse a
+    disagreeing index."""
+    class _FakeSD:
+        class internal_state:
+            class bulk_molecules:
+                bulk_data = {"id": ["A[c]", "S30[c]", "B[c]", "S50[c]"]}
+
+        class molecule_ids:
+            s30_full_complex = "S30[c]"
+            s50_full_complex = "S50[c]"
+
+    kb = tmp_path / "parca" / "kb"
+    kb.mkdir(parents=True)
+    (kb / "simData.cPickle").write_bytes(b"placeholder")
+    monkeypatch.setattr(pin, "open", lambda *a, **k: __import__("io").BytesIO(b""),
+                        raising=False)
+    import pickle as _p
+    monkeypatch.setattr(_p, "load", lambda _f: _FakeSD)
+
+    # resolves by id when no index is supplied
+    assert pin._resolve_subunit_indices(str(tmp_path), None, None) == (1, 3)
+    # accepts an index that agrees
+    assert pin._resolve_subunit_indices(str(tmp_path), 1, 3) == (1, 3)
+    # refuses one that does not
+    with pytest.raises(SystemExit, match="does not name"):
+        pin._resolve_subunit_indices(str(tmp_path), 1, 2)
+
+
+def test_unresolvable_sim_data_warns_but_still_pins(pin, tmp_path, capsys):
+    """No sim_data is a warning, not a failure — an s3 sweep still needs to pin."""
+    got = pin._resolve_subunit_indices(str(tmp_path), 5456, 5464)
+    assert got == (5456, 5464)
+    assert "UNVALIDATED" in capsys.readouterr().out
+
+
+def test_end_to_end_a_non_divided_cell_is_excluded_from_doubling_time_only(
+        pin, tmp_path, monkeypatch):
+    """The discriminating test: run the real pin over a sweep holding one cell
+    that never divided, and assert it leaves the doubling-time axis but stays in
+    the level axes.
+
+    This is the test that fails against the pre-fix reader, which had no `divided`
+    concept and so pinned the capped cell's duration as a doubling time.
+    """
+    sweep = _write_v1_sweep(tmp_path / "sweep", n_seeds=2, n_gens=5)
+    # gen_lb=2 keeps gens 2,3,4 over 2 seeds = 6 cells; agent_id is "0"*(gen+1).
+    kept = [(s, g) for s in range(2) for g in (2, 3, 4)]
+    stalled = (1, 4)                     # this one wrote no daughter states
+    for s, g in kept:
+        if (s, g) == stalled:
+            continue
+        d = (tmp_path / "sweep" / "daughter_states" / "variant=0" /
+             f"seed={s}" / f"generation={g}" / f"agent_id={'0' * (g + 1)}")
+        d.mkdir(parents=True)
+        (d / "daughter_state_0.json").write_text("{}")
+        (d / "daughter_state_1.json").write_text("{}")
+
+    ref = _run_pin(pin, sweep, tmp_path / "e2e.json", "basal", monkeypatch)
+    axes = ref["axes"]
+    n_doubling = len(axes["physiology.doubling_time"]["criterion"]["ref_values"])
+    n_mass = len(axes["physiology.cell_mass"]["criterion"]["ref_values"])
+
+    assert n_mass == len(kept), "a stalled cell still has a valid mass"
+    assert n_doubling == len(kept) - 1, (
+        "the non-divided cell must not contribute a doubling time "
+        f"(got {n_doubling}, expected {len(kept) - 1})")

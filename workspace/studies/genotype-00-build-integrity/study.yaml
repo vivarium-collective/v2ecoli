@@ -1,0 +1,290 @@
+schema_version: 4
+name: genotype-00-build-integrity
+investigation: genotype-perturbation-response
+title: Does a ParCa-level knockout reconstruct into a self-consistent sim_data?
+created: '2026-08-04'
+
+# Canonical 6-axis status. Designed and specified; NOT implemented, because the
+# genotype cannot yet be declared to the parca composite (see model_settings and
+# the investigation's first decisions_needed entry).
+design_status: complete
+implementation_status: not_started
+expert_review_status: not_requested
+
+question: >-
+  When a gene is deleted from the chromosome and the ParCa is rebuilt on the perturbed
+  genome, does the resulting sim_data stay self-consistent? Concretely: is every retained
+  feature's sequence exactly what it should be, does the feature inventory change by
+  exactly the expected amount, does every coordinate still lie inside the shortened
+  chromosome, and does the fit converge with its parameters in range - before any
+  physiological reading is attempted.
+
+# --- Why this study exists, and why it is graded when the rest of the
+# --- investigation is descriptive -------------------------------------------
+#
+# Correctness of the coordinate transform itself is NOT this study's job. That is
+# pytest over a pure function (tests/test_parca_gene_deletion.py, v2ecoli#455) --
+# the study `tests:` vocabulary has no operator that can express "a feature at
+# 450-550 truncates to 450-499", and the check needs no run.
+#
+# What the unit tests cannot reach is the layer above: a genotype built end to end
+# through the generator and ParCa, on the real chromosome, where operon structure
+# makes overlapping and nested features ordinary rather than hand-picked. That
+# needs a build, grades continuous quantities, and is what generalizes to a
+# genome-wide panel. It is also the layer where an error is most expensive,
+# because everything downstream reads sim_data as ground truth.
+
+assumptions:
+  - text: >-
+      A ParCa build is deterministic given its inputs, so the same genotype bundle
+      reconstructs to the same sim_data. This is what lets a manifest hash serve as the
+      genotype identity and lets builds be cached rather than repeated.
+    verified_in_v2ecoli: false
+  - text: >-
+      ★ The round-trip invariant must be TWO-BRANCH, and the obvious one-branch form is
+      vacuous for the defect it most needs to catch. "Every retained feature's sequence is
+      unchanged" is wrong twice: features straddling the deletion are SUPPOSED to lose those
+      bases, and once that is relaxed the check still cannot see an off-by-one splice,
+      because an off-by-one preserves every length. The working form asserts byte-identity
+      only for features whose length is unchanged, and for shrunk features asserts the
+      sequence equals the original with exactly the deleted span excised.
+    verified_in_v2ecoli: true # tests/test_parca_gene_deletion.py, v2ecoli#455
+  - text: >-
+      Coordinates in the EcoCyc-derived flat files are 1-based INCLUSIVE - a feature spanning
+      [L, R] occupies genome_sequence[L-1:R]. Verified two ways: getter_functions.py:194
+      slices exactly that way, and of 174 '+'-strand genes 157 start with ATG under that
+      reading versus 0 under the 0-based one. Load-bearing, because feature LENGTHS stay
+      correct under an off-by-one while the sequence silently shifts.
+    verified_in_v2ecoli: true
+  - text: >-
+      A knockout that fails to build is a RESULT, not a failed study. For an essential gene
+      the ParCa fit may not converge at all, which is a legitimate and informative outcome
+      qualitatively unlike the translation-level knockout's. The tests below are written so
+      that a non-converging fit is recorded rather than treated as infrastructure failure.
+    verified_in_v2ecoli: false
+
+conditions:
+  baseline:
+    # The build-ParCa study pattern (cf. showcase-1-parca): the object being built IS
+    # the composite. Params are restricted to the three the generator actually accepts
+    # -- debug, cpus, cache_dir (v2ecoli/composites/parca.py:67-83). NOTE that
+    # showcase-1-parca additionally passes `mode: full`, which the generator does NOT
+    # accept; that study carries an allowlisted params-are-generator-accepted failure.
+    # Not copied here.
+    composite: v2ecoli.composites.parca.parca
+    params:
+      cpus: 8
+      cache_dir: out/cache-genotype-00-wt
+  variants:
+    - name: single-gene-knockout
+      role: perturbation
+      composite: v2ecoli.composites.parca.parca
+      params:
+        cpus: 8
+        cache_dir: out/cache-genotype-00-ko
+      perturbation: >-
+        ParCa-level knockout - the gene is spliced out of the chromosome before
+        reconstruction, so downstream coordinates shift and the fit sees a genome without it.
+      expected_contrast: >-
+        The chromosome is shorter by exactly the gene's length; the gene is absent from
+        sim_data rather than present at zero abundance; features straddling the deletion are
+        truncated; every other feature's sequence is untouched. Physiology is deliberately
+        NOT read here.
+  model_settings:
+    - name: genotype-identity
+      gate: required-before-run
+      detail: >-
+        WHICH genotype this study builds cannot currently be declared. The parca generator
+        accepts only debug/cpus/cache_dir - no bundle, manifest hash, or gene id - so the
+        knockout variant above is today indistinguishable from its baseline in the composite
+        params. This gate is the honest record of that: the study is designed and cannot be
+        run until tranche C gives the build surface a way to name its genotype. See the
+        investigation's first decisions_needed entry.
+    - name: target-gene
+      gate: required-before-run
+      detail: >-
+        Proposed first target EG10526 (lacY) - the gene the landed translation-level study
+        (ko-and-media) already uses, so the two knockout mechanisms share a reference point,
+        and it sits inside the lac operon, which exercises the straddling-feature branch of
+        the round-trip invariant. On the real KB a lacY deletion truncates one transcription
+        unit and shortens four others. A non-operonic gene would leave the second branch of
+        the invariant untested.
+    - name: ko-generator
+      gate: required-before-run
+      detail: >-
+        The ecoli-sources KO generator that emits the perturbed bundle + manifest. Does not
+        exist yet; this study is its acceptance target.
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+tests:
+  - name: perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption
+    classification: primary
+    question: >-
+      After the deletion, is every retained coordinate-bearing feature's sequence exactly
+      what it should be?
+    measure:
+      kind: derived
+      detail: >-
+        Two-branch round-trip over all coordinate-bearing features (genes, transcription
+        units, DNA sites; ~12.8k on the real KB). Unchanged length ⇒ sequence must be
+        byte-identical to the wild-type read. Shrunk ⇒ sequence must equal the wild-type
+        read with exactly the deleted span excised. Report the count in each branch as well
+        as the corruption count, so a pass cannot be vacuous - zero shrunk features means
+        the second branch was never exercised and the target gene was a poor choice.
+    pass_if:
+      op: '=='
+      value: 0   # corrupted features
+
+  - name: chromosome-length-changes-by-exactly-the-deleted-span
+    classification: supporting
+    question: Does the genome shorten by exactly the gene's length, no more and no less?
+    measure:
+      kind: derived
+      detail: >-
+        len(wild_type.genome_sequence) - len(knockout.genome_sequence), against
+        right_end_pos - left_end_pos + 1 for the target gene. Note this check is NOT
+        sufficient on its own: an off-by-one splice preserves length exactly, which is why
+        the round-trip test above is the primary and this is supporting.
+    pass_if:
+      op: '=='
+      value: 0   # discrepancy between observed and expected shortening
+
+  - name: all-coordinates-stay-within-the-shortened-chromosome
+    classification: supporting
+    question: >-
+      Does every surviving feature satisfy 1 <= left <= right <= genome_length after the
+      shift?
+    measure:
+      kind: derived
+      detail: >-
+        Count features violating the bound, across genes, transcription units and DNA sites.
+        Catches a shift applied in the wrong direction or to the wrong side of the cut.
+    pass_if:
+      op: '=='
+      value: 0   # out-of-range features
+
+  - name: deleted-gene-is-absent-from-sim_data
+    classification: primary
+    question: >-
+      Is the gene actually gone from the reconstructed parameters, rather than present at
+      zero abundance?
+    measure:
+      kind: derived
+      detail: >-
+        Look for the gene's cistron / RNA / monomer ids in the fitted sim_data. This is the
+        substantive difference from a translation-level knockout, which leaves the gene
+        transcribed and consuming RNAP capacity. Expect absence, not zeros.
+    pass_if:
+      op: '=='
+      value: 0   # occurrences of the deleted gene's ids
+
+  - name: parca-fit-completes-and-fitted-parameters-stay-in-range
+    classification: primary
+    question: >-
+      Does the fit converge on the perturbed genome, and do its fitted parameters - the
+      mechanistic amino-acid supply kcats in particular - stay in a plausible range?
+    measure:
+      kind: derived
+      detail: >-
+        Condition count fitted (51 = full mode), cache-bundle artifact presence, and the
+        fitted AA-supply kcats against their wild-type values. RFC-007 flags ParCa-level
+        changes as interacting with mechanistic amino-acid supply parameter fitting, and
+        Riley identified this as the specific un-stress-tested area; genotype-03 probes it
+        with AA-pathway genes, and this axis is the general build-time detector. A
+        non-converging fit is RECORDED as the outcome, not treated as a broken study - for
+        an essential gene it may be the correct answer.
+    pass_if:
+      op: in_range
+      # Band deliberately unset: what counts as an in-range kcat shift is exactly what the
+      # first builds will tell us. Setting it now would be a guess wearing a number.
+
+readouts:
+  - name: feature-sequence-round-trip
+    status: derived-needed
+    description: >-
+      Per-feature comparison of wild-type vs knockout sequence at the feature's own
+      coordinates, bucketed by unchanged-length / shrunk / removed.
+  - name: chromosome-length
+    status: derived-needed
+    description: Genome length before and after the deletion.
+  - name: feature-inventory
+    status: derived-needed
+    description: Counts of genes, transcription units and DNA sites before and after.
+  - name: fitted-aa-supply-kcats
+    status: derived-needed
+    description: >-
+      Mechanistic amino-acid supply kcats from the fitted sim_data, knockout vs wild type.
+
+# No `report_cards:` declaration yet, deliberately. The build-integrity card does not
+# exist, and on the Gen-2 path `report_cards:` is a NAME-membership eligibility test
+# (flush.py + report_cards/__init__.py), so listing a card here would assert that a
+# renderable card exists. Following the precedent set by
+# metabolism-biomass-yield-s1-diagnostic: declaring a card we cannot render would be a
+# false claim. Add the name once the card is authored.
+#
+# Two upstream seams to expect when that happens:
+#   - the Gen-2 flush writes <study>/viz/report_card/<name>.verdict.json while the
+#     report_card_axis evaluator reads <card_dir>/report_card_verdict.json, so the
+#     card -> acceptance-criteria join needs a duplicate or symlink;
+#   - 10 studies on main list HTML PATHS in report_cards:, which silently disables
+#     Gen-2 for them. Use names here.
+
+model_change: >-
+  None to the simulation. The change under test is upstream of it: the knowledge base is
+  reconstructed from a perturbed genome. The chromosome-deletion path this study exercises
+  lands in v2ecoli#455.
+
+implementation_requirements:
+  - name: genotype declaration on the build surface
+    effort: M
+    detail: >-
+      A way for a study to name the genotype it builds - a bundle manifest hash or an
+      equivalent - reaching the parca composite. Blocking; see model_settings.
+  - name: ecoli-sources KO generator
+    effort: L
+    detail: >-
+      Emits the perturbed bundle + complete manifest for a chromosome-level knockout. This
+      study is its acceptance target.
+  - name: build-integrity report card
+    effort: M
+    detail: >-
+      Gen-2 ReportCardStep rendering the axes above, so the verdict is a card rather than a
+      one-off script. Reusable by every genotype study downstream.
+  - name: wild-type reference build
+    effort: S
+    detail: >-
+      The unperturbed sim_data every comparison above is taken against. Available from the
+      existing full-ParCa path.
+
+alternative_hypotheses:
+  - >-
+      A corrupted build could come from the generator rather than the deletion transform -
+      a malformed bundle or a manifest pointing at the wrong files. Distinguished by running
+      the same invariant directly on the knowledge base, without the generator, which is
+      what the unit tests in v2ecoli#455 do.
+  - >-
+      A fit that fails to converge may reflect the gene's essentiality rather than a broken
+      build. Distinguished by the sequence and coordinate axes: those pass or fail
+      independently of whether the fit converges.
+
+falsifiability: >-
+  Any corrupted feature, out-of-range coordinate, or unexpected length change fails this
+  study outright. The invariants are exact rather than banded - there is no tolerance to
+  argue about - which is why this study can be graded while the rest of the investigation
+  stays descriptive.
+
+limitations:
+  - >-
+      Establishes that the build is internally consistent, NOT that the resulting physiology
+      is sensible. Everything about how the cell behaves is downstream and belongs to
+      studies 01-06.
+  - >-
+      A single-genotype build integrity check does not establish the transform is correct in
+      general. Genome-wide confidence needs the panel, and ultimately the tranche-B runner.
+  - >-
+      The AA-kcat axis has no band yet, so it is a recorded observation rather than a graded
+      criterion on the first pass.

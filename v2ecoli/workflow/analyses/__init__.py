@@ -60,3 +60,4 @@ from v2ecoli.workflow.analyses import comparison_cards  # noqa: F401
 # matrix -- configs x observables verdicts, reusing reports/_summary's matrix
 # builder (Task 2's per-config verdicts fanned out across configs).
 from v2ecoli.workflow.analyses import comparison_matrix  # noqa: F401
+from v2ecoli.workflow.analyses import chromosome_state_view  # noqa: F401  (re-added: #444 on main)

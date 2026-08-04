@@ -190,6 +190,19 @@ def make_colony_document(
             },
         }
 
+    # Colony-growth GIF: a Visualization Step that accumulates the same cheap
+    # per-cell view (map[pymunk_agent], leak-free) each tick and renders an
+    # animated GIF of the colony at the end (render_results in the run flush).
+    document['colony_growth_gif'] = {
+        '_type': 'step',
+        'address': 'local:ColonyGrowthGif',
+        'config': {'title': 'Colony growth', 'env_size': float(env_size)},
+        'inputs': {
+            'cells': ['cells'],
+            'global_time': ['global_time'],
+        },
+    }
+
     return document
 
 

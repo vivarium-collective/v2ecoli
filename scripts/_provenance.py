@@ -19,42 +19,16 @@ authoritative stamp.
 """
 from __future__ import annotations
 
-import hashlib
-import subprocess
+import sys
 import time
-import warnings
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# `code_provenance` lives in the import-safe library so the sim-vector cache can
+# stamp with the same implementation; re-exported here for existing callers.
+from v2ecoli.library.run_provenance import code_provenance  # noqa: E402,F401
 
-def _git(args, cwd):
-    try:
-        return subprocess.run(["git", *args], cwd=cwd, capture_output=True,
-                              text=True, check=True).stdout.strip()
-    except Exception:
-        return None
-
-
-def code_provenance(repo: Path) -> dict:
-    """Commit + dirty/diff-sha + untracked count for the working tree at ``repo``.
-
-    Warns when dirty/untracked so a mid-dev bake is loud about its provenance
-    being identify-only rather than a clean commit."""
-    commit = _git(["rev-parse", "HEAD"], repo)
-    diff = _git(["diff", "HEAD"], repo) or ""          # tracked staged+unstaged vs HEAD
-    untracked = _git(["ls-files", "--others", "--exclude-standard"], repo) or ""
-    dirty = bool(diff)
-    n_untracked = len([u for u in untracked.splitlines() if u])
-    if dirty or n_untracked:
-        warnings.warn(
-            f"baking from a DIRTY tree (commit {commit[:12] if commit else '?'}, "
-            f"dirty={dirty}, untracked={n_untracked}) — provenance is identify-only, "
-            "not a clean commit. Commit first for a clean-provenance fixture.")
-    return {
-        "commit": commit,
-        "dirty": dirty,
-        "diff_sha256": hashlib.sha256(diff.encode()).hexdigest() if dirty else None,
-        "untracked": n_untracked,
-    }
+__all__ = ["code_provenance", "provenance_stamp", "reconstructed_stamp"]
 
 
 def provenance_stamp(repo: Path, *, config: str, sweep: dict,

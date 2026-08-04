@@ -304,10 +304,20 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
 
 
 def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:
-    """Ensemble-mean protein copies/cell per gene symbol from monomer_counts."""
+    """Ensemble-mean protein copies/cell, keyed by EcoCyc monomer id AND by gene
+    symbol, from monomer_counts.
+
+    ``by_id`` is the join key for any cross-source comparison; ``by_symbol`` is
+    kept because the literature reference this card grades against
+    (``data/basal/proteome.tsv``) is itself symbol-keyed. Symbol is not a safe
+    join key *across* sources — symbol spaces differ between databases and are
+    not injective across them — so a consumer joining to anything but that
+    reference should use ``by_id``.
+    """
     from v2ecoli.library.gene_meta import omics_labels
     labels = omics_labels(parca_state)["proteome"]
     symbols = [str(s) for s in labels["symbols"]]
+    monomer_ids = [str(m) for m in labels["ids"]]
     flist = _parquet_glob(sweep_dir)
     con = duckdb.connect()
     cells = con.sql(f"""
@@ -328,13 +338,29 @@ def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:
     if len(symbols) != len(ensemble):
         raise SystemExit(f"symbol/count width mismatch: {len(symbols)} vs {len(ensemble)}")
     # collapse to gene symbol (sum monomers sharing a symbol is overkill here; ids are 1:1)
-    by_symbol = {}
+    by_symbol, n_symbol_collisions, n_symbol_dropped = {}, 0, 0
     for sym, val in zip(symbols, ensemble):
         if sym and sym != "None":
+            if sym in by_symbol:
+                n_symbol_collisions += 1
             by_symbol[sym] = by_symbol.get(sym, 0.0) + float(val)
+        else:
+            n_symbol_dropped += 1
+    by_id, n_id_dropped = {}, 0
+    for mid, val in zip(monomer_ids, ensemble):
+        if mid and mid != "None":
+            by_id[mid] = float(val)
+        else:
+            n_id_dropped += 1
     return {"n_cells": len(per_cell), "gen_lb": GEN_LB,
             "method": "blessed baseline sweep; per-cell time-mean monomer_counts, gen>=%d" % GEN_LB,
-            "units": "copies/cell", "by_symbol": by_symbol}
+            "units": "copies/cell", "by_id": by_id, "by_symbol": by_symbol,
+            "id_key": "EcoCyc monomer id",
+            "keying": {"n_monomers": len(ensemble),
+                       "n_by_id": len(by_id), "n_id_unmapped": n_id_dropped,
+                       "n_by_symbol": len(by_symbol),
+                       "n_symbol_unmapped": n_symbol_dropped,
+                       "n_symbol_collisions": n_symbol_collisions}}
 
 
 def composition_from_sweep(sweep_dir: Path) -> dict:
@@ -427,8 +453,17 @@ def metabolite_pools_from_sweep(sweep_dir: Path) -> dict:
             "per_metabolite": per}
 
 
-def main(from_sweep: str | None) -> None:
+def main(from_sweep: str | None, out: str | None = None,
+         gen_lb: int | None = None) -> None:
+    global GEN_LB, _GEN_LB, FIXTURES
     sweep = Path(from_sweep) if from_sweep else _SWEEP
+    if gen_lb is not None:
+        # Every aggregation reads the module-level GEN_LB (it appears in each
+        # SQL WHERE), so the flag sets it once here rather than threading an
+        # argument through nine call sites.
+        GEN_LB = _GEN_LB = int(gen_lb)
+    if out is not None:
+        FIXTURES = Path(out)
     state, sim_data = _load()
     FIXTURES.mkdir(parents=True, exist_ok=True)
     met = metabolism_from_sweep(sweep, sim_data)
@@ -457,12 +492,20 @@ def main(from_sweep: str | None) -> None:
           f"ED {100*g['ED']:.1f}% | residual {100*met['nodes']['g6p']['residual']:.1f}%")
     print(f"  exchanges abs: {e['absolute']} | RQ {e['rq']:.2f}")
     print(f"  C-mol %: {e['cmol_pct']}")
-    print(f"model_proteome.json: {pro['n_cells']} cells, {len(pro['by_symbol'])} symbols")
+    k = pro["keying"]
+    print(f"model_proteome.json: {pro['n_cells']} cells, {k['n_by_id']} ids / "
+          f"{k['n_by_symbol']} symbols over {k['n_monomers']} monomers "
+          f"({k['n_symbol_collisions']} symbol collisions)")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--from-sweep", metavar="DIR", default=None)
+    ap.add_argument("--out", metavar="DIR", default=None,
+                    help=f"write fixtures here (default: {FIXTURES.relative_to(REPO)})")
+    ap.add_argument("--gen-lb", type=int, default=None,
+                    help=f"generation lower bound / burn-in (default: {GEN_LB}); "
+                         "must match the sweep's config")
     a = ap.parse_args()
-    main(from_sweep=a.from_sweep)
+    main(from_sweep=a.from_sweep, out=a.out, gen_lb=a.gen_lb)

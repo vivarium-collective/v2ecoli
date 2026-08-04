@@ -47,6 +47,31 @@ import sys
 
 _UPSTREAM: dict = {}
 
+# Pure-python vEcoli source packages that both the upstream checkout AND the
+# installed ``vEcoli`` dist provide, so the installed copy shadows the checkout
+# in ``sys.modules``. These must be dropped (after the checkout goes first on
+# ``sys.path``) so imports resolve from the checkout. ``wholecell`` is
+# deliberately EXCLUDED: it must keep resolving to the installed Cython-compiled
+# tree, not the source checkout.
+_SHADOW_SOURCE_PKGS = ("ecoli", "configs", "reconstruction", "validation")
+
+
+def _purge_shadow_source_modules() -> None:
+    """Evict cached ``_SHADOW_SOURCE_PKGS`` modules from ``sys.modules`` so a
+    subsequent import resolves from the upstream checkout rather than a
+    pre-imported copy from the installed ``vEcoli`` dist.
+
+    Concretely, if ``reconstruction`` stays cached from the installed dist,
+    ``reconstruction.ecoli.dataclasses.process.two_component_system`` keeps a
+    pre-``2208460b`` copy whose stoich matrix has 41 rows, while the checkout's
+    sim_data (loaded fresh) reports 45 ``modified_molecules`` -> MonomerCounts
+    crashes with ``operands could not be broadcast together with shapes
+    (45,) (41,)``.
+    """
+    for _pkg in _SHADOW_SOURCE_PKGS:
+        for _m in [m for m in sys.modules if m == _pkg or m.startswith(_pkg + ".")]:
+            del sys.modules[_m]
+
 
 def _ensure_upstream() -> dict:
     """Import upstream ``EcoliSim`` once; cache its symbols.
@@ -106,12 +131,13 @@ def _ensure_upstream() -> dict:
     if not hasattr(_wfp, "cloud_path_join"):
         _wfp.cloud_path_join = lambda *parts: _posixpath.join(*parts)
 
-    # Drop any cached (possibly shadow) ecoli modules so imports resolve from
-    # the upstream checkout.
-    for _m in [m for m in sys.modules if m == "ecoli" or m.startswith("ecoli.")]:
-        del sys.modules[_m]
-    for _m in [m for m in sys.modules if m == "configs" or m.startswith("configs.")]:
-        del sys.modules[_m]
+    # Drop any cached (possibly shadow) pure-python vEcoli source modules so
+    # imports resolve from the upstream checkout (now first on sys.path), not
+    # from the installed ``vEcoli`` dist in site-packages. See
+    # _purge_shadow_source_modules for why ``reconstruction``/``validation``
+    # matter (the MonomerCounts 45-vs-41 shape crash) and why ``wholecell`` is
+    # excluded (it must stay the installed Cython-compiled tree).
+    _purge_shadow_source_modules()
 
     # CRITICAL: clear vivarium's GLOBAL process_registry before the fresh
     # upstream import. The v2ecoli harness (imported first) has already

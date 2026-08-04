@@ -26,12 +26,26 @@ attempted here.
 """
 from __future__ import annotations
 
-import v2ecoli.workflow.analyses  # noqa: F401 -- registers comparison_cards/comparison_matrix
-from v2ecoli.workflow.comparison_materialize import (
-    materialize_comparison, write_native_investigation)
-from v2ecoli.workflow.parca_study import PARCA_STUDY_NAME
+import pytest
 
-from vivarium_workbench.lib.investigation_execution import run_investigation_composite
+# The vivarium-workbench substrate is an ORCHESTRATOR of v2ecoli, so v2ecoli
+# does not (and must not, to avoid a dependency cycle) depend on it. This test
+# only runs when the substrate is importable -- i.e. its worktree is on
+# PYTHONPATH (see module docstring). In v2ecoli CI it is absent, so pytest
+# skips the whole module at collection instead of erroring.
+pytest.importorskip(
+    "vivarium_workbench",
+    reason="Phase B substrate integration requires the vivarium-workbench "
+    "process-bigraph substrate on PYTHONPATH; see module docstring.",
+)
+
+import v2ecoli.workflow.analyses  # noqa: F401,E402 -- registers comparison_cards/comparison_matrix
+from v2ecoli.workflow.comparison_materialize import (  # noqa: E402
+    materialize_comparison, write_native_investigation)
+from v2ecoli.workflow.parca_study import PARCA_STUDY_NAME  # noqa: E402
+
+from vivarium_workbench.lib.investigation_execution import (  # noqa: E402
+    run_investigation_composite)
 
 INVEST_SLUG = "wcm-comparison"
 

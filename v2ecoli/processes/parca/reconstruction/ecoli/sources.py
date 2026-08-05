@@ -68,6 +68,11 @@ class SourceBundle:
             index.update(self._read_manifest(overrides, overrides.parent))
 
         self._index = index
+        # Kept as provenance: the genotype a ParCa build was made from IS its
+        # bundle manifest, so downstream steps need to be able to name it
+        # rather than only read through it.
+        self.base_manifest = base_manifest
+        self.overrides = overrides
         if validate:
             self._validate(base_manifest, overrides)
 

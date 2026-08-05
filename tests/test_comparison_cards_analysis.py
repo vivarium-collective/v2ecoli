@@ -151,6 +151,46 @@ def test_comparison_cards_step_wraps_the_function(monkeypatch):
     assert out["verdict"]["groups"]["standard"]["verdict"] == "within_tol"
 
 
+def test_step_forwards_study_dir_and_runs_db_from_config(monkeypatch):
+    """The env worker threads ``study_dir``/``runs_db`` into the analysis config
+    when this runs as a per-study ``analyses:`` entry; the Step MUST forward
+    them to ``comparison_cards`` so runs resolve by sim_name off the study's
+    ``runs.db`` and the verdict persists (else comparison_matrix rolls up
+    nothing). Regression for the real-worker verdict path."""
+    captured = {}
+
+    def fake_comparison_cards(candidate_run, reference_run, **kwargs):
+        captured["candidate_run"] = candidate_run
+        captured["reference_run"] = reference_run
+        captured.update(kwargs)
+        return {"cards": {}, "verdict": {"overall": "within_tol"}, "deferred": []}
+
+    monkeypatch.setattr(
+        "v2ecoli.workflow.analyses.comparison_cards.comparison_cards",
+        fake_comparison_cards)
+
+    from v2ecoli.core import build_core
+
+    step = ComparisonCards(config={
+        "candidate_run": "basal", "reference_run": "reference",
+        "study_dir": "/ws/studies/basal", "runs_db": "/ws/studies/basal/runs.db",
+    }, core=build_core())
+    step.update()
+
+    assert captured["study_dir"] == "/ws/studies/basal"
+    assert captured["runs_db"] == "/ws/studies/basal/runs.db"
+
+
+def test_step_leaves_run_store_context_none_for_direct_callers():
+    """A direct/unit caller that omits study_dir/runs_db gets None (the
+    self-contained path), not a crash."""
+    from v2ecoli.core import build_core
+    step = ComparisonCards(config={"candidate_run": None, "reference_run": None},
+                           core=build_core())
+    assert step.config.get("study_dir") is None
+    assert step.config.get("runs_db") is None
+
+
 # --------------------------------------------------------------------------- #
 # deferred statistical -- honest, never faked
 # --------------------------------------------------------------------------- #

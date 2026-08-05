@@ -302,6 +302,14 @@ class ComparisonCards(Analysis):
         "seeds": {"_type": "integer", "_default": 1},
         "observables": {"_type": "maybe[list[string]]", "_default": None},
         "cards": {"_type": "maybe[list[string]]", "_default": None},
+        # Run-store context threaded by the env worker when this runs as a
+        # per-study `analyses:` entry (env_worker puts study_dir/runs_db into
+        # the analysis config). Without them, resolve_run_store cannot locate
+        # the candidate/reference runs by sim_name and the verdict never
+        # persists -> the investigation-level comparison_matrix rolls up
+        # nothing. Direct/unit callers leave them None (self-contained).
+        "study_dir": {"_type": "maybe[string]", "_default": None},
+        "runs_db": {"_type": "maybe[string]", "_default": None},
     }
 
     def inputs(self):
@@ -315,7 +323,8 @@ class ComparisonCards(Analysis):
         return comparison_cards(
             cfg.get("candidate_run"), cfg.get("reference_run"),
             seeds=cfg.get("seeds") or 1, observables=cfg.get("observables"),
-            cards=cfg.get("cards"))
+            cards=cfg.get("cards"),
+            study_dir=cfg.get("study_dir"), runs_db=cfg.get("runs_db"))
 
     def update(self, state=None, interval=None):
         return self.analyze()

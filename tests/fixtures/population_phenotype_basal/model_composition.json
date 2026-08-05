@@ -137,23 +137,180 @@
       0.3752
     ]
   ],
+  "size": {
+    "cell_mass": {
+      "units": "fg",
+      "mean": 1538.311649998392,
+      "per_cell": [
+        1291.8972,
+        1182.1419,
+        1729.7197,
+        1630.0838,
+        1498.037,
+        1439.318,
+        1408.5716,
+        1305.4001,
+        1746.0633,
+        1606.2548,
+        1605.0659,
+        1674.8277,
+        1723.303,
+        1631.1233,
+        1627.1783,
+        1563.4905,
+        1547.3602,
+        1420.7623,
+        1417.0387,
+        1718.5956
+      ]
+    },
+    "cell_volume": {
+      "units": "fL",
+      "mean": 1.3984651363621747,
+      "per_cell": [
+        1.174452,
+        1.074674,
+        1.572472,
+        1.481894,
+        1.361852,
+        1.308471,
+        1.28052,
+        1.186727,
+        1.58733,
+        1.460232,
+        1.459151,
+        1.522571,
+        1.566639,
+        1.482839,
+        1.479253,
+        1.421355,
+        1.406691,
+        1.291602,
+        1.288217,
+        1.56236
+      ],
+      "note": "1 fL == 1 um^3 exactly; the rubric's unit is a relabel, not a conversion"
+    }
+  },
+  "cells": [
+    {
+      "seed": 0,
+      "generation": 3,
+      "agent_id": "0000"
+    },
+    {
+      "seed": 0,
+      "generation": 4,
+      "agent_id": "00000"
+    },
+    {
+      "seed": 0,
+      "generation": 5,
+      "agent_id": "000000"
+    },
+    {
+      "seed": 0,
+      "generation": 6,
+      "agent_id": "0000000"
+    },
+    {
+      "seed": 0,
+      "generation": 7,
+      "agent_id": "00000000"
+    },
+    {
+      "seed": 1,
+      "generation": 3,
+      "agent_id": "0000"
+    },
+    {
+      "seed": 1,
+      "generation": 4,
+      "agent_id": "00000"
+    },
+    {
+      "seed": 1,
+      "generation": 5,
+      "agent_id": "000000"
+    },
+    {
+      "seed": 1,
+      "generation": 6,
+      "agent_id": "0000000"
+    },
+    {
+      "seed": 1,
+      "generation": 7,
+      "agent_id": "00000000"
+    },
+    {
+      "seed": 2,
+      "generation": 3,
+      "agent_id": "0000"
+    },
+    {
+      "seed": 2,
+      "generation": 4,
+      "agent_id": "00000"
+    },
+    {
+      "seed": 2,
+      "generation": 5,
+      "agent_id": "000000"
+    },
+    {
+      "seed": 2,
+      "generation": 6,
+      "agent_id": "0000000"
+    },
+    {
+      "seed": 2,
+      "generation": 7,
+      "agent_id": "00000000"
+    },
+    {
+      "seed": 3,
+      "generation": 3,
+      "agent_id": "0000"
+    },
+    {
+      "seed": 3,
+      "generation": 4,
+      "agent_id": "00000"
+    },
+    {
+      "seed": 3,
+      "generation": 5,
+      "agent_id": "000000"
+    },
+    {
+      "seed": 3,
+      "generation": 6,
+      "agent_id": "0000000"
+    },
+    {
+      "seed": 3,
+      "generation": 7,
+      "agent_id": "00000000"
+    }
+  ],
   "provenance": {
     "code": {
-      "commit": null,
-      "dirty": null,
+      "commit": "ae2a328d2aeecfe800cfe746f87f37e3311308c4",
+      "dirty": false,
       "diff_sha256": null,
-      "untracked": null
+      "untracked": 0
     },
     "config": "v2ecoli/configs/population_phenotype_basal.json",
     "sweep": {
-      "sweep_dir": null,
-      "parca_inputs_hash": null,
+      "sweep_dir": "out/population_phenotype_basal",
+      "parca_inputs_hash": "0b7cc162dd475ffe50698fbf044b23057d2f5bb2f92e260b947b7dd88bb5eb26",
       "n_cells": 20,
       "gen_lb": 3
     },
-    "bake_script": null,
-    "baked": "unknown",
-    "reconstructed": true,
+    "bake_script": "scripts/bake_model_metabolism.py --from-sweep <dir>",
+    "baked": "2026-08-04",
+    "reconstructed": false,
     "note": "Backfilled provenance \u2014 the exact source sweep and code commit that produced these values were not recorded (they predate provenance stamping). Re-bake (bake_model_metabolism.py / render_basal_vs_literature.py --from-sweep) for an authoritative stamp.",
     "blessed_model_ref": "b162243",
     "blessed_model_ref_source": "population_phenotype_basal_reference.json stimulus.blessed_model_ref (4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided)"

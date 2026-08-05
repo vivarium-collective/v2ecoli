@@ -11,12 +11,12 @@ requires-python = "==3.12.12"
 dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
-    "pbg-superpowers",
+    "viva-superpowers",
     "pbg-copasi",
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
-    # Transitive dep of pbg-superpowers (the Actionable Investigation Graph
+    # Transitive dep of viva-superpowers (the Actionable Investigation Graph
     # types); declared directly so [tool.uv.sources] below resolves its git
     # source (uv applies sources to direct deps, not arbitrary transitive ones).
     "investigation-contracts",
@@ -132,7 +132,11 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
-pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
+viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
+# Transitive consumers (pbg-bioreactordesign, viva-munk, spatio-flux) still
+# require the "pbg-superpowers" name; resolve it to the deprecation shim that
+# lives in the viva-superpowers repo's shim/ subdir (re-exports viva_superpowers).
+pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main", subdirectory = "shim" }
 pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
 pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }

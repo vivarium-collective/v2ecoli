@@ -290,8 +290,10 @@ same biological processes and differ only in how cells are scheduled and embedde
 | `millard2017_metabolism` | Standalone Millard et al. 2017 kinetic ODE of E. coli central carbon and energy metabolism (BioModels MODEL1505110000), wrapped as a process-bigraph composite via pbg-copasi's CopasiUTCProcess. |
 | `millard_fba_bridge_harness` | Whole-cell E. coli baseline (real tFBA ecoli-metabolism) with the Millard 2017 central-carbon ODE wired in as a flux SOURCE: the Millard fluxes are mapped+converted by fba-flux-coupler into pinned_fl… |
 | `parca` | ParCa parameter-calculation pipeline — the 9-step fit (initialize → input_adjustments → … → final_adjustments) that produces sim_data. |
+| `parca_prep` | ParCa pull-or-compute prerequisite, as an ordinary study on the investigation-as-composite substrate. |
 | `reactor_bird_coupled` | v2ecoli baseline_population coupled to the BiRD bioreactor (BiRDTransportProcess) via ReactorCellCoupler. |
 | `reactor_bird_coupled_millard` | v2ecoli Millard kinetic-metabolism cell (baseline_millard) + PopulationAggregator coupled to the BiRD bioreactor (BiRDTransportHours) via ReactorCellCoupler. |
+| `vecoli` | Genuine upstream vEcoli, run on its own vivarium-core Engine inside ONE process-bigraph node (agents/<agent_id>/vivarium_ecoli) — the REFERENCE model for the v2ecoli<->vEcoli comparison. |
 <!-- END:composites -->
 
 Reach a generator by name — `build_composite("<name>")`; a `*.composite.yaml`

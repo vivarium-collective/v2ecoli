@@ -36,18 +36,23 @@ executive:
   decisions_needed:
     - question: >-
         How does a study declare WHICH genotype it builds?
-      status: OPEN - blocking genotype-00 execution
+      status: CLOSED - resolved by v2ecoli#457 (merged 2026-08-05)
       context: >-
-        The `parca` composite generator accepts exactly three parameters - `debug`, `cpus`,
-        `cache_dir` (v2ecoli/composites/parca.py:67-83). None of them names a bundle, a
-        manifest hash, or a gene to delete, so the genotype identity cannot currently be
-        expressed in `conditions.baseline.params` at all. The study-per-build surface
-        therefore does not yet distinguish a knockout build from a wild-type build.
-        genotype-00 records the genotype in `conditions.model_settings` with
-        gate: required-before-run, which is honest but not executable. Closing this is
-        tranche C work, not study-authoring work: either the generator gains a genotype
-        parameter, or the identity is carried outside the composite params and the study
-        schema needs a place to put it.
+        Was blocking genotype-00 execution: the `parca` generator accepted exactly `debug`,
+        `cpus`, `cache_dir`, so a knockout build was indistinguishable from a wild-type one
+        in `conditions.baseline.params`, and genotype-00 had to record its genotype as a
+        gate: required-before-run model_setting instead. RESOLVED by adding
+        `bundle_manifest` / `bundle_overrides` to the generator, threaded into
+        InitializeStep's config, plus a cross-check that warns when the declared manifest
+        disagrees with the bundle the injected raw_data was actually built from - the
+        failure that would otherwise attribute a sim_data to a genotype it was not built
+        from. genotype-00 now declares its genotype in params for both conditions.
+        Smaller than this entry anticipated: the RUNNER (`v2ecoli-parca
+        --bundle-manifest-path`) already accepted a manifest, so only the study surface was
+        missing it. Two things it deliberately does NOT do, which the remaining gates
+        cover: the declaration is structural rather than effective (driving ParCa from a
+        study is out of scope), and nothing yet PRODUCES a knockout manifest - that is the
+        ecoli-sources KO generator.
     - question: "Which gene panel for the essentiality study, and at what size?"
       status: OPEN
       context: >-

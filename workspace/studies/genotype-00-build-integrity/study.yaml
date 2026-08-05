@@ -4,9 +4,9 @@ investigation: genotype-perturbation-response
 title: Does a ParCa-level knockout reconstruct into a self-consistent sim_data?
 created: '2026-08-04'
 
-# Canonical 6-axis status. Designed and specified; NOT implemented, because the
-# genotype cannot yet be declared to the parca composite (see model_settings and
-# the investigation's first decisions_needed entry).
+# Canonical 6-axis status. Designed and specified; NOT implemented. The genotype can
+# now be DECLARED (v2ecoli#457), but the knockout's manifest cannot yet be PRODUCED --
+# the ecoli-sources KO generator does not exist. See model_settings.
 design_status: complete
 implementation_status: not_started
 expert_review_status: not_requested
@@ -66,15 +66,20 @@ assumptions:
 conditions:
   baseline:
     # The build-ParCa study pattern (cf. showcase-1-parca): the object being built IS
-    # the composite. Params are restricted to the three the generator actually accepts
-    # -- debug, cpus, cache_dir (v2ecoli/composites/parca.py:67-83). NOTE that
-    # showcase-1-parca additionally passes `mode: full`, which the generator does NOT
-    # accept; that study carries an allowlisted params-are-generator-accepted failure.
-    # Not copied here.
+    # the composite. NOTE that showcase-1-parca additionally passes `mode: full`, which
+    # the generator does NOT accept; that study carries an allowlisted
+    # params-are-generator-accepted failure. Not copied here.
+    #
+    # `bundle_manifest` is the genotype declaration, landed in v2ecoli#457. Empty
+    # string is not a placeholder: it is the generator's documented way of naming the
+    # installed default bundle, i.e. THIS BUILD IS THE WILD TYPE. Stated explicitly
+    # rather than omitted, so the baseline asserts its genotype instead of inheriting
+    # one by default.
     composite: v2ecoli.composites.parca.parca
     params:
       cpus: 8
       cache_dir: out/cache-genotype-00-wt
+      bundle_manifest: ''
   variants:
     - name: single-gene-knockout
       role: perturbation
@@ -82,6 +87,13 @@ conditions:
       params:
         cpus: 8
         cache_dir: out/cache-genotype-00-ko
+        # The knockout's own manifest. Left empty ONLY because the generator that
+        # emits it does not exist yet (see the ko-generator gate below) -- not because
+        # this build is wild type. Until it carries a real path this variant is still
+        # indistinguishable from its baseline, so the study remains unrunnable; the
+        # difference from before #457 is that the gap is now a missing VALUE rather
+        # than a missing mechanism.
+        bundle_manifest: ''
       perturbation: >-
         ParCa-level knockout - the gene is spliced out of the chromosome before
         reconstruction, so downstream coordinates shift and the fit sees a genome without it.
@@ -91,15 +103,17 @@ conditions:
         truncated; every other feature's sequence is untouched. Physiology is deliberately
         NOT read here.
   model_settings:
-    - name: genotype-identity
-      gate: required-before-run
-      detail: >-
-        WHICH genotype this study builds cannot currently be declared. The parca generator
-        accepts only debug/cpus/cache_dir - no bundle, manifest hash, or gene id - so the
-        knockout variant above is today indistinguishable from its baseline in the composite
-        params. This gate is the honest record of that: the study is designed and cannot be
-        run until tranche C gives the build surface a way to name its genotype. See the
-        investigation's first decisions_needed entry.
+    # The genotype-identity gate that stood here is GONE, resolved by v2ecoli#457: the
+    # parca generator now accepts bundle_manifest / bundle_overrides, so the genotype is
+    # declared in conditions.*.params above rather than described as a missing capability
+    # here. InitializeStep additionally cross-checks the declared manifest against the
+    # bundle the injected raw_data was actually built from, and warns on mismatch -- so a
+    # sim_data can no longer be silently attributed to a genotype it was not built from,
+    # which is the provenance claim every study below rests on.
+    #
+    # What #457 does NOT buy, stated so the remaining gates are read correctly: the
+    # declaration is structural. Naming a manifest does not make the runner build from it
+    # -- that needs the study runner to drive ParCa, explicitly out of scope there.
     - name: target-gene
       gate: required-before-run
       detail: >-
@@ -241,9 +255,12 @@ model_change: >-
 implementation_requirements:
   - name: genotype declaration on the build surface
     effort: M
+    status: done
     detail: >-
       A way for a study to name the genotype it builds - a bundle manifest hash or an
-      equivalent - reaching the parca composite. Blocking; see model_settings.
+      equivalent - reaching the parca composite. DONE in v2ecoli#457 (bundle_manifest /
+      bundle_overrides on the parca generator, threaded to InitializeStep with a
+      declared-vs-injected cross-check). Was the blocking item; no longer is.
   - name: ecoli-sources KO generator
     effort: L
     detail: >-

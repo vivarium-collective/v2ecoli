@@ -3132,8 +3132,8 @@ wheels = [
 
 [[package]]
 name = "process-bigraph"
-version = "1.7.0"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#4889ded6d685c5109445d0b7fe9673e0eafa8acd" }
+version = "1.8.2"
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#0e65c0c2539dc0a9b594e40e7849b85b6b5f19a7" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -4580,7 +4580,7 @@ requires-dist = [
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
     { name = "ray", marker = "extra == 'ray'", specifier = ">=2.10" },
     { name = "requests" },
-    { name = "scipy", specifier = "<1.18" },
+    { name = "scipy", specifier = ">=1.14,<1.18" },
     { name = "spatio-flux", git = "https://github.com/vivarium-collective/spatio-flux.git?branch=main" },
     { name = "sympy" },
     { name = "unum" },

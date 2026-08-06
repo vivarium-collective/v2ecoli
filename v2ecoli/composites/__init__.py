@@ -20,6 +20,7 @@ from v2ecoli.composites import (  # noqa: F401
     parca,
     reactor_bird_coupled,
     reactor_bird_coupled_millard,
+    vecoli,
 )
 
 
@@ -59,6 +60,7 @@ for _new in (
     "parca",
     "reactor_bird_coupled",
     "reactor_bird_coupled_millard",
+    "vecoli",
 ):
     _register_clean_alias(_new)
 
@@ -74,4 +76,5 @@ __all__ = [
     "parca",
     "reactor_bird_coupled",
     "reactor_bird_coupled_millard",
+    "vecoli",
 ]

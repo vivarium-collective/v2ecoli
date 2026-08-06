@@ -7,9 +7,15 @@ tables we need, per axis, the ordered id list plus human-readable metadata
 (gene symbol + EcoCyc descriptive name). The id *order* comes from sim_data; the
 symbol/name join comes from the reconstruction flat files (always installed).
 
-`omics_labels(sim_data)` returns, for each axis, three arrays aligned to the
+`omics_labels(sim_data)` returns, for each axis, parallel arrays aligned to the
 card's ref_vector order, which the pin scripts bake into the omics criterion so
 the renderer stays reference-self-contained (no sim_data at render time).
+
+Two id vocabularies matter and are not interchangeable: the transcriptome's
+``ids`` are mRNA *cistron* ids (``EG10001_RNA``) while its ``gene_ids`` are
+EcoCyc *gene* ids (``EG10001``); the proteome's ``ids`` are EcoCyc monomer ids.
+Join on an id, never on ``symbols`` — symbol spaces differ between sources and
+are not injective across them.
 """
 from __future__ import annotations
 
@@ -65,6 +71,11 @@ def omics_labels(sim_data) -> dict:
     # transcriptome: mRNA cistrons (listener emits mRNA_cistron_counts in this order)
     cd = tx.cistron_data
     cistron_ids = [str(c) for c in cd["id"][cd["is_mRNA"]]]
+    # EcoCyc GENE ids, read from the field sim_data builds off genes.tsv rather
+    # than by stripping the "_RNA" suffix off the cistron id — string surgery on
+    # identifiers is how id-space bugs start, and it would break silently if the
+    # cistron-id convention ever changed.
+    tx_gene_ids = [str(g) for g in cd["gene_id"][cd["is_mRNA"]]]
     tx_sym, tx_name = [], []
     for cid in cistron_ids:
         name, gid = rna_meta.get(cid, ("", ""))
@@ -83,7 +94,8 @@ def omics_labels(sim_data) -> dict:
         pr_name.append(prot_name.get(mid, ""))
 
     return {
-        "transcriptome": {"ids": cistron_ids, "symbols": tx_sym, "names": tx_name},
+        "transcriptome": {"ids": cistron_ids, "gene_ids": tx_gene_ids,
+                          "symbols": tx_sym, "names": tx_name},
         "proteome": {"ids": [m.split("[")[0] for m in mon_ids_full],
                      "symbols": pr_sym, "names": pr_name},
     }

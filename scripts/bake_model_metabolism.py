@@ -50,12 +50,83 @@ def _parca_inputs_hash():
         return None
 
 
+def _rel_to_repo(p) -> str:
+    """`p` as a repo-relative path when it is inside the repo, else unchanged.
+
+    Compares the path AS GIVEN before falling back to a resolved comparison.
+    `out/` is commonly a symlink to a shared sweep store, and resolving first
+    would follow it outside the repo and defeat the whole point — putting the
+    link target's absolute path into a committed fixture.
+    """
+    p = Path(p)
+    for base, cand in ((REPO, p), (REPO.resolve(), p.resolve())):
+        try:
+            return str(cand.relative_to(base))
+        except ValueError:
+            continue
+    return str(p)
+
+
+_STAMP_CACHE: dict = {}
+
+
 def _stamp(n_cells):
+    """Provenance for this bake run.
+
+    MEMOIZED ON PURPOSE. The bake writes four fixtures in sequence, and writing
+    the first one dirties the working tree -- so a stamp computed per file
+    reported `dirty: false` for whichever fixture happened to be written first
+    and `dirty: true` for the other three, describing the bake's own in-progress
+    output rather than any source change. A reader would reasonably conclude the
+    bake had run from an uncommitted tree. All four come from ONE run at ONE
+    commit, so they get one stamp, computed before anything is written.
+    """
+    if n_cells not in _STAMP_CACHE:
+        _STAMP_CACHE[n_cells] = _fresh_stamp(n_cells)
+    return dict(_STAMP_CACHE[n_cells])
+
+
+def _fresh_stamp(n_cells):
     return provenance_stamp(
         REPO, config="v2ecoli/configs/population_phenotype_basal.json",
-        sweep={"sweep_dir": str(_SWEEP), "parca_inputs_hash": _parca_inputs_hash(),
+        # REPO-RELATIVE. An absolute path records whose laptop or worktree the
+        # bake happened to run in ("/Users/.../v2ecoli-bake/out/..."), which is
+        # not provenance — it is noise that differs per machine and makes the
+        # fixture look changed when nothing about it did.
+        sweep={"sweep_dir": _rel_to_repo(_SWEEP),
+               "parca_inputs_hash": _parca_inputs_hash(),
                "n_cells": n_cells, "gen_lb": _GEN_LB},
         bake_script="scripts/bake_model_metabolism.py --from-sweep <dir>")
+
+
+def _write(path, blob):
+    """Write a fixture, PRESERVING authored provenance keys this bake does not own.
+
+    `_stamp()` emits the machine-derived provenance (code commit, sweep dir,
+    parca hash, cell counts). Some fixtures also carry provenance that was
+    authored or backfilled SEPARATELY -- `blessed_model_ref` and its source
+    string were added by #430 as their own step, and `note` by hand. Assigning
+    `blob["provenance"] = _stamp(...)` overwrote the whole dict, so simply
+    re-running this bake silently deleted them: no error, no diff to read unless
+    you went looking, and an artifact whose stated origin quietly stopped
+    matching the one it was published with.
+
+    Anything the fresh stamp does not set is carried across from what is already
+    on disk. Machine-owned keys are still overwritten -- a stale commit hash
+    should not survive a re-bake.
+    """
+    path = Path(path)
+    if path.is_file():
+        try:
+            prior = (json.loads(path.read_text(encoding="utf-8")) or {}).get("provenance") or {}
+        except Exception:
+            prior = {}
+        fresh = blob.get("provenance") or {}
+        carried = {k: v for k, v in prior.items() if k not in fresh}
+        if carried:
+            blob["provenance"] = {**fresh, **carried}
+            print(f"  {path.name}: carried authored provenance {sorted(carried)}")
+    path.write_text(json.dumps(blob, indent=2))
 _PARCA_STATE = REPO / "out/sim_data_full/parca_state.pkl.gz"
 GEN_LB = 3
 
@@ -304,10 +375,20 @@ def metabolism_from_sweep(sweep_dir: Path, sim_data) -> dict:
 
 
 def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:
-    """Ensemble-mean protein copies/cell per gene symbol from monomer_counts."""
+    """Ensemble-mean protein copies/cell, keyed by EcoCyc monomer id AND by gene
+    symbol, from monomer_counts.
+
+    ``by_id`` is the join key for any cross-source comparison; ``by_symbol`` is
+    kept because the literature reference this card grades against
+    (``data/basal/proteome.tsv``) is itself symbol-keyed. Symbol is not a safe
+    join key *across* sources — symbol spaces differ between databases and are
+    not injective across them — so a consumer joining to anything but that
+    reference should use ``by_id``.
+    """
     from v2ecoli.library.gene_meta import omics_labels
     labels = omics_labels(parca_state)["proteome"]
     symbols = [str(s) for s in labels["symbols"]]
+    monomer_ids = [str(m) for m in labels["ids"]]
     flist = _parquet_glob(sweep_dir)
     con = duckdb.connect()
     cells = con.sql(f"""
@@ -328,13 +409,29 @@ def proteome_from_sweep(sweep_dir: Path, parca_state) -> dict:
     if len(symbols) != len(ensemble):
         raise SystemExit(f"symbol/count width mismatch: {len(symbols)} vs {len(ensemble)}")
     # collapse to gene symbol (sum monomers sharing a symbol is overkill here; ids are 1:1)
-    by_symbol = {}
+    by_symbol, n_symbol_collisions, n_symbol_dropped = {}, 0, 0
     for sym, val in zip(symbols, ensemble):
         if sym and sym != "None":
+            if sym in by_symbol:
+                n_symbol_collisions += 1
             by_symbol[sym] = by_symbol.get(sym, 0.0) + float(val)
+        else:
+            n_symbol_dropped += 1
+    by_id, n_id_dropped = {}, 0
+    for mid, val in zip(monomer_ids, ensemble):
+        if mid and mid != "None":
+            by_id[mid] = float(val)
+        else:
+            n_id_dropped += 1
     return {"n_cells": len(per_cell), "gen_lb": GEN_LB,
             "method": "blessed baseline sweep; per-cell time-mean monomer_counts, gen>=%d" % GEN_LB,
-            "units": "copies/cell", "by_symbol": by_symbol}
+            "units": "copies/cell", "by_id": by_id, "by_symbol": by_symbol,
+            "id_key": "EcoCyc monomer id",
+            "keying": {"n_monomers": len(ensemble),
+                       "n_by_id": len(by_id), "n_id_unmapped": n_id_dropped,
+                       "n_by_symbol": len(by_symbol),
+                       "n_symbol_unmapped": n_symbol_dropped,
+                       "n_symbol_collisions": n_symbol_collisions}}
 
 
 def composition_from_sweep(sweep_dir: Path) -> dict:
@@ -347,7 +444,8 @@ def composition_from_sweep(sweep_dir: Path) -> dict:
     df = con.sql(f"""
         SELECT lineage_seed s, generation g, agent_id a, global_time t,
                listeners__mass__dry_mass dm, listeners__mass__protein_mass pm,
-               listeners__mass__rna_mass rm, listeners__mass__dna_mass dn
+               listeners__mass__rna_mass rm, listeners__mass__dna_mass dn,
+               listeners__mass__cell_mass cm, listeners__mass__volume vol
         FROM read_parquet({flist}, hive_partitioning=true)
         WHERE generation >= {GEN_LB} AND listeners__mass__dry_mass > 0
     """).df()
@@ -363,11 +461,39 @@ def composition_from_sweep(sweep_dir: Path) -> dict:
     per_cell = [[round(float(pc[c].iloc[i]), 4) for c in ("protein", "rna", "dna")]
                 + [round(1.0 - sum(pc[c].iloc[i] for c in ("protein", "rna", "dna")), 4)]
                 for i in range(n)]
+
+    # Cell size — two DARPA CD1 rubric rows the card could not populate because
+    # nothing baked them, though both listener columns were already in the sweep.
+    # Emitted in the model's OWN units and NOT converted here: the rubric asks for
+    # pg/cell and um^3, and 1 fL is exactly 1 um^3, so the volume row is a relabel
+    # rather than a conversion. Doing the mass scaling at render time keeps one
+    # place to look for it.
+    size_pc = df.groupby(["s", "g", "a"])[["cm", "vol"]].mean()
+    size = {
+        "cell_mass": {"units": "fg", "mean": float(size_pc.cm.mean()),
+                      "per_cell": [round(float(v), 4) for v in size_pc.cm]},
+        "cell_volume": {"units": "fL", "mean": float(size_pc.vol.mean()),
+                        "per_cell": [round(float(v), 6) for v in size_pc.vol],
+                        "note": "1 fL == 1 um^3 exactly; the rubric's unit is a "
+                                "relabel, not a conversion"},
+    }
+
+    # Lineage keys, in the SAME ORDER as every per-cell array above. Without
+    # these a per-cell array is an unordered bag of values: `gen_lb` survived the
+    # aggregation but the (seed, generation) identity did not, which is what made
+    # a trajectory-vs-generation plot impossible from the fixtures rather than
+    # merely expensive. Ordering is the groupby's, shared by per_cell_fractions
+    # and both size arrays, so a consumer can zip them.
+    cells = [{"seed": int(s), "generation": int(g), "agent_id": str(a)}
+             for (s, g, a) in pc.index]
+
     return {"n_cells": n, "gen_lb": GEN_LB,
             "method": "blessed baseline sweep; per-cell time-mean mass fractions, gen>=%d" % GEN_LB,
             "doubling_time_min": float(span.mean() / 60.0),
             "branches": branches, "fractions": fr,
-            "per_cell_fractions": per_cell}
+            "per_cell_fractions": per_cell,
+            "size": size,
+            "cells": cells}
 
 
 def metabolite_pools_from_sweep(sweep_dir: Path) -> dict:
@@ -427,25 +553,34 @@ def metabolite_pools_from_sweep(sweep_dir: Path) -> dict:
             "per_metabolite": per}
 
 
-def main(from_sweep: str | None) -> None:
+def main(from_sweep: str | None, out: str | None = None,
+         gen_lb: int | None = None) -> None:
+    global GEN_LB, _GEN_LB, FIXTURES
     sweep = Path(from_sweep) if from_sweep else _SWEEP
+    if gen_lb is not None:
+        # Every aggregation reads the module-level GEN_LB (it appears in each
+        # SQL WHERE), so the flag sets it once here rather than threading an
+        # argument through nine call sites.
+        GEN_LB = _GEN_LB = int(gen_lb)
+    if out is not None:
+        FIXTURES = Path(out)
     state, sim_data = _load()
     FIXTURES.mkdir(parents=True, exist_ok=True)
     met = metabolism_from_sweep(sweep, sim_data)
     met["provenance"] = _stamp(met.get("n_cells"))
-    (FIXTURES / "model_metabolism.json").write_text(json.dumps(met, indent=2))
+    _write(FIXTURES / "model_metabolism.json", met)
     pro = proteome_from_sweep(sweep, state)
     pro["provenance"] = _stamp(pro.get("n_cells"))
-    (FIXTURES / "model_proteome.json").write_text(json.dumps(pro, indent=2))
+    _write(FIXTURES / "model_proteome.json", pro)
     comp = composition_from_sweep(sweep)
     comp["provenance"] = _stamp(comp.get("n_cells"))
-    (FIXTURES / "model_composition.json").write_text(json.dumps(comp, indent=2))
+    _write(FIXTURES / "model_composition.json", comp)
     print(f"model_composition.json: {comp['n_cells']} cells, td {comp['doubling_time_min']:.1f} min, "
           f"protein {comp['fractions']['protein']:.3f} RNA {comp['fractions']['rna']:.3f} "
           f"DNA {comp['fractions']['dna']:.4f} other {comp['fractions']['other']:.3f}")
     pools = metabolite_pools_from_sweep(sweep)
     pools["provenance"] = _stamp(pools.get("n_cells"))
-    (FIXTURES / "model_metabolite_pools.json").write_text(json.dumps(pools, indent=2))
+    _write(FIXTURES / "model_metabolite_pools.json", pools)
     print(f"model_metabolite_pools.json: {pools['n_matched']} metabolites, "
           f"model total {pools['model_total']*1000:.0f} mM vs Bennett {pools['bennett_total']*1000:.0f} mM "
           f"(ratio {pools['ratio']:.2f})")
@@ -457,12 +592,20 @@ def main(from_sweep: str | None) -> None:
           f"ED {100*g['ED']:.1f}% | residual {100*met['nodes']['g6p']['residual']:.1f}%")
     print(f"  exchanges abs: {e['absolute']} | RQ {e['rq']:.2f}")
     print(f"  C-mol %: {e['cmol_pct']}")
-    print(f"model_proteome.json: {pro['n_cells']} cells, {len(pro['by_symbol'])} symbols")
+    k = pro["keying"]
+    print(f"model_proteome.json: {pro['n_cells']} cells, {k['n_by_id']} ids / "
+          f"{k['n_by_symbol']} symbols over {k['n_monomers']} monomers "
+          f"({k['n_symbol_collisions']} symbol collisions)")
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--from-sweep", metavar="DIR", default=None)
+    ap.add_argument("--out", metavar="DIR", default=None,
+                    help=f"write fixtures here (default: {FIXTURES.relative_to(REPO)})")
+    ap.add_argument("--gen-lb", type=int, default=None,
+                    help=f"generation lower bound / burn-in (default: {GEN_LB}); "
+                         "must match the sweep's config")
     a = ap.parse_args()
-    main(from_sweep=a.from_sweep)
+    main(from_sweep=a.from_sweep, out=a.out, gen_lb=a.gen_lb)

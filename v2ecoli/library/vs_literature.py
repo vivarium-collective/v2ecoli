@@ -597,8 +597,18 @@ def _biomass_yield_finding(model: dict, axis: dict | None, card_node: dict | Non
             f"band ({band_s}).") + carbon
 
 
-def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tuple[dict, dict, dict]:
-    """Return (card, reference, model) — the gradeable inputs (importable for tests)."""
+def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None,
+          fixtures_dir: Path | None = None) -> tuple[dict, dict, dict]:
+    """Return (card, reference, model) — the gradeable inputs (importable for tests).
+
+    All five model fixtures are read from ``fixtures_dir``, which defaults to
+    ``model_json``'s own directory. Previously only ``model_json`` (physiology)
+    was redirectable and the other four were read from the module-level
+    ``FIXTURES`` constant, so pointing a caller at another directory silently
+    mixed one redirected fixture with four repo copies."""
+    fdir = Path(fixtures_dir) if fixtures_dir is not None else Path(model_json).parent
+    met_json, pro_json = fdir / _MET_JSON.name, fdir / _PRO_JSON.name
+    comp_json, pools_json = fdir / _COMP_JSON.name, fdir / _POOLS_JSON.name
     model = model_physiology(model_json)
     lit = literature(bundle_path)
     # Build the gradeable inputs FIRST so the findings narrative can follow the
@@ -641,8 +651,8 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
     }
 
     # Metabolism + Proteome sections (present only if their fixtures are baked).
-    if _MET_JSON.exists():
-        met = json.load(open(_MET_JSON, encoding="utf-8"))
+    if met_json.exists():
+        met = json.load(open(met_json, encoding="utf-8"))
         ax, cnode = build_metabolism(lit, met, bundle_path)
         reference["axes"].update(ax)
         card["metabolism"] = cnode
@@ -654,18 +664,18 @@ def build(model_json: Path = _MODEL_JSON, bundle_path: Path | None = None) -> tu
             f"below the measured bands (mismatch). RQ = CER/OUR = {(e['rq'] or 0):.1f} "
             f"(full oxidation ≈ 1); C-mol balance {e['cmol_pct']['biomass']:.0f}% of "
             "glucose carbon → biomass (reference aerobic cell ~50%).")
-    if _PRO_JSON.exists():
-        pro = json.load(open(_PRO_JSON, encoding="utf-8"))
+    if pro_json.exists():
+        pro = json.load(open(pro_json, encoding="utf-8"))
         ax, cnode = build_proteome(pro, bundle_path)
         reference["axes"].update(ax)
         card["proteome"] = cnode
-    if _COMP_JSON.exists():
-        comp = json.load(open(_COMP_JSON, encoding="utf-8"))
+    if comp_json.exists():
+        comp = json.load(open(comp_json, encoding="utf-8"))
         ax, cnode = build_composition(comp, bundle_path)
         reference["axes"].update(ax)
         card["composition"] = cnode
-    if _POOLS_JSON.exists():
-        pools = json.load(open(_POOLS_JSON, encoding="utf-8"))
+    if pools_json.exists():
+        pools = json.load(open(pools_json, encoding="utf-8"))
         ax, cnode = build_metabolite_pools(pools, bundle_path)
         reference["axes"].update(ax)
         card["pools"] = cnode

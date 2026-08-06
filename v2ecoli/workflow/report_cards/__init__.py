@@ -28,6 +28,25 @@ import yaml
 from v2ecoli.workflow.post_sim import REPORT_CARD_REGISTRY, ReportCardStep  # noqa: F401
 
 
+def narrows_by_name(declared: Any) -> bool:
+    """Whether a study's ``report_cards:`` value is a card-NAME allowlist.
+
+    The key carries two different vocabularies. Hand-authored studies list card
+    **names** (``[vs_literature]``) — a genuine allowlist. Comparison studies get
+    the key machine-generated as a list of HTML embed **paths** by
+    ``scripts/_compare/materialize.py`` (``[f"viz/report_card/{c}.html" ...]``),
+    which the investigation summary reads as files to embed. A registry name can
+    never equal a path, so treating a path list as an allowlist silently excludes
+    *every* registered card — the two vocabularies must not be compared.
+
+    A list narrows by name only when no entry looks like a path. An empty list is
+    an explicit "no cards" allowlist and is honored as such.
+    """
+    if not isinstance(declared, (list, tuple, set)):
+        return False
+    return not any("/" in str(e) or str(e).endswith(".html") for e in declared)
+
+
 def _sanitize(obj: Any) -> Any:
     """Replace non-finite floats with None, recursively (bundle JSON.parse safe)."""
     if isinstance(obj, float):
@@ -96,17 +115,19 @@ def prune(ctx: StudyContext, keep: set[str]) -> list[str]:
 
 def applicable(ctx: StudyContext, core, only: "str | None" = None) -> list:
     """Instantiated report-card Steps to emit for a study. If the study spec lists
-    `report_cards:`, only those names are eligible; otherwise every registered card
-    is eligible. A card is emitted when eligible AND its applies(ctx) is True.
-    `only` (a name, or None/'all') narrows to a single card. `core` is a
-    bigraph-schema core (built once by the caller) used to instantiate Steps."""
+    `report_cards:` as card NAMES, only those names are eligible; if it holds embed
+    paths (machine-generated — see `narrows_by_name`) it is not a name allowlist and
+    every registered card stays eligible. A card is emitted when eligible AND its
+    applies(ctx) is True. `only` (a name, or None/'all') narrows to a single card.
+    `core` is a bigraph-schema core (built once by the caller) to instantiate Steps."""
     declared = ctx.spec.get("report_cards")
+    by_name = declared is not None and narrows_by_name(declared)
     want = None if (only in (None, "all")) else {only}
     out = []
     for nm, cls in REPORT_CARD_REGISTRY.items():
         if want is not None and nm not in want:
             continue
-        if declared is not None and nm not in declared:
+        if by_name and nm not in declared:
             continue
         try:
             step = cls({}, core=core)

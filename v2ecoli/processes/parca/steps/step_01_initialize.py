@@ -36,6 +36,8 @@ Outputs:
 """
 
 import time
+import warnings
+from pathlib import Path
 
 from process_bigraph import Step
 
@@ -125,7 +127,39 @@ class InitializeStep(Step):
             '_type': 'string',
             '_default': 'M9 Glucose minus AAs',
         },
+        # Genotype identity. A ParCa build is identified by the ecoli-sources
+        # bundle manifest its raw_data was built from, so these record WHICH
+        # genome/dataset produced this fit. Declarative: the KnowledgeBase is
+        # constructed by the runner and injected as `raw_data`, and these
+        # fields do not build it. They exist so a study can name its genotype
+        # in composite params, and so a mismatch between the declared genotype
+        # and the injected one is caught rather than silently fitted.
+        'bundle_manifest':  {'_type': 'string', '_default': ''},
+        'bundle_overrides': {'_type': 'string', '_default': ''},
     }
+
+    def _check_declared_genotype(self):
+        """Warn when the declared bundle disagrees with the injected raw_data.
+
+        Silent divergence here is the expensive failure: the fit succeeds and
+        the resulting sim_data is attributed to a genotype it was not built
+        from, which is exactly the provenance claim downstream studies rest on.
+        """
+        declared = self.config.get('bundle_manifest', '')
+        if not declared:
+            return
+        bundle = getattr(self.config.get('raw_data'), '_bundle', None)
+        actual = getattr(bundle, 'base_manifest', None)
+        if actual is None:
+            return
+        if Path(declared).resolve() != Path(actual).resolve():
+            warnings.warn(
+                "ParCa genotype mismatch: step config declares bundle "
+                f"manifest {declared!r} but raw_data was built from "
+                f"{str(actual)!r}. The fit will proceed against the injected "
+                "raw_data; the declared manifest is provenance only.",
+                stacklevel=2,
+            )
 
     def inputs(self):
         return {}
@@ -135,6 +169,7 @@ class InitializeStep(Step):
 
     def update(self, state):
         t0 = time.time()
+        self._check_declared_genotype()
         raw_data = self.config['raw_data']
 
         sim_data = SimulationDataEcoli()

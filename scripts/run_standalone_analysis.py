@@ -10,8 +10,10 @@ v2ecoli.workflow.analysis.ANALYSIS_REGISTRY for both -- distinguished by
     are ``AnalysisStep`` subclasses (e.g. multiseed's doubling_time_distribution)
     -- this script builds row records straight from summary.json and calls
     ``cls({}, core=core).analyze(rows)`` (unchanged from before).
-  * scripts/run_batch_baseline_ray.py's multi-generation dispatch (emitter=
-    "both") ALSO writes hive-parquet under the same S3 prefix. This unlocks the
+  * The multi-generation batch dispatch (BatchBaselineRunner, run through
+    sms_api.compose.run_pbg's generic runner -- see viva-api backlog items
+    26/27) uses emitter="both", which ALSO writes hive-parquet under the same
+    S3 prefix. This unlocks the
     DuckDB-based ``Analysis`` family -- the cd1/ptools omics suite
     (ptools_rna, cd1_metabolomics, etc.), the actual original backlog target
     ("reproduce CD1 datasets"), never reachable via standalone analysis before.
@@ -28,7 +30,7 @@ these dispatch shapes' output at all -- this script is what actually runs.
 The single-generation dispatch has no cell division, so `divided`/
 `division_time` are always False/0.0 for THAT path's rows -- an honest
 reflection of what it actually simulates, not a bug. The multi-generation path
-has real division data (run_batch_baseline_ray.py's own real gap-2 fix).
+has real division data (the batch dispatch's own real gap-2 fix).
 
 Usage:
     python scripts/run_standalone_analysis.py \

@@ -8,7 +8,7 @@ directly from CSV flat files.
 import io
 import os
 import json
-from typing import List, Dict
+from typing import List, Dict, Optional
 import warnings
 
 from v2ecoli.processes.parca.reconstruction.spreadsheets import read_tsv
@@ -181,6 +181,7 @@ class KnowledgeBaseEcoli(object):
         remove_rrff: bool,
         stable_rrna: bool,
         new_genes_option: str = "off",
+        gene_deletions: Optional[List[str]] = None,
         bundle=None,
     ):
         if bundle is None:
@@ -190,6 +191,7 @@ class KnowledgeBaseEcoli(object):
         self.operons_on = operons_on
         self.stable_rrna = stable_rrna
         self.new_genes_option = new_genes_option
+        self.gene_deletions: List[str] = list(gene_deletions or [])
 
         if not operons_on and remove_rrna_operons:
             warnings.warn(
@@ -342,6 +344,9 @@ class KnowledgeBaseEcoli(object):
 
         self._join_data()
         self._modify_data()
+
+        for gene_id in self.gene_deletions:
+            self._delete_gene(gene_id)
 
         if self.new_genes_option != "off":
             self._check_new_gene_ids(nested_attr)
@@ -727,3 +732,239 @@ class KnowledgeBaseEcoli(object):
             )
 
         return insertion_seq
+
+    # --- Chromosome-level gene deletion ------------------------------------
+    #
+    # COORDINATE CONVENTION: left_end_pos / right_end_pos are 1-based and
+    # INCLUSIVE, matching the EcoCyc-derived flat files. A feature spanning
+    # [L, R] occupies genome_sequence[L - 1 : R] (see
+    # v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/
+    # getter_functions.py:194, which slices exactly that way) and has length
+    # R - L + 1. Every slice and comparison
+    # below assumes this; getting it wrong is silent, because feature LENGTHS
+    # stay correct under an off-by-one while the SEQUENCE shifts.
+
+    def _delete_gene(self, del_gene_id):
+        """
+        Delete a gene from the chromosome: splice it out of the genome
+        sequence, null its own coordinates, detach it from the transcription
+        units that carry it, and shift every downstream feature left by the
+        deleted length.
+
+        Args:
+            del_gene_id: id of the gene to delete
+        """
+        genes_data = getattr(self, "genes")
+        tus_data = getattr(self, "transcription_units")
+
+        gene_data = next(
+            (gene for gene in genes_data if gene["id"] == del_gene_id), None
+        )
+        assert gene_data is not None, (
+            f"Cannot delete {del_gene_id}: no such gene in the knowledge base."
+        )
+
+        del_left_pos = gene_data["left_end_pos"]
+        del_right_pos = gene_data["right_end_pos"]
+        assert self._has_coordinates(gene_data), (
+            f"Cannot delete {del_gene_id}: it has no coordinates (it may "
+            f"already have been deleted)."
+        )
+        del_len = del_right_pos - del_left_pos + 1
+
+        # Splice the gene out of the genome sequence. 1-based inclusive
+        # coordinates [L, R] are genome_sequence[L - 1 : R], so the flanks
+        # to KEEP are [:L - 1] and [R:].
+        original_length = len(self.genome_sequence)
+        self.genome_sequence = (
+            self.genome_sequence[: del_left_pos - 1]
+            + self.genome_sequence[del_right_pos:]
+        )
+        assert len(self.genome_sequence) == original_length - del_len
+
+        # Detach the gene from the transcription units that carry it. A TU
+        # left with no genes has no meaningful coordinates.
+        for tu_data in tus_data:
+            if del_gene_id not in tu_data["genes"]:
+                continue
+            if len(tu_data["genes"]) == 1:
+                tu_data.update({"left_end_pos": None, "right_end_pos": None})
+            else:
+                genes_in_tu = [g for g in tu_data["genes"] if g != del_gene_id]
+                tu_data.update({"genes": genes_in_tu})
+                self._annotate_removed(tu_data, del_gene_id)
+
+        # Null the deleted gene's own coordinates. Doing this BEFORE the
+        # coordinate update is what keeps it out of the containment branch
+        # below (it exits at the no-coordinate-data guard instead).
+        gene_data.update({"left_end_pos": None, "right_end_pos": None})
+
+        self._update_gene_locations_for_deletion(
+            del_gene_id, del_left_pos, del_right_pos
+        )
+
+    def _update_gene_locations_for_deletion(
+        self, del_gene_id, del_left_pos, del_right_pos
+    ):
+        """
+        Modify positions of genes, transcription units, and DNA sites based
+        upon the location of a deleted gene.
+        """
+        genes_data = getattr(self, "genes")
+        tu_data = getattr(self, "transcription_units")
+        dna_sites_data = getattr(self, "dna_sites")
+
+        # Update global positions of original genes
+        self._update_global_coordinates_for_deletion(
+            genes_data, "gene", del_gene_id, del_left_pos, del_right_pos
+        )
+
+        # Update global positions of transcription units
+        if tu_data:
+            self._update_global_coordinates_for_deletion(
+                tu_data, "tu", del_gene_id, del_left_pos, del_right_pos
+            )
+
+        # Update DNA site positions
+        # (including the origin and terminus of replication)
+        self._update_global_coordinates_for_deletion(
+            dna_sites_data, "dna_site", del_gene_id, del_left_pos, del_right_pos
+        )
+
+    @staticmethod
+    def _has_coordinates(row):
+        """True when a row carries usable left AND right coordinates."""
+        left = row["left_end_pos"]
+        right = row["right_end_pos"]
+        return not (
+            left is None or right is None or left == "" or right == ""
+        )
+
+    @staticmethod
+    def _classify_against_deletion(left, right, del_left_pos, del_right_pos):
+        """
+        Classify a feature's position relative to a deletion. TOTAL over all
+        (left <= right, del_left_pos <= del_right_pos) — every input returns
+        exactly one of six labels, so callers need no fallthrough case.
+
+        Returns one of:
+            'before'        entirely upstream; unaffected
+            'after'         entirely downstream; shifts left by del_len
+            'contained'     wholly inside the deletion; removed with it
+            'spans'         starts before and ends after; loses its middle
+            'overlaps_left' starts before, ends inside; truncated at the cut
+            'overlaps_right' starts inside, ends after; 5' portion removed
+        """
+        if right < del_left_pos:
+            return "before"
+        if left > del_right_pos:
+            return "after"
+        # Everything below intersects the deletion.
+        if left >= del_left_pos and right <= del_right_pos:
+            return "contained"
+        if left < del_left_pos and right > del_right_pos:
+            return "spans"
+        if left < del_left_pos:
+            return "overlaps_left"
+        return "overlaps_right"
+
+    def _update_global_coordinates_for_deletion(
+        self, data, data_type, del_gene_id, del_left_pos, del_right_pos
+    ):
+        """
+        Updates the left and right positions for all elements in data if
+        their positions will be impacted by the gene deletion. Features lying
+        wholly inside the deletion are removed from data.
+
+        Args:
+            data: Data attribute to update (mutated in place)
+            data_type: One of 'gene', 'tu', 'dna_site' — controls messaging
+            del_gene_id: id of the gene being deleted
+            del_left_pos: 1-based inclusive left end of the deletion
+            del_right_pos: 1-based inclusive right end of the deletion
+        """
+        del_len = del_right_pos - del_left_pos + 1
+        # Collect removals rather than mutating `data` mid-iteration, which
+        # would skip the element following each removed one.
+        to_remove = []
+
+        for row in data:
+            # No coordinate data — nothing to update. Deliberately tolerant of
+            # a half-populated row (one end set, the other not), which would
+            # otherwise raise a TypeError on comparison.
+            if not self._has_coordinates(row):
+                continue
+
+            left = row["left_end_pos"]
+            right = row["right_end_pos"]
+            assert left <= right, (
+                f"{data_type} {row['id']} has left_end_pos {left} > "
+                f"right_end_pos {right}"
+            )
+
+            case = self._classify_against_deletion(
+                left, right, del_left_pos, del_right_pos
+            )
+
+            if case == "before":
+                continue
+
+            if case == "contained":
+                if data_type in ("gene", "dna_site"):
+                    warnings.warn(
+                        f"{row['id']} is contained within the deletion of "
+                        f"{del_gene_id} and will also be deleted."
+                    )
+                to_remove.append(row)
+                continue
+
+            if case == "after":
+                # Pure translation; the feature itself is untouched.
+                row.update(
+                    {
+                        "left_end_pos": left - del_len,
+                        "right_end_pos": right - del_len,
+                    }
+                )
+                continue
+
+            # The remaining cases all LOSE sequence to the deletion.
+            if case == "overlaps_left":
+                # Starts before, ends inside: truncate at the cut. The kept
+                # portion lies entirely upstream, so it does not shift.
+                updated_left, updated_right = left, del_left_pos - 1
+            elif case == "overlaps_right":
+                # Starts inside, ends after: the surviving 3' portion begins
+                # where the deletion used to start.
+                updated_left, updated_right = del_left_pos, right - del_len
+            else:  # 'spans'
+                # Starts before, ends after: keeps both flanks, loses del_len.
+                updated_left, updated_right = left, right - del_len
+
+            row.update(
+                {"left_end_pos": updated_left, "right_end_pos": updated_right}
+            )
+            if data_type in ("tu", "dna_site"):
+                self._annotate_removed(row, del_gene_id)
+
+        for row in to_remove:
+            data.remove(row)
+
+    @staticmethod
+    def _annotate_removed(row, del_gene_id):
+        """
+        Mark a feature's common name to record that it lost content to a
+        deletion. Applied only to features that were truncated or lost a
+        member gene — NOT to features that merely shifted position, which
+        would otherwise tag every feature downstream of the deletion.
+
+        Idempotent per deleted gene: a transcription unit that both loses a
+        member gene and is truncated by that same deletion is marked once.
+        """
+        marker = f"_removed_{del_gene_id}"
+        previous_common_name = row["common_name"]
+        if previous_common_name is None:
+            previous_common_name = ""
+        if previous_common_name.endswith(marker):
+            return
+        row.update({"common_name": previous_common_name + marker})

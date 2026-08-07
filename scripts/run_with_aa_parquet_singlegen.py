@@ -38,7 +38,7 @@ def main() -> None:
     print("-" * 60)
     os.makedirs(PARQUET_OUT, exist_ok=True)
 
-    core = build_core()
+    build_core()
     t_wall0 = time.time()
 
     with parquet_emitter(

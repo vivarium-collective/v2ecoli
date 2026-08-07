@@ -90,7 +90,6 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-import yaml
 
 from v2ecoli.library.report_card import grade_card, verdict_json
 

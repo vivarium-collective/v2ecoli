@@ -168,7 +168,7 @@ dashboard:
   # DiffusionAdvection, CellFieldExchange, …) used by the colony composites —
   # first-class v2ecoli content, so it belongs in the registry alongside v2ecoli.
   registry:
-    include: [v2ecoli, viva_munk, pbg_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
+    include: [v2ecoli, viva_munk, viva_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
   # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
   # input files) with links — inherited files link to the pinned ecoli-sources
   # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.

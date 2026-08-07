@@ -1,0 +1,6 @@
+[
+ {"tag": "rida0p1_thr8", "env": {"RIDA_RATE_MULTIPLIER": 0.1, "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "rida0_thr8",   "env": {"RIDA_RATE_MULTIPLIER": 0.0, "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "dars5_thr8",   "env": {"DARS1_RATE_MULTIPLIER": 5.0, "DARS2_RATE_MULTIPLIER": 5.0, "DNAA_INIT_LOW_THRESHOLD": 8}},
+ {"tag": "rida0_dars5_thr8", "env": {"RIDA_RATE_MULTIPLIER": 0.0, "DARS1_RATE_MULTIPLIER": 5.0, "DARS2_RATE_MULTIPLIER": 5.0, "DNAA_INIT_LOW_THRESHOLD": 8}}
+]

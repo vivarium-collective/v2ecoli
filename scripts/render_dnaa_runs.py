@@ -446,10 +446,14 @@ def render_dnaa_forms(dills_dir: Path, out_path: Path,
     }).get("html", "")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
+    # FREE-ONLY fraction — valid ONLY for the pre-binding dnaa-0/1 runs this renders
+    # (no box binding -> bulk pools ARE total). Do NOT use on dnaa-3+ active-binding
+    # runs: there DnaA-ATP is mostly bound, so use scripts/dnaa_observables.decompose
+    # (the (free+bound)/total fraction). See docs/conventions/dnaa-observable-definitions.md.
     fr = [series["atp"][i] / max(1, series["apo"][i] + series["atp"][i] + series["adp"][i])
           for i in range(len(gens))]
     print(f"  ok dnaa-forms: {out_path} ({len(html)} chars)")
-    print(f"    gens {gens}, DnaA-ATP fraction {[round(x,3) for x in fr]}")
+    print(f"    gens {gens}, DnaA-ATP fraction (free-only; pre-binding) {[round(x,3) for x in fr]}")
     return 0
 
 

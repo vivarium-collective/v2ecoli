@@ -1,0 +1,4 @@
+[
+ {"tag": "ctrl_mult1p0",   "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 1.0}},
+ {"tag": "ctrl_mult0p005", "env": {"DNAA_INTRINSIC_HYDROLYSIS_MULTIPLIER": 0.005}}
+]

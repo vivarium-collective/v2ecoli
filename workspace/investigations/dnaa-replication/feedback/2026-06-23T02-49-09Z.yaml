@@ -1,0 +1,21 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260622223513
+  generated_at: '2026-06-23T02:49:09.209Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start
+    2026-05-29)'
+  source_url: file:///Users/haochen/Downloads/investigation-dnaa-replication-2026-06-22-5.html
+annotations:
+  study-dnaa-5-cooperativity-embeds:
+  - ts: '2026-06-23T02:43:48.474Z'
+    author: Haochen
+    text: The current figures in this report are too wide that some of the legends
+      are invisible for me.
+  - ts: '2026-06-23T02:48:12.492Z'
+    author: Haochen
+    text: Here you have explored different n. How about K (currently set at 30nM)?
+      I guess decreasing K may make it easier to saturate the oriC-low.
+  - ts: '2026-06-23T02:48:38.676Z'
+    author: Haochen
+    text: I don't full understand the part of varying K_d. Is it similar to varying
+      K (currently = 30nM) in the theta expression?

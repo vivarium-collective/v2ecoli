@@ -122,17 +122,22 @@ BASE_EXECUTION_LAYERS = [
     ['ecoli-tf-unbinding'],
     ['exchange_data'], FLUSH,
 
-    # Layer 2: standalone (no partitioning needed)
-    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation'], FLUSH,
+    # Layer 2: standalone. dnaa_box_binding_listener (dnaa-3) sits next to
+    # ecoli-equilibrium so its listeners.mass read resolves to the prior tick.
+    # INVESTIGATION wiring (dnaa-replication) — NOT on main's default baseline
+    # (main keeps these dormant; see PR #244); restored on this branch for the
+    # dnaa runs (dnaa-3 box-binding, dnaa-4 autoreg, dnaa-5 rida/ddah/dars).
+    ['ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
+     'dnaa_box_binding_listener'], FLUSH,
 
-    # NOTE: the dnaA-investigation mechanism steps — dnaa-3 (dnaa-box-binding +
-    # dnaa_box_binding_listener), dnaa-4 (autoregulation in transcript_initiation),
-    # and dnaa-5 (rida / ddah / dars + library/locus_copy_number) — remain in the
-    # tree as DORMANT infrastructure but are NOT wired into the default baseline.
-    # Main's default model is the pre-investigation WCM; these are activated only
-    # by the dnaa-replication investigation (draft PR), which re-adds the layers.
+    # Layer 2b: DnaA-box equilibrium binding (dnaa-3 Phase 2) — after equilibrium.
+    ['dnaa-box-binding'], FLUSH,
 
-    # Layer 3: TF binding
+    # Layer 2c-2e: dnaa-5 extrinsic DnaA-ATP/ADP conversion — RIDA (replisome),
+    # DDAH (datA), DARS1/DARS2 (reactivation). Sequential so each caps the free pool.
+    ['rida'], FLUSH,
+    ['ddah'], FLUSH,
+    ['dars'], FLUSH,
 
     # Layer 3: TF binding
     ['ecoli-tf-binding'], FLUSH,
@@ -140,13 +145,15 @@ BASE_EXECUTION_LAYERS = [
     # Layer 4: protein degradation (standalone — no resource competition)
     ['ecoli-protein-degradation'],
 
-    # Layer 4b: standalone initiation/replication/complexation
-    ['ecoli-complexation', 'ecoli-chromosome-replication',
+    # Layer 4b: standalone initiation/complexation
+    ['ecoli-complexation',
      'ecoli-polypeptide-initiation', 'ecoli-transcript-initiation'],
-    # RNA degradation still partitioned (shares water with other processes)
-    ['ecoli-rna-degradation_requester'],
+    # allocator_2: rna-degradation + chromosome replication partitioned together
+    # (chromosome replication is now a PartitionedProcess with the sat-init gate;
+    # it competes for replisome subunits/dNTPs — matches vEcoli's flow).
+    ['ecoli-rna-degradation_requester', 'ecoli-chromosome-replication_requester'],
     ['allocator_2'],
-    ['ecoli-rna-degradation_evolver'], FLUSH,
+    ['ecoli-rna-degradation_evolver', 'ecoli-chromosome-replication_evolver'], FLUSH,
 
     # Layer 5: partition layer 3 -- elongation requesters (parallel)
     ['ecoli-polypeptide-elongation_requester', 'ecoli-transcript-elongation_requester'],
@@ -340,6 +347,22 @@ def _get_step_config(
                 merged_cfg.update(loader.get_config_by_name(cfg_name) or {})
             except (KeyError, AttributeError):
                 pass
+        # Back-compat: caches built before tf_ids was added to the monomer-counts
+        # listener config (pre-2026-06-13) lack it. Source the raw TF ids from the
+        # tf-binding config (always present) and compartment-tag them so the
+        # CountsDeriver can fold bound-TF subunit counts into the monomer total.
+        if 'tf_ids' not in merged_cfg:
+            for _src in ('ecoli-tf-binding', 'ecoli-tf-unbinding',
+                         'rna_synth_prob_listener'):
+                try:
+                    _raw = (loader.get_config_by_name(_src) or {}).get('tf_ids')
+                except (KeyError, AttributeError):
+                    _raw = None
+                if _raw:
+                    merged_cfg['tf_ids'] = [
+                        t if str(t).endswith(']') else f'{t}[c]' for t in _raw]
+                    break
+            merged_cfg.setdefault('tf_ids', [])
         instance = _make_instance(CountsDeriver, merged_cfg, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
@@ -440,7 +463,6 @@ def _get_step_config(
         'ecoli-rna-maturation': RnaMaturation,
         'ecoli-transcript-initiation': TranscriptInitiation,
         'ecoli-polypeptide-initiation': PolypeptideInitiation,
-        'ecoli-chromosome-replication': ChromosomeReplication,
     }
 
     SIMPLE_STEPS = {

@@ -1,0 +1,142 @@
+[
+  {
+    "tag": "nk_n1_K15",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 1,
+      "DNAA_ORIC_HALF_SAT_nM": 15
+    }
+  },
+  {
+    "tag": "nk_n1_K20",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 1,
+      "DNAA_ORIC_HALF_SAT_nM": 20
+    }
+  },
+  {
+    "tag": "nk_n1_K30",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 1,
+      "DNAA_ORIC_HALF_SAT_nM": 30
+    }
+  },
+  {
+    "tag": "nk_n1_K40",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 1,
+      "DNAA_ORIC_HALF_SAT_nM": 40
+    }
+  },
+  {
+    "tag": "nk_n2_K15",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 2,
+      "DNAA_ORIC_HALF_SAT_nM": 15
+    }
+  },
+  {
+    "tag": "nk_n2_K20",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 2,
+      "DNAA_ORIC_HALF_SAT_nM": 20
+    }
+  },
+  {
+    "tag": "nk_n2_K30",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 2,
+      "DNAA_ORIC_HALF_SAT_nM": 30
+    }
+  },
+  {
+    "tag": "nk_n2_K40",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 2,
+      "DNAA_ORIC_HALF_SAT_nM": 40
+    }
+  },
+  {
+    "tag": "nk_n4_K15",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 4,
+      "DNAA_ORIC_HALF_SAT_nM": 15
+    }
+  },
+  {
+    "tag": "nk_n4_K20",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 4,
+      "DNAA_ORIC_HALF_SAT_nM": 20
+    }
+  },
+  {
+    "tag": "nk_n4_K30",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 4,
+      "DNAA_ORIC_HALF_SAT_nM": 30
+    }
+  },
+  {
+    "tag": "nk_n4_K40",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 4,
+      "DNAA_ORIC_HALF_SAT_nM": 40
+    }
+  },
+  {
+    "tag": "nk_n6_K15",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 6,
+      "DNAA_ORIC_HALF_SAT_nM": 15
+    }
+  },
+  {
+    "tag": "nk_n6_K20",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 6,
+      "DNAA_ORIC_HALF_SAT_nM": 20
+    }
+  },
+  {
+    "tag": "nk_n6_K30",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 6,
+      "DNAA_ORIC_HALF_SAT_nM": 30
+    }
+  },
+  {
+    "tag": "nk_n6_K40",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 6,
+      "DNAA_ORIC_HALF_SAT_nM": 40
+    }
+  },
+  {
+    "tag": "nk_n8_K15",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 8,
+      "DNAA_ORIC_HALF_SAT_nM": 15
+    }
+  },
+  {
+    "tag": "nk_n8_K20",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 8,
+      "DNAA_ORIC_HALF_SAT_nM": 20
+    }
+  },
+  {
+    "tag": "nk_n8_K30",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 8,
+      "DNAA_ORIC_HALF_SAT_nM": 30
+    }
+  },
+  {
+    "tag": "nk_n8_K40",
+    "env": {
+      "DNAA_ORIC_COOPERATIVITY_N": 8,
+      "DNAA_ORIC_HALF_SAT_nM": 40
+    }
+  }
+]

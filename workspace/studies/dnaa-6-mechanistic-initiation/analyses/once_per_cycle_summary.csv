@@ -1,0 +1,7 @@
+config,seed,gens_emitted,steady_ATP_fraction,once_per_cycle
+ctrl,0,9,0.259,yes
+ctrl,1,9,0.129,yes
+ctrl,2,7,0.185,yes
+ecl40_rida06,0,9,,yes
+ecl40_rida06,1,9,,yes
+ecl40_rida06,2,9,,yes

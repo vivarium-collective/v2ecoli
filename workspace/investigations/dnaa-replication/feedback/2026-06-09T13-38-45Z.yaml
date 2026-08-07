@@ -1,0 +1,69 @@
+meta:
+  investigation: dnaa-replication
+  report_id: rpt-20260609121548
+  generated_at: '2026-06-09T13:38:45.739Z'
+  page_title: 'Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)'
+  source_url: file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-09-2.html
+annotations:
+  study-dnaa-1-expression-discovery:
+  - ts: '2026-06-09T13:38:44.105Z'
+    author: Rashmi
+    text: Okay, at this stage 0.8e would be okay to move forward. Lets move to the hydrolysis study.
+responses:
+  study-dnaa-1-expression-discovery:
+    status: done
+    by: claude
+    at: '2026-06-09'
+    response: |-
+      Accepted — V=0.8e-3 is the canonical dnaa-1 baseline and dnaa-1 is signed
+      off (expert_review_status -> approved). The ~0.6/min init rate stays on
+      record as the known sub-physiological tradeoff; the regulated /
+      cell-cycle-coupled synthesis lever is deferred (non-blocking).
+
+      On the hydrolysis study (dnaa-2): I checked whether the new canonical
+      V=0.8e-3 should propagate here. It should NOT — re-basing dnaa-2 to
+      V=0.8e-3 destabilizes it (the DnaA-ATP fraction drifts below the [0.2,0.5]
+      floor — gen-4 = 0.18 vs ~0.20-0.26 holding at V=1e-3 — and the seed-1
+      lineage hits an allocator crash at gen 5). dnaa-2 keeps its V=1e-3 baseline.
+      Conclusion: each study tunes its own V; the canonical dnaa-1 V does not need
+      to propagate downstream.
+
+      RE-VERIFIED dnaa-2 at V=1e-3 on the FIXED full-per-gen-history emitter
+      (seed-1 8-gen) so its PASS no longer rests on the pre-fix (truncated) Jun-4
+      data: it still PASSES on your generation-average criterion — DnaA-ATP
+      fraction avg 0.267 in [0.2,0.5] (the hydrolysis mechanism's output holds on
+      clean data), mass-doubling 8/8, oriC 1<->2 every gen, total-DnaA all-gen avg
+      575. One honest correction the clean data exposes: the total-DnaA per-gen
+      mean RAMPS upward (73→254→479→520→654→846→857→880) and sits ABOVE the 800
+      ceiling in gens 6-8, so total DnaA is in-band only on the all-gen average,
+      not per-gen — the earlier "all gens ≤660, cleanly in band" was a truncation
+      artifact. This upward drift matches the dnaa-1 finding that V=1e-3 overshoots
+      the band. The dnaa-2 mechanism conclusion is unchanged; the pool-band claim
+      is now correctly qualified as gen-average-only at V=1e-3.
+
+      Moving to the next study — dnaa-3 (DnaA-box binding) — where the
+      free-DnaA-ATP level (hence V) is the natural lever for the persistent oriC
+      low-affinity over-binding, so V may again need adjusting there.
+
+      UPDATE — dnaa-3 V-down sweep done (seed 1; chart dnaa3_v_sweep_overbinding):
+      lowering V monotonically cuts free DnaA-ATP and oriC low-affinity occupancy
+      (0.82 @ V=1e-3 -> 0.65 @ 0.8e-3 -> 0.57 @ 0.6e-3), exactly per the K_d≈100 nM
+      relation — so V IS a real lever. But it is INSUFFICIENT on its own: with
+      K_d≈100 nM and the DnaA pool held in [300,800] (free DnaA-ATP then sits
+      ~100-500 nM), low-affinity occupancy is structurally pinned at ~0.5-0.8.
+      Pushing V low enough to matter (0.6e-3) drops total DnaA below the [300,800]
+      band and destabilizes the DnaA-ATP fraction. So V-tuning cannot reach a
+      "modestly occupied" (~0.2-0.3) regime without breaking dnaa-1's in-band pool
+      or dnaa-2's fraction band — resolving the over-binding needs a DIFFERENT
+      lever (low-affinity cooperativity, a DnaA sink, or datA titration), not V.
+      This corroborates the existing honest over-binding finding.
+actions:
+  fb-9e8b180708fc8290:
+    kind: design-edit
+    target_study: dnaa-1-expression
+    proposed_text: V=0.8e-3 adopted as canonical baseline; expert_review approved; hydrolysis study (dnaa-2) exists + in progress.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: V=0.8e-3 adopted as canonical baseline; expert_review approved; hydrolysis study (dnaa-2) exists + in progress.

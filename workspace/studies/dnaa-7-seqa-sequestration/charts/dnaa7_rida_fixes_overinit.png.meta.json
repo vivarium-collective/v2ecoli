@@ -1,0 +1,7 @@
+{
+  "title": "dnaa-7 — RIDA restores one-initiation-per-cycle for the mechanistic trigger",
+  "caption": "Mechanistic DnaA-ATP/oriC trigger (oriC-low cooperative switch, n=4) + RIDA, seed 1, 8 gens. TOP: oriC count over time — the cell-mass heuristic (blue) is clean 1<->2; the mechanistic trigger WITHOUT RIDA (red) over-initiates to 4; the mechanistic trigger + full RIDA/DDAH/DARS (green) is back to clean 1<->2 with 0 re-initiations. BOTTOM: DnaA-ATP fraction per generation — the mass control sits at ~0.25 (in the [0.2,0.5] band) while RIDA at full rate crashes it to ~0.03, far below band.",
+  "interpretation": "RIDA (Regulatory Inactivation of DnaA: DnaA-ATP -> DnaA-ADP after initiation) is the missing control: it resets the cooperative DnaA-ATP switch post-initiation so a just-fired origin cannot re-fire, restoring once-per-cycle initiation (oriC 1<->2, 0 re-inits) — confirming the dnaa-7 root-cause hypothesis. The global refractory eclipse failed; RIDA is the right mechanism. Remaining: RIDA at full rate over-suppresses DnaA-ATP (fraction ~0.03 << band), so the RIDA rate needs calibration (the dnaa-05 RIDA/DDAH/DARS tuning) to hold the ATP-fraction band while keeping clean initiation. With that, the DnaA-ATP/oriC mechanism fully replaces the cell-mass heuristic.",
+  "source_runs": ["dnaa7_rida_full_seed1_8gen", "dnaa6_mech_low_coop_n4_seed1_8gen", "dnaa4_s06_F05_seed1_12gen"],
+  "script": "scripts/render_dnaa7_rida.py"
+}

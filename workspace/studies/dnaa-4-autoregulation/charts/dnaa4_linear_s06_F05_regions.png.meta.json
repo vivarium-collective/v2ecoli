@@ -1,0 +1,6 @@
+{
+  "title": "dnaa-4 reference: per-chromosome DnaA-box occupancy by region (gen 7, linear s=0.6 + F-05)",
+  "caption": "Per-chromosome box occupancy across gen 7 for the adopted reference (5 time slices: birth -> pre-init -> initiation -> post-fork daughters). oriC low-affinity occupancy stays low (2-3/8, over-binding resolved under autoregulation), oriC high-affinity full (3/3), clean fork passage to two daughters, oriC 1->2 at initiation. Reproduces page 2 of Rashmi's reference PDF.",
+  "source_runs": ["dnaa4_s06_F05_seed1_12gen"],
+  "script": "scripts/plot_dnaa3_region_panels.py"
+}

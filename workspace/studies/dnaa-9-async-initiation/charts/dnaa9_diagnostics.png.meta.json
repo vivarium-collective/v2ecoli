@@ -1,0 +1,9 @@
+{
+  "title": "dnaa-9 diagnostics \u2014 box counts, cell mass, bulk DnaA-ATP (n=4, K=30)",
+  "caption": "Cooperativity n=4, K=30 nM. Panels: cell mass; oriC count at full resolution (every initiation is +1 \u2014 the apparent 1->3 is downsampling of the fast 1->2->3 re-firing); oriC-low bound-box COUNT with the 8xn_oriC line (each origin fires at its own 8/8); bulk free DnaA-ATP; and the GLOBAL occupancy fraction (which dips to ~0.6 when one origin is full and another refilling \u2014 a global-average artifact, not partial firing).",
+  "interpretation": "Clarifies Rashmi's two questions: the trigger fires per-origin at full 8/8 occupancy (the ~0.6 is the global average across a full + a refilling origin), and every oriC step is +1 (the 1->3 is a plot-resolution artifact of the over-replicating re-firing).",
+  "source_runs": [
+    "opclean_s1"
+  ],
+  "script": "scripts/render_dnaa9_diagnostics.py"
+}

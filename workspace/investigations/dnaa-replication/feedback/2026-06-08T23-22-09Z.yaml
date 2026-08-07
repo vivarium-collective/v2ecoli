@@ -1,0 +1,39 @@
+# Inline feedback report
+# Generated from the v2ecoli inline-feedback widget.
+# Import with: pbg-feedback-import <this-file>
+meta:
+  investigation: "dnaa-replication"
+  report_id: "rpt-20260608220539"
+  generated_at: "2026-06-08T23:22:09.463Z"
+  page_title: "Investigation: DnaA / Replication Initiation (succinate, fresh start 2026-05-29)"
+  source_url: "file:///Users/rashmidissasekara/Documents/investigation-dnaa-replication-2026-06-08-5.html"
+annotations:
+  "study-dnaa-1-expression-charts":
+  - ts: "2026-06-08T23:22:06.456Z"
+    author: "Rashmi"
+    text: "try 1.2e and 1.3e as well and lets do a multiseed simulation to see if we can find a simulation where DnaA levels oscillate within band maintaining steady state dynamics."
+responses:
+  study-dnaa-1-expression-charts:
+    status: done-definitive
+    by: claude
+    at: '2026-06-08'
+    response: |-
+      Done — and a 15-generation run settled the open question definitively. Findings:
+
+      1) STEADY-STATE DYNAMICS ARE SEED-ROBUST and gen-robust: every generation divides with periodic mass-doubling and oriC oscillates 1↔2 (no reinitiation to 4) — across all 4 seeds at V=1.2e-3 AND across all 15 gens at V=1.1e-3. So the CELL CYCLE is robust; that part of your 'maintaining steady state dynamics' holds.
+
+      2) But on the DnaA-LEVEL: V=1.1e-3 does NOT equilibrate within [300,800]. The 15-gen trajectory shows the cycle-mean RAMPS PAST the band (122→485→804→976 around gen 9, within-cycle peaks ~1300) for gens 6-12, then relaxes back toward ~485 by gen 15 — an overshoot-then-settle, not a stable in-band plateau. The earlier 7-gen 'in-band 676' was a pre-equilibration artifact (gen 7 was caught mid-ramp, before the pool finished climbing over 800).
+
+      DEFINITIVE: no single CONSTITUTIVE V closes both targets. V=0.8e-3 is the only V that holds the DnaA pool oscillating within band AND steady (= exactly what you asked for — 'DnaA oscillate within band maintaining steady state') — but its dnaA init rate (~0.6/min) is sub-physiological. V≥1.0e-3 hits ~1/min but the pool overshoots the band. They cannot both be met by a constant synthesis probability.
+
+      So for the in-band-and-steady simulation you were looking for, V=0.8e-3 IS it (with the low rate as the known tradeoff). Getting BOTH in-band amplitude AND ~1/min rate would need a REGULATED / cell-cycle-coupled DnaA synthesis (a different lever than a constant V) — a new mechanism for you/Haochen to specify. Figures: dnaa1_v_sweep (7-point), dnaa1_v12_multiseed (4-seed), dnaa1_v11_equilibration (15-gen trajectory).
+actions:
+  fb-62a798f581d7a44b:
+    kind: design-edit
+    target_study: dnaa-1-expression
+    proposed_text: Added 1.2e-3 & 1.3e-3 sweep + 4-seed multiseed at V=1.2e-3; steady across seeds, peaks overshoot 800.
+    status: applied
+    proposed_by: claude
+    by: claude
+    at: '2026-06-14T04:47:36Z'
+    applied_note: Added 1.2e-3 & 1.3e-3 sweep + 4-seed multiseed at V=1.2e-3; steady across seeds, peaks overshoot 800.

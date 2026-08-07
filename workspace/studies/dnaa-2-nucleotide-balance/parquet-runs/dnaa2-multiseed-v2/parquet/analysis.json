@@ -1,0 +1,146 @@
+{
+  "multiseed": {
+    "doubling_time_distribution": {
+      "variant=0": {
+        "n_cells": 15,
+        "n_divided": 11,
+        "doubling_time_mean": 5053.636363636364,
+        "doubling_time_std": 857.669386686679,
+        "final_dry_mass_mean": 346.04061014132986
+      }
+    }
+  },
+  "multigeneration": {
+    "mass_growth_across_generations": {
+      "variant=0/seed=0": {
+        "n_generations": 4,
+        "per_generation": [
+          {
+            "generation": 0,
+            "newborn_dry_mass": 188.720939528514,
+            "final_dry_mass": 348.6441668739376,
+            "division_time": 4399.0,
+            "fold_change": 1.8474058456097324
+          },
+          {
+            "generation": 1,
+            "newborn_dry_mass": 182.64228360033388,
+            "final_dry_mass": 361.54526820564047,
+            "division_time": 5199.0,
+            "fold_change": 1.9795266522005945
+          },
+          {
+            "generation": 2,
+            "newborn_dry_mass": 181.24705682983227,
+            "final_dry_mass": 320.92975532720345,
+            "division_time": 4799.0,
+            "fold_change": 1.7706756784939979
+          },
+          {
+            "generation": 3,
+            "newborn_dry_mass": 165.46493410754482,
+            "final_dry_mass": 260.989859545807,
+            "division_time": 7200.0,
+            "fold_change": 1.5773122018480075
+          }
+        ],
+        "mean_division_time": 5399.25
+      },
+      "variant=0/seed=1": {
+        "n_generations": 3,
+        "per_generation": [
+          {
+            "generation": 0,
+            "newborn_dry_mass": 188.720863575316,
+            "final_dry_mass": 343.41057843844067,
+            "division_time": 4799.0,
+            "fold_change": 1.819674687432691
+          },
+          {
+            "generation": 1,
+            "newborn_dry_mass": 172.40057939083607,
+            "final_dry_mass": 322.2583796246756,
+            "division_time": 5599.0,
+            "fold_change": 1.8692418596465878
+          },
+          {
+            "generation": 2,
+            "newborn_dry_mass": 168.23439956620842,
+            "final_dry_mass": 328.6108632442647,
+            "division_time": 5999.0,
+            "fold_change": 1.9532917411158848
+          }
+        ],
+        "mean_division_time": 5465.666666666667
+      },
+      "variant=0/seed=2": {
+        "n_generations": 4,
+        "per_generation": [
+          {
+            "generation": 0,
+            "newborn_dry_mass": 188.72094542169253,
+            "final_dry_mass": 346.7762892782349,
+            "division_time": 4399.0,
+            "fold_change": 1.8375082241315155
+          },
+          {
+            "generation": 1,
+            "newborn_dry_mass": 181.18476604019463,
+            "final_dry_mass": 329.3642094512219,
+            "division_time": 5999.0,
+            "fold_change": 1.8178361053718757
+          },
+          {
+            "generation": 2,
+            "newborn_dry_mass": 165.30798787849494,
+            "final_dry_mass": 302.43386529729685,
+            "division_time": 7200.0,
+            "fold_change": 1.8295175519261204
+          },
+          {
+            "generation": 3,
+            "newborn_dry_mass": 178.0383316043945,
+            "final_dry_mass": 480.96976626141645,
+            "division_time": 4399.0,
+            "fold_change": 2.7014955820308573
+          }
+        ],
+        "mean_division_time": 5499.25
+      },
+      "variant=0/seed=3": {
+        "n_generations": 4,
+        "per_generation": [
+          {
+            "generation": 0,
+            "newborn_dry_mass": 188.7209213703449,
+            "final_dry_mass": 359.5173859131103,
+            "division_time": 4399.0,
+            "fold_change": 1.905021358006171
+          },
+          {
+            "generation": 1,
+            "newborn_dry_mass": 190.33868449642154,
+            "final_dry_mass": 366.95495160408734,
+            "division_time": 4399.0,
+            "fold_change": 1.9279052630574751
+          },
+          {
+            "generation": 2,
+            "newborn_dry_mass": 189.72015883140705,
+            "final_dry_mass": 346.83537339614577,
+            "division_time": 4399.0,
+            "fold_change": 1.8281419092862852
+          },
+          {
+            "generation": 3,
+            "newborn_dry_mass": 177.78706111760005,
+            "final_dry_mass": 371.3684396584648,
+            "division_time": 4799.0,
+            "fold_change": 2.0888383964726054
+          }
+        ],
+        "mean_division_time": 4499.0
+      }
+    }
+  }
+}

@@ -147,6 +147,11 @@ def load_active(run: str, generation: int | None = None):
                    (c(L+"oriC_high_bound_atp")+c(L+"oriC_high_bound_adp")+c(L+"oriC_low_bound_atp")).alias("oric_n_bound"),
                    (c(L+"oriC_high_free")+c(L+"oriC_high_bound_atp")+c(L+"oriC_high_bound_adp")
                     +c(L+"oriC_low_free")+c(L+"oriC_low_bound_atp")).alias("oric_n_total"),
+                   # oriC-low and oriC-high tracked SEPARATELY (Rashmi 2026-06-16):
+                   c(L+"oriC_low_bound_atp").alias("oric_low_bound"),
+                   c(L+"oriC_low_free").alias("oric_low_free"),
+                   (c(L+"oriC_high_bound_atp")+c(L+"oriC_high_bound_adp")).alias("oric_high_bound"),
+                   c(L+"oriC_high_free").alias("oric_high_free"),
                    (c(L+"promoter_high_bound_atp")+c(L+"promoter_high_bound_adp")).alias("dnaap_n_bound"),
                    (c(L+"promoter_high_free")+c(L+"promoter_high_bound_atp")+c(L+"promoter_high_bound_adp")).alias("dnaap_n_total"),
                    (c(L+"chromosomal_high_bound_atp")+c(L+"chromosomal_high_bound_adp")).alias("chrom_n_bound"),
@@ -156,8 +161,9 @@ def load_active(run: str, generation: int | None = None):
                    c("listeners__mass__cell_mass").alias("mass")])
           .sort("global_time").collect())
     df = df.with_columns([
-        (c("oric_n_bound")/pl.max_horizontal(c("oric_n_total"), pl.lit(1))).alias("oric_low_occ"),
-        (pl.lit(1.0)).alias("oric_high_occ"),
+        # REAL per-pool occupancy = bound / (bound + free), low and high SEPARATELY
+        (c("oric_low_bound")/pl.max_horizontal(c("oric_low_bound")+c("oric_low_free"), pl.lit(1))).alias("oric_low_occ"),
+        (c("oric_high_bound")/pl.max_horizontal(c("oric_high_bound")+c("oric_high_free"), pl.lit(1))).alias("oric_high_occ"),
     ])
     return df
 
@@ -280,13 +286,22 @@ def main_insim(args):
 
     axc = fig.add_subplot(gs[1, :])
     free_atp = df["free_atp_nM"].to_numpy()
-    axc.plot(tmin, free_atp, color="#0f172a", lw=1.6)
+    axc.plot(tmin, free_atp, color="#0f172a", lw=1.6, label="free DnaA-ATP (nM)")
     axc.scatter(tmin[idx], free_atp[idx], color="#dc2626", zorder=5, s=28)
     axc.axhline(100.0, color="#dc2626", ls="--", lw=1, label="K_d(oriC-low)=100 nM")
     axc.set_xlabel("cell-cycle time (min)"); axc.set_ylabel("free DnaA-ATP\n(nM, emitted)")
-    axc.set_title("In-sim free DnaA-ATP (emitted, read-only) vs the 100 nM oriC-low K_d "
-                  f"(median {np.median(free_atp):.0f} nM, mean {free_atp.mean():.0f} nM)", fontsize=9)
-    axc.legend(fontsize=8); axc.grid(alpha=0.25)
+    axc.set_title("In-sim free DnaA-ATP vs the 100 nM oriC-low K_d "
+                  f"(median {np.median(free_atp):.0f} nM, mean {free_atp.mean():.0f} nM) — "
+                  "oriC-low vs oriC-high occupancy tracked separately (right axis)", fontsize=9)
+    # oriC-LOW occupancy tracked SEPARATELY from oriC-high (Rashmi 2026-06-16), right axis
+    low_occ = df["oric_low_occ"].to_numpy(); high_occ = df["oric_high_occ"].to_numpy()
+    axo = axc.twinx()
+    axo.plot(tmin, low_occ, color="#16a34a", lw=1.6, label="oriC-low occupancy")
+    axo.plot(tmin, high_occ, color="#9333ea", lw=1.2, ls="--", label="oriC-high occupancy")
+    axo.set_ylabel("oriC site occupancy\n(bound / total)"); axo.set_ylim(0, 1.05)
+    h1, l1 = axc.get_legend_handles_labels(); h2, l2 = axo.get_legend_handles_labels()
+    axc.legend(h1 + h2, l1 + l2, fontsize=7.5, loc="upper right", ncol=2)
+    axc.grid(alpha=0.25)
 
     handles = [
         Line2D([], [], marker="o", ls="", mfc="#475569", mec="#475569", ms=9, label="DnaA-bound box"),

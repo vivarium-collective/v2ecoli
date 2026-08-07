@@ -128,7 +128,6 @@ timeout_method = "thread"
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
-
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
@@ -144,7 +143,6 @@ pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-biore
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
-investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
 ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "5abf48ad1449b21ec2b2dd9135ec19a1912b23ef" }

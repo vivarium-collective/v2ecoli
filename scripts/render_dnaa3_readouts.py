@@ -23,6 +23,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+# canonical DnaA pool decomposition + ATP/ADP fraction — the SINGLE source of truth
+# (the fraction is (free+bound)/total, NOT free-only; see dnaa_observables docstring).
+import dnaa_observables as dnaa
+
 AVOGADRO = 6.02214076e23
 DENSITY_G_PER_L = 1100.0
 N_HIGH = 302 + 3 + 2     # chromosomal + oriC-high + promoter (ATP+ADP, K_d 1 nM)
@@ -40,17 +44,21 @@ def load(run, gens):
     if not fs:
         raise SystemExit(f"no parquet found under {run}")
     ids = pl.scan_parquet(fs[0]).select("bulk__id").head(1).collect()["bulk__id"][0].to_list()
+    have = set(pl.scan_parquet(fs[0]).collect_schema().names())
     def bi(m): return ids.index(m)
     bc = pl.col("bulk__count")
+    # canonical bound-pool listener columns (present on active-binding runs)
+    bound_cols = [c for c in (dnaa.BOUND_ATP_COLS + dnaa.BOUND_ADP_COLS) if c in have]
     df = (pl.scan_parquet(fs, hive_partitioning=True)
           .filter(pl.col("agent_id").cast(pl.Utf8).str.contains("^0+$"))
           .select(["global_time", "generation",
-                   bc.list.get(bi("PD03831[c]")).alias("apo"),
-                   bc.list.get(bi("MONOMER0-160[c]")).alias("atp"),
-                   bc.list.get(bi("MONOMER0-4565[c]")).alias("adp"),
+                   bc.list.get(bi(dnaa.APO_ID)).alias("apo"),
+                   bc.list.get(bi(dnaa.ATP_ID)).alias("atp"),
+                   bc.list.get(bi(dnaa.ADP_ID)).alias("adp"),
                    pl.col("listeners__mass__cell_mass").alias("mass"),
                    pl.col("listeners__replication_data__number_of_oric").alias("oric"),
-                   pl.col("listeners__replication_data__total_DnaA_boxes").alias("boxes")])
+                   pl.col("listeners__replication_data__total_DnaA_boxes").alias("boxes")]
+                  + [pl.col(c) for c in bound_cols])
           .sort(["generation", "global_time"]).collect())
     return df
 
@@ -71,7 +79,9 @@ def main():
     t = (gt + off) / 60
     apo = df["apo"].to_numpy(); atp = df["atp"].to_numpy(); adp = df["adp"].to_numpy()
     mass = df["mass"].to_numpy(); oric = df["oric"].to_numpy()
-    total = apo + atp + adp
+    # CANONICAL DnaA pool decomposition (free + bound) — single source of truth.
+    dec = dnaa.decompose_from_frame(df)
+    total = dec["total_dnaa"]          # apo + free + bound (NOT free-only)
     V_L = mass * 1e-15 / DENSITY_G_PER_L
     atp_nM = atp / (V_L * AVOGADRO) * 1e9
     adp_nM = adp / (V_L * AVOGADRO) * 1e9
@@ -93,33 +103,43 @@ def main():
     total_bound = high_bound + low_bound
 
     fig, ax = plt.subplots(3, 2, figsize=(13, 10))
-    fig.suptitle("dnaa-3 — DnaA-box binding readouts on the succinate lineage "
-                 "(fast-equilibrium model on the dnaa-2 baseline)", fontsize=13)
+    fig.suptitle("dnaa-3 — DnaA-box binding readouts on the dnaa-4 reference config "
+                 "(linear autoregulation s=0.6 + F-05, V=1.5e-3, k_h=0.025/min)", fontsize=13)
 
     a = ax[0, 0]; a.plot(t, total / mass, color="#0f172a"); a.set_title("Total DnaA concentration (count / cell mass)")
     a.set_ylabel("count / fg"); a.grid(alpha=0.25)
 
     a = ax[0, 1]
-    fr_atp = atp / total; fr_adp = adp / total
-    a.plot(t, fr_atp, color="#7c3aed", label="DnaA-ATP fraction")
-    a.plot(t, fr_adp, color="#f59e0b", label="DnaA-ADP fraction")
+    fr_atp = dec["atp_fraction"]; fr_adp = dec["adp_fraction"]   # (free+bound)/total — canonical
+    a.plot(t, fr_atp, color="#7c3aed", lw=0.6, alpha=0.45, label="DnaA-ATP fraction (per tick)")
+    a.plot(t, fr_adp, color="#f59e0b", lw=0.6, alpha=0.45, label="DnaA-ADP fraction (per tick)")
+    # per-generation means — the in-band signal (matches dnaa-4's gen-mean in [0.2,0.5]).
+    genv = df["generation"].to_numpy()
+    gxs, atp_gm, adp_gm = [], [], []
+    for gg in sorted(set(genv.tolist())):
+        gm = genv == gg
+        gxs.append(t[gm].mean()); atp_gm.append(fr_atp[gm].mean()); adp_gm.append(fr_adp[gm].mean())
+    a.plot(gxs, atp_gm, "o-", color="#5b21b6", ms=4, lw=1.4, label="DnaA-ATP fraction (gen mean)")
+    a.plot(gxs, adp_gm, "o-", color="#b45309", ms=4, lw=1.4, label="DnaA-ADP fraction (gen mean)")
     a.axhspan(0.2, 0.5, color="#22c55e", alpha=0.12)
     a.axhline(0.2, color="#16a34a", lw=0.7, ls="--"); a.axhline(0.5, color="#16a34a", lw=0.7, ls="--")
-    a.set_title("DnaA-ATP & DnaA-ADP fraction ([0.2,0.5] band)"); a.set_ylabel("fraction")
-    a.legend(fontsize=7); a.grid(alpha=0.25)
+    a.set_ylim(0, 1.0)
+    a.set_title("DnaA-ATP & DnaA-ADP fraction ([0.2,0.5] band) — (free+bound)/total, gen-mean in band")
+    a.set_ylabel("fraction"); a.legend(fontsize=6); a.grid(alpha=0.25)
 
     a = ax[1, 0]; a.step(t, oric, where="post", color="#16a34a")
     a.set_title("number of oriC (1↔2, one initiation/gen)"); a.set_ylabel("oriC"); a.set_yticks([1, 2, 3, 4]); a.grid(alpha=0.25)
 
     # DnaA counts in ALL forms (apo / DnaA-ATP / DnaA-ADP), free + bound.
-    # The bulk apo/ATP/ADP counts are the TOTAL of each nucleotide form (binding is
-    # read-only: bound DnaA is still in the bulk pool), so free = bulk - bound_form.
+    # Under the ACTIVE Langmuir binding (this run), the bulk pools are the FREE counts
+    # (binding depletes them); the bound counts come from the replication_data listeners.
+    # So total-of-form = free (bulk) + bound (listener) — the canonical decomposition.
     a = ax[1, 1]
-    a.plot(t, atp, color="#2563eb", label="DnaA-ATP (total)")
-    a.plot(t, adp, color="#f59e0b", label="DnaA-ADP (total)")
-    a.plot(t, apo, color="#64748b", label="apoDnaA (total)")
-    a.plot(t, atp - high_bound_atp - low_bound, color="#2563eb", ls=":", lw=0.9, label="DnaA-ATP free")
-    a.plot(t, adp - high_bound_adp, color="#f59e0b", ls=":", lw=0.9, label="DnaA-ADP free")
+    a.plot(t, dec["free_atp"] + dec["bound_atp"], color="#2563eb", label="DnaA-ATP (total)")
+    a.plot(t, dec["free_adp"] + dec["bound_adp"], color="#f59e0b", label="DnaA-ADP (total)")
+    a.plot(t, apo, color="#64748b", label="apoDnaA")
+    a.plot(t, dec["free_atp"], color="#2563eb", ls=":", lw=0.9, label="DnaA-ATP free")
+    a.plot(t, dec["free_adp"], color="#f59e0b", ls=":", lw=0.9, label="DnaA-ADP free")
     a.set_title("DnaA counts, all forms (bound + free)"); a.set_ylabel("count"); a.legend(fontsize=6); a.grid(alpha=0.25)
 
     a = ax[2, 0]

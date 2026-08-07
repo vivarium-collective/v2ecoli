@@ -1,0 +1,391 @@
+schema_version: 4
+name: dnaa-6-mechanistic-initiation
+investigation: dnaa-replication
+title: "Study 6 — Mechanistic Initiation"   # reader-friendly (matches Study 0-4 convention); was: dnaa-6 — mechanistic replication initiation (DnaA-ATP/oriC trigger replaces the cell-mass heuristic)
+created: "2026-06-18"
+status: completed
+design_status: designed
+implementation_status: implemented
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: partial   # UPDATE 2026-06-27 (F-04): on current code the cooperative oriC-low + mechanistic-low trigger gives clean ONCE-PER-CYCLE initiation, oriC strictly 1<->2 (never 4), seed-robust over 8 gens — the over-init below does NOT reproduce (it was a 59e108fb-build property). Cell-cycle criterion now MET; gate stays partial only on the still-open DnaA-ATP-fraction band (seed-variable, carried from dnaa-4/5). Historical (59e108fb): "SUSTAINS the cycle (8/8 divide) but OVER-initiates (oriC->4) without a re-init block (SeqA)". See F-04 + verdict.
+expert_review_status: pending
+
+seeded_from:
+  study: dnaa-5-cooperativity
+  why: "PREREQUISITE ORDER (Rashmi 2026-06-18): the mechanistic initiation trigger requires a SWITCH-LIKE oriC filament, which is dnaa-5-cooperativity. This study (dnaa-6) was run FIRST as a diagnostic and conclusively showed the swap is non-viable until cooperativity lands — so dnaa-5 (cooperativity) gates dnaa-6 (this swap). Built on the dnaa-3/4 binding lineage."
+
+pipeline_gate:
+  prerequisites:
+    - dnaa-5-cooperativity
+  enables:
+    - dnaa-7-seqa-sequestration
+  gate_status: partial
+
+question: >-
+  Can chromosome replication initiation be triggered by DnaA-ATP binding to oriC (the
+  biological mechanism) instead of the inherited cell-mass-per-origin heuristic, while
+  preserving the cell cycle? And is the binding signal stable enough to serve as the
+  trigger?
+
+background: >-
+  v2ecoli inherits the wcEcoli initiation heuristic: a round initiates when
+  cell_mass / n_oriC >= criticalInitiationMass (~975 fg, tau-scaled) — chromosome_replication.py.
+  The DnaA-box binding built in dnaa-3 (and stabilized by dnaa-4 autoregulation) is purely
+  observational ("does NOT gate initiation"). dnaa-6 wires that binding into the initiation
+  decision so initiation fires on the DnaA-ATP filament at oriC — the real trigger.
+
+mechanism: >-
+  Flag-gated swap in chromosome_replication.py (commit 59e108fb): DNAA_INITIATION_TRIGGER=mechanistic
+  fires initiation when the oriC high-affinity DnaA boxes are saturated with DnaA-ATP
+  (oriC_high_bound_atp >= DNAA_INIT_HIGH_THRESHOLD * n_oriC, default 3 = all 3 high-affinity
+  sites), read from the replication_data listener. Default 'mass' = baseline byte-identical.
+  Centralized in _should_initiate(), used at both the request and evolve gates.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.baseline.baseline
+    params:
+      seed: 1
+      cache_dir: out/cache_dnaa4_s06_F05
+      max_generations: 8
+      single_daughters: true
+      perturbations: {"TU00259[c]": 1.5e-3}
+      note: "dnaa-4 reference config (linear s=0.6 + F-05, V=1.5e-3, k_h=0.025, RIDA/DDAH/DARS off)."
+  variants:
+    - name: mass-trigger-control
+      diff_from_baseline: "DNAA_INITIATION_TRIGGER=mass (the inherited heuristic)"
+      run: dnaa4_s06_F05_seed1_12gen
+      note: "The dnaa-4 reference run IS the mass-trigger control (identical config, mass trigger)."
+    - name: mechanistic-trigger
+      diff_from_baseline: "DNAA_INITIATION_TRIGGER=mechanistic, DNAA_INIT_HIGH_THRESHOLD=3"
+      run: dnaa5_mech_diag_seed1_8gen
+  model_settings: []
+
+enforced_params:
+  params:
+    growth_condition: succinate
+    code_commit: 59e108fb
+    initiation_trigger: mechanistic        # the dnaa-6 swap (baseline = mass)
+    init_high_threshold: 3                  # oriC high-affinity DnaA-ATP sites per origin
+    dnaA_expression_V: 1.5e-3
+    autoreg_form: linear
+    autoreg_strength_s: 0.6
+    F05_kinetic_apo_ATP: true
+    hydrolysis_rate_per_min: 0.025
+    kd_high_nM: 3
+    kd_low_nM: 100
+  source: dnaa-4-reference-eb4ea39 + mechanistic-initiation-swap
+
+readouts:
+  - name: number of oriC (initiation control)
+    store_path: listeners.replication_data.number_of_oric
+    units: count
+    status: primary
+  - name: cell mass at initiation
+    identifier: listeners.mass.cell_mass at the oriC 1->2 transition
+    units: fg
+    status: primary
+  - name: division interval (tau)
+    identifier: per-generation time span
+    units: min
+    status: primary
+tests:
+  - name: cell-cycle-preserved
+    classification: primary
+    description: All generations divide and oriC oscillates 1<->2 under the mechanistic trigger.
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: in_range, low: 1, high: 2}
+  - name: no-over-initiation
+    classification: primary
+    description: oriC never exceeds 2 (no spurious re-initiation under the binding trigger).
+    measure: {kind: snapshot_window, path: "listeners.replication_data.number_of_oric", window: full_lineage_from_gen_0}
+    pass_if: {op: max_le, value: 2}
+  - name: divisions-occur
+    classification: primary
+    description: Every generation completes a division (cell mass doubles per cycle).
+    measure: {kind: per_generation_mass_ratio, path: "listeners.mass.cell_mass", window: every_generation}
+    pass_if: {op: periodic_doubling_every_generation, tolerance: 0.4}
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    If the mechanistic trigger had preserved the cycle (every generation divides, oriC 1<->2),
+    the DnaA-ATP/oriC binding would be a viable replacement for the cell-mass heuristic and the
+    initiation mechanism could be adopted directly.
+  if_primary_tests_fail: >-
+    The primary tests FAILED (divisions-occur FAIL, cell-cycle-preserved FAIL): the full-
+    saturation DnaA-ATP trigger is non-viable on the current independent-site binding — it
+    under-saturates stochastically (gen-2 oriC-high stuck at 2/3), so initiation never fires and
+    the cell runs away to ~6159 fg without dividing, collapsing the lineage. The conclusion is
+    that the binding must be made COOPERATIVE (a sharp filament switch) before the initiation
+    mechanism can be swapped. This is the intended, conclusive diagnostic outcome — a productive
+    negative result that identifies the exact missing physics, not a dead end.
+
+simulation_set:
+  - name: mass-trigger-control
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline (dnaa-4 reference config)
+    duration_steps: "12 generations"
+    seeds: [1]
+    metrics: [cell_mass_at_initiation, number_of_oric, division_tau]
+    pass_fail_tests: [cell-cycle-preserved, no-over-initiation, divisions-occur]
+    note: "The dnaa-4 reference run dnaa4_s06_F05_seed1_12gen (DNAA_INITIATION_TRIGGER=mass)."
+  - name: mechanistic-trigger
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline + DNAA_INITIATION_TRIGGER=mechanistic (threshold 3/3)
+    duration_steps: "8 generations requested; 2 completed (lineage collapsed gen 2)"
+    seeds: [1]
+    metrics: [oriC_high_bound_atp, cell_mass, number_of_oric, division_tau]
+    pass_fail_tests: [cell-cycle-preserved, no-over-initiation, divisions-occur]
+    note: "Run dnaa5_mech_diag_seed1_8gen — the collapse diagnostic."
+  - name: mechanistic-trigger-payoff-multiseed
+    kind: lineage
+    status: completed
+    base_model: v2ecoli baseline + mechanistic oriC-LOW trigger (threshold 6/8) + cooperativity (n=4, K=30), RIDA off
+    duration_steps: "8 generations"
+    seeds: [0, 1, 2]
+    metrics: [cell_mass, number_of_oric, reinit_ticks, division_tau]
+    pass_fail_tests: [divisions-occur, no-over-initiation, cell-cycle-preserved]
+    note: "PAYOFF: trigger re-pointed to the oriC-low cooperative switch. Multi-seed (0/1/2): SUSTAINS 8/8 on all seeds (collapse resolved) but over-initiates to oriC 4 (1400/1591/2304 re-init ticks) — the robust 'viable-but-over-inits' result that motivates dnaa-7 (RIDA)."
+
+visualizations:
+  - name: dnaa6_once_per_cycle
+    address: image:charts/dnaa6_once_per_cycle.png
+    chart: charts/dnaa6_once_per_cycle.png
+    source_run: nk_n4_K30 (dnaa-8 sweep, seed 1)
+    config:
+      title: >-
+        PAYOFF (F-04) — the mechanistic DnaA-ATP/oriC trigger gives CLEAN once-per-cell-cycle
+        initiation at the reference operating point (n=4, K=30). TOP: cell mass sawtooths and divides
+        every generation. MIDDLE: oriC steps strictly 1<->2 — exactly one initiation per cycle, no
+        re-initiation (the earlier over-init to oriC->4 was a 59e108fb-build artifact; it does not
+        reproduce). BOTTOM: oriC-low DnaA-ATP occupancy fills, fires, and resets once per generation;
+        total DnaA holds the [300,800] band (mean 458). Regenerated in-sim from the dnaa-8 sweep.
+  - name: dnaa6_cooperativity_contrast
+    address: image:charts/dnaa6_cooperativity_contrast.png
+    chart: charts/dnaa6_cooperativity_contrast.png
+    source_run: nk_n1_K30 vs nk_n4_K30 (dnaa-8 sweep, seed 1)
+    config:
+      title: >-
+        Cooperativity sharpens the oriC-low switch and steadies DnaA homeostasis. Both n=1 and n=4
+        (same K=30) cycle once-per-generation, so cooperativity is not strictly required for cycling
+        here — but it improves the switch. TOP (oriC-low occupancy): n=1 fills gradually in a
+        staircase (Langmuir, dnaa-3 regime); n=4 switches in a sharp spike. BOTTOM (total DnaA): the
+        cooperative switch holds DnaA steadier in [300,800] (drift 0.11, CV 0.07) than n=1 (drift 0.33,
+        CV 0.15). Refines the dnaa-5 rationale for choosing n=4; confirmed in-sim by dnaa-8.
+  # dnaa6_mechanistic_collapse RETIRED (2026-07-01): the first-pass oriC-high collapse was a
+  # 59e108fb-build artifact (like the over-init in F-03/F-04) and does not reproduce on current
+  # code — a fresh re-run fires the oriC-high trigger in gen 1 (highATP 4 >= threshold 3) and
+  # divides even WITHOUT cooperativity, so there is no clean collapse to show. The "why
+  # cooperativity" science is now carried by F-01 (noisy independent-site oriC signal) and the
+  # dnaa6_cooperativity_contrast figure (n=1 gradual staircase vs n=4 sharp switch).
+
+report:
+  title: "dnaa-6 — mechanistic replication initiation"
+  verdict: >-
+    swap-is-premature-without-cooperativity (a sequencing diagnostic, NOT a binding failure).
+    IMPORTANT FRAMING (Rashmi 2026-06-18): the partial oriC filling is CORRECT-BY-DESIGN — without
+    cooperativity, independent-site binding gives partial, gradual oriC-low occupancy (the dnaa-3
+    box-binding result, which is right and complete). The collapse below is NOT the binding being
+    broken; it is this study running AHEAD of its prerequisite. The lesson: the DnaA-ATP/oriC
+    trigger cannot be adopted until cooperativity (dnaa-5) makes oriC fill switch-like.
+    EVIDENCE: at the 12 initiation events of the dnaa-4 reference run the cell-mass trigger is
+    noiseless (CV 0.00) while the oriC signal is gradual/noisy (oriC-high CV 0.16, oriC-low CV
+    0.62) — the expected behaviour of independent-site binding. When the initiation trigger is
+    (prematurely) wired onto full oriC-high DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic,
+    threshold 3/3), the cell cycle COLLAPSES: generation 1 divides, but in generation 2 the oriC
+    high-affinity boxes never all bind (stuck at 2/3), the threshold-3 trigger never fires, and the
+    cell grows unbounded to ~6159 fg (~8x normal) without dividing — the lineage stops. The failure
+    is UNDER-initiation (a missing switch), exactly because the binding is not yet switch-like.
+    CONCLUSION: dnaa-5 (cooperative DnaA-ATP filament assembly at oriC) is the PREREQUISITE; this
+    study (dnaa-6) is the diagnostic that proves the ordering. The flag-gated swap stays in the
+    codebase (default OFF), ready to re-test once dnaa-5 lands.
+    || PAYOFF RE-TEST (2026-06-20, after dnaa-5 landed): re-pointed the trigger to the oriC-LOW
+    cooperative switch (DNAA_INIT_TRIGGER_POOL=low, threshold 6/8) + cooperative binding (n=4, K=30)
+    — run dnaa6_mech_low_coop_n4_seed1_8gen. RESULT: the mechanistic trigger NOW SUSTAINS the cell
+    cycle — 8/8 generations divide (tau 38-77 min, mean ~59, CV 0.40), no runaway. The first-pass
+    collapse is RESOLVED: biology-driven (DnaA-ATP/oriC) initiation works once the binding is
+    switch-like. REMAINING ISSUE: it OVER-initiates — oriC reaches 4 (1400 re-init ticks) because
+    there is no re-initiation block (the biological eclipse / SeqA sequestration that stops a
+    just-fired origin from re-firing). The failure has flipped from UNDER-init (first-pass) to
+    OVER-init (now) — a tuning + next-mechanism issue, not structural. So the mechanistic initiation
+    is VIABLE (sustains the cycle) and the next prerequisite is SeqA sequestration (dnaa-7) and/or
+    threshold/K tuning to enforce one-initiation-per-cycle. MULTI-SEED ROBUSTNESS (seeds 0/1/2,
+    2026-06-20): the diagnosis is seed-robust — all 3 seeds SUSTAIN (8/8 divide, no runaway) AND
+    over-initiate to oriC 4 (1400/1591/2304 re-init ticks). So "viable-but-over-initiates without a
+    re-init block" is a reproducible property of the mechanism, not a seed-1 artifact — which is
+    exactly why dnaa-7 (RIDA) is the necessary next mechanism.
+
+next_action: >-
+  The mechanistic trigger now SUSTAINS the cycle (payoff done) but over-initiates. Next: add SeqA
+  sequestration (dnaa-7) — the post-initiation eclipse that blocks re-firing — and/or tune the
+  oriC-low threshold / cooperativity K so initiation fires exactly once per cycle (oriC clean
+  1<->2). Then the DnaA-ATP/oriC mechanism can fully replace the cell-mass heuristic.
+
+runs:
+  - name: dnaa6_mech_low_coop_n4_seed1_8gen
+    status: completed
+    canonical: true # the PAYOFF — mechanistic oriC-low trigger + cooperativity, sustains the cycle
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/dnaa6_mech_low_coop_n4_seed1_8gen/dnaa6_mech_low_coop_n4_seed1_8gen}
+    note: "PAYOFF RE-TEST: mechanistic trigger on the oriC-LOW cooperative switch (DNAA_INIT_TRIGGER_POOL=low, threshold 6/8) + cooperative binding (n=4, K=30), dnaa-4 reference config, seed 1. 8/8 divided — SUSTAINS the cycle (first-pass collapse resolved) but over-initiates (oriC->4)."
+    outcomes:
+      divisions-occur:
+        result: PASS
+        detail: "8/8 generations divide (tau 38-77 min, mean ~59) — the cycle SUSTAINS, no runaway. First-pass collapse resolved by cooperativity."
+      no-over-initiation:
+        result: FAIL
+        detail: "oriC reaches 4 (1400 re-init ticks) — over-initiates without a re-init block (SeqA eclipse). The next issue."
+      cell-cycle-preserved:
+        result: FAIL
+        detail: "oriC not clean 1<->2 (goes to 4); cell divides every gen but over-replicates. Needs SeqA / threshold tuning."
+  - name: dnaa6_mech_low_coop_n4_seed0_8gen
+    status: completed
+    canonical: false # multi-seed robustness confirmation
+    seed: 0
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Multi-seed confirm (2026-06-20): same payoff recipe, seed 0. The 'sustains-but-over-initiates' result REPRODUCES — 8/8 divide AND over-init to oriC 4 (1591 re-init ticks)."
+    outcomes:
+      divisions-occur: {result: PASS, detail: "8/8 divide — sustains, no runaway (seed 0)."}
+      no-over-initiation: {result: FAIL, detail: "oriC 4 (1591 re-init ticks) — over-initiates, as seed 1."}
+      cell-cycle-preserved: {result: FAIL, detail: "oriC not clean 1<->2 (goes to 4) — needs RIDA, as seed 1."}
+  - name: dnaa6_mech_low_coop_n4_seed2_8gen
+    status: completed
+    canonical: false # multi-seed robustness confirmation
+    seed: 2
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    note: "Multi-seed confirm (2026-06-20): same payoff recipe, seed 2. The 'sustains-but-over-initiates' result REPRODUCES — 8/8 divide AND over-init to oriC 4 (2304 re-init ticks)."
+    outcomes:
+      divisions-occur: {result: PASS, detail: "8/8 divide — sustains, no runaway (seed 2)."}
+      no-over-initiation: {result: FAIL, detail: "oriC 4 (2304 re-init ticks) — over-initiates, as seed 1."}
+      cell-cycle-preserved: {result: FAIL, detail: "oriC not clean 1<->2 (goes to 4) — needs RIDA, as seed 1."}
+  - name: dnaa5_mech_diag_seed1_8gen
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 8
+    cache_dir: out/cache_dnaa4_s06_F05
+    emitter: {kind: parquet, store: out/dnaa5_mech_diag_seed1_8gen/dnaa5_mech_diag_seed1_8gen}
+    note: "FIRST-PASS (oriC-high 3/3 trigger, no cooperativity), dnaa-4 reference config, seed 1. Requested 8 gens; COMPLETED 2 (gen 1 divided; gen 2 ran away to 6159 fg without dividing, lineage stopped) — the under-init collapse that motivated dnaa-5."
+    outcomes:
+      cell-cycle-preserved:
+        result: FAIL
+        detail: "gen 2 oriC stuck at 1 (no initiation) — oscillation lost; cell did not divide."
+      no-over-initiation:
+        result: PASS
+        detail: "max oriC = 2 (failure mode is UNDER-initiation, not over)."
+      divisions-occur:
+        result: FAIL
+        detail: "gen 2 did not divide — grew to ~6159 fg (~8x normal); periodic doubling broken."
+  - name: dnaa5_mech_smoke
+    status: completed
+    canonical: false
+    seed: 1
+    generations: 3
+    note: "3-gen smoke test — validated the mechanistic trigger builds + divides (gens 1-2: oriC 1<->2, 0 re-init, mass-at-init 755, but gen-2 tau stretched to 186 min)."
+
+findings:
+  - id: F-01
+    statement: >-
+      READINESS GATE (Phase 1): at the 12 initiation events of the dnaa-4 reference run, the
+      cell-mass trigger fires at cell_mass 734.7 +/- 0.07 (CV 0.000) — noiseless. The candidate
+      DnaA-ATP/oriC trigger signals are far noisier: oriC-high occupancy mean 0.92 (CV 0.157,
+      2-3 of 3 bound), oriC-low occupancy mean 0.23 (CV 0.623), free DnaA-ATP CV 1.07. The
+      low-affinity sites — which biologically gate initiation (they fill last, completing the
+      DnaA-ATP filament) — are only ~23% filled and the noisiest signal. Cause: the binding is
+      independent-site Langmuir with no cooperativity, so oriC occupancy rises gradually rather
+      than switching sharply. CONCLUSION: the binding is not yet a stable trigger; cooperativity
+      is the missing physics.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa4_s06_F05_seed1_12gen]
+  - id: F-02
+    statement: >-
+      FIRST-PASS SWAP (Phase 2) — CONCLUSIVE NEGATIVE: wiring initiation onto oriC high-affinity
+      DnaA-ATP saturation (DNAA_INITIATION_TRIGGER=mechanistic, threshold 3/3) COLLAPSES the cell
+      cycle. In the 8-gen diagnostic (dnaa5_mech_diag_seed1_8gen), generation 1 initiated (oriC-high
+      reached 5, > threshold) and divided (tau 57 min). But generation 2 the oriC high-affinity
+      boxes never all bound DnaA-ATP — the trigger signal stayed stuck at 2/3 for the entire
+      generation — so initiation NEVER fired: the cell grew unbounded from ~666 to ~6159 fg cell
+      mass (~8x the normal ~735 fg division mass) and did NOT divide; the lineage stopped. The
+      failure is stochastic UNDER-saturation (the 3rd high-affinity site fails to bind), the direct
+      consequence of F-01 (independent-site binding, no cooperativity → no sharp all-or-none
+      switch). A faithful full-saturation DnaA-ATP trigger is therefore non-viable on the current
+      binding. Fix: cooperative DnaA-ATP filament assembly at oriC (the missing physics).
+      UPDATE (2026-07-01): this collapse is a 59e108fb-BUILD ARTIFACT and does NOT reproduce on
+      current code — a fresh re-run of the first-pass config fires the oriC-high trigger in gen 1
+      (highATP 4 ≥ threshold 3) and divides even without cooperativity. So F-02's diagnostic value
+      is historical (it correctly motivated cooperativity at the time); on current code the
+      mechanistic trigger simply works (F-04). The old collapse figure was retired accordingly; the
+      cooperativity rationale is now shown by F-01 + the dnaa6_cooperativity_contrast figure.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa5_mech_smoke, dnaa5_mech_diag_seed1_8gen]
+  - id: F-03
+    statement: >-
+      PAYOFF RE-TEST — VIABLE WITH COOPERATIVITY: after dnaa-5 added the cooperative oriC-low switch,
+      re-pointing the mechanistic trigger to that switch (DNAA_INIT_TRIGGER_POOL=low, threshold 6/8;
+      cooperative binding n=4, K=30; run dnaa6_mech_low_coop_n4_seed1_8gen) makes biology-driven
+      initiation SUSTAIN the cell cycle: 8/8 generations divide (tau 38-77 min, mean ~59, CV 0.40),
+      no runaway — the first-pass under-init collapse is RESOLVED. The DnaA-ATP/oriC mechanism can
+      drive the cell cycle in place of the cell-mass heuristic. REMAINING: it OVER-initiates — oriC
+      reaches 4 (1400 re-init ticks) because there is no post-initiation eclipse (SeqA sequestration
+      blocking a just-fired origin from re-firing). The failure flipped from UNDER-init (first-pass)
+      to OVER-init (now), a tuning + next-mechanism issue. So mechanistic initiation is VIABLE; the
+      next prerequisite is SeqA (dnaa-7) and/or oriC-low threshold / cooperativity-K tuning to enforce
+      one-initiation-per-cycle.
+    status: evaluated
+    provenance:
+      run_ids: [dnaa6_mech_low_coop_n4_seed1_8gen, dnaa5_mech_diag_seed1_8gen, dnaa4_s06_F05_seed1_12gen]
+  - id: F-04
+    statement: >-
+      OVER-INITIATION RESOLVED + ONCE-PER-CYCLE, SEED-ROBUST (2026-06-27 saturation sweep): a
+      parameter sweep over the initiation-control axes (SeqA eclipse x RIDA x oriC-low threshold x
+      k_h; cooperativity n=4/K=30, autoregulation s=0.6, V=1.5e-3 held at the dnaa-4 reference;
+      cache_dnaa4_s06_F05, succinate) shows the cooperative oriC-low + mechanistic-low trigger now
+      gives CLEAN ONCE-PER-CELL-CYCLE initiation: exactly one fill->fire->reset per generation and
+      oriC strictly 1<->2 (number_of_oric only ever 1 or 2 — NEVER 3/4) over 8 generations, with
+      total bound-DnaA stable (no drift). This holds across seeds 0/1/2 and for BOTH the minimal
+      config (no eclipse, no RIDA) AND the dnaa-7-like config (eclipse=40 + RIDA=0.6) — i.e. the
+      cooperative switch alone enforces one-initiation-per-cycle; SeqA/RIDA are NOT required for it.
+      This RESOLVES the over-initiation (oriC->4) reported in F-03: that over-init does NOT reproduce
+      on current code, so it was a property of the earlier 59e108fb build, not of the mechanism.
+      Threshold 7/8 badly over-fires (reject); eclipse/RIDA/k_h variants are equivalent to the
+      minimal config at this reference. OPEN (carried, not closed by this sweep): the DnaA-ATP
+      FRACTION stays mostly below the [0.2,0.5] band and is seed-variable (the same seed-sensitivity
+      as dnaa-4/5), and firing is a brief fill-spike (oriC_low_bound_atp peaks ~8/16, ~1% of the
+      cycle) rather than a sustained full-saturation plateau — the latter would need the doc's
+      dynamic-kick-with-persistence (unimplemented). Harness: scripts/run_dnaa_saturation_sweep.py +
+      scripts/score_dnaa_saturation.py (commit 7bf18023). STAGE-3 (k_h triage, seed 1): lowering the
+      hydrolysis rate (k_h 0.020/0.015/0.010 vs 0.025) does NOT close the ATP-fraction band — steady
+      ATPfr stays ~0.10-0.17 (all below [0.2,0.5]) — and k_h=0.010 induces cluster lock-in /
+      over-initiation (oriC->4). So neither of the two open items is closable by the env-tunable
+      knobs: the ATP-fraction lever is the DnaA-ADP->ATP recharge rate k_r (code-baked at 1e-7/s, not
+      env-exposed), and sustained saturation needs the dynamic kick — both are CODE changes for
+      Haochen, not parameter sweeps.
+      CORRECTION (2026-07-02, dnaa-9, Rashmi): the "ATP-fraction band needs a CODE change" conclusion
+      above is WRONG — the band is reachable by the HYDROLYSIS rate. With the extrinsic mechanisms
+      (RIDA/DDAH/DARS) OFF, DNAA_HYDROLYSIS_RATE_PER_MIN is the DnaA-ATP-fraction setpoint (as its own
+      code comment states): 0.046→0.025 puts the total DnaA-ATP fraction in [0.2,0.5] (0.29; 0.23-0.26
+      across seeds). The stage-3 k_h triage above missed this because it was run with RIDA left ON (the
+      sweep reference wrongly defaulted the extrinsic multipliers to 1.0), and RIDA drained DnaA-ATP,
+      masking the hydrolysis lever. So NO new mechanism is needed for the fraction — just the hydrolysis
+      rate, with extrinsic mechanisms off. See dnaa-9 F-01. (An earlier dnaa-9-operating-point that used
+      RIDA for the fraction was retired; the correct arc is dnaa-9 hydrolysis+async-over-replication →
+      dnaa-10 SeqA fix.)
+    status: evaluated
+    provenance:
+      run_ids: [s2_ctrl_s0, s2_ctrl_s1, s2_ctrl_s2, s2_ecl40_rida06_s0, s2_ecl40_rida06_s1, s2_ecl40_rida06_s2]
+
+biological_summary: >-
+  Replication initiation in E. coli is triggered when DnaA-ATP assembles into a filament on the
+  oriC DnaA boxes, melting the DUE and loading the replisome — a switch-like, cooperative event.
+  The wcEcoli/v2ecoli heuristic instead fires at a fixed mass-per-origin (Donachie initiation
+  mass). dnaa-6 replaces the heuristic with the mechanistic trigger now that dnaa-3/4 have built
+  and stabilized the DnaA-ATP/oriC binding.

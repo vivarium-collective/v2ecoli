@@ -18,14 +18,18 @@ import glob
 import numpy as np
 import polars as pl
 
-L = "listeners__replication_data__"
+# canonical DnaA pool decomposition + ATP/ADP fraction — the SINGLE source of truth.
+# These constants and the (free+bound)/total fraction live in one module so dnaa-3/4/7
+# render scripts can never diverge on how they define the fraction (see dnaa_observables).
+import dnaa_observables as dnaa
+import pbg_plot_style as ps  # shared house style: minutes stitch, lineage lines, no gridlines
+
+L = dnaa.L
 M = "listeners__mass__"
-BOUND_ATP = [L + c for c in ("chromosomal_high_bound_atp", "oriC_high_bound_atp",
-                             "oriC_low_bound_atp", "promoter_high_bound_atp")]
-BOUND_ADP = [L + c for c in ("chromosomal_high_bound_adp", "oriC_high_bound_adp",
-                             "promoter_high_bound_adp")]
+BOUND_ATP = dnaa.BOUND_ATP_COLS
+BOUND_ADP = dnaa.BOUND_ADP_COLS
 PROM = [L + "promoter_high_free", L + "promoter_high_bound_atp", L + "promoter_high_bound_adp"]
-BULK = {"apo": "PD03831[c]", "atp": "MONOMER0-160[c]", "adp": "MONOMER0-4565[c]"}
+BULK = {"apo": dnaa.APO_ID, "atp": dnaa.ATP_ID, "adp": dnaa.ADP_ID}
 CELL_DENSITY = 1.1  # fg/fL — volume_fL = cell_mass_fg / density
 NM = 1e9 / 6.022e23 / 1e-15  # molecules/fL -> nM (~1.661)
 
@@ -44,18 +48,14 @@ def _frame(run_dir: str) -> pl.DataFrame:
         + [pl.col("bulk__count").list.get(i).alias(k) for k, i in idx.items()]
     ).collect().sort(["generation", "global_time"])
     a = lambda c: np.asarray(df[c].to_list(), dtype=float)
-    bound_atp = sum(a(c) for c in BOUND_ATP)
-    bound_adp = sum(a(c) for c in BOUND_ADP)
-    total = a("apo") + a("atp") + a("adp") + bound_atp + bound_adp
+    # canonical decomposition (free + bound) — single source of truth
+    dec = dnaa.decompose(a("apo"), a("atp"), a("adp"),
+                         [a(c) for c in BOUND_ATP], [a(c) for c in BOUND_ADP])
+    total = dec["total_dnaa"]
     gen = a("generation").astype(int)
     gtime = a("global_time")
-    # stitch global_time (resets each gen) into cumulative minutes
-    abs_min = np.zeros_like(gtime)
-    offset = 0.0
-    for gg in sorted(set(gen)):
-        m = gen == gg
-        abs_min[m] = (offset + gtime[m]) / 60.0
-        offset += gtime[m].max()
+    # stitch global_time (resets each gen) into cumulative minutes (shared house style)
+    abs_min = ps.stitch_minutes(gen, gtime)
     cell_mass = a(M + "cell_mass")
     volume = cell_mass / CELL_DENSITY
     prom_bound = a(PROM[1]) + a(PROM[2])
@@ -63,8 +63,8 @@ def _frame(run_dir: str) -> pl.DataFrame:
         "generation": gen,
         "abs_min": abs_min,
         "total_dnaa": total,
-        "atp_fraction": (a("atp") + bound_atp) / np.maximum(total, 1.0),
-        "adp_fraction": (a("adp") + bound_adp) / np.maximum(total, 1.0),
+        "atp_fraction": dec["atp_fraction"],
+        "adp_fraction": dec["adp_fraction"],
         "n_oric": a(L + "number_of_oric"),
         "cell_mass": cell_mass,
         "dnaa_conc_nM": total / np.maximum(volume, 1e-9) * NM,
@@ -73,10 +73,9 @@ def _frame(run_dir: str) -> pl.DataFrame:
 
 
 def _gen_boundaries(df: pl.DataFrame):
-    """abs_min values where the generation increments (lineage boundaries)."""
-    gen = df["generation"].to_numpy()
-    t = df["abs_min"].to_numpy()
-    return [t[i] for i in range(1, len(gen)) if gen[i] != gen[i - 1]]
+    """abs_min values where the generation increments (lineage boundaries).
+    Delegates to the shared house style (pbg_plot_style.gen_boundaries)."""
+    return ps.gen_boundaries(df["generation"].to_numpy(), df["abs_min"].to_numpy())
 
 
 def metrics(run_dir: str, ss_gen: int = 3) -> dict:
@@ -112,8 +111,7 @@ def render_charts(autoreg_dir: str, control_dir: str, out_dir: str) -> None:
     ad, cd = _frame(autoreg_dir), _frame(control_dir)
 
     def _gridlines(ax, df):
-        for b in _gen_boundaries(df):
-            ax.axvline(b, color="#cbd5e1", lw=0.6, ls=":", zorder=0)
+        ps.mark_lineages(ax, _gen_boundaries(df))
 
     # 1) DnaA pool band — minutes x-axis + lineage boundaries
     fig, ax = plt.subplots(figsize=(10, 4.5))
@@ -123,7 +121,7 @@ def render_charts(autoreg_dir: str, control_dir: str, out_dir: str) -> None:
         ax.plot(sub["abs_min"].to_numpy(), sub["total_dnaa"].to_numpy(), lw=0.8, color=col, label=lab)
     _gridlines(ax, ad.filter(pl.col("generation") >= 3))
     ax.axhline(800, color="#dc2626", ls="--", lw=1)
-    ax.set_xlabel("simulation time (min)"); ax.set_ylabel("total DnaA (bulk+bound)")
+    ps.style_axes(ax, "simulation time (min)", "total DnaA (bulk+bound, molecule count)")
     ax.set_title("dnaa-4: DnaA pool — autoregulation vs control (dotted = lineage boundaries)")
     ax.legend(fontsize=8); fig.tight_layout()
     for e in ("png", "svg"):
@@ -151,8 +149,7 @@ def render_charts(autoreg_dir: str, control_dir: str, out_dir: str) -> None:
     ax2.set_ylim(0, 1.05); ax2.set_ylabel("dnaA-promoter\noccupancy f")
     ax2.set_xlabel("simulation time (min)  ·  dotted = cell division (lineage boundary)")
     for ax in (ax1, ax2):
-        for b in bnd:
-            ax.axvline(b, color="#cbd5e1", lw=0.9, ls=":", zorder=0)
+        ps.mark_lineages(ax, bnd)
     fig.tight_layout()
     for e in ("png", "svg"):
         fig.savefig(f"{out_dir}/dnaa4_promoter_swing.{e}", dpi=140)
@@ -169,8 +166,7 @@ def render_charts(autoreg_dir: str, control_dir: str, out_dir: str) -> None:
         ("DnaA-ATP / DnaA-ADP fraction", None, None, None),
     ]
     for ax, (lab, y, col, _) in zip(axes, panels):
-        for b in bnd:
-            ax.axvline(b, color="#cbd5e1", lw=0.6, ls=":", zorder=0)
+        ps.mark_lineages(ax, bnd)
         if lab.startswith("DnaA-ATP"):
             ax.plot(t, sub["atp_fraction"].to_numpy(), lw=0.8, color="#16a34a", label="DnaA-ATP frac")
             ax.plot(t, sub["adp_fraction"].to_numpy(), lw=0.8, color="#f59e0b", label="DnaA-ADP frac")

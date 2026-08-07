@@ -1,0 +1,5 @@
+[
+ {"tag": "kd_1p0",  "env": {"DNAA_ATP_CHARGE_KD_MULTIPLIER": 1.0}},
+ {"tag": "kd_0p1",  "env": {"DNAA_ATP_CHARGE_KD_MULTIPLIER": 0.1}},
+ {"tag": "kd_0p02", "env": {"DNAA_ATP_CHARGE_KD_MULTIPLIER": 0.02}}
+]

@@ -543,6 +543,13 @@ runs:
     kind: unknown
   params: '{"seed": 0, "cache_dir": "out/cache"}'
   n_steps: 200
+  # Pinned canonical. canonical_run() falls back to "newest completed run by
+  # timestamp" when nothing is flagged, so the next completed run recorded here
+  # — a smoke test, a re-run — would silently become authoritative, carry no
+  # `outcomes`, and regress these five criteria to in-progress. The flag makes
+  # the authoritative run an explicit choice rather than a function of clock
+  # order. (workbench#759 aligned the server to this same client-side rule.)
+  canonical: true
   note: |
     Baseline coupled run recorded through the workbench spine
     (POST /api/investigation-run-one), 200 steps to match the step count the

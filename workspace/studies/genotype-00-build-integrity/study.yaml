@@ -123,6 +123,24 @@ conditions:
         the round-trip invariant. On the real KB a lacY deletion truncates one transcription
         unit and shortens four others. A non-operonic gene would leave the second branch of
         the invariant untested.
+    - name: effective-build-from-the-declared-manifest
+      gate: required-before-run
+      detail: >-
+        Declaring a genotype is not the same as building from it. v2ecoli#457 gave the
+        parca generator bundle_manifest / bundle_overrides, but the declaration is
+        STRUCTURAL: step_01_initialize.py warns "the fit will proceed against the
+        injected raw_data; the declared manifest is provenance only". So a study run
+        today would build whatever raw_data it was handed and merely note a mismatch.
+
+        Something must construct raw_data FROM the declared manifest when a study runs.
+        Verified 2026-08-07 that v2ecoli#468 did NOT close this - that PR fixed override
+        precedence inside SourceBundle (a variant's generated key now wins over
+        parca_overrides) and touched only sources.py plus its tests. Both are needed and
+        neither substitutes for the other: #468 makes a variant's files survive once you
+        build from them; this gate is about building from them at all.
+
+        Recorded as its own gate because a reader scanning this list would otherwise
+        conclude the KO generator is the last blocker on the build path, and it is not.
     - name: ko-generator
       gate: required-before-run
       detail: >-
@@ -181,20 +199,36 @@ tests:
       op: '=='
       value: 0   # out-of-range features
 
-  - name: deleted-gene-is-absent-from-sim_data
+  - name: deleted-gene-is-functionally-absent-from-sim_data
     classification: primary
     question: >-
-      Is the gene actually gone from the reconstructed parameters, rather than present at
-      zero abundance?
+      Is the gene excluded from the transcribed and translated sets, rather than still
+      being expressed at some level?
     measure:
       kind: derived
       detail: >-
-        Look for the gene's cistron / RNA / monomer ids in the fitted sim_data. This is the
-        substantive difference from a translation-level knockout, which leaves the gene
-        transcribed and consuming RNAP capacity. Expect absence, not zeros.
+        Membership of the deleted gene in the two sets the knowledge base uses to mean
+        "on the chromosome": valid_gene_ids (getter_functions.py, genes with positions
+        that are not pseudogenes/phantom genes) and all_mRNA_cistrons (translation.py).
+        Expect exclusion from both.
+
+        ★ NOT id-absence. The knockout TOMBSTONES the deleted gene - it nulls the
+        coordinates and keeps the row - so the gene id legitimately persists in `genes`
+        and in sim_data.process.replication.gene_data. An axis asserting the id appears
+        nowhere would FAIL ON CORRECT BEHAVIOUR, which is the mirror image of a vacuous
+        test and just as useless.
+
+        The tombstone is the KB's existing vocabulary for "not on the chromosome" - 21
+        of 4,747 shipped genes are permanently in that state - and both sets above
+        already filter on exactly that null-coordinate check. Removing the row instead
+        would leave a dangling cistron, since the deletion does not touch rnas/proteins.
+
+        Functional absence is also the claim that actually distinguishes this from a
+        translation-level knockout, which leaves the gene transcribed and consuming RNAP
+        capacity. So this axis now tests the mechanism rather than a proxy for it.
     pass_if:
       op: '=='
-      value: 0   # occurrences of the deleted gene's ids
+      value: 0   # memberships remaining across valid_gene_ids + all_mRNA_cistrons
 
   - name: parca-fit-completes-and-fitted-parameters-stay-in-range
     classification: primary
@@ -228,6 +262,13 @@ readouts:
   - name: feature-inventory
     status: derived-needed
     description: Counts of genes, transcription units and DNA sites before and after.
+  - name: deleted-gene-set-membership
+    status: derived-needed
+    description: >-
+      Whether the deleted gene appears in valid_gene_ids and in all_mRNA_cistrons, plus
+      the tombstone's own state (row present, coordinates null). Reported together so a
+      pass is legible: the id SHOULD still be found in `genes`, and SHOULD NOT be found
+      in either functional set.
   - name: fitted-aa-supply-kcats
     status: derived-needed
     description: >-

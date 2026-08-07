@@ -11,6 +11,8 @@ from v2ecoli.workflow.report_cards.vs_vecoli_card import VsVecoliCard
 
 
 def _ctx(tmp_path, refs=None):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
     spec = {"name": "Demo"}

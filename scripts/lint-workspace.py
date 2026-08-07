@@ -14,13 +14,19 @@ from collections import Counter
 import yaml
 from jsonschema import Draft7Validator, FormatChecker
 
+# Shared package-naming (viva_<slug> canonical, pbg_<slug> compat on disk).
+from viva_workspace import resolve_package_dir
+
 
 def _try_get_registry(ws_root: Path, ws_data: dict) -> set | None:
     """Try to introspect build_core() and return a set of registered process names.
 
     Returns None if introspection fails (caller should warn, not fail).
     """
-    package_name = ws_data.get("package_path") or ("pbg_" + ws_data.get("name", "").replace("-", "_"))
+    # Explicit package_path wins; otherwise resolve via the shared naming shim,
+    # which returns the canonical ``viva_<slug>`` or an existing legacy
+    # ``pbg_<slug>`` directory during the rebrand migration window.
+    package_name = ws_data.get("package_path") or resolve_package_dir(ws_root, ws_data.get("name")).name
     try:
         py = sys.executable
         script = f"""

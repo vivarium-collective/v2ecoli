@@ -12,6 +12,10 @@ dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
     "viva-superpowers",
+    # Shared source of truth for workspace-layout logic (WorkspacePaths,
+    # find_workspace_root, study_dir, package_slug). Replaces v2ecoli's own
+    # divergent study-dir resolvers + root-walkers. Git source pinned below.
+    "viva-workspace",
     "pbg-copasi",
     "pbg-parsimony",
     "pbg-bioreactordesign",
@@ -151,6 +155,7 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
+viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }
 # Transitive consumers (pbg-bioreactordesign, viva-munk, spatio-flux) still
 # require the "pbg-superpowers" name; resolve it to the deprecation shim that
 # lives in the viva-superpowers repo's shim/ subdir (re-exports viva_superpowers).

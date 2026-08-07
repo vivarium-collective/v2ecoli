@@ -4529,6 +4529,7 @@ dependencies = [
     { name = "vecoli", extra = ["dev"] },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
+    { name = "viva-workspace" },
 ]
 
 [package.optional-dependencies]
@@ -4578,6 +4579,7 @@ requires-dist = [
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
+    { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
 ]
 provides-extras = ["dev", "parquet", "xarray", "emitters", "ray", "relax"]
 
@@ -4687,6 +4689,14 @@ dependencies = [
     { name = "pypdf" },
     { name = "pyyaml" },
     { name = "ruamel-yaml" },
+]
+
+[[package]]
+name = "viva-workspace"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main#1375b01910eb29aef3ab95f18a67d09d037276f3" }
+dependencies = [
+    { name = "pyyaml" },
 ]
 
 [[package]]

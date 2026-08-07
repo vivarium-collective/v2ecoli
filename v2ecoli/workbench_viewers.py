@@ -47,14 +47,15 @@ def _ptools_configured(ws_root: Path) -> bool:
 
 
 def _study_dir(ws_root: Path, slug: str) -> Path:
-    """Resolve a study's directory. Prefer the workbench's canonical resolver
-    (honours a ``layout:`` remap in workspace.yaml); fall back to the default
-    ``<ws_root>/studies/<slug>`` layout when the workbench isn't importable."""
-    try:
-        from vivarium_workbench.lib.study_spec import study_dir as _sd
-        return Path(_sd(ws_root, slug))
-    except Exception:
-        return Path(ws_root) / "studies" / slug
+    """Resolve a study's directory via the shared ``viva_workspace`` resolver,
+    which honours the ``layout:`` remap in workspace.yaml and searches nested
+    ``investigations/<inv>/studies/`` in addition to the flat ``studies/`` root.
+
+    ``must_exist`` is left at its default (False): the caller (``ptools_launch``)
+    guards on ``sd.is_dir()`` and returns its own 404, so a not-yet-existing slug
+    should resolve to the canonical path rather than raise here."""
+    from viva_workspace import study_dir as _sd
+    return Path(_sd(ws_root, slug))
 
 
 def ptools_object_class(name: str) -> str:
@@ -186,14 +187,11 @@ def _launch(ws_root, study, run, ctx) -> dict:
 
 
 def _studies_root(ws_root: Path) -> Path:
-    """The directory holding study subdirs. Uses the workbench's canonical
+    """The directory holding study subdirs. Uses the shared ``viva_workspace``
     ``WorkspacePaths.studies`` resolver (honours a ``layout:`` remap /
-    ``workspace/`` subdir); falls back to ``<ws_root>/studies``."""
-    try:
-        from vivarium_workbench.lib.workspace_paths import WorkspacePaths
-        return WorkspacePaths.load(ws_root).studies
-    except Exception:
-        return Path(ws_root) / "studies"
+    ``workspace/`` subdir)."""
+    from viva_workspace import WorkspacePaths
+    return WorkspacePaths.load(ws_root).studies
 
 
 def _ptools_targets(ws_root) -> list:

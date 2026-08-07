@@ -54,6 +54,8 @@ import os
 
 import numpy as np
 
+from bigraph_schema.contract import ProcessContract
+
 from v2ecoli.library.schema import (
     numpy_schema,
     counts,
@@ -143,6 +145,117 @@ class ChromosomeReplication(PartitionedProcess):
 
     name = NAME
     topology = TOPOLOGY
+
+    contract = ProcessContract(
+        summary=(
+            "Initiate, elongate, and terminate replication forks: fire a round of "
+            "replication when mass-per-oriC crosses the growth-rate-dependent critical "
+            "threshold, extend forks by dNTP polymerization, and split domains into "
+            "daughter chromosomes at the terminus."
+        ),
+        symbols={
+            "M_cell": "cell (dry) mass, femtograms (fg)",
+            "n_oriC": "number of origins of replication (oriC) currently present (count)",
+            "M_critical": "critical mass-per-oriC threshold for initiation (fg), a function of doubling time",
+            "τ": "doubling time set by the current media/nutrient condition (min)",
+            "ν": "stochastic per-fork elongation rate, nucleotides per second (nt/s)",
+            "dt": "simulation timestep (s)",
+            "L_replichore": "replichore length; fork terminates when |coordinate| reaches it (nt)",
+            "Δm_DNA": "DNA mass added to a fork from elongated nucleotides this step (fg)",
+            "PPi": "pyrophosphate released, one per nucleotide polymerized (count)",
+        },
+        inputs={
+            "bulk": (
+                "Reads counts of replisome trimer/monomer subunits and of the four dNTPs "
+                "(and their PPi id) to gate initiation and cap elongation by the limiting dNTP."
+            ),
+            "active_replisomes": (
+                "Reads each fork's domain_index, right_replichore flag, coordinates and "
+                "massDiff_DNA to build the template sequences elongated this step."
+            ),
+            "oriCs": (
+                "Reads the oriC count n_oriC (mass-per-origin trigger) and each oriC's "
+                "domain_index to assign daughter domains on initiation."
+            ),
+            "chromosome_domains": (
+                "Reads domain_index and child_domains to find the parent domains that carry "
+                "an origin and to detect finished domains at termination."
+            ),
+            "full_chromosomes": (
+                "Reads full-chromosome domain_index so a completed domain's chromosome can be "
+                "re-pointed to a child domain and a second daughter chromosome added at termination."
+            ),
+            "listeners": (
+                "Reads listeners.mass.cell_mass (M_cell) to compute mass per origin for the "
+                "initiation test."
+            ),
+            "environment": (
+                "Reads environment.media_id to look up the doubling time τ and thus the critical "
+                "initiation mass M_critical for the current condition."
+            ),
+            "timestep": "Reads dt to scale the elongation rate over the step.",
+            "global_time": (
+                "Reads current simulation time to stamp a new full chromosome's division_time "
+                "(global_time + D_period)."
+            ),
+        },
+        outputs={
+            "bulk": (
+                "On initiation decrements 6 trimer + 2 monomer replisome subunits per oriC; during "
+                "elongation subtracts dNTPs used and adds the equal count of PPi; on termination "
+                "returns 3 trimer + 1 monomer subunits per deleted replisome."
+            ),
+            "active_replisomes": (
+                "Adds two replisomes per oriC (one per replichore) at initiation, advances fork "
+                "coordinates and adds Δm_DNA to massDiff_DNA during elongation, deletes both forks "
+                "of a domain at termination."
+            ),
+            "oriCs": (
+                "Re-assigns existing oriCs to new daughter domain indices and adds one new oriC per "
+                "existing origin so each daughter keeps an origin."
+            ),
+            "chromosome_domains": (
+                "Adds two child domains per origin (no children yet) and links them as children of "
+                "the originating parent domain."
+            ),
+            "full_chromosomes": (
+                "At termination re-points a finished chromosome to its first child domain and adds a "
+                "second daughter full_chromosome, each with division_time = global_time + D_period."
+            ),
+            "listeners": (
+                "Writes replication_data.critical_initiation_mass (M_critical, fg) and "
+                "critical_mass_per_oriC (M_cell/n_oriC ÷ M_critical, dimensionless)."
+            ),
+        },
+        config={
+            "basal_elongation_rate": "Basal replication-fork speed ν (nt/s) that make_elongation_rates draws around.",
+            "criticalInitiationMass": "Fallback critical initiation mass (fg) when no media-specific value applies.",
+            "get_dna_critical_mass": "Callable mapping the current doubling time τ to the critical initiation mass.",
+            "nutrientToDoublingTime": "Map from media_id to doubling time τ, selecting M_critical for the condition.",
+            "make_elongation_rates": "Callable producing per-fork stochastic elongation rates from the basal rate.",
+            "mechanistic_replisome": "If True, initiation requires (and consumes) explicit replisome subunits; else forks assemble freely.",
+            "replichore_lengths": "Per-replichore length L_replichore; a fork terminates when |coordinate| reaches it.",
+            "replisome_protein_mass": "Protein mass (fg) added per replisome when mechanistic_replisome is on.",
+            "replisome_trimers_subunits": "Bulk ids of the trimeric replisome subunits (6 per oriC consumed/assembled).",
+            "replisome_monomers_subunits": "Bulk ids of the monomeric replisome subunits (2 per oriC consumed/assembled).",
+            "dntps": "Bulk ids of the four dNTPs consumed during elongation.",
+            "ppi": "Bulk id of pyrophosphate released per polymerized nucleotide.",
+            "polymerized_dntp_weights": "Per-dNTP polymerized masses used to compute Δm_DNA per fork.",
+            "sequences": "Template DNA sequences the forks polymerize against.",
+            "replication_coordinate": "Genomic coordinates anchoring the replication templates (stored at init; unused in this build's update path).",
+            "D_period": "C+D-period timer added to global_time to schedule division on a new full chromosome.",
+            "no_child_place_holder": "Sentinel domain index marking a chromosome domain with no children yet.",
+        },
+        assumptions=[
+            "Initiation is synchronous across all origins in a step (no asynchronous firing); all oriCs fire together once M_cell/n_oriC ≥ M_critical.",
+            "With mechanistic_replisome on, a round fires only if the full 6 trimer + 2 monomer subunits per oriC are available.",
+            "Two replisomes are assembled per origin, one per replichore, sharing the origin's domain index.",
+            "Forks added this step are not elongated until the next step.",
+            "If one dNTP is limiting, all four are scaled by the same fractional limit to preserve stoichiometry; each nucleotide polymerized releases one PPi.",
+            "A domain splits into two daughter chromosomes only when both of its forks have reached the replichore length; released replisome subunits recycle to bulk.",
+            "dNTPs are consumed only by replication, so the process runs as a plain Step without partitioned allocation.",
+        ],
+    )
 
     config_schema = {
         'D_period': {'_type': 'node', '_default': np.array([], dtype=float)},

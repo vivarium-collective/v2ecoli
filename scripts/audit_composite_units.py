@@ -84,7 +84,7 @@ def main() -> int:
 
     # Baseline-family propagation check: which baseline unit-readouts (by leaf
     # key) are preserved-with-units in each derived composite?
-    base_id = "v2ecoli.composites.baseline"
+    base_id = "v2ecoli.composites.ecoli_baseline"
     base = per_comp.get(base_id) or per_comp.get(base_id + ".baseline") or {}
     base_leaves = {leafkey(p): u for p, u in base.items()}
     print(f"\nbaseline reference: {len(base)} unit-paths, {len(base_leaves)} distinct leaf-readouts")

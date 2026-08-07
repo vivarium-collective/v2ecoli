@@ -1,0 +1,120 @@
+schema_version: 4
+name: metabolism_redux_succinate
+investigation: whole-cell-model-comparison
+title: v2ecoli reproduces vEcoli with MetabolismRedux (succinate)
+condition: succinate
+question: Does v2ecoli reproduce vEcoli on succinate when both engines swap FBA Metabolism
+  for MetabolismRedux?
+comparison:
+  seeds: 6
+  generations: 1
+  max_steps_per_gen: 15000
+  cards:
+  - config
+  - parca
+  - standard
+  - statistical
+  - trajectory
+  - distribution
+  - metabolism
+  - composition
+from_vecoli_config: configs/metabolism_redux_succinate.json
+report_cards:
+- viz/report_card/summary.html
+- viz/report_card/parca.html
+- viz/report_card/statistical.html
+- viz/report_card/standard.html
+- viz/report_card/trajectory.html
+- viz/report_card/distribution.html
+- viz/report_card/metabolism.html
+- viz/report_card/composition.html
+pipeline_gate:
+  enables: []
+runs:
+- name: metabolism_redux_succinate-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study metabolism_redux_succinate
+status: evaluated
+tests:
+- name: summary-vs-vecoli
+  kind: report_card
+  card: summary
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (summary card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/metabolism_redux_succinate
+    group: parca
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (statistical
+    card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/metabolism_redux_succinate
+    group: statistical
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (standard
+    card)?
+- name: trajectory-vs-vecoli
+  kind: report_card
+  card: trajectory
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (trajectory
+    card)?
+- name: distribution-vs-vecoli
+  kind: report_card
+  card: distribution
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (distribution
+    card)?
+- name: metabolism-vs-vecoli
+  kind: report_card
+  card: metabolism
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (metabolism
+    card)?
+- name: composition-vs-vecoli
+  kind: report_card
+  card: composition
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on metabolism_redux_succinate (composition
+    card)?
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      condition: succinate
+      swap: ecoli-metabolism-redux
+confidence: Accepted
+findings:
+- id: metabolism_redux_succinate-vs-vecoli-result
+  kind: computational
+  status: confirms
+  statement: 'Measured (6 seeds requested, 5 effective vEcoli, gen-1, matched timepoints):
+    parca (t=0 initial-state match) within_tol. Statistical card (Welch t-test) overall
+    verdict drift -- driven solely by growth-rate -- all four masses within_tol (largest
+    mass deltas of the five conditions, still within tolerance). Matched gen-1 median
+    |delta|: cell 1.49%, dry 1.50%, protein 0.92%, rna 3.50%, growth 13.4%. No mismatch
+    on any axis; active_RNAP/active_ribosome are ungraded (not in the local reader''s
+    observable set).'
+  evidence:
+    from_card: statistical
+    observed: parca within_tol; cell/dry/protein/rna mass all within_tol (median |delta|
+      1.49%/1.50%/0.92%/3.50%); growth-rate median |delta| 13.4% (sole driver of the
+      drift verdict).
+inputs:
+- artifact: sim_data
+  from: parca
+  into: cache_dir

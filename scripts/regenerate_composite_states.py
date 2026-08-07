@@ -41,6 +41,26 @@ def _study_composite_refs(ws_root: Path) -> set[str]:
     return refs
 
 
+def _live_state(build_composite_state, ws_root: Path, cid: str) -> "dict | None":
+    """Build ``cid``'s document for real and return its store dict, or None.
+
+    ``build_composite_state`` runs the ``@composite_generator`` in a subprocess
+    (its own main thread) and returns the document envelope; the artifact format
+    wants the bare store mapping (what ``CompositeSpec.default_state`` yields),
+    so unwrap a single ``{"state": {...}}`` envelope layer.
+    """
+    try:
+        body, status = build_composite_state(ws_root, cid, fresh=True)
+    except Exception:  # noqa: BLE001 — a build failure is reported by the caller
+        return None
+    if status != 200:
+        return None
+    doc = body.get("state")
+    if isinstance(doc, dict) and isinstance(doc.get("state"), dict):
+        doc = doc["state"]
+    return doc if isinstance(doc, dict) else None
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true",
@@ -64,14 +84,15 @@ def main() -> int:
     from vivarium_workbench.lib._root import set_workspace_root
     from vivarium_workbench.lib.composite_lookup import composites_data as _composites_data
     from vivarium_workbench.lib.composite_resolve import resolve_composite
+    from vivarium_workbench.lib.composite_state_views import build_composite_state
     set_workspace_root(ws_root)
 
-    # Reuse the viewers-hub trimmer: caps the long molecule-data arrays (bulk
-    # counts ~16k, unique-molecule instance lists) that loom/viz never render,
-    # shrinking each heavy state ~5.5MB -> a few hundred KB WITHOUT touching the
-    # bigraph structure (stores/processes/wiring/schemas/describe docs).
+    # Trim the long molecule-data arrays (bulk counts ~16k, unique-molecule
+    # instance lists) that loom never renders, shrinking each heavy state
+    # ~5.5MB -> a few hundred KB WITHOUT touching the bigraph structure
+    # (stores/processes/wiring/schemas/describe docs).
     sys.path.insert(0, str(ws_root / "scripts"))
-    from regenerate_viewers import trim_state_for_view
+    from _state_trim import trim_state_for_view
 
     composites = _composites_data(ws_root)
     comps = composites.get("composites") or []
@@ -111,6 +132,32 @@ def main() -> int:
             failed.append((cid, err))
             print(f"  FAIL  {cid}  ({err})")
             continue
+        # REGENERATE means rebuild — always take a fresh live build (the same
+        # subprocess seam the live /api/composite-state uses) and only fall back
+        # to whatever `resolve_composite` returned if that build fails.
+        # `resolve_composite` reads the COMMITTED artifact for any generator
+        # (none declares `default_state_ref`), so trusting its state here would
+        # make this script echo the file it is supposed to be replacing: a
+        # composite whose parameters changed would keep its stale wiring, and a
+        # brand-new one would get a `state: null` degraded payload written out
+        # under an OK line.
+        built = _live_state(build_composite_state, ws_root, cid)
+        if isinstance(built, dict):
+            data["state"] = built
+            data["wiring_status"] = "ready"
+            data["notice"] = None
+        elif isinstance(data.get("state"), dict):
+            print(f"  note  {cid}: live build unavailable — keeping committed state")
+        # NEVER write a stateless payload: the Composite Explorer's fallback
+        # reads this file, so a committed `state: null` freezes "not generated
+        # yet" into git and hides the real failure behind a plausible artifact.
+        if not isinstance(data.get("state"), dict):
+            reason = data.get("notice") or "no state (live build failed)"
+            failed.append((cid, reason))
+            print(f"  FAIL  {cid}  ({reason})")
+            if (out_dir / f"{cid}.json").is_file():
+                print(f"        note: stale artifact on disk — delete it or fix the build")
+            continue
         if not args.no_trim and isinstance(data, dict) and isinstance(data.get("state"), dict):
             data["state"] = trim_state_for_view(data["state"])
         try:
@@ -131,6 +178,65 @@ def main() -> int:
         if not args.dry_run:
             (out_dir / f"{cid}.json").write_text(blob, encoding="utf-8")
         print(f"  OK    {cid}  ({size_mb:.1f} MB)")
+        # Discovery canonicalizes a generator's id (`<module>.<name>` ->
+        # `<module>` when the module's stem already is the name), but the
+        # workspace manifest still advertises BOTH forms and pop-out URLs are
+        # built from whichever string the caller holds. Emit the alias copy so
+        # the un-canonicalized id doesn't render "not generated yet".
+        alias = f"{data.get('module')}.{data.get('name')}" if data.get("module") else None
+        if alias and alias != cid and alias not in ids and not args.dry_run:
+            (out_dir / f"{alias}.json").write_text(blob, encoding="utf-8")
+            print(f"  OK    {alias}  (alias copy)")
+
+    # ---- Inner-composite states (for the loom's static drill-in mini-map) ----
+    # A Composite Process (a process whose inner model is itself a Composite —
+    # e.g. colony's embedded EcoliWCM cells) needs its inner composite pre-built
+    # so the READ-ONLY bundle can render the drill-in mini-map without a live
+    # /api/composite-inner-state endpoint. build_inner_states_for enumerates them
+    # from the resolved state and live-builds each (needs the ParCa cache, which
+    # is why this runs here, not at publish time in CI). publish.build_bundle
+    # copies reports/composite-inner-state/*.json into the bundle verbatim; the
+    # key is a base64url of (root_id, hops) matched client-side in loom.
+    inner_dir = ws_root / "reports" / "composite-inner-state"
+    inner_total = 0
+    try:
+        from vivarium_workbench.lib.composite_inner_states import build_inner_states_for
+    except Exception as e:  # noqa: BLE001 — older workbench without the helper
+        build_inner_states_for = None
+        print(f"\n(skip inner-composite states: {e})")
+    if build_inner_states_for is not None:
+        if not args.dry_run:
+            inner_dir.mkdir(parents=True, exist_ok=True)
+        for cid, _size in ok:
+            state_path = out_dir / f"{cid}.json"
+            try:
+                payload = json.loads(state_path.read_text(encoding="utf-8"))
+            except Exception:  # noqa: BLE001
+                continue
+            st = payload.get("state") if isinstance(payload, dict) else None
+            if isinstance(st, dict) and isinstance(st.get("state"), dict):
+                st = st["state"]
+            # Cheap gate: skip composites with no Composite Process (nothing to
+            # drill into) so we don't pay a live build for flat composites.
+            if not isinstance(st, dict) or "is_composite_process" not in json.dumps(st):
+                continue
+            try:
+                built = build_inner_states_for(ws_root, cid, st)
+            except Exception as e:  # noqa: BLE001
+                print(f"  inner  {cid}: build failed ({e})")
+                continue
+            for key, body in built.items():
+                try:
+                    blob = json.dumps(_json_sanitize(body), default=_json_default, allow_nan=False)
+                except ValueError:
+                    continue
+                if not args.dry_run:
+                    (inner_dir / f"{key}.json").write_text(blob, encoding="utf-8")
+                inner_total += 1
+            if built:
+                print(f"  inner  {cid}: {len(built)} inner-composite state(s)")
+        if inner_total:
+            print(f"wrote {inner_total} inner-composite state(s) to {inner_dir}")
 
     total = sum(s for _, s in ok)
     print(f"\nresolved {len(ok)}/{len(ids)}  ({total:.1f} MB total)  failed {len(failed)}")

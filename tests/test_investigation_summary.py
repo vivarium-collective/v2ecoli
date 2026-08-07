@@ -2,7 +2,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 WS = REPO / "workspace"
-SLUG = "v2ecoli-vecoli-comparison"
+SLUG = "whole-cell-model-comparison"
 
 
 def test_aggregate_discovers_studies_in_dag_order():
@@ -12,10 +12,26 @@ def test_aggregate_discovers_studies_in_dag_order():
     assert summ["slug"] == SLUG
     assert summ["question"].startswith("Does v2ecoli reproduce vEcoli")
     slugs = [s["slug"] for s in summ["studies"]]
-    assert slugs == [
-        "parca", "basal", "metabolism_redux", "with_aa", "succinate",
-        "no_oxygen", "acetate", "statistical",
-    ]
+    # Same study set, asserted as a VALID DAG order (parca root first; every
+    # study after its in-set prerequisites) rather than a brittle exact authored
+    # sequence — the registry migrator sorts members alphabetically, so
+    # aggregate() topologically re-orders and the exact order isn't fixed.
+    # The single `metabolism_redux` study was superseded by 5 per-condition
+    # studies (Task A2): metabolism_redux_{basal,with_aa,succinate,no_oxygen,
+    # acetate}, each still gated on `parca`.
+    assert set(slugs) == {
+        "parca", "basal", "with_aa", "succinate", "no_oxygen", "acetate",
+        "statistical",
+        "metabolism_redux_basal", "metabolism_redux_with_aa",
+        "metabolism_redux_succinate", "metabolism_redux_no_oxygen",
+        "metabolism_redux_acetate",
+    }
+    assert slugs[0] == "parca"
+    pos = {s: i for i, s in enumerate(slugs)}
+    for s in summ["studies"]:
+        for p in s["prerequisites"]:
+            if p in pos:
+                assert pos[p] < pos[s["slug"]], f"{p} must precede {s['slug']}"
 
 
 def test_aggregate_per_study_metadata_and_rollup():
@@ -23,21 +39,38 @@ def test_aggregate_per_study_metadata_and_rollup():
 
     summ = aggregate(SLUG, WS)
     by = {s["slug"]: s for s in summ["studies"]}
-    assert by["acetate"]["result"] == "FAIL"
+    # after the rpoBC fix, acetate reproduces vEcoli natively (was FAIL pre-fix)
+    assert by["acetate"]["result"] == "PASS"
     assert by["parca"]["result"] == "PASS"
     assert by["parca"]["prerequisites"] == []
     assert by["acetate"]["prerequisites"] == ["parca"]
-    assert by["statistical"]["prerequisites"] == ["basal"]
-    assert "RNA mass" in (by["acetate"]["finding"] or "")
-    # config + standard cards discovered for acetate; parca card for parca
-    assert {c["name"] for c in by["acetate"]["cards"]} == {"config", "standard"}
+    # post-migration: prerequisites come from inputs.from, which for
+    # `statistical` lists both its sim_data source (parca) and its
+    # comparison baseline (basal) — pipeline_gate.prerequisites (pre-migration)
+    # tracked only the direct gate (basal); inputs.from is now the source of truth.
+    assert by["statistical"]["prerequisites"] == ["parca", "basal"]
+    # post-fix finding states acetate reproduces vEcoli natively
+    assert "reproduces vEcoli" in (by["acetate"]["finding"] or "")
+    # post-Task-12 re-materialize: acetate carries the investigation's 8-card
+    # default (comparison.defaults.cards), not the old 3-card {config,
+    # standard, statistical} set; parca card for the parca study is unchanged.
+    assert {c["name"] for c in by["acetate"]["cards"]} == {
+        "summary", "parca", "statistical", "standard",
+        "trajectory", "distribution", "metabolism", "composition",
+    }
     assert {c["name"] for c in by["parca"]["cards"]} == {"parca"}
-    # config card is ungraded, standard is graded
+    # summary card has no rendered viz/report_card/summary.html yet (only the
+    # pre-existing config/standard/statistical cards were ever rendered for
+    # acetate) -> ungraded; standard (single-seed, illustrative) still has its
+    # rendered html + verdict
     acards = {c["name"]: c for c in by["acetate"]["cards"]}
-    assert acards["config"]["graded"] is False
+    assert acards["summary"]["graded"] is False
     assert acards["standard"]["graded"] is True
+    # standard (single-seed, illustrative) still carries its pre-fix verdict;
+    # the gold-standard statistical card + conclusions reflect the fix.
     assert acards["standard"]["overall"] == "mismatch"
-    assert summ["rollup"] == {"PASS": 2, "PARTIAL": 3, "FAIL": 2}
+    # post-fix: every condition study reproduces vEcoli (metabolism_redux ungraded)
+    assert summ["rollup"] == {"PASS": 7, "PARTIAL": 0, "FAIL": 0}
 
 
 def test_matrix_columns_lead_with_standard_observables():
@@ -59,7 +92,7 @@ def test_matrix_cell_verdicts_match_source_json():
     rows = {r["study"]: r["cells"] for r in m["rows"]}
     # acetate growth rate is a mismatch in the source verdict.json
     src = json.loads(
-        (WS / "investigations" / SLUG / "studies" / "acetate"
+        (WS / "studies" / "acetate"  # registry: studies live top-level (Spec 1)
          / "viz" / "report_card" / "standard.verdict.json").read_text(encoding='utf-8')
     )
     axis = {a["label"]: a["verdict"] for a in src["groups"]["standard"]["axes"]}
@@ -102,8 +135,8 @@ def test_render_overview_and_matrix():
     html = render(aggregate(SLUG, WS), style_css=":root{--x:1}")
     assert "<!doctype html>" in html.lower()
     assert "Does v2ecoli reproduce vEcoli" in html
-    # rollup counts present
-    assert "2 FAIL" in html and "3 PARTIAL" in html and "2 PASS" in html
+    # rollup counts present (post-fix: all condition studies PASS)
+    assert "7 PASS" in html
     # matrix header + a verdict-colored cell class
     assert "growth rate (1/s)" in html
     assert "verdict-mismatch" in html
@@ -147,9 +180,14 @@ def test_badge_class_whitelisted():
     from reports._summary.aggregate import aggregate
     from reports._summary.render import render
 
-    # real graded study produces a legitimate badge class
+    # real graded study produces a legitimate badge class. The study-level
+    # badge is the FIRST graded card's overall verdict in cards order; the
+    # 8-card default (Task 12 re-materialize) puts `statistical`/`parca`
+    # ahead of `standard`, so several condition studies (acetate, basal,
+    # succinate, no_oxygen) now badge "drift" off their statistical/parca
+    # card rather than standard's "mismatch".
     html = render(aggregate(SLUG, WS))
-    assert "badge mismatch" in html
+    assert "badge drift" in html
 
     # synthetic: an attacker-controlled overall value must not land in the
     # class attribute unescaped, even though it's still shown (escaped) as text
@@ -203,10 +241,12 @@ def test_aggregate_config_json_is_real_baseline_config():
 
     by = {s["slug"]: s for s in aggregate(SLUG, WS)["studies"]}
     cfg = by["acetate"]["config_json"]
-    assert cfg["composite"] == "v2ecoli.composites.baseline.baseline"
-    assert cfg["params"] == {"condition": "acetate"}
+    assert cfg["composite"] == "v2ecoli.composites.ecoli_baseline.ecoli_baseline"
+    # migrated by the study-config↔generator contract: condition:acetate -> media:minimal_acetate
+    # (ecoli_baseline accepts `media`, not `condition`)
+    assert cfg["params"] == {"media": "minimal_acetate"}
     # comparison run settings folded in
-    assert cfg["seeds"] == 1
+    assert cfg["seeds"] == 4  # gold standard: condition studies run 4 seeds
     assert cfg["generations"] == 4
 
 
@@ -229,7 +269,7 @@ def test_config_json_replaces_config_card():
     html = render(aggregate(SLUG, WS))
     # the actual baseline config JSON is shown (HTML-escaped inside <pre>)...
     assert "config (JSON)" in html
-    assert "v2ecoli.composites.baseline.baseline" in html
+    assert "v2ecoli.composites.ecoli_baseline.ecoli_baseline" in html
     assert "&quot;composite&quot;" in html  # JSON keys escaped, not raw-injected
     # ...and the config *report card* is no longer embedded as a card block
     assert "config card" not in html

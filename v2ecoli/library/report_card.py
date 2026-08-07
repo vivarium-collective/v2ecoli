@@ -552,6 +552,13 @@ def _axis_plot_svg(axis: dict, ref_label="reference", meas_label="measured") -> 
                 label=axis.get("label", ""),
                 ref_label=ref_label, meas_label=meas_label)
             return f"<div class='fluxwrap'>{svg}{_flux_table(measured, crit)}</div>"
+        if kind == "overflow_curve" and isinstance(measured, dict) and measured.get("x"):
+            return card_plots.overflow_curve(
+                measured.get("x"), measured.get("y"),
+                ref_x=crit.get("ref_x"), ref_y=crit.get("ref_y"),
+                ref_err=crit.get("ref_err"), ref_label=crit.get("ref_label", ref_label),
+                context_curves=crit.get("context_curves"), anchor=crit.get("anchor"),
+                label=axis.get("label", ""))
     except Exception as e:  # a plot failure must not blank the report
         return f"<div class='ploterr'>plot unavailable: {type(e).__name__}</div>"
     return ""
@@ -798,36 +805,75 @@ def render_verdict_html(verdict: dict, *, title: str | None = None) -> str:
             return _html.escape(f"{val:.4g}")
         return _html.escape(str(val))
 
+    # Tally axis verdicts across every group for the header summary.
+    tally = {"within_tol": 0, "drift": 0, "mismatch": 0, "ungraded": 0}
+    for grp in (verdict.get("groups") or {}).values():
+        for ax in grp.get("axes", []):
+            v = ax.get("verdict", "ungraded")
+            tally[v if v in tally else "ungraded"] += 1
+
+    def counts_str(scope=None) -> str:
+        # scope = a group dict → count just that group; else the whole card.
+        t = {"within_tol": 0, "drift": 0, "mismatch": 0, "ungraded": 0}
+        groups = [scope] if scope is not None else list((verdict.get("groups") or {}).values())
+        for grp in groups:
+            for ax in grp.get("axes", []):
+                v = ax.get("verdict", "ungraded")
+                t[v if v in t else "ungraded"] += 1
+        parts = []
+        for v in ("within_tol", "drift", "mismatch", "ungraded"):
+            if t[v]:
+                parts.append(f"<span style='color:{_COLOR.get(v)}'>{t[v]} {_GLYPH.get(v)}</span>")
+        return " &nbsp; ".join(parts)
+
     sections = []
     for gslug, grp in (verdict.get("groups") or {}).items():
         rows = []
-        for ax in grp.get("axes", []):
+        for i, ax in enumerate(grp.get("axes", [])):
+            bg = "#ffffff" if i % 2 == 0 else "#f8fafc"
             rows.append(
-                "<tr>"
-                f"<td style='padding:4px 10px'>{_html.escape(str(ax.get('label', ax.get('id', ''))))}</td>"
-                f"<td style='padding:4px 10px'>{chip(ax.get('verdict', 'ungraded'))}</td>"
-                f"<td style='padding:4px 10px;font-variant-numeric:tabular-nums'>{val_str(ax.get('value'))}</td>"
-                f"<td style='padding:4px 10px;color:#555'>{_html.escape(str(ax.get('meter', '') or ''))}</td>"
+                f"<tr style='background:{bg};border-top:1px solid #eef2f7'>"
+                f"<td style='padding:7px 12px'>{_html.escape(str(ax.get('label', ax.get('id', ''))))}</td>"
+                f"<td style='padding:7px 12px'>{chip(ax.get('verdict', 'ungraded'))}</td>"
+                f"<td style='padding:7px 12px;font-variant-numeric:tabular-nums;color:#0f172a'>{val_str(ax.get('value'))}</td>"
+                f"<td style='padding:7px 12px;color:#475569;font-size:12px'>{_html.escape(str(ax.get('meter', '') or ''))}</td>"
                 "</tr>")
         sections.append(
-            f"<h3 style='margin:14px 0 4px'>{_html.escape(gslug.replace('_', ' ').title())} "
-            f"{chip(grp.get('verdict', 'ungraded'))}</h3>"
+            "<section style='border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;"
+            "margin:0 0 14px;box-shadow:0 1px 2px rgba(15,23,42,0.04)'>"
+            "<header style='display:flex;align-items:center;gap:10px;padding:9px 14px;"
+            "background:#f1f5f9;border-bottom:1px solid #e2e8f0'>"
+            f"<strong style='font-size:14px;color:#0f172a'>{_html.escape(gslug.replace('_', ' ').title())}</strong>"
+            f"{chip(grp.get('verdict', 'ungraded'))}"
+            f"<span style='margin-left:auto;font-size:12px'>{counts_str(grp)}</span>"
+            "</header>"
             "<table style='border-collapse:collapse;width:100%;font-size:13px'>"
-            "<thead><tr style='text-align:left;color:#888'>"
-            "<th style='padding:4px 10px'>axis</th><th style='padding:4px 10px'>verdict</th>"
-            "<th style='padding:4px 10px'>value</th><th style='padding:4px 10px'>meter</th>"
+            "<thead><tr style='text-align:left;color:#94a3b8;font-size:11px;"
+            "text-transform:uppercase;letter-spacing:0.04em'>"
+            "<th style='padding:6px 12px'>Axis</th><th style='padding:6px 12px'>Verdict</th>"
+            "<th style='padding:6px 12px'>Value</th><th style='padding:6px 12px'>Δ / stats</th>"
             "</tr></thead>"
-            f"<tbody>{''.join(rows)}</tbody></table>")
+            f"<tbody>{''.join(rows)}</tbody></table></section>")
 
-    sub = " · ".join(x for x in [
-        f"reference: {_html.escape(ref_model)}" if ref_model else "",
-        f"measured: {_html.escape(meas_model)}" if meas_model else ""] if x)
+    sub = " &nbsp;·&nbsp; ".join(x for x in [
+        f"reference: <code>{_html.escape(ref_model)}</code>" if ref_model else "",
+        f"measured: <code>{_html.escape(meas_model)}</code>" if meas_model else ""] if x)
+    header = (
+        "<header style='background:#0f172a;color:#e2e8f0;padding:16px 20px;"
+        "border-radius:12px 12px 0 0'>"
+        f"<div style='display:flex;align-items:center;gap:12px;flex-wrap:wrap'>"
+        f"<h2 style='margin:0;font-size:18px;color:#fff'>{_html.escape(title)}</h2>"
+        f"{chip(overall, 'overall: ' + overall.replace('_', ' '))}"
+        f"<span style='margin-left:auto;font-size:13px'>{counts_str()}</span>"
+        "</div>"
+        f"<div style='color:#94a3b8;font-size:12px;margin-top:6px'>{sub}</div>"
+        "</header>")
     return (
-        "<div style='font-family:system-ui,sans-serif;max-width:900px'>"
-        f"<h2 style='margin:0 0 2px'>{_html.escape(title)} "
-        f"{chip(overall, 'overall: ' + overall.replace('_', ' '))}</h2>"
-        f"<div style='color:#888;font-size:12px;margin-bottom:8px'>{sub}</div>"
-        f"{''.join(sections)}</div>")
+        "<div style='font-family:system-ui,-apple-system,Segoe UI,sans-serif;"
+        "max-width:960px;color:#0f172a'>"
+        f"{header}"
+        "<div style='border:1px solid #e2e8f0;border-top:0;border-radius:0 0 12px 12px;"
+        f"padding:16px 16px 4px'>{''.join(sections)}</div></div>")
 
 
 def load_json(path: str) -> dict:

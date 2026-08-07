@@ -1,0 +1,8 @@
+{
+  "device": "daughter_machine",
+  "n_steps": 800,
+  "dt": 30.0,
+  "n_final": 163,
+  "n_division_events": 332,
+  "mean_length_at_division": 4.264402789199795
+}

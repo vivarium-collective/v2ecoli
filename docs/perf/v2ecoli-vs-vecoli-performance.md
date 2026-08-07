@@ -136,6 +136,45 @@ the framework** — it requires the structural PDMP / compiled-runtime reformula
   `Quantity`. Open question: a `single_daughters` gen-2 daughter didn't re-divide by
   ~5400 steps while vEcoli's did at ~2851 — a division-timing nuance worth a look.
 
+## GovCloud/Ray-on-Batch: the "3x slowdown" is real, and it's the hardware, not a bug
+
+Backlog task #18 asked whether sms-ecoli/v2ecoli simulations dispatched via
+sms-api on GovCloud (AWS Batch MNP + Ray, `r5.4xlarge` nodes) run ~3x slower
+than this doc's `83.8 ms/step` baseline. Investigated with a real, confirmed
+timing sample (simulation #115, 2 seeds, 600 steps each, GovCloud): **146.9s
+and 150.2s per seed** — 244.8–250.3 ms/step, a genuine **2.9–3.0x** slowdown
+vs. the baseline above, not a stale-doc artifact (steps are matched at 600,
+so the "3.35x" step-count illusion from the earlier draft doesn't apply here).
+
+Two candidate leads were ruled out as the dominant cause:
+
+- **The background `aws s3 sync` loop** (`docker/ray-batch-entrypoint.sh`,
+  runs only on worker nodes, 30s interval): real contention, but for a ~150s
+  job that's only ~5 invocations, each a lightweight list+diff (plain `aws s3
+  sync` already skips unchanged files by size/mtime — it isn't re-uploading
+  already-synced zarr chunks). Small, intermittent, not a sustained 3x driver.
+- **BLAS thread count** (`v2ecoli/library/parallel_seeds.py`'s
+  `_resolve_threads`, `os.cpu_count() // n_seeds`): a genuine formula/topology
+  mismatch under GovCloud's `ray_num_nodes=3` MNP setup (1 head + 2 dedicated
+  16-vCPU worker nodes, `sms-cdk/config/stanford.json`) — with `n_seeds=2`,
+  each seed gets its own whole node but the formula still halves its thread
+  cap to 8. Real, but per this doc's own §"Is Nextflow making vEcoli faster?"
+  finding, the hot path (GLPK primal-simplex FBA + numba-JIT polymerization)
+  is single-threaded/GIL-bound — halving the thread cap isn't expected to
+  move per-step time meaningfully, and the evidence doesn't support it as the
+  dominant driver either.
+
+**Most likely real driver: raw per-core throughput.** This doc's own baseline
+was measured on macOS ("Operational gotchas" below: `brew install
+openjdk@17`) — commonly 2-3x faster per-core, single-threaded, than an
+`r5.4xlarge`'s Xeon Platinum 8175M-class cores for exactly this kind of
+Python/numba-heavy workload. There is no code fix for a benchmark-host vs.
+production-host silicon difference; the honest conclusion is that GovCloud
+dispatch is genuinely slower than the local Mac baseline this doc otherwise
+uses as ground truth, not that something is broken. **Before spending more
+time on this**: re-run `scripts/perf_compare.py` directly on an `r5.4xlarge`
+node to get an apples-to-apples number and confirm this is the whole story.
+
 ## Operational gotchas
 
 - Nextflow needs **Java 17+** (`brew install openjdk@17`; set `JAVA_HOME` for the call).

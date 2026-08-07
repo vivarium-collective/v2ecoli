@@ -46,7 +46,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import numpy as np
 
 from v2ecoli.core import save_sim_input
-from v2ecoli.library.cache_version import write_cache_version
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )
@@ -201,17 +200,18 @@ def build(condition: str, fixture: str, cache_dir: str,
               f"{d_period_seconds} s ({d_period_seconds/60} min)")
 
     print(f"[{time.strftime('%H:%M:%S')}] Building bundle at {cache_dir} ...")
-    # NOTE: this branch's save_sim_input predates the C/D-period override kwargs;
-    # they're unused here (both None), so pass only the supported args.
-    _save_kwargs = dict(condition=media_condition, fixed_media=fixed_media)
-    import inspect as _inspect
-    _sig = _inspect.signature(save_sim_input).parameters
-    if c_period_minutes is not None and "c_period_minutes" in _sig:
-        _save_kwargs["c_period_minutes"] = c_period_minutes
-    if d_period_seconds is not None and "d_period_seconds" in _sig:
-        _save_kwargs["d_period_seconds"] = d_period_seconds
-    save_sim_input(sim_data, cache_dir, **_save_kwargs)
-    write_cache_version(cache_dir, repo_root=repo_root)
+    # save_sim_input (-> v2ecoli.core._write_sim_input_bundle) already writes
+    # a complete cache_version.json as its last step, with build_params
+    # (condition/fixed_media, T3/A7-A9) and configs (A6) recorded. A second
+    # write_cache_version(cache_dir, repo_root=repo_root) call used to run
+    # here — before condition.json below even exists, so it wasn't for
+    # picking up the manifest hash either — re-deriving a version with
+    # neither build_params nor configs and clobbering the correct file with
+    # it. Removed; nothing here needs a second write.
+    save_sim_input(sim_data, cache_dir,
+                   condition=media_condition, fixed_media=fixed_media,
+                   c_period_minutes=c_period_minutes,
+                   d_period_seconds=d_period_seconds)
 
     manifest = {
         "condition": condition,

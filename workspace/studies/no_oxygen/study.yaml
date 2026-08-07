@@ -1,0 +1,105 @@
+schema_version: 4
+name: no_oxygen
+investigation: whole-cell-model-comparison
+title: v2ecoli reproduces vEcoli on no_oxygen
+condition: no_oxygen
+question: Does v2ecoli reproduce vEcoli on the no_oxygen condition?
+comparison:
+  seeds: 4
+  generations: 4
+report_cards:
+- viz/report_card/summary.html
+- viz/report_card/parca.html
+- viz/report_card/statistical.html
+- viz/report_card/standard.html
+- viz/report_card/trajectory.html
+- viz/report_card/distribution.html
+- viz/report_card/metabolism.html
+- viz/report_card/composition.html
+runs:
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  name: no_oxygen-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study no_oxygen
+  status: completed
+  result: PASS
+  outcomes:
+    statistical-vs-vecoli:
+      result: WITHIN_TOL
+      detail: 'report card ''statistical'': ungraded'
+status: evaluated
+tests:
+- name: summary-vs-vecoli
+  kind: report_card
+  card: summary
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (summary card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/no_oxygen
+    group: parca
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (statistical card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/no_oxygen
+    group: statistical
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (standard card)?
+- name: trajectory-vs-vecoli
+  kind: report_card
+  card: trajectory
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (trajectory card)?
+- name: distribution-vs-vecoli
+  kind: report_card
+  card: distribution
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (distribution card)?
+- name: metabolism-vs-vecoli
+  kind: report_card
+  card: metabolism
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (metabolism card)?
+- name: composition-vs-vecoli
+  kind: report_card
+  card: composition
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on no_oxygen (composition card)?
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      media: minimal_minus_oxygen
+  model_settings: []
+confidence: Accepted
+findings:
+- id: no_oxygen-vs-vecoli-result
+  kind: computational
+  status: partial
+  statement: 'v2ecoli reproduces vEcoli on no_oxygen (4-seed gen-1, Welch t-test):
+    cell, dry, protein and RNA mass within tolerance (4/5 within_tol); growth rate
+    shows a non-significant drift. 2 of 4 seeds hit a pre-existing anaerobic-FBA numerical
+    edge case (BIOTIN homeostatic target near zero); graded on the clean seeds.'
+  evidence:
+    from_card: statistical
+    observed: growth +6.7% (p=0.50, not significant); RNA +1.0%; cell +1.0%; dry +1.0%;
+      protein +0.5% -- 4/5 within_tol, overall drift.
+inputs:
+- artifact: sim_data
+  from: parca
+  into: cache_dir
+pipeline_gate:
+  enables: []

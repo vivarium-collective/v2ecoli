@@ -1,0 +1,105 @@
+{
+  "schema": "report_card_verdict/v1",
+  "model_ref": "v2ecoli@sim48/59",
+  "reference_model": "vEcoli (fork)",
+  "generated": "",
+  "overall": "drift",
+  "groups": {
+    "physiology": {
+      "verdict": "drift",
+      "axes": [
+        {
+          "id": "physiology.cell_mass",
+          "label": "Cell mass",
+          "verdict": "within_tol",
+          "value": 403.74330692596766,
+          "meter": "\u0394 = +2.3% \u00b7 p = 0.767 \u00b7 d = +0.22",
+          "detail": {
+            "p": 0.7668374671070628,
+            "t": 0.3107996652372034,
+            "cohens_d": 0.2197685508797354,
+            "delta_rel": 0.023160743991334637
+          }
+        },
+        {
+          "id": "physiology.growth_rate",
+          "label": "Growth rate",
+          "verdict": "drift",
+          "value": 0.00016530292924819072,
+          "meter": "\u0394 = +15.9% \u00b7 p = 0.280 \u00b7 d = +0.84",
+          "detail": {
+            "p": 0.27952233316889874,
+            "t": 1.1893891667650562,
+            "cohens_d": 0.8410251452893899,
+            "delta_rel": 0.15916188659167027
+          }
+        },
+        {
+          "id": "physiology.dry_mass",
+          "label": "Dry mass",
+          "verdict": "within_tol",
+          "value": 121.17155030423626,
+          "meter": "\u0394 = +2.3% \u00b7 p = 0.766 \u00b7 d = +0.22",
+          "detail": {
+            "p": 0.7663342364316017,
+            "t": 0.3114973349939455,
+            "cohens_d": 0.22026187789575535,
+            "delta_rel": 0.0232246712414646
+          }
+        },
+        {
+          "id": "physiology.protein_mass",
+          "label": "Protein mass",
+          "verdict": "within_tol",
+          "value": 71.73548131936116,
+          "meter": "\u0394 = +1.3% \u00b7 p = 0.864 \u00b7 d = +0.13",
+          "detail": {
+            "p": 0.8636520487203023,
+            "t": 0.17936548065668487,
+            "cohens_d": 0.1268305476831264,
+            "delta_rel": 0.013446203307192863
+          }
+        },
+        {
+          "id": "physiology.rna_mass",
+          "label": "RNA mass",
+          "verdict": "within_tol",
+          "value": 12.618896488868181,
+          "meter": "\u0394 = +3.6% \u00b7 p = 0.699 \u00b7 d = +0.29",
+          "detail": {
+            "p": 0.6988658171109692,
+            "t": 0.40716119239965204,
+            "cohens_d": 0.2879064401817969,
+            "delta_rel": 0.036462596842222694
+          }
+        }
+      ]
+    },
+    "ribosomes": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "ribosomes.active_ribosome",
+          "label": "Active ribosome",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    },
+    "transcription": {
+      "verdict": "ungraded",
+      "axes": [
+        {
+          "id": "transcription.active_RNAP",
+          "label": "Active RNAP",
+          "verdict": "ungraded",
+          "value": null,
+          "meter": "\u2014",
+          "detail": {}
+        }
+      ]
+    }
+  }
+}

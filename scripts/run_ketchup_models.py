@@ -86,7 +86,7 @@ def run_bridge(ticks: int = 60, burn: int = 10,
     warnings.filterwarnings("ignore")
     import numpy as np
     from process_bigraph import Composite
-    from pbg_superpowers.composite_generator import _REGISTRY, build_generator
+    from viva_superpowers.composite_generator import _REGISTRY, build_generator
     from v2ecoli.core import build_core
 
     fx = json.load(open(

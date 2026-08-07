@@ -27,28 +27,29 @@ question: |
 
 conditions:
   baseline:
-    composite: baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   # The blessed measured side is a MULTISEED + MULTIGEN ensemble (the
   # population_phenotype_basal sweep, post-burn-in gen≥3), baked to committed
   # per-cell fixtures by `scripts/render_basal_vs_literature.py --from-sweep`.
   variants:
-  - name: wild-type baseline (no perturbation)
-    role: reference
-    detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
+    - name: wild-type baseline (no perturbation)
+      role: reference
+      detail: Unperturbed glucose-minimal whole cell; the vs_literature reference is experimental data, not a pinned run.
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   model_settings:
-  - name: baked-fixture-measured-side
-    detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.
-  - name: literature-reference-side
-    detail: Reference values read live from ecoli_sources.VALIDATION_BUNDLE_PATH (the validation manifest, bypassing the ParCa SourceBundle contract).
+    - name: baked-fixture-measured-side
+      detail: Measured side reads committed model_*.json fixtures (the #268 reproducibility boundary), not a live sweep zarr — the card grades run-free.
+    - name: literature-reference-side
+      detail: Reference values read live from ecoli_sources.VALIDATION_BUNDLE_PATH (the validation manifest, bypassing the ParCa SourceBundle contract).
 
 assumptions:
-- text: |
-    The committed model_*.json fixtures faithfully represent the blessed baseline
-    ensemble (post-burn-in gen≥3) — so grading the fixtures reproduces the verdict
-    the live sweep would give (reversible: a later study.run_zarr_paths() drop-in).
-  verified_in_v2ecoli: false
+  - text: |
+      The committed model_*.json fixtures faithfully represent the blessed baseline
+      ensemble (post-burn-in gen≥3) — so grading the fixtures reproduces the verdict
+      the live sweep would give (reversible: a later study.run_zarr_paths() drop-in).
+    verified_in_v2ecoli: false
 
 # Only the headline PHYSIOLOGY criteria are formalized as behavioral tests here
 # (μ, glucose uptake, biomass yield). The card grades a broader set against the
@@ -60,24 +61,68 @@ assumptions:
 # them is future work). The tests below mirror the golden values pinned in
 # tests/test_basal_vs_literature.py.
 tests:
-- name: growth-rate-in-band
-  classification: primary
-  status: passed
-  question: Is the ensemble growth rate μ within the measured band?
-  measure:
-    kind: derived
-    detail: μ (1/h) from per-cell doubling times; graded vs the curated measured band.
-- name: glucose-uptake-below-band
-  classification: primary
-  status: failed
-  question: Does the model under-consume glucose relative to the measured band?
-  measure:
-    kind: derived
-    detail: q_glc (mmol/gDW/h) = |GLC[p] exchange|; measured 8.5–10.6, model ~5.1 → mismatch.
-- name: biomass-yield-first-principles-violation
-  classification: primary
-  status: failed
-  question: Does the biomass yield exceed the theoretical-max stoichiometric ceiling?
-  measure:
-    kind: derived
-    detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.
+  - name: growth-rate-in-band
+    classification: primary
+    status: passed
+    question: Is the ensemble growth rate μ within the measured band?
+    measure:
+      kind: derived
+      detail: μ (1/h) from per-cell doubling times; graded vs the curated measured band.
+  - name: glucose-uptake-below-band
+    classification: primary
+    status: failed
+    question: Does the model under-consume glucose relative to the measured band?
+    measure:
+      kind: derived
+      detail: q_glc (mmol/gDW/h) = |GLC[p] exchange|; measured 8.5–10.6, model ~5.1 → mismatch.
+  - name: biomass-yield-first-principles-violation
+    classification: primary
+    status: failed
+    question: Does the biomass yield exceed the theoretical-max stoichiometric ceiling?
+    measure:
+      kind: derived
+      detail: Yxs = ΔDW / ∫(q_glc·DW)dt by direct mass balance; exceeds the theoretical_max ceiling → differentiated first-principles violation.
+
+findings:
+  - id: biomass-yield-exceeds-thermodynamic-limit
+    kind: computational
+    status: contradicts
+    statement: >-
+      The baseline ensemble makes 0.826 gDW of biomass per gram of glucose consumed —
+      1.86× the top of the measured band (0.355–0.444) and 1.54× the first-principles
+      ceiling of 0.538. No carbon- and energy-balanced cell can exceed that ceiling, so
+      this is a model defect, not a calibration mismatch. The dispersion is tight
+      (CV 1.55% across 20 cells), so it is a systematic property of the model rather than
+      noise. Carbon is nonetheless conserved at baseline — implied biomass carbon
+      ≈ 0.457 gC/gDW is physically plausible — which locates the defect on the energetic
+      side: the ensemble barely respires (O₂:glucose ≈ 0.09, CO₂:glucose ≈ 0.33,
+      RQ ≈ 3.6 against ~1 for full oxidation), so almost no glucose carbon is burned for
+      maintenance and ATP, and nearly all of it is retained as biomass.
+    evidence:
+      from_card: vs_literature
+      observed: 0.825746175353658
+      units: gDW/g glucose
+      divergence_factor: 0.8598
+      n_cells: 20
+      dispersion: CV 1.55% (sd 0.0128 over 20 post-burn-in cells)
+      provenance_limitation: >-
+        The measured side is the committed tests/fixtures/population_phenotype_basal/
+        fixtures, which stamp reconstructed: True, commit: None, sweep_dir: None,
+        baked: unknown. The exact code and sweep that produced 0.826 were never recorded,
+        so this value cannot be attributed to any particular revision of the model.
+    expected:
+      range: [0.355, 0.444]
+      threshold: 0.538
+      summary: >-
+        Measured band 0.355–0.444 gDW/g glucose from four aerobic glucose-minimal
+        determinations — varma_1994 (0.355, W3110 aerobic batch), kavvas_2022 (0.42,
+        ¹³C-MFA MG1655), lacroix_2015 (0.44, MG1655 M9), long_2017 (0.444, ¹³C-MFA
+        MG1655). The threshold is the first-principles ceiling, varma_1993 = 0.538
+        (FBA, fully aerobic, no maintenance energy); a value above it is forbidden by
+        carbon and energy balance rather than merely unusual.
+    next_action: >-
+      Re-measure Yxs on a fresh basal run whose commit is recorded, and compute carbon
+      closure and RQ on the same run, to establish whether the baseline defect is
+      energetic and distinct from the carbon creation seen under a binding uptake cap.
+      Tracked as study metabolism-biomass-yield-s1-diagnostic.
+    next_action_type: replicate

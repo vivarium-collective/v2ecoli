@@ -1,0 +1,47 @@
+{
+  "schema": "report_card_verdict/v1",
+  "overall": "within_tol",
+  "groups": {
+    "composition": {
+      "verdict": "within_tol",
+      "axes": [
+        {
+          "id": "composition.protein_fraction",
+          "label": "protein fraction",
+          "verdict": "within_tol",
+          "value": 0.3787642624808603,
+          "meter": "Δ = -0.008772 (2.3% rel)",
+          "detail": {
+            "rel": 0.022636406198868954,
+            "ve_fraction": 0.3875367006538299,
+            "v2_fraction": 0.3787642624808603
+          }
+        },
+        {
+          "id": "composition.rna_fraction",
+          "label": "rna fraction",
+          "verdict": "within_tol",
+          "value": 0.16102236008632792,
+          "meter": "Δ = -0.001724 (1.1% rel)",
+          "detail": {
+            "rel": 0.010594200373019867,
+            "ve_fraction": 0.16274652942911352,
+            "v2_fraction": 0.16102236008632792
+          }
+        },
+        {
+          "id": "composition.other_fraction",
+          "label": "other fraction",
+          "verdict": "within_tol",
+          "value": 0.4602133774328118,
+          "meter": "Δ = +0.0105 (2.3% rel)",
+          "detail": {
+            "rel": 0.023340484985007792,
+            "ve_fraction": 0.44971676991705656,
+            "v2_fraction": 0.4602133774328118
+          }
+        }
+      ]
+    }
+  }
+}

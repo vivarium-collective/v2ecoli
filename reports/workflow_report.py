@@ -46,7 +46,7 @@ except ImportError:
 
 from v2ecoli import build_composite
 from v2ecoli.core import build_core, save_cache, save_sim_input
-from v2ecoli.composites.baseline import (
+from v2ecoli.composites.ecoli_baseline import (
     baseline as _baseline_doc,
     seed_mass_listener,
     build_execution_layers,
@@ -70,6 +70,29 @@ except ImportError:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _mfloat(x, default=0.0):
+    """Coerce a listener value to a plain float, stripping pint units.
+
+    Under units-on-ports the mass listeners (dry_mass, cell_mass, …) are
+    unit-bearing pint Quantities (e.g. femtogram), so a bare ``float(q)`` raises
+    ``DimensionalityError``. Take the magnitude when present; otherwise float
+    directly, falling back to ``default`` on non-numeric input.
+    """
+    if hasattr(x, 'magnitude'):
+        try:
+            return float(x.magnitude)
+        except (TypeError, ValueError):
+            return float(default)
+    try:
+        return float(x)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
@@ -84,7 +107,7 @@ DAUGHTER_DURATION = None  # Set to half the single-cell division time at runtime
 
 # Runtime options (overridden by CLI args)
 _OPTIONS = {
-    'composite_factory': lambda **kw: build_composite("baseline", **kw),
+    'composite_factory': lambda **kw: build_composite("ecoli_baseline", **kw),
     'fetch_biocyc': False,
     'parca_rerun': False,
     'parca_cpus': 4,
@@ -122,7 +145,7 @@ def save_meta(step_name, meta):
     meta['timestamp'] = time.strftime('%Y-%m-%d %H:%M:%S')
     path = os.path.join(WORKFLOW_DIR, f'{step_name}_meta.json')
     os.makedirs(WORKFLOW_DIR, exist_ok=True)
-    with open(path, 'w') as f:
+    with open(path, 'w', encoding='utf-8') as f:
         json.dump(meta, f, indent=2, cls=NumpyJSONEncoder)
 
 
@@ -251,8 +274,8 @@ def _collect_v1_lifecycle(duration):
 
             listeners = snap.get('listeners', {})
             mass = listeners.get('mass', {})
-            dry_mass = float(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
-            dna_mass = float(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
+            dry_mass = _mfloat(mass.get('dry_mass', 0)) if isinstance(mass, dict) else 0
+            dna_mass = _mfloat(mass.get('dna_mass', 0)) if isinstance(mass, dict) else 0
 
             umc = listeners.get('unique_molecule_counts', {})
             n_chrom = 0
@@ -329,7 +352,7 @@ def step_biocyc():
         try:
             response = requests.get(base_url + file_id, timeout=30)
             response.raise_for_status()
-            with open(outpath, "w") as f:
+            with open(outpath, 'w', encoding='utf-8') as f:
                 f.write(response.text)
             n_bytes = len(response.text)
             n_lines = response.text.count('\n')
@@ -576,7 +599,7 @@ def step_load_model():
     unique = cell.get('unique', {})
     n_unique_types = len(unique)
     mass = cell.get('listeners', {}).get('mass', {})
-    initial_dry_mass = float(mass.get('dry_mass', 0))
+    initial_dry_mass = _mfloat(mass.get('dry_mass', 0))
 
     if meta is not None:
         print(f" (cached metadata, rebuilt composite in {build_time:.2f}s)")
@@ -620,7 +643,7 @@ def step_single_cell():
 
     cell = composite.state['agents']['0']
     bulk_before = np.array(cell['bulk']['count'], copy=True)
-    initial_dry_mass = float(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
+    initial_dry_mass = _mfloat(cell.get('listeners', {}).get('mass', {}).get('dry_mass', 380))
 
     # Plasmid mode: full_plasmid array seeded with active entries means the
     # plasmid-aware cache (out/cache_plasmid) was used. Captured snapshots
@@ -655,6 +678,14 @@ def step_single_cell():
     divided = False
     last_cell_data = None
     total_run = 0
+    # Per-chunk time-series the report plots afterward (mass, chromosomes, RNAP
+    # positions, ppGpp/AA/NTP counts). This replaces the old
+    # `emitter_instance.history` read: no currently-supported emitter (parquet,
+    # sqlite, xarray, null) keeps every timestep in memory — ParquetEmitter, the
+    # default, streams each tick to disk. We snapshot the live state here instead,
+    # which works for every emitter type. Copies are taken because the live-state
+    # arrays are mutated in place across chunks.
+    history_snaps = []
 
     chunk_interval = PLASMID_SNAPSHOT_INTERVAL if has_plasmids else SNAPSHOT_INTERVAL
     while total_run < max_dur:
@@ -709,13 +740,28 @@ def step_single_cell():
 
         unique = cell.get('unique', {})
 
+        # Snapshot the fields the downstream plots read, flattening the unique
+        # molecules to the top level exactly as the old emitter history did.
+        _snap = {'global_time': total_run}
+        _lmass = cell.get('listeners', {}).get('mass', {})
+        _snap['listeners'] = {'mass': dict(_lmass) if isinstance(_lmass, dict) else {}}
+        _bulk = cell.get('bulk')
+        if _bulk is not None and hasattr(_bulk, 'copy'):
+            _snap['bulk'] = _bulk.copy()
+        for _uk in ('full_chromosome', 'active_replisome', 'active_RNAP',
+                    'chromosome_domain'):
+            _uv = unique.get(_uk)
+            if _uv is not None and hasattr(_uv, 'copy'):
+                _snap[_uk] = _uv.copy()
+        history_snaps.append(_snap)
+
         fc = unique.get('full_chromosome')
         n_chrom = 0
         if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
             n_chrom = int(fc['_entryState'].view(np.bool_).sum())
 
         mass = cell.get('listeners', {}).get('mass', {})
-        dry_mass = float(mass.get('dry_mass', 0))
+        dry_mass = _mfloat(mass.get('dry_mass', 0))
 
         threshold = cell.get('division_threshold', float('inf'))
         if isinstance(threshold, str):
@@ -730,7 +776,11 @@ def step_single_cell():
             print(f"    t={total_run}s ({total_run/60:.0f}min): {n_chrom} chroms, "
                   f"dry_mass={dry_mass:.0f}/{thresh_str}, forks={fork_count}")
 
-    emitter_history = emitter_instance.history if emitter_instance else []
+    # Time-series captured live per chunk above (see history_snaps). The previous
+    # `emitter_instance.history` assumed an in-memory emitter that no supported
+    # emitter provides (ParquetEmitter streams to disk), which crashed report
+    # generation with AttributeError after an otherwise-successful run.
+    emitter_history = history_snaps
 
     ppgpp_idx = None
     aa_idxs = {}
@@ -818,16 +868,16 @@ def step_single_cell():
             'fork_coords': fork_coords,
             'rnap_coords': rnap_coords,
             'n_rnap': n_rnap,
-            'dna_mass': float(mass.get('dna_mass', 0)),
-            'dry_mass': float(mass.get('dry_mass', 0)),
-            'protein_mass': float(mass.get('protein_mass', 0)),
-            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
-            'rRna_mass': float(mass.get('rRna_mass', 0)),
-            'tRna_mass': float(mass.get('tRna_mass', 0)),
-            'mRna_mass': float(mass.get('mRna_mass', 0)),
-            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
-            'instantaneous_growth_rate': float(mass.get('instantaneous_growth_rate', 0)),
-            'volume': float(mass.get('volume', 0)),
+            'dna_mass': _mfloat(mass.get('dna_mass', 0)),
+            'dry_mass': _mfloat(mass.get('dry_mass', 0)),
+            'protein_mass': _mfloat(mass.get('protein_mass', 0)),
+            'rna_mass': _mfloat(mass.get('rRna_mass', 0)) + _mfloat(mass.get('tRna_mass', 0)) + _mfloat(mass.get('mRna_mass', 0)),
+            'rRna_mass': _mfloat(mass.get('rRna_mass', 0)),
+            'tRna_mass': _mfloat(mass.get('tRna_mass', 0)),
+            'mRna_mass': _mfloat(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': _mfloat(mass.get('smallMolecule_mass', 0)),
+            'instantaneous_growth_rate': _mfloat(mass.get('instantaneous_growth_rate', 0)),
+            'volume': _mfloat(mass.get('volume', 0)),
             'ppgpp_count': ppgpp_count,
             'aa_counts': aa_counts_dict,
             'ntp_counts': ntp_counts,
@@ -877,7 +927,7 @@ def step_single_cell():
     if has_plasmids and plasmid_snaps:
         plasmid_timeseries_path = 'out/plasmid/timeseries.json'
         os.makedirs(os.path.dirname(plasmid_timeseries_path), exist_ok=True)
-        with open(plasmid_timeseries_path, 'w') as _f:
+        with open(plasmid_timeseries_path, 'w', encoding='utf-8') as _f:
             json.dump({
                 'duration': total_run,
                 'interval': PLASMID_SNAPSHOT_INTERVAL,
@@ -955,7 +1005,7 @@ def step_v1_comparison():
             else:
                 v1_snapshots = result
             if v1_snapshots:
-                with open(v1_cache_path, 'w') as f:
+                with open(v1_cache_path, 'w', encoding='utf-8') as f:
                     json.dump({'snapshots': v1_snapshots, 'wall_time': v1_wall_time,
                                'duration': duration}, f)
         except Exception as e:
@@ -1087,7 +1137,7 @@ def step_division():
     if fc is not None and hasattr(fc, 'dtype') and '_entryState' in fc.dtype.names:
         n_chromosomes = int(fc['_entryState'].view(np.bool_).sum())
     mass = cell.get('listeners', {}).get('mass', {})
-    dry_mass = float(mass.get('dry_mass', 0))
+    dry_mass = _mfloat(mass.get('dry_mass', 0))
 
     meta = {
         'prediv_time': prediv_time,
@@ -1117,7 +1167,21 @@ def _extract_snapshots_from_emitter(composite, label=''):
     """Extract snapshot data from a composite's emitter history."""
     cell = composite.state['agents']['0']
     em_edge = cell.get('emitter')
-    history = em_edge['instance'].history if isinstance(em_edge, dict) and 'instance' in em_edge else []
+    _inst = em_edge.get('instance') if isinstance(em_edge, dict) else None
+    history = getattr(_inst, 'history', None) or []
+    if not history:
+        # No supported emitter keeps an in-memory .history (ParquetEmitter, the
+        # default, streams to disk) — degrade to a single snapshot from the live
+        # final state so callers that only need final values (daughter dry_mass)
+        # work instead of crashing on a missing attribute.
+        _lmass = cell.get('listeners', {}).get('mass', {})
+        history = [{
+            'global_time': 0,
+            'listeners': {'mass': dict(_lmass) if isinstance(_lmass, dict) else {}},
+            'bulk': cell.get('bulk'),
+            'full_chromosome': cell.get('unique', {}).get('full_chromosome'),
+            'active_replisome': cell.get('unique', {}).get('active_replisome'),
+        }]
 
     snapshots = []
     for snap in history:
@@ -1160,14 +1224,14 @@ def _extract_snapshots_from_emitter(composite, label=''):
             'fork_coords': fork_coords,
             'rnap_coords': rnap_coords,
             'n_rnap': n_rnap,
-            'dna_mass': float(mass.get('dna_mass', 0)),
-            'dry_mass': float(mass.get('dry_mass', 0)),
-            'protein_mass': float(mass.get('protein_mass', 0)),
-            'rna_mass': float(mass.get('rRna_mass', 0)) + float(mass.get('tRna_mass', 0)) + float(mass.get('mRna_mass', 0)),
-            'rRna_mass': float(mass.get('rRna_mass', 0)),
-            'tRna_mass': float(mass.get('tRna_mass', 0)),
-            'mRna_mass': float(mass.get('mRna_mass', 0)),
-            'smallMolecule_mass': float(mass.get('smallMolecule_mass', 0)),
+            'dna_mass': _mfloat(mass.get('dna_mass', 0)),
+            'dry_mass': _mfloat(mass.get('dry_mass', 0)),
+            'protein_mass': _mfloat(mass.get('protein_mass', 0)),
+            'rna_mass': _mfloat(mass.get('rRna_mass', 0)) + _mfloat(mass.get('tRna_mass', 0)) + _mfloat(mass.get('mRna_mass', 0)),
+            'rRna_mass': _mfloat(mass.get('rRna_mass', 0)),
+            'tRna_mass': _mfloat(mass.get('tRna_mass', 0)),
+            'mRna_mass': _mfloat(mass.get('mRna_mass', 0)),
+            'smallMolecule_mass': _mfloat(mass.get('smallMolecule_mass', 0)),
         })
 
     return snapshots
@@ -1224,7 +1288,7 @@ def step_daughters():
 
         d_cell = comp.state['agents']['0']
         d_mass = d_cell.get('listeners', {}).get('mass', {})
-        initial_dry = float(d_mass.get('dry_mass', 0))
+        initial_dry = _mfloat(d_mass.get('dry_mass', 0))
 
         t0 = time.time()
         try:
@@ -1241,7 +1305,7 @@ def step_daughters():
         if final_dry == 0:
             d_cell_post = comp.state.get('agents', {}).get('0', {})
             d_mass_post = d_cell_post.get('listeners', {}).get('mass', {})
-            final_dry = float(d_mass_post.get('dry_mass', 0))
+            final_dry = _mfloat(d_mass_post.get('dry_mass', 0))
 
         return {
             'build_time': build_time,
@@ -1288,7 +1352,7 @@ def _load_study(study_path):
 
         baseline:
         - name: <any>
-          composite: v2ecoli.composites.baseline.baseline
+          composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
           params: {seed?, cache_dir?, duration?, daughter_duration?}
         visualizations:
         - name: <any>
@@ -1316,7 +1380,7 @@ def _load_study(study_path):
         raise ValueError(
             f"study {study_path!r}: workflow_report only handles the "
             f"partitioned `baseline` architecture (e.g. "
-            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+            f"v2ecoli.composites.ecoli_baseline.ecoli_baseline); got {composite_ref!r}"
         )
     if spec.get("lineage"):
         raise ValueError(
@@ -1475,7 +1539,7 @@ def run_workflow(out_path=None, viz_config=None):
 
     report_path = out_path or os.path.join(WORKFLOW_DIR, 'workflow_report.html')
     os.makedirs(os.path.dirname(os.path.abspath(report_path)), exist_ok=True)
-    with open(report_path, 'w') as f:
+    with open(report_path, 'w', encoding='utf-8') as f:
         f.write(html_content)
 
     # Plasmid report (only if simulation was plasmid-enabled). Renders via

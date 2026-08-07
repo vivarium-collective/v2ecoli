@@ -6,6 +6,12 @@ them per scale, runs the AnalysisSteps named in analysis_options, and writes
 analysis.json. Also runnable standalone:
 
     v2ecoli-analyze <sweep_dir> [--config cfg.json]
+
+``sweep_dir`` may be a local path OR an ``s3://`` URI. The S3 form lets a run's
+analyses be (re-)computed against output that stays in object storage — a
+1000-seed lineage sweep is terabytes of hive parquet, far past what any single
+node holds, but DuckDB's column projection means an analysis reads only the
+columns it names.
 """
 
 from __future__ import annotations
@@ -17,6 +23,114 @@ import os
 import re
 import warnings
 from typing import Any
+
+_S3_PREFIX = "s3://"
+
+
+def is_s3_uri(path: str) -> bool:
+    return str(path).startswith(_S3_PREFIX)
+
+
+def history_files(sweep_dir: str) -> list[str]:
+    """The sweep's history parquet, as local paths or ``s3://`` URIs.
+
+    Mirrors the local glob for S3 so every caller (FROM-clause builder, cell-key
+    enumeration, per-cell record builder) sees one file list regardless of where
+    the sweep lives.
+    """
+    if not is_s3_uri(sweep_dir):
+        return sorted(glob.glob(
+            os.path.join(sweep_dir, "**", "history", "**", "*.pq"), recursive=True))
+    # DuckDB's glob() lists object storage through the same httpfs extension the
+    # read needs — so listing costs no extra dependency and no parquet read.
+    import duckdb
+
+    conn = duckdb.connect()
+    configure_duckdb_s3(conn)
+    pattern = sweep_dir.rstrip("/") + "/**/history/**/*.pq"
+    try:
+        rows = conn.sql(
+            f"SELECT file FROM glob('{pattern}')").fetchall()
+    finally:
+        conn.close()
+    return sorted(r[0] for r in rows)
+
+
+def configure_duckdb_s3(conn, region: str | None = None) -> None:
+    """Give a DuckDB connection S3 read access via httpfs.
+
+    Credentials come from the standard AWS chain. SSO callers should export them
+    first (``eval "$(aws configure export-credentials --format env)"``); on an
+    EC2/Batch node the instance role resolves through boto3 the same way.
+    """
+    conn.execute("INSTALL httpfs; LOAD httpfs;")
+    region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get(
+        "AWS_REGION") or "us-gov-west-1"
+    key = os.environ.get("AWS_ACCESS_KEY_ID")
+    secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    token = os.environ.get("AWS_SESSION_TOKEN")
+    if not (key and secret):
+        import boto3
+
+        creds = boto3.Session().get_credentials()
+        if creds is None:
+            raise RuntimeError(
+                "no AWS credentials for the S3 sweep — export them with "
+                '`eval "$(aws configure export-credentials --format env)"`')
+        frozen = creds.get_frozen_credentials()
+        key, secret, token = frozen.access_key, frozen.secret_key, frozen.token
+    parts = [f"KEY_ID '{key}'", f"SECRET '{secret}'", f"REGION '{region}'"]
+    if token:
+        parts.append(f"SESSION_TOKEN '{token}'")
+    conn.execute(f"CREATE OR REPLACE SECRET v2e_sweep_s3 (TYPE s3, {', '.join(parts)});")
+
+
+def localize(uri: str, cache_dir: str | None = None) -> str:
+    """Fetch an ``s3://`` object to a local file and return its path (cached).
+
+    For the handful of sweep artifacts that must exist ON DISK — the sim_data
+    pickle is unpickled by path, not streamed — as opposed to the parquet, which
+    DuckDB reads in place.
+    """
+    if not is_s3_uri(uri):
+        return uri
+    import tempfile
+
+    cache_dir = cache_dir or os.path.join(tempfile.gettempdir(), "v2ecoli-sweep-cache")
+    os.makedirs(cache_dir, exist_ok=True)
+    dest = os.path.join(cache_dir, os.path.basename(uri.rstrip("/")))
+    if os.path.isfile(dest) and os.path.getsize(dest) > 0:
+        return dest
+    import boto3
+
+    bucket, _, key = uri[len(_S3_PREFIX):].partition("/")
+    boto3.client("s3").download_file(bucket, key, dest)
+    return dest
+
+
+_CELL_KEY_RE = re.compile(
+    r"variant=(\d+)/lineage_seed=(\d+)/generation=(\d+)/agent_id=([^/]+)/")
+
+
+def cell_keys(sweep_dir: str) -> list[dict]:
+    """Minimal per-cell records — the four hive partition keys, no parquet read.
+
+    ``group_for_scale`` only reads ``variant``/``lineage_seed``/``generation``/
+    ``agent_id``, and every one of those is in the partition path. Enumerating
+    groups therefore costs a LISTING, not a scan, which is what makes a
+    DuckDB-backed analysis viable over a sweep with millions of rows: the heavy
+    :func:`build_cell_records` is only needed by the record-based
+    ``AnalysisStep`` family, which consumes per-cell timeseries.
+    """
+    seen: dict[tuple, dict] = {}
+    for path in history_files(sweep_dir):
+        m = _CELL_KEY_RE.search(path.replace("\\", "/"))
+        if not m:
+            continue
+        key = (int(m.group(1)), int(m.group(2)), int(m.group(3)), m.group(4))
+        seen.setdefault(key, {"variant": key[0], "lineage_seed": key[1],
+                              "generation": key[2], "agent_id": key[3]})
+    return list(seen.values())
 
 
 def group_for_scale(scale: str, records: list[dict]) -> dict[tuple, list[dict]]:
@@ -82,9 +196,13 @@ def _replication_events(times, oric, nforks):
 
 
 def _history_from_clause(sweep_dir: str) -> str:
-    """A DuckDB FROM-clause selecting all of the sweep's history parquet."""
-    files = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
-                      recursive=True)
+    """A DuckDB FROM-clause selecting all of the sweep's history parquet.
+
+    Accepts a local dir or an ``s3://`` URI; DuckDB reads ``s3://`` paths
+    directly through httpfs (see :func:`configure_duckdb_s3`, which the caller
+    must have applied to the connection).
+    """
+    files = history_files(sweep_dir)
     if not files:
         raise FileNotFoundError(f"no history parquet under {sweep_dir!r}")
     flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
@@ -137,12 +255,17 @@ def resolve_sim_data(sweep_dir: str):
          sweep's cache; ensure they're from the same ParCa run.
     """
     from v2ecoli.library.sim_data import LoadSimData
-    for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
-                "**/sim_data*.cPickle", "**/simData*.cPickle"):
-        hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
-        if hits:
-            return LoadSimData(sim_data_path=hits[0]).sim_data
+    if not is_s3_uri(sweep_dir):
+        for pat in ("sim_data*.cPickle", "sim_data*.pkl", "simData*.cPickle",
+                    "**/sim_data*.cPickle", "**/simData*.cPickle"):
+            hits = glob.glob(os.path.join(sweep_dir, pat), recursive=True)
+            if hits:
+                return LoadSimData(sim_data_path=hits[0]).sim_data
     env = os.environ.get("V2ECOLI_SIM_DATA")
+    if env and is_s3_uri(env):
+        # An S3 sweep has no co-located pickle to glob, so the pairing is named
+        # explicitly. Fetch it once — LoadSimData needs a real file on disk.
+        return LoadSimData(sim_data_path=localize(env)).sim_data
     if env and os.path.isfile(env):
         return LoadSimData(sim_data_path=env).sim_data
     for fallback in (os.path.join("out", "kb", "simData.cPickle"),
@@ -183,7 +306,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
 
     div_by_cell: dict[tuple, dict] = {}
     spath = os.path.join(sweep_dir, "summary.json")
-    if os.path.isfile(spath):
+    if not is_s3_uri(sweep_dir) and os.path.isfile(spath):
         with open(spath) as f:
             summary = json.load(f)
         for bkey, bs in summary.items():
@@ -196,8 +319,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
                 div_by_cell[ck] = {"divided": bool(gen.get("divided", False)),
                                    "division_time": float(gen.get("duration", 0.0))}
 
-    files = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
-                      recursive=True)
+    files = history_files(sweep_dir)
     if not files:
         return {}
     flist = "[" + ",".join("'" + f.replace("'", "''") + "'" for f in files) + "]"
@@ -205,7 +327,10 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
-    rows = duckdb.sql(
+    conn = duckdb.connect()
+    if is_s3_uri(sweep_dir):
+        configure_duckdb_s3(conn)
+    rows = conn.sql(
         f"SELECT {sel} FROM read_parquet({flist}, hive_partitioning=true) "
         f"ORDER BY variant, lineage_seed, generation, agent_id, global_time"
     ).fetchall()
@@ -298,7 +423,8 @@ def _group_key_str(scale: str, key: tuple) -> str:
 
 
 def run_analyses(sweep_dir: str, analysis_options: dict,
-                 sim_data_path: str | None = None) -> dict:
+                 sim_data_path: str | None = None,
+                 out_dir: str | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results.
 
@@ -306,19 +432,50 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     ----------
     sweep_dir:
         Directory containing the sweep's history parquet and (optionally) a
-        co-located sim_data pickle.
+        co-located sim_data pickle.  May be an ``s3://`` URI, in which case
+        DuckDB reads the parquet in place and ``out_dir`` must be given.
     analysis_options:
         ``{scale: {name: params}}`` mapping selecting which analyses to run.
     sim_data_path:
-        Optional explicit path to a sim_data pickle.  When provided, the
-        pickle is loaded directly (no glob search under ``sweep_dir``).
-        When ``None`` (default), ``resolve_sim_data(sweep_dir)`` is called
-        as before.
+        Optional explicit path to a sim_data pickle (local path or ``s3://``
+        URI).  When provided, the pickle is loaded directly (no glob search
+        under ``sweep_dir``).  When ``None`` (default), ``resolve_sim_data``
+        is called as before.
+    out_dir:
+        Where ``analysis.json`` / ``viz/`` / ``ptools/`` are written.  Defaults
+        to ``sweep_dir``, which is only writable when the sweep is local.
     """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
 
-    records = list(build_cell_records(sweep_dir).values())
+    # Records are built ONLY if a record-based AnalysisStep is actually
+    # requested. That family consumes per-cell timeseries, so building them
+    # materializes every emitted row of the sweep in Python — ~24M rows for a
+    # 1000-seed x 10-generation lineage. The DuckDB-backed Analysis family needs
+    # nothing from records but the GROUP KEYS, and those come from the partition
+    # paths (cell_keys) at listing cost. Mirrors the lazy provisioning in
+    # flush.RunExtract.context_bag.
+    def _needs_timeseries() -> bool:
+        for scale, analyses in (analysis_options or {}).items():
+            if scale not in ANALYSIS_SCALES:
+                continue
+            for name in (analyses or {}):
+                cls = ANALYSIS_REGISTRY.get(name)
+                if cls is not None and not issubclass(cls, Analysis):
+                    return True
+        return False
+
+    # An s3:// sweep is read-only, so outputs need a local home.
+    if out_dir is None:
+        if is_s3_uri(sweep_dir):
+            raise ValueError(
+                "out_dir is required for an s3:// sweep (the sweep is read-only)")
+        out_dir = sweep_dir
+
+    if _needs_timeseries():
+        records = list(build_cell_records(sweep_dir).values())
+    else:
+        records = cell_keys(sweep_dir)
     core = allocate_core()
     results: dict[str, dict] = {}
     # Provisioned once on first use and shared across every Analysis step, so the
@@ -330,10 +487,13 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         if not _ctx:
             import duckdb
             _ctx["conn"] = duckdb.connect()
+            if is_s3_uri(sweep_dir):
+                configure_duckdb_s3(_ctx["conn"])
             _ctx["from_clause"] = _history_from_clause(sweep_dir)
             if sim_data_path is not None:
                 from v2ecoli.library.sim_data import LoadSimData
-                _ctx["sim_data"] = LoadSimData(sim_data_path=sim_data_path).sim_data
+                _ctx["sim_data"] = LoadSimData(
+                    sim_data_path=localize(sim_data_path)).sim_data
             else:
                 _ctx["sim_data"] = resolve_sim_data(sweep_dir)
             _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
@@ -367,7 +527,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 # all groups and analyses (lazily provisioned once per run).
                 conn, from_clause, sim_data, validation_data = _analysis_ctx()
                 params = (analyses or {}).get(name) or {}
-                viz_dir = os.path.join(sweep_dir, "viz")
+                viz_dir = os.path.join(out_dir, "viz")
                 os.makedirs(viz_dir, exist_ok=True)
                 for gkey in groups:
                     gstr = _group_key_str(scale, gkey)
@@ -386,7 +546,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                                 vf.write(out["view"])
                         data = out.get("data")
                         if isinstance(data, dict) and data.get("tsv"):
-                            ptools_dir = os.path.join(sweep_dir, "ptools")
+                            ptools_dir = os.path.join(out_dir, "ptools")
                             os.makedirs(ptools_dir, exist_ok=True)
                             tsv_path = os.path.join(
                                 ptools_dir,
@@ -417,8 +577,8 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     if _ctx.get("conn") is not None:
         _ctx["conn"].close()
 
-    os.makedirs(sweep_dir, exist_ok=True)
-    with open(os.path.join(sweep_dir, "analysis.json"), "w") as f:
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "analysis.json"), "w") as f:
         json.dump(results, f, indent=2, default=str)
     return results
 

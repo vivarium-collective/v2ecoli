@@ -495,3 +495,50 @@ def composition_bars(branches: dict, ref_fractions=None, *, influx=None, label="
         ax.spines[s].set_visible(False)
     fig.subplots_adjust(bottom=0.34)
     return _svg(fig)
+
+
+def overflow_curve(model_x, model_y, *, ref_x=None, ref_y=None, ref_err=None,
+                   ref_label="reference", context_curves=None, anchor=None,
+                   label="", xlabel="growth rate (1/h)",
+                   ylabel="acetate-carbon yield", width=4.4, height=3.4) -> str:
+    """Overflow response: acetate-carbon yield (y) vs the growth-rate driver (x).
+
+    Model curve (blue, line+markers) over the graded reference curve (black,
+    markers + y-error bars). Optional ``context_curves`` (list of
+    ``{x, y, label}``, grey) and an ``anchor`` (``{x, y, label}``, green points)
+    are overlaid for context, not graded. Linear axes (yields are small fractions;
+    a 0-floor reads the onset directly)."""
+    plt = _setup()
+    import numpy as np
+    fig, ax = plt.subplots(figsize=(width, height))
+    # context curves (behind)
+    for c in (context_curves or []):
+        if c.get("x"):
+            ax.plot(c["x"], c["y"], "-o", color="#9aa3af", ms=3, lw=0.8, alpha=0.7,
+                    markerfacecolor="white", label=c.get("label", "context"), zorder=2)
+    # anchor point(s)
+    if anchor and anchor.get("x"):
+        ax.scatter(anchor["x"], anchor["y"], s=42, marker="D", color="#1a7f37",
+                   edgecolor="white", linewidth=0.6, zorder=4, label=anchor.get("label", "anchor"))
+    # graded reference curve (black) + y error bars
+    if ref_x:
+        if ref_err is not None:
+            ax.errorbar(ref_x, ref_y, yerr=np.asarray(ref_err, float), fmt="none",
+                        ecolor="#111827", elinewidth=0.7, capsize=2, alpha=0.7, zorder=4)
+        ax.plot(ref_x, ref_y, "-o", color="#111827", ms=4, lw=1.0,
+                label=ref_label, zorder=5)
+    # model curve (blue)
+    if model_x:
+        ax.plot(model_x, model_y, "-o", color="#1f6feb", ms=4.5, lw=1.4,
+                label="v2ecoli (model)", zorder=6)
+    ax.axhline(0, color="#d0d4d9", lw=0.6, zorder=0)
+    ax.set_xlabel(xlabel, fontsize=9)
+    ax.set_ylabel(ylabel, fontsize=9)
+    ax.tick_params(labelsize=8)
+    ax.margins(x=0.05, y=0.10)
+    lo, _ = ax.get_ylim()
+    ax.set_ylim(min(0.0, lo), None)
+    ax.legend(fontsize=7, loc="upper left", frameon=False)
+    for s in ("top", "right"):
+        ax.spines[s].set_visible(False)
+    return _svg(fig)

@@ -42,6 +42,7 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
                 "out_dir": config.get("out_dir", "out/workflow"),
                 "max_duration_per_gen": float(config.get("max_duration_per_gen", 3600.0)),
                 "time_step": float(config.get("time_step", 1.0)),
+                "media": config.get("media", "minimal"),
                 "emitter": config.get("emitter", "parquet"),
                 "emitter_arg": dict(config.get("emitter_arg") or {}),
                 "injected_processes": config.get("injected_processes") or {},

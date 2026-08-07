@@ -1,0 +1,7 @@
+{
+  "tier": "wcm",
+  "n_final": 2,
+  "ticks_run": 5000,
+  "n_division_events": 1,
+  "note": "Compute/RSS-bounded whole-cell run; phenotype distributions are preliminary (small n). Full distributions need HPC (colonies-09 / a bounded RSS fix)."
+}

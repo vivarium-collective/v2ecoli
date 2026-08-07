@@ -36,6 +36,10 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # Investigation reports embed the loom Explorer — require the bundle so a
+    # missing/broken build fails loudly rather than publishing without it.
+    env:
+      VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -47,11 +51,7 @@ jobs:
       - name: Set up Python
         run: uv python install 3.12.9
 
-      - name: Install dependencies (incl. vivarium-workbench)
-        # Unlike the test jobs, the report generator NEEDS vivarium-workbench
-        # (it serves the SPA). The dashboard's hatchling build works again now
-        # that bigraph-schema is un-pinned, so a full sync is fine; the `|| uv
-        # sync` fallback keeps the job alive if an optional extra fails to build.
+      - name: Install dependencies
         run: uv sync --extra dev || uv sync
 
       - name: Install Playwright + Chromium
@@ -61,6 +61,18 @@ jobs:
           uv pip install playwright
           uv run playwright install --with-deps chromium
 
+      - name: Ensure the publish CLI is current (latest main)
+        # This DEPLOY job renders the workbench SPA headlessly, so it needs
+        # vivarium-workbench even though v2ecoli's RUNTIME dropped it as a
+        # dependency (viewer moved to pbg-ptools). Mirror the green
+        # publish-dashboard.yml exactly: ad-hoc install workbench@main, and run
+        # the generator inside the activated venv (below) rather than via `uv
+        # run`, which would re-sync to uv.lock and undo this install. Installed
+        # AFTER the Playwright step's `uv run`, which itself re-syncs. The runtime
+        # stays decoupled — only this deploy job pulls workbench.
+        run: |
+          uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
+
       - name: Generate investigation reports
         id: gen
         # Spawns `vivarium-workbench serve`, drives each investigation's report
@@ -69,7 +81,10 @@ jobs:
         # script's exit code is recorded for the final status gate.
         run: |
           set +e
-          uv run python scripts/publish_investigation_reports.py \
+          # Activated venv (not `uv run`): `uv run` re-syncs to uv.lock, undoing
+          # the ad-hoc workbench@main install and dropping `vivarium-workbench serve`.
+          source .venv/bin/activate
+          python scripts/publish_investigation_reports.py \
             --workspace . --out reports/published
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
@@ -106,12 +121,16 @@ jobs:
             echo "published $(ls investigations/*.html | wc -l) investigation reports"
           fi
 
-      - name: Fail if any report failed to generate
-        # Run AFTER publishing so good reports ship even when one fails. Makes a
-        # generation failure visible without blocking the others.
+      - name: Fail only if NO reports were published
+        # Run AFTER publishing. The generator exits non-zero only when NOTHING
+        # published (total breakage / server never came up); a partial run exits
+        # 0 and ships every report that rendered. So one stubborn investigation
+        # (e.g. a heavy report whose client-side generation hangs on the current
+        # workbench) no longer reds the whole deploy — the good reports still go
+        # out. Individual failures are printed to the log for visibility.
         run: |
           code="${{ steps.gen.outputs.exit_code }}"
           if [ "$code" != "0" ]; then
-            echo "::error::one or more investigation reports failed to generate (publish_investigation_reports.py exit $code)"
+            echo "::error::no investigation reports were published (publish_investigation_reports.py exit $code)"
             exit 1
           fi

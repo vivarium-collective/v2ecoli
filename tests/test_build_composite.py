@@ -14,9 +14,9 @@ def test_build_composite_unknown_name_raises():
 def test_generators_registered_under_short_names():
     """After importing v2ecoli, the registry contains the architectures."""
     import v2ecoli  # noqa: F401 — forces decorator registration
-    from pbg_superpowers.composite_generator import _REGISTRY
+    from viva_superpowers.composite_generator import _REGISTRY
     names = {e.name for e in _REGISTRY.values() if e.module.startswith("v2ecoli.")}
-    assert {"baseline", "colony", "millard_pdmp_baseline"} <= names
+    assert {"ecoli_baseline", "ecoli_colony", "ecoli_millard"} <= names
 
 
 @pytest.mark.sim
@@ -27,7 +27,7 @@ def test_build_composite_baseline_returns_composite():
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
     from process_bigraph.composite import Composite
-    comp = build_composite("baseline", seed=0, cache_dir="out/cache")
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache")
     assert isinstance(comp, Composite)
 
 
@@ -38,7 +38,7 @@ def test_build_composite_each_architecture():
         pytest.skip("cache dir 'out/cache' not present; "
                     "build via `python scripts/build_cache.py` (CI builds it automatically)")
     from v2ecoli import build_composite
-    for name in ("baseline",):
+    for name in ("ecoli_baseline",):
         comp = build_composite(name, seed=0, cache_dir="out/cache")
         assert comp is not None, f"{name} produced no composite"
 
@@ -52,5 +52,5 @@ def test_build_composite_accepts_core_override():
     from v2ecoli import build_composite
     from v2ecoli.core import build_core
     core = build_core()
-    comp = build_composite("baseline", seed=0, cache_dir="out/cache", core=core)
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache", core=core)
     assert comp.core is core

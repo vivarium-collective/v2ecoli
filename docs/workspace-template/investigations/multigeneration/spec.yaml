@@ -21,7 +21,7 @@ baseline: baseline
 
 variants:
   - name: baseline
-    source: local:baseline
+    source: local:ecoli_baseline
     parameters: {cache_dir: ${V2ECOLI_CACHE}}   # seed is set per-run
 
 observables:

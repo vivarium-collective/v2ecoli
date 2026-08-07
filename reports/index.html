@@ -1,8 +1,13 @@
 <!DOCTYPE html>
 <html lang="en"><head>
 <meta charset="UTF-8"><title>v2ecoli</title>
-<link rel="stylesheet" href="assets/style.css?v=1782907933_1782907933">
+<link rel="stylesheet" href="assets/style.css?v=1785026187_1785026187">
 <link rel="stylesheet" href="assets/snapshot-readonly.css">
+<!-- Per-tab session identity (session-per-tab). Loaded FIRST, as a classic
+     blocking script, so the window.fetch override is in place before any other
+     script or inline fetch runs — every same-origin request then carries this
+     tab's X-VW-Session header. -->
+<script src="assets/session.js?v=1785026187_1785026187"></script>
 <script>
 // Per-workspace branding (rail logo, title, brand text) is resolved
 // server-side at GET / and is NOT re-applied by any client script. The
@@ -146,11 +151,19 @@ window.addEventListener('pageshow', function (e) {
   font-size: 12.5px; font-weight: 600;
   color: #64748b; cursor: default;
   background: none; border: none; border-radius: 0;
+  /* min-width:0 lets this flex item shrink below its content width so the
+     .viv-ws-text / .viv-ws-branch ellipsis actually engages; without it the
+     long branch name overflowed the fixed-width rail and hard-clipped. */
+  min-width: 0; max-width: 100%; overflow: hidden;
 }
 .viv-workspace-name strong { font-weight: 600; }
 .viv-ws-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.3; }
+/* display:block so text-overflow:ellipsis actually applies (it's a no-op on an
+   inline span) — long branch names now truncate with "…" instead of clipping;
+   the full name stays available via the element's title= tooltip on hover. */
 .viv-ws-branch { color: #94a3b8; font-weight: 400; font-size: 0.84em;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  display: block; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 100%; }
 .viv-ws-remote-tag { font-size: 0.7em; font-weight: 600; color: #7c3aed;
   background: #f3e8ff; padding: 1px 5px; border-radius: 4px; vertical-align: middle; margin-left: 4px; }
 .viv-workspace-name .viv-workspace-switcher-glyph { font-size: 8px; margin-top: 4px; }
@@ -166,15 +179,10 @@ window.addEventListener('pageshow', function (e) {
 .viv-ws-repo-link:hover { color: #0f172a; }
 .viv-ws-gh-mark { flex: none; color: #94a3b8; }
 .viv-ws-repo-link:hover .viv-ws-gh-mark { color: #0f172a; }
-/* Collapsed rail: a single centered GitHub mark (the switcher is hidden). */
+/* The collapsed rail shows only the "open sidebar" toggle + the nav icons —
+   no brand avatar, no GitHub mark (both live in the expanded rail). */
 .viv-rail-repo-mini { display: none; }
-.viv-rail.viv-rail-collapsed .viv-rail-repo-mini {
-  display: flex; justify-content: center; align-items: center;
-  /* Sit in the nav-icon rhythm: breathing room under the brand avatar, not
-     crammed against it. Muted to match the expanded name's GitHub mark. */
-  padding: 10px 0 14px; color: #94a3b8;
-}
-.viv-rail.viv-rail-collapsed .viv-rail-repo-mini:hover { color: #0f172a; }
+.viv-rail.viv-rail-collapsed .viv-rail-repo-mini { display: none; }
 /* Keep the snapshot repo label out of the collapsed rail (avoids truncation). */
 .viv-rail.viv-rail-collapsed #snapshot-repo-label { display: none !important; }
 .viv-glyph-stopped { color: #999; }
@@ -356,6 +364,8 @@ window.addEventListener('pageshow', function (e) {
   font-size: 11px; color: #6b7280; margin-top: 2px;
 }
 .viv-iset-menu-row-current-tag { color: #1e40af; font-weight: 600; font-family: inherit; }
+.viv-iset-menu-row-newtab { color: #9ca3af; font-size: 12px; margin-left: 2px; flex: 0 0 auto; }
+.viv-iset-menu-row:hover .viv-iset-menu-row-newtab { color: #2563eb; }
 .viv-iset-menu-loading, .viv-iset-menu-empty, .viv-iset-menu-error {
   padding: 10px 12px; color: #6b7280; font-size: 12px;
 }
@@ -391,11 +401,19 @@ window.addEventListener('pageshow', function (e) {
 
     <!-- Brand: fixed Vivarium logo + name (no per-workspace icon/name override). -->
     <div class="viv-rail-header">
-      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1782907933_1782907933" alt="Vivarium" loading="lazy">
+      <img class="viv-rail-logo" src="assets/vivarium-logo.png?v=1785026187_1785026187" alt="Vivarium" loading="lazy">
       <div class="viv-rail-brand">
         <strong>Vivarium</strong>
-        <small>dashboard</small>
+        <small>workbench</small>
       </div>
+      <!-- Rail collapse/expand toggle. Lives in the header so, when collapsed, it
+           can overlay the logo and reveal on hover (see .viv-rail-collapsed CSS). -->
+      <button class="viv-rail-toggle" id="viv-rail-toggle" type="button" aria-label="Collapse sidebar" title="Collapse sidebar" onclick="_vivToggleRail()">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-toggle-svg">
+          <rect x="3" y="4" width="18" height="16" rx="2"/>
+          <line x1="9" y1="4" x2="9" y2="20"/>
+        </svg>
+      </button>
     </div>
 
     
@@ -415,7 +433,7 @@ window.addEventListener('pageshow', function (e) {
         <span class="viv-workspace-switcher-glyph">●</span>
         <span class="viv-ws-text">
           <strong>v2ecoli</strong>
-          <span class="viv-ws-branch" title="investigation/dnaa-replication-v4">investigation/dnaa-replication-v4</span>
+          
         </span>
       </div>
     </div>
@@ -532,7 +550,7 @@ window.addEventListener('pageshow', function (e) {
             <circle cx="19" cy="10" r="1.05" fill="currentColor" stroke="none"/>
           </svg>
         </span>
-        <span class="viv-rail-link-label">Analyses</span>
+        <span class="viv-rail-link-label">Analysis Tools</span>
       </a>
       <!-- The Branch page (#github) is no longer a rail item — it's reached by
            clicking the workspace source display at the top of the rail (see
@@ -542,42 +560,23 @@ window.addEventListener('pageshow', function (e) {
     <!-- Studies of the active investigation, dependency-ordered. -->
     <div class="viv-rail-section" id="viv-rail-studies-section">
       <div class="viv-rail-section-label">Studies</div>
+      <!-- Live study search: filters the grouped-by-investigation list below.
+           Lives OUTSIDE #viv-rail-investigations (which is re-rendered on every
+           keystroke) so the input keeps focus. -->
+      <input id="viv-rail-study-search" type="search" placeholder="Search studies…"
+             autocomplete="off" spellcheck="false" aria-label="Search studies"
+             oninput="window._filterRailStudies && window._filterRailStudies(this.value)"
+             style="width:calc(100% - 24px);margin:2px 12px 6px;padding:4px 8px;font-size:0.82em;
+                    color:#374151;border:1px solid #e5e7eb;border-radius:4px;background:#fff;box-sizing:border-box;" />
       <div id="viv-rail-investigations">
         <p class="viv-rail-empty" style="font-size:0.85em;color:#9ca3af;padding:4px 12px">Loading…</p>
       </div>
     </div>
 
-    <!-- Footer: user identity + collapse toggle.
-         Workspace owner is resolved from `gh api user` (which requires
-         the user to have authenticated `gh auth login`). When that
-         succeeds, `owner_login` is the GitHub username and we link to
-         their profile. When it doesn't, we fall back to a GENERIC
-         "Connect GitHub" prompt — never to git-config name/email —
-         so a workspace shown on screen / shared in a screenshot
-         doesn't leak the local user's personal git identity. -->
-    
-    
-    
-    
-    <a class="viv-rail-footer viv-rail-footer-link" href="https://github.com/eagmon" target="_blank" rel="noopener" title="Open eagmon on GitHub ↗">
-    
-      
-        <img class="viv-avatar viv-avatar-rail viv-avatar-img" src="https://avatars.githubusercontent.com/u/6809431?v=4" alt="eagmon" loading="lazy" referrerpolicy="no-referrer">
-      
-      <div class="viv-rail-footer-text">
-        <strong>Eran Agmon</strong>
-        <small>@eagmon</small>
-      </div>
-    
-    </a>
-    
-    
-
-    <button class="viv-rail-toggle" id="viv-rail-toggle" type="button" aria-label="Collapse rail" onclick="_vivToggleRail()">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="viv-rail-toggle-svg">
-        <path d="M15 18l-6-6 6-6"/>
-      </svg>
-    </button>
+    <!-- The rail user-identity footer was removed: it added no navigation and
+         (in snapshot/screenshot contexts) surfaced a personal GitHub identity.
+         Dropping it also lets the Studies section grow to the rail's full
+         height so long study lists scroll instead of clipping. -->
 
   </aside>
 
@@ -585,14 +584,14 @@ window.addEventListener('pageshow', function (e) {
   <div class="viv-main">
 
     <!-- Read-only snapshot banner — hidden in local mode; shown when body.snapshot is set.
-         The link points at the vivarium-dashboard repo (clone + `vivarium-dashboard
-         serve` to run the full interactive dashboard locally); there is no hosted
+         The link points at the vivarium-workbench repo (clone + `vivarium-workbench
+         serve` to run the full interactive workbench locally); there is no hosted
          interactive version. -->
     <div id="snapshot-banner">
-      <span>Read-only snapshot &mdash; run the dashboard locally for the full interactive version.</span>
+      <span>Read-only snapshot &mdash; run the workbench locally for the full interactive version.</span>
       <a id="snapshot-interactive-link"
-         href="https://github.com/vivarium-collective/vivarium-dashboard#readme"
-         target="_blank" rel="noopener">Get vivarium-dashboard on GitHub →</a>
+         href="https://github.com/vivarium-collective/vivarium-workbench#readme"
+         target="_blank" rel="noopener">Get vivarium-workbench on GitHub →</a>
     </div>
 
     <!-- Top banner removed — was a non-functional breadcrumb + "Coming soon" Share/settings placeholders + a decorative avatar. -->
@@ -601,8 +600,6 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: WORKSPACE INPUTS ===== -->
 <section id="page-workspace-inputs" class="page" data-page="workspace-inputs">
-  <h2 class="page-title">Sources</h2>
-  <p class="page-lead">The loaded investigation's sources come first &mdash; the datasets, references, and expert docs it owns. Below them are the repo-wide / shared data sources every investigation can draw on (imported source packages plus shared datasets and references). Simulation modules (the Python packages providing Processes/Steps) live in the <a href="#registry">Registry</a> tab.</p>
 
   <!-- Investigation-first inputs, rendered client-side from /api/inputs.
        Single source of truth for the datasets/references/expert-docs lists;
@@ -615,13 +612,10 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: SIMULATION SETUP ===== -->
 <section id="page-simulation-setup" class="page" data-page="simulation-setup">
-  <h2 class="page-title">Composites</h2>
-  <p class="page-lead">Browse and explore the composites available in this workspace. Each composite packages a runnable simulation state with parameters you can configure. Click <strong>Explore</strong> to open its wiring diagram and start a Study.</p>
 
   <!-- Available Composites (workspace-local discovery) -->
   <div class="panel">
     <h3>Available Composites <span id="composite-count" class="count-badge"></span></h3>
-    <p class="panel-lead">Discoverable composite documents from <code>pbg_&lt;slug&gt;/composites/*.composite.{yaml,json}</code>. Each one packages a runnable simulation state with parameters you can configure. Click <strong>Explore</strong> to open it in Composite Explorer.</p>
     <div class="card-browse-toolbar" id="composite-toolbar">
       <input type="search" class="card-browse-search" id="composite-search" placeholder="Filter composites…">
       <div class="card-browse-chips" id="composite-tag-chips"></div>
@@ -631,6 +625,7 @@ window.addEventListener('pageshow', function (e) {
       </span>
       <select id="composites-sort" class="composites-sort-select" onchange="_setCompositesSort(this.value)" title="Sort composites">
         <option value="workspace-first">Sort: Workspace first</option>
+        <option value="passrate">Sort: Pass rate</option>
         <option value="name">Sort: Name</option>
         <option value="module">Sort: Module</option>
         <option value="kind">Sort: Kind</option>
@@ -643,14 +638,10 @@ window.addEventListener('pageshow', function (e) {
 
 </section>
 
-<!-- ===== PAGE: ANALYSES ===== -->
+<!-- ===== PAGE: ANALYSIS TOOLS ===== -->
 <section id="page-visualizations" class="page" data-page="visualizations">
-  <h2 class="page-title">Analyses</h2>
-  <p class="page-lead">A gallery of special, saved, interactive visualizations for this workspace &mdash; embedded <strong>3D structural models</strong> (parsimony packs) and a <strong>Pathway Tools</strong> Omics-Viewer launcher. Looking for the chart/analysis <em>class</em> catalog? It now lives in <a href="#registry" onclick="setTimeout(function(){_setRegistrySubtab&amp;&amp;_setRegistrySubtab('discovered');_setRegistryTab&amp;&amp;_setRegistryTab('visualization');},0)">Registry &rarr; Discovered &rarr; Visualizations</a>.</p>
-
   <div class="panel">
-    <h3>Saved visualizations <span id="viz-count" class="count-badge"></span></h3>
-    <p class="panel-lead">Interactive scenes saved as workspace artifacts. 3D models load embedded below; open any in a new tab for a full-window view. Produce a 3D model by running a parsimony packing composite (it writes <code>studies/&lt;name&gt;/viz/3d/&lt;name&gt;.pack.json</code>), then revisit this tab.</p>
+    <h3>Tools <span id="viz-count" class="count-badge"></span></h3>
     <div id="analyses-gallery" class="analyses-gallery">
       <p class="empty-state">Loading saved visualizations&hellip;</p>
     </div>
@@ -683,8 +674,6 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: REGISTRY ===== -->
 <section id="page-registry" class="page" data-page="registry">
-  <h2 class="page-title">Registry</h2>
-  <p class="page-lead">Simulation modules: browse the catalog, install pbg-* packages, see what processes and types they contribute. Installing a module adds it as a submodule under <code>external/</code>, pip-installs it into the workspace venv, and appends it to <code>pyproject.toml</code> dependencies.</p>
 
   
   <div class="registry-subtabs" role="tablist">
@@ -697,7 +686,6 @@ window.addEventListener('pageshow', function (e) {
 
   <!-- Subtab: Modules (catalog grid; workspace + installed entries pinned at top) -->
   <section class="panel registry-subtab-panel active" data-subtab="modules">
-    <p class="panel-lead">Modules active in this workspace appear at the top (the workspace's own first-party package is pinned first, then installed catalog modules). Click Install on any card below to add it. Each installed card shows its install source + path.</p>
     <div class="card-browse-toolbar" id="catalog-toolbar">
       <input type="search" class="card-browse-search" id="catalog-search" placeholder="Filter modules…">
       <div class="card-browse-chips" id="catalog-tag-chips"></div>
@@ -723,7 +711,6 @@ window.addEventListener('pageshow', function (e) {
 
   <!-- Subtab: Discovered registry (live build_core() introspection) -->
   <section class="panel registry-subtab-panel" data-subtab="discovered">
-    <p class="panel-lead">Live snapshot of <code>build_core()</code> — every Process, Step, Emitter, Visualization, and Type registered via auto-discovery. Classes from this workspace's own package and declared <code>imports</code> are shown first. Classes discovered from the Python environment but <em>not</em> declared in <code>workspace.yaml</code> appear collapsed under <em>Also available in environment</em>.</p>
 
     <button class="action-btn" onclick="_loadRegistry(true)">Refresh registry</button>
     <div id="registry-status" class="muted" style="margin:8px 0"></div>
@@ -753,20 +740,74 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: STUDIES ===== -->
 <section id="page-investigations" class="page" data-page="investigations">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
-    <h2 class="page-title" style="margin:0">Investigations</h2>
-    <div style="display:flex;gap:8px;align-items:center">
-      <input id="investigations-filter" type="search" placeholder="Filter investigations…"
-             aria-label="Filter investigations" oninput="_filterInvestigations()"
-             style="padding:5px 10px;border:1px solid #d1d5db;border-radius:6px;font-size:0.9em;min-width:220px">
-    </div>
+  <div id="iset-explore">
+  <!-- Browse toggle: flip the same search + sort + card grid between the
+       Investigations and the (flat) Studies views. -->
+  <div class="iset-browse-tabs" role="tablist"
+       style="display:flex;gap:2px;margin:0 0 12px;border-bottom:1px solid #e5e7eb">
+    <button class="iset-browse-tab active" data-browse="investigations" role="tab"
+            onclick="_setIsetBrowseTab('investigations')"
+            style="background:none;border:0;border-bottom:2px solid transparent;padding:8px 14px;font-size:1em;cursor:pointer;color:#64748b;margin-bottom:-1px">Investigations <span id="iset-tab-inv-count" style="color:#94a3b8;font-weight:600"></span></button>
+    <button class="iset-browse-tab" data-browse="studies" role="tab"
+            onclick="_setIsetBrowseTab('studies')"
+            style="background:none;border:0;border-bottom:2px solid transparent;padding:8px 14px;font-size:1em;cursor:pointer;color:#64748b;margin-bottom:-1px">Studies <span id="iset-tab-study-count" style="color:#94a3b8;font-weight:600"></span></button>
+    <button id="iset-browse-create" class="action-btn" onclick="_openBrowseCreate()"
+            style="margin-left:auto;align-self:center;margin-bottom:6px">+ Investigation</button>
   </div>
-  <p class="page-lead" id="investigation-page-lead">Select an investigation to open its study graph.</p>
+  <!-- Prominent unified search: matches investigations AND their studies (same
+       engine as the side-rail studies search — see _filterInvestigations). -->
+  <div style="margin:0 0 10px">
+    <input id="investigations-filter" type="search"
+           placeholder="Search…"
+           aria-label="Search investigations and studies" oninput="_filterInvestigations()"
+           style="width:100%;box-sizing:border-box;padding:6px 12px;border:1px solid #d1d5db;
+                  border-radius:7px;font-size:0.9em;background:#fff;">
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:0.85em;color:#64748b">
+    <label for="iset-sort" style="font-weight:600">Sort</label>
+    <select id="iset-sort" onchange="_setIsetSort(this.value)"
+            style="padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;background:#fff;font-size:0.95em">
+      <option value="default">Default (active first)</option>
+      <option value="name">Name (A→Z)</option>
+      <option value="status">Status</option>
+      <option value="studies_desc">Most studies</option>
+      <option value="studies_asc">Fewest studies</option>
+      <option value="recent">Recently updated</option>
+    </select>
+    <span id="iset-study-view-toggle" style="display:none;align-items:center;gap:0">
+      <button id="iset-view-cards" class="iset-view-btn" onclick="_setStudyView('cards')"
+              style="padding:5px 10px;border:1px solid #d1d5db;border-right:none;border-radius:6px 0 0 6px;background:#eef2ff;color:#1e293b;font-weight:600;font-size:0.95em;cursor:pointer">Cards</button>
+      <button id="iset-view-table" class="iset-view-btn" onclick="_setStudyView('table')"
+              style="padding:5px 10px;border:1px solid #d1d5db;border-radius:0 6px 6px 0;background:#fff;color:#64748b;font-size:0.95em;cursor:pointer">Table</button>
+    </span>
+    <span id="iset-list-tip" style="margin-left:auto">Tip: click a card's <strong>studies</strong> count to expand it.</span>
+  </div>
 
   <!-- List view: grouped investigation cards (Active / Closed). The grid lives on
        the per-group .investigations-grid wrappers built by _renderInvestigationSets. -->
   <div id="investigations-list">
     <p class="empty-state">Loading…</p>
+  </div>
+  </div>
+
+  <div id="iset-workspace" style="display:none">
+    <div style="display:flex;align-items:center;gap:12px;margin:0 0 10px">
+      <button id="ws-back" class="btn-mini" onclick="_showExplore()" style="cursor:pointer">← All investigations</button>
+      <strong id="ws-title" style="font-size:1.1em;color:#0f172a"></strong>
+      <span id="ws-status" style="margin-left:6px"></span>
+      <span id="ws-actions" style="margin-left:auto"></span>
+    </div>
+    <!-- slim collapsed bar (hidden until a study is open) -->
+    <button id="ws-context-bar" onclick="_setInvestigationContextCollapsed(false)"
+            style="display:none;width:100%;text-align:left;background:#f8fafc;border:1px solid #e5e7eb;border-radius:6px;padding:6px 12px;cursor:pointer;color:#475569;font-weight:600">▸ Investigation: <span id="ws-context-bar-name"></span></button>
+    <!-- full investigation context (graph + objective) -->
+    <div id="ws-context"></div>
+    <!-- study tabs + porthole -->
+    <div id="ws-study-tabs" style="display:none;border-bottom:1px solid #e5e7eb;margin:12px 0 0"></div>
+    <div id="ws-study-panel" class="panel" style="display:none;margin-top:0;padding:0;overflow:hidden">
+      <iframe id="ws-study-frame" src="" title="Study detail"
+              style="width:100%;border:0;display:block"></iframe>
+    </div>
   </div>
 
   <!-- "+ New Investigation" modal. Hidden by default. -->
@@ -853,9 +894,8 @@ window.addEventListener('pageshow', function (e) {
       <span class="inv-export-actions" style="display:inline-flex; gap:6px">
         <button class="btn-mini" onclick="_generateInvestigationReport()" title="Generate a shareable HTML report (self-contained, attach to email)">Report 📄</button>
         <button class="btn-mini" onclick="_downloadInvestigationNotebook()" title="Download a self-contained Jupyter notebook (+ matching .py) that re-runs this investigation's studies via the process-bigraph protocol and renders their figures. The coder-facing complement to the HTML report.">Notebook 📓</button>
+        <button id="investigation-rerun" class="btn-mini" onclick="_rerunInvestigation()" title="Re-run every study's baseline">Rerun investigation</button>
       </span>
-      <button class="btn-mini" id="investigation-detail-refresh" onclick="_refreshInvestigationDetail()" title="Re-fetch the investigation + its studies from disk. Use after editing YAML files directly (which the dashboard can't see otherwise).">↻</button>
-      <span class="viv-info-chip" data-tooltip="Report &mdash; self-contained HTML report you can email.&#10;&#10;Notebook &mdash; a self-contained Jupyter notebook (+ matching .py) that re-runs the studies and renders their figures.&#10;&#10;Refresh (↻) &mdash; re-fetch the investigation from disk after editing YAML directly.">?</span>
     </div>
     <!-- Run-progress panel: rendered while a run-unblocked job is active. -->
     <div id="investigation-run-progress" class="inv-run-progress" style="display:none"></div>
@@ -891,6 +931,12 @@ window.addEventListener('pageshow', function (e) {
       <strong>Investigation graph</strong>
       <span class="viv-info-chip" data-tooltip="Each study is a knowledge-producing operation that builds understanding of the mechanism. Each node shows the question it asks and the evidence it produced; edges show what a result leads to.">?</span>
       — nodes are studies; edges show what each result leads to.
+      <span class="aig-zoom-ctl" style="float:right;display:inline-flex;align-items:center;gap:6px;font-size:0.9em;color:#64748b">
+        <span title="Zoom out — overview">🔍−</span>
+        <input id="aig-zoom-slider" type="range" min="0" max="2" step="1" value="1"
+               oninput="window._setAigBand(parseInt(this.value,10))" style="width:110px" aria-label="Graph zoom / detail level">
+        <span title="Zoom in — full detail">🔍+</span>
+      </span>
     </div>
     <div id="investigation-dag-shell"
          style="position: relative; border: 1px solid #e2e8f0; border-radius: 6px; background: #fafafa;
@@ -961,32 +1007,31 @@ window.addEventListener('pageshow', function (e) {
 
       <div class="gh-row">
         <div class="gh-label">Signed in as</div>
-        <div class="gh-value">
-          <div id="viv-gh-chip"
-               class="viv-rail-footer viv-rail-footer-link viv-rail-footer-no-github"
+        <div class="gh-value"><div id="viv-gh-chip"
+               class="viv-rail-footer viv-rail-footer-link"
                data-state="loading"
-               title="Sign in to GitHub from the dashboard"
+               data-gh-owner="eagmon"
+               title="Signed in via the gh CLI — click to add a token for browser push"
                style="cursor:pointer;display:inline-flex">
-            <div class="viv-avatar viv-avatar-rail" aria-hidden="true">+</div>
-            <div class="viv-rail-footer-text">
-              <strong>Connect GitHub</strong>
-              <small>checking…</small>
+            
+              
+              <img class="viv-avatar viv-avatar-rail viv-avatar-img" src="https://avatars.githubusercontent.com/u/6809431?v=4" alt="eagmon" loading="lazy" referrerpolicy="no-referrer">
+              
+              <div class="viv-rail-footer-text">
+                <strong>@eagmon</strong>
+                <small>Eran Agmon · via gh</small>
+              </div>
+            
+          </div>
+          <div class="gh-value-hint">Uses your <code>gh</code> session, or <a href="#" id="viv-gh-token-toggle">paste a token</a> for browser-based push.
+            <div id="viv-gh-token-box" style="display:none;margin-top:8px">
+              <input id="viv-gh-token-input" class="gh-input" type="password"
+                     placeholder="ghp_… / gho_… / github_pat_…" autocomplete="off"
+                     spellcheck="false" style="width:280px;max-width:100%">
+              <button id="viv-gh-token-submit" class="btn-mini" type="button">Sign in</button>
+              <span id="viv-gh-token-msg" style="margin-left:8px;font-size:0.85em"></span>
             </div>
           </div>
-          <div class="gh-value-hint">No terminal required. Uses your <code>gh</code> session if present, otherwise OAuth Device Flow (browser code-paste).</div>
-          <noscript>
-            <div class="gh-value-hint">Dashboard JS is disabled — run <code>gh auth login</code> from a terminal.</div>
-          </noscript>
-        </div>
-      </div>
-
-      <div class="gh-row">
-        <div class="gh-label">Default org</div>
-        <div class="gh-value">
-          <select id="viv-gh-default-org" class="gh-input">
-            <option value="">Sign in to load orgs…</option>
-          </select>
-          <div id="viv-gh-default-org-hint" class="gh-value-hint">Used to pre-fill <strong>org</strong> for new workspaces and <em>Create GitHub repo</em> actions.</div>
         </div>
       </div>
     </div>
@@ -1047,9 +1092,8 @@ window.addEventListener('pageshow', function (e) {
 <section id="page-studies" class="page" data-page="studies">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
     <h2 class="page-title" style="margin:0">Studies</h2>
-    <button class="action-btn" onclick="_createInvestigation()">+ New study</button>
   </div>
-  <p class="page-lead">Declarative research recipes — pick a composite, declare simulations (single / sweep / seeds), name observables, choose visualizations. Run, save, compare.</p>
+  <p class="page-lead">Browse every study in the workspace — filter, sort, and open any of them (each belongs to an investigation).</p>
 
   <!-- Browse toolbar matches v0.5.6 catalog/composite browse -->
   <div class="card-browse-toolbar" id="investigations-toolbar">
@@ -1099,17 +1143,16 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: SIMULATIONS ===== -->
 <section id="page-simulations" class="page" data-page="simulations">
-  <h2 class="page-title">Simulations DB</h2>
-  <p class="page-lead">
-    Persisted runs gathered from each <code>studies/&lt;name&gt;/runs.db</code>,
-    tagged by investigation and study, with the storage location for each run.
-    On a remote build, the deployment's runs for that build's commit are
-    included too (Origin column). Scoped to the current branch's investigation
-    by default and refreshed automatically.
+  <p class="page-lead" style="margin:0 0 8px 0">
     <span id="sim-scope-note" style="color:#6b7280;"></span>
   </p>
 
   <div style="margin: 8px 0 12px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+    <input id="sim-text-filter" type="search" placeholder="Search runs…"
+           autocomplete="off" spellcheck="false" aria-label="Search simulations"
+           oninput="window._applySimFilter && window._applySimFilter()"
+           style="padding:5px 10px; font-size:13px; border:1px solid #d1d5db;
+                  border-radius:4px; min-width:180px; flex:1 1 220px; max-width:340px;" />
     <label style="display:flex; align-items:center; gap:6px; font-size:13px;">
       Investigation
       <select id="sim-inv-filter" style="padding:4px 8px; font-size:13px;
@@ -1139,18 +1182,26 @@ window.addEventListener('pageshow', function (e) {
     No simulation runs found.
   </div>
 
+  <style>
+    #sim-table th[data-sort-key]:hover { background:#e5e7eb; }
+    #sim-table th[data-sort-dir="asc"]::after { content:" \25B2"; }
+    #sim-table th[data-sort-dir="desc"]::after { content:" \25BC"; }
+  </style>
+
   <table id="sim-table" style="width:100%; table-layout:fixed; border-collapse: collapse; font-size: 13px; display: none;">
     <thead>
       <tr style="background:#f3f4f6;">
-        <th style="text-align:left; padding:6px 8px; width:130px;">Investigation</th>
-        <th style="text-align:left; padding:6px 8px; width:130px;">Study</th>
-        <th style="text-align:left; padding:6px 8px;">Run</th>
+        <th data-sort-key="investigation" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:130px; cursor:pointer;">Investigation</th>
+        <th data-sort-key="study" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:130px; cursor:pointer;">Study</th>
+        <th data-sort-key="run" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; cursor:pointer;">Run</th>
+        <th data-sort-key="composite" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:150px; cursor:pointer;">Composite</th>
+        <th style="text-align:left; padding:6px 8px; width:200px;">Config</th>
         <th style="text-align:left; padding:6px 8px; width:150px;">Location</th>
-        <th style="text-align:left; padding:6px 8px; width:90px;">Origin</th>
-        <th style="text-align:left; padding:6px 8px; width:80px;">Emitter</th>
-        <th style="text-align:left; padding:6px 8px; width:104px;">Time</th>
-        <th style="text-align:left; padding:6px 8px; width:84px;">Status</th>
-        <th style="text-align:center; padding:6px 8px; width:96px;">Actions</th>
+        <th data-sort-key="origin" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:90px; cursor:pointer;">Origin</th>
+        <th data-sort-key="emitter_type" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:80px; cursor:pointer;">Emitter</th>
+        <th data-sort-key="time" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:104px; cursor:pointer;">Time</th>
+        <th data-sort-key="status" onclick="_onSimHeaderClick(this)" style="text-align:left; padding:6px 8px; width:84px; cursor:pointer;">Status</th>
+        <th style="text-align:center; padding:6px 8px; width:158px;">Actions</th>
       </tr>
     </thead>
     <tbody id="sim-tbody"></tbody>
@@ -1186,6 +1237,29 @@ window.addEventListener('pageshow', function (e) {
       </label>
       <div class="form-error"></div>
       <button type="submit">Create</button>
+    </form>
+  </div>
+</div>
+
+<!-- Modal: prompt-first create for an investigation OR a study (browse page). -->
+<div id="modal-browse-create" class="modal-overlay">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal('modal-browse-create')">&times;</button>
+    <h3 id="browse-create-title">New investigation</h3>
+    <form id="form-browse-create" onsubmit="event.preventDefault(); _submitBrowseCreate(this)">
+      <label style="display:block;margin-bottom:10px"><span id="browse-create-prompt-label">Describe the investigation — the question you want to answer</span>
+        <textarea name="prompt" rows="3" required oninput="_browseCreateSuggestName(this)"
+                  style="width:100%;box-sizing:border-box;margin-top:4px"
+                  placeholder="e.g. Does v2ecoli's baseline reproduce the measured acetate overflow at high glucose?"></textarea>
+      </label>
+      <label style="display:block;margin-bottom:10px">Name <input name="name" required pattern="[a-z0-9][a-z0-9-]*"
+             placeholder="auto-derived from your description — editable"
+             oninput="this._touched=true" style="width:100%;box-sizing:border-box;margin-top:4px"></label>
+      <label id="browse-create-inv-row" style="display:none;margin-bottom:10px">Investigation
+        <select name="investigation" id="browse-create-inv" style="width:100%;box-sizing:border-box;margin-top:4px"></select>
+      </label>
+      <div class="form-error" style="color:#dc2626;margin:6px 0"></div>
+      <button type="submit" id="browse-create-submit">Create investigation</button>
     </form>
   </div>
 </div>
@@ -1254,58 +1328,29 @@ window.addEventListener('pageshow', function (e) {
 
 <!-- ===== PAGE: COMPOSITE EXPLORER ===== -->
 <section id="page-composite-explore" class="page" data-page="composite-explore">
-  <h2 class="page-title">Composite Explorer</h2>
-  <p class="page-lead">Inspect a composite's wiring, run it, and view results. To configure parameters, design variants, and capture conclusions, start a <strong>Composite Study</strong>.</p>
-
   <div id="ce-loading" class="empty-state">Loading composite&hellip;</div>
 
   <div id="ce-main" style="display:none">
 
-    <!-- Begin Study CTA -->
-    <div id="ce-begin-study-bar" class="panel" style="display:flex;align-items:center;gap:12px;background:#f0f9ff;border:1px solid #bae6fd">
-      <div style="flex:1">
-        <strong>Ready to investigate?</strong>
-        <span class="muted">Start a Composite Study to design variants, run simulations, and capture conclusions.</span>
-      </div>
-      <button class="action-btn" id="ce-begin-study-btn" onclick="_beginStudyFromComposite()">Begin Study</button>
-    </div>
-
-    <!-- Metadata header -->
+    <!-- Loom explorer: bigraph-loom iframe (Setup & Run tab lives inside).
+         The page title and the separate metadata card were removed to reclaim
+         vertical space — the iframe carries its own name·id header. The still-
+         useful bits (generator badge + one-line description) sit on the same
+         row as Pop out; ce-name/ce-id/ce-module stay in the DOM but hidden so
+         the JS setters that populate them don't null-error. -->
     <div class="panel">
-      <h3 id="ce-name"></h3>
-      <p id="ce-description" class="muted"></p>
-      <p><strong>ID:</strong> <code id="ce-id"></code></p>
-      <p><strong>Module:</strong> <code id="ce-module"></code> <span id="ce-kind" class="kind-badge"></span></p>
-    </div>
-
-    <!-- Explorer view tabs: Wiring viewer | Configure & Run -->
-    <nav class="ce-page-tabs" aria-label="Composite views">
-      <button type="button" class="ce-page-tab active" data-cepanel="viewer" onclick="_ceShowPanel('viewer')">Wiring viewer</button>
-      <button type="button" class="ce-page-tab" data-cepanel="configure" onclick="_ceShowPanel('configure')">&#9881; Configure &amp; Run</button>
-    </nav>
-
-    <!-- Wiring viewer panel: the loom-explore iframe (internal View/Run/Document tabs live inside) -->
-    <div class="ce-page-panel" data-cepanel="viewer">
-      <div class="panel">
-        <div class="loom-frame-toolbar" style="display:flex;justify-content:flex-end;margin-bottom:6px">
-          <button class="btn-mini" onclick="_popoutLoom('composite-explore-frame')" title="Open in a separate window. If it opens as a tab, your browser's 'open new pages as tabs' preference is overriding the popup hint (Safari → Tabs → 'Open pages in tabs instead of windows' → set to 'Manually').">Pop out &#8599;</button>
-        </div>
-        <iframe id="composite-explore-frame"
-                src="/bigraph-loom/index.html"
-                title="Composite Explorer"
-                style="width:100%;height:720px;border:1px solid #ddd;background:#fff"></iframe>
+      <div class="loom-frame-toolbar" style="display:flex;align-items:baseline;gap:10px;margin-bottom:6px">
+        <span id="ce-kind" class="kind-badge"></span>
+        <span id="ce-description" class="muted" style="font-size:0.86em;flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
+        <h3 id="ce-name" hidden></h3>
+        <code id="ce-id" hidden></code>
+        <code id="ce-module" hidden></code>
+        <button class="btn-mini" onclick="_popoutLoom('composite-explore-frame')" title="Open in a separate window. If it opens as a tab, your browser's 'open new pages as tabs' preference is overriding the popup hint (Safari → Tabs → 'Open pages in tabs instead of windows' → set to 'Manually').">Pop out &#8599;</button>
       </div>
-    </div>
-
-    <!-- Configure & Run panel -->
-    <div class="ce-page-panel" data-cepanel="configure" hidden>
-      <!-- Post-run actions: shown after a successful test run via explore:run-complete postMessage -->
-      <div id="ce-post-run-bar" style="display:none;margin-bottom:14px;padding:12px 16px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;align-items:center;gap:12px">
-        <span style="flex:1;color:#166534;font-size:0.9em">Run complete. Save this run as a Study to track variants and conclusions.</span>
-        <button id="save-as-study-btn" class="action-btn" onclick="_ceOpenSaveAsStudyModal()" style="background:#16a34a;border-color:#16a34a">Save as Study</button>
-      </div>
-      <!-- Configure & Run widget (SP-C) — mounts when a composite is resolved -->
-      <div id="ce-configure-run"></div>
+      <iframe id="composite-explore-frame"
+              src="/bigraph-loom/index.html"
+              title="Composite Explorer"
+              style="width:100%;height:calc(100vh - 84px);min-height:520px;border:1px solid #ddd;background:#fff"></iframe>
     </div>
 
   </div>
@@ -1643,49 +1688,21 @@ Nothing on <code id="pr-base-display-2">main</code> changes until someone presse
 <script src="assets/data-source.js"></script>
 <script src="assets/render-helpers.js"></script>
 <script src="assets/client.js" onerror="/* live mode unavailable */"></script>
-<script src="assets/aig-graph.js?v=1782907933_1782907933" onerror="/* aig-graph unavailable */"></script>
-<script src="assets/walkthrough.js?v=1782907933_1782907933" onerror="/* walkthrough unavailable */"></script>
-<script src="assets/explorer.js?v=1782907933_1782907933" onerror="/* explorer unavailable */"></script>
-<script src="assets/explorer-views.js?v=1782907933_1782907933" onerror="/* explorer views unavailable */"></script>
-<script src="assets/github-login.js?v=1782907933_1782907933" onerror="/* github-login unavailable */"></script>
+<script src="assets/aig-graph.js?v=1785026187_1785026187" onerror="/* aig-graph unavailable */"></script>
+<script src="assets/sim-table.js?v=1785026187_1785026187"></script>
+<script src="assets/walkthrough.js?v=1785026187_1785026187" onerror="/* walkthrough unavailable */"></script>
+<script src="assets/explorer.js?v=1785026187_1785026187" onerror="/* explorer unavailable */"></script>
+<script src="assets/explorer-views.js?v=1785026187_1785026187" onerror="/* explorer views unavailable */"></script>
+<script src="assets/github-login.js?v=1785026187_1785026187" onerror="/* github-login unavailable */"></script>
 <!-- workspace-switcher.js is intentionally not loaded: the left-rail dropdown
      it used to drive has been repurposed into the investigation switcher
      (investigation-switcher.js). The /api/workspaces endpoints remain available
      for CLI tooling. -->
 <script src="assets/investigation-switcher.js"></script>
-<script src="assets/branch-source.js?v=1782907933_1782907933"></script>
-<script src="assets/configure-run.js?v=1782907933_1782907933" onerror="/* configure-run unavailable */"></script>
-<script>
-// Configure & Run widget integration for Composite Explorer.
-// Wraps _initCompositeExplorer (defined in walkthrough.js) to mount the widget
-// once a composite is resolved and the explorer page is shown.
-(function() {
-  // Switch the explorer between the wiring-viewer panel and the Configure & Run panel.
-  window._ceShowPanel = function(name) {
-    document.querySelectorAll('.ce-page-tab').forEach(function (b) {
-      b.classList.toggle('active', b.getAttribute('data-cepanel') === name);
-    });
-    document.querySelectorAll('.ce-page-panel').forEach(function (p) {
-      p.hidden = (p.getAttribute('data-cepanel') !== name);
-    });
-  };
-
-  var _origInit = window._initCompositeExplorer;
-  window._initCompositeExplorer = function() {
-    if (_origInit) _origInit.apply(this, arguments);
-    var params = new URLSearchParams(window.location.search);
-    var id = params.get('id');
-    var el = document.getElementById("ce-configure-run");
-    if (el && window.ConfigureRun && id) {
-      ConfigureRun.mount(el, { composite: id, target: "adhoc" });
-    }
-    // Arriving via a "Configure & Run" button opens that tab directly;
-    // otherwise default to the wiring viewer.
-    window._ceShowPanel(window._ceScrollToConfigure ? 'configure' : 'viewer');
-    window._ceScrollToConfigure = false;
-  };
-})();
-</script>
+<script src="assets/branch-source.js?v=1785026187_1785026187"></script>
+<!-- Encode this tab's workspace materialization state in the favicon + title
+     (session-per-tab): ready / ⏳ preparing / ⚠️ failed. -->
+<script src="assets/session-status.js?v=1785026187_1785026187"></script>
 <script>
 // Initialize drop zones once walkthrough.js is loaded.
 document.addEventListener("DOMContentLoaded", function() {

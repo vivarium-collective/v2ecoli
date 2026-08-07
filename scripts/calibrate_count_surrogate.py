@@ -20,7 +20,7 @@ def _total(x):
 def main(n_seeds, n_steps):
     cum = []
     for seed in range(n_seeds):
-        c = build_composite("baseline", cache_dir="out/cache", seed=seed)
+        c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=seed)
         ci = 0.0
         for _ in range(n_steps):
             c.run(1)

@@ -1,18 +1,19 @@
-name: Publish read-only dashboard
+name: Publish read-only workbench
 
 # Build the workspace into a self-contained static SPA snapshot and publish it
-# to the gh-pages branch at dashboard/ (served at
-# vivarium-collective.github.io/v2ecoli/dashboard/). This is the READ-ONLY
+# to the gh-pages branch at workbench/ (served at
+# vivarium-collective.github.io/v2ecoli/workbench/). This is the READ-ONLY
 # mirror of every investigation + study on main — browsable with no server.
+# The legacy /dashboard/ path is kept as a redirect stub to /workbench/.
 #
 # Built by vivarium-workbench-publish (scripts/publish_dashboard.sh), the same
 # build you can run locally to preview. Companion to publish-reports.yml (which
 # publishes the per-investigation HTML reports); this one publishes the
-# interactive dashboard SPA.
+# interactive workbench SPA.
 #
 # DEPLOY job (post-merge to main), NOT a PR gate — a failure here never blocks a
-# merge. It only ever writes dashboard/ on gh-pages; the investigation reports,
-# viewers, and docs mirror there are left untouched.
+# merge. It only ever writes workbench/ + dashboard/ on gh-pages; the
+# investigation reports, viewers, and docs mirror there are left untouched.
 
 on:
   push:
@@ -39,6 +40,12 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    # The workbench wheel build warns+skips the loom bundle when npm is absent
+    # (so Node-less consumer builds don't fail). But the published read-only
+    # dashboard MUST include the Composite Explorer — require it here so a
+    # missing/broken bundle fails loudly instead of shipping a loom-less site.
+    env:
+      VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -81,16 +88,17 @@ jobs:
         # `vivarium-workbench-publish` console script (-> exit 127).
         run: |
           source .venv/bin/activate
-          bash scripts/publish_dashboard.sh reports/published/dashboard
+          bash scripts/publish_dashboard.sh reports/published/workbench
 
       - name: Publish to gh-pages
-        # Surgical: replace ONLY dashboard/ on gh-pages via a worktree. Never
+        # Surgical: replace ONLY workbench/ on gh-pages via a worktree, and keep
+        # the legacy dashboard/ path as a redirect stub to ../workbench/. Never
         # touches investigations/*.html, the viewers, or the docs mirror.
         # Commits only on a diff (config.json carries the source commit, so a
         # new main commit always produces one).
         run: |
           set -euo pipefail
-          if [ ! -f reports/published/dashboard/index.html ]; then
+          if [ ! -f reports/published/workbench/index.html ]; then
             echo "::error::build produced no bundle (no index.html); nothing to publish"
             exit 1
           fi
@@ -98,15 +106,19 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin gh-pages
           git worktree add /tmp/ghp gh-pages
-          rm -rf /tmp/ghp/dashboard
+          rm -rf /tmp/ghp/workbench
+          mkdir -p /tmp/ghp/workbench
+          cp -R reports/published/workbench/. /tmp/ghp/workbench/
+          # Legacy /dashboard/ → redirect to /workbench/ (single indented printf,
+          # NOT a heredoc — a column-1 <!doctype> would break this block scalar).
           mkdir -p /tmp/ghp/dashboard
-          cp -R reports/published/dashboard/. /tmp/ghp/dashboard/
+          printf '%s\n' '<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0; url=../workbench/"><link rel="canonical" href="../workbench/"><title>Moved to /workbench/</title><p>This read-only workbench moved to <a href="../workbench/">/v2ecoli/workbench/</a>.</p>' > /tmp/ghp/dashboard/index.html
           cd /tmp/ghp
-          git add dashboard
+          git add workbench dashboard
           if git diff --cached --quiet; then
-            echo "dashboard snapshot unchanged; skipping commit"
+            echo "workbench snapshot unchanged; skipping commit"
           else
-            git commit -m "gh-pages: republish read-only dashboard (automated, ${GITHUB_SHA::7})"
+            git commit -m "gh-pages: republish read-only workbench (automated, ${GITHUB_SHA::7})"
             git push origin gh-pages
-            echo "published read-only dashboard snapshot to gh-pages:dashboard/"
+            echo "published read-only workbench snapshot to gh-pages:workbench/"
           fi

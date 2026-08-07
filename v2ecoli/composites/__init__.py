@@ -2,65 +2,79 @@
 
 Importing this package forces the per-architecture modules to load, which
 fires their ``@composite_generator`` decorators and registers the generators
-in ``pbg_superpowers.composite_generator._REGISTRY``.
+in ``viva_superpowers.composite_generator._REGISTRY``.
 """
 
 import dataclasses as _dataclasses
 
-from pbg_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTRY
+from viva_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTRY
 
 from v2ecoli.composites import (  # noqa: F401
-    baseline,
-    baseline_millard,
-    baseline_population,
-    baseline_time_varying_env,
-    batch_baseline,
-    colony,
+    ecoli_baseline,
+    ecoli_millard,
+    ecoli_structural,
+    ecoli_population,
+    ecoli_time_varying_env,
+    ecoli_colony,
     millard_fba_bridge_harness,
-    millard_pdmp_baseline,
     parca,
     reactor_bird_coupled,
     reactor_bird_coupled_millard,
+    vecoli,
 )
 
 
-# --- Clean-id aliases so the dashboard resolves the studies' short refs ------
-# ``@composite_generator(name="baseline")`` in module ``v2ecoli.composites.
-# baseline`` ids the generator as ``{__module__}.{name}`` == the DOUBLED
-# ``v2ecoli.composites.baseline.baseline`` (same for ``parca``). That id's
-# after-``.composites.`` segment is ``baseline.baseline``, so the dashboard's
-# trailing-segment resolver never matches the studies' short ``baseline`` ref
-# and the study UI shows "composite not found in registry: baseline".
-#
-# Register the SAME generator entry under the clean id ``v2ecoli.composites.
-# <slug>`` as well (whose trailing segment is exactly ``<slug>``). We keep the
-# doubled id too — studies/seed templates reference it by full path. Both keys
-# point at the identical ``GeneratorEntry.func``, so ``build_composite`` dedupes
-# them by function identity rather than raising "ambiguous architecture name".
-def _register_clean_alias(slug):
-    doubled_id = f"v2ecoli.composites.{slug}.{slug}"
-    clean_id = f"v2ecoli.composites.{slug}"
-    orig = _COMPOSITE_REGISTRY.get(doubled_id)
-    if orig is not None and clean_id not in _COMPOSITE_REGISTRY:
-        _COMPOSITE_REGISTRY[clean_id] = _dataclasses.replace(orig, id=clean_id)
+# --- Alias registration -----------------------------------------------------
+# A generator ids as ``{__module__}.{name}``; because module slug == composite
+# name (e.g. ``ecoli_baseline`` in ``ecoli_baseline.py``), that id DOUBLES to
+# ``v2ecoli.composites.ecoli_baseline.ecoli_baseline``. The dashboard resolver
+# matches on the trailing segment after ``.composites.``, so studies that
+# reference the short ``ecoli_baseline`` need a clean-id alias whose trailing
+# segment is exactly that. All alias keys point at the identical
+# ``GeneratorEntry.func``, so ``build_composite`` dedupes them by function
+# identity rather than raising "ambiguous architecture name".
+def _register_alias(alias_id: str, source_id: str) -> None:
+    orig = _COMPOSITE_REGISTRY.get(source_id)
+    if orig is not None and alias_id not in _COMPOSITE_REGISTRY:
+        _COMPOSITE_REGISTRY[alias_id] = _dataclasses.replace(orig, id=alias_id)
 
 
-_register_clean_alias("baseline")
-_register_clean_alias("parca")
-_register_clean_alias("batch_baseline")
+def _register_clean_alias(name: str, module: str | None = None) -> None:
+    module = module or name
+    _register_alias(f"v2ecoli.composites.{name}",
+                    f"v2ecoli.composites.{module}.{name}")
 
 
-__all__ = [
-    "baseline",
-    "baseline_millard",
-    "baseline_population",
-    "baseline_time_varying_env",
-    "batch_baseline",
-    "colony",
-    "millard_fba_bridge_harness",
-    "millard_pdmp_baseline",
+# The ecoli_* whole-cell family was renamed from the legacy ``baseline*`` /
+# ``colony`` scheme (2026-07). Every in-repo reference (workspace studies,
+# scripts, tests, committed composite-state snapshots) was updated to the new
+# ids in the same change, so no legacy-id alias is registered — a stale
+# ``baseline`` id resolving silently would only hide a missed reference.
+for _new in (
+    "ecoli_baseline",
+    "ecoli_millard",
+    "ecoli_structural",
+    "ecoli_population",
+    "ecoli_time_varying_env",
+    "ecoli_colony",
     "parca",
     "reactor_bird_coupled",
     "reactor_bird_coupled_millard",
-    "parsimony_ecoli",
+    "vecoli",
+):
+    _register_clean_alias(_new)
+
+
+__all__ = [
+    "ecoli_baseline",
+    "ecoli_millard",
+    "ecoli_structural",
+    "ecoli_population",
+    "ecoli_time_varying_env",
+    "ecoli_colony",
+    "millard_fba_bridge_harness",
+    "parca",
+    "reactor_bird_coupled",
+    "reactor_bird_coupled_millard",
+    "vecoli",
 ]

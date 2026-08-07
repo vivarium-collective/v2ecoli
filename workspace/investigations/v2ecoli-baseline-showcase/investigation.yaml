@@ -87,7 +87,10 @@ at_a_glance:
   - showcase-5-next-direction-decide: stop at the next-direction decision, seeded from the showcase-4 ranking (deepen media / chase ppGpp-off / push dnaA / rescue elong-down)
   - showcase-6-equivalence-large: apply the PR #134 report-card approach as a v1↔v2 equivalence instrument at scale — a 16×16 baseline ensemble graded against a matched vEcoli reference (population_phenotype_basal vs_vecoli mode), testing whether the 8×16 equivalence picture holds (Physiology/Composition/Ribosomes within tol, exchange-flux metabolism the divergence, gene expression correlated)
 
-studies:
+# Registry model (Study Pipeline Spec 1): studies live top-level in studies/<slug>/;
+# this investigation REFERENCES them via members. DAG edges derive from each
+# member study's inputs.from (see each study.yaml). Was `studies:` + nested symlinks.
+members:
 - showcase-1-parca
 - showcase-2-baseline-figures
 - showcase-3-variant-decide
@@ -156,3 +159,31 @@ proposed_inputs:
       V, a runtime transcription-init override): a precise gene-level knob with a
       known biological readout (the DnaA pool).
     status: pending
+biological_story: |-
+  This showcase follows the full arc of building a whole-cell E. coli model from primary data. It starts from ecoli-sources -- curated flat files of measured E. coli biology (gene/protein/reaction annotations, kinetic constants, expression and mass-fraction data). The Parameter Calculator (ParCa) turns those measurements into sim_data, a single self-consistent parameter set: it fits expression levels, RNA/protein counts, and metabolic parameters so that a simulated wild-type cell reproduces bulk physiology.
+
+  Running the calibrated model then simulates one cell from birth to division, with the emergent doubling time, mass fractions, metabolic fluxes, and proteome falling out of the mechanism rather than being imposed. Because single cells vary, the baseline is an ensemble over seeds and generations. Validation checks these emergent properties against independent measurements -- doubling time and mass fractions, Toya 2010 central-carbon fluxes, and the Schmidt/Wisniewski proteomes. A perturbation and a next-direction decision then show the calibrated cell being used, not just built.
+how_to_read: |-
+  Read the six studies in order (showcase-1 -> showcase-6): each builds on the last, from rebuilding the ParCa, to the wild-type baseline ensemble, to variant comparison, a next-direction decision, and large-ensemble equivalence. The tests on each study card are the acceptance contract -- a study is done when its measured-property checks (doubling time, mass fractions, Toya FBA flux, proteome) pass, not merely when it runs.
+glossary:
+- term: ecoli-sources
+  definition: |-
+    Curated flat files of primary E. coli measurements (annotations, kinetic constants, expression and mass data) that are the raw input to the ParCa.
+- term: ParCa (Parameter Calculator)
+  definition: |-
+    The pipeline that fits ecoli-sources measurements into sim_data, the self-consistent parameter set that configures the whole-cell model. "Rebuild in full" means running it end-to-end rather than loading a cache.
+- term: sim_data
+  definition: |-
+    The large calibrated parameter object emitted by the ParCa; it fully specifies the wild-type cell the baseline simulates.
+- term: Baseline ensemble (multiseed / multigen)
+  definition: |-
+    Repeated single-cell->division runs over random seeds and successive generations, so emergent phenotypes are distributions, not single trajectories.
+- term: Mass fractions
+  definition: |-
+    The dry-mass split among RNA, protein, DNA, etc.; a standard bulk-physiology check the baseline must reproduce.
+- term: Toya 2010 fluxes
+  definition: |-
+    Published 13C-measured central-carbon flux data used to validate the model's emergent FBA fluxes.
+- term: Schmidt / Wisniewski proteome
+  definition: |-
+    Independent quantitative proteomics datasets used to check the simulated protein abundances.

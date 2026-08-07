@@ -57,17 +57,6 @@ class GenerationResult:
     cell_data_after: dict[str, Any] | None = None
 
 
-def _get_emitter_instance(composite):
-    """Return the emitter instance for agent 0 (while the agent still exists)."""
-    cell = composite.state["agents"].get("0")
-    if not cell:
-        return None
-    emitter_edge = cell.get("emitter", {})
-    if isinstance(emitter_edge, dict):
-        return emitter_edge.get("instance")
-    return None
-
-
 def _snapshots_from_history(history) -> list[dict]:
     """Turn an emitter history list into mass snapshots."""
     snaps = []
@@ -121,14 +110,20 @@ def _run_generation(
     cell = composite.state["agents"]["0"]
     initial_dry = fg_magnitude(cell["listeners"]["mass"].get("dry_mass", 0))
 
-    # Grab the emitter instance NOW — the agent node (and our edge handle)
-    # gets detached from composite.state once the Division step fires.
-    emitter_instance = _get_emitter_instance(composite)
-
     t_wall0 = time.time()
     total_run = 0.0
     divided = False
     last_cell_data: dict[str, Any] | None = None
+    # Per-chunk mass time-series captured from live state. This replaces the old
+    # `emitter_instance.history` read: no supported emitter keeps every timestep
+    # in memory (ParquetEmitter, the default, streams each tick to disk and only
+    # flushes its batch buffer on close(), so its parquet output isn't even
+    # complete mid-loop), which raised
+    # `AttributeError: 'ParquetEmitter' object has no attribute 'history'`.
+    # Snapshotting live state here works for every emitter type (parquet,
+    # sqlite, xarray, null) and is the same pattern reports/workflow_report.py
+    # uses. See issue #340.
+    history: list[dict] = []
 
     while total_run < max_duration:
         chunk = min(SNAPSHOT_INTERVAL, max_duration - total_run)
@@ -159,8 +154,18 @@ def _run_generation(
             break
         last_cell_data = _extract_cell_data(cur_cell)
 
+        # Snapshot the mass listeners from live state before the next chunk
+        # (or division) mutates/detaches the agent. dict() copies the mapping
+        # so later ticks don't overwrite this generation's series.
+        _mass = cur_cell.get("listeners", {}).get("mass", {})
+        history.append(
+            {
+                "global_time": total_run,
+                "listeners": {"mass": dict(_mass) if isinstance(_mass, dict) else {}},
+            }
+        )
+
     wall_time = time.time() - t_wall0
-    history = emitter_instance.history if emitter_instance is not None else []
     snaps = _snapshots_from_history(history)
     # Drop post-division snapshots where the listener has been reset
     # (agent removed) — we want the mass at the moment of division.
@@ -199,7 +204,7 @@ def run_multigeneration(
     forward across each division."""
     from v2ecoli import build_composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline, seed_mass_listener
+    from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
     from v2ecoli.library.division import divide_cell
     from process_bigraph import Composite
 
@@ -207,7 +212,7 @@ def run_multigeneration(
 
     # Generation 1 — start from the fresh initial state the workflow/canary use.
     print(f"  Gen 1: building from cache {cache_dir}")
-    composite = build_composite("baseline", cache_dir=cache_dir)
+    composite = build_composite("ecoli_baseline", cache_dir=cache_dir)
     cell0 = composite.state["agents"]["0"]
     print(
         f"    initial dry_mass={fg_magnitude(cell0['listeners']['mass'].get('dry_mass', 0)):.1f} fg"
@@ -277,7 +282,7 @@ def _load_study(study_path: str) -> dict:
 
         baseline:
         - name: <any>                     # informational
-          composite: v2ecoli.composites.baseline.baseline
+          composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
           params: {seed: int, cache_dir: str}
         lineage:
           generations: int                # how many divisions to chain
@@ -309,7 +314,7 @@ def _load_study(study_path: str) -> dict:
         raise ValueError(
             f"study {study_path!r}: baseline composite must be the "
             f"partitioned `baseline` architecture (e.g. "
-            f"v2ecoli.composites.baseline.baseline); got {composite_ref!r}"
+            f"v2ecoli.composites.ecoli_baseline.ecoli_baseline); got {composite_ref!r}"
         )
 
     lineage = spec.get("lineage") or {}

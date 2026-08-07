@@ -46,6 +46,9 @@ ALLOWLIST: dict[str, str] = {
         'sim_data format) to run the unmodified reference engine in-process',
     'cli/parca.py':
         'ParCa pipeline runner — writes parca_state.pkl + step checkpoints (ParCa cache exception)',
+    'library/comparison_composite.py':
+        'resolves a ParCa sim_data artifact handle — loads the content-addressed '
+        'simData.cPickle (ParCa-produced pickle) for the pull-or-compute roots',
 }
 
 # Package-prefix allowlist (paths starting with these are ParCa internal,

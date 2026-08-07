@@ -1,0 +1,7 @@
+{
+  "source_run_id": "nsweep-sweep-f69f9690",
+  "generation_id": null,
+  "rendered_at": 1760000000.0,
+  "command": "python sims/make_derived_charts.py",
+  "content_hash": "sha256:cfe9debb2493563cbf616ad7b74fd7e02fcb9972a29cb9ed97e13acfc541c779"
+}

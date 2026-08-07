@@ -332,7 +332,7 @@ Add a reproducible snapshot generator that runs the baseline composite and saves
 **Interfaces:**
 - Produces (npz keys, appended to existing): `rnap_coordinates` (i8[]), `rnap_domain_index` (i4[]), `rnap_is_forward` (bool[]).
 - Produces: `rnap_state(state_source="snapshot") -> dict` with keys `coordinates`, `domain_index`, `is_forward` (numpy arrays; empty arrays when absent).
-- Capture path: `comp = v2ecoli.build_composite("baseline", seed, cache_dir="out/cache"); comp.run(advance_s); cell = comp.state["agents"]["0"]; rnap = cell["unique"]["active_RNAP"]; active = rnap[rnap["_entryState"].view(bool)]` then read `active["coordinates"]`, `active["domain_index"]`, `active["is_forward"]` (pattern proven in `v2ecoli/bridge.py:152`).
+- Capture path: `comp = v2ecoli.build_composite("ecoli_baseline", seed, cache_dir="out/cache"); comp.run(advance_s); cell = comp.state["agents"]["0"]; rnap = cell["unique"]["active_RNAP"]; active = rnap[rnap["_entryState"].view(bool)]` then read `active["coordinates"]`, `active["domain_index"]`, `active["is_forward"]` (pattern proven in `v2ecoli/bridge.py:152`).
 
 - [ ] **Step 1: Write the failing test** (uses the existing committed snapshot once regenerated; until then, synthesize a tiny npz so the reader is unit-tested without a sim run)
 

@@ -3,11 +3,14 @@
 Wraps a baseline cell composite (the EcoliWCM embedding pattern) and runs it
 generation-by-generation, carrying a single daughter forward (vEcoli's
 ``single_daughters=true`` default). Variant overrides are applied at build
-time. Each generation emits either partitioned parquet (default) or — when
-``emitter == "xarray"`` — a hive-partitioned zarr store via an external
-XArrayEmitter (the validated v2ecoli/library/xarray_run.py pattern), with
-its own metadata. The meta-composite ticks this process via update(); it
-reports ``complete`` when ``generations`` cells have been run.
+time. Each generation emits partitioned parquet (default), a hive-partitioned
+zarr store via an external XArrayEmitter (``emitter == "xarray"`` — the
+validated v2ecoli/library/xarray_run.py pattern) with its own metadata, or
+BOTH (``emitter == "both"``), which is what a batch run wants: the parquet
+sweep is what the DuckDB analyses read, the zarr store is what the workspace's
+xarray emitter and the dashboard's per-run charts read. The meta-composite
+ticks this process via update(); it reports ``complete`` when ``generations``
+cells have been run.
 """
 
 from __future__ import annotations
@@ -105,9 +108,11 @@ class LineageProcess(Process):
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
         "time_step": {"_type": "float", "_default": 1.0},
-        # "parquet" (default) or "xarray". xarray drives an external
+        "media": {"_type": "string", "_default": "minimal"},
+        # "parquet" (default), "xarray", or "both". xarray drives an external
         # XArrayEmitter per lineage (validated multigen pattern); the internal
-        # baseline emitter step then falls back to RAM (not read).
+        # baseline emitter step then falls back to RAM (not read). "both" keeps
+        # the internal parquet emitter AND drives the external XArrayEmitter.
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
         "injected_processes": {"_default": {}},
@@ -129,7 +134,14 @@ class LineageProcess(Process):
         self._xarray_store = None     # zarr store path (stable across gens)
 
     def _is_xarray(self) -> bool:
-        return self.config.get("emitter", "parquet") == "xarray"
+        """True when this lineage drives the external XArrayEmitter."""
+        return self.config.get("emitter", "parquet") in ("xarray", "both")
+
+    def _is_parquet(self) -> bool:
+        """True when the inner composite's own emitter writes the hive parquet
+        sweep. Mutually exclusive with the null override, NOT with xarray —
+        ``emitter == "both"`` runs the two side by side."""
+        return self.config.get("emitter", "parquet") in ("parquet", "both")
 
     def inputs(self):
         return {}
@@ -142,30 +154,20 @@ class LineageProcess(Process):
     def _build_generation(self):
         from process_bigraph import Composite
         from v2ecoli.core import build_core
-        from v2ecoli.composites.baseline import baseline, seed_mass_listener
+        from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
 
         core = build_core()
         gen_seed = (int(self.config["seed"]) + self._generation) % (2 ** 31)
         overrides = dict(self.config.get("config_overrides") or {})
 
-        if self._is_xarray():
-            # External XArrayEmitter path. The internal baseline emitter step is
-            # minimised to global_time only (set_null_emitter_override) so it
-            # doesn't waste memory — we emit out of band. The XArrayEmitter is
-            # opened lazily on the first populated emit tick (see _emit_xarray),
-            # so the view can be filtered against real state — xarray is strict
-            # about missing emit paths.
-            from v2ecoli.composites._helpers import set_null_emitter_override
-            set_null_emitter_override(True)
-            try:
-                doc = baseline(core=core, seed=gen_seed,
-                               cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides,
-                               injected_processes=self.config.get("injected_processes"))
-            finally:
-                set_null_emitter_override(False)
-            self._xarray_pending = True
-        else:
+        # The inner composite's own emitter step writes the hive parquet sweep;
+        # under a pure-xarray lineage it is minimised to global_time only
+        # (set_null_emitter_override) because we emit out of band instead. The
+        # XArrayEmitter is opened lazily on the first populated emit tick (see
+        # _emit_xarray), so the view can be filtered against real state — xarray
+        # is strict about missing emit paths. "both" takes the parquet override
+        # AND arms the xarray path.
+        if self._is_parquet():
             from v2ecoli.composites._helpers import set_parquet_emitter_override
             from v2ecoli.library.emitter_presets import parquet_vecoli
             emitter_cfg = parquet_vecoli(
@@ -181,9 +183,23 @@ class LineageProcess(Process):
                 doc = baseline(core=core, seed=gen_seed,
                                cache_dir=self.config["cache_dir"],
                                config_overrides=overrides,
+                               media=self.config.get("media", "minimal"),
                                injected_processes=self.config.get("injected_processes"))
             finally:
                 set_parquet_emitter_override(None)
+        else:
+            from v2ecoli.composites._helpers import set_null_emitter_override
+            set_null_emitter_override(True)
+            try:
+                doc = baseline(core=core, seed=gen_seed,
+                               cache_dir=self.config["cache_dir"],
+                               config_overrides=overrides,
+                               media=self.config.get("media", "minimal"),
+                               injected_processes=self.config.get("injected_processes"))
+            finally:
+                set_null_emitter_override(False)
+        if self._is_xarray():
+            self._xarray_pending = True
 
         if self._carry_state is not None:
             agent = doc["state"]["agents"]["0"]
@@ -342,17 +358,22 @@ class LineageProcess(Process):
         if not (divided or timed_out):
             return {}
 
-        # End of this generation: flush/close emitter, record summary.
+        # End of this generation: flush/close whichever emitters are live, then
+        # record the summary. Independent checks, NOT if/else — under
+        # ``emitter == "both"`` the parquet buffer must still be flushed, or the
+        # generation's trailing rows (every row, for a generation shorter than
+        # the emitter's 400-row batch) never land and the sweep has no history
+        # parquet for the analyses to read.
+        if self._is_xarray() and self._xarray_em is not None:
+            try:
+                self._xarray_em.close(success=True)
+            except Exception as e:
+                warnings.warn(f"LineageProcess: xarray close failed for "
+                              f"generation {self._generation}: {e}")
+            self._xarray_em = None
         if self._is_xarray():
-            if self._xarray_em is not None:
-                try:
-                    self._xarray_em.close(success=True)
-                except Exception as e:
-                    warnings.warn(f"LineageProcess: xarray close failed for "
-                                  f"generation {self._generation}: {e}")
-                self._xarray_em = None
             self._xarray_pending = False
-        else:
+        if self._is_parquet():
             from v2ecoli.composites._helpers import flush_parquet
             try:
                 flush_parquet(self._composite, success=True)

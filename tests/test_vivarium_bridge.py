@@ -72,9 +72,12 @@ def test_translate_ports_special_store_names():
         "RNAs": {"_default": 0, "_updater": "set"},
     }
     typed = translate_ports(core, ports)
-    # Well-known stores map to registered array types, ignoring raw default.
+    # Well-known stores map to their registered biological type, ignoring raw
+    # default: bulk -> bulk_array, and unique-molecule stores to their named
+    # type (Phase 3 registered `rna`, `active_RNAP`, … in BIOLOGICAL_UNIQUE_TYPES,
+    # so `RNAs` now types as `rna` instead of the generic `unique_array[...]`).
     assert typed["bulk"] == "bulk_array"
-    assert typed["RNAs"].startswith("unique_array[")
+    assert typed["RNAs"] == "rna"
 
 
 def test_wrap_vivarium_process_inputs_outputs():

@@ -1,0 +1,103 @@
+schema_version: 4
+name: with_aa
+investigation: whole-cell-model-comparison
+title: v2ecoli reproduces vEcoli on with_aa
+condition: with_aa
+question: Does v2ecoli reproduce vEcoli on the with_aa condition?
+comparison:
+  seeds: 4
+  generations: 4
+report_cards:
+- viz/report_card/summary.html
+- viz/report_card/parca.html
+- viz/report_card/statistical.html
+- viz/report_card/standard.html
+- viz/report_card/trajectory.html
+- viz/report_card/distribution.html
+- viz/report_card/metabolism.html
+- viz/report_card/composition.html
+runs:
+- composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  name: with_aa-comparison
+  kind: analysis
+  canonical: true
+  description: v2e-compare study with_aa
+  status: completed
+  result: PASS
+  outcomes:
+    statistical-vs-vecoli:
+      result: WITHIN_TOL
+      detail: 'report card ''statistical'': ungraded'
+status: evaluated
+tests:
+- name: summary-vs-vecoli
+  kind: report_card
+  card: summary
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (summary card)?
+- name: parca-vs-vecoli
+  kind: report_card
+  card: parca
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (parca card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/with_aa
+    group: parca
+- name: statistical-vs-vecoli
+  kind: report_card
+  card: statistical
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (statistical card)?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/whole-cell-model-comparison/with_aa
+    group: statistical
+- name: standard-vs-vecoli
+  kind: report_card
+  card: standard
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (standard card)?
+- name: trajectory-vs-vecoli
+  kind: report_card
+  card: trajectory
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (trajectory card)?
+- name: distribution-vs-vecoli
+  kind: report_card
+  card: distribution
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (distribution card)?
+- name: metabolism-vs-vecoli
+  kind: report_card
+  card: metabolism
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (metabolism card)?
+- name: composition-vs-vecoli
+  kind: report_card
+  card: composition
+  classification: primary
+  question: Does v2ecoli reproduce vEcoli on with_aa (composition card)?
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      media: minimal_plus_amino_acids
+  model_settings: []
+confidence: Accepted
+findings:
+- id: with_aa-vs-vecoli-result
+  kind: computational
+  status: confirms
+  statement: 'v2ecoli reproduces vEcoli on with_aa (4-seed gen-1, Welch t-test): all
+    five observables (cell, dry, protein, RNA mass, growth rate) are within tolerance.'
+  evidence:
+    from_card: statistical
+    observed: growth +1.7% (p=0.53); RNA +0.4% (p=0.89); cell +0.9%; dry +0.9%; protein
+      -0.0% -- all within_tol.
+inputs:
+- artifact: sim_data
+  from: parca
+  into: cache_dir
+pipeline_gate:
+  enables: []

@@ -274,10 +274,17 @@ build_upstream_parca   # optional self-build of the upstream simData (gated; see
 if [[ "${NODE_INDEX}" == "${MAIN_INDEX}" ]]; then
   trap upload_logs EXIT                       # ship session logs no matter how we exit
   echo "[ray-batch] HEAD on node ${NODE_INDEX} (${SELF_IP}), expecting ${NUM_NODES} node(s)"
+  # The head deliberately runs no tasks (--num-cpus=0) so the workload's tasks land on
+  # the WORKER nodes — but that is only correct when workers EXIST. On a single-node job
+  # the head IS the only node, so it must supply CPUs itself; otherwise every task keeps
+  # `{CPU: 1}` and the scheduler marks it INFEASIBLE, the job pins at ~0% CPU and hangs
+  # forever. Give the sole node its real core count so it is both head and worker.
+  head_cpu_flag=(--num-cpus=0)
+  [[ "${NUM_NODES}" -gt 1 ]] || head_cpu_flag=(--num-cpus="$(nproc)")
   ray start --head \
     --node-ip-address="${SELF_IP}" \
     --port="${GCS_PORT}" \
-    --num-cpus=0 \
+    "${head_cpu_flag[@]}" \
     --dashboard-host=0.0.0.0
 
   registered=0

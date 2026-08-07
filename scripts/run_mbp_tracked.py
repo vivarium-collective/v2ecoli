@@ -26,7 +26,7 @@ Currently runnable variants (those that don't need the upstream
     aggregator-cpa1e9     — at 1e9 (high-density representative sampling)
 
   Cross-investigation reference:
-    baseline-reference    — unmodified v2ecoli.composites.baseline
+    baseline-reference    — unmodified v2ecoli.composites.ecoli_baseline
 
 Default duration is 120 sim-min (~2 doublings); --duration-sec overrides.
 
@@ -94,11 +94,11 @@ COMMON_AGENT_PATHS = [
 
 
 def _build_baseline(core, cache_dir, *, seed=0):
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     return baseline(core=core, seed=seed, cache_dir=cache_dir)
 
 def _build_baseline_population(core, cache_dir, *, cells_per_agent, seed=0):
-    from v2ecoli.composites.baseline_population import baseline_population
+    from v2ecoli.composites.ecoli_population import baseline_population
     return baseline_population(
         core=core, seed=seed, cache_dir=cache_dir,
         cells_per_agent=cells_per_agent,
@@ -110,7 +110,7 @@ def _build_baseline_time_varying_env(
     env_driver_mode="static",
     synthetic_trajectory_spec=None,
 ):
-    from v2ecoli.composites.baseline_time_varying_env import baseline_time_varying_env
+    from v2ecoli.composites.ecoli_time_varying_env import baseline_time_varying_env
     return baseline_time_varying_env(
         core=core, seed=seed, cache_dir=cache_dir,
         env_driver_mode=env_driver_mode,

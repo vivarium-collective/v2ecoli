@@ -76,7 +76,7 @@ def test_composite_run_one_sec_does_not_refire_loop():
     Step.invoke = counting_invoke
     try:
         from v2ecoli import build_composite
-        composite = build_composite("baseline", cache_dir='out/cache')
+        composite = build_composite("ecoli_baseline", cache_dir='out/cache')
 
         # Wall-clock timeout via thread — a refire loop blocks the GIL in
         # C code, so a plain assertion wouldn't fire until the loop (maybe

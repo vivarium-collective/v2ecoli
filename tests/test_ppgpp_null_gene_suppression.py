@@ -88,7 +88,7 @@ def test_no_null_gene_dominates_ppgpp_synth_prob(acetate_cache):
     TI.TranscriptInitiation.update = spy
     try:
         from v2ecoli import build_composite
-        composite = build_composite("baseline", cache_dir=acetate_cache, seed=0)
+        composite = build_composite("ecoli_baseline", cache_dir=acetate_cache, seed=0)
         composite.run(40)
     finally:
         TI.TranscriptInitiation.update = orig

@@ -218,7 +218,7 @@ class V2EcoliUnitsResolver:
 # ---------------------------------------------------------------------------
 #
 # v2ecoli visualizations label axes via the pluggable hook on the shared
-# ``pbg_superpowers.visualization.Visualization`` base. But the installed base
+# ``viva_superpowers.visualization.Visualization`` base. But the installed base
 # may transiently lack that hook (the units-aware base PR is not merged yet, or
 # a concurrent session reinstalled the non-editable git build into the shared
 # venv). These wrappers delegate to the base hook when it is present and apply
@@ -230,7 +230,7 @@ class V2EcoliUnitsResolver:
 def _base_visualization():
     """Return the shared Visualization base class, or None if unavailable."""
     try:
-        from pbg_superpowers.visualization import Visualization
+        from viva_superpowers.visualization import Visualization
         return Visualization
     except Exception:
         return None

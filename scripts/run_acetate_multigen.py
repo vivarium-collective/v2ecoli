@@ -31,7 +31,7 @@ sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
 from v2ecoli import build_core, build_document
-from v2ecoli.composites.baseline import baseline as baseline_doc
+from v2ecoli.composites.ecoli_baseline import baseline as baseline_doc
 from v2ecoli.library.division import divide_cell
 from process_bigraph import Composite
 

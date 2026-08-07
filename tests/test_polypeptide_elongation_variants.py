@@ -68,7 +68,7 @@ def test_variant_elongates_protein(variant, monkeypatch):
     monkeypatch.setitem(H.PARTITIONED_PROCESSES, "ecoli-polypeptide-elongation", cls)
     from v2ecoli import build_composite
     from v2ecoli.library.quantity_helpers import fg_magnitude
-    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=0)
     a = c.state["agents"]["0"]
     m0 = float(fg_magnitude(a["listeners"]["mass"]["protein_mass"]))
     c.run(8)  # protein mass rises within a few ticks; keep the behavior job lean
@@ -82,7 +82,7 @@ def test_variant_elongates_protein(variant, monkeypatch):
 def test_baseline_divides_unchanged():
     """Full-cycle parity: the cell still divides, in the expected time band."""
     from v2ecoli import build_composite
-    c = build_composite("baseline", cache_dir="out/cache", seed=0)
+    c = build_composite("ecoli_baseline", cache_dir="out/cache", seed=0)
     for _ in range(3000):
         c.run(1)
         agents = c.state["agents"]

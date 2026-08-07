@@ -1,0 +1,1 @@
+{"groups": ["mass", "chromosome"], "labels": [["mass", "cell_mass"], ["mass", "dry_mass"], ["mass", "protein_mass"], ["mass", "rna_mass"], ["mass", "dna_mass"], ["mass", "volume"], ["mass", "instantaneous_growth_rate"], ["chromosome", "number_of_oric"]], "group_slices": {"mass": [0, 7], "chromosome": [7, 8]}, "exchange_keys": []}

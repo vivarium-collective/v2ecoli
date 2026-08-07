@@ -12,24 +12,27 @@ def _write(p, text):
 
 
 def _make_invest(tmp_path):
-    inv = tmp_path / "workspace/investigations/v2ecoli-vecoli-comparison"
+    # Canonical top-level layout (post-#390): studies/ is a SIBLING of
+    # investigations/ under the workspace root, referenced via `members:`.
+    ws = tmp_path / "workspace"
+    inv = ws / "investigations/v2ecoli-vecoli-comparison"
     _write(inv / "investigation.yaml", """
         schema_version: 4
         name: v2ecoli-vecoli-comparison
         comparison:
-          vecoli_dir_env: V2E_TEST_FORK
+          reference: {repo: "env:V2E_TEST_FORK", kind: vecoli}
           v2_cache: out/cache_full
           ve_cache: out/compare_harness/vecoli_parca
-          defaults: {cards: [config, parca, standard]}
-        studies: [basal, basal_4x4, missing_one]
+          defaults: {cards: [config, parca, standard, statistical]}
+        members: [basal, basal_4x4, missing_one]
     """)
-    _write(inv / "studies/basal/study.yaml", """
+    _write(ws / "studies/basal/study.yaml", """
         name: basal
         investigation: v2ecoli-vecoli-comparison
         condition: basal
         comparison: {seeds: 1, generations: 4}
     """)
-    _write(inv / "studies/basal_4x4/study.yaml", """
+    _write(ws / "studies/basal_4x4/study.yaml", """
         name: basal_4x4
         investigation: v2ecoli-vecoli-comparison
         condition: basal
@@ -58,8 +61,10 @@ def test_study_inherits_default_cards_when_omitted(tmp_path):
     inv = _make_invest(tmp_path)
     _, specs = load_investigation(str(inv))
     basal = next(s for s in specs if s.name == "basal")
-    assert basal.cards == ["config", "parca", "standard"]   # from investigation defaults
-    assert basal.graded_cards == ["parca", "standard"]      # parca + standard gate; config informational
+    assert basal.cards == ["config", "parca", "standard", "statistical"]  # from investigation defaults
+    # Gold standard: parca (t=0) + multi-seed statistical gate; config + single-seed
+    # standard are illustrative-only (standard dropped from GRADED).
+    assert basal.graded_cards == ["parca", "statistical"]
 
 
 def test_study_card_override_and_graded_subset(tmp_path):
@@ -70,18 +75,18 @@ def test_study_card_override_and_graded_subset(tmp_path):
     assert s44.graded_cards == ["parca", "statistical"]
 
 
-def test_context_reads_fork_from_named_env(tmp_path, monkeypatch):
+def test_context_reads_reference_repo_from_env(tmp_path, monkeypatch):
     inv = _make_invest(tmp_path)
     monkeypatch.setenv("V2E_TEST_FORK", "/some/vEcoli")
     ctx = _context(inv)
-    assert ctx["fork"] == "/some/vEcoli"
+    assert ctx["reference"].repo == "/some/vEcoli"
     assert ctx["v2_cache"] == "out/cache_full"
     assert ctx["ve_cache"] == "out/compare_harness/vecoli_parca"
 
 
 def test_load_study_by_path_resolves_context(tmp_path):
     inv = _make_invest(tmp_path)
-    spec = load_study(str(inv / "studies/basal_4x4"))
+    spec = load_study(str(tmp_path / "workspace/studies/basal_4x4"))
     assert isinstance(spec, StudySpec)
     assert spec.name == "basal_4x4" and spec.condition == "basal"
 

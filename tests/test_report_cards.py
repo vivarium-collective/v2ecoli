@@ -21,7 +21,7 @@ def test_statistical_card_returns_graded_section():
         "within_tol", "drift", "mismatch", "ungraded")
 
 
-def test_assemble_sections_from_studies(monkeypatch):
+def test_assemble_sections_from_studies(monkeypatch, tmp_path):
     from scripts import comparison_report_card as crc
     from scripts._compare.study_spec import StudySpec
     # one study, cards ["parca","standard"] -> overview + parca + (runs+eval).
@@ -33,10 +33,11 @@ def test_assemble_sections_from_studies(monkeypatch):
     cond_data = {"basal": ({"cell_mass": [seed_stat]}, {}, {})}
     spec = StudySpec(name="basal", condition="basal", seeds=1, gens=4,
                      cards=["parca", "standard"], invest_name="inv",
-                     v2_cache="c", ve_cache="c", fork="", study_path="/x")
+                     v2_cache="c", ve_cache="c", study_path="/x")
     secs = crc.assemble_from_studies(
         [spec], cond_data, conds={"basal": ("v2dir", "vedir")},
-        verdict_root=str(tmp_verdict := __import__("tempfile").mkdtemp()))
+        verdict_root=str(tmp_verdict := __import__("tempfile").mkdtemp()),
+        studies_root=str(tmp_path / "studies"))
     titles = [s["title"] for s in secs]
     assert titles[0].startswith("Overview")
     assert any("ParCa" in t or "parca" in t.lower() for t in titles)

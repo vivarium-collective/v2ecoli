@@ -217,7 +217,7 @@ def viz_pdmp00_rng_fix_proof():
     plt.tight_layout()
     _write("pdmp-00", "rng_seeding_fix_proof", _fig_to_html(
         "RNG seeding fix — before / after",
-        "Documented bug: v2ecoli.composites.baseline.baseline() seed param only seeded "
+        "Documented bug: v2ecoli.composites.ecoli_baseline.ecoli_baseline() seed param only seeded "
         "allocator_rng; the other 14 stochastic processes inherited a single cache-derived seed. "
         "Multi-seed ensembles collapsed to bit-identical trajectories. Fix: per-process seed "
         "derivation via crc32(process_name, master_seed) — same pattern as v2ecoli/steps/division.py. "

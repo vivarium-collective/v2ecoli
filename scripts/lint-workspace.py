@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Validate workspace.yaml + cross-references. Exit non-zero on failure."""
 from __future__ import annotations
+import graphlib
 import hashlib
 import importlib
 import json
+import locale
 import re
 import subprocess
 import sys
@@ -128,6 +130,162 @@ def _fail(msg: str) -> None:
     sys.exit(1)
 
 
+# Phase-1 canonical data model: documented exceptions to the canonical
+# conditions-form rule (mirrors tests/test_workspace_conformance.py).
+_NO_MODEL = {"parca"}                                          # upstream artifact producer, no model
+_MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism"}  # multi_baseline_needs_human (user decision)
+
+# Study-config <-> generator contract (mirrors tests/test_workspace_conformance.py --
+# keep both in sync):
+_RUN_CONTROL_KEYS = {"n_steps"}                    # engine-stripped run-control key (workbench #611)
+_PARAM_CONTRACT_EXCEPTIONS = {
+    "metabolism_redux",              # swap: not an ecoli_baseline param; pending owner mapping
+    "showcase-1-parca",              # mode: full: not a parca generator param (CLI-only flag)
+    "mbp-04-multigeneration-runs",   # features: not a reactor_bird_coupled param; pending owner fix
+}
+_COMPOSITE_UNRESOLVED_PREFIXES = ("v2ecoli_pdmp.", "pbg_copasi.")  # optional/external packages, not in _REGISTRY
+_COMPOSITE_UNRESOLVED_SUFFIXES = ("millard2017_metabolism",)        # file-discovered YAML composite
+_COMPOSITE_UNRESOLVED_EXACT = {"v2ecoli.composites.diagnostic.diagnostic"}  # known-nonexistent, aspirational ref
+
+
+def check_canonical_layout() -> None:
+    """Enforce the Phase-1 canonical data model as human-readable lint errors.
+
+    Same four structural checks as tests/test_workspace_conformance.py:
+    no nested study.yaml; investigations members-only; canonical conditions
+    form (no stray top-level baseline/parent_studies/pipeline_gate.prerequisites,
+    except the two documented exceptions); inputs.from DAG acyclic + resolvable.
+    """
+    errors: list[str] = []
+
+    nested = list((_dir("investigations")).glob("*/studies/*/study.yaml"))
+    if nested:
+        errors.append(f"nested study.yaml must not exist: {nested}")
+
+    for inv in (_dir("investigations")).glob("*/investigation.yaml"):
+        spec = yaml.safe_load(inv.read_text()) or {}
+        if "studies" in spec:
+            errors.append(f"{inv.parent.name} still uses studies: (must be members:)")
+
+    studies: dict[str, dict] = {
+        p.parent.name: (yaml.safe_load(p.read_text()) or {})
+        for p in (_dir("studies")).glob("*/study.yaml")
+    }
+
+    for slug, spec in studies.items():
+        if slug in _MULTI_BASELINE_PENDING:
+            bl = spec.get("baseline")
+            if not (isinstance(bl, list) and bl and all(b.get("composite") for b in bl)):
+                errors.append(f"{slug}: multi-baseline exception must be a valid top-level baseline list")
+            continue
+        if "baseline" in spec:
+            errors.append(f"{slug} has a stray top-level baseline: (should be conditions.baseline)")
+        if "parent_studies" in spec:
+            errors.append(f"{slug} retains parent_studies (ordering must be inputs.from)")
+        if "depends_on" in spec:
+            errors.append(f"{slug} retains legacy depends_on (ordering must be inputs.from)")
+        pg = spec.get("pipeline_gate") or {}
+        if "prerequisites" in pg:
+            errors.append(f"{slug} retains pipeline_gate.prerequisites (must be inputs.from)")
+        if slug not in _NO_MODEL:
+            comp = ((spec.get("conditions") or {}).get("baseline") or {}).get("composite")
+            if not comp:
+                errors.append(f"{slug} missing conditions.baseline.composite")
+        if isinstance(spec.get("conditions"), dict) and isinstance(spec.get("tests"), dict):
+            errors.append(f"{slug} conditions-form study has dict-shaped tests (must be a list)")
+
+    slugs = set(studies) | {"parca"}
+    ts = graphlib.TopologicalSorter()
+    for slug, spec in studies.items():
+        deps = []
+        for e in (spec.get("inputs") or []):
+            frm = e.get("from")
+            if frm not in slugs:
+                errors.append(f"{slug} inputs.from '{frm}' is not a real study")
+            else:
+                deps.append(frm)
+        ts.add(slug, *deps)
+    try:
+        ts.prepare()
+    except graphlib.CycleError as e:
+        errors.append(f"inputs.from DAG has a cycle: {e}")
+
+    if errors:
+        _fail("canonical layout violations:\n  " + "\n  ".join(errors))
+
+
+def check_generator_contract() -> None:
+    """Enforce the study-config<->generator contract as human-readable lint errors.
+
+    Same two checks as tests/test_workspace_conformance.py's
+    test_all_composite_refs_resolve + test_baseline_params_are_generator_accepted:
+    every baseline/variant composite ref must resolve in the generator registry
+    (modulo the documented skip-list), and every baseline params key must be a
+    declared generator parameter, an engine-stripped run-control key, or a
+    documented pending-fix exception. Best-effort: if viva_superpowers isn't
+    importable, warns and skips rather than failing the whole lint.
+    """
+    try:
+        from viva_superpowers.composite_generator import discover_generators, _REGISTRY
+    except Exception as e:
+        print(
+            f"LINT WARNING: could not import viva_superpowers.composite_generator ({e}); "
+            "generator-contract checks skipped.",
+            file=sys.stderr,
+        )
+        return
+
+    # discover_generators() (via a transitive import, e.g. polars) resets
+    # LC_CTYPE to "C", which silently flips Path.read_text()'s default
+    # encoding to ASCII for every later unguarded read in this process --
+    # breaking the claims.yaml / expert_docs / study.yaml reads further down
+    # in main() on machines whose locale isn't already ASCII. Save + restore
+    # it around the call so this check has no side effect on the rest of the
+    # script.
+    _saved_lc_ctype = locale.setlocale(locale.LC_CTYPE)
+    try:
+        discover_generators()
+    finally:
+        locale.setlocale(locale.LC_CTYPE, _saved_lc_ctype)
+    errors: list[str] = []
+
+    for study_yaml_path in sorted((_dir("studies")).glob("*/study.yaml")):
+        slug = study_yaml_path.parent.name
+        spec = yaml.safe_load(study_yaml_path.read_text(encoding="utf-8")) or {}
+        cond = spec.get("conditions") or {}
+        base = cond.get("baseline") or {}
+
+        refs = []
+        b = base.get("composite")
+        if b:
+            refs.append(b)
+        for v in (cond.get("variants") or []):
+            if v.get("composite"):
+                refs.append(v["composite"])
+        for r in refs:
+            if r in _REGISTRY or r in _COMPOSITE_UNRESOLVED_EXACT:
+                continue
+            if r.startswith(_COMPOSITE_UNRESOLVED_PREFIXES) or r.endswith(_COMPOSITE_UNRESOLVED_SUFFIXES):
+                continue
+            errors.append(f"{slug}: unresolved composite ref '{r}'")
+
+        if slug in _PARAM_CONTRACT_EXCEPTIONS:
+            continue
+        comp, params = base.get("composite"), (base.get("params") or {})
+        if not comp:
+            continue
+        entry = _REGISTRY.get(comp)
+        if entry is None:
+            continue  # unresolved composite already reported above
+        gen_params = set((getattr(entry, "parameters", {}) or {}).keys())
+        unknown = set(params) - gen_params - _RUN_CONTROL_KEYS
+        if unknown:
+            errors.append(f"{slug}: params {sorted(unknown)} not accepted by {comp}")
+
+    if errors:
+        _fail("generator contract violations:\n  " + "\n  ".join(errors))
+
+
 def main() -> None:
     if not WS_FILE.exists():
         _fail(f"{WS_FILE} not found — run inside a workspace")
@@ -142,6 +300,14 @@ def main() -> None:
         )
 
     Draft7Validator(_schema("workspace.schema.json"), format_checker=FormatChecker()).validate(ws)
+
+    # Phase-1 canonical data model (no nested study.yaml; investigations
+    # members-only; canonical conditions form; inputs.from DAG acyclic).
+    check_canonical_layout()
+
+    # Study-config <-> generator contract (Tasks 1-3): composite refs resolve;
+    # baseline params are a subset of the generator's declared parameters.
+    check_generator_contract()
 
     # Datasets
     for d in ws.get("datasets", []):

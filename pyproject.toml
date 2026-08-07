@@ -11,15 +11,12 @@ requires-python = "==3.12.12"
 dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
-    "pbg-superpowers",
-    # transitive of vivarium-dashboard (latest main); declared so [tool.uv.sources]
-    # can point it at its git repo (not on PyPI).
-    "investigation-contracts",
+    "viva-superpowers",
     "pbg-copasi",
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
-    # Transitive dep of pbg-superpowers (the Actionable Investigation Graph
+    # Transitive dep of viva-superpowers (the Actionable Investigation Graph
     # types); declared directly so [tool.uv.sources] below resolves its git
     # source (uv applies sources to direct deps, not arbitrary transitive ones).
     "investigation-contracts",
@@ -33,7 +30,20 @@ dependencies = [
     "plum-dispatch>=2.5",
     "dill>=0.3",
     "numpy",
-    "scipy",
+    # Ceiling: SciPy 1.18 refactored ``scipy.interpolate`` to delegate through a
+    # new ``_delegate_to`` attribute, which breaks unpickling the ``CubicSpline``
+    # objects embedded in the shipped ParCa blob (``models/parca/parca_state.pkl.gz``);
+    # pickled interpolators are not portable across that boundary. Cap at <1.18
+    # until the blob migrates off pickle (bigraph-schema ``.pbg``; see
+    # ``v2ecoli/processes/parca/data_loader.py`` + ``models/parca/README.md``).
+    # Floor: 1.14 predates BOTH breaking changes this repo already carries
+    # compat shims for — the array-API ``PPoly``/``CubicSpline`` refactor at
+    # 1.15 (``_scipy_compat.py``) and the vendored
+    # ``scipy._lib.array_api_compat`` removal at 1.16 (``data_loader.py``).
+    # Below 1.14 is untested here and unpinned before this change (see
+    # PARCA_REVIEW A9); locked/installed is 1.17.1, comfortably inside
+    # [1.14, 1.18).
+    "scipy>=1.14,<1.18",
     "pymunk",
     # ParCa (v2ecoli/processes/parca/) runtime dependencies
     "cvxpy",
@@ -42,7 +52,7 @@ dependencies = [
     "pandas",
     "plotly>=5.0",
     "ecoli-sources",
-    "numba",
+    "numba>=0.59",  # floor: numba<0.59 pins llvmlite<0.42 which has no Python 3.12 wheel
     "unum",
     "requests",
     # Emitters are now BASE/default deps (no longer optional extras): v2ecoli
@@ -76,6 +86,11 @@ emitters = ["v2ecoli[parquet,xarray]"]
 # Parallel multiseed runs: one Ray worker process per seed (see
 # v2ecoli.library.parallel_seeds + workspace.yaml runtime.parallel: ray).
 ray = ["ray>=2.10"]
+# All-atom solvated relaxation of AlphaFold structures before 3D packing
+# (structural-ecoli). openmm is heavy, so this is opt-in:
+#   uv sync --extra relax
+# Without it, relaxed structural runs degrade gracefully to raw AlphaFold structures.
+relax = ["pbg-openmm"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
@@ -95,6 +110,7 @@ markers = [
     "slow: runs full simulations (60s+)",
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
     "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
+    "wcm: heavy full-WCM colony runs; excluded from CI",
 ]
 # Per-test wall-clock cap. Safety net for any future hang in sim code.
 # ``thread`` method interrupts C-level hangs (LSODA); note it calls
@@ -115,14 +131,18 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
-pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
-investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
+viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
+# Transitive consumers (pbg-bioreactordesign, viva-munk, spatio-flux) still
+# require the "pbg-superpowers" name; resolve it to the deprecation shim that
+# lives in the viva-superpowers repo's shim/ subdir (re-exports viva_superpowers).
+pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main", subdirectory = "shim" }
 pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
 pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
+pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
 pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
-ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "e0fcfab181de59666b9f8ad2d1cb80ffe5c2a314" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "5abf48ad1449b21ec2b2dd9135ec19a1912b23ef" }

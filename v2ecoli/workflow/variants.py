@@ -110,17 +110,28 @@ def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
             variant_entries.append((vname, overrides))
 
     branches: list[BranchSpec] = []
+    # Config overrides applied to EVERY branch, under the variant grid. Unlike a
+    # variant (which forks a branch), this modifies the whole panel uniformly —
+    # the natural home for a genotype-wide edit like a translation KO, which must
+    # hold across every seed rather than being one arm of a comparison. A branch
+    # variant's override wins on an exact key clash (it is the more specific,
+    # deliberately-forked value).
+    base_overrides = dict(config.get("base_config_overrides") or {})
+
     for v_idx, (vname, overrides) in enumerate(variant_entries):
         if different_seeds:
             base = lineage_seed + v_idx * n_init_sims
         else:
             base = lineage_seed
+        merged_overrides = {**base_overrides, **overrides}
         for s in range(n_init_sims):
             branches.append(BranchSpec(
                 variant_index=v_idx,
                 variant_name=vname,
-                overrides=dict(overrides),
+                overrides=dict(merged_overrides),
                 seed=base + s,
+                # metadata carries only the branch's OWN variant overrides — the
+                # base overrides are panel-wide, not what distinguishes a branch.
                 metadata={"variant_name": vname, **{f"override:{k}": v
                                                     for k, v in overrides.items()}},
             ))

@@ -27,6 +27,23 @@ def test_is_xarray_reflects_config():
     assert lp._is_xarray() is True
 
 
+def test_emitter_both_drives_parquet_and_xarray_together():
+    """``emitter: "both"`` is what a batch run wants: the inner composite's own
+    emitter writes the hive parquet sweep the DuckDB analyses read, WHILE the
+    external XArrayEmitter writes the per-lineage zarr store the dashboard
+    charts read. The two selectors are independent, not exclusive."""
+    lp = LineageProcess.__new__(LineageProcess)
+    lp.config = {"emitter": "both"}
+    assert lp._is_xarray() is True
+    assert lp._is_parquet() is True
+    lp.config = {"emitter": "xarray"}
+    assert lp._is_parquet() is False      # inner emitter nulled, we emit out of band
+    lp.config = {"emitter": "parquet"}
+    assert lp._is_parquet() is True
+    lp.config = {}
+    assert lp._is_parquet() is True       # parquet is the default
+
+
 def test_meta_composite_threads_emitter_config():
     config = {
         "experiment_id": "x", "n_init_sims": 1, "generations": 1, "variants": {},
@@ -108,7 +125,7 @@ def test_null_emitter_captures_only_global_time():
     doesn't waste memory capturing full state."""
     from process_bigraph import Composite
     from v2ecoli.core import build_core
-    from v2ecoli.composites.baseline import baseline
+    from v2ecoli.composites.ecoli_baseline import baseline
     from v2ecoli.composites._helpers import set_null_emitter_override
 
     core = build_core()

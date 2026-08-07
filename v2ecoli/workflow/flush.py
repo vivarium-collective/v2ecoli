@@ -9,7 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from v2ecoli.workflow.report_cards import StudyContext
+from v2ecoli.workflow.report_cards import StudyContext, narrows_by_name
 
 _STUDIES_RE = re.compile(r"(?:^|/)studies/([A-Za-z0-9_.\-]+)(?:/|$)")
 
@@ -138,10 +138,11 @@ def _run_one_step(cls, kind, extract, core):
         if ctx is None:
             return "", {}
         # honor a study's optional report_cards: allowlist (parity with the
-        # standalone runner's report_cards.applicable) — a declared list narrows
-        # which cards run; an absent key = every applicable card.
+        # standalone runner's report_cards.applicable) — a declared list of card
+        # NAMES narrows which cards run; an absent key, or a machine-generated
+        # list of embed paths, leaves every applicable card eligible.
         declared = (getattr(ctx, "spec", None) or {}).get("report_cards")
-        if declared is not None and step.name not in declared:
+        if declared is not None and narrows_by_name(declared) and step.name not in declared:
             return "", {}
         if not step.applies(ctx):
             return "", {}

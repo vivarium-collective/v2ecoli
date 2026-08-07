@@ -312,6 +312,58 @@ def cast_decimals(df):
     return df
 
 
+def cd1_filter_clause(params: Optional[dict] = None) -> str:
+    """The ``WHERE`` clause the cd1 omics ports share, or ``""`` when unfiltered.
+
+    All six vEcoli ``cd1_*`` analyses gate their aggregate on the same two
+    optional params — ``generation_lower_bound`` (drop early generations as
+    inoculation burn-in) and ``time_lower_bound`` (drop the start of each cell
+    cycle).  ``time`` is available because :func:`read_stacked_columns` aliases
+    v2ecoli's ``global_time`` to it.
+
+    Deviation from the originals: ``cd1_fluxomics`` tested
+    ``generation_lower_bound`` for *truthiness* while the other five tested
+    ``is not None``, so a bound of ``0`` was silently ignored there.  This
+    normalizes on ``is not None``.  The two agree in effect (``generation >= 0``
+    matches every row), so no output changes — the ports just stop disagreeing.
+    """
+    params = params or {}
+    filters = []
+    gen_lb = params.get("generation_lower_bound")
+    if gen_lb is not None:
+        filters.append(f"generation >= {int(gen_lb)}")
+    time_lb = params.get("time_lower_bound")
+    if time_lb is not None:
+        filters.append(f"time >= {float(time_lb)}")
+    return ("WHERE " + " AND ".join(filters)) if filters else ""
+
+
+def with_cross_cell_stats(wide, index_col: str):
+    """Append across-cell ``mean``/``std`` to a per-cell wide table.
+
+    The cd1 omics analyses all end the same way: a table with one row per
+    entity (reaction / monomer / gene / compound / property) and one column per
+    cell, to which they add the mean and standard deviation *across cells* and
+    then front-load those two columns.  An entity table with no cell columns
+    (an empty sweep slice) gets null ``mean``/``std`` and no per-cell columns,
+    matching the originals' empty-input branch.
+    """
+    import polars as pl
+
+    value_cols = [c for c in wide.columns if c != index_col]
+    if not value_cols:
+        return wide.with_columns(
+            [pl.lit(None).alias("mean"), pl.lit(None).alias("std")]
+        ).select([index_col, "mean", "std"])
+    wide = wide.with_columns(
+        [
+            pl.concat_list(value_cols).list.mean().alias("mean"),
+            pl.concat_list(value_cols).list.std().alias("std"),
+        ]
+    )
+    return wide.select([index_col, "mean", "std", *value_cols])
+
+
 def chart_to_html(chart, title: str = "") -> str:
     """Serialize an Altair chart to a self-contained HTML view fragment.
 

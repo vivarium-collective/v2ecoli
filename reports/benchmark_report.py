@@ -31,7 +31,7 @@ from v2ecoli import build_composite
 from v2ecoli.library.quantity_helpers import fg_magnitude
 
 t0 = time.time()
-composite = build_composite("baseline", cache_dir={cache_dir!r}, seed={seed})
+composite = build_composite("ecoli_baseline", cache_dir={cache_dir!r}, seed={seed})
 load_time = time.time() - t0
 
 t0 = time.time()

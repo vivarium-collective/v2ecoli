@@ -1,6 +1,8 @@
 schema_version: 4
 name: sm-02-utility-and-limits
 investigation: surrogate-modeling
+uses_modules:
+  - pbg-torch   # NN surrogate Processes / TransitionDataset used via the runner (no composite reference)
 title: "Utility & limits — what a cheap emulator buys, and where emulation ends"
 created: '2026-06-16'
 status: evaluated
@@ -61,73 +63,66 @@ report:
 
 conditions:
   baseline:
-    composite: baseline
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params:
       seed: 0
   variants:
-  - name: linear-emulator-sweep
-    perturbation: "Linear emulator over 5,000 sampled initial conditions × 250 steps."
-    expected_contrast: "Seconds vs. ~24 h on the WCM; break-even after a handful of evals."
-    measured_contrast: "0.02 s sweep; break-even ~8 evaluations; ~3.8e6× per traj."
+    - name: linear-emulator-sweep
+      perturbation: "Linear emulator over 5,000 sampled initial conditions × 250 steps."
+      expected_contrast: "Seconds vs. ~24 h on the WCM; break-even after a handful of evals."
+      measured_contrast: "0.02 s sweep; break-even ~8 evaluations; ~3.8e6× per traj."
 
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  model_settings: []
 tests:
-- name: cheap-emulator-amortizes-and-is-honest-about-limits
-  classification: primary
-  status: passed
-  question: |
-    Does the cheap emulator amortize its training-data cost within a small number
-    of evaluations (break-even < 100)?
-  measure:
-    kind: authored
-    detail: "Break-even N where (8 training sims + N·emulator) <= N·WCM."
-    measured_value: 8.0
-  pass_if:
-    op: lt
-    low: 100.0
-  cites_note: "Methodological: an emulator is worth building if it amortizes quickly."
+  - name: cheap-emulator-amortizes-and-is-honest-about-limits
+    classification: primary
+    status: passed
+    question: |
+      Does the cheap emulator amortize its training-data cost within a small number
+      of evaluations (break-even < 100)?
+    measure:
+      kind: authored
+      detail: "Break-even N where (8 training sims + N·emulator) <= N·WCM."
+      measured_value: 8.0
+    pass_if:
+      op: lt
+      low: 100.0
+    cites_note: "Methodological: an emulator is worth building if it amortizes quickly."
 
 runs:
-- name: utility-breakeven
-  status: completed
-  kind: benchmark
-  canonical: true
-  description: |
-    code/utility_demo.py: linear-emulator sweep timing + amortized break-even vs
-    measured WCM per-trajectory cost.
-  dispatch: serial
-  emitter: null
-  result: PASS
-  outcomes:
-    cheap-emulator-amortizes-and-is-honest-about-limits:
-      result: PASS
-      detail: "Break-even ~8 evals; 5,000-traj sweep in 0.02 s vs ~24 h on the WCM."
-  computed_outcomes:
-    _status: store_unresolved
+  - name: utility-breakeven
+    status: completed
+    kind: benchmark
+    canonical: true
+    description: |
+      code/utility_demo.py: linear-emulator sweep timing + amortized break-even vs
+      measured WCM per-trajectory cost.
+    dispatch: serial
+    emitter:
+    result: PASS
+    outcomes:
+      cheap-emulator-amortizes-and-is-honest-about-limits:
+        result: PASS
+        detail: "Break-even ~8 evals; 5,000-traj sweep in 0.02 s vs ~24 h on the WCM."
+    computed_outcomes:
+      _status: store_unresolved
 
 embed_visualizations:
-- name: "Utility & break-even — cheap emulator vs. the simulator (interactive)"
-  url: /reports/figures/sm-02-utility-and-limits/utility_breakeven.html
-  description: "Cumulative wall-clock vs. number of evaluations (log-log) for the linear emulator (+ 8 training sims) vs. the full WCM, with the ~8-evaluation break-even marked. Headline: 5,000 trajectories in 0.02 s vs ~24 h."
+  - name: "Utility & break-even — cheap emulator vs. the simulator (interactive)"
+    url: /reports/figures/sm-02-utility-and-limits/utility_breakeven.html
+    description: "Cumulative wall-clock vs. number of evaluations (log-log) for the linear emulator (+ 8 training sims) vs. the full WCM, with the ~8-evaluation break-even marked. Headline: 5,000 trajectories in 0.02 s vs ~24 h."
 
 pipeline_gate:
-  prerequisites:
-  # Depends on sm-01 having been EVALUATED (its surrogate-vs-baseline result is
-  # the input), NOT on sm-01 passing — sm-01's behaviour tests intentionally
-  # FAIL (the finding is the surrogate does not beat baselines), and this study
-  # exists to characterise that failure. A bare-string prerequisite defaults to
-  # condition `tests-passed`, which would (wrongly) keep this study blocked.
-  - study: sm-01-nn-surrogate
-    condition: ran
-  enables: []
   gate_status: passed
 
 conclusion_verdicts:
-- claim: "A cheap emulator of a smooth observable is worth building once training data exists."
-  verdict: supported
-  basis: "Break-even ~8 evaluations; ~3.8e6× per-trajectory speedup."
-- claim: "Emulation extends to the cell's high-dimensional hidden state."
-  verdict: refuted
-  basis: "sm-01: 0% of broad observables beat persistence; not learnable from the view."
+  - claim: "A cheap emulator of a smooth observable is worth building once training data exists."
+    verdict: supported
+    basis: "Break-even ~8 evaluations; ~3.8e6× per-trajectory speedup."
+  - claim: "Emulation extends to the cell's high-dimensional hidden state."
+    verdict: refuted
+    basis: "sm-01: 0% of broad observables beat persistence; not learnable from the view."
 
 robustness:
   n_replicates: 1
@@ -140,15 +135,18 @@ falsifiability: |
   of evaluations, or if its per-trajectory cost is not far below the WCM's.
 
 simulation_set:
-- name: utility-breakeven
-  kind: benchmark
-  status: ran
-  base_model: v2ecoli.composites.baseline
-  duration_steps: 0
-  seeds: 0
-  details: "Linear emulator sweep + amortized break-even vs measured WCM cost."
-  metrics:
-  - breakeven_n_evaluations
-  - per_traj_speedup
-  pass_fail_tests:
-  - cheap-emulator-amortizes-and-is-honest-about-limits
+  - name: utility-breakeven
+    kind: benchmark
+    status: ran
+    base_model: v2ecoli.composites.ecoli_baseline
+    duration_steps: 0
+    seeds: 0
+    details: "Linear emulator sweep + amortized break-even vs measured WCM cost."
+    metrics:
+      - breakeven_n_evaluations
+      - per_traj_speedup
+    pass_fail_tests:
+      - cheap-emulator-amortizes-and-is-honest-about-limits
+inputs:
+  - artifact: sm-01-nn-surrogate
+    from: sm-01-nn-surrogate

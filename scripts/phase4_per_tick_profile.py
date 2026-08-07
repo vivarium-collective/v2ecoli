@@ -2,7 +2,7 @@
 
 Replaces ``reports/figures/pdmp-04/per_step_compute_decomposition.html``
 (previously a PLANNED scaffold) with actual cProfile measurements
-of one composite tick of millard_pdmp_baseline + ref_growth_driver +
+of one composite tick of baseline_millard (lqr=True) + ref_growth_driver +
 poisson initiation modes — the Phase-3 production composite that
 Phase 4 needs to compile down.
 
@@ -137,7 +137,8 @@ def profile_one_tick(duration: int = 1, warmup: int = 3):
     from v2ecoli import build_composite
 
     c = build_composite(
-        "millard_pdmp_baseline",
+        "ecoli_millard",
+        lqr=True,
         seed=0,
         with_ref_growth=True,
         ref_growth_flux_source="consumption_matched",
@@ -295,7 +296,7 @@ def write_html(out_path: Path, bucket, bucket_calls, total, duration,
 
 <h1>Phase 4 sprint 1 — real per-tick compute profile</h1>
 <p style='color:#6b7280;font-size:0.9em;'>
-  cProfile measurement on one tick of the millard_pdmp_baseline
+  cProfile measurement on one tick of the baseline_millard (lqr=True)
   composite with poisson initiation modes + consumption_matched
   ref-growth driver — the Phase-3 production stack Phase 4 needs to
   compile down. Replaces the previous planned scaffold figure.

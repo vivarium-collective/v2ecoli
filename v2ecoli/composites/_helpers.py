@@ -61,7 +61,7 @@ FLUSH = '__unique_flush__'
 # they pass to step builders: it serves configs by name and exposes the few
 # sim_data attributes those builders read (unique-molecule definitions +
 # expected dry-mass increase). Previously each generator (baseline,
-# millard_pdmp_baseline) defined its own nested
+# baseline_millard) defined its own nested
 # _CachedLoader with a 4-level inner-class mock; this is the single flattened,
 # module-level version.
 
@@ -103,7 +103,7 @@ def _expand_flushes(layers):
     """Replace each FLUSH sentinel with a real [unique_update_N] sub-layer.
 
     N is assigned in declaration order so state keys stay stable across
-    architecture variants (baseline, colony, millard_pdmp_baseline).
+    architecture variants (baseline, colony, baseline_millard).
     """
     out, n = [], 0
     for layer in layers:
@@ -135,10 +135,10 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # ---------------------------------------------------------------------------
 # Canonical visualization set for single-cell architectures.
 # ---------------------------------------------------------------------------
-# Shared by baseline / millard_pdmp_baseline — both resolve to the
+# Shared by baseline / baseline_millard — both resolve to the
 # same observables.mass / unique-molecule layout so the same viz tiles apply.
 # Opt-in: every study built on one of the v2ecoli single-cell composites
-# (baseline / millard_pdmp_baseline) that wants the legacy
+# (baseline / baseline_millard) that wants the legacy
 # WorkflowVisualization + NetworkVisualization panels must declare them
 # explicitly in its study.yaml `visualizations:` block. Auto-attaching them
 # here used to be the default, but the panels rendered confusingly empty for
@@ -190,6 +190,12 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
     },
     {
+        'name': 'chromosome_state',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Chromosome state (animated)',
+                   'analysis': 'chromosome_state_view'},
+    },
+    {
         'name': 'ribosome_components',
         'address': 'local:ParquetAnalysisView',
         'config': {'title': 'Ribosome components',
@@ -211,6 +217,53 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'name': 'doubling_time',
         'address': 'local:ParquetAnalysisView',
         'config': {'title': 'Doubling time', 'analysis': 'doubling_time_line'},
+    },
+]
+
+
+# A seeds × generations batch produces the cell groupings the single-cell set
+# can only degrade to, so it adds the multigeneration + multiseed analyses on
+# top of it — the same figures vEcoli's workflow emits from its multiGeneration
+# and multiSeed analysis channels. Same rendering path (ParquetAnalysisView over
+# the run's hive parquet sweep + hydrated ParCa sim_data), so a panel whose scale
+# the batch didn't actually cover (a 1-seed run asking for multiseed) renders an
+# explanatory panel rather than failing the tab.
+DEFAULT_BATCH_VISUALIZATIONS: list[dict] = DEFAULT_SINGLE_CELL_VISUALIZATIONS + [
+    {
+        'name': 'mass_growth_across_generations',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Mass growth across generations',
+                   'analysis': 'mass_growth_across_generations'},
+    },
+    {
+        'name': 'ribosome_usage',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Ribosome usage (lineage)',
+                   'analysis': 'ribosome_usage'},
+    },
+    {
+        'name': 'ribosome_production',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Ribosome production (lineage)',
+                   'analysis': 'ribosome_production'},
+    },
+    {
+        'name': 'new_gene_counts',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'New gene counts (lineage)',
+                   'analysis': 'new_gene_counts'},
+    },
+    {
+        'name': 'doubling_time_distribution',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Doubling time distribution (across seeds)',
+                   'analysis': 'doubling_time_distribution'},
+    },
+    {
+        'name': 'subgenerational_expression',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Subgenerational expression (across seeds)',
+                   'analysis': 'subgenerational_expression_table'},
     },
 ]
 
@@ -251,7 +304,7 @@ ALLOCATOR_LAYERS = {
 # ``{'file_path': '.../workspace/studies/<name>', 'db_file': 'runs.db',
 #   'name': 'baseline-steady-state'}``) BEFORE building the composite.
 # When set, the special 'emitter' step in baseline /
-# millard_pdmp_baseline swaps RAMEmitter for SQLiteEmitter and expands the emit
+# baseline_millard swaps RAMEmitter for SQLiteEmitter and expands the emit
 # schema to cover the per-listener fields the dnaa investigation reads.
 #
 # Use the ``sqlite_emitter()`` context manager below for safety —
@@ -271,7 +324,7 @@ _PARQUET_EMITTER_OVERRIDE: dict | None = None
 # XArrayEmitter) and don't want the internal emitter wasting memory.
 _NULL_EMITTER_OVERRIDE: bool = False
 
-# The generator-declared default emitter (see pbg_superpowers
+# The generator-declared default emitter (see viva_superpowers
 # composite_generator's ``emitters=`` convention + ``emitter_defaults``). A
 # ``{address, config, paths?}`` dict that the 'emitter' step materialises when
 # NO external override (parquet / sqlite / null) is set — i.e. the composite's
@@ -319,7 +372,7 @@ def set_default_emitter_decl(decl: dict | None) -> None:
 
     ``decl`` is a ``{address, config, paths?}`` dict from a generator's
     ``@composite_generator(emitters=[...])`` declaration (read via
-    ``pbg_superpowers.composite_generator.emitter_defaults``). Pass None to
+    ``viva_superpowers.composite_generator.emitter_defaults``). Pass None to
     clear. The 'emitter' step uses it only when no external parquet / sqlite /
     null override is active. A generator should set this around its build and
     clear it in a ``finally`` so it never leaks into a later composite built in
@@ -1204,6 +1257,11 @@ def _get_special_step(loader, step_name, core):
                     'number_of_oric': 'integer',
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
+                    # Per-tick replication-fork genomic positions (variable length:
+                    # 0 before initiation, 2/4/… after). Emitted as a ragged list
+                    # so the chromosome-state GIF can place the replisomes; the
+                    # listener default is [] so pre-initiation ticks are empty.
+                    'fork_coordinates': 'array[integer]',
                 },
                 # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
                 # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so
@@ -1461,6 +1519,15 @@ def _get_special_step(loader, step_name, core):
             div_config['configs'] = loader._configs
         div_config.setdefault('unique_names', getattr(loader, 'unique_names', []))
         div_config.setdefault('cache_dir', getattr(loader, 'cache_dir', 'out/cache'))
+        # Thread the injected/swapped-process spec (fork_repo/fork_sim_data/
+        # swap_processes/…) so the DivisionStep re-supplies it to each daughter's
+        # baseline() rebuild — otherwise daughters revert to plain FBA baseline
+        # and a swapped process (e.g. metabolism-redux) is lost across division,
+        # crashing the re-realization with KeyError: 'current_timeline'. Only set
+        # when non-empty so the normal baseline (None) leaves daughters unchanged.
+        _injected = getattr(loader, '_injected_processes', None)
+        if _injected:
+            div_config['injected_processes'] = _injected
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

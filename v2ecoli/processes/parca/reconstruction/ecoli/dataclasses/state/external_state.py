@@ -104,7 +104,7 @@ class ExternalState(object):
             }
 
     def exchange_data_from_concentrations(
-        self, molecules: dict[str, float]
+        self, molecules: dict[str, float], aerobic_cap: float | None = None
     ) -> dict[str, Any]:
         """
         Update importExchangeMolecules for FBA based on current nutrient concentrations.
@@ -118,6 +118,8 @@ class ExternalState(object):
         Args:
                 molecules: external molecules (no location tag) with external concentration,
                         concentration can be inf
+                aerobic_cap: upper bound on aerobic carbon-source uptake
+                        (mmol/gDCW/h). None keeps the stock 20.0.
 
         Returns dict with the following keys:
                 externalExchangeMolecules (set[str]): all exchange molecules (with
@@ -157,7 +159,11 @@ class ExternalState(object):
         for carbon_source_id in self.carbon_sources:
             if carbon_source_id in importUnconstrainedExchangeMolecules:
                 if oxygen_id in importUnconstrainedExchangeMolecules:
-                    importConstrainedExchangeMolecules[carbon_source_id] = 20.0 * (
+                    # Aerobic carbon-source uptake cap. Configurable so a study can
+                    # titrate uptake rate; None preserves the stock 20.0 for every
+                    # config that does not set it.
+                    cap = 20.0 if aerobic_cap is None else float(aerobic_cap)
+                    importConstrainedExchangeMolecules[carbon_source_id] = cap * (
                         units.mmol / units.g / units.h
                     )
                 else:

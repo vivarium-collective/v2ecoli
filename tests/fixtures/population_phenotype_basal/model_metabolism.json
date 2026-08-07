@@ -481,21 +481,23 @@
   },
   "provenance": {
     "code": {
-      "commit": null,
-      "dirty": null,
+      "commit": "ae2a328d2aeecfe800cfe746f87f37e3311308c4",
+      "dirty": false,
       "diff_sha256": null,
-      "untracked": null
+      "untracked": 0
     },
     "config": "v2ecoli/configs/population_phenotype_basal.json",
     "sweep": {
-      "sweep_dir": null,
-      "parca_inputs_hash": null,
+      "sweep_dir": "out/population_phenotype_basal",
+      "parca_inputs_hash": "0b7cc162dd475ffe50698fbf044b23057d2f5bb2f92e260b947b7dd88bb5eb26",
       "n_cells": 20,
       "gen_lb": 3
     },
-    "bake_script": null,
-    "baked": "unknown",
-    "reconstructed": true,
-    "note": "Backfilled provenance \u2014 the exact source sweep and code commit that produced these values were not recorded (they predate provenance stamping). Re-bake (bake_model_metabolism.py / render_basal_vs_literature.py --from-sweep) for an authoritative stamp."
+    "bake_script": "scripts/bake_model_metabolism.py --from-sweep <dir>",
+    "baked": "2026-08-04",
+    "reconstructed": false,
+    "note": "Backfilled provenance \u2014 the exact source sweep and code commit that produced these values were not recorded (they predate provenance stamping). Re-bake (bake_model_metabolism.py / render_basal_vs_literature.py --from-sweep) for an authoritative stamp.",
+    "blessed_model_ref": "b162243",
+    "blessed_model_ref_source": "population_phenotype_basal_reference.json stimulus.blessed_model_ref (4 seeds x 8 gens, generation_lower_bound=3 -> 20 cells (17 divided); 29/32 generations divided)"
   }
 }

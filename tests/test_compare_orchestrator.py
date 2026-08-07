@@ -1,5 +1,6 @@
 # tests/test_compare_orchestrator.py
 import scripts._compare.orchestrator as orch
+from scripts._compare.reference import ReferenceEngine
 
 
 def test_vecoli_sim_uses_passed_repo(monkeypatch):
@@ -11,8 +12,9 @@ def test_vecoli_sim_uses_passed_repo(monkeypatch):
     monkeypatch.setattr(orch, "_run", fake_run)
     monkeypatch.setattr(orch, "is_stale", lambda *a, **k: True)
     monkeypatch.setattr(orch, "mark_done", lambda *a, **k: None)
-    orch.run_vecoli_sim(config_path="c.json", out_dir="out/v",
-                       token="t", vecoli_repo="/tmp/fork")
+    ref = ReferenceEngine.from_spec({"repo": "/tmp/fork", "kind": "vecoli"})
+    orch.run_vecoli_sim(reference=ref, config_path="c.json", out_dir="out/v",
+                       token="t")
     assert captured["cwd"] == "/tmp/fork"
     assert captured["cmd"][0] == "/tmp/fork/.venv/bin/python"
     # vEcoli's venv must be first on PATH so Nextflow tasks use its python.

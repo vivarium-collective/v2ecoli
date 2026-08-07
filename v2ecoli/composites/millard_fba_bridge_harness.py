@@ -1,7 +1,7 @@
 """Millard FBA-bridge harness composite — the *integration climax* of the
 Millard FBA-bridge flux-pin feature.
 
-Unlike ``millard_pdmp_baseline`` (which REMOVES the WCM's tFBA ``Metabolism``
+Unlike ``baseline_millard`` (which REMOVES the WCM's tFBA ``Metabolism``
 and replaces it with the Millard ODE stack), this harness keeps the REAL WCM
 ``ecoli-metabolism`` and uses the Millard 2017 kinetic ODE as a flux *source*
 that mechanistically pins the central-carbon FBA reactions.
@@ -46,7 +46,7 @@ from typing import Any
 
 import numpy as np
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.core import build_core, load_cache_bundle
 from v2ecoli.composites._helpers import (
@@ -65,7 +65,7 @@ from v2ecoli.composites._helpers import (
 # Reuse baseline's step dispatcher + layer/feature definitions wholesale — the
 # harness is "baseline + two edges", so everything except the inserted layer
 # slot is identical to baseline.
-from v2ecoli.composites import baseline as _baseline
+from v2ecoli.composites import ecoli_baseline as _baseline
 
 
 # ---------------------------------------------------------------------------

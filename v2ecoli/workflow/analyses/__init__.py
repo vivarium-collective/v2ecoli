@@ -24,6 +24,17 @@ from v2ecoli.workflow.analyses import average_monomer_counts  # noqa: F401
 from v2ecoli.workflow.analyses import subgenerational_expression_table  # noqa: F401
 from v2ecoli.workflow.analyses import protein_counts_validation  # noqa: F401
 
+# The cd1 omics suite — multiseed TSV tables (fluxomics / proteomics /
+# transcriptomics / metabolomics / exchange fluxes / higher-order properties).
+# Registering them here is what puts them in a batch run's "applicable"
+# analysis set, so a multiseed sweep reproduces the cd1 result tables.
+from v2ecoli.workflow.analyses import cd1_exchange_fluxes  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_fluxomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_higher_order_properties  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_metabolomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_proteomics  # noqa: F401
+from v2ecoli.workflow.analyses import cd1_transcriptomics  # noqa: F401
+
 # Cross-variant COMPARISON analyses (variant-comparison study, showcase-4):
 # overlay / group / delta baseline + variants instead of one-panel-per-variant.
 from v2ecoli.workflow.analyses import growth_overlay  # noqa: F401
@@ -34,3 +45,19 @@ from v2ecoli.workflow.analyses import proteome_delta  # noqa: F401
 from v2ecoli.workflow.analyses import fba_flux_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import regulation_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import scorecard  # noqa: F401
+
+# Comparison-convergence Phase 1, Task 4: candidate-vs-reference workbench-run
+# comparison, rendering the `summary` report card via scripts/_compare (reuse).
+from v2ecoli.workflow.analyses import comparison_summary  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 2: the same candidate-vs-reference
+# comparison, but rendering the FULL wired card set (summary/standard/parca/
+# trajectory/distribution/metabolism/composition) -- see comparison_cards.py
+# module docstring for which cards are wired vs deferred.
+from v2ecoli.workflow.analyses import comparison_cards  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 3: investigation-level cross-config
+# matrix -- configs x observables verdicts, reusing reports/_summary's matrix
+# builder (Task 2's per-config verdicts fanned out across configs).
+from v2ecoli.workflow.analyses import comparison_matrix  # noqa: F401
+from v2ecoli.workflow.analyses import chromosome_state_view  # noqa: F401  (re-added: #444 on main)

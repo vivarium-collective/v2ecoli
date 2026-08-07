@@ -133,12 +133,12 @@ def capture(out_path, steps, seed, cache_dir, enable_conservation):
     import v2ecoli
     if enable_conservation:
         try:
-            from v2ecoli.composites.baseline import enable_features
+            from v2ecoli.composites.ecoli_baseline import enable_features
             enable_features("mass_conservation")
         except Exception as e:
             print(f"(could not enable conservation: {e})")
 
-    comp = v2ecoli.build_composite("baseline", seed=seed, cache_dir=cache_dir)
+    comp = v2ecoli.build_composite("ecoli_baseline", seed=seed, cache_dir=cache_dir)
     series = {f: [] for f in SCALAR_FIELDS}
     series["time"] = []
     t = 0.0

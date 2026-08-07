@@ -1,6 +1,6 @@
 """ParCa composite generator — registers the 9-step ParCa pipeline as a
 first-class ``@composite_generator`` peer of ``baseline`` / ``colony`` /
-``millard_pdmp_baseline``.
+``baseline_millard``.
 
 Why this wrapper exists
 -----------------------
@@ -27,11 +27,39 @@ through the executable entry points, which load the ``KnowledgeBaseEcoli``
 
 The registered document carries ``raw_data=None`` in Step 1's config (the
 real KB is injected by those runners), matching ``build_parca_document``.
+
+Genotype identity — declarative, not effective
+----------------------------------------------
+``bundle_manifest`` / ``bundle_overrides`` name the ecoli-sources bundle a
+build's genotype is defined by. A perturbed genome (a knockout, a knockdown)
+is a *different manifest*, so the manifest is what distinguishes one
+genotype's ParCa build from another's.
+
+They are **declarative**: this generator returns a structural document and
+deliberately does not construct a ``KnowledgeBaseEcoli`` (that costs seconds
+and would make registry listing expensive — see "Structural, not auto-run"
+above). The KB is still built and injected by the runners, which already
+accept the same identity via ``v2ecoli-parca --bundle-manifest-path``.
+
+What declaring them buys today:
+
+- a **study** can name the genotype it builds in ``conditions.baseline.params``
+  and have it schema-validated, instead of recording it in prose;
+- the emitted document carries the identity on the step that consumes
+  ``raw_data``, so a saved document says which genome it was for;
+- ``InitializeStep`` **cross-checks** the declared manifest against the bundle
+  the injected ``raw_data`` was actually built from and warns on a mismatch —
+  the failure worth catching, since a silent mismatch fits successfully and
+  attributes the result to the wrong genotype.
+
+Making them *effective* — i.e. having a study run construct the KB from the
+declared manifest without going through the CLI — needs the study runner to
+drive ParCa, and is deliberately out of scope here.
 """
 
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+from viva_superpowers.composite_generator import composite_generator
 
 from v2ecoli.processes.parca.composite import build_parca_document, STEP_ORDER
 from v2ecoli.processes.parca.schema import register_parca_schema
@@ -80,12 +108,33 @@ def register_parca_core(core: Any) -> Any:
             "default": "",
             "description": "Optional cache directory passed to BasalSpecsStep.",
         },
+        "bundle_manifest": {
+            "type": "string",
+            "default": "",
+            "description": (
+                "Path to the ecoli-sources bundle manifest this build's "
+                "genotype is defined by. A perturbed genome (knockout, "
+                "knockdown) is a different manifest, so this is what "
+                "distinguishes one genotype's ParCa build from another's. "
+                "Empty means the installed default bundle (wild type). "
+                "DECLARATIVE — see the note in the module docstring."
+            ),
+        },
+        "bundle_overrides": {
+            "type": "string",
+            "default": "",
+            "description": (
+                "Optional overrides manifest layered on top of "
+                "bundle_manifest, matching SourceBundle(overrides=...)."
+            ),
+        },
     },
     default_n_steps=len(STEP_ORDER),
     core_extensions=[register_parca_core],
 )
 def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
-          cache_dir: str = "") -> dict:
+          cache_dir: str = "", bundle_manifest: str = "",
+          bundle_overrides: str = "") -> dict:
     """Build the ParCa pipeline document (structure only — does not run).
 
     Args:
@@ -95,6 +144,9 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
             called with ``core=None`` — e.g. document serialization — the
             caller is responsible for registration via ``core_extensions``.)
         debug, cpus, cache_dir: forwarded to the relevant Step configs.
+        bundle_manifest, bundle_overrides: the genotype this build is for,
+            recorded on InitializeStep's config. Declarative — see the
+            module docstring's "Genotype identity" note.
 
     Returns:
         A process-bigraph document dict (the 9-step pipeline state). No
@@ -108,4 +160,6 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
     # rather than collapsing them onto the origin. The committed models/parca.pbg
     # stays steps-only (build_parca_document default).
     return {"state": build_parca_document(
-        debug=debug, cpus=cpus, cache_dir=cache_dir, include_store_skeleton=True)}
+        debug=debug, cpus=cpus, cache_dir=cache_dir,
+        bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
+        include_store_skeleton=True)}

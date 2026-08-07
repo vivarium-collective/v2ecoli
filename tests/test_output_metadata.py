@@ -499,7 +499,7 @@ def test_golden_monomer_names_in_output_metadata():
     from v2ecoli import build_composite
     from v2ecoli.library.output_metadata import output_metadata
 
-    comp = build_composite("baseline", seed=0, cache_dir="out/cache")
+    comp = build_composite("ecoli_baseline", seed=0, cache_dir="out/cache")
     result = output_metadata(comp.state)
 
     # The names live at listeners.monomer_counts (store path from CountsDeriver.topology)

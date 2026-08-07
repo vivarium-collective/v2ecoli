@@ -24,7 +24,7 @@ from pathlib import Path
 sys.path.insert(0, ".")
 from bigraph_schema import allocate_core
 from process_bigraph import Composite
-from pbg_superpowers.composite_generator import _REGISTRY, build_generator
+from viva_superpowers.composite_generator import _REGISTRY, build_generator
 import v2ecoli.composites  # noqa: F401
 from v2ecoli.visualizations.workflow import _plot_chromosome_timeline
 

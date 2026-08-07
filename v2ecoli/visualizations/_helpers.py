@@ -1057,10 +1057,13 @@ def write_outputs(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     json_path = out_dir / f'{name}.json'
-    json_path.write_text(json.dumps(data, indent=2))
+    # encoding='utf-8' is required: the rendered HTML/JSON contain non-ASCII glyphs
+    # (e.g. ▸ U+25B8), and Path.write_text defaults to the locale encoding, which
+    # raises UnicodeEncodeError under an ASCII locale (CI / minimal shells).
+    json_path.write_text(json.dumps(data, indent=2), encoding='utf-8')
 
     html_path = out_dir / f'{name}.html'
-    html_path.write_text(render_cytoscape_html(data, title, subtitle))
+    html_path.write_text(render_cytoscape_html(data, title, subtitle), encoding='utf-8')
 
     return json_path, html_path
 

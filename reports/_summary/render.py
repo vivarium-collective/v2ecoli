@@ -5,30 +5,60 @@ import html as _html
 import json as _json
 from typing import Any
 
+from scripts._compare import theme
+
 _VERDICTS = ("within_tol", "drift", "mismatch", "ungraded")
 
-_BASE_CSS = """
+# Verdict -> (glyph, human label). Colors live in theme.STATUS (the shared,
+# dataviz-validated palette); "ungraded" isn't a graded outcome so it's pinned
+# here alongside it, same convention as scripts/_compare/report.py's
+# "not_compared". Every verdict is rendered as glyph+label together, never by
+# color alone.
+_GLYPH = {k: v["glyph"] for k, v in theme.STATUS.items()}
+_GLYPH["ungraded"] = "–"  # –
+_LABEL = {k: v["label"] for k, v in theme.STATUS.items()}
+_LABEL["ungraded"] = "Ungraded"
+
+# study-level rollup (PASS/PARTIAL/FAIL, from materialize.py's _OUTCOME map)
+# reuses the same three graded colors as the per-axis verdicts they're derived
+# from: within_tol -> PASS, drift -> PARTIAL, mismatch -> FAIL.
+_ROLLUP_STATUS = {"PASS": "within_tol", "PARTIAL": "drift", "FAIL": "mismatch"}
+
+# Theme-sourced CSS custom properties: light tokens as the default `:root`,
+# dark tokens gated behind `prefers-color-scheme` so the summary follows the
+# reader's OS/browser theme without any JS (same wiring as report.py's
+# _THEME_CSS).
+_THEME_CSS = (
+    theme.css_vars("light") + "\n"
+    "@media (prefers-color-scheme: dark) {\n"
+    + theme.css_vars("dark") + "\n"
+    "}\n"
+)
+
+_BASE_CSS = _THEME_CSS + """
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
  margin:0;background:var(--bg,#fafafa);color:#1f2937;line-height:1.5}
 .wrap{max-width:1100px;margin:0 auto;padding:28px 24px 80px}
 h1{font-size:1.6em;margin:0 0 4px}
 .question{color:var(--gray,#666);font-size:1.05em;margin:0 0 18px}
 .rollup{display:flex;gap:10px;margin:0 0 18px;flex-wrap:wrap}
-.pill{border-radius:14px;padding:4px 12px;font-weight:600;font-size:0.9em;border:1px solid #0001}
-.pill.PASS{background:#d1fae5;color:#065f46}.pill.PARTIAL{background:#fef3c7;color:#92400e}
-.pill.FAIL{background:#fee2e2;color:#991b1b}
+.pill{border-radius:14px;padding:4px 12px;font-weight:600;font-size:0.9em;border:1px solid #0001;color:#fff}
+.pill.PASS{background:var(--status-within-tol)}.pill.PARTIAL{background:var(--status-drift)}
+.pill.FAIL{background:var(--status-mismatch)}
 .dag{font-family:ui-monospace,Menlo,monospace;font-size:0.85em;color:#475569;
  background:#fff;border:1px solid var(--border,#e2e6eb);border-radius:8px;padding:10px 14px;margin:0 0 22px}
 table.matrix{border-collapse:collapse;width:100%;margin:0 0 30px;font-size:0.85em}
 table.matrix th,table.matrix td{border:1px solid var(--border,#e2e6eb);padding:6px 8px;text-align:center}
 table.matrix th.study,table.matrix td.study{text-align:left;font-weight:600;white-space:nowrap}
-td.verdict-within_tol{background:#d1fae5}td.verdict-drift{background:#fef3c7}
-td.verdict-mismatch{background:#fee2e2}td.verdict-none{background:#f8fafc;color:#cbd5e1}
+td.verdict-within_tol{background:var(--status-within-tol);color:#fff}
+td.verdict-drift{background:var(--status-drift);color:#fff}
+td.verdict-mismatch{background:var(--status-mismatch);color:#fff}
+td.verdict-none{background:var(--card,#f8fafc);color:var(--muted,#cbd5e1)}
 details.study{background:#fff;border:1px solid var(--border,#e2e6eb);border-radius:8px;margin:0 0 14px;padding:2px 14px}
 details.study>summary{cursor:pointer;font-weight:600;padding:10px 0;list-style:none}
-.badge{border-radius:10px;padding:1px 8px;font-size:0.78em;margin-left:8px}
-.badge.within_tol{background:#d1fae5;color:#065f46}.badge.drift{background:#fef3c7;color:#92400e}
-.badge.mismatch{background:#fee2e2;color:#991b1b}.badge.ungraded{background:#eef2f7;color:#475569}
+.badge{border-radius:10px;padding:1px 8px;font-size:0.78em;margin-left:8px;color:#fff}
+.badge.within_tol{background:var(--status-within-tol)}.badge.drift{background:var(--status-drift)}
+.badge.mismatch{background:var(--status-mismatch)}.badge.ungraded{background:var(--muted,#475569)}
 .finding{color:var(--gray,#666);font-weight:400;font-size:0.9em;margin-left:6px}
 .card-embed{margin:8px 0 14px;border-top:1px solid var(--border,#e2e6eb);padding-top:10px}
 iframe.card-frame{width:100%;border:0}
@@ -71,7 +101,8 @@ def _matrix_table(summary: dict) -> str:
         for c in cols:
             v = row["cells"].get(c)
             klass = f"verdict-{v}" if v in _VERDICTS else "verdict-none"
-            cells.append(f'<td class="{klass}">{_esc(v or "")}</td>')
+            text = f"{_GLYPH[v]} {_esc(_LABEL[v])}" if v in _GLYPH else ""
+            cells.append(f'<td class="{klass}">{text}</td>')
         body.append(f"<tr>{''.join(cells)}</tr>")
     return (
         '<table class="matrix"><thead><tr><th class="study">study</th>'
@@ -82,7 +113,10 @@ def _matrix_table(summary: dict) -> str:
 def _rollup(summary: dict) -> str:
     r = summary["rollup"]
     order = [("FAIL", r["FAIL"]), ("PARTIAL", r["PARTIAL"]), ("PASS", r["PASS"])]
-    pills = [f'<span class="pill {k}">{n} {k}</span>' for k, n in order]
+    pills = [
+        f'<span class="pill {k}">{_GLYPH[_ROLLUP_STATUS[k]]} {n} {_esc(k)}</span>'
+        for k, n in order
+    ]
     return f'<div class="rollup">{"".join(pills)}</div>'
 
 
@@ -132,8 +166,15 @@ def _study_section(study: dict) -> str:
             badge_verdict = c["overall"]
             break
     badge_cls = badge_verdict if badge_verdict in _VERDICTS else ""
+    # glyph+label only for a known/whitelisted verdict; an unrecognized value
+    # (e.g. attacker-controlled input) still renders as escaped text, just
+    # without a glyph, and never lands in the class attribute unescaped.
+    badge_text = (
+        f"{_GLYPH[badge_verdict]} {_esc(_LABEL[badge_verdict])}"
+        if badge_verdict in _GLYPH else _esc(badge_verdict)
+    )
     badge = (
-        f'<span class="badge {badge_cls}">{_esc(badge_verdict)}</span>'
+        f'<span class="badge {badge_cls}">{badge_text}</span>'
         if badge_verdict else ""
     )
     finding = f'<span class="finding">{_esc(study["finding"])}</span>' if study["finding"] else ""

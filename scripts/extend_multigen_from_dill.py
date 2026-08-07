@@ -29,7 +29,7 @@ import dill
 
 from v2ecoli import build_composite
 from v2ecoli.composites._helpers import parquet_emitter
-from v2ecoli.composites.baseline import baseline as baseline_doc
+from v2ecoli.composites.ecoli_baseline import baseline as baseline_doc
 from v2ecoli.core import build_core
 from v2ecoli.library.division import divide_cell
 from process_bigraph import Composite

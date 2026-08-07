@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
 from html import escape
 from pathlib import Path
 
@@ -100,8 +99,6 @@ def render(data: dict) -> str:
                  if v2.get("peak_rss") and v2["peak_rss"] >= 10240
                  else (f"{v2['peak_rss']:.0f} MB peak RSS" if v2.get("peak_rss")
                        else "its measured peak RSS"))
-    max_steps = spec.get("max_steps", "—")
-    gens = spec.get("generations", "—")
     v2_mode = spec.get("v2_mode", "seq")
     v2_is_ray = v2_mode == "ray"
     caveat_heading = ("Step-matched result — the engines are at parity" if v2_is_ray
@@ -110,13 +107,13 @@ def render(data: dict) -> str:
     # Execution-model caveat — adapts to v2ecoli seq vs ray.
     if v2_is_ray:
         exec_note = (
-            f"<b>Per-step, the two engines are identical: ~84 ms/step</b> "
-            f"(v2ecoli 670.8 s / 8000 steps = 83.8; vEcoli 213 s / 2527 steps = 84.3). They run the "
-            f"same forked science at the same speed — there is no per-cell code gap. This run is "
-            f"<b>step-matched</b>: v2ecoli runs ~5400 steps/seed = vEcoli's actual 2-natural-generation "
-            f"sim-time. The earlier &quot;1.77×&quot; was a benchmark artifact — a fixed 8000-step cap "
-            f"made v2ecoli simulate ~1.48× more sim-time than vEcoli's natural ~2700-step/gen division "
-            f"(16000 vs 10834 steps), plus ~1.2× BLAS oversubscription on the un-balanced parallel run.")
+            "<b>Per-step, the two engines are identical: ~84 ms/step</b> "
+            "(v2ecoli 670.8 s / 8000 steps = 83.8; vEcoli 213 s / 2527 steps = 84.3). They run the "
+            "same forked science at the same speed — there is no per-cell code gap. This run is "
+            "<b>step-matched</b>: v2ecoli runs ~5400 steps/seed = vEcoli's actual 2-natural-generation "
+            "sim-time. The earlier &quot;1.77×&quot; was a benchmark artifact — a fixed 8000-step cap "
+            "made v2ecoli simulate ~1.48× more sim-time than vEcoli's natural ~2700-step/gen division "
+            "(16000 vs 10834 steps), plus ~1.2× BLAS oversubscription on the un-balanced parallel run.")
         nextflow_note = (
             "<b>Nextflow is not the cause.</b> vEcoli's sim task is literally "
             "<code>POLARS_MAX_THREADS=1 python ecoli_master_sim.py</code> — it caps threads to 1 and "

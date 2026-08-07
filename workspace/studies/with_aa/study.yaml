@@ -7,6 +7,9 @@ question: Does v2ecoli reproduce vEcoli on the with_aa condition?
 comparison:
   seeds: 4
   generations: 4
+report_card_refs:
+  vs_vecoli: docs/report_cards/population_phenotype_with_aa/vs_vecoli/report_card_verdict.json
+
 report_cards:
 - viz/report_card/summary.html
 - viz/report_card/parca.html

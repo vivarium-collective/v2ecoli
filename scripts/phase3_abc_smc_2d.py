@@ -338,7 +338,7 @@ def main():
         (25, float(np.percentile(nf["distances"], 25))),
         (5,  float(np.percentile(nf["distances"], 5))),
     ]
-    print(f"Mean-to-mean ε candidates:")
+    print("Mean-to-mean ε candidates:")
     for pct, eps in eps_levels:
         print(f"  p{pct:2d} → {eps:9.1f}")
 

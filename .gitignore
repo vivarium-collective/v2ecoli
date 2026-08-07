@@ -28,16 +28,16 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 **/runs.db
 **/runs.db-shm
 **/runs.db-wal
-investigations/*/runs.db
-investigations/*/.run.lock
-studies/*/sims/*.subprocess.py
-studies/*/sims/parquet-rerun-*/
-studies/*/viz/
+workspace/investigations/*/runs.db
+workspace/investigations/*/.run.lock
+workspace/studies/*/sims/*.subprocess.py
+workspace/studies/*/sims/parquet-rerun-*/
+workspace/studies/*/viz/
 # ParquetEmitter hive-partitioned per-study runs (workspace-default
 # emitter per workspace.yaml.runtime.default_emitter). Each experiment_id
-# is its own hive subtree under studies/<study>/parquet-runs/ -
+# is its own hive subtree under workspace/studies/<study>/parquet-runs/ -
 # regenerable by re-running scripts/run_mbp_tracked.py --emitter parquet.
-studies/*/parquet-runs/
+workspace/studies/*/parquet-runs/
 # Ignore reports/ contents (not the dir itself) so specific subtrees can be
 # re-included below. (git can't re-include a path under a fully-excluded dir.)
 reports/*
@@ -52,7 +52,7 @@ reports/assets/*
 # reports/summaries/*.html stays ignored)
 !reports/investigation_summary.py
 !reports/_summary/
-investigations/*/viz/
+workspace/investigations/*/viz/
 .dashboard.log
 # Dashboard re-render targets (regenerated on demand by /api/render)
 reports/assets/*

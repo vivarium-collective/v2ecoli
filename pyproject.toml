@@ -125,6 +125,24 @@ timeout_method = "thread"
 # bigraph-schema process-discovery resolver then maps the ``v2ecoli`` dist to
 # whichever bogus top-level name sorts last (e.g. ``workspace``), so it scans
 # the wrong package and registers zero of v2ecoli's Visualization Steps.
+[tool.ruff]
+# Lint gate is scoped to PROJECT-OWN code only. The ported wcEcoli/vEcoli model
+# math — v2ecoli/processes/, the ported modules under v2ecoli/library/ and
+# v2ecoli/steps/ — is upstream science we mirror, not ours to relint, so it is
+# excluded here (belt-and-suspenders; CI also passes the project-own dirs
+# explicitly: v2ecoli/composites v2ecoli/workflow pbg_v2ecoli reports scripts).
+extend-exclude = [
+    "v2ecoli/processes",
+    "v2ecoli/library",
+    "v2ecoli/steps",
+]
+
+[tool.ruff.lint]
+# F = pyflakes (undefined names, broken/unused imports, unused vars, bad
+# f-strings); E722 = bare `except:`. Deliberately narrow — this is a
+# breakage gate, not a style gate.
+select = ["F", "E722"]
+
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
@@ -147,4 +165,4 @@ pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", bran
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
-ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "6ccbe3e8ea5d985855ae3697979ce565b691a67c" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "2dfabd522003cfe62f1bc7eeee615a2041aff3ad" }

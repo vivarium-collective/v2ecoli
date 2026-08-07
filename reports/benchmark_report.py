@@ -11,7 +11,6 @@ Usage:
 
 import argparse
 import json
-import os
 import subprocess
 import sys
 import time
@@ -110,7 +109,7 @@ def _run_v2ecoli_subprocess(
         seed=seed,
         duration=duration,
     )
-    print(f"\n--- v2ecoli (new, partitioned) ---")
+    print("\n--- v2ecoli (new, partitioned) ---")
     result = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,
@@ -142,7 +141,7 @@ def _run_vecoli_subprocess(
         vecoli_dir=vecoli_dir,
         duration=duration,
     )
-    print(f"\n--- vEcoli (composite branch) ---")
+    print("\n--- vEcoli (composite branch) ---")
     result = subprocess.run(
         [sys.executable, "-c", script],
         capture_output=True,

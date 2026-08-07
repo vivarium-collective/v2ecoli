@@ -8,7 +8,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from v2ecoli.steps.base import V2Step
 from v2ecoli.workflow.report_cards import (
-    REPORT_CARD_REGISTRY, ReportCardStep, StudyContext, applicable, prune, write_card)
+    REPORT_CARD_REGISTRY, ReportCardStep, StudyContext, applicable, narrows_by_name, prune,
+    write_card)
 
 
 class _DemoCard(ReportCardStep):
@@ -84,6 +85,47 @@ def test_applicable_selects_by_applies_and_allowlist(core, tmp_path):
     # explicit report_cards allowlist excluding demo_card -> not emitted
     excl = _ctx(tmp_path, {"name": "demo", "demo": True, "report_cards": ["tests"]})
     assert applicable(excl, core, only="demo_card") == []
+
+
+def test_narrows_by_name_separates_the_two_vocabularies():
+    """Card-name lists narrow; machine-generated embed-path lists do not."""
+    assert narrows_by_name(["vs_literature"]) is True
+    assert narrows_by_name(["tests", "acetate_overflow"]) is True
+    assert narrows_by_name([]) is True          # explicit "no cards" allowlist
+    # exactly what scripts/_compare/materialize.py writes
+    assert narrows_by_name(["viz/report_card/standard.html",
+                            "viz/report_card/parca.html"]) is False
+    assert narrows_by_name(["standard.html"]) is False    # bare filename, still a path
+    # one path anywhere disqualifies the whole list — a mixed list is not an allowlist
+    assert narrows_by_name(["vs_vecoli", "viz/report_card/standard.html"]) is False
+
+
+def test_applicable_ignores_machine_generated_embed_paths(core, tmp_path):
+    """The #439 regression: a path-shaped report_cards: excluded EVERY registry card.
+
+    A registry name can never equal an embed path, so comparing them made the
+    comparison studies structurally unable to run any card. Path lists must not
+    narrow — eligibility falls back to the card's own applies().
+    """
+    paths = _ctx(tmp_path, {"name": "demo", "demo": True,
+                            "report_cards": ["viz/report_card/standard.html",
+                                             "viz/report_card/parca.html"]})
+    assert [s.name for s in applicable(paths, core, only="demo_card")] == ["demo_card"]
+
+
+def test_applicable_name_allowlist_still_excludes(core, tmp_path):
+    """The fix must not weaken a real allowlist: a name list still excludes."""
+    excl = _ctx(tmp_path, {"name": "demo", "demo": True, "report_cards": ["tests"]})
+    assert applicable(excl, core, only="demo_card") == []
+    incl = _ctx(tmp_path, {"name": "demo", "demo": True, "report_cards": ["demo_card"]})
+    assert [s.name for s in applicable(incl, core, only="demo_card")] == ["demo_card"]
+
+
+def test_applicable_path_list_does_not_override_applies(core, tmp_path):
+    """Falling back from the allowlist must not make a non-applying card eligible."""
+    ctx = _ctx(tmp_path, {"name": "demo",  # no 'demo' key -> applies() False
+                          "report_cards": ["viz/report_card/standard.html"]})
+    assert applicable(ctx, core, only="demo_card") == []
 
 
 class _BoomApplies(ReportCardStep):

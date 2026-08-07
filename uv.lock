@@ -890,7 +890,7 @@ wheels = [
 [[package]]
 name = "ecoli-sources"
 version = "0.0.1"
-source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=6ccbe3e8ea5d985855ae3697979ce565b691a67c#6ccbe3e8ea5d985855ae3697979ce565b691a67c" }
+source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=2dfabd522003cfe62f1bc7eeee615a2041aff3ad#2dfabd522003cfe62f1bc7eeee615a2041aff3ad" }
 dependencies = [
     { name = "anndata" },
     { name = "jupyter" },
@@ -4549,7 +4549,7 @@ requires-dist = [
     { name = "biopython" },
     { name = "cvxpy" },
     { name = "dill", specifier = ">=0.3" },
-    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=6ccbe3e8ea5d985855ae3697979ce565b691a67c" },
+    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=2dfabd522003cfe62f1bc7eeee615a2041aff3ad" },
     { name = "investigation-contracts", git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main" },
     { name = "numba", specifier = ">=0.59" },
     { name = "numpy" },

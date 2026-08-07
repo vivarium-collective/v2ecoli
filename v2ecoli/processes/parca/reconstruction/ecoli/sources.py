@@ -12,7 +12,9 @@ Ported and adapted from CovertLab/vEcoli's ``wholecell/io/sources.py``
 """
 from __future__ import annotations
 
+import json
 import os
+import warnings
 from pathlib import Path
 from typing import Optional, Union
 
@@ -61,11 +63,35 @@ class SourceBundle:
         base_root = base_manifest.parent
         index.update(self._read_manifest(base_manifest, base_root))
 
+        # A variant bundle (ecoli-sources ``compose_variant_bundle``) ships a
+        # ``genotype.json`` sidecar next to its manifest whose ``overridden_keys``
+        # lists the keys the variant GENERATED (e.g. a knockout's recomputed
+        # ``dna_sites``). The v2ecoli override exists to win over the shared
+        # UPSTREAM base, NOT over a variant's own divergences: a whole-file
+        # override that re-states thousands of otherwise-unchanged rows would
+        # silently clobber a variant's corrected key back to pre-perturbation
+        # coordinates, which validates and hashes stably and only fails at ParCa
+        # build time (#466). So a key the variant generated is protected from the
+        # override; every other key is overridden exactly as before.
+        variant_keys = self._variant_generated_keys(base_manifest)
+
         if overrides is None and _DEFAULT_OVERRIDES.is_file():
             overrides = _DEFAULT_OVERRIDES
         if overrides is not None:
             overrides = Path(overrides).resolve()
-            index.update(self._read_manifest(overrides, overrides.parent))
+            for key, path in self._read_manifest(overrides, overrides.parent).items():
+                if key in variant_keys:
+                    # The variant explicitly generated this key; its file wins.
+                    # Surface the suppressed collision rather than hiding it — the
+                    # per-key declared-vs-injected check ecoli-sources#12 asked for.
+                    warnings.warn(
+                        f"parca override for {key!r} suppressed: variant bundle "
+                        f"{base_manifest.name} generated this key, so its file "
+                        "takes precedence over the whole-file override.",
+                        stacklevel=2,
+                    )
+                    continue
+                index[key] = path
 
         self._index = index
         # Kept as provenance: the genotype a ParCa build was made from IS its
@@ -75,6 +101,27 @@ class SourceBundle:
         self.overrides = overrides
         if validate:
             self._validate(base_manifest, overrides)
+
+    @staticmethod
+    def _variant_generated_keys(manifest: Path) -> set[str]:
+        """Keys a variant bundle GENERATED, read from its ``genotype.json``
+        sidecar's ``overridden_keys``.
+
+        Empty for a plain base bundle — it has no sidecar, or was not composed
+        from generators — so the override still wins over base exactly as before.
+        Provenance rides in the sidecar and not the manifest by design: the
+        bundle schema is ``strict="filter"`` and drops unknown manifest columns,
+        so this is the only in-band signal of what a variant actually wrote.
+        """
+        sidecar = manifest.parent / "genotype.json"
+        if not sidecar.is_file():
+            return set()
+        try:
+            data = json.loads(sidecar.read_text())
+        except (ValueError, OSError):
+            return set()
+        keys = data.get("overridden_keys", [])
+        return set(keys) if isinstance(keys, list) else set()
 
     @staticmethod
     def _read_manifest(manifest: Path, root: Path) -> dict[str, Path]:

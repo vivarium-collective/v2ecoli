@@ -60,7 +60,6 @@ def load_lineage(exp_root: str, exp_id: str, seed: int, n_gens: int) -> dict:
             "listeners__replication_data__oriC_low_bound_atp",
             "listeners__replication_data__promoter_high_bound_atp",
             "listeners__replication_data__promoter_high_bound_adp"]
-    import pandas as pd
     rows_all = []
     gen_starts = []
     cum_t = 0.0
@@ -166,9 +165,9 @@ def plot(d: dict, out_path: Path, title_extra: str) -> None:
     ax.plot(t, smooth(bulk_atp_nm), color="#16a34a", lw=1.0,
             label=f"bulk DnaA-ATP [nM] (smoothed, w={w})")
     ax.plot(t, smooth(bulk_adp_nm), color="#dc2626", lw=1.0,
-            label=f"bulk DnaA-ADP [nM]")
+            label="bulk DnaA-ADP [nM]")
     ax.plot(t, smooth(bulk_apo_nm), color="#475569", lw=0.8,
-            label=f"bulk apo DnaA [nM]")
+            label="bulk apo DnaA [nM]")
     ax.set_yscale("log")
     ax.set_ylim(0.05, max(1e4, np.nanmax(bulk_adp_nm) * 2))
     ax.set_ylabel("Bulk concentration (nM)")

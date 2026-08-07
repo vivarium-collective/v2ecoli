@@ -3,7 +3,6 @@
 from __future__ import annotations
 import graphlib
 import hashlib
-import importlib
 import json
 import locale
 import re
@@ -13,7 +12,7 @@ from pathlib import Path
 from collections import Counter
 
 import yaml
-from jsonschema import Draft7Validator, FormatChecker, ValidationError
+from jsonschema import Draft7Validator, FormatChecker
 
 
 def _try_get_registry(ws_root: Path, ws_data: dict) -> set | None:
@@ -424,7 +423,6 @@ def main() -> None:
     # Count expert_docs
     expert_docs = ws.get("expert_docs", []) or []
     n_expert = len(expert_docs)
-    expert_names = [d.get("name", "?") for d in expert_docs if isinstance(d, dict)]
 
     # Count bib keys
     bib_file = _dir("references") / "papers.bib"

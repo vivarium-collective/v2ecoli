@@ -24,16 +24,13 @@ from __future__ import annotations
 import copy
 import warnings
 
-import numpy as np
 
 # Framework-generic per-agent emitter-lifecycle registry (register / get /
 # unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
 # parquet-named wrappers below so existing call sites keep working.
 from pbg_emitters.lifecycle import (
     register_emitter as register_parquet_emitter,
-    get_emitter as get_parquet_emitter,
     unregister_emitter as _unregister_emitter,
-    finalize_emitter_for_agent,
 )
 
 # ---------------------------------------------------------------------------

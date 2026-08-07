@@ -137,6 +137,28 @@ jobs:
           -n auto --dist=loadfile
           -v --tb=short
 
+  lint:
+    # Breakage gate (ruff F + E722) scoped to PROJECT-OWN code only — the ported
+    # wcEcoli/vEcoli model math (v2ecoli/processes, v2ecoli/library, v2ecoli/steps)
+    # is excluded via [tool.ruff] extend-exclude in pyproject.toml AND by passing
+    # the project-own dirs explicitly below. Lightweight: pip-installs ruff, no uv
+    # sync (mirrors validate-status). ~5s.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install --quiet 'ruff==0.16.0'
+
+      - name: Ruff check (project-own dirs)
+        run: ruff check v2ecoli/composites v2ecoli/workflow pbg_v2ecoli reports scripts
+
   validate-status:
     # Lightweight read-only consistency check on investigation.yaml +
     # study yamls (single-study cadence enum, focus_study existence,

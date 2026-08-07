@@ -67,7 +67,7 @@ def main():
 
     precursor_ids = AA_BULK_IDS + NTP_BULK_IDS + DNTP_BULK_IDS + WATER_BULK_IDS
 
-    print(f"Building kFBA baseline composite...")
+    print("Building kFBA baseline composite...")
     t0 = time.perf_counter()
     c = build_composite("ecoli_baseline")
     print(f"  build: {time.perf_counter() - t0:.1f}s", flush=True)

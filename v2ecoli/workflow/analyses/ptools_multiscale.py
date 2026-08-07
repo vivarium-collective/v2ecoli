@@ -28,7 +28,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (

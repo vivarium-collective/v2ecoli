@@ -104,7 +104,6 @@ def read_v2ecoli_trajectory(experiment_dir: str, seed: int,
         return int(re.search(r"generation=(\d+)", name).group(1))
 
     out: dict = {}
-    gen1_mask_times = None
     for obs in observables:
         vpath = f"{ln}/{obs}"
         if vpath not in set(tree.groups):

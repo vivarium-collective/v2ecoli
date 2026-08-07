@@ -27,7 +27,7 @@ from duckdb import DuckDBPyConnection
 
 from ecoli.library.schema import bulk_name_to_idx
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import (
     aliased_history,
     available_columns,

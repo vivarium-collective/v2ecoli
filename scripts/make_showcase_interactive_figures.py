@@ -35,7 +35,7 @@ from v2ecoli.library.units_resolver import (
     resolve_unit,
     format_axis_label,
 )
-from v2ecoli.library.units_atlas import build_atlas, dimension_description
+from v2ecoli.library.units_atlas import build_atlas
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIG_ROOT = REPO_ROOT / "reports" / "figures"

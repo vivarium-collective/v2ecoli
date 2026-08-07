@@ -207,7 +207,7 @@ def make_figure(results: list[dict], noise_floor: dict,
     ax.scatter(scales, dists, c=colors, s=120, edgecolors="k", zorder=10)
     # Noise floor band.
     ax.axhspan(noise_floor["p05"], noise_floor["p95"], color="#7c3aed",
-               alpha=0.18, label=f"noise floor p05-p95")
+               alpha=0.18, label="noise floor p05-p95")
     ax.axhline(eps, color="#7c3aed", lw=1.5, ls="--",
                label=f"acceptance ε = {eps:.0f}")
     ax.axhline(noise_floor["median"], color="#7c3aed", lw=1.0, ls=":",

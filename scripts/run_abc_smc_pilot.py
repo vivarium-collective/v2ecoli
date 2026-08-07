@@ -140,7 +140,7 @@ def main():
     print(f"Default Millard params: {defaults}")
 
     # 1. Generate observation from default params (this is the "true" parameter we want to recover)
-    print(f"\n1. Generating observation by running Millard with default params...")
+    print("\n1. Generating observation by running Millard with default params...")
     obs = simulate(defaults)
     print(f"   Observed steady-state: {obs}")
 

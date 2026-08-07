@@ -4,7 +4,6 @@ USAGE: cd v2ecoli && uv run python scripts/regenerate_viz_goldens.py [--only NAM
 """
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
@@ -89,7 +88,7 @@ def main() -> int:
                         cmd + ["--out", str(dest_html), *extra_args],
                         check=True, cwd=str(REPO_ROOT),
                     )
-                except subprocess.CalledProcessError as e:
+                except subprocess.CalledProcessError:
                     # Last resort: run without --output and glob.
                     try:
                         subprocess.run(cmd + extra_args,

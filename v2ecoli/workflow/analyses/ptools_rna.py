@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from duckdb import DuckDBPyConnection
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
 from v2ecoli.workflow.analyses._shims import bulk_count_matrix, ACTIVE_RIBOSOME_SQL
 

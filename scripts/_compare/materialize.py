@@ -35,8 +35,16 @@ _FINDING_STATUS = {"within_tol": "confirms", "drift": "partial",
 
 
 def _pct(axis) -> str:
-    """median relative error of an axis as a percent string, or ''."""
-    mr = (axis.get("detail") or {}).get("median_rel")
+    """|Δ| of an axis as a percent string, or ''. Tolerates all three key
+    conventions the real card producers use: `median_rel` (standard/summary),
+    `init_rel` (parca), and `delta_rel` (statistical/ttest, can be negative,
+    abs()'d) — same fallback as report_cards/summary.py's `_magnitude`."""
+    detail = axis.get("detail") or {}
+    mr = detail.get("median_rel")
+    if mr is None:
+        mr = detail.get("init_rel")
+    if mr is None and detail.get("delta_rel") is not None:
+        mr = abs(detail["delta_rel"])
     return f"{mr * 100:.1f}%" if isinstance(mr, (int, float)) else ""
 
 
@@ -137,12 +145,20 @@ def materialize_study(spec: StudySpec) -> Path:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     data.update(materialized_fields(spec))
     data.pop("behavior_tests", None)   # replaced by the modular `tests` list
-    # Pipeline DAG: the study's authored `depends_on` (a list of prerequisite
-    # study names) becomes pipeline_gate.prerequisites — the prerequisites must
-    # pass before this study's gate is evaluated (parca gates the per-condition
-    # studies; the single-seed basal gates the statistical study).
-    data["pipeline_gate"] = {"prerequisites": list(data.get("depends_on") or []),
-                             "enables": []}
+    # Pipeline ordering is expressed by `inputs.from` — the single source of
+    # truth after the study data-model migration. The investigation summary
+    # (reports/_summary/aggregate.py:_prerequisites) derives each study's
+    # prerequisites from `inputs.from`, and the workspace-conformance guard
+    # FORBIDS pipeline_gate.prerequisites in a study.yaml. So materialize no
+    # longer copies the legacy `depends_on` into pipeline_gate.prerequisites
+    # (that duplicated — and, for `statistical`, disagreed with — inputs.from).
+    # It only keeps a conformance-clean pipeline_gate: any stray prerequisites
+    # are dropped, and an `enables` placeholder is preserved/created.
+    gate = dict(data.get("pipeline_gate") or {})
+    gate.pop("prerequisites", None)
+    gate.setdefault("enables", [])
+    data["pipeline_gate"] = gate
+    data.pop("depends_on", None)   # retired: ordering lives in inputs.from
     # Canonical run + per-test outcomes from the study's verdict JSON (when it
     # exists) so the dashboard pill strip shows the REAL result per card.
     run = {"name": f"{spec.name}-comparison", "kind": "analysis", "canonical": True,

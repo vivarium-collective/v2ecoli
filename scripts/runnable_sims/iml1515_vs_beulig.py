@@ -21,7 +21,6 @@ import csv
 import json
 import math
 import time
-from collections import defaultdict
 from pathlib import Path
 
 WORKSPACE = Path(__file__).resolve().parents[2]

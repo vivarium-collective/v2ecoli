@@ -72,6 +72,14 @@ def main():
                              "without re-running step 5 (~60 min).")
     parser.add_argument("--resume-pickle", type=str, default=None,
                         help="Pickle of composite.state from an earlier run.")
+    parser.add_argument(
+        "--allow-partial-fit", action="store_true",
+        help="Step 9's mechanistic_supply/export/uptake fits can fail on "
+             "numerically-marginal kinetics (e.g. debug mode's truncated TF "
+             "set). By default such a failure aborts the run so no "
+             "partially-fit parca_state.pkl is written (PARCA_REVIEW A3). "
+             "Pass this flag to write it anyway, with a per-fit ok/error "
+             "status recorded at state['mechanistic_fit_status'].")
     args = parser.parse_args()
 
     outdir = os.path.abspath(args.outdir)
@@ -171,6 +179,7 @@ def main():
             cache_dir=cache_dir,
             resume_from_step=args.resume_from_step,
             resume_state=resume_state,
+            allow_partial_fit=args.allow_partial_fit,
         )
     print(f"\n[{time.strftime('%H:%M:%S')}] Pipeline completed in "
           f"{time.time() - t1:.1f}s")

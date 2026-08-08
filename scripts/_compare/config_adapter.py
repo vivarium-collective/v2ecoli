@@ -95,7 +95,6 @@ def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, An
     config's directory inside the fork. ``config_path`` may be absolute or
     relative to ``fork_dir`` (e.g. ``configs/default.json``).
     """
-    import os
     abspath = (config_path if os.path.isabs(config_path)
                else os.path.join(fork_dir, config_path))
     config_dir = os.path.dirname(abspath)

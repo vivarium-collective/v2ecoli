@@ -21,7 +21,6 @@ import io
 import subprocess
 import socket
 import platform
-import sys
 import datetime as dt
 from pathlib import Path
 

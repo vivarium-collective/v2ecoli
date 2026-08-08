@@ -67,7 +67,26 @@ from v2ecoli.processes.parca.steps._facade import make_sim_data_facade
 # matches vivarium-ecoli; set V2PARCA_N_SEEDS=3 (or any small int) to
 # trade fitting variance for ~3x speed in step 5.
 import os as _os
-N_SEEDS = int(_os.environ.get('V2PARCA_N_SEEDS', '10'))
+
+
+def resolved_n_seeds() -> int:
+    """Resolve V2PARCA_N_SEEDS exactly the way the fit loop below does.
+
+    A genuine fit input (PARCA_REVIEW A8): different values produce
+    different bulkAverage/bulkDeviation containers and therefore a
+    different ``parca_state.pkl`` / cache bundle, but it was previously
+    read once at module import with no way for a caller to learn the
+    resolved value afterward. Exists so callers that need to *record* it
+    (cache fingerprint build_params, provenance sidecar, CLI echo) read the
+    exact number the fit used — not a parallel re-derivation of the env var
+    that could silently drift from ``N_SEEDS`` if computed differently.
+    Does NOT change how N_SEEDS is used below (still a module constant read
+    once at import; the fit loop is untouched).
+    """
+    return int(_os.environ.get('V2PARCA_N_SEEDS', '10'))
+
+
+N_SEEDS = resolved_n_seeds()
 VERBOSE = 1
 
 

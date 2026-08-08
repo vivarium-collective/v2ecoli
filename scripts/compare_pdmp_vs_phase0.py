@@ -26,7 +26,6 @@ import os
 import sys
 import time
 import warnings
-from glob import glob
 from pathlib import Path
 
 import matplotlib

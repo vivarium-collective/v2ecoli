@@ -1,6 +1,11 @@
 from pathlib import Path
 
 from scripts._compare import orchestrator
+from scripts._compare.reference import ReferenceEngine
+
+
+def _ref(repo="/Users/eranagmon/code/vEcoli"):
+    return ReferenceEngine.from_spec({"repo": repo, "kind": "vecoli"})
 
 
 def test_run_v2_parca_skips_when_fresh(tmp_path, monkeypatch):
@@ -47,7 +52,8 @@ def test_run_vecoli_parca_uses_vecoli_python_and_save_intermediates(
         return R()
 
     monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
-    orchestrator.run_vecoli_parca(config_path="/x/cfg.json", out_dir=out)
+    orchestrator.run_vecoli_parca(reference=_ref(), config_path="/x/cfg.json",
+                                  out_dir=out)
     assert captured["cmd"][0].endswith("/vEcoli/.venv/bin/python")
     assert "--save-intermediates" in captured["cmd"]
     assert captured["cwd"].endswith("/vEcoli")
@@ -65,7 +71,8 @@ def test_run_vecoli_sim_drives_nextflow_workflow(tmp_path, monkeypatch):
         return R()
 
     monkeypatch.setattr(orchestrator.subprocess, "run", fake_run)
-    orchestrator.run_vecoli_sim(config_path="/x/vsim_cfg.json", out_dir=out)
+    orchestrator.run_vecoli_sim(reference=_ref(), config_path="/x/vsim_cfg.json",
+                                out_dir=out)
     assert captured["cmd"][0].endswith("/vEcoli/.venv/bin/python")
     assert captured["cmd"][1:4] == ["-m", "runscripts.workflow", "--config"]
     assert captured["cwd"].endswith("/vEcoli")
@@ -78,7 +85,8 @@ def test_run_vecoli_sim_skips_when_fresh(tmp_path, monkeypatch):
     called = {"n": 0}
     monkeypatch.setattr(orchestrator.subprocess, "run",
                         lambda *a, **k: called.__setitem__("n", called["n"] + 1))
-    assert orchestrator.run_vecoli_sim(config_path="/x.json", out_dir=out) == out
+    assert orchestrator.run_vecoli_sim(
+        reference=_ref(), config_path="/x.json", out_dir=out) == out
     assert called["n"] == 0
 
 
@@ -123,6 +131,19 @@ def test_vecoli_sim_retries_transient_failure(tmp_path, monkeypatch):
     rcs = iter([1, 0])                          # one transient failure, then ok
     monkeypatch.setattr(orchestrator.subprocess, "run",
                         lambda *a, **k: type("R", (), {"returncode": next(rcs)})())
-    orchestrator.run_vecoli_sim(config_path="c.json", out_dir=out, token="t",
-                                vecoli_repo=str(tmp_path))
+    orchestrator.run_vecoli_sim(reference=_ref(str(tmp_path)), config_path="c.json",
+                                out_dir=out, token="t")
     assert (out / ".done").exists()             # recovered → marked done
+
+
+def test_vecoli_parca_uses_reference_commands(monkeypatch, tmp_path):
+    captured = {}
+    monkeypatch.setattr(orchestrator, "_run", lambda cmd, cwd=None, env=None, retries=0: captured.update(cmd=cmd, cwd=cwd, env=env))
+    monkeypatch.setattr(orchestrator, "is_stale", lambda *a, **k: True)
+    monkeypatch.setattr(orchestrator, "mark_done", lambda *a, **k: None)
+    ref = ReferenceEngine.from_spec({"repo": "/abs/vEcoli", "kind": "vecoli"})
+    orchestrator.run_vecoli_parca(reference=ref, config_path="/c.json", out_dir=tmp_path)
+    assert captured["cmd"][0] == "/abs/vEcoli/.venv/bin/python"
+    assert "runscripts/parca.py" in captured["cmd"]
+    assert captured["cwd"] == "/abs/vEcoli"
+    assert captured["env"]["PATH"].startswith("/abs/vEcoli/.venv/bin:")

@@ -4,7 +4,7 @@ import yaml
 
 from scripts._compare.study_spec import StudySpec
 from scripts._compare.materialize import (
-    materialized_fields, materialize_study, _graph_fields,
+    materialized_fields, materialize_study, _graph_fields, _pct,
 )
 
 CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's invest_name
@@ -13,21 +13,45 @@ CARD_ROOT = "docs/report_cards/v2ecoli-vecoli-comparison"   # for the test's inv
 def _spec(study_path, name="basal_4x4", cards=("config", "parca", "statistical")):
     return StudySpec(name=name, condition="basal", seeds=4, gens=4, cards=list(cards),
                      invest_name="v2ecoli-vecoli-comparison", v2_cache="out/cache_full",
-                     ve_cache="out/compare_harness/vecoli_parca", fork="",
+                     ve_cache="out/compare_harness/vecoli_parca",
                      study_path=str(study_path))
 
 
-def test_materialize_pipeline_gate_from_depends_on(tmp_path):
+def test_materialize_retires_depends_on_and_emits_no_prerequisites(tmp_path):
+    # Pipeline ordering is `inputs.from` now (single source of truth). materialize
+    # must NOT copy the legacy `depends_on` into pipeline_gate.prerequisites (the
+    # workspace-conformance guard forbids that field); it retires depends_on
+    # instead and leaves a conformance-clean pipeline_gate.
     sp = tmp_path / "study.yaml"
     sp.write_text(
         "name: basal\ninvestigation: v2ecoli-vecoli-comparison\ncondition: basal\n"
         "depends_on: [parca]\n"
+        "inputs:\n  - {artifact: sim_data, from: parca}\n"
         "comparison: {seeds: 1, generations: 4, cards: [config, standard]}\n",
         encoding="utf-8")
     spec = _spec(sp, name="basal", cards=["config", "standard"])
     materialize_study(spec)
     data = yaml.safe_load(sp.read_text(encoding="utf-8"))
-    assert data["pipeline_gate"]["prerequisites"] == ["parca"]
+    assert "depends_on" not in data                      # legacy field retired
+    assert "prerequisites" not in data["pipeline_gate"]  # ordering is inputs.from
+    assert data["pipeline_gate"] == {"enables": []}
+    # inputs.from is preserved untouched as the real dependency edge
+    assert [e["from"] for e in data["inputs"]] == ["parca"]
+
+
+def test_materialize_strips_stray_prerequisites_from_existing_gate(tmp_path):
+    # A study.yaml carried over from before the migration may still have a
+    # pipeline_gate.prerequisites; materialize must scrub it (conformance).
+    sp = tmp_path / "study.yaml"
+    sp.write_text(
+        "name: basal\ninvestigation: v2ecoli-vecoli-comparison\ncondition: basal\n"
+        "pipeline_gate: {prerequisites: [parca], enables: []}\n"
+        "comparison: {seeds: 1, generations: 4, cards: [config, standard]}\n",
+        encoding="utf-8")
+    spec = _spec(sp, name="basal", cards=["config", "standard"])
+    materialize_study(spec)
+    data = yaml.safe_load(sp.read_text(encoding="utf-8"))
+    assert data["pipeline_gate"] == {"enables": []}
 
 
 def test_materialized_fields_one_test_per_graded_card():
@@ -82,6 +106,19 @@ def test_materialize_declares_report_card_test_modules(tmp_path):
 def _axis(label, verdict, median_rel):
     return {"label": label, "verdict": verdict,
             "detail": {"median_rel": median_rel}}
+
+
+def test_pct_falls_back_across_median_rel_init_rel_delta_rel():
+    # median_rel (standard/summary axes) — existing behavior unchanged.
+    assert _pct({"detail": {"median_rel": 0.037}}) == "3.7%"
+    # init_rel (parca axes) — no median_rel present.
+    assert _pct({"detail": {"init_rel": 0.002}}) == "0.2%"
+    # delta_rel (statistical/ttest axes) can be negative — abs()'d.
+    assert _pct({"detail": {"delta_rel": -0.104}}) == "10.4%"
+    # no recognized key -> empty string.
+    assert _pct({"detail": {"other": 1}}) == ""
+    assert _pct({"detail": {}}) == ""
+    assert _pct({}) == ""
 
 
 def test_graph_fields_within_tol_is_accepted_and_confirms():
@@ -147,7 +184,8 @@ def test_materialize_preserves_narrative_and_is_idempotent(tmp_path):
     graded = [t for t in data["tests"] if "measure" in t]
     assert [t["measure"]["group"] for t in graded] == ["parca", "statistical"]
     assert "behavior_tests" not in data
-    assert data["pipeline_gate"] == {"prerequisites": [], "enables": []}
+    # ordering is inputs.from now; the gate carries no prerequisites
+    assert data["pipeline_gate"] == {"enables": []}
     # idempotent
     materialize_study(spec)
     assert sp.read_text(encoding="utf-8") == first

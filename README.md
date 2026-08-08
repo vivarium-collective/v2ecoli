@@ -98,7 +98,7 @@ Every investigation under `workspace/investigations/`, with its research questio
 | [Surrogate Modeling — can a neural net emulate the v2ecoli baseline? _(complete)_](https://vivarium-collective.github.io/v2ecoli/investigations/surrogate-modeling.html) | Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate the model's per-step dynamics across a broad observable panel (growth/mass, exchange fluxes, metabolic fluxes, protein an… |
 | [v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html) | Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the ParCa in full, run a wild-type baseline single-cell→division ensemble that reproduces measured E. coli properties (doubling ti… |
 | [v2ecoli → PDMP Whole-Cell Model Reformulation _(in_progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-pdmp.html) | Can v2ecoli's hybrid algorithmic whole-cell model be incrementally transformed into a piecewise-deterministic Markov process (PDMP) suitable for likelihood-based inference and causal discovery, witho… |
-| [v2ecoli ↔ vEcoli comparison](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-vecoli-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions? |
+| [Whole-Cell Model Comparison](https://vivarium-collective.github.io/v2ecoli/investigations/whole-cell-model-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions and metabolism process swaps? |
 <!-- END:investigations -->
 
 ### 3D whole-cell structural model — *molecular-scale, in your browser*
@@ -290,8 +290,10 @@ same biological processes and differ only in how cells are scheduled and embedde
 | `millard2017_metabolism` | Standalone Millard et al. 2017 kinetic ODE of E. coli central carbon and energy metabolism (BioModels MODEL1505110000), wrapped as a process-bigraph composite via pbg-copasi's CopasiUTCProcess. |
 | `millard_fba_bridge_harness` | Whole-cell E. coli baseline (real tFBA ecoli-metabolism) with the Millard 2017 central-carbon ODE wired in as a flux SOURCE: the Millard fluxes are mapped+converted by fba-flux-coupler into pinned_fl… |
 | `parca` | ParCa parameter-calculation pipeline — the 9-step fit (initialize → input_adjustments → … → final_adjustments) that produces sim_data. |
+| `parca_prep` | ParCa pull-or-compute prerequisite, as an ordinary study on the investigation-as-composite substrate. |
 | `reactor_bird_coupled` | v2ecoli baseline_population coupled to the BiRD bioreactor (BiRDTransportProcess) via ReactorCellCoupler. |
 | `reactor_bird_coupled_millard` | v2ecoli Millard kinetic-metabolism cell (baseline_millard) + PopulationAggregator coupled to the BiRD bioreactor (BiRDTransportHours) via ReactorCellCoupler. |
+| `vecoli` | Genuine upstream vEcoli, run on its own vivarium-core Engine inside ONE process-bigraph node (agents/<agent_id>/vivarium_ecoli) — the REFERENCE model for the v2ecoli<->vEcoli comparison. |
 <!-- END:composites -->
 
 Reach a generator by name — `build_composite("<name>")`; a `*.composite.yaml`

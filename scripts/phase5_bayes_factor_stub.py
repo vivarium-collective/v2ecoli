@@ -152,7 +152,7 @@ def main():
     print("\nBayes factor of truth (1.0) vs each alternative:")
     for s, lbf in sorted(log_bf.items()):
         if s == 1.0:
-            print(f"  H_{{θ=1.00}}: -- (truth)")
+            print("  H_{θ=1.00}: -- (truth)")
         else:
             print(f"  H_{{θ={s:.2f}}}: log BF = {lbf:+.2f}  "
                   f"BF = {np.exp(lbf):.2e}")

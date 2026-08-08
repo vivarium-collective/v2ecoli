@@ -24,16 +24,15 @@ from __future__ import annotations
 import copy
 import warnings
 
-import numpy as np
 
 # Framework-generic per-agent emitter-lifecycle registry (register / get /
 # unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
 # parquet-named wrappers below so existing call sites keep working.
 from pbg_emitters.lifecycle import (
     register_emitter as register_parquet_emitter,
-    get_emitter as get_parquet_emitter,
+    get_emitter as get_parquet_emitter,  # noqa: F401 — re-exported for external call sites
     unregister_emitter as _unregister_emitter,
-    finalize_emitter_for_agent,
+    finalize_emitter_for_agent,  # noqa: F401 — re-exported for external call sites
 )
 
 # ---------------------------------------------------------------------------
@@ -183,6 +182,12 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'name': 'replication',
         'address': 'local:ParquetAnalysisView',
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
+    },
+    {
+        'name': 'chromosome_state',
+        'address': 'local:ParquetAnalysisView',
+        'config': {'title': 'Chromosome state (animated)',
+                   'analysis': 'chromosome_state_view'},
     },
     {
         'name': 'ribosome_components',
@@ -1246,6 +1251,11 @@ def _get_special_step(loader, step_name, core):
                     'number_of_oric': 'integer',
                     'free_DnaA_boxes': 'integer',
                     'total_DnaA_boxes': 'integer',
+                    # Per-tick replication-fork genomic positions (variable length:
+                    # 0 before initiation, 2/4/… after). Emitted as a ragged list
+                    # so the chromosome-state GIF can place the replisomes; the
+                    # listener default is [] so pre-initiation ticks are empty.
+                    'fork_coordinates': 'array[integer]',
                 },
                 # dnaa-3 in-sim DnaA-box occupancy observer (dnaa_box_binding
                 # listener). Mirrors DnaaBoxBinding.outputs() leaf-for-leaf so

@@ -469,7 +469,7 @@ def main():
     if args.emitter == "sqlite":
         print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
     else:
-        print(f"Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
+        print("Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
     print(f"Per-variant: emitter={args.emitter}  max_steps={args.duration_sec}s "
           f"({args.duration_sec/60:.0f} min), max_generations={args.max_generations}, "
           f"chunk={args.chunk}")

@@ -129,24 +129,28 @@ def physiology_from_sweep(sweep_dir: Path = _SWEEP, gen_lb: int = 3) -> dict:
     }
 
 
-def main(from_sweep: str | None = None) -> dict:
+def main(from_sweep: str | None = None, out: str | None = None,
+         gen_lb: int | None = None) -> dict:
     OUT.mkdir(parents=True, exist_ok=True)
+    fixtures = Path(out) if out else FIXTURES
+    lb = _SWEEP_GEN_LB if gen_lb is None else int(gen_lb)
+    model_json = fixtures / _MODEL_JSON.name
     if from_sweep:
-        model = physiology_from_sweep(Path(from_sweep))
+        model = physiology_from_sweep(Path(from_sweep), gen_lb=lb)
         model["provenance"] = provenance_stamp(
             REPO, config="v2ecoli/configs/population_phenotype_basal.json",
             sweep={"sweep_dir": str(Path(from_sweep)),
                    "parca_inputs_hash": _parca_inputs_hash(),
-                   "n_cells": model.get("n_cells"), "gen_lb": _SWEEP_GEN_LB},
+                   "n_cells": model.get("n_cells"), "gen_lb": lb},
             bake_script=f"scripts/render_basal_vs_literature.py --from-sweep {from_sweep}")
-        FIXTURES.mkdir(parents=True, exist_ok=True)
-        with open(_MODEL_JSON, "w", encoding="utf-8") as f:
+        fixtures.mkdir(parents=True, exist_ok=True)
+        with open(model_json, "w", encoding="utf-8") as f:
             json.dump(model, f, indent=2)
-        print(f"baked {_MODEL_JSON.name}: {model['n_cells']} cells · "
+        print(f"baked {model_json.name}: {model['n_cells']} cells · "
               f"Yxs {model['biomass_yield']:.3f} · μ {model['growth_rate']:.3f} · "
               f"q_glc {model['glucose_uptake']:.3f} · implied biomass C "
               f"{model['implied_biomass_C_gC_per_gDW']:.3f} gC/gDW")
-    card, reference, model = build()
+    card, reference, model = build(model_json=model_json)
     generated = time.strftime("%Y-%m-%d %H:%M")
     model_ref = f"v2ecoli baseline ({model['ensemble']})"
     report = grade_card(card, reference)
@@ -175,5 +179,10 @@ if __name__ == "__main__":
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--from-sweep", metavar="DIR", default=None,
                     help="recompute the baked model_physiology.json from a sweep parquet dir")
+    ap.add_argument("--out", metavar="DIR", default=None,
+                    help=f"read/write fixtures here (default: {FIXTURES.relative_to(REPO)})")
+    ap.add_argument("--gen-lb", type=int, default=None,
+                    help=f"generation lower bound / burn-in (default: {_SWEEP_GEN_LB}); "
+                         "must match the sweep's config")
     a = ap.parse_args()
-    main(from_sweep=a.from_sweep)
+    main(from_sweep=a.from_sweep, out=a.out, gen_lb=a.gen_lb)

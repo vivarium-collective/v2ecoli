@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import warnings
 from v2ecoli.library.quantity_helpers import fg_magnitude
-from typing import Any
 
 from process_bigraph import Process
 

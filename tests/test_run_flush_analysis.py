@@ -10,6 +10,8 @@ from v2ecoli.workflow.flush import run_flush
 
 
 def _study(tmp_path, slug="demo"):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / slug
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump({"name": slug}))

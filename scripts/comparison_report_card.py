@@ -838,14 +838,22 @@ def eval_section(cond: str, per_obs: dict) -> dict:
 
 
 def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
-                          studies_root="workspace/investigations"):
+                          studies_root=None):
     """Overview + per-study assigned-card sections, driven by study specs (the
     study-YAML-only model — no manifest). Each StudySpec carries name (store key),
     condition, seeds/gens and cards; the `config` card renders the study's run
     spec. Writes one report_card_verdict.json per study (each card a group). When
-    verdict_root is None it is derived from the studies' investigation."""
+    verdict_root is None it is derived from the studies' investigation. Per-study
+    cards are written under the top-level study registry (``studies_root/name``);
+    when studies_root is None it defaults to ``STUDIES_ROOT``
+    (``workspace/studies``) — every reader (aggregate.py, study.yaml
+    report_cards, dashboard embeds) resolves cards from that top-level dir, not
+    the nested per-investigation layout."""
+    from scripts._compare.study_spec import STUDIES_ROOT
     from scripts._compare.verdict import write_condition_verdict
     from scripts._compare.viz_cards import write_report_cards
+    if studies_root is None:
+        studies_root = STUDIES_ROOT
     core = build_core()
     if verdict_root is None and specs:
         verdict_root = f"docs/report_cards/{specs[0].invest_name}"
@@ -878,7 +886,7 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
         if verdict_root:
             write_condition_verdict(verdict_root, name, card_verdicts)
         if studies_root:
-            write_report_cards(Path(studies_root) / spec.invest_name / "studies" / name, viz)
+            write_report_cards(Path(studies_root) / name, viz)
     return sections
 
 

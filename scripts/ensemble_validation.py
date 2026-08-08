@@ -26,7 +26,6 @@ import argparse
 import base64
 import datetime as _dt
 import io
-import json
 import os
 import sys
 import time
@@ -37,7 +36,6 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import wasserstein_distance
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 os.chdir(REPO_ROOT)

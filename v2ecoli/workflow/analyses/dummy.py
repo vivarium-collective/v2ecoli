@@ -16,7 +16,7 @@ from typing import Any
 
 from duckdb import DuckDBPyConnection
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 
 # v2ecoli history schema snapshot (see DESCRIBE of the sweep parquet).
 OUTPUT_COLUMN_NAMES: set[str] = {

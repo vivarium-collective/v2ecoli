@@ -1,6 +1,7 @@
 import json
 from scripts._compare.verdict import (
-    worst, build_condition_verdict, write_condition_verdict)
+    worst, build_condition_verdict, write_condition_verdict,
+    write_study_verdict)
 
 
 def test_worst_orders_by_severity():
@@ -39,6 +40,32 @@ def test_write_creates_per_condition_file(tmp_path):
     assert p == tmp_path / "basal" / "report_card_verdict.json"
     doc = json.loads(p.read_text(encoding="utf-8"))
     assert doc["overall"] == "within_tol"
+
+
+def test_write_study_verdict_writes_and_round_trips(tmp_path):
+    """Phase B Task A: the canonical PER-STUDY path (`<study_dir>/
+    report_card_verdict.json`, directly under the study dir -- not nested
+    under a per-condition subdirectory like write_condition_verdict) that
+    comparison_matrix's disk loader reads."""
+    verdict = build_condition_verdict("basal", {
+        "standard": {"verdict": "drift",
+                     "axes": [{"id": "standard.rna_mass", "verdict": "drift"}]}})
+
+    study_dir = tmp_path / "studies" / "basal"
+    p = write_study_verdict(study_dir, verdict)
+
+    assert p == study_dir / "report_card_verdict.json"
+    assert p.is_file()
+    doc = json.loads(p.read_text(encoding="utf-8"))
+    assert doc == verdict
+    assert doc["overall"] == "drift"
+
+
+def test_write_study_verdict_creates_missing_study_dir(tmp_path):
+    study_dir = tmp_path / "studies" / "not-yet-created"
+    p = write_study_verdict(study_dir, {"schema": "report_card_verdict/v1",
+                                        "overall": "ungraded", "groups": {}})
+    assert p.is_file()
 
 
 def test_verdict_feeds_report_card_axis_evaluator(tmp_path):

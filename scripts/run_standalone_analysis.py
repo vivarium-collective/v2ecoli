@@ -1,20 +1,36 @@
-"""Standalone post-hoc analysis for a Ray/xarray-dispatched simulation.
+"""Standalone post-hoc analysis for a Ray-dispatched simulation.
 
-sms-api's default GovCloud simulation dispatch (scripts/run_phase0_xarray_ensemble.py)
-writes one seed_NN/summary.json + seed_NN/store.zarr per seed under an S3 experiment
-prefix. sms-api's own standalone-analysis endpoint (POST /simulations/{id}/analysis)
-was built exclusively for a different, legacy simulation pipeline (vEcoli-private's
-Nextflow-based parca/variant_sim_data/TSV output) and cannot read this dispatch's
-output at all. This script builds the row records vEcoli's ported multiseed
-AnalysisStep classes expect (v2ecoli.workflow.analysis.ANALYSIS_REGISTRY) directly
-from this dispatch's own summary.json files, runs the requested module(s), and
-writes results back to S3 -- independent of the LineageProcess/batch_baseline_runner
-pipeline (which already supports analyses end-to-end but isn't what this dispatch
-path invokes).
+Two dispatch shapes reach this script, and it routes each analysis to whichever
+of v2ecoli's two analysis-class families it belongs to (same
+v2ecoli.workflow.analysis.ANALYSIS_REGISTRY for both -- distinguished by
+``issubclass(cls, Analysis)``):
 
-This dispatch script runs a single generation per seed with no cell division, so
-`divided`/`division_time` are always False/0.0 here -- an honest reflection of what
-it actually simulates, not a stand-in for multi-generation lineage data.
+  * scripts/run_phase0_xarray_ensemble.py's single-generation dispatch writes
+    only seed_NN/summary.json + seed_NN/store.zarr (no parquet). Its analyses
+    are ``AnalysisStep`` subclasses (e.g. multiseed's doubling_time_distribution)
+    -- this script builds row records straight from summary.json and calls
+    ``cls({}, core=core).analyze(rows)`` (unchanged from before).
+  * The multi-generation batch dispatch (BatchBaselineRunner, run through
+    sms_api.compose.run_pbg's generic runner -- see viva-api backlog items
+    26/27) uses emitter="both", which ALSO writes hive-parquet under the same
+    S3 prefix. This unlocks the
+    DuckDB-based ``Analysis`` family -- the cd1/ptools omics suite
+    (ptools_rna, cd1_metabolomics, etc.), the actual original backlog target
+    ("reproduce CD1 datasets"), never reachable via standalone analysis before.
+    These are routed straight to v2ecoli.workflow.analysis_runner.run_analyses(),
+    the SAME function the local batch_baseline flush path already uses
+    end-to-end (sweep_dir may be an s3:// URI -- DuckDB reads the parquet in
+    place via httpfs) -- no new analysis logic, just a real caller for GovCloud.
+
+sms-api's own standalone-analysis endpoint (POST /simulations/{id}/analysis) was
+built exclusively for a different, legacy simulation pipeline (vEcoli-private's
+Nextflow-based parca/variant_sim_data/TSV output) and cannot read either of
+these dispatch shapes' output at all -- this script is what actually runs.
+
+The single-generation dispatch has no cell division, so `divided`/
+`division_time` are always False/0.0 for THAT path's rows -- an honest
+reflection of what it actually simulates, not a bug. The multi-generation path
+has real division data (the batch dispatch's own real gap-2 fix).
 
 Usage:
     python scripts/run_standalone_analysis.py \
@@ -39,6 +55,13 @@ from typing import Any
 def _aws_cp(src: str, dst: str) -> None:
     subprocess.run(
         ["aws", "s3", "cp", src, dst],
+        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+    )
+
+
+def _aws_sync(src: str, dst: str) -> None:
+    subprocess.run(
+        ["aws", "s3", "sync", src, dst],
         check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
     )
 
@@ -71,12 +94,40 @@ ROW_BUILDERS: dict[str, Callable[[str, int, Path], list[dict[str, Any]]]] = {
 }
 
 
+def run_duckdb_analyses(
+    out_uri: str, scale: str, entries: dict[str, Any], tmp: Path, outdir: str,
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Route DuckDB-based ``Analysis`` names (one scale's worth) straight to
+    v2ecoli.workflow.analysis_runner.run_analyses() -- the same function the
+    local batch_baseline flush path already runs end-to-end. ``out_uri`` is the
+    sweep's S3 prefix; run_analyses reads its hive-parquet via DuckDB httpfs in
+    place and writes analysis.json/viz/ptools locally, which we then sync up.
+    """
+    from v2ecoli.workflow import analysis_runner
+
+    written: list[str] = []
+    errors: list[dict[str, str]] = []
+    local_out = tmp / "duckdb_out" / scale
+    try:
+        analysis_runner.run_analyses(
+            sweep_dir=out_uri, analysis_options={scale: entries}, out_dir=str(local_out),
+        )
+    except Exception as e:  # noqa: BLE001 -- surface any analysis failure in the manifest
+        errors.append({"scale": scale, "error": f"{type(e).__name__}: {e}"})
+        return written, errors
+    _aws_sync(str(local_out), outdir)
+    # run_analyses() writes ONE analysis.json covering every name in `entries`
+    # (plus viz/ptools per-group files) -- one manifest entry, not one per name.
+    written.append(f"{outdir}/analysis.json")
+    return written, errors
+
+
 def run(out_uri: str, n_seeds: int, modules: dict[str, dict[str, Any]],
         analysis_name: str, tmp: Path) -> dict[str, Any]:
     from bigraph_schema import allocate_core
 
     import v2ecoli.workflow.analyses  # noqa: F401 -- populates ANALYSIS_REGISTRY
-    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY
+    from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY, Analysis
 
     core = allocate_core()
     outdir = f"{out_uri.rstrip('/')}/analyses/{analysis_name}"
@@ -84,6 +135,31 @@ def run(out_uri: str, n_seeds: int, modules: dict[str, dict[str, Any]],
     errors: list[dict[str, str]] = []
 
     for scale, entries in modules.items():
+        # Split this scale's requested names by which analysis-class family they
+        # belong to -- the two families need entirely different inputs (row
+        # records vs. a DuckDB connection over the sweep's parquet).
+        duckdb_entries: dict[str, Any] = {}
+        step_names: list[str] = []
+        for name in entries:
+            cls = ANALYSIS_REGISTRY.get(name)
+            if cls is None:
+                errors.append({"name": name, "error": f"unknown analysis {name!r}"})
+                continue
+            if cls.scale != scale:
+                errors.append({"name": name, "error": f"{name} is scale={cls.scale!r}, not {scale!r}"})
+                continue
+            if issubclass(cls, Analysis):
+                duckdb_entries[name] = entries[name]
+            else:
+                step_names.append(name)
+
+        if duckdb_entries:
+            w, e = run_duckdb_analyses(out_uri, scale, duckdb_entries, tmp, outdir)
+            written.extend(w)
+            errors.extend(e)
+
+        if not step_names:
+            continue
         builder = ROW_BUILDERS.get(scale)
         if builder is None:
             errors.append({"scale": scale, "error": f"no row builder for scale {scale!r}"})
@@ -93,14 +169,8 @@ def run(out_uri: str, n_seeds: int, modules: dict[str, dict[str, Any]],
         except RuntimeError as e:
             errors.append({"scale": scale, "error": str(e)})
             continue
-        for name in entries:
-            cls = ANALYSIS_REGISTRY.get(name)
-            if cls is None:
-                errors.append({"name": name, "error": f"unknown analysis {name!r}"})
-                continue
-            if cls.scale != scale:
-                errors.append({"name": name, "error": f"{name} is scale={cls.scale!r}, not {scale!r}"})
-                continue
+        for name in step_names:
+            cls = ANALYSIS_REGISTRY[name]
             try:
                 result = cls({}, core=core).analyze(rows)
             except Exception as e:  # noqa: BLE001 -- surface any analysis failure in the manifest

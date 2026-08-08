@@ -235,6 +235,19 @@ open_decisions:
       v2ecoli/steps/allocator.py explicitly does NOT heal negative pools by
       design ("the negative pool is the upstream's to heal") -- so
       corruption persists and compounds each subsequent generation.
+      UPDATE (2026-08-08): a second, more specific symptom found using a
+      reduced-target flagella diagnostic (temporarily lowering the
+      completion length so real completions happen in minutes instead of
+      hours -- see flagella-02-transcription-regulation/study.yaml,
+      finding flagella-02-reduced-target-confirms-completion-then-freeze).
+      Once the corruption sets in (~generation 3), it doesn't just depress
+      division mass -- it appears to also silently break WHATEVER
+      completion-triggering logic depends on the corrupted state: flagella
+      kept growing well past their own completion target (up to 4x over)
+      without ever being marked complete, for the rest of that run. Not
+      isolated to flagella specifically -- read as further evidence the
+      underlying corruption is general (some shared piece of per-cell state
+      going bad), not narrowly about division mass alone.
     recommendation: |
       Document as a known limitation for now (Maya's explicit call,
       2026-08-07) rather than attempting a fix in-session -- this would be a

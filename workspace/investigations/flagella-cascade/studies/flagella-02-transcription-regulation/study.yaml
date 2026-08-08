@@ -145,6 +145,28 @@ runs:
     division-mass-stays-stable-across-generations:
       result: CONTRADICTED
       detail: "dry_mass at division declined monotonically across all 5 generations (706.7->598.9->531.0->476.7->472.6 fg); see finding flagella-02-multigen-blocked-by-division-mass-homeostasis-gap"
+- name: flagella-02-reduced-target-diagnostic__seed0__7200s
+  kind: analysis
+  canonical: true
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  description: >-
+    DIAGNOSTIC ONLY (real stoichiometry untouched -- config_overrides sets
+    ecoli-flagella-filament-elongation.target_length=2000 for this run only,
+    complexation_reactions_modified.tsv unchanged). Population-based
+    (run_diagnostic_reduced_target.py), full override IC, seed 0,
+    out/cache_full_flit_v4, 7200s. Tests whether the FliT checkpoint + real
+    assembly mechanisms produce working, self-limiting completions once
+    completion speed itself isn't the bottleneck -- entirely within the
+    currently-trustworthy ~3-generation window.
+  status: completed
+  result: PARTIAL
+  outcomes:
+    completions-occur-when-not-time-limited:
+      result: CONFIRMED
+      detail: "5 real completions in the clean first ~46min (generations 1-2): total_flag 4->9, completed_ever 0->5"
+    self-limiting-dynamics-observable:
+      result: INCONCLUSIVE
+      detail: "run hit the division-mass-homeostasis corruption (investigation.yaml open_decisions) at generation 3 before self-limiting behavior could be observed either way -- see next finding"
 
 findings:
 - id: flagella-02-gate-writes-overrides
@@ -573,6 +595,40 @@ findings:
   evidence:
     observed: "lineage_multigen_5gen.npz (real Division machinery, randomized daughter selection): division dry_mass 706.7/598.9/531.0/476.7/472.6 fg across 5 generations, monotonic decline; population run (run_flit_checkpoint_multigen.py, 14400s target) showed the identical pattern (513.7-565.0 fg divisions + GLP_NOFEAS floods) once it reached ~6 agents / gen 4"
     expected: "division mass should fluctuate around a roughly constant steady-state value across generations (ordinary binomial variance), not decline monotonically"
+- id: flagella-02-reduced-target-confirms-completion-then-freeze
+  kind: computational
+  status: supports
+  statement: >-
+    (2026-08-08) Maya's proposal: since real completions need >=133min
+    (finding flagella-02-filament-completion-needs-133min-minimum) and the
+    trustworthy multi-gen window is only ~3 generations (~2hr), temporarily
+    lower the completion TARGET (not the real cited stoichiometry -- one
+    diagnostic run only, config_overrides, complexation_reactions_
+    modified.tsv untouched) so real completions happen fast enough to
+    observe within that window. Result, in two parts. PART 1 (positive,
+    new): within the clean window (generations 1-2, first ~46min), the
+    mechanism genuinely works -- 5 real completions, total flagella count
+    climbing 4->9 (completed_ever 0->5). This is the first direct evidence
+    the FliT checkpoint + assembly pipeline produce actual completions, not
+    an asymptotic stall, once completion speed itself isn't the limiting
+    factor. PART 2 (new symptom of the known division-mass-homeostasis
+    limitation, investigation.yaml open_decisions): right as that
+    limitation's corruption set in (~generation 3, divisions at 582/593fg,
+    below the normal ~700fg), completions STOPPED ENTIRELY -- total_flag
+    frozen at exactly 9 for the remaining ~70min of the run, even as
+    filament_length kept growing well PAST its own 2,000-subunit
+    completion target (up to 8,387, >4x over) without ever being marked
+    complete. So the original question (does flagella count self-limit
+    over generations) is still not answered -- the run ran out of clean
+    window before that could be observed either way -- but this adds a
+    second, more specific piece of evidence about the underlying
+    corruption: it doesn't just depress division mass, it appears to
+    silently break completion-triggering logic too, once it sets in. Not
+    flagella-specific -- read as evidence the corruption is a general
+    per-cell state problem, not narrowly about mass.
+  evidence:
+    observed: "diagnostic_reduced_target_2000_7200s.npz: t=600-2400s (gen 1) completed_ever 1->4; t=3000s (gen 2) completed_ever=5, total_flag=9; t=3000s-7200s (gen 3+, post-corruption) completed_ever frozen at 5, total_flag frozen at 9, while max_len climbed 4156->8387 (target=2000)"
+    expected: "if the mechanism works and isn't time-limited, completions should continue at a similar rate throughout a clean run; a frozen completion count while filament_length keeps climbing past target is not expected under any model of the flagella mechanism alone"
 
 visualizations:
 - address: image:charts/01_full_override_gated_cascade.svg

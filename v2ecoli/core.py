@@ -174,6 +174,9 @@ _CACHE_CONFIG_NAMES = [
     # feature. Dumped unconditionally so the cache can serve them when the feature
     # is enabled (the runtime mock loader cannot regenerate them).
     'ecoli-flagella-transcription-regulation', 'ecoli-flagella-flgm-secretion',
+    'ecoli-flhdc-degradation', 'ecoli-flit-flhdc-checkpoint',
+    'ecoli-flagella-motor-switch-assembly', 'ecoli-flagella-motor-complex-assembly',
+    'ecoli-flagella-filament-nucleation', 'ecoli-flagella-filament-elongation',
     'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
     'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
     'ecoli-chromosome-replication', 'ecoli-protein-degradation',

@@ -203,6 +203,51 @@ testing_standard:
     being biological validation.
 
 open_decisions:
+  - id: division-mass-homeostasis-gap
+    raised_by: system
+    date: '2026-08-07'
+    status: OPEN -- KNOWN LIMITATION, not flagella-specific
+    question: >-
+      Discovered while trying to run a flagella multi-generation test past
+      ~3-4 real generations, but this is a GENERAL v2ecoli WCM limitation,
+      not specific to flagella or anything added this investigation: cell
+      dry_mass at division declines monotonically once a simulation pushes
+      past roughly 3-4 real divisions (~150-180 min), alongside floods of
+      GLP_NOFEAS/numerical-instability warnings from the metabolism FBA
+      solver. Reproduced independently in two different test harnesses
+      (single followed lineage with real Division-step pruning; expanding
+      population keeping all daughters), both using seed 0 against
+      out/cache_full_flit_v4. Ruled out: manual state-splicing bugs, biased
+      daughter selection (tested with a genuine random coin-flip per
+      division), and shared/depleting environment state (ecoli_baseline
+      wires no pooled environment -- each agent's environment/boundary is a
+      private, non-depleting copy, confirmed by direct code inspection).
+      Most likely root cause (not yet confirmed as a fix, not yet
+      implemented): v2ecoli/steps/division.py's default D-period division
+      timer (self.d_period=True) fires a FIXED duration after chromosome
+      replication completes, with NO mass-threshold check at the division
+      step itself -- unlike real bacteria's size-homeostasis ("adder")
+      mechanism. An underweight daughter (ordinary binomial variance
+      guarantees these occur) divides at a proportionally smaller mass
+      rather than waiting to catch up; its FBA problem (calibrated around a
+      ~700fg reference cell) becomes more likely to go infeasible;
+      infeasible ticks can push bulk pools negative, and
+      v2ecoli/steps/allocator.py explicitly does NOT heal negative pools by
+      design ("the negative pool is the upstream's to heal") -- so
+      corruption persists and compounds each subsequent generation.
+    recommendation: |
+      Document as a known limitation for now (Maya's explicit call,
+      2026-08-07) rather than attempting a fix in-session -- this would be a
+      real, separate engineering effort (either adding a proper mass-gated
+      correction to the division timer, or making the allocator heal
+      negative pools from infeasible FBA solves), not a quick patch. Practical
+      implication for ALL work in this repo, not just flagella: any
+      multi-generation test/result should be treated as trustworthy only
+      within roughly the first 3 generations (~2hr from a typical starting
+      condition); results from longer runs should be treated with suspicion
+      until this is fixed. See flagella-02-transcription-regulation's
+      study.yaml (finding flagella-02-multigen-blocked-by-division-mass-
+      homeostasis-gap) for the full evidence trail.
   - id: nfsim-own-investigation
     raised_by: MA
     date: '2026-07-24'
@@ -349,6 +394,7 @@ scientific_argument:
   - Spatial organization (Aim 1) now has two studies (03 Voronoi compartments, 05 spatial transport) but neither is coupled to the transcriptional cascade or the WCM's actual spatial dynamics yet — both are visualization/scaffolding, not mechanistic spatial simulation.
   - Quantitative count results use a local full-mode ParCa rebuild (out/cache_full); the committed ParCa fixture stays fast-mode.
   - Regulation ON (feature + full override) and regulation OFF (default cache, no override) now start from DIFFERENT initial flagella counts (4 vs ~30-45) -- by Maya's explicit choice, since OFF is meant to stay the unregulated reference. Any ON-vs-OFF count comparison therefore mixes the regulatory effect with the initial-condition gap; see the COUNT VERDICT section above for the full caveat.
+  - Flagella COUNT beyond a short (~15 min) window is not reliable: the standard ecoli-complexation process has no cap on the number of independent complete flagella that can form, and a positive feedback loop (more flagella -> faster FlgM export -> more free FliA -> more Class III transcription -> more subunit monomers -> more flagella) makes count grow unboundedly and ACCELERATE rather than saturate near the real ~5-10 peritrichous count -- confirmed via a dedicated FliA0 x FlgM0 grid scan in study 02 (4 -> 8 at 15 min, matching the short-window chart 01 result, but 4 -> 18 and still accelerating at 42 min). NFsim (study 04) does NOT fix this either -- its BNGL rule set has the identical open-loop gap (checked directly, see study 04's new finding). Any claim in this investigation about flagella count should be read as valid only over the short windows actually reported (chart 01 and similar, <=15 min), not extrapolated to longer runs.
 inputs:
   references:
   - _pending_1784907287

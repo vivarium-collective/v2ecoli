@@ -223,6 +223,38 @@ def divide_ribosomes_by_RNA(values, unique_state):
     return ribosomes[d1_bool], ribosomes[d2_bool]
 
 
+def divide_nascent_flagellum(values, unique_state):
+    """Divide in-progress flagella binomially between daughters.
+
+    Added 2026-08-06, flagella-cascade investigation. Before this, any
+    unique molecule type without an entry in UNIQUE_DIVIDERS fell through to
+    divide_cell's catch-all "unknown type -> copy whole array to BOTH
+    daughters" -- physically impossible (a single anchored structure can't
+    become two) and not mass-conserving (every nascent flagellum would be
+    duplicated at every division, inflating the count exponentially across
+    generations and directly undermining any multi-generation test of
+    whether flagella count self-limits).
+
+    Real flagella are physically anchored to a fixed point on the cell
+    envelope; division splits that envelope roughly in half, so each
+    existing structure (complete or in-progress) ends up in whichever
+    daughter inherits that patch of membrane -- for a peritrichous,
+    ~randomly-distributed set of flagella, a binomial p=0.5 assignment per
+    flagellum (each independently, entirely, to one daughter or the other --
+    not split fractionally) is the natural approximation, mirroring how
+    complete flagella (CPLX0-7452, an ordinary bulk molecule) already divide
+    via divide_bulk's binomial split.
+    """
+    active = values[values['_entryState'].view(np.bool_)]
+    n_molecules = len(active)
+    if n_molecules == 0:
+        return active, active
+    seed = int(active['filament_length'].sum() + n_molecules) % RAND_MAX
+    rng = np.random.RandomState(seed=seed)
+    d1_bool = rng.random(n_molecules) < 0.5
+    return active[d1_bool], active[~d1_bool]
+
+
 # ---------------------------------------------------------------------------
 # Dispatch table: unique molecule name → divider function
 # ---------------------------------------------------------------------------
@@ -239,6 +271,7 @@ UNIQUE_DIVIDERS = {
     'chromosomal_segment': divide_by_domain,
     'RNA': divide_RNAs_by_domain,
     'active_ribosome': divide_ribosomes_by_RNA,
+    'nascent_flagellum': divide_nascent_flagellum,
 }
 
 
@@ -295,6 +328,8 @@ def divide_cell(cell_state):
             d1_unique[name], d2_unique[name] = divide_RNAs_by_domain(arr, unique_state)
         elif divider == divide_ribosomes_by_RNA:
             d1_unique[name], d2_unique[name] = divide_ribosomes_by_RNA(arr, unique_state)
+        elif divider == divide_nascent_flagellum:
+            d1_unique[name], d2_unique[name] = divide_nascent_flagellum(arr, unique_state)
 
     # 3. Build daughter initial states
     d1_state = {

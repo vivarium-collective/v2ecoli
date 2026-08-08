@@ -230,3 +230,24 @@
 "DNAA-INTRINSIC-HYDROLYSIS-RXN"	{"MONOMER0-4565": 1, "MONOMER0-160": null, "WATER": null, "Pi": 1, "PROTON": 1}	"DnaA-ATP intrinsic hydrolysis"
 # FLGM-FLIA-CPLX_RXN (flagella-cascade investigation, ported from Maya Abdalla's vEcoli `biofilm` branch): FlgM (G369-MONOMER) sequesters free FliA/sigma28 (EG11355-MONOMER) into the FLGM-FLIA-CPLX complex. Biological Kd ~2E-10 M; relaxed to 2E-7 M (see equilibrium_reaction_rates.tsv) to avoid ODE numerical instability in ParCa equilibrium fitting. Drives the Class II -> Class III gate together with ecoli-flagella-flgm-secretion.
 "FLGM-FLIA-CPLX_RXN"	{"FLGM-FLIA-CPLX": 1, "G369-MONOMER": null, "EG11355-MONOMER": null}	"FlgM anti-sigma sequestration of FliA (sigma28)"
+# FLIT-FLID-CPLX_RXN (flagella-cascade investigation, 2026-08-05): the FliT homodimer
+# (FLIT-DIMER, see complexation_reactions_added.tsv) chaperones FliD (EG10841-MONOMER)
+# at the measured 2:1 FliT:FliD stoichiometry (Yamamoto & Kutsukake 2006, J Bacteriol
+# 188:5124), expressed here as 1 FLIT-DIMER + 1 FliD (both order-1 reactants -- see
+# complexation_reactions_added.tsv for why the dimer is tracked as its own species
+# rather than writing this as "2 FliT + 1 FliD" directly). Modeled as an equilibrium,
+# not a complexation reaction -- complexation reactions require exactly one
+# positive-coefficient product, which blocked an earlier design where CPLX0-7452_RXN
+# both formed CPLX0-7452 and released free FliT directly; see the note in
+# complexation_reactions_modified.tsv. This equilibrium and CPLX0-7452_RXN (unmodified,
+# still consuming raw free FliD) draw on the same free-FliD pool: as flagellum assembly
+# consumes free FliD, this equilibrium shifts toward dissociation to partially
+# replenish it, releasing FliT-dimer as a direct consequence of shared-reactant
+# mass-action dynamics -- not a hard-coded co-product. This is the real trigger for
+# the FliT negative-feedback checkpoint on FlhD4C2 (Utsey & Keener 2020, PLOS Comput
+# Biol 16:e1007689; Yamamoto & Kutsukake 2006; Yakhnin et al., PMC4239645). No
+# literature Kd exists for FliT:FliD binding specifically, so the rate
+# (equilibrium_reaction_rates.tsv) is an assumed value in the same numerically-stable
+# range already used for FLGM-FLIA-CPLX_RXN above, not a literature-sourced constant
+# -- flagged here rather than presented as measured.
+"FLIT-FLID-CPLX_RXN"	{"FLIT-FLID-CPLX": 1, "FLIT-DIMER": null, "EG10841-MONOMER": null}	"FliT:FliD export chaperone complex (2:1 FliT:FliD)"

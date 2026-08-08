@@ -628,6 +628,12 @@ class LoadSimData:
             "ecoli-tf-binding": self.get_tf_config,
             "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
             "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
+            "ecoli-flhdc-degradation": self.get_flhdc_degradation_config,
+            "ecoli-flit-flhdc-checkpoint": self.get_flit_flhdc_checkpoint_config,
+            "ecoli-flagella-motor-switch-assembly": self.get_flagella_motor_switch_assembly_config,
+            "ecoli-flagella-motor-complex-assembly": self.get_flagella_motor_complex_assembly_config,
+            "ecoli-flagella-filament-nucleation": self.get_flagella_filament_nucleation_config,
+            "ecoli-flagella-filament-elongation": self.get_flagella_filament_elongation_config,
             "ecoli-transcript-initiation": self.get_transcript_initiation_config,
             "ecoli-transcript-elongation": self.get_transcript_elongation_config,
             "ecoli-rna-degradation": self.get_rna_degradation_config,
@@ -804,8 +810,23 @@ class LoadSimData:
         # flgM transcription rises (override = Y), making more FlgM to re-sequester
         # FliA — preventing runaway FliA accumulation (Stefan et al. 2015, PLoS
         # Comput Biol 11:e1004028: the Class II flgM promoter is near background).
+        #
+        # BUG FOUND AND FIXED 2026-08-06 (flagella-cascade deep-dive investigation):
+        # this list previously had "EG10317_RNA" in fliD's slot (right after fliC) --
+        # EG10317 is *fis*, a global nucleoid-associated regulator with no connection
+        # to flagella at all, not fliD. This meant fliD's own transcription was never
+        # actually gated by FliA/Class III -- it ran at whatever unregulated basal
+        # rate ParCa fit, disconnected from the whole FliT-checkpoint cascade this
+        # gene is central to (FliT:FliD binding depends on free fliD SUPPLY, which
+        # this bug left unlinked to FliA). Confirmed via genes.tsv: EG10841="fliD",
+        # EG10317="fis". Old (buggy) list kept per standing preserve-old-code rule:
+        # classIII_cistron_ids = [
+        #     "EG10321_RNA", "EG10317_RNA", "EG11967_RNA", "EG11545_RNA",
+        #     "EG10601_RNA", "EG10602_RNA", "EG10146_RNA", "EG10149_RNA",
+        #     "G369_RNA",
+        # ]
         classIII_cistron_ids = [
-            "EG10321_RNA", "EG10317_RNA", "EG11967_RNA", "EG11545_RNA",
+            "EG10321_RNA", "EG10841_RNA", "EG11967_RNA", "EG11545_RNA",
             "EG10601_RNA", "EG10602_RNA", "EG10146_RNA", "EG10149_RNA",
             "G369_RNA",
         ]
@@ -835,6 +856,106 @@ class LoadSimData:
             "flgM_id": "G369-MONOMER[c]",
             "hbb_id": "CPLX0-7452[j]",
             "secretion_rate": 0.1,
+        }
+
+    def get_flhdc_degradation_config(self, time_step=1):
+        """Config for the FlhD4C2 (ClpXP-mediated) degradation Step.
+
+        Added 2026-08-05 to address the flagella-count runaway found in Maya's
+        flagella-cascade investigation. Rate is a literature-anchored ESTIMATE,
+        not a directly-measured E. coli/CPLX0-3930-specific constant -- see
+        v2ecoli/processes/flagella_flhdc_degradation.py for full provenance.
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "flhdc_id": "CPLX0-3930[c]",
+            "degradation_rate": 0.00289,
+        }
+
+    def get_flit_flhdc_checkpoint_config(self, time_step=1):
+        """Config for the FliT-mediated FlhD4C2 checkpoint Step.
+
+        Added 2026-08-06 as the real, literature-grounded mechanism for the
+        flagella-count-runaway problem, replacing an earlier hard-coded
+        nucleation cap (removed 2026-08-06 per Maya's explicit "no artificial
+        cap" instruction) -- see
+        v2ecoli/processes/flagella_flit_flhdc_checkpoint.py for full
+        provenance (Utsey & Keener 2020 fast-equilibrium reduction; delta2 is
+        literature-sourced, k_half is a documented estimate reusing the
+        SUM-gate's K_flhDC scale).
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "flhdc_id": "CPLX0-3930[c]",
+            "flit_dimer_id": "FLIT-DIMER[c]",
+            "bound_degradation_rate": 0.05,
+            "k_half": 50.0,
+        }
+
+    def get_flagella_motor_switch_assembly_config(self, time_step=1):
+        """Config for the flagellar motor switch complex (C-ring) assembly Step.
+
+        Added 2026-08-06 -- see
+        v2ecoli/processes/flagella_motor_switch_assembly.py for full
+        provenance (moved out of Gillespie SSA for numerical reasons, not
+        biological ones; real cryo-EM stoichiometry FliG=34/FliM=34/FliN=111).
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "fliG_id": "FLIG-FLAGELLAR-SWITCH-PROTEIN[i]",
+            "fliM_id": "FLIM-FLAGELLAR-C-RING-SWITCH[i]",
+            "fliN_id": "FLIN-FLAGELLAR-C-RING-SWITCH[m]",
+            "product_id": "CPLX0-7450[i]",
+        }
+
+    def get_flagella_motor_complex_assembly_config(self, time_step=1):
+        """Config for the flagellar motor complex (basal body) assembly Step.
+
+        Added 2026-08-06 -- see
+        v2ecoli/processes/flagella_motor_complex_assembly.py for full
+        provenance (moved out of Gillespie SSA for numerical reasons, not
+        biological ones; wires in the previously-orphaned export apparatus).
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "product_id": "FLAGELLAR-MOTOR-COMPLEX[j]",
+        }
+
+    def get_flagella_filament_nucleation_config(self, time_step=1):
+        """Config for the flagellar filament nucleation Step.
+
+        Added 2026-08-06 -- see
+        v2ecoli/processes/flagella_filament_nucleation.py for full
+        provenance (rate-limited by design, per Chang/Sung/Hong 2025's
+        basal-body clustering finding; nucleation_rate is a derived
+        estimate, not a direct citation).
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "flhdc_motor_complex_id": "FLAGELLAR-MOTOR-COMPLEX[j]",
+            "flgE_id": "G361-MONOMER[c]",
+            "flgK_id": "EG11967-MONOMER[e]",
+            "flgL_id": "EG11545-MONOMER[e]",
+            "nucleation_rate": 0.00167,
+        }
+
+    def get_flagella_filament_elongation_config(self, time_step=1):
+        """Config for the flagellar filament elongation Step.
+
+        Added 2026-08-06 -- see
+        v2ecoli/processes/flagella_filament_elongation.py for full
+        provenance (Renault et al. 2017, eLife 6:e23136, injection-diffusion
+        model, converted to subunit-count units).
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "fliC_id": "EG10321-MONOMER[e]",
+            "fliD_id": "EG10841-MONOMER[e]",
+            "flagellum_id": "CPLX0-7452[j]",
+            "fliD_per_completion": 5,
+            "target_length": 20000,
+            "rate_a": 26450.0,
+            "rate_b": 575.0,
         }
 
     def get_transcript_initiation_config(self, time_step=1):
@@ -1283,6 +1404,11 @@ class LoadSimData:
         return polypeptide_elongation_config
 
     def get_complexation_config(self, time_step=1):
+        # NOTE (flagella-cascade investigation, 2026-08-06): CPLX0-7452_RXN
+        # is deliberately absent from sim_data.process.complexation's own
+        # reaction set (excluded in Complexation.__init__ via
+        # RUNTIME_EXCLUDED_REACTIONS -- see complexation.py for why), so no
+        # filtering is needed here; this config is automatically clean.
         complexation_config = {
             "time_step": time_step,
             "stoichiometry": self.sim_data.process.complexation.stoich_matrix()

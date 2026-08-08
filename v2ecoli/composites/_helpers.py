@@ -1512,6 +1512,14 @@ def _get_special_step(loader, step_name, core):
         _injected = getattr(loader, '_injected_processes', None)
         if _injected:
             div_config['injected_processes'] = _injected
+        # Thread the resolved opt-in FEATURE list (flagella-cascade
+        # investigation, 2026-08-06) the same way -- see the matching note in
+        # ecoli_baseline.py's baseline() where loader._features is set, for
+        # why omitting this crashed flagella_transcription_regulation.py at
+        # division rather than just silently dropping the feature.
+        _features = getattr(loader, '_features', None)
+        if _features:
+            div_config['features'] = _features
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

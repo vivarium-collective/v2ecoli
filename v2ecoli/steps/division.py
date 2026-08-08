@@ -183,6 +183,12 @@ class Division(V2Step):
         # (e.g. metabolism-redux) survives division. None for the normal baseline
         # -> daughters rebuild the plain FBA baseline exactly as before.
         self._injected_processes = self.parameters.get('injected_processes')
+        # Opt-in FEATURE list (flagella-cascade investigation, 2026-08-06),
+        # threaded the same way as injected_processes above -- see the note
+        # in ecoli_baseline.py's baseline() (loader._features) and
+        # _helpers.py's 'division' branch. None/empty -> daughters rebuild
+        # with baseline()'s own defaults exactly as before this fix.
+        self._features = self.parameters.get('features')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -373,7 +379,8 @@ class Division(V2Step):
                     doc = baseline(
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
-                        injected_processes=self._injected_processes)
+                        injected_processes=self._injected_processes,
+                        features=self._features)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

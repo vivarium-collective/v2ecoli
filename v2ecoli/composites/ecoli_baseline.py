@@ -147,14 +147,59 @@ FEATURE_MODULES = {
         'steps': ['ppgpp-initiation'],
     },
     # flagella-cascade investigation (ported from Maya Abdalla's vEcoli `biofilm`
-    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate. Both run before
-    # transcript-initiation so the gate's init_prob_override is in place when
-    # initiation probabilities are computed. FlgM secretion only depends on the
-    # bulk flagella count, so a one-tick lag behind complexation is acceptable.
+    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate, plus (added
+    # 2026-08-05) FlhD4C2 (ClpXP-mediated) degradation, plus (added 2026-08-06)
+    # the real FliT-mediated negative-feedback checkpoint on FlhD4C2 (Utsey &
+    # Keener 2020) -- see flagella_flit_flhdc_checkpoint.py for full
+    # provenance. An earlier hard-coded flagella-count ceiling
+    # ("ecoli-flagella-nucleation-cap") was tried first to fix the flagella-
+    # count-unbounded-runaway finding, and was removed 2026-08-06 per Maya's
+    # explicit instruction not to keep an artificial cap now that the real
+    # FliT checkpoint mechanism is in place (see feedback_biology_first_no_
+    # quick_fixes in the investigation's standing notes). Its ordering-bug
+    # fix (the after_steps/before_steps split on build_execution_layers) is
+    # kept as general infrastructure even though no feature currently needs
+    # insert_after for this one.
+    #
+    # ALSO added 2026-08-06: ecoli-flagella-filament-nucleation and
+    # ecoli-flagella-filament-elongation REPLACE CPLX0-7452_RXN as the actual
+    # creator of complete-flagellum (CPLX0-7452) counts. CPLX0-7452_RXN's
+    # real FliC stoichiometry (~20,000 subunits, complexation_reactions_
+    # modified.tsv) made Gillespie SSA's combinatorial propensity calculation
+    # blow up numerically -- it's excluded from the runtime ecoli-complexation
+    # config (see get_complexation_config, sim_data.py) and kept only for
+    # ParCa's static mass auto-derivation. These two Steps do the real,
+    # incremental version instead -- see flagella_filament_elongation.py.
+    # Ordered first (nucleation, then elongation) so newly-created/newly-
+    # completed flagella are visible to flgm-secretion the same tick.
     # OFF by default (opt-in via enable_features('flagella_regulation')).
     'flagella_regulation': {
         'insert_before': 'ecoli-transcript-initiation',
-        'steps': [
+        # Old list (kept per standing preserve-old-code rule):
+        # 'steps': [
+        #     'ecoli-flagella-flgm-secretion',
+        #     'ecoli-flagella-transcription-regulation',
+        # ],
+        # Previous list (also kept):
+        # 'steps': [
+        #     'ecoli-flhdc-degradation',
+        #     'ecoli-flagella-flgm-secretion',
+        #     'ecoli-flagella-transcription-regulation',
+        # ],
+        # Previous list (also kept, before filament nucleation/elongation):
+        # 'steps': [
+        #     'ecoli-flhdc-degradation',
+        #     'ecoli-flit-flhdc-checkpoint',
+        #     'ecoli-flagella-flgm-secretion',
+        #     'ecoli-flagella-transcription-regulation',
+        # ],
+        'before_steps': [
+            'ecoli-flagella-motor-switch-assembly',
+            'ecoli-flagella-motor-complex-assembly',
+            'ecoli-flagella-filament-nucleation',
+            'ecoli-flagella-filament-elongation',
+            'ecoli-flhdc-degradation',
+            'ecoli-flit-flhdc-checkpoint',
             'ecoli-flagella-flgm-secretion',
             'ecoli-flagella-transcription-regulation',
         ],
@@ -200,16 +245,21 @@ def build_execution_layers(features=None):
             continue
         if 'insert_after' in feat:
             ref = feat['insert_after']
+            # 'after_steps' lets a feature split its steps across two anchor
+            # points (falls back to the shared 'steps' key for features that
+            # only use one anchor, unchanged behavior for those).
+            after_steps = feat.get('after_steps', feat.get('steps', []))
             for i, layer in enumerate(layers):
                 if isinstance(layer, list) and ref in layer:
-                    for step_name in feat.get('steps', []):
+                    for step_name in after_steps:
                         layers.insert(i + 1, [step_name])
                     break
         if 'insert_before' in feat:
             ref = feat['insert_before']
+            before_steps = feat.get('before_steps', feat.get('steps', []))
             for i, layer in enumerate(layers):
                 if isinstance(layer, list) and ref in layer:
-                    for step_name in reversed(feat.get('steps', [])):
+                    for step_name in reversed(before_steps):
                         layers.insert(i, [step_name])
                     break
         for listener in feat.get('listeners', []):
@@ -275,6 +325,12 @@ def _get_step_config(
         FlagellaTranscriptionRegulation,
     )
     from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
+    from v2ecoli.processes.flagella_flhdc_degradation import FlhDCDegradation
+    from v2ecoli.processes.flagella_flit_flhdc_checkpoint import FliTFlhDCCheckpoint
+    from v2ecoli.processes.flagella_filament_nucleation import FlagellaFilamentNucleation
+    from v2ecoli.processes.flagella_filament_elongation import FlagellaFilamentElongation
+    from v2ecoli.processes.flagella_motor_switch_assembly import FlagellaMotorSwitchAssembly
+    from v2ecoli.processes.flagella_motor_complex_assembly import FlagellaMotorComplexAssembly
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.partition import Requester, Evolver
@@ -414,6 +470,12 @@ def _get_step_config(
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-flagella-transcription-regulation': FlagellaTranscriptionRegulation,
         'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
+        'ecoli-flhdc-degradation': FlhDCDegradation,
+        'ecoli-flit-flhdc-checkpoint': FliTFlhDCCheckpoint,
+        'ecoli-flagella-filament-nucleation': FlagellaFilamentNucleation,
+        'ecoli-flagella-filament-elongation': FlagellaFilamentElongation,
+        'ecoli-flagella-motor-switch-assembly': FlagellaMotorSwitchAssembly,
+        'ecoli-flagella-motor-complex-assembly': FlagellaMotorComplexAssembly,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
         'ecoli-protein-degradation': ProteinDegradation,
@@ -1083,6 +1145,21 @@ def baseline(
     # -> metabolism-redux) is lost across generations. Normal FBA baseline has
     # injected_processes=None -> daughters rebuild plain baseline unchanged.
     loader._injected_processes = injected_processes
+    # Same threading, for opt-in FEATURE MODULES (flagella-cascade
+    # investigation, 2026-08-06): division.py's daughter rebuild previously
+    # called baseline(...) with no features= at all, so any opt-in feature
+    # (e.g. flagella_regulation, enabled only via enable_features()/the
+    # _EXTRA_FEATURES global, which is typically cleared right after the
+    # PARENT's build and is empty again by the time division fires mid-
+    # simulation) was silently dropped for daughters. That didn't just
+    # disable the feature quietly -- process_bigraph's own structural-realize
+    # step (core.realize -> edge_class(config, core)) still tried to rebuild
+    # the STALE step node left over from the parent's schema using the Step's
+    # bare config_schema defaults (unresolved raw cistron IDs, not real TU
+    # IDs), crashing with "ValueError: 'EG10322_RNA' is not in list" in
+    # flagella_transcription_regulation.py's initialize(). Fixing "just
+    # don't drop the feature" is therefore also the fix for that crash.
+    loader._features = list(features)
 
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)

@@ -64,11 +64,26 @@ def _arr(s):
     return s["_data"] if isinstance(s, dict) and "_data" in s else s
 
 
-def run(seconds, sample, seed, cache_dir, target_length):
+def run(seconds, sample, seed, cache_dir, target_length, nucleation_rate=None):
+    # nucleation_rate override added 2026-08-08: the target-length-only
+    # diagnostic (2000, then 500) showed IDENTICAL completion timing/counts
+    # in both cases up through the first division -- revealing nucleation
+    # rate (fixed ~1 event/600s), not target length, was pacing completions
+    # in that regime (each new filament finishes well within one nucleation
+    # interval regardless of target, so the next nucleation event is the
+    # actual bottleneck). Bumping nucleation_rate too lets more filaments
+    # exist/complete concurrently within the same clean pre-corruption
+    # window. Still diagnostic-only -- nucleation_rate is itself already a
+    # derived estimate (see flagella_filament_nucleation.py), not a
+    # literature constant, so this is not overriding a "real" measured
+    # value, just exploring a faster point on an already-uncertain rate.
+    overrides = {"ecoli-flagella-filament-elongation.target_length": target_length}
+    if nucleation_rate is not None:
+        overrides["ecoli-flagella-filament-nucleation.nucleation_rate"] = nucleation_rate
     enable_features("flagella_regulation")
     comp = v2ecoli.build_composite(
         "ecoli_baseline", cache_dir=cache_dir, seed=seed,
-        config_overrides={"ecoli-flagella-filament-elongation.target_length": target_length},
+        config_overrides=overrides,
     )
     enable_features()
 
@@ -136,7 +151,7 @@ def run(seconds, sample, seed, cache_dir, target_length):
     return {k: np.array(v) for k, v in rec.items()}
 
 
-def figure(rec, seconds, target_length):
+def figure(rec, seconds, target_length, nucleation_rate=None):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -171,10 +186,12 @@ def figure(rec, seconds, target_length):
     d.set_title("Filament construction progress")
     d.set_xlabel("time (min)"); d.set_ylabel("subunits"); d.legend(fontsize=7)
 
-    fig.suptitle(f"DIAGNOSTIC (target_length={target_length}, real biology=20,000): "
+    rate_note = f", nucleation_rate={nucleation_rate}" if nucleation_rate else ""
+    fig.suptitle(f"DIAGNOSTIC (target_length={target_length}, real biology=20,000{rate_note}): "
                  f"self-limiting dynamics test, {seconds}s ({seconds/60:.0f} min)")
     fig.tight_layout()
-    out = f"{STUDY_DIR}/charts/11_diagnostic_reduced_target_{target_length}_{seconds}s.svg"
+    rate_tag = f"_rate{nucleation_rate}" if nucleation_rate else ""
+    out = f"{STUDY_DIR}/charts/11_diagnostic_reduced_target_{target_length}{rate_tag}_{seconds}s.svg"
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.savefig(out, format="svg", bbox_inches="tight")
     plt.close(fig)
@@ -188,18 +205,21 @@ def main():
     ap.add_argument("--sample", type=int, default=120)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--target-length", type=int, default=2000)
+    ap.add_argument("--nucleation-rate", type=float, default=None)
     ap.add_argument("--cache-dir", default="out/cache_full_flit_v4")
     args = ap.parse_args()
-    rec = run(args.seconds, args.sample, args.seed, args.cache_dir, args.target_length)
-    figure(rec, args.seconds, args.target_length)
+    rec = run(args.seconds, args.sample, args.seed, args.cache_dir, args.target_length, args.nucleation_rate)
+    figure(rec, args.seconds, args.target_length, args.nucleation_rate)
     print(f"\nn_agents {rec['n_agents'][0]}->{rec['n_agents'][-1]}  "
           f"total_flag {rec['total_flag'][0]}->{rec['total_flag'][-1]}  "
           f"mean_flag/cell {rec['mean_flag_per_cell'][0]:.1f}->{rec['mean_flag_per_cell'][-1]:.1f}  "
           f"total_nascent {rec['total_nascent'][0]}->{rec['total_nascent'][-1]}  "
           f"cumulative_completions {rec['n_completed_ever'][-1]}  "
           f"max_len {rec['max_len'][-1]}/{args.target_length}")
-    np.savez(f"{STUDY_DIR}/diagnostic_reduced_target_{args.target_length}_{args.seconds}s.npz", **rec)
-    print(f"wrote {STUDY_DIR}/diagnostic_reduced_target_{args.target_length}_{args.seconds}s.npz")
+    rate_tag = f"_rate{args.nucleation_rate}" if args.nucleation_rate else ""
+    npz_path = f"{STUDY_DIR}/diagnostic_reduced_target_{args.target_length}{rate_tag}_{args.seconds}s.npz"
+    np.savez(npz_path, **rec)
+    print(f"wrote {npz_path}")
 
 
 if __name__ == "__main__":

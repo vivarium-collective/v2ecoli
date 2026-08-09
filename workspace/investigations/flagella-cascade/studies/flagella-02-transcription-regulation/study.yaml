@@ -167,6 +167,43 @@ runs:
     self-limiting-dynamics-observable:
       result: INCONCLUSIVE
       detail: "run hit the division-mass-homeostasis corruption (investigation.yaml open_decisions) at generation 3 before self-limiting behavior could be observed either way -- see next finding"
+- name: flagella-02-reduced-target-500__seed0__3600s
+  kind: analysis
+  canonical: false
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  description: >-
+    DIAGNOSTIC ONLY. target_length=500 (config_overrides, no nucleation
+    rate change), otherwise identical to the target=2000 run. Population-
+    based, full override IC, seed 0, out/cache_full_flit_v4, 3600s.
+  status: completed
+  result: PASS
+  outcomes:
+    target-length-paces-completions:
+      result: CONTRADICTED
+      detail: "trajectory through the first division was BYTE-IDENTICAL to the target=2000 run (same completed_ever 1,2,3,4, same total_flag 5,6,7,8, same max_len 89,129,167,203) -- revealed nucleation rate (~1 event/600s), not target length, was the actual pacing bottleneck in that regime, motivating the boosted-nucleation-rate follow-up"
+- name: flagella-02-reduced-target-500-boosted-nucleation__seed0__3600s
+  kind: analysis
+  canonical: true
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  description: >-
+    DIAGNOSTIC ONLY. Two config_overrides for this run only: target_length
+    500 (down from 20,000) AND nucleation_rate 0.0167 (10x the derived-
+    estimate default 0.00167 -- itself already an estimate, not a
+    literature constant, so this is exploring a faster point on an
+    uncertain rate, not overriding a measured value). Population-based,
+    full override IC, seed 0, out/cache_full_flit_v4, 3600s. Follow-up to
+    the target=2000-only run, which showed target length wasn't actually
+    pacing completions (see prior finding) -- this tests whether boosting
+    nucleation rate too reveals genuine self-limiting dynamics.
+  status: completed
+  result: PARTIAL
+  outcomes:
+    more-completions-with-boosted-nucleation:
+      result: CONFIRMED
+      detail: "6 completions in first 600s (vs 4 in the target=2000-only run's first 2400s) -- confirms nucleation rate, not target length, was pacing completions"
+    plateau-is-flit-checkpoint-self-limiting:
+      result: CONTRADICTED
+      detail: "flagella count plateaued at 10 for a sustained 30min (t=600-2400s), BUT direct instrumentation (check_nucleation_material.py) confirmed this is a SEPARATE motor-complex supply bottleneck, not the FliT/FlhDC checkpoint -- see next finding"
 
 findings:
 - id: flagella-02-gate-writes-overrides
@@ -629,6 +666,37 @@ findings:
   evidence:
     observed: "diagnostic_reduced_target_2000_7200s.npz: t=600-2400s (gen 1) completed_ever 1->4; t=3000s (gen 2) completed_ever=5, total_flag=9; t=3000s-7200s (gen 3+, post-corruption) completed_ever frozen at 5, total_flag frozen at 9, while max_len climbed 4156->8387 (target=2000)"
     expected: "if the mechanism works and isn't time-limited, completions should continue at a similar rate throughout a clean run; a frozen completion count while filament_length keeps climbing past target is not expected under any model of the flagella mechanism alone"
+- id: flagella-02-second-supply-bottleneck-motor-complex-not-checkpoint
+  kind: computational
+  status: contradicts
+  statement: >-
+    (2026-08-08) Follow-up to the target=500+boosted-nucleation-rate run
+    (previous run entry): flagella count plateaued at 10 for a sustained
+    30 minutes (t=600-2400s, well within the clean pre-corruption window --
+    NOT the division-mass-homeostasis limitation). Directly instrumented
+    FLAGELLAR-MOTOR-COMPLEX and its raw materials (FlgE/FlgK/FlgL) during
+    this exact window (check_nucleation_material.py, single-cell, same
+    config_overrides) rather than assuming the plateau meant the FliT/
+    FlhDC checkpoint was working. Result: FLAGELLAR-MOTOR-COMPLEX hits
+    EXACTLY 0 at t=300s and stays at 0 for the rest of the window --
+    precisely when nucleation stops firing (n_nascent 1->0 at t=360s,
+    stays 0). FlgE/FlgK/FlgL all stay abundant throughout (thousands of
+    copies each, never close to limiting). So the plateau is a SEPARATE,
+    independent supply bottleneck -- nucleation consumes 1 motor complex
+    per event (flagella_filament_nucleation.py), the standing pool
+    exhausts after ~5 quick nucleations, and new motor complexes aren't
+    being assembled fast enough to keep up (itself built from FlgH/MotA/
+    MotB/FliF/the switch complex CPLX0-7450/the export apparatus
+    CPLX0-7451 -- a whole separate synthesis chain, not examined here).
+    This is NOT the intended regulatory mechanism -- across every
+    diagnostic run this session (target=2000, target=500,
+    target=500+10x-nucleation), the FliT/FlhDC checkpoint has never been
+    directly observed to be the ACTUAL limiting factor on flagella count;
+    something else (fliC supply, motor-complex supply, or the division-
+    mass-homeostasis corruption) has capped every run first.
+  evidence:
+    observed: "check_nucleation_material.py: motor_complex 4->3->2->1->0 (t=60-300s), stays 0 through t=2400s; n_nascent 1->0 at t=360s, stays 0; FlgE 3475->4217, FlgK 1682->1587, FlgL 3332->3495 (all abundant throughout, never limiting)"
+    expected: "if the checkpoint were the limiting mechanism, FlhD4C2 and/or free FliT-dimer trajectories (not tracked in this specific check) would show the expected suppression signature; instead a simple raw-material count directly explains the plateau"
 
 visualizations:
 - address: image:charts/01_full_override_gated_cascade.svg
@@ -833,6 +901,30 @@ success_criteria:
       literature-calibrated free-FliA band.
 
 open_decisions:
+  - id: motor-complex-supply-chain-unexamined
+    raised_by: system
+    date: '2026-08-08'
+    status: OPEN -- stopping here for now (Maya's explicit call, 2026-08-08)
+    question: >-
+      Across every diagnostic this session (target=2000, target=500,
+      target=500+10x nucleation rate), something has capped flagella count
+      before the intended FliT/FlhDC checkpoint mechanism was ever directly
+      observed to be the limiting factor -- fliC supply, then motor-complex
+      supply, then the division-mass-homeostasis corruption. Motor-complex
+      assembly's own upstream supply chain (FlgH, MotA, MotB, FliF, the
+      switch complex CPLX0-7450, the export apparatus CPLX0-7451) has not
+      been examined the way fliC's synthesis rate was (measured real-time
+      rate vs. back-calculated demand, defensible partial fix). Would the
+      checkpoint mechanism ever actually become the binding constraint, or
+      does the whole system get real-material-bottlenecked before that,
+      layer after layer?
+    recommendation: |
+      Not pursued further this session per Maya's explicit call to
+      document and stop here. If picked up later: same methodology as the
+      fliC investigation (direct real-time rate measurement, back-
+      calculated demand target, transcriptome-budget-scoped fix if a gap
+      is found) applied to whichever motor-complex input turns out to be
+      most limiting.
   - id: multigen-flagella-completion-still-untested-past-3-generations
     raised_by: system
     date: '2026-08-07'

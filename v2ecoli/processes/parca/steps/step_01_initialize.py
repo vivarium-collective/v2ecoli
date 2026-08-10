@@ -42,6 +42,57 @@ from pathlib import Path
 from process_bigraph import Step
 
 from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import SimulationDataEcoli
+from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+
+
+def _is_valid_raw_data(obj) -> bool:
+    """True iff ``obj`` is a usable ``KnowledgeBaseEcoli`` (exposes the flat-file
+    tables ``sim_data.initialize`` reads). The first thing that method touches is
+    ``raw_data.operons_on``, so that attribute is the cheapest liveness probe."""
+    return hasattr(obj, "operons_on")
+
+
+def _resolve_raw_data(config: dict):
+    """Return a usable ``KnowledgeBaseEcoli`` for the injected ``config``.
+
+    The registered ``parca`` composite is a *structural* document: it carries
+    ``raw_data=None`` (see ``v2ecoli/composites/parca.py``), which the composite
+    runtime materialises to an empty ``dict``. It was only ever runnable via the
+    ``v2ecoli-parca`` CLI, which builds a real ``KnowledgeBaseEcoli`` and injects
+    it. Driving the document through the workbench's generic runner instead fired
+    this step with a plain ``dict`` → ``AttributeError: 'dict' object has no
+    attribute 'operons_on'`` (vivarium-workbench #752).
+
+    When a real KB is already injected (the CLI path) it is used unchanged. When
+    it is missing (the workbench path) a real KB is loaded here — with production
+    genotype defaults matching ``cli/parca.py`` (operons on; rRNA operons kept) —
+    so the composite is self-sufficient. A declared ``bundle_manifest`` selects
+    the ecoli-sources bundle; otherwise the default flat-file bundle is used.
+
+    NOTE: loading the KB and running the full fit is a minutes-to-hours job. The
+    log line below makes that explicit so a workbench run does not look hung; use
+    the Runs-tab stop control to cancel.
+    """
+    raw_data = config.get("raw_data")
+    if _is_valid_raw_data(raw_data):
+        return raw_data
+
+    manifest = config.get("bundle_manifest", "") or None
+    print(
+        "  Step 1: no KnowledgeBaseEcoli was injected (raw_data="
+        f"{type(raw_data).__name__}); loading it now "
+        f"(bundle_manifest={manifest or 'default'}). This runs the FULL ParCa "
+        "fit — expect minutes to hours; cancel from the Runs tab if unintended."
+    )
+    bundle = SourceBundle(base_manifest=manifest) if manifest else SourceBundle()
+    return KnowledgeBaseEcoli(
+        operons_on=True,
+        remove_rrna_operons=False,
+        remove_rrff=False,
+        stable_rrna=False,
+        bundle=bundle,
+    )
 
 
 # Subsystem object outputs — each typed by its corresponding schema entry.
@@ -170,7 +221,7 @@ class InitializeStep(Step):
     def update(self, state):
         t0 = time.time()
         self._check_declared_genotype()
-        raw_data = self.config['raw_data']
+        raw_data = _resolve_raw_data(self.config)
 
         sim_data = SimulationDataEcoli()
         sim_data.initialize(

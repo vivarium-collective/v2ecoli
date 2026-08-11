@@ -25,15 +25,20 @@ def main():
     ap.add_argument("--exp-id", required=True)
     ap.add_argument("--lineage-seed", type=int, default=0)
     ap.add_argument("--gens", type=int, required=True)
+    ap.add_argument("--start-gen", type=int, default=1,
+                    help="first generation number to plot (default 1)")
     ap.add_argument("--title-extra", default="")
     ap.add_argument("--bulk-gate-nM", type=float, default=None,
                     help="optional bulk DnaA-ATP gate threshold to overlay (nM)")
     ap.add_argument("--m-star-fg", type=float, default=None,
                     help="optional M*/oriC reference (fg) to overlay on cell mass panel")
+    ap.add_argument("--init-mass-ref-fg", type=float, default=None,
+                    help="optional cell-mass-at-initiation reference (fg); e.g. 2×M* for 2-oriC init")
     ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    agent_for_gen = {g: "0" * g for g in range(1, args.gens + 1)}
+    gen_range = range(args.start_gen, args.start_gen + args.gens)
+    agent_for_gen = {g: "0" * g for g in gen_range}
 
     con = duckdb.connect()
     con.sql(
@@ -51,7 +56,8 @@ def main():
     gen_boundaries = []
     cumulative_t = 0.0
 
-    for g in range(1, args.gens + 1):
+    gen_taus = {}
+    for g in gen_range:
         aid = agent_for_gen[g]
         rows = con.sql(
             f"""
@@ -123,6 +129,8 @@ def main():
                     dom_first_tick[key] = tm
                     dom_gen[key] = g
                 dom_traces[key].append((tm, n))
+        gen_start = 0.0 if not gen_boundaries else gen_boundaries[-1]
+        gen_taus[g] = t_min[-1] - gen_start
         cumulative_t = t_min[-1]
         gen_boundaries.append(cumulative_t)
 
@@ -237,7 +245,10 @@ def main():
     if args.m_star_fg is not None:
         ax.axhline(args.m_star_fg, color="#b91c1c", lw=0.9, ls=":", alpha=0.7,
                    label=f"critical initiation mass = {args.m_star_fg:g} fg")
-    if init_pts or args.m_star_fg is not None:
+    if args.init_mass_ref_fg is not None:
+        ax.axhline(args.init_mass_ref_fg, color="#b91c1c", lw=0.9, ls="--", alpha=0.7,
+                   label=f"expected initiation mass = {args.init_mass_ref_fg:g} fg")
+    if init_pts or args.m_star_fg is not None or args.init_mass_ref_fg is not None:
         ax.legend(loc="upper right", fontsize=8, frameon=False)
     ax.set_ylabel("cell mass\n(fg)")
 
@@ -247,7 +258,7 @@ def main():
                   "daughter1": "#7c3aed",
                   "daughter2": "#dc2626"}
     legend_added = set()
-    for g in range(1, args.gens + 1):
+    for g in gen_range:
         gen_keys = [k for k in dom_traces if k[0] == g]
         if not gen_keys:
             continue
@@ -290,7 +301,13 @@ def main():
             ax.spines[s].set_visible(False)
 
     fig.suptitle(args.title_extra, fontsize=11, y=0.998)
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    if gen_taus:
+        gs_sorted = sorted(gen_taus)
+        tau_str = "  ".join(f"g{g}:{gen_taus[g]:.0f}" for g in gs_sorted)
+        mean_tau = sum(gen_taus.values()) / len(gen_taus)
+        footer = f"tau per gen (min):  {tau_str}     mean {mean_tau:.1f}"
+        fig.text(0.01, 0.005, footer, family="monospace", fontsize=8, va="bottom")
+    plt.tight_layout(rect=[0, 0.02, 1, 0.97])
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     plt.savefig(args.out, dpi=150, bbox_inches="tight")

@@ -7,6 +7,11 @@ lineages summarised in
 
 Pinned to commit `b577de4b` on `feat/aim2-dnaa-oric-box-binding`.
 
+Set this up as a new dashboard study under the theme **cooperativity via
+binding affinity** — the stepped Adair K_d ladder implements cooperativity
+by lowering the K_d of each successive oriC-low site as more sites become
+occupied, rather than through a Hill-style rate law.
+
 ---
 
 ## What the reference run shows
@@ -44,7 +49,12 @@ The steady-state dill used to reproduce the reference PDF is committed at
 `out/steady_state_inputs/dnaa5_v1.5_hillKd_h4_K3_seed4_gen5.dill`. The
 launch script expects it at
 `out/dnaa5_v1.5_hillKd_h4_K3_seed4/gen_dills/gen5.dill`, so drop it in
-place:
+place.
+
+For a deeper burned-in starting state, use
+`out/steady_state_inputs/milestone_fromGen8_seed5_gen5.dill` instead —
+~13 generations of stepped-Adair sat-init dynamics pre-loaded, starts
+at milestone cell mass with no warmup drift.
 
 ```bash
 # ParCa fixture must match the runtime cache (SHA a6f1cbb7...)

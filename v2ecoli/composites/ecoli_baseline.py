@@ -74,6 +74,143 @@ def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """
     return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
+
+def _is_plain_numeric_leaf(v: Any) -> bool:
+    """True for listener leaf values the XArrayEmitter transducer can write
+    straight into a fixed-dtype DataArray slot: python/numpy int/float/bool
+    scalars, or numeric ``numpy.ndarray``s with more than one element.
+
+    False for ``pint.Quantity`` (no unit-stripping hook in pbg_emitters'
+    view/transducer), ``str``/``bytes``/``list``/``tuple`` (the transducer
+    only walks plain dicts, not these), and — critically — length-0 or
+    length-1 numeric arrays.
+
+    The size<=1 exclusion mirrors ``extract_output_metadata_from_state``'s own
+    "scalar, no coord needed" threshold (``arr.ndim==0 or arr.size<=1``) and
+    guards against a real pbg_emitters promotion-trap bug (Task 1 spike,
+    gotcha #5b): a leaf with no declared output_metadata coord starts with
+    ``spec.coord is None`` and goes through the *dynamic* promote-or-drop
+    write path on its first ``update()``. If that first write is itself a
+    length-0/1 array (common in v2ecoli — many listener leaves start
+    empty/singleton until a biological event first populates them),
+    ``_promote_port`` allocates a tiny slot AND mutates ``spec.coord`` to a
+    real (non-``None``) array; every SUBSEQUENT write then takes the
+    "declared coord" direct-write branch with no promote/drop safety net, so
+    the first time the leaf grows to its real, different length the write
+    crashes with a broadcast ``ValueError``. Excluding size<=1 leaves up
+    front keeps every kept leaf on a stable, provably-safe path.
+    """
+    import pint
+    if isinstance(v, pint.Quantity):
+        return False
+    if isinstance(v, (str, bytes, list, tuple)):
+        return False
+    if isinstance(v, (int, float, np.integer, np.floating, bool)):
+        return True
+    if isinstance(v, np.ndarray):
+        return np.issubdtype(v.dtype, np.number) and v.size > 1
+    return False
+
+
+def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
+    """Yield dotted ``listeners.<...>`` leaf paths for plain-numeric values.
+
+    Recurses ``listeners`` (a nested dict of namespace -> leaf -> value);
+    yields a path for each leaf that survives ``_is_plain_numeric_leaf``.
+    Non-numeric / ragged leaves (pint.Quantity, str, list, size<=1 arrays)
+    are silently dropped — see ``_is_plain_numeric_leaf`` for why.
+    """
+    for k, v in listeners.items():
+        p = f"{prefix}.{k}"
+        if isinstance(v, dict):
+            yield from _listener_leaf_paths(v, prefix=p)
+        elif _is_plain_numeric_leaf(v):
+            yield p
+
+
+def _single_cell_xarray_config(cell_state: dict, *, out_uri: str,
+                                buffer_size: int = 3) -> dict:
+    """Build the XArrayEmitter ``config`` dict for a single-cell,
+    agent-relative, in-document capture.
+
+    Pure — no IO, no Composite construction. Returns the config verbatim
+    ready to pass to ``pbg_emitters.XArrayEmitter(config, core)``.
+
+    Encodes the recipe validated by Task 1's spike (see
+    ``.superpowers/sdd/2026-08-10-single-cell-xarray-emitter/task-1-report.md``):
+
+      * ``strategy="flat"``, ``emit_root=[]`` — the in-document emitter Step
+        is co-located inside ``agents/0`` and its wired inputs already land
+        as bare ``{"global_time": ..., "bulk": ..., "listeners": ...}``, NOT
+        wrapped in an ``{"agents": {id: ...}}`` envelope (that's the
+        lineage-runner's ``strategy="colony"`` pattern, not this one).
+      * ``view_from_emit_paths`` only handles ``listeners.<...>`` paths and
+        drops ``bulk``; a ``bulk`` root is appended manually with
+        ``root=()`` (NOT ``root=("bulk",)``) so its read path resolves to
+        ``() + ("bulk",) == ("bulk",)``, matching ``cell_state["bulk"]``'s
+        actual top-level location.
+      * Listener leaves are pre-filtered to plain scalars + size>1 numeric
+        ndarrays (``_is_plain_numeric_leaf`` / ``_listener_leaf_paths``) to
+        avoid both a hard write crash (non-numeric types) and the
+        pbg_emitters promotion-trap bug on ragged/short vectors.
+      * ``metadata`` must be non-empty (an empty dict silently skips
+        XArrayEmitter's partition setup and crashes the first ``update()``).
+
+    Args:
+        cell_state: a single agent's cell state dict (e.g.
+            ``composite.state["agents"]["0"]``), carrying at least
+            ``listeners`` and ``bulk``.
+        out_uri: zarr store path/URI.
+        buffer_size: transducer buffer size (streaming, bounded — not an
+            unbounded history). Default 3, matching the spike/multigen
+            runner's value.
+
+    Returns:
+        The XArrayEmitter config dict (``view`` + ``output_metadata`` +
+        ``transducer`` + ``writer`` + ``strategy="flat"`` + ``emit_root=[]``).
+    """
+    from v2ecoli.library.xarray_run import (
+        view_from_emit_paths, extract_output_metadata_from_state)
+    from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
+
+    listener_paths = list(_listener_leaf_paths(cell_state.get("listeners") or {}))
+    view = view_from_emit_paths(listener_paths)
+    # bulk is dropped by view_from_emit_paths (listeners-only); add it
+    # explicitly. root=() + variables key "bulk" -> read path == ("bulk",)
+    # == cell_state["bulk"]'s actual top-level location. LeafView.path (the
+    # OUTPUT variable name) must be non-empty.
+    view.append({"root": (), "variables": {"bulk": [{"path": "bulk", "dtype": "<i8"}]}})
+
+    named_metadata = _named_output_metadata(cell_state)
+    output_metadata_ = extract_output_metadata_from_state(
+        cell_state, view, named_metadata=named_metadata)
+
+    return {
+        "emit": {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"},
+        "out_uri": str(out_uri),
+        "strategy": "flat",
+        "emit_root": [],
+        "transducer": {
+            "predicate": [[{"subsample": {"interval": 1}}]],
+            "buffer": {"size": buffer_size},
+        },
+        "view": view,
+        "output_metadata": output_metadata_,
+        "writer": {
+            "backend": "zarr",
+            "store": str(out_uri),
+            "buffers_per_chunk": 1,
+            "backend_config": {"format": 3},
+        },
+        # Non-empty — see docstring / Task 1 gotcha #1.
+        "metadata": {"experiment_id": "single_cell", "variant": 0, "lineage_seed": 0},
+        "metadata_keys": [],
+        "metadata_validators": {},
+        "provenance": {},
+        "debug": False,
+    }
+
+
 from viva_superpowers.composite_generator import composite_generator, emitter_defaults
 
 from v2ecoli.core import build_core, load_cache_bundle

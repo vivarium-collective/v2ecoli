@@ -67,7 +67,7 @@ from scipy.optimize import root as scipy_root
 
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.schema import attrs, bulk_name_to_idx, counts
-from v2ecoli.library.schema_types import DNAA_BOX_ARRAY
+from v2ecoli.library.schema_types import DNAA_BOX_ARRAY, ACTIVE_REPLISOME_ARRAY
 from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.types.quantity import ureg as units
 
@@ -83,6 +83,8 @@ TOPOLOGY = {
     # Shared bound-hydrolysis count consumed by the equilibrium step for
     # byproduct routing — avoids independently sampling the same Poisson process.
     "dnaa_hydrolysis": ("process_state", "dnaa_hydrolysis"),
+    # For RIDA: read active replisome coordinates → count fork pairs.
+    "active_replisomes": ("unique", "active_replisome"),
 }
 
 
@@ -96,6 +98,11 @@ DNAA_ADP_ID = "MONOMER0-4565[c]"
 PI_ID = "Pi[c]"
 PROTON_ID = "PROTON[c]"
 WATER_ID = "WATER[c]"
+# RIDA (Regulatory Inactivation of DnaA) is a per-fork-pair mechanism.
+# Catalyzes DnaA-ATP + WATER → DnaA-ADP + Pi + PROTON. Chemically identical
+# to the intrinsic hydrolysis reaction (H+ balance matters for the metabolic
+# proton pool); we use the standard ATP-hydrolysis stoichiometry even though
+# EcoCyc's RXN0-7444 entry happens to omit PROTON.
 
 # Pool labels (must match initial_conditions.py).
 POOL_CHROMOSOMAL_HIGH = 0
@@ -166,6 +173,33 @@ COOP_GRADIENT_GATE = os.environ.get(
 # pool, in-place (bound box-ATP → bound box-ADP on the same row).
 HYDROLYSIS_RATE_PER_MIN = float(os.environ.get(
     "V2ECOLI_DNAA_HYDROLYSIS_RATE_PER_MIN", "0.025"))
+
+# RIDA (Regulatory Inactivation of DnaA) — Hda-β-clamp complex catalyses
+# DnaA-ATP + WATER → DnaA-ADP + Pi (RXN0-7444) on the free/bulk pool.
+# Rate is hardcoded per Haochen's spec (Katayama 2017 / Riber 2016): 40 events
+# per minute per replication fork pair. Gated on active replisome count so it
+# only fires during S-phase. Pi/WATER byproducts are written directly to bulk
+# here (bypasses FBA — small stoichiometric drift). Toggle whole mechanism
+# with V2ECOLI_DNAA_RIDA_ENABLED=1 (default 0 = off, backward compatible).
+RIDA_RATE_PER_MIN_PER_FORK_PAIR = 40.0
+RIDA_ENABLED = os.environ.get(
+    "V2ECOLI_DNAA_RIDA_ENABLED", "0") in ("1", "true", "True")
+
+# Chromosomal DnaA-box blocking perturbation.
+# Randomly select CHROM_BLOCK_FRAC of the chromosomal high-affinity DnaA boxes
+# (pool_label = POOL_CHROMOSOMAL_HIGH, ~302 per chromosome) and remove them
+# from the binding pool. The blocked set is picked ONCE per sim using the
+# process seed, then applied stably (by genomic coordinate) for the whole run.
+# oriC and promoter boxes are never blocked. Toggle via
+# V2ECOLI_DNAA_CHROM_BLOCK_FRAC (default 0.0 = no blocking).
+CHROM_BLOCK_FRAC = float(os.environ.get(
+    "V2ECOLI_DNAA_CHROM_BLOCK_FRAC", "0.0"))
+# When set, the block RNG is seeded from this value in every process (i.e.,
+# every generation of a lineage) so the same 302×frac chromosomal coordinates
+# are blocked for the whole run. When unset, falls back to the per-process
+# seed (which changes across generations because daughters re-seed).
+_CHROM_BLOCK_SEED_ENV = os.environ.get("V2ECOLI_DNAA_CHROM_BLOCK_SEED")
+CHROM_BLOCK_SEED = int(_CHROM_BLOCK_SEED_ENV) if _CHROM_BLOCK_SEED_ENV else None
 
 # Per-domain post-init K_d ladder unlock. Fresh daughter oriCs (born after a
 # fork event) start with K_d clamped to K_d_max (100 nM) for all 8 sites —
@@ -240,6 +274,11 @@ class DnaABoxBinding(Step):
         # observations as (time_s, nM) tuples used to compute gradient_rising.
         self._bulk_atp_history = []
 
+        # Chromosomal DnaA-box block set (populated on first update from the
+        # first tick's unique chromosomal coords). np.int64 array of blocked
+        # genomic coordinates, or None if not yet populated.
+        self._blocked_chrom_coords = None
+
         # Solver warm-start state. Warm-starting scipy.root from the previous
         # tick's converged (A_free, D_free, per-domain bound counts) speeds
         # convergence and, more importantly, resists tick-by-tick flicker in
@@ -287,12 +326,48 @@ class DnaABoxBinding(Step):
             'dnaa_hydrolysis': {
                 'bound_count': 'overwrite[integer]',
             },
+            'listeners': {
+                'replication_data': {
+                    'gradient_rising': 'overwrite[boolean]',
+                    'bulk_atp_slope_nM_per_s': 'overwrite[float]',
+                    'bulk_atp_nM_current': 'overwrite[float]',
+                    'rida_events': 'overwrite[integer]',
+                },
+            },
         }
 
     def update_condition(self, timestep, states):
         if states["next_update_time"] <= states["global_time"]:
             return True
         return False
+
+    def _smoothed_gradient_rising(self, t_now_s: float) -> tuple[bool, float]:
+        """Return (rising, slope_nM_per_s) using half-window averages.
+
+        Smoothing rationale: the sim runs with 1s ticks; hydrolysis + equilibrium
+        release ~10-20 nM into bulk each tick and the box-binding step consumes
+        it in the same tick. The instantaneous newest sample oscillates fast
+        enough that comparing raw endpoints of the 120s window would alternate
+        rising/falling every couple of ticks. Averaging over 60s halves collapses
+        that intra-tick noise so the gate reflects the multi-minute trend.
+        """
+        hist = self._bulk_atp_history
+        if len(hist) < 2:
+            return True, 0.0
+        t_split = t_now_s - GRADIENT_WINDOW_S / 2.0
+        older = [nM for t, nM in hist if t <= t_split]
+        newer = [nM for t, nM in hist if t > t_split]
+        if not older or not newer:
+            # Window hasn't filled a full half yet — fall back to raw endpoints.
+            slope = (hist[-1][1] - hist[0][1]) / max(
+                hist[-1][0] - hist[0][0], 1e-6)
+            return slope > GRADIENT_MIN_SLOPE_NM_PER_S, slope
+        older_mean = sum(older) / len(older)
+        newer_mean = sum(newer) / len(newer)
+        # Midpoint of newer half ≈ t_now - WINDOW/4; midpoint of older ≈
+        # t_now - 3·WINDOW/4. Delta = WINDOW/2.
+        slope = (newer_mean - older_mean) / (GRADIENT_WINDOW_S / 2.0)
+        return slope > GRADIENT_MIN_SLOPE_NM_PER_S, slope
 
     def _stochastic_round(self, x: float) -> int:
         if x <= 0:
@@ -347,6 +422,42 @@ class DnaABoxBinding(Step):
         pool_label, bound_form, domain_index = attrs(
             boxes, ["pool_label", "DnaA_bound_form", "domain_index"])
 
+        # Chromosomal DnaA-box blocking perturbation. On first call, pick a
+        # stable random subset of chromosomal box coordinates to block using
+        # the process seed. Same coordinates are excluded from the binding
+        # pool every subsequent tick (persistent by genomic coordinate).
+        if CHROM_BLOCK_FRAC > 0.0:
+            (coords_this_tick,) = attrs(boxes, ["coordinates"])
+            if self._blocked_chrom_coords is None:
+                chrom_mask_init = pool_label == POOL_CHROMOSOMAL_HIGH
+                unique_chrom_coords = np.unique(coords_this_tick[chrom_mask_init])
+                # Use fixed CHROM_BLOCK_SEED env if set (stable across all
+                # generations of a lineage); otherwise fall back to per-process
+                # seed (changes per generation).
+                block_seed = (CHROM_BLOCK_SEED if CHROM_BLOCK_SEED is not None
+                              else int(self.parameters.get("seed", 0)))
+                rng = np.random.RandomState(block_seed)
+                n_total = len(unique_chrom_coords)
+                n_block = int(round(n_total * CHROM_BLOCK_FRAC))
+                if n_block > 0 and n_total > 0:
+                    blocked = rng.choice(unique_chrom_coords, size=n_block, replace=False)
+                    self._blocked_chrom_coords = np.sort(blocked.astype(np.int64))
+                else:
+                    self._blocked_chrom_coords = np.array([], dtype=np.int64)
+                print(f"[CHROM_BLOCK] frac={CHROM_BLOCK_FRAC}  "
+                      f"block_seed={block_seed}  "
+                      f"n_chrom_boxes={n_total}  n_blocked={len(self._blocked_chrom_coords)}",
+                      flush=True)
+            # Effectively re-label blocked chromosomal boxes so they leave the
+            # binding pool. We do this by flipping pool_label to a sentinel
+            # value (-1) that is not in any of the four POOL_* enums, so all
+            # downstream pool_masks skip them.
+            if len(self._blocked_chrom_coords) > 0:
+                blocked_mask = np.isin(coords_this_tick, self._blocked_chrom_coords)
+                chrom_and_blocked = (pool_label == POOL_CHROMOSOMAL_HIGH) & blocked_mask
+                pool_label = pool_label.copy()
+                pool_label[chrom_and_blocked] = -1
+
         # Snapshot bulk counts.
         atp_bulk_count = int(counts(states["bulk"], self._atp_idx))
         adp_bulk_count = int(counts(states["bulk"], self._adp_idx))
@@ -378,16 +489,24 @@ class DnaABoxBinding(Step):
         # Maintain rolling window of bulk DnaA-ATP concentration for the
         # positive-gradient gate (used inside the relax-fire check below).
         # Window is pruned to GRADIENT_WINDOW_S seconds.
+        diag_bulk_atp_nM_current = float(
+            atp_bulk_count / (cell_volume_L * self.n_avogadro) * 1e9)
         if GRADIENT_GATE:
             t_now_s = float(states["global_time"])
-            tick_bulk_atp_nM = (atp_bulk_count
-                                / (cell_volume_L * self.n_avogadro)
-                                * 1e9)
-            self._bulk_atp_history.append((t_now_s, tick_bulk_atp_nM))
+            self._bulk_atp_history.append((t_now_s, diag_bulk_atp_nM_current))
             cutoff = t_now_s - GRADIENT_WINDOW_S
             while (len(self._bulk_atp_history) > 1
                    and self._bulk_atp_history[0][0] < cutoff):
                 self._bulk_atp_history.pop(0)
+
+        # Diagnostic: recompute gradient state upfront so it's emitted even on
+        # the else-branch paths. Uses the same half-window smoothed calc as
+        # the Adair block.
+        diag_gradient_rising = True
+        diag_slope_nM_per_s = 0.0
+        if GRADIENT_GATE and len(self._bulk_atp_history) >= 2:
+            diag_gradient_rising, diag_slope_nM_per_s = (
+                self._smoothed_gradient_rising(float(states["global_time"])))
 
         # K_d in molecules (so all per-pool maths stay integer-scale).
         # Kd[mol/L] * V[L] * N_A[1/mol] = molecules.
@@ -497,13 +616,8 @@ class DnaABoxBinding(Step):
                 # is flat or falling, so cooperative loading is not permitted.
                 gradient_rising = True
                 if GRADIENT_GATE and len(self._bulk_atp_history) >= 2:
-                    t_now_g = float(states["global_time"])
-                    t_old_g = self._bulk_atp_history[0][0]
-                    nM_old_g = self._bulk_atp_history[0][1]
-                    nM_now_g = self._bulk_atp_history[-1][1]
-                    window_s_g = max(t_now_g - t_old_g, 1e-6)
-                    slope_g = (nM_now_g - nM_old_g) / window_s_g
-                    gradient_rising = (slope_g > GRADIENT_MIN_SLOPE_NM_PER_S)
+                    gradient_rising, _ = self._smoothed_gradient_rising(
+                        float(states["global_time"]))
 
                 # Per-domain K_d ladder unlock tracking. New domains (post-fork
                 # daughters) start locked; they must accumulate POST_INIT_UNLOCK_S
@@ -826,6 +940,28 @@ class DnaABoxBinding(Step):
         delta_atp_bulk = (prev_bound_atp - delta_h_bound) - actual_bound_atp
         delta_adp_bulk = (prev_bound_adp + delta_h_bound) - actual_bound_adp
 
+        # RIDA (Regulatory Inactivation of DnaA): Hda-β-clamp complex catalyzed
+        # hydrolysis of free/bulk DnaA-ATP. Rate is hardcoded 40/min per active
+        # fork pair (Katayama 2017 / Riber 2016 synthesis of Kurokawa 1999).
+        # Fork pairs = len(active_replisomes) // 2. Capped by post-bound-pool
+        # free ATP available. Pi produced, WATER consumed — written to bulk
+        # directly (bypasses FBA).
+        n_rida_events = 0
+        n_fork_pairs = 0
+        if RIDA_ENABLED:
+            (fork_coords,) = attrs(states["active_replisomes"], ["coordinates"])
+            n_fork_pairs = len(fork_coords) // 2
+            if n_fork_pairs > 0:
+                atp_bulk_after_bound_hydr = atp_bulk_count + delta_atp_bulk
+                n_rida_events = self._stochastic_round(
+                    RIDA_RATE_PER_MIN_PER_FORK_PAIR * n_fork_pairs * dt_min)
+                # Cap by available bulk DnaA-ATP (post bound-pool release).
+                if n_rida_events > atp_bulk_after_bound_hydr:
+                    n_rida_events = max(0, int(atp_bulk_after_bound_hydr))
+                if n_rida_events > 0:
+                    delta_atp_bulk -= n_rida_events
+                    delta_adp_bulk += n_rida_events
+
         bulk_update = []
         if delta_atp_bulk != 0:
             bulk_update.append((self._atp_idx, int(delta_atp_bulk)))
@@ -836,6 +972,13 @@ class DnaABoxBinding(Step):
         # stoichMatrix). Writing them here would bypass FBA accounting.
         # This step still owns the in-place bound-form ATP → ADP swap
         # (delta_h_bound above) — only the byproducts moved.
+        # RIDA Pi/PROTON/WATER byproducts written directly to bulk (bypasses
+        # FBA — small drift, revisit if RIDA rate is scaled up substantially).
+        # Full ATP-hydrolysis stoichiometry: ATP + WATER → ADP + Pi + PROTON.
+        if n_rida_events > 0:
+            bulk_update.append((self._pi_idx, int(n_rida_events)))
+            bulk_update.append((self._proton_idx, int(n_rida_events)))
+            bulk_update.append((self._water_idx, -int(n_rida_events)))
 
         # massDiff_* per-row updates so cell-mass accounting reflects the
         # DnaA moved bulk → bound on each box. Same pattern as tf_binding for
@@ -874,6 +1017,14 @@ class DnaABoxBinding(Step):
             "dnaa_hydrolysis": {
                 "bound_count": int(delta_h_bound),
                 "promoter_fraction": promoter_fraction,
+            },
+            "listeners": {
+                "replication_data": {
+                    "gradient_rising": bool(diag_gradient_rising),
+                    "bulk_atp_slope_nM_per_s": float(diag_slope_nM_per_s),
+                    "bulk_atp_nM_current": float(diag_bulk_atp_nM_current),
+                    "rida_events": int(n_rida_events),
+                },
             },
         }
         if bulk_update:

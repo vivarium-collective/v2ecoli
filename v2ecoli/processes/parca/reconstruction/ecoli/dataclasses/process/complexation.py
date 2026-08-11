@@ -78,8 +78,28 @@ class Complexation(object):
     # by ordinary Step-level array arithmetic instead: see
     # flagella_motor_switch_assembly.py, flagella_motor_complex_assembly.py,
     # and flagella_filament_elongation.py.
+    #
+    # CPLX0-7451_RXN (flagella-cascade investigation, 2026-08-11): excluded
+    # for a DIFFERENT reason than the three above -- its own stoichiometry
+    # (max coefficient FlhA=9) was never numerically dangerous for SSA, and
+    # it ran here safely for the whole session up to this point. It's
+    # excluded now because complexation_reactions_modified.tsv's HIERARCHY
+    # FIX made it consume CPLX0-7450 -- a molecule that only ever exists
+    # transiently inside flagella_motor_switch_assembly.py's single
+    # deterministic tick, produced and (previously) available to nothing
+    # else. Leaving CPLX0-7451_RXN in ordinary SSA meant a
+    # deterministically-produced molecule had to be consumed by a
+    # stochastic-propensity mechanism with its own independent timing --
+    # confirmed by direct testing to stall ongoing motor-complex
+    # replenishment (pool drained 6->3 over 2400s instead of oscillating
+    # 4-6 as before the hierarchy fix). Moved to
+    # flagella_export_apparatus_assembly.py, matching the same deterministic
+    # Step pattern as the other three, so the whole
+    # C-ring -> export-apparatus -> motor-complex chain runs through one
+    # consistent mechanism.
     RUNTIME_EXCLUDED_REACTIONS = {
         "CPLX0-7452_RXN", "CPLX0-7450_RXN", "FLAGELLAR-MOTOR-COMPLEX_RXN",
+        "CPLX0-7451_RXN",
     }
 
     def __init__(self, raw_data, sim_data):

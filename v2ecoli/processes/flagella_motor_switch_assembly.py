@@ -41,6 +41,16 @@ Real stoichiometry (all from cryo-EM structural studies, see
 complexation_reactions_added.tsv for full citations): FliG=34 (C-ring
 34-fold symmetry), FliM=34, FliN=111+/-13 ("Precise Measurement of the
 Stoichiometry of the Adaptive Bacterial Flagellar Switch," PMC10128058).
+
+MS-RING ORDERING FIX (2026-08-11): FliF (MS-ring, x34) added as a fourth
+reactant. Real assembly order (Minamino & Namba 2008 Nature; Chevance &
+Hughes 2008 Nat Rev Microbiol) has the MS-ring form FIRST, then the
+C-ring assembles onto its cytoplasmic face -- before this fix, FliF was
+consumed much later, lumped into flagella_motor_complex_assembly.py
+alongside unrelated stator/rod parts. CPLX0-7450 now represents the
+merged "MS-ring + C-ring" structure (a reasonable single-stage merge --
+many structural papers describe these as forming one continuous ring
+assembly, not always two independently-isolable intermediates).
 """
 
 
@@ -58,7 +68,15 @@ TOPOLOGY = {
     "global_time": ("global_time",),
 }
 
+# Old requirements (FliG/FliM/FliN only), kept per standing preserve-old-code
+# rule:
+# _REQUIREMENTS = {
+#     "FLIG-FLAGELLAR-SWITCH-PROTEIN[i]": 34,
+#     "FLIM-FLAGELLAR-C-RING-SWITCH[i]": 34,
+#     "FLIN-FLAGELLAR-C-RING-SWITCH[m]": 111,
+# }
 _REQUIREMENTS = {
+    "FLIF-FLAGELLAR-MS-RING[i]": 34,        # MS-ring -- MS-RING ORDERING FIX, 2026-08-11
     "FLIG-FLAGELLAR-SWITCH-PROTEIN[i]": 34,
     "FLIM-FLAGELLAR-C-RING-SWITCH[i]": 34,
     "FLIN-FLAGELLAR-C-RING-SWITCH[m]": 111,
@@ -66,10 +84,10 @@ _REQUIREMENTS = {
 
 
 class FlagellaMotorSwitchAssembly(Step):
-    """Fast, deterministic assembly of CPLX0-7450 from FliG/FliM/FliN."""
+    """Fast, deterministic assembly of CPLX0-7450 from FliF/FliG/FliM/FliN."""
 
     description = (
-        "FlagellaMotorSwitchAssembly — FliG/FliM/FliN -> CPLX0-7450 (C-ring).\n\n"
+        "FlagellaMotorSwitchAssembly — FliF/FliG/FliM/FliN -> CPLX0-7450 (MS-ring + C-ring).\n\n"
         "    n_formed = min(available // per_unit)\n"
         "  Deterministic, not rate-limited -- moved out of Gillespie SSA purely for\n"
         "  numerical reasons (combinatorial propensity overflow), not biological ones."
@@ -79,6 +97,7 @@ class FlagellaMotorSwitchAssembly(Step):
     topology = TOPOLOGY
 
     config_schema = {
+        "fliF_id": {"_type": "string", "_default": "FLIF-FLAGELLAR-MS-RING[i]"},
         "fliG_id": {"_type": "string", "_default": "FLIG-FLAGELLAR-SWITCH-PROTEIN[i]"},
         "fliM_id": {"_type": "string", "_default": "FLIM-FLAGELLAR-C-RING-SWITCH[i]"},
         "fliN_id": {"_type": "string", "_default": "FLIN-FLAGELLAR-C-RING-SWITCH[m]"},
@@ -101,11 +120,12 @@ class FlagellaMotorSwitchAssembly(Step):
 
     def initialize(self, config):
         self._reactant_ids = [
+            self.parameters["fliF_id"],
             self.parameters["fliG_id"],
             self.parameters["fliM_id"],
             self.parameters["fliN_id"],
         ]
-        self._per_unit = np.array([34, 34, 111])
+        self._per_unit = np.array([34, 34, 34, 111])
         self.product_id = self.parameters["product_id"]
         self.reactant_idx = None
         self.product_idx = None

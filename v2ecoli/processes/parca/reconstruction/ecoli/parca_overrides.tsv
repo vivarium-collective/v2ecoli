@@ -1,6 +1,6 @@
 canonical_key	source_path	description	schema_name
-equilibrium_reactions	flat_overrides/equilibrium_reactions.tsv	v2ecoli DnaA-ATP hydrolysis equilibrium (PR #123); flagella-cascade FLGM-FLIA-CPLX_RXN and FLIT-FLID-CPLX_RXN (Maya Abdalla flagella-cascade investigation)
-equilibrium_reaction_rates	flat_overrides/equilibrium_reaction_rates.tsv	v2ecoli DnaA-ATP hydrolysis rates (PR #123); flagella-cascade FLGM-FLIA-CPLX_RXN and FLIT-FLID-CPLX_RXN rates (Maya Abdalla flagella-cascade investigation)
+equilibrium_reactions	flat_overrides/equilibrium_reactions.tsv	v2ecoli DnaA-ATP hydrolysis equilibrium (PR #123); flagella-cascade FLGM-FLIA-CPLX_RXN (Maya Abdalla flagella-cascade investigation). FLIT-FLID-CPLX_RXN removed 2026-08-10, see archive/flit-flhdc-regulation-2026-08/
+equilibrium_reaction_rates	flat_overrides/equilibrium_reaction_rates.tsv	v2ecoli DnaA-ATP hydrolysis rates (PR #123); flagella-cascade FLGM-FLIA-CPLX_RXN rate (Maya Abdalla flagella-cascade investigation). FLIT-FLID-CPLX_RXN rate removed 2026-08-10, see archive/flit-flhdc-regulation-2026-08/
 metabolic_reactions_added	flat_overrides/metabolic_reactions_added.tsv	v2ecoli metabolic additions (v2parca merge #16)	
 dna_sites	flat_overrides/dna_sites.tsv	DnaA-box catalog (8 oriC-low + 3 oriC-high + 2 promoter sites) for dnaa-3 box binding (Rashmi feat/aim2-dnaa-oric-box-binding)
 complexation_reactions_added	flat_overrides/complexation_reactions_added.tsv	Required complexation-reaction additions not present in the vendored base file (CPLX0-7796APO_RXN, ARCB-CPLX_RXN); flagella-cascade FLIT-DIMER_RXN and CPLX0-7450_RXN (motor switch complex, previously missing entirely) (Maya Abdalla flagella-cascade investigation)

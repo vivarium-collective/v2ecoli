@@ -290,7 +290,7 @@ def main():
     ap.add_argument("--seconds-cap", type=int, default=36000,
                      help="hard stop on total simulated time, as a safety ceiling")
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--cache-dir", default="out/cache_full_flit_v4")
+    ap.add_argument("--cache-dir", default="out/cache_full_flit_v11")
     args = ap.parse_args()
     rows = run_lineage(args.generations, args.sample, args.seconds_cap, args.seed, args.cache_dir)
     figure(rows, args.generations)

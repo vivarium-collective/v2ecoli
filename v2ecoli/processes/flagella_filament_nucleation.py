@@ -46,7 +46,7 @@ which rounds to exactly zero on every single tick, forever, regardless of
 how much simulated time passes (a direct test confirmed zero nascent
 flagella after a full 2400s run despite ample available material). This
 differs from other rate-based Steps in this codebase (e.g.
-flhdc_degradation.py) that multiply their rate by a large COUNT, not a
+flagella_flgm_secretion.py) that multiply their rate by a large COUNT, not a
 fixed small expected-event number -- those cross the 0.5 rounding
 threshold easily; a single-event-per-interval process never does. Fixed by
 switching from a per-tick probabilistic rate to a fixed-interval trigger:
@@ -54,6 +54,22 @@ next_update_time is scheduled ~1/nucleation_rate seconds ahead (not just
 one timestep), and each time the Step actually fires, it deterministically
 creates exactly one nascent flagellum (if material allows) rather than
 trying to accumulate sub-1 probability across many small ticks.
+
+SECOND BUG FOUND AND FIXED (2026-08-11): next_update_time's schema default
+is 0.0 (same shared bigraph pattern every flagella Step uses), and
+global_time also starts at/near 0.0 -- so update_condition's
+next_update_time <= global_time is trivially true on the very first tick,
+firing nucleation immediately at simulation start instead of waiting the
+intended ~1/nucleation_rate seconds like every SUBSEQUENT event correctly
+does. This gives every single-generation run one "free" nucleation event
+that skips the rate limit meant to make this Step rare. Harmless for the
+other flagella Steps (they're deliberately meant to fire immediately, every
+tick -- see flagella_motor_switch_assembly.py), but wrong specifically for
+this one. Fixed in update(): the very first call (detected the same way
+bulk indices are lazily resolved, self.idx is None) only starts the clock
+(schedules next_update_time one interval out) and returns without creating
+a flagellum, so the first nucleation waits its full turn exactly like every
+one after it.
 """
 
 
@@ -145,9 +161,19 @@ class FlagellaFilamentNucleation(Step):
         return states["next_update_time"] <= states["global_time"]
 
     def update(self, states, interval=None):
+        first_call = self.idx is None
         if self.idx is None:
             bulk_ids = states["bulk"]["id"]
             self.idx = bulk_name_to_idx(self._ids, bulk_ids)
+
+        if first_call:
+            # BUG FIX (2026-08-11): next_update_time defaults to 0.0, same as
+            # global_time at simulation start, so the very first call would
+            # otherwise fire immediately -- see module docstring "SECOND BUG
+            # FOUND AND FIXED". Treat the first call as purely starting the
+            # clock: schedule the first real opportunity one full interval
+            # out, without creating a flagellum.
+            return {"next_update_time": states["global_time"] + self.nucleation_interval}
 
         available = counts(states["bulk"], self.idx)
         material_limited_max = int(np.min(available // self._per_event))

@@ -25,10 +25,28 @@ here:
       THIS Step then consumes as a single unit.
 
 Real stoichiometry (cryo-EM structural studies -- see
-complexation_reactions_modified.tsv for full citations): FliF=34 (MS-ring),
-FlgH/FlgI=26 (L-ring/P-ring), FliE=6/FlgB=5/FlgC=6/FlgF=5 (proximal rod),
-FlgG=24 (distal rod), MotA~55/MotB~22 (stator, derived estimate), FliL=2
-(per Maya's own "Master Flagella Info" spreadsheet).
+complexation_reactions_modified.tsv for full citations): FlgH/FlgI=26
+(L-ring/P-ring), FliE=6/FlgB=5/FlgC=6/FlgF=5 (proximal rod), FlgG=24
+(distal rod), MotA~55/MotB~22 (stator, derived estimate), FliL=2 (per
+Maya's own "Master Flagella Info" spreadsheet).
+
+HIERARCHY FIX (2026-08-11): CPLX0-7450 (C-ring) removed as a direct
+requirement here. Real assembly order (Minamino & Namba 2008 Nature;
+Chevance & Hughes 2008 Nat Rev Microbiol) has the export apparatus insert
+into the central pore of a PRE-FORMED MS-C-ring, not assemble independently
+and merge here later -- so CPLX0-7450 is now consumed one step upstream, by
+CPLX0-7451_RXN itself (see complexation_reactions_modified.tsv), and
+CPLX0-7451 arriving here already represents "export apparatus inserted into
+ring." Consuming CPLX0-7450 again at this step would double-count the
+C-ring for one motor complex.
+
+MS-RING ORDERING FIX (2026-08-11, same investigation): FliF (MS-ring, x34)
+also removed as a direct requirement here, for the identical reason one
+level further upstream -- the MS-ring forms before the C-ring, not
+alongside the stator/rod parts at the very last stage. FliF is now
+consumed by CPLX0-7450_RXN itself (see complexation_reactions_added.tsv),
+so it arrives here already folded into CPLX0-7451 (via the CPLX0-7450
+dependency chained through CPLX0-7451_RXN).
 """
 
 
@@ -47,8 +65,17 @@ TOPOLOGY = {
 }
 
 _REQUIREMENTS = {
-    "CPLX0-7450[i]": 1,                                # motor switch complex (C-ring)
-    "CPLX0-7451[j]": 1,                                # export apparatus
+    # "CPLX0-7450[i]": 1,   # REMOVED 2026-08-11: C-ring now consumed one step
+    #                       # upstream, by CPLX0-7451_RXN itself -- see
+    #                       # complexation_reactions_modified.tsv HIERARCHY FIX.
+    #                       # Kept here per standing preserve-old-code rule.
+    # "FLIF-FLAGELLAR-MS-RING[i]": 34,   # REMOVED 2026-08-11: MS-ring now
+    #                       # consumed two steps upstream, folded into
+    #                       # CPLX0-7450_RXN itself -- see
+    #                       # complexation_reactions_added.tsv MS-RING
+    #                       # ORDERING FIX. Kept here per standing
+    #                       # preserve-old-code rule.
+    "CPLX0-7451[j]": 1,                                # export apparatus (now transitively includes MS-ring + C-ring, post both hierarchy fixes)
     "FLGH-FLAGELLAR-L-RING[j]": 26,                     # L-ring
     "MOTA-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]": 55,       # stator
     "MOTB-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]": 22,       # stator
@@ -56,7 +83,6 @@ _REQUIREMENTS = {
     "FLGC-FLAGELLAR-MOTOR-ROD-PROTEIN[j]": 6,           # proximal rod
     "FLGF-FLAGELLAR-MOTOR-ROD-PROTEIN[j]": 5,           # proximal rod
     "FLGG-FLAGELLAR-MOTOR-ROD-PROTEIN[o]": 24,          # distal rod
-    "FLIF-FLAGELLAR-MS-RING[i]": 34,                    # MS-ring
     "EG10322-MONOMER[j]": 2,                            # FliL
     "EG11346-MONOMER[p]": 6,                            # FliE
 }

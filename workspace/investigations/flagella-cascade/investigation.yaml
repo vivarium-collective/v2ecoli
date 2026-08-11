@@ -115,6 +115,11 @@ study_order:
     transcription: [flagella-01-overexpression-baseline, flagella-02-transcription-regulation]
     spatial: [flagella-03-voronoi-compartments, flagella-05-spatial-transport]
     assembly: [flagella-04-complexation-nfsim]
+    # Added 2026-08-10: standalone reduced ODE model, decoupled from the WCM
+    # entirely (no process-bigraph composite/ParCa cache/division/metabolism).
+    # Depends on 02 for its real, validated parameter values but is not part
+    # of the WCM composite pipeline -- see flagella-06's study.yaml for why.
+    reduced_model: [flagella-06-reduced-ode-model]
 
 report_cards_status:
   # Answer to "report cards?": the flagella studies have NONE yet, and generating
@@ -270,6 +275,39 @@ open_decisions:
       into a dedicated flagella-nfsim-assembly investigation once it is coupled into
       the WCM (then it becomes a distinct rule-based-vs-Gillespie methods thread with
       its own acceptance criteria). Maintainers' call.
+  - id: flit-flhdc-checkpoint-removed-nfsim-migration-planned
+    raised_by: MA
+    date: '2026-08-10'
+    status: OPEN -- migration not yet built
+    question: >-
+      The FliT:FlhD4C2 checkpoint (real biology: Yamamoto & Kutsukake 2006,
+      J Bacteriol 188:5124 -- FliT blocks FlhD4C2 from class-2 promoters,
+      titrated by FliD export) was removed from the live WCM 2026-08-10
+      after Albanna et al. (2018, Sci Rep 8:16705) was found to show no
+      significant Delta-fliT phenotype in E. coli MG1655 (this WCM's exact
+      K-12 strain), unlike in Salmonella where the mechanism was
+      characterized. Its basal-degradation companion (the only other
+      decay pathway FlhD4C2 had, since the standard protein_degradation
+      process only handles monomers, never assembled complexes) was
+      removed alongside it at Maya's explicit call, accepting that this
+      reopens the flagella-count-unbounded-runaway risk in the interim.
+      All removed code/reactions/config archived at
+      archive/flit-flhdc-regulation-2026-08/ (repo root, with full
+      citations) for before/after reference. Full detail:
+      flagella-02-transcription-regulation/study.yaml's finding
+      flagella-02-flit-checkpoint-removed.
+    recommendation: |
+      Planned replacement: represent FliT's role via an NFsim rule
+      (FlhD4C2 + FliT <-> FlhD4C2:FliT competitive-binding rule, closer to
+      the real DNA-binding-inhibition mechanism than the removed Step's
+      degradation-rate proxy), building on flagella-04-complexation-
+      nfsim's existing standalone rule-based assembly work -- that NFsim
+      coupling into the live WCM composite does not exist yet and is the
+      real infrastructure lift, not the FliT rule itself. Until built,
+      flagella_regulation runs with no FlhD4C2 shutdown mechanism at all.
+      FLIT-DIMER_RXN (FliT homodimer formation) was kept as a building
+      block for this future work -- it's real, FliT-regulation-independent
+      biology, not itself part of what was removed.
   - id: report-study-differentiation
     raised_by: MA
     date: '2026-07-24'
@@ -307,6 +345,7 @@ studies:
 - flagella-03-voronoi-compartments
 - flagella-04-complexation-nfsim
 - flagella-05-spatial-transport
+- flagella-06-reduced-ode-model
 
 acceptance_criteria:
 - id: AC1
@@ -346,6 +385,18 @@ acceptance_criteria:
     The Voronoi plot correctly sections all flagellar proteins by their
     compartment label ([c] cytosol, [i] inner membrane, etc.) and the overlay
     correctly reflects each compartment's total mass.
+- id: AC6
+  behavior: checkpoint-regulates-expression-but-not-count-alone
+  study: flagella-06-reduced-ode-model
+  detail: |
+    A standalone, decoupled ODE model of the same real checkpoint + SUM-gate
+    mechanism (real parameters imported from the WCM source, two binding K_D
+    values measured directly from the WCM, validated against a real measured
+    trajectory to within ~2-3x) shows the checkpoint clearly suppressing
+    FlhD4C2 and driving the expected FliA/FlgM dynamics, but flagella COUNT
+    is not bounded by it over 8hr -- grows ~linearly with nucleation_rate*time.
+    Converges independently with flagella-02's WCM-based finding that
+    motor-complex supply, not the checkpoint, is what actually limits count.
 
 scientific_argument:
   main_claim: |

@@ -32,8 +32,14 @@ bypasses the TF-binding pathway for flagella genes, eliminating the
 double-counting that otherwise drives FliA ~5x above its calibrated level.
 
 EcoCyc IDs: CPLX0-3930 (FlhDC), EG11355-MONOMER (FliA / sigma-28).
-Class II TUs (genes): flhD EG10322, flhC ?, fliA EG11355, plus flgB/flgA/fliL
-operons (G358, G357, G7028, EG11346, EG11347).
+Class II TUs (genes, verified against get_flagella_transcription_regulation_
+config's classII_cistron_ids -- an earlier version of this comment wrongly
+listed flhD as EG10322, which is actually fliL): fliL EG10322, fliE EG11346,
+fliF EG11347, flgB G358, flgA G357, flhB G7028, fliA EG11355. flhD (EG10320)
+and flhC (EG10319) are NOT Class II genes in this gate -- FlhD4C2 (CPLX0-3930)
+is the gate's INPUT (X), assembled via the standard, unmodified
+CPLX0-3930_RXN complexation reaction (4 FlhD + 2 FlhC), and its own
+transcription runs on plain ParCa basal probability, untouched by this Step.
 
 Ordered in the composite flow:
     ecoli-tf-binding -> ecoli-flagella-transcription-regulation -> ecoli-transcript-initiation

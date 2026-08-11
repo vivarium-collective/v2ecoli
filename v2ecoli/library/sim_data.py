@@ -628,9 +628,11 @@ class LoadSimData:
             "ecoli-tf-binding": self.get_tf_config,
             "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
             "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
-            "ecoli-flhdc-degradation": self.get_flhdc_degradation_config,
-            "ecoli-flit-flhdc-checkpoint": self.get_flit_flhdc_checkpoint_config,
+            # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
+            # 2026-08-10 -- see archive/flit-flhdc-regulation-2026-08/ and
+            # ecoli_baseline.py's flagella_regulation feature comment.
             "ecoli-flagella-motor-switch-assembly": self.get_flagella_motor_switch_assembly_config,
+            "ecoli-flagella-export-apparatus-assembly": self.get_flagella_export_apparatus_assembly_config,
             "ecoli-flagella-motor-complex-assembly": self.get_flagella_motor_complex_assembly_config,
             "ecoli-flagella-filament-nucleation": self.get_flagella_filament_nucleation_config,
             "ecoli-flagella-filament-elongation": self.get_flagella_filament_elongation_config,
@@ -858,39 +860,16 @@ class LoadSimData:
             "secretion_rate": 0.1,
         }
 
-    def get_flhdc_degradation_config(self, time_step=1):
-        """Config for the FlhD4C2 (ClpXP-mediated) degradation Step.
-
-        Added 2026-08-05 to address the flagella-count runaway found in Maya's
-        flagella-cascade investigation. Rate is a literature-anchored ESTIMATE,
-        not a directly-measured E. coli/CPLX0-3930-specific constant -- see
-        v2ecoli/processes/flagella_flhdc_degradation.py for full provenance.
-        """
-        return {
-            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
-            "flhdc_id": "CPLX0-3930[c]",
-            "degradation_rate": 0.00289,
-        }
-
-    def get_flit_flhdc_checkpoint_config(self, time_step=1):
-        """Config for the FliT-mediated FlhD4C2 checkpoint Step.
-
-        Added 2026-08-06 as the real, literature-grounded mechanism for the
-        flagella-count-runaway problem, replacing an earlier hard-coded
-        nucleation cap (removed 2026-08-06 per Maya's explicit "no artificial
-        cap" instruction) -- see
-        v2ecoli/processes/flagella_flit_flhdc_checkpoint.py for full
-        provenance (Utsey & Keener 2020 fast-equilibrium reduction; delta2 is
-        literature-sourced, k_half is a documented estimate reusing the
-        SUM-gate's K_flhDC scale).
-        """
-        return {
-            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
-            "flhdc_id": "CPLX0-3930[c]",
-            "flit_dimer_id": "FLIT-DIMER[c]",
-            "bound_degradation_rate": 0.05,
-            "k_half": 50.0,
-        }
+    # get_flhdc_degradation_config / get_flit_flhdc_checkpoint_config removed
+    # 2026-08-10 (Maya's explicit instruction) -- the FliT:FlhD4C2 checkpoint
+    # is real, literature-grounded biology (Yamamoto & Kutsukake 2006,
+    # J Bacteriol 188:5124) but in Salmonella; Albanna et al. (2018, Sci Rep
+    # 8:16705) directly tested a Delta-fliT mutant in E. coli MG1655 (this
+    # WCM's exact K-12 strain) and found no significant phenotypic effect,
+    # unlike in Salmonella. Removed in favor of a planned NFsim rule-based
+    # representation of FliT's role (see flagella-04-complexation-nfsim).
+    # Full code, config, and reaction-network entries archived at
+    # archive/flit-flhdc-regulation-2026-08/ for reference.
 
     def get_flagella_motor_switch_assembly_config(self, time_step=1):
         """Config for the flagellar motor switch complex (C-ring) assembly Step.
@@ -899,13 +878,34 @@ class LoadSimData:
         v2ecoli/processes/flagella_motor_switch_assembly.py for full
         provenance (moved out of Gillespie SSA for numerical reasons, not
         biological ones; real cryo-EM stoichiometry FliG=34/FliM=34/FliN=111).
+
+        MS-RING ORDERING FIX (2026-08-11): fliF_id added -- CPLX0-7450 now
+        represents the merged MS-ring + C-ring (real assembly order has the
+        MS-ring form first), not C-ring alone. See the Step module's
+        docstring for full provenance.
         """
         return {
             "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "fliF_id": "FLIF-FLAGELLAR-MS-RING[i]",
             "fliG_id": "FLIG-FLAGELLAR-SWITCH-PROTEIN[i]",
             "fliM_id": "FLIM-FLAGELLAR-C-RING-SWITCH[i]",
             "fliN_id": "FLIN-FLAGELLAR-C-RING-SWITCH[m]",
             "product_id": "CPLX0-7450[i]",
+        }
+
+    def get_flagella_export_apparatus_assembly_config(self, time_step=1):
+        """Config for the flagellar export apparatus (CPLX0-7451) assembly Step.
+
+        Added 2026-08-11 -- see
+        v2ecoli/processes/flagella_export_apparatus_assembly.py for full
+        provenance. Moved out of ecoli-complexation for architectural
+        consistency (removes a cross-mechanism race against the
+        deterministic C-ring Step it now depends on), not because its own
+        stoichiometry (max coefficient FlhA=9) was numerically dangerous.
+        """
+        return {
+            "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
+            "product_id": "CPLX0-7451[j]",
         }
 
     def get_flagella_motor_complex_assembly_config(self, time_step=1):
@@ -946,6 +946,22 @@ class LoadSimData:
         v2ecoli/processes/flagella_filament_elongation.py for full
         provenance (Renault et al. 2017, eLife 6:e23136, injection-diffusion
         model, converted to subunit-count units).
+
+        target_length changed 2026-08-10 from 20000 to 10000, then again
+        2026-08-11 from 10000 to 5000 -- all real, cited values (literature
+        range ~20,000-40,000 subunits for 5-20 um filaments, ~2,000-2,130
+        subunits/um), not arbitrary diagnostic overrides like the
+        target=500/2000 runs earlier this investigation. The second cut was
+        motivated by direct evidence at 10,000: free FliC dropped
+        51,967 -> 14 over a single 2400s generation with only 4 concurrent
+        nascent flagella, and the longest filament had only reached 85%
+        completion -- too little headroom. 5,000 subunits (~2.5 um) is
+        still within the real range, and roughly quarters minimum
+        completion time again (L^2 scaling). Matched by CPLX0-7452_RXN's
+        FliC coefficient in complexation_reactions_modified.tsv, kept in
+        sync so ParCa's own mass accounting for a complete flagellum isn't
+        inconsistent with what elongation actually builds -- see that
+        file's comments for the old (kept) values and full reasoning.
         """
         return {
             "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
@@ -953,7 +969,9 @@ class LoadSimData:
             "fliD_id": "EG10841-MONOMER[e]",
             "flagellum_id": "CPLX0-7452[j]",
             "fliD_per_completion": 5,
-            "target_length": 20000,
+            # "target_length": 10000,  # changed 2026-08-11, kept per standing
+            #                          # preserve-old-code rule
+            "target_length": 5000,
             "rate_a": 26450.0,
             "rate_b": 575.0,
         }

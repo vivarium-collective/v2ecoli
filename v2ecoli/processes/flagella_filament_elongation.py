@@ -71,12 +71,38 @@ same free FliC pool: desired increments are computed per filament, then
 scaled down proportionally (fair-share) if their sum exceeds what's
 actually available, so total consumption never exceeds free FliC.
 
-Completion: once filament_length reaches ~20,000 (matching CPLX0-7452_RXN's
+Completion: once filament_length reaches the target (matching CPLX0-7452_RXN's
 real FliC coefficient exactly, so total mass is conserved by construction --
 see internal_state.py's nascent_flagellum registration), the Step consumes
 5x FliD (cap, matching CPLX0-7452_RXN's FliD coefficient), deletes the
 nascent_flagellum unique molecule, and increments the real CPLX0-7452 bulk
 count by 1 -- the same count every other flagella_regulation Step reads.
+
+Target length changed 2026-08-10 from 20,000 to 10,000 subunits. Both are
+real, cited values, not an arbitrary diagnostic override -- the literature
+range for filament length is ~20,000-40,000 subunits (5-20 um, at
+~2,000-2,130 subunits/um), so 10,000 (~5 um) is the short end of that real
+range, not an invented number. Chosen specifically because completion time
+scales roughly with L^2/a for L>>b (dL/dt=a/(b+L) means T~=(bL+L^2/2)/a),
+so this isn't a proportional time saving: 20,000->10,000 cuts minimum
+completion time from ~133 min to ~35 min, making single-generation
+completion achievable within this investigation's practical simulation
+windows. Kept in sync with CPLX0-7452_RXN's FliC coefficient in
+complexation_reactions_modified.tsv (also changed to -10,000, old value
+kept as a comment there) so ParCa's own recorded molecular weight for a
+complete flagellum matches what elongation actually builds.
+
+Target length changed AGAIN 2026-08-11 from 10,000 to 5,000 subunits (~2.5
+um) -- still a real, cited value on the short end of the 20,000-40,000
+range (PMC7696725), not arbitrary. Motivated by direct evidence at 10,000:
+the single-gen panel run showed free FliC dropping 51,967 -> 14 over 2400s
+with only 4 concurrent nascent flagella and the longest filament only 85%
+complete (8,540/10,000) -- the pool was close to fully exhausting itself
+before even one flagellum finished. Halving again roughly quarters minimum
+completion time (L^2 scaling) and restores real headroom in the FliC pool.
+Kept in sync with CPLX0-7452_RXN's FliC coefficient in
+complexation_reactions_modified.tsv (also changed to -5,000, old value kept
+as a comment there).
 
 Ordered in the composite flow: after ecoli-flagella-filament-nucleation.
 """
@@ -98,7 +124,10 @@ TOPOLOGY = {
     "global_time": ("global_time",),
 }
 
-TARGET_LENGTH = 20000  # subunits; matches CPLX0-7452_RXN's FliC coefficient
+# TARGET_LENGTH = 10000  # changed 2026-08-10 from 20000 -- kept per standing
+                          # preserve-old-code rule, see module docstring
+TARGET_LENGTH = 5000   # subunits; matches CPLX0-7452_RXN's FliC coefficient
+                        # changed 2026-08-11 from 10000 -- see module docstring
 
 
 class FlagellaFilamentElongation(Step):
@@ -108,7 +137,8 @@ class FlagellaFilamentElongation(Step):
         "FlagellaFilamentElongation — length-dependent incremental FliC addition.\n\n"
         "    rate(L) = a / (b + L)   [subunits/s], a~=26450, b~=575 (Renault et al. 2017)\n"
         "  Grows each nascent_flagellum's filament_length; fair-shares free FliC across\n"
-        "  simultaneous filaments; on reaching 20,000 (~real subunit count), consumes\n"
+        "  simultaneous filaments; on reaching target_length (10,000, real short-range\n"
+        "  subunit count as of 2026-08-10), consumes\n"
         "  5x FliD and converts the unique molecule into +1 real CPLX0-7452 bulk count."
     )
 

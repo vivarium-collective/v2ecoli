@@ -173,7 +173,7 @@ def main():
     ap.add_argument("--seconds", type=int, default=18000)
     ap.add_argument("--sample", type=int, default=120)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--cache-dir", default="out/cache_full_flit_v4")
+    ap.add_argument("--cache-dir", default="out/cache_full_flit_v11")
     args = ap.parse_args()
     rec = run(args.seconds, args.sample, args.seed, args.cache_dir)
     figure(rec, args.seconds)

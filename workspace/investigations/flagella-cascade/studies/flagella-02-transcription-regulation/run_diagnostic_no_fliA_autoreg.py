@@ -17,7 +17,13 @@ runaway's driver, before deciding whether/how to change it for real.
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
         workspace/investigations/flagella-cascade/studies/flagella-02-transcription-regulation/run_diagnostic_no_fliA_autoreg.py \
-        --seconds 2400 --sample 60 --cache-dir out/cache_full_flit
+        --seconds 2400 --sample 60 --cache-dir out/cache_full_flit_v11
+
+NOTE (2026-08-11): --cache-dir default updated from out/cache_full_flit
+(deleted during repo cleanup -- see study.yaml) to out/cache_full_flit_v11,
+the current cache. This diagnostic tests fliA's own autoregulation
+coefficient, unrelated to the FliT:FlhDC checkpoint removed 2026-08-10, so
+it remains valid against the current reaction network.
 """
 import argparse
 import copy
@@ -175,7 +181,7 @@ def main():
     ap.add_argument("--seconds", type=int, default=2400)
     ap.add_argument("--sample", type=int, default=60)
     ap.add_argument("--seed", type=int, default=0)
-    ap.add_argument("--cache-dir", default="out/cache_full_flit")
+    ap.add_argument("--cache-dir", default="out/cache_full_flit_v11")
     args = ap.parse_args()
     rec = run(args.seconds, args.sample, args.seed, args.cache_dir)
     figure(rec, args.seconds)

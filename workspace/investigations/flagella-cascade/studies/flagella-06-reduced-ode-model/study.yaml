@@ -1,0 +1,380 @@
+schema_version: 4
+name: flagella-06-reduced-ode-model
+title: "Reduced ODE Model — Regulatory + Assembly Dynamics, Decoupled from the WCM"
+question: >-
+  Does the real FliT:FlhDC checkpoint (Utsey & Keener 2020) + Kalir & Alon
+  SUM-gate + real assembly/elongation kinetics (Renault et al. 2017),
+  modeled as a standalone system of ODEs with NO whole-cell-model division/
+  metabolism/FBA machinery, produce realistic, self-limiting flagella-count
+  dynamics over many generations -- directly testing the question three
+  separate WCM-embedded diagnostics (study 02) could not answer, each
+  blocked by a different infrastructure limitation unrelated to the
+  regulatory mechanism itself (fliC supply, motor-complex supply, the
+  general division/mass-homeostasis bug logged in investigation.yaml).
+description: |
+  Added 2026-08-10, after study 02's multi-generation diagnostics
+  repeatedly hit WCM-level infrastructure limits before the actual
+  regulatory question (does the FliT checkpoint produce self-limiting
+  flagella count?) could be answered. Rather than continuing to fight
+  those limits inside the full whole-cell model, this study builds a
+  standalone, decoupled model of just the regulatory + assembly system --
+  the same modeling choice Kalir & Alon (2004) and Utsey & Keener (2020)
+  themselves made in their own papers (neither embedded their models in a
+  whole-cell simulation). No process-bigraph composite, no ParCa cache, no
+  cell division/metabolism/FBA -- plain Python + scipy.integrate, reusing
+  the REAL parameter values imported directly from the actual WCM source
+  files (v2ecoli/processes/flagella_*.py) rather than re-derived
+  approximations, so the two models can't silently drift out of sync.
+
+  This is a genuinely different tool for a genuinely different question:
+  study 02 established that the MECHANISM is grounded in real, cited
+  stoichiometry and kinetics, and that the WCM's own infrastructure (not
+  the flagella mechanism) is what's currently blocking the multi-
+  generation question. This study uses that same validated mechanism to
+  actually ANSWER the multi-generation question cheaply (seconds instead
+  of hours), at the cost of losing whole-cell context (real resource
+  competition with the rest of the cell's physiology).
+topic: regulation
+tags: [flagella, ode, reduced-model, kalir-alon, sum-gate, flit-checkpoint,
+       utsey-keener, self-limiting-dynamics, decoupled-from-wcm, aim2a]
+created: '2026-08-10'
+
+pipeline_gate:
+  prerequisites:
+  - flagella-02-transcription-regulation   # reuses its validated real parameters
+  enables: []
+
+status: in_progress
+phase: Evaluate
+
+design_status: complete
+implementation_status: complete
+simulation_status: complete
+evaluation_status: in_progress
+gate_status: pending
+expert_review_status: not_requested
+
+runs:
+  - id: v1-first-run-2026-08-10
+    script: run_reduced_ode_model.py (v1, superseded)
+    outcome: |
+      Ran cleanly but surfaced two real calibration bugs before any
+      qualitative conclusion could be trusted: (1) the "reference" state
+      used to calibrate synthesis rates (FliA~2487, FlgM~1496) was
+      mis-attributed as a late-timepoint diagnostic snapshot rather than
+      the genuine natural ParCa basal IC it actually is; (2) the FliA:FlgM
+      sequestration term was an ad hoc bimolecular rate fit to a mismatched
+      transient (a 5s crash under an artificial override IC), which
+      blew up unrealistically (FlgM 1496->0.6 within 10s) when applied at
+      the real reference scale. Not used for any conclusion.
+  - id: v2-validated-run-2026-08-10
+    script: run_reduced_ode_model.py (v2, current)
+    outcome: |
+      Full rewrite: real natural (un-overridden) t=0 WCM state used as the
+      reference IC (confirmed via direct build_composite() read with no
+      diagnostic override -- FlhDC=335, FliA=2487, FlgM=1496, FliT=974,
+      FliD=2115, all complexes exactly 0, confirming these are total pool
+      sizes). FliA:FlgM and FliT:FliD both modeled as real 1:1 fast
+      equilibria with K_D measured DIRECTLY from the WCM (not derived from
+      an uncertain volume/Avogadro conversion, though that independent
+      derivation landed within ~25% of the measured value as a sanity
+      check): K_D(FlgM:FliA)=144.5, K_D(FliT:FliD)=141.3 count-units,
+      measured from 4 early-timepoint (t=2-20s) samples each, both highly
+      consistent (<2% spread). Discovered and fixed a real missing
+      mechanism: the checkpoint's free-FliT input must be the FliT:FliD-
+      equilibrium-corrected value (execution order: ecoli-equilibrium runs
+      before the checkpoint step), not the raw FliT total -- validated
+      by predicting free FliT~99.4/free FliD~1240 from the equilibrium
+      alone (zero fitting) and finding it matches the independently
+      measured real trajectory (FliT settles ~100-106, FliD ~1240-1265)
+      to within a few percent. Also found and fixed a real formula bug:
+      FlgM secretion is a FLAT per-complete-flagellum rate
+      (hbb_count*secretion_rate, per flagella_flgm_secretion.py), NOT
+      proportional to available FlgM as v1 assumed -- confirmed directly
+      from source. Validated the corrected model against real WCM data
+      (comprehensive-panel diagnostic, matched override IC): qualitative
+      shape now matches (gradual FlgM decline, gradual FliA rise,
+      fast-then-plateau FlhDC decline) with quantitative values within
+      ~2-3x at t=2400s (model retains more FlgM, FlhDC settles higher
+      than the real ~3 vs model's ~11.5) -- reasonable agreement given the
+      remaining synthesis-calibration approximation (open_decision below).
+      Full 8hr run: FlhDC settles ~10; FliA total rises to ~8500; FlgM
+      crashes toward 0 late in the run as N_complete grows (46.5 flagella
+      by 8hr, each secreting, exceeds max FlgM synthesis ~0.4/s); flagella
+      count grows to 46.5, tracking nucleation_rate*time almost exactly
+      (0.00167*28800=48) -- i.e. NOT self-limiting within the tested
+      window; completion-rate ratio (last 10% vs overall average) = 1.13,
+      indicating acceleration, not saturation.
+    charts: [charts/01_reduced_ode_v2_target20000_8.0hr.svg]
+    data: [reduced_ode_v2_target20000_8.0hr.npz]
+    archived_at: archive/flit-flhdc-regulation-2026-08/code/ (run_reduced_ode_model_v2_with_flit.py, plus its chart/npz)
+  - id: v3-no-flit-2026-08-10
+    script: run_reduced_ode_model.py (v3, current)
+    outcome: |
+      Superseded v2's "frozen, left as-is" plan from earlier the same day
+      -- Maya asked to keep the model in sync with the live WCM instead.
+      Removed the FliT:FlhDC checkpoint entirely (no v/c2 titration term)
+      and the FliT:FliD equilibrium (no longer needed, that reaction was
+      removed from the WCM alongside the checkpoint it fed), mirroring the
+      WCM's real 2026-08-10 removal exactly. v2's code archived first at
+      archive/flit-flhdc-regulation-2026-08/code/run_reduced_ode_model_v2_
+      with_flit.py for before/after comparison. Result: FlhD4C2 (X) now has
+      NO decay term at all (matching the live WCM, which also has none
+      pending the NFsim replacement) -- grows perfectly linearly,
+      335->28,217.7 over 8hr (confirmed: Delta=3485.4/hr, exactly
+      K_SYNTH_X=0.9682/s x 3600s -- pure unbounded synthesis, no
+      saturation whatsoever). FliA total also rises further than in v2
+      (9045.8 vs ~8500 at 8hr) since it's no longer indirectly damped by a
+      checkpoint-suppressed X. Flagella count is UNCHANGED from v2 (46.53
+      at 8hr, same nucleation_rate*time trajectory) -- expected, since
+      nucleation was never gated by X in this model either version;
+      removing the checkpoint affects gene expression, not assembly.
+      FliT is now tracked as a genuine dead-end variable (still
+      synthesized/degraded under its own real rates, consistent with
+      FLIT-DIMER_RXN staying in the live WCM, but influences nothing else).
+    charts: [charts/02_reduced_ode_v3_no_flit_target20000_8.0hr.svg]
+    data: [reduced_ode_v3_no_flit_target20000_8.0hr.npz]
+
+findings:
+  - id: flagella-06-reference-ic-was-a-real-parca-basal-state-not-a-snapshot-bug
+    date: '2026-08-10'
+    summary: |
+      What looked like a calibration bug (v1's "reference" values 2487/
+      1496 seeming too large to be a genuine t=0 IC) was resolved by
+      directly reading the WCM's natural (non-diagnostic-override) t=0
+      bulk state: FlhDC=335, FliA=2487, FlgM=1496, FliT=974, FliD=2115,
+      with all relevant complexes exactly 0. These ARE the real ParCa
+      basal values, not an artifact -- the diagnostic override IC used
+      throughout study 02 (FliA=500, FlgM=800) is the exception, not the
+      norm, applied specifically to force interesting dynamics into the
+      observable window.
+  - id: flagella-06-checkpoint-input-needs-flit-flid-equilibrium-correction
+    date: '2026-08-10'
+    summary: |
+      The FliT:FlhDC checkpoint's real "u" input (free FliT-dimer) is NOT
+      the raw synthesized FliT total -- the real execution order runs
+      ecoli-equilibrium (which partitions FliT:FliD) before the checkpoint
+      step, so the checkpoint always sees the FliT:FliD-equilibrium-
+      depleted free FliT count. Missed in v1 (used raw FliT total
+      directly); the correction was validated with zero fitting (predicted
+      free FliT~99.4 from the measured K_D and real totals alone, matching
+      the independently measured real trajectory ~100-106).
+  - id: flagella-06-flgm-secretion-is-flat-rate-not-concentration-dependent
+    date: '2026-08-10'
+    summary: |
+      flagella_flgm_secretion.py's real formula is a flat per-complete-
+      flagellum export rate (hbb_count*secretion_rate, clamped so it can't
+      go negative), independent of how much FlgM is currently free. v1
+      modeled it as proportional to free FlgM (typical first-order
+      clearance kinetics), which produced an unrealistic ~170/s drain vs.
+      the real ~0.4/s at N_complete=4 -- a nearly 500x error traced
+      directly to misreading the mechanism, not a calibration issue.
+  - id: flagella-06-checkpoint-alone-does-not-bound-flagella-count-8hr
+    date: '2026-08-10'
+    summary: |
+      Across an 8-hour run with a validated (real-data-checked) v2
+      parameterization, flagella count grows to 46.5 -- tracking
+      nucleation_rate*time almost exactly, i.e. effectively unconstrained
+      -- while the checkpoint mechanism itself clearly IS acting on gene
+      expression (FlhDC crashes from 335 to ~10, FliA rises substantially,
+      FlgM eventually can't keep up with secretion once dozens of flagella
+      exist). This converges with study 02's own WCM-based finding
+      (flagella-02-second-supply-bottleneck-motor-complex-not-checkpoint):
+      the checkpoint regulates expression correctly, but by itself (absent
+      motor-complex gating on nucleation, which this model deliberately
+      does not include) it does not translate into a bounded flagella
+      count. Two independent modeling approaches now agree on this point.
+  - id: flagella-06-flhdc-unbounded-without-any-decay-term
+    date: '2026-08-10'
+    summary: |
+      v3 (no FliT checkpoint, matching the live WCM's 2026-08-10 removal):
+      with no decay term at all for FlhD4C2, X grows perfectly linearly
+      and without limit -- 335->28,217.7 over 8hr, exactly K_SYNTH_X x
+      time with zero saturation. This is the reduced-model confirmation of
+      the same tradeoff already documented for the live WCM (open_decision
+      flhdc-has-no-degradation-pathway-pending-nfsim in flagella-02's
+      study.yaml): removing the checkpoint without replacing it leaves the
+      master regulator with no brake whatsoever. Flagella count itself is
+      unaffected (still 46.53 at 8hr, same as v2) since nucleation was
+      never gated by X in either version -- confirms the checkpoint's
+      removal changes gene-expression dynamics but not assembly output in
+      this model, consistent with flagella-06-checkpoint-alone-does-not-
+      bound-flagella-count-8hr's earlier finding that the checkpoint was
+      never what limited count anyway.
+
+visualizations:
+  - charts/02_reduced_ode_v3_no_flit_target20000_8.0hr.svg
+
+baseline: []
+
+purpose:
+  question: |
+    Same as the study-level question above: does the real checkpoint +
+    SUM-gate + assembly kinetics, as a standalone dynamical system, show
+    flagella count rising then plateauing (self-limiting) rather than
+    growing without bound, over a multi-hour/multi-generation timescale?
+  mechanism: |
+    State variables: FlhD4C2 (X), free FliA (Y), cytoplasmic FlgM, free
+    FliT-dimer, flagella under construction (mean-field n_nascent), and
+    complete flagella count. Synthesis terms use the REAL Kalir & Alon
+    SUM-gate math (beta=[1200,450,350,350,150,100,50],
+    beta_prime=[250,350,300,450,300,350,300], K_flhDC=K_fliA=10.0, all
+    imported from flagella_transcription_regulation.py's own config_schema
+    defaults). FlhDC degradation uses the REAL fast-equilibrium checkpoint
+    reduction from flagella_flit_flhdc_checkpoint.py (delta2=0.05,
+    K_half=50.0) plus the real basal decay rate (0.00289/s, flagella_
+    flhdc_degradation.py). FlgM secretion uses the real rate (0.1/s per
+    flagellum, flagella_flgm_secretion.py). Filament construction uses a
+    mean-field exponential-relaxation approximation (nucleation at the
+    real derived rate 0.00167/s, completion at rate 1/tau where tau is
+    calibrated from the REAL, DIRECTLY MEASURED fliC-limited completion
+    time from study 02's diagnostics -- not re-derived from scratch) --
+    this is the one genuinely new (not directly imported) piece, since the
+    WCM's per-instance filament_length tracking has no exact ODE
+    equivalent; documented as a simplification, not a re-validated
+    mechanism.
+  expected_outcome: |
+    Not predetermined -- this is the actual open question. Candidate
+    outcomes: (a) flagella count rises then plateaus near the real Sisti
+    et al. 2017 range (2.4-7.8/cell) -- the hoped-for confirmation; (b) it
+    plateaus, but the checkpoint isn't what's causing it (e.g. saturates
+    due to some other structural reason in the reduced model) -- would
+    need distinguishing, same caution as study 02's motor-complex finding;
+    (c) it doesn't plateau at all within the tested window -- would argue
+    the checkpoint alone (independent of the WCM's supply bottlenecks) is
+    not sufficient to explain real self-limiting behavior.
+
+behavior_tests: []
+
+success_criteria:
+  model:
+  - MET (v2, 2026-08-10). Original phrasing assumed FlhD4C2~335/FliA~2487/
+    FlgM~1496/FliT~974 were "reference conditions" to be reproduced as a
+    fixed point -- corrected understanding: these are the real natural
+    ParCa basal t=0 IC (verified directly), not a steady state the
+    dynamics should hold at. Validated instead by comparing the model's
+    trajectory (started from the same override IC used in study 02's
+    diagnostics) against the real measured WCM trajectory: same
+    qualitative shape (gradual FlgM decline, gradual FliA rise,
+    fast-then-plateau FlhDC decline), quantitative agreement within ~2-3x
+    at t=2400s. See runs/v2-validated-run-2026-08-10.
+  biology:
+  - MET. Full 8hr run shows the checkpoint mechanism clearly acting on
+    gene expression (FlhDC 335->~10, FliA rising substantially, FlgM
+    eventually outpaced by secretion), but flagella COUNT is not bounded
+    by it within the tested window -- grows to 46.5, tracking
+    nucleation_rate*time almost exactly. Converges with study 02's own
+    WCM-based finding: the checkpoint alone (without motor-complex
+    gating, deliberately not modeled here) does not produce self-limiting
+    flagella count. See finding flagella-06-checkpoint-alone-does-not-
+    bound-flagella-count-8hr.
+
+open_decisions:
+  - id: mean-field-filament-construction-is-a-real-simplification
+    raised_by: system
+    date: '2026-08-10'
+    status: OPEN -- flagged, not resolved
+    question: >-
+      The nucleation/completion mean-field approximation (exponential
+      relaxation, tau calibrated from one measured WCM data point) is the
+      least-validated piece of this model -- the real WCM tracks each
+      filament's individual length via a genuine rate law
+      (dL/dt=a/(b+L)), which is NOT simply an exponential process. Does
+      the mean-field approximation change the qualitative self-limiting-
+      dynamics answer, or just the quantitative timing?
+    recommendation: |
+      Cross-check any qualitative finding (does count plateau or not)
+      against a second version of the mean-field term before trusting it
+      strongly -- e.g. a simple size-structured/queueing formulation
+      instead of pure exponential relaxation, to see if the qualitative
+      answer is robust to that choice.
+
+  - id: synthesis-rate-constants-not-fully-first-principles
+    raised_by: system
+    date: '2026-08-10'
+    status: OPEN -- flagged, not resolved
+    question: >-
+      K_SYNTH_* constants are calibrated by assuming the real natural
+      ParCa t=0 totals represent a synthesis=degradation steady state for
+      each TOTAL pool (defensible, since ParCa's fitting target is total
+      expression independent of downstream fast complexation) -- but this
+      is one step removed from directly importing ParCa's own basal_prob/
+      translation-efficiency chain. Validated against real WCM data to
+      within ~2-3x at t=2400s (see runs/v2-validated-run-2026-08-10) --
+      good enough for the qualitative self-limiting-dynamics question,
+      but the residual gap likely traces to this approximation.
+    recommendation: |
+      If quantitative precision becomes important (not just the
+      plateau-vs-no-plateau qualitative question), pull real basal_prob
+      and translation-efficiency values from sim_data directly rather
+      than back-calculating synthesis rates from total-pool/degradation-
+      rate balance.
+
+  - id: motor-complex-not-modeled-cannot-rule-in-self-limiting-dynamics
+    raised_by: system
+    date: '2026-08-10'
+    status: OPEN -- deliberate scope limit, not a bug
+    question: >-
+      This model finds the checkpoint alone does not bound flagella count
+      over 8hr -- converging with study 02's WCM finding. But neither
+      model has examined whether ADDING motor-complex-gated nucleation
+      (the mechanism study 02 found actually caps count in the WCM) would
+      make a reduced model self-limiting too. Given nucleation already
+      consumes 1 motor complex/event in the real mechanism
+      (flagella_filament_nucleation.py), this would be a natural, real
+      next extension -- gate NUCLEATION_RATE by an added motor-complex
+      pool state variable with its own (currently unexamined) synthesis
+      chain -- see study 02's open_decision motor-complex-supply-chain-
+      unexamined for the same unresolved question in the WCM context.
+    recommendation: |
+      Natural next step if this line of investigation continues: add a
+      motor-complex state variable with a synthesis rate estimated the
+      same way fliC's gap was originally found (measure real synthesis,
+      back-calculate demand), then re-test whether flagella count
+      plateaus.
+
+  - id: source-mechanism-removed-from-live-wcm-2026-08-10
+    raised_by: system
+    date: '2026-08-10'
+    status: RESOLVED -- model updated to v3, kept in sync with the live WCM
+    question: >-
+      The FliT:FlhD4C2 checkpoint this model was originally built to test
+      (flagella_flit_flhdc_checkpoint.py, plus its flhdc-degradation
+      companion and the FLIT-FLID-CPLX_RXN equilibrium reaction it depends
+      on) was removed from the live WCM on 2026-08-10, after Albanna et al.
+      (2018, Sci Rep 8:16705) was found to show no significant Delta-fliT
+      phenotype in E. coli MG1655 (this WCM's exact K-12 strain), unlike in
+      Salmonella where the mechanism was originally characterized (Yamamoto
+      & Kutsukake 2006). Full removal details and archived code at
+      archive/flit-flhdc-regulation-2026-08/ (repo root); see also
+      flagella-02's finding flagella-02-flit-checkpoint-removed.
+    recommendation: |
+      RESOLVED same day: Maya asked to keep the model in sync with the
+      live WCM rather than leave it frozen. v2 (with the checkpoint) was
+      archived at archive/flit-flhdc-regulation-2026-08/code/
+      run_reduced_ode_model_v2_with_flit.py; the live run_reduced_ode_
+      model.py is now v3, with the checkpoint and FliT:FliD equilibrium
+      removed to match. Result (finding flagella-06-flhdc-unbounded-
+      without-any-decay-term): FlhD4C2 now grows perfectly linearly with
+      no saturation at all, confirming in the reduced model exactly the
+      same tradeoff already documented for the live WCM. v2's own finding
+      (flagella-06-checkpoint-alone-does-not-bound-flagella-count-8hr)
+      remains valid as a historical result about the mechanism as it
+      existed before removal -- not rewritten, just superseded by v3 going
+      forward.
+
+notes: |
+  Companion to CHANGES_2026-08-08.md's "other mechanisms or models"
+  discussion. Real parameter values imported directly from
+  v2ecoli/processes/flagella_*.py at model-build time, not retyped, to
+  avoid the two models drifting out of sync -- see run_reduced_ode_model.py
+  for the exact import statements.
+
+  UPDATE 2026-08-10: the WCM mechanism v1/v2 imported and tested (the
+  FliT:FlhD4C2 checkpoint) was removed from the live WCM the same day --
+  see open_decision source-mechanism-removed-from-live-wcm-2026-08-10
+  above. v2 archived; the live script is now v3, updated to match.
+  This script and its findings are left as-is (a completed, valid piece of
+  analysis of a since-retired mechanism), not deleted or rewritten, per the
+  same preserve-history approach used for flagella-02's historical findings
+  and the dedicated archive/flit-flhdc-regulation-2026-08/ folder.

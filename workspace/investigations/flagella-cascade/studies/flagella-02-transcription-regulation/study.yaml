@@ -697,6 +697,215 @@ findings:
   evidence:
     observed: "check_nucleation_material.py: motor_complex 4->3->2->1->0 (t=60-300s), stays 0 through t=2400s; n_nascent 1->0 at t=360s, stays 0; FlgE 3475->4217, FlgK 1682->1587, FlgL 3332->3495 (all abundant throughout, never limiting)"
     expected: "if the checkpoint were the limiting mechanism, FlhD4C2 and/or free FliT-dimer trajectories (not tracked in this specific check) would show the expected suppression signature; instead a simple raw-material count directly explains the plateau"
+- id: flagella-02-flit-checkpoint-removed
+  kind: computational
+  status: superseded
+  statement: >-
+    (2026-08-10) The FliT:FlhD4C2 checkpoint (ecoli-flit-flhdc-checkpoint)
+    and its basal-degradation companion (ecoli-flhdc-degradation) were
+    removed from the active codebase, along with the FLIT-FLID-CPLX_RXN
+    equilibrium reaction that fed the checkpoint's free-FliT signal, per
+    Maya's explicit instruction. Reason: while the mechanism is real,
+    literature-confirmed biology (Yamamoto & Kutsukake 2006, J Bacteriol
+    188:5124, FliT binds FlhC and blocks class-2 promoter occupancy), the
+    one study that directly tested it in E. coli MG1655 -- this WCM's exact
+    K-12 reference strain -- found NO significant phenotypic effect from a
+    Delta-fliT mutant, versus a clear effect in Salmonella (Albanna et al.
+    2018, Sci Rep 8:16705, side-by-side Delta-fliT comparison in both
+    species). Given that direct negative result in the relevant organism,
+    continuing to model FliT as an active regulatory brake in a K-12 WCM
+    was judged not worth the added complexity. All removed code,
+    reaction-network entries, and config wiring are preserved at
+    archive/flit-flhdc-regulation-2026-08/ (repo root) for before/after
+    reference, alongside a README with full citations. Replacement
+    direction: represent FliT's role (chaperone + any regulatory
+    consequence, if warranted) via an NFsim rule instead, building on
+    flagella-04-complexation-nfsim's existing (currently standalone)
+    rule-based assembly work. FLIT-DIMER_RXN (FliT homodimer formation)
+    was NOT removed -- real, FliT-regulation-independent biology, kept as
+    a building block for that future NFsim work. Every prior finding in
+    this file that references the checkpoint, out/cache_full_flit_v4, or
+    FliT:FliD chemistry remains an accurate historical record of what was
+    tested while the mechanism was active -- not rewritten, only
+    superseded going forward. New work should use out/cache_full_flit_v5
+    (rebuilt 2026-08-10 without the removed reaction).
+  evidence:
+    observed: "Direct code check confirmed the checkpoint was the ONLY active regulatory shutdown mechanism on FlhD4C2 in this codebase (flhDC's own promoter is not touched by any custom flagella Step); removing both Steps leaves FlhD4C2 with no degradation pathway at all pending the NFsim replacement -- see open_decision flhdc-has-no-degradation-pathway-pending-nfsim."
+    expected: "n/a -- this is a design decision driven by a literature finding (Albanna et al. 2018), not an empirical model result."
+- id: flagella-02-target-length-changed-20000-to-10000
+  kind: computational
+  status: superseded
+  statement: >-
+    (2026-08-10) FliC's target filament length changed from 20,000 to
+    10,000 subunits -- both real, cited values (literature range
+    ~20,000-40,000 subunits for 5-20 um filaments), not an arbitrary
+    diagnostic override. Chosen because minimum completion time scales
+    roughly with L^2 for the real dL/dt=a/(b+L) growth law: 20,000 needs
+    ~133 min minimum (structurally impossible within a single generation);
+    10,000 needs only ~35 min, making real, single-generation completion
+    achievable for the first time. Changed in three places kept in sync
+    (flagella_filament_elongation.py's TARGET_LENGTH, sim_data.py's
+    get_flagella_filament_elongation_config, and CPLX0-7452_RXN's FliC
+    coefficient in complexation_reactions_modified.tsv) so ParCa's own
+    mass accounting for a complete flagellum matches what elongation
+    actually builds. Verified: a single-generation run (2400s, 40 min)
+    now shows a real completion (flagella count 4->5) for the first time
+    in this whole investigation. Cache rebuilt as out/cache_full_flit_v6.
+  evidence:
+    observed: "run_single_gen_no_flit_panel.py, 2400s, cache_full_flit_v6: flagella 4->5, max_filament_length reached 8552-10000 range before the one completion; free FliC crashed 51967->12 by end of run, same known supply dynamic as before, just now within reach of the target."
+    expected: "n/a -- design decision (real literature range, short end chosen for practical simulation windows), not itself a hypothesis test."
+- id: flagella-02-export-apparatus-flip-flop-stoichiometry-fixed
+  kind: computational
+  status: superseded
+  statement: >-
+    (2026-08-11) CPLX0-7451_RXN (flagellar export apparatus) was never
+    touched by this investigation before -- a vendored EcoCyc reaction,
+    unmodified, with most components at ParCa's null-stoichiometry default
+    (-1). Checked directly against Maya's "Master Flagella Info" spreadsheet
+    (Eran Flagella Assembly sheet) AND her separate "Flagellar assembly
+    stoichiometry" spreadsheet -- both independently confirmed the existing
+    values were already correct for 7 of 9 components (FliH=-12, FliI
+    [G377-MONOMER]=-6, FlhA/FlhB/FliO/FliJ all at -1). The one real
+    discrepancy: both her spreadsheets have FliP:FliQ:FliR at 1:1:1, but
+    Kuhlen et al. 2018 (Nat Struct Mol Biol, building on Fukumura et al.
+    2017 PLOS Biol 15:e2002281, PMC5542437, 4.2A cryo-EM of the Salmonella
+    FliPQR export-gate complex) directly resolved this specific complex's
+    real stoichiometry at 5:4:1. Maya's explicit call: update to the
+    cryo-EM value (a direct structural determination of this exact complex
+    is about as strong a source as exists), keep everything else unchanged.
+    Cache rebuilt as out/cache_full_flit_v7.
+
+    FOLLOW-UP (2026-08-11, same day): checked the REMAINING 7 components
+    against real structural literature too (not just the spreadsheets --
+    both spreadsheets turned out to have at least one unsourced,
+    incorrect default already, so "matches the spreadsheet" alone wasn't
+    treated as sufficient verification going forward). Result: FlhA
+    (G370-MONOMER) was ALSO wrong -- both spreadsheets and the vendored
+    default have it at -1, but FlhA is well-established as a homo-
+    nonameric ring in the export gate (multiple independent sources,
+    including one comprehensive statement -- "nine FlhA subunits, one
+    FlhB subunit, five FliP subunits, four FliQ subunits, and one FliR
+    subunit" -- that simultaneously re-confirmed FlhB/FliP/FliQ/FliR as
+    already correct). Fixed: FlhA -1 -> -9. FliH(-12)/FliI(-6)/FliJ(-1)
+    independently confirmed correct via a literature source naming the
+    exact "FliH12-FliI6-FliJ1" stoichiometry by name -- a three-way match
+    (spreadsheets, code, literature). FliO(-1) NOT changed -- literature
+    describes it as a transient assembly scaffold not retained in the
+    final mature complex (a Delta-fliO mutant's motility is rescued by
+    FliP overexpression alone), raising a real structural-modeling
+    question (does FliO belong as a consumed reactant in the FINAL-
+    complex-forming reaction at all?) that a copy-number fix doesn't
+    resolve -- left as-is, logged as open_decision export-apparatus-flio-
+    scaffold-role-unresolved below, per Maya's explicit call. Cache
+    rebuilt as out/cache_full_flit_v8 -- now the current cache.
+  evidence:
+    observed: "Direct sim_data check post-v7-rebuild: EG11975(FliP)=-5, EG11976(FliQ)=-4, all else unchanged. Direct sim_data check post-v8-rebuild: G370-MONOMER(FlhA)=-9, all else unchanged (including FliO still -1). Smoke tests (60s runs) confirmed the composite builds and runs cleanly after each rebuild."
+    expected: "n/a -- literature-grounded stoichiometry correction, not itself a hypothesis test."
+
+- id: flagella-02-cring-export-apparatus-hierarchy-fix
+  kind: computational
+  status: confirmed
+  statement: >-
+    (2026-08-11) CPLX0-7450 (C-ring) and CPLX0-7451 (export apparatus) were
+    modeled as two independent branches that only merged downstream at
+    FLAGELLAR-MOTOR-COMPLEX_RXN -- but real assembly order (Minamino & Namba
+    2008 Nature; Chevance & Hughes 2008 Nat Rev Microbiol) has the export
+    apparatus insert into the pore of a PRE-FORMED C-ring, a genuine
+    dependency, not a parallel merge. Fixed: CPLX0-7451_RXN now consumes
+    CPLX0-7450 (-1) directly; FLAGELLAR-MOTOR-COMPLEX_RXN's separate direct
+    CPLX0-7450 consumption removed to avoid double-counting. Same session,
+    FliC target_length also cut 10,000 -> 5,000 (still within the real
+    20,000-40,000 literature range) after observing free FliC nearly fully
+    drained (51,967 -> 14) within one generation at the 10,000 target.
+    Cache rebuilt as out/cache_full_flit_v9.
+  evidence:
+    observed: >-
+      v9 single-gen run (2400s): 3 flagella completed (CPLX0-7452 4->7, vs
+      only +1 at the same window pre-fix) on a clean ~600s/flagellum
+      cadence matching the L^2-scaling prediction almost exactly. BUT
+      motor-complex pool drained monotonically 6->5->4->4->3 over the run
+      (never replenished) -- see flagella-02-export-apparatus-ssa-race-fix
+      below for why, and its resolution.
+    expected: "Real dependency correctly wired; did not yet expect the SSA-vs-Step race this surfaced."
+
+- id: flagella-02-export-apparatus-ssa-race-fix
+  kind: computational
+  status: confirmed
+  statement: >-
+    (2026-08-11, same day) The hierarchy fix above made CPLX0-7451_RXN --
+    which still fired through ordinary Gillespie SSA (ecoli-complexation);
+    its own stoichiometry (max coefficient FlhA=9) was never numerically
+    dangerous, so it had never been excluded like the other three flagella
+    reactions -- depend on CPLX0-7450, a molecule that only ever exists
+    transiently inside flagella_motor_switch_assembly.py's single
+    deterministic Step tick. Verified via ecoli_baseline.py's execution-
+    layer ordering: all flagella Steps run in one fixed sequence BEFORE
+    ecoli-complexation within the same tick, so CPLX0-7450 built each tick
+    sat unconsumed until SSA's turn, and SSA reliably drained it before the
+    next external read -- but the cross-mechanism timing meant new
+    CPLX0-7451 (and hence new motor complexes) formed far less reliably
+    than before the hierarchy fix. Fixed: moved CPLX0-7451_RXN out of
+    ecoli-complexation into a new deterministic Step
+    (flagella_export_apparatus_assembly.py), matching the other three
+    flagella assembly reactions, added to complexation.py's
+    RUNTIME_EXCLUDED_REACTIONS. Cache rebuilt as out/cache_full_flit_v10.
+  evidence:
+    observed: >-
+      v10 single-gen run (2400s): motor-complex pool oscillated 5-6 the
+      entire run (never drained below 5), and 4 flagella completed
+      (CPLX0-7452 4->8) -- the best completion count of any version this
+      session, on the same clean ~600s cadence. FlhA remains the real
+      bottleneck (single digits, per earlier finding) -- the fix removed
+      the cross-mechanism race, not the underlying real scarcity.
+    expected: "Removing the SSA/Step race should restore reliable replenishment without removing the real FlhA-driven bottleneck; confirmed."
+
+- id: flagella-02-ms-ring-ordering-fix
+  kind: computational
+  status: confirmed
+  statement: >-
+    (2026-08-11, same day) Same category of ordering gap found one stage
+    further upstream: FliF (MS-ring) was consumed directly in
+    FLAGELLAR-MOTOR-COMPLEX_RXN, lumped in with unrelated stator/rod/ring
+    parts at the very last assembly stage. Real assembly order (Minamino &
+    Namba 2008 Nature; Chevance & Hughes 2008 Nat Rev Microbiol -- the same
+    citation used for the C-ring/export-apparatus fix) has the MS-ring form
+    FIRST, before the C-ring assembles onto it. Fixed: FliF (-34) folded
+    into CPLX0-7450_RXN alongside FliG/FliM/FliN (CPLX0-7450 now represents
+    the merged MS-ring + C-ring structure -- a reasonable single-stage
+    merge, since many structural papers describe these as forming one
+    continuous ring rather than two independently-isolable intermediates);
+    removed as a direct reactant from FLAGELLAR-MOTOR-COMPLEX_RXN.
+    flagella_motor_switch_assembly.py updated to consume FliF alongside
+    FliG/FliM/FliN. Cache rebuilt as out/cache_full_flit_v11 (bundled with
+    the nucleation first-tick fix below).
+  evidence:
+    observed: "Reaction-network + Step code change verified by direct grep/diff of complexation_reactions_added.tsv, complexation_reactions_modified.tsv, and flagella_motor_switch_assembly.py's _REQUIREMENTS before/after. Full single-gen rerun pending as of this entry."
+    expected: "n/a -- literature-grounded structural ordering correction, not itself a hypothesis test."
+
+- id: flagella-02-nucleation-first-tick-free-event-bug
+  kind: computational
+  status: confirmed
+  statement: >-
+    (2026-08-11, same day) flagella_filament_nucleation.py is the one
+    flagella Step deliberately built to be rate-limited (fires roughly
+    every ~600s, per Chang/Sung/Hong 2025's basal-body-clustering
+    citation) -- but its next_update_time input defaults to 0.0 (the same
+    shared bigraph default every flagella Step uses), and global_time also
+    starts near 0.0, so update_condition (next_update_time <= global_time)
+    is trivially true on the very first tick. Every flagella Step besides
+    nucleation WANTS this (fire immediately, every tick, no waiting) but
+    nucleation does not -- the bug gave every single-generation run one
+    "free" nucleation event at simulation start that skipped the intended
+    ~600s wait, while every SUBSEQUENT nucleation event correctly waited
+    the full interval. Fixed in update(): the very first call (detected via
+    the same self.idx is None lazy-init check already used for bulk index
+    resolution) only schedules next_update_time one interval ahead and
+    returns, without creating a flagellum -- so the first nucleation now
+    waits its full turn like every one after it. Cache rebuilt as
+    out/cache_full_flit_v11 (bundled with the MS-ring ordering fix above).
+  evidence:
+    observed: "Code fix verified by direct read of update_condition/inputs()/update() before editing (next_update_time default 0.0, confirmed causal). Full single-gen rerun pending as of this entry -- expect the first flagellum's growth curve to start ~600s later than in v10, not to change the steady-state ~600s/flagellum cadence."
+    expected: "First nucleation event delayed to ~t=600s instead of ~t=0-120s; all downstream completions shifted later by the same amount, steady-state cadence unchanged."
 
 visualizations:
 - address: image:charts/01_full_override_gated_cascade.svg
@@ -901,10 +1110,44 @@ success_criteria:
       literature-calibrated free-FliA band.
 
 open_decisions:
+  - id: export-apparatus-flio-scaffold-role-unresolved
+    raised_by: system
+    date: '2026-08-11'
+    status: OPEN -- Maya's explicit call to leave as-is for now
+    question: >-
+      CPLX0-7451_RXN (flagellar export apparatus) currently consumes FliO
+      (EG11224-MONOMER) at -1, as a genuine reactant of the reaction that
+      forms the final, mature complex. Real structural literature
+      describes FliO as a TRANSIENT ASSEMBLY SCAFFOLD, not a component of
+      the final structure -- it helps the FliP ring assemble correctly,
+      then is not retained; a Delta-fliO mutant's motility is rescued to
+      wild-type by FliP overexpression alone, showing the final complex
+      is functional without FliO once assembled. Does FliO belong as a
+      consumed reactant in the reaction that forms the FINAL CPLX0-7451
+      at all, or does its real catalytic/scaffolding role call for a
+      different representation (e.g. not consumed, or represented as a
+      separate, earlier assembly step this model doesn't currently have)?
+    recommendation: |
+      Not resolved this session -- a simple copy-number fix doesn't
+      address this, since the real question is about FliO's ROLE in the
+      reaction, not its stoichiometric coefficient. Left at -1 (unchanged)
+      per Maya's explicit call. If revisited: consider whether removing
+      FliO from CPLX0-7451_RXN's reactant list entirely would be more
+      biologically accurate, and whether that changes anything downstream
+      (unlikely to matter much in practice, since FliO's raw synthesis
+      rate/supply hasn't been shown to be limiting anywhere in this
+      investigation so far -- but worth checking before assuming).
   - id: motor-complex-supply-chain-unexamined
     raised_by: system
     date: '2026-08-08'
     status: OPEN -- stopping here for now (Maya's explicit call, 2026-08-08)
+    note_2026_08_10: >-
+      The "intended FliT/FlhDC checkpoint mechanism" referenced below was
+      removed 2026-08-10 (see finding flagella-02-flit-checkpoint-removed).
+      This question (does something else bottleneck the system before any
+      regulatory mechanism becomes binding) is now even more open, not
+      resolved by the removal -- if picked up again, whatever replaces the
+      checkpoint (planned: an NFsim rule) would face the same question.
     question: >-
       Across every diagnostic this session (target=2000, target=500,
       target=500+10x nucleation rate), something has capped flagella count
@@ -925,6 +1168,26 @@ open_decisions:
       calculated demand target, transcriptome-budget-scoped fix if a gap
       is found) applied to whichever motor-complex input turns out to be
       most limiting.
+  - id: flhdc-has-no-degradation-pathway-pending-nfsim
+    raised_by: system
+    date: '2026-08-10'
+    status: OPEN -- known, accepted tradeoff
+    question: >-
+      Removing both flagella_flhdc_degradation.py (basal ClpXP turnover) and
+      flagella_flit_flhdc_checkpoint.py (see finding flagella-02-flit-
+      checkpoint-removed) leaves FlhD4C2 (CPLX0-3930) with NO degradation
+      pathway at all -- the standard protein_degradation process only
+      handles monomers, never assembled complexes. This likely reopens the
+      original flagella-02-flagella-count-unbounded-runaway finding until a
+      replacement (planned: NFsim) is built.
+    recommendation: |
+      Build the NFsim-WCM runtime coupling (currently standalone, see
+      flagella-04-complexation-nfsim) and represent both FliT's chaperone
+      role and any FlhD4C2 turnover mechanism as rules there, rather than
+      re-adding a standalone degradation Step. Until then, any run with
+      flagella_regulation enabled should expect FlhD4C2 (and therefore
+      Class II/III expression) to grow without the basal-turnover brake it
+      had before 2026-08-10.
   - id: multigen-flagella-completion-still-untested-past-3-generations
     raised_by: system
     date: '2026-08-07'

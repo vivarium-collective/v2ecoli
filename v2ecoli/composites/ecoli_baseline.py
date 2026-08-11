@@ -202,13 +202,49 @@ def _single_cell_xarray_config(cell_state: dict, *, out_uri: str,
             "buffers_per_chunk": 1,
             "backend_config": {"format": 3},
         },
-        # Non-empty — see docstring / Task 1 gotcha #1.
+        # Non-empty — see docstring / Task 1 gotcha #1. Callers with real
+        # experiment_id/variant/seed context (e.g. baseline()'s emitter=="xarray"
+        # branch) should override this key on the returned dict; this helper
+        # doesn't take those as params (fixed signature, Task 2 brief).
         "metadata": {"experiment_id": "single_cell", "variant": 0, "lineage_seed": 0},
         "metadata_keys": [],
         "metadata_validators": {},
         "provenance": {},
         "debug": False,
     }
+
+
+def _resolve_xarray_out_uri(experiment_id: str, out_dir: str = "") -> str:
+    """Resolve the zarr store path for the in-document single-cell
+    XArrayEmitter (``baseline()``'s ``emitter=="xarray"`` branch).
+
+    Mirrors the sqlite branch's workspace-shared-root convention
+    (``_find_workspace_root`` -> ``<ws>/.pbg/...``): prefers the workspace's
+    ``.pbg/xarray-runs/`` dir so a workspace-hosted run's zarr store lives
+    alongside the sqlite history db (``.pbg/composite-runs.db``) and parquet
+    hive dir (``.pbg/parquet-runs/``); falls back to ``out/xarray`` when no
+    ``workspace.yaml`` is found (e.g. a bare-checkout build).
+
+    ``out_dir`` is threaded through explicitly (rather than resolved
+    unconditionally) so a caller — e.g. Task 4's real-run integration test —
+    can target a tmp dir without needing a real workspace on disk.
+
+    Args:
+        experiment_id: names the zarr store (``<experiment_id>.zarr``).
+        out_dir: explicit output directory override. Empty (default) falls
+            back to the workspace-root / ``out/xarray`` resolution above.
+
+    Returns:
+        The zarr store path as a string. Not created on disk here — the
+        XArrayEmitter's writer creates it lazily on first write.
+    """
+    from pathlib import Path
+    if out_dir:
+        base = Path(out_dir)
+    else:
+        ws_root = _find_workspace_root()
+        base = (ws_root / ".pbg" / "xarray-runs") if ws_root is not None else Path("out/xarray")
+    return str(base / f"{experiment_id}.zarr")
 
 
 from viva_superpowers.composite_generator import composite_generator, emitter_defaults
@@ -1337,23 +1373,43 @@ def baseline(
     set_default_emitter_decl(_default_decl)
 
     if emitter == "xarray" and not _any_external:
-        # XArray is emitted OUT OF BAND by the workflow/lineage runner: its
-        # transducer + view describe per-composite variable shapes that are only
-        # knowable lazily on the first populated emit tick (see
-        # workflow/lineage.py:_emit_xarray), so there is no self-contained
-        # in-document XArrayEmitter step. We therefore mirror the canonical
-        # xarray contract here: minimise the INTERNAL 'emitter' step to
-        # global_time only (set_null_emitter_override) and let the external
-        # XArray sink own persistence. Selecting 'xarray' in a plain
-        # build_composite/dashboard run thus behaves like 'null' internally;
-        # the real XArray output appears when run under the lineage workflow.
-        import warnings
-        warnings.warn(
-            "emitter='xarray': the internal emitter is minimised to global_time "
-            "only; real XArray persistence is produced out-of-band by the "
-            "lineage workflow runner (v2ecoli.workflow.lineage), not by this "
-            "in-document emitter step.")
-        set_null_emitter_override(True)
+        # In-document, agent-relative XArrayEmitter (single-cell / plain
+        # build_composite path — no lineage workflow runner). Reuses the same
+        # declared-emitter mechanism the parquet default travels through
+        # (set_default_emitter_decl -> _get_special_step ->
+        # _build_declared_emitter's XArrayEmitter branch, _helpers.py:450):
+        # that branch already builds the agent-relative emit_schema/topo
+        # (global_time/bulk/listeners, all wired relative to this agent, not
+        # a top-level path) and merges our config on top. We only supply the
+        # config (view/output_metadata/transducer/writer/strategy="flat") via
+        # _single_cell_xarray_config, per Task 1's validated spike recipe —
+        # see task-1-report.md / task-2-report.md in
+        # .superpowers/sdd/2026-08-10-single-cell-xarray-emitter/.
+        #
+        # This REPLACES the single existing 'emitter' key in place (no new
+        # document Steps) — see Task 1 gotcha #4: adding extra document
+        # Steps, even read-only ones, perturbs process_bigraph's step
+        # scheduling enough to trip a pre-existing metabolism numerical
+        # fragility. The lineage workflow runner (v2ecoli.workflow.lineage)
+        # still owns its own OUT-OF-BAND XArrayEmitter for multi-generation
+        # sweeps (n_seeds>1 / n_generations>1 dispatches to
+        # _build_batch_document before this branch is ever reached), so this
+        # only changes the plain single-cell build_composite path.
+        _xr_out = _resolve_xarray_out_uri(experiment_id, out_dir)
+        _xr_cfg = _single_cell_xarray_config(cell_state, out_uri=_xr_out)
+        # The helper hardcodes a placeholder metadata triple (Task 2 report,
+        # "Concerns for Task 3" #1); override with this build's real values so
+        # the zarr store's partition/coords reflect the actual run.
+        _xr_cfg["metadata"] = {
+            "experiment_id": experiment_id,
+            "variant": 0,
+            "lineage_seed": int(seed),
+        }
+        set_default_emitter_decl({
+            "address": "local:XArrayEmitter",
+            "config": _xr_cfg,
+            "paths": ["global_time", "bulk", "listeners"],
+        })
     elif emitter == "sqlite" and not _any_external:
         # Minimal persistent SQLite sink. Resolve the workspace-shared DB (the
         # dashboard's Simulations-DB tab aggregates from it); fall back to out/.

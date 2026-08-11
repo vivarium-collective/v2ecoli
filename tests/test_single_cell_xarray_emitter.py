@@ -50,3 +50,34 @@ def test_single_cell_xarray_config_is_flat_and_covers_bulk_and_listeners(tmp_pat
     # sanity: output_metadata / writer / emit keys present and pure dict shapes.
     assert isinstance(cfg["output_metadata"], dict)
     assert cfg["writer"]["backend"] == "zarr"
+
+
+# ---------------------------------------------------------------------------
+# Task 3: wiring _single_cell_xarray_config into the emitter=="xarray" branch
+# of ecoli_baseline.baseline(). These tests build a REAL ecoli_baseline
+# composite (heavy — ParCa cache load, ~minutes) so they exercise the actual
+# document-building branch, not a fake cell dict.
+# ---------------------------------------------------------------------------
+_CACHE_DIR = "/Users/eranagmon/code/v2ecoli/out/cache"
+
+
+def test_xarray_build_has_in_document_emitter(tmp_path):
+    from v2ecoli import build_composite
+    comp = build_composite("ecoli_baseline",
+                           cache_dir=_CACHE_DIR,
+                           out_dir=str(tmp_path),
+                           emitter="xarray")
+    emitter_step = comp.state["agents"]["0"]["emitter"]
+    inst = emitter_step["instance"] if isinstance(emitter_step, dict) else emitter_step[0]
+    assert type(inst).__name__ == "XArrayEmitter"
+    # agent-relative wiring resolves bulk -> agents/0/bulk (not top-level)
+    wires = emitter_step["inputs"] if isinstance(emitter_step, dict) else {}
+    assert "bulk" in wires and "listeners" in wires
+
+
+def test_parquet_default_still_parquet(tmp_path):
+    from v2ecoli import build_composite
+    comp = build_composite("ecoli_baseline", cache_dir=_CACHE_DIR)
+    step = comp.state["agents"]["0"]["emitter"]
+    inst = step["instance"] if isinstance(step, dict) else step[0]
+    assert "Parquet" in type(inst).__name__ or "RAM" in type(inst).__name__  # unchanged default path

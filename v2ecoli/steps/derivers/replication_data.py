@@ -81,6 +81,10 @@ class ReplicationData(Step):
                     # Consumed by chromosome_replication's per-oriC sat-init gate.
                     'oric_low_atp_domains': {'_type': 'overwrite[array[integer]]', '_default': []},
                     'oric_low_atp_counts': {'_type': 'overwrite[array[integer]]', '_default': []},
+                    # Diagnostic: what dnaa_box_binding's gradient gate sees each tick.
+                    'gradient_rising': {'_type': 'overwrite[boolean]', '_default': False},
+                    'bulk_atp_slope_nM_per_s': {'_type': 'overwrite[float]', '_default': 0.0},
+                    'bulk_atp_nM_current': {'_type': 'overwrite[float]', '_default': 0.0},
                 },
             },
         }

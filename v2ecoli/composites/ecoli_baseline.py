@@ -128,63 +128,46 @@ def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
             yield p
 
 
-def _single_cell_xarray_config(cell_state: dict, *, out_uri: str,
+def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
                                 buffer_size: int = 3) -> dict:
-    """Build the XArrayEmitter ``config`` dict for a single-cell,
+    """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
     agent-relative, in-document capture.
 
-    Pure — no IO, no Composite construction. Returns the config verbatim
-    ready to pass to ``pbg_emitters.XArrayEmitter(config, core)``.
+    Pure — no IO, no Composite construction, no ``cell_state`` inspection. The
+    two realize-dependent keys — ``view`` and ``output_metadata`` — are NOT set
+    here; they are discovered from the REALIZED composite state at run time by
+    ``SingleCellXArrayEmitter`` (see its docstring and Task 4 / C2). This is why
+    the helper no longer takes ``cell_state``: at document-build time the
+    listener tree is only partially materialised (``core.realize()`` fills the
+    schema-defaulted listener namespaces only when the ``Composite`` is
+    constructed), so a view built here would starve the capture down to the
+    handful of pre-seeded leaves (Task 3 concern #1). The lazy step instead
+    reads the fully-realized listener tree on its first ``update()``.
 
-    Encodes the recipe validated by Task 1's spike (see
+    Encodes the static parts of the recipe validated by Task 1's spike (see
     ``.superpowers/sdd/2026-08-10-single-cell-xarray-emitter/task-1-report.md``):
 
-      * ``strategy="flat"``, ``emit_root=[]`` — the in-document emitter Step
-        is co-located inside ``agents/0`` and its wired inputs already land
-        as bare ``{"global_time": ..., "bulk": ..., "listeners": ...}``, NOT
+      * ``strategy="flat"``, ``emit_root=[]`` — the in-document emitter Step is
+        co-located inside ``agents/0`` and receives bare
+        ``{"global_time": ..., "bulk": ..., "listeners": ...}`` payloads, NOT
         wrapped in an ``{"agents": {id: ...}}`` envelope (that's the
         lineage-runner's ``strategy="colony"`` pattern, not this one).
-      * ``view_from_emit_paths`` only handles ``listeners.<...>`` paths and
-        drops ``bulk``; a ``bulk`` root is appended manually with
-        ``root=()`` (NOT ``root=("bulk",)``) so its read path resolves to
-        ``() + ("bulk",) == ("bulk",)``, matching ``cell_state["bulk"]``'s
-        actual top-level location.
-      * Listener leaves are pre-filtered to plain scalars + size>1 numeric
-        ndarrays (``_is_plain_numeric_leaf`` / ``_listener_leaf_paths``) to
-        avoid both a hard write crash (non-numeric types) and the
-        pbg_emitters promotion-trap bug on ragged/short vectors.
       * ``metadata`` must be non-empty (an empty dict silently skips
-        XArrayEmitter's partition setup and crashes the first ``update()``).
+        XArrayEmitter's partition setup and crashes the first ``update()`` —
+        Task 1 gotcha #1). Callers pass their real experiment_id/variant/seed.
+      * bounded, streaming buffer (``subsample(1)`` + small buffer), zarr v3
+        writer — copied verbatim from the spike.
 
     Args:
-        cell_state: a single agent's cell state dict (e.g.
-            ``composite.state["agents"]["0"]``), carrying at least
-            ``listeners`` and ``bulk``.
         out_uri: zarr store path/URI.
-        buffer_size: transducer buffer size (streaming, bounded — not an
-            unbounded history). Default 3, matching the spike/multigen
-            runner's value.
+        metadata: non-empty run-identity metadata (experiment_id / variant /
+            lineage_seed). Falls back to a non-empty placeholder if omitted.
+        buffer_size: transducer buffer size (streaming, bounded). Default 3.
 
     Returns:
-        The XArrayEmitter config dict (``view`` + ``output_metadata`` +
-        ``transducer`` + ``writer`` + ``strategy="flat"`` + ``emit_root=[]``).
+        The static XArrayEmitter config skeleton (no ``view`` /
+        ``output_metadata`` — those are added lazily at run time).
     """
-    from v2ecoli.library.xarray_run import (
-        view_from_emit_paths, extract_output_metadata_from_state)
-    from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
-
-    listener_paths = list(_listener_leaf_paths(cell_state.get("listeners") or {}))
-    view = view_from_emit_paths(listener_paths)
-    # bulk is dropped by view_from_emit_paths (listeners-only); add it
-    # explicitly. root=() + variables key "bulk" -> read path == ("bulk",)
-    # == cell_state["bulk"]'s actual top-level location. LeafView.path (the
-    # OUTPUT variable name) must be non-empty.
-    view.append({"root": (), "variables": {"bulk": [{"path": "bulk", "dtype": "<i8"}]}})
-
-    named_metadata = _named_output_metadata(cell_state)
-    output_metadata_ = extract_output_metadata_from_state(
-        cell_state, view, named_metadata=named_metadata)
-
     return {
         "emit": {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"},
         "out_uri": str(out_uri),
@@ -194,19 +177,14 @@ def _single_cell_xarray_config(cell_state: dict, *, out_uri: str,
             "predicate": [[{"subsample": {"interval": 1}}]],
             "buffer": {"size": buffer_size},
         },
-        "view": view,
-        "output_metadata": output_metadata_,
         "writer": {
             "backend": "zarr",
             "store": str(out_uri),
             "buffers_per_chunk": 1,
             "backend_config": {"format": 3},
         },
-        # Non-empty — see docstring / Task 1 gotcha #1. Callers with real
-        # experiment_id/variant/seed context (e.g. baseline()'s emitter=="xarray"
-        # branch) should override this key on the returned dict; this helper
-        # doesn't take those as params (fixed signature, Task 2 brief).
-        "metadata": {"experiment_id": "single_cell", "variant": 0, "lineage_seed": 0},
+        "metadata": dict(metadata) if metadata else {
+            "experiment_id": "single_cell", "variant": 0, "lineage_seed": 0},
         "metadata_keys": [],
         "metadata_validators": {},
         "provenance": {},
@@ -280,6 +258,134 @@ from v2ecoli.composites._helpers import (
 # unaffected; display tools (Composite Explorer / loom, follow-up) read this to
 # render the flat stores grouped as biology. See store_groups.py.
 from v2ecoli.composites.store_groups import STORE_GROUPS as STORE_GROUPS  # noqa: PLC0414
+
+from process_bigraph.emitter import Emitter
+
+
+class SingleCellXArrayEmitter(Emitter):
+    """In-document, agent-relative XArrayEmitter — built LAZILY from realized state.
+
+    Subclasses ``process_bigraph.emitter.Emitter`` (not a bare ``Step``) so the
+    composite_generator convention recognises it as the document's observation
+    sink (``process_bigraph.emitter._node_is_emitter`` short-circuits on
+    ``isinstance(instance, Emitter)``). Without that, ``CompositeSpec._with_emitters``
+    treats the document as observing nothing and injects the generator's declared
+    ParquetEmitter default at the top level with an empty ``out_dir`` — which then
+    fails ``Composite`` realize.
+
+    Swapped into the single ``agents/0/emitter`` key in place (never as an extra
+    document Step: adding sibling Steps perturbs process_bigraph's scheduling and
+    trips a pre-existing metabolism fragility — Task 1 gotcha #4). It wraps a real
+    ``pbg_emitters.XArrayEmitter`` but defers its construction to the FIRST
+    ``update()`` so the view/output_metadata are discovered from the fully
+    REALIZED composite state, resolving the two Task-4 blockers:
+
+      * **C2 (realized-state view).** At document-build time the listener tree is
+        only partially materialised — ``core.realize()`` fills the schema-defaulted
+        listener namespaces only when the ``Composite`` is constructed, and per-tick
+        listener vectors are populated only once processes run. Building the view
+        then captures ~4 leaves. This step instead reaches the driving ``Composite``
+        via ``get_current_composite()`` (the ``run()`` contextvar) on its first
+        ``update()`` and reads the full realized ``agents/0`` subtree — yielding the
+        complete listener set (~50-115 leaves) plus process-instance-derived named
+        coord labels via ``output_metadata(full_state)``. Mirrors the multigen
+        runner's "warm 1 tick, then discover coords" pattern.
+
+      * **C1 (structured ``bulk``).** ``cell_state["bulk"]`` is a numpy *record*
+        array (fields ``id``/``count``/``*_submass``); the transducer cannot cast
+        it to ``<i8``. This step projects ``bulk["count"]`` to a plain int64 vector
+        inside ``update()`` before emitting (no field-projection hook exists in the
+        emitter's view machinery).
+
+    The trailing partial buffer is flushed by ``close_emitter()`` (called by
+    ``v2ecoli.build_composite``'s run-wrap): the emitter only auto-flushes a FULL
+    buffer mid-run, and ``flush(final=False)`` asserts a full buffer, so a partial
+    tail can only be written via ``close()``/``flush(final=True)``.
+    """
+
+    def __init__(self, config, core):
+        super().__init__(config, core)
+        self._em = None
+        self._leaf_key_paths: list | None = None
+
+    def inputs(self):
+        return {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"}
+
+    def outputs(self):
+        return {}
+
+    def _lazy_init(self):
+        from process_bigraph.composite import get_current_composite
+        from pbg_emitters import XArrayEmitter
+        from v2ecoli.library.xarray_run import (
+            view_from_emit_paths, extract_output_metadata_from_state)
+        from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
+
+        comp = get_current_composite()
+        if comp is None:
+            raise RuntimeError(
+                "SingleCellXArrayEmitter.update() ran outside a Composite.run() "
+                "context — get_current_composite() returned None, so the "
+                "realized listener tree cannot be discovered.")
+        full_state = comp.state
+        cell = (full_state.get("agents") or {}).get("0") or full_state
+        listener_paths = list(_listener_leaf_paths(cell.get("listeners") or {}))
+        # Listener view (unmodified helper) + manual bulk entry. root=() so the
+        # read path resolves to () + ("bulk",) == ("bulk",); LeafView.path (the
+        # OUTPUT var name) must be non-empty, hence "bulk".
+        view = view_from_emit_paths(listener_paths)
+        view.append({"root": (), "variables": {"bulk": [{"path": "bulk", "dtype": "<i8"}]}})
+        named_metadata = _named_output_metadata(full_state)
+        output_metadata_ = extract_output_metadata_from_state(
+            full_state, view, named_metadata=named_metadata)
+
+        cfg = {**dict(self.config), "view": view, "output_metadata": output_metadata_}
+        self._em = XArrayEmitter(cfg, self.core)
+        # listener_paths are "listeners.<ns>.<leaf>"; store the key path relative
+        # to the listeners root (drop the leading "listeners").
+        self._leaf_key_paths = [tuple(p.split(".")[1:]) for p in listener_paths]
+
+    def update(self, state, interval=None):
+        if self._em is None:
+            self._lazy_init()
+        # C1: project the structured bulk record array to a plain int64 vector.
+        bulk_counts = np.asarray(state["bulk"]["count"], dtype=np.int64)
+        # Filter listeners to exactly the declared leaves (the transducer raises
+        # on any undeclared emit path once sim_tix > 0).
+        src = state.get("listeners") or {}
+        filtered: dict = {}
+        for path in self._leaf_key_paths or []:
+            cur = src
+            ok = True
+            for k in path:
+                if not isinstance(cur, dict) or k not in cur:
+                    ok = False
+                    break
+                cur = cur[k]
+            if not ok:
+                continue
+            cursor = filtered
+            for k in path[:-1]:
+                cursor = cursor.setdefault(k, {})
+            cursor[path[-1]] = cur
+        self._em.update({
+            "global_time": state["global_time"],
+            "bulk": bulk_counts,
+            "listeners": filtered,
+        })
+        return {}
+
+    def close_emitter(self):
+        """Flush the trailing partial buffer and finalize the zarr store.
+
+        Idempotent. Swallows the known pbg_emitters ``flush(final=True)`` assert
+        (buffer exactly full at close) — mid-run flushes already wrote those rows.
+        """
+        if self._em is not None and not getattr(self._em, "_closed", False):
+            try:
+                self._em.close(success=True)
+            except AssertionError:
+                pass
 
 
 # ---------------------------------------------------------------------------
@@ -1377,13 +1483,14 @@ def baseline(
         # build_composite path — no lineage workflow runner). Reuses the same
         # declared-emitter mechanism the parquet default travels through
         # (set_default_emitter_decl -> _get_special_step ->
-        # _build_declared_emitter's XArrayEmitter branch, _helpers.py:450):
-        # that branch already builds the agent-relative emit_schema/topo
-        # (global_time/bulk/listeners, all wired relative to this agent, not
-        # a top-level path) and merges our config on top. We only supply the
-        # config (view/output_metadata/transducer/writer/strategy="flat") via
-        # _single_cell_xarray_config, per Task 1's validated spike recipe —
-        # see task-1-report.md / task-2-report.md in
+        # _build_declared_emitter's XArrayEmitter branch): that branch builds a
+        # SingleCellXArrayEmitter wired to the agent-relative
+        # global_time/bulk/listeners ports and seeded with the static config
+        # skeleton below. The step defers building the real XArrayEmitter to its
+        # first update(), where it reads the REALIZED composite state (via the
+        # run() contextvar) to discover the FULL listener view + named coords
+        # (Task 4 / C2) and projects the structured bulk record array to counts
+        # (Task 4 / C1). See SingleCellXArrayEmitter + task-{1,4}-report.md in
         # .superpowers/sdd/2026-08-10-single-cell-xarray-emitter/.
         #
         # This REPLACES the single existing 'emitter' key in place (no new
@@ -1396,15 +1503,17 @@ def baseline(
         # _build_batch_document before this branch is ever reached), so this
         # only changes the plain single-cell build_composite path.
         _xr_out = _resolve_xarray_out_uri(experiment_id, out_dir)
-        _xr_cfg = _single_cell_xarray_config(cell_state, out_uri=_xr_out)
-        # The helper hardcodes a placeholder metadata triple (Task 2 report,
-        # "Concerns for Task 3" #1); override with this build's real values so
-        # the zarr store's partition/coords reflect the actual run.
-        _xr_cfg["metadata"] = {
-            "experiment_id": experiment_id,
-            "variant": 0,
-            "lineage_seed": int(seed),
-        }
+        # Static config skeleton only — view/output_metadata are discovered
+        # lazily from the REALIZED state by SingleCellXArrayEmitter at run time
+        # (Task 4 / C2). The real run-identity metadata is baked in here.
+        _xr_cfg = _single_cell_xarray_config(
+            out_uri=_xr_out,
+            metadata={
+                "experiment_id": experiment_id,
+                "variant": 0,
+                "lineage_seed": int(seed),
+            },
+        )
         set_default_emitter_decl({
             "address": "local:XArrayEmitter",
             "config": _xr_cfg,

@@ -14,12 +14,22 @@ Three layers:
     non-empty zarr store for ``bulk`` AND a substantial listener set.
 """
 import glob
+import os
 
 import pytest
 
 from v2ecoli.composites.ecoli_baseline import _single_cell_xarray_config
 
-_CACHE_DIR = "/Users/eranagmon/code/v2ecoli/out/cache"
+_CACHE_DIR = os.environ.get(
+    "V2ECOLI_CACHE_DIR", "/Users/eranagmon/code/v2ecoli/out/cache")
+
+# The build/run tests below load the ParCa cache (heavy, ~minutes) from a
+# machine-specific absolute path. Skip them cleanly when the cache is absent so
+# a bare ``pytest`` on CI / another machine collects and runs only the fast
+# pure-config tests instead of failing. They are also marked ``slow``.
+_needs_cache = pytest.mark.skipif(
+    not os.path.isdir(_CACHE_DIR),
+    reason=f"ParCa cache not found at {_CACHE_DIR} (set V2ECOLI_CACHE_DIR)")
 
 
 def test_single_cell_xarray_config_is_flat_static_skeleton(tmp_path):
@@ -50,6 +60,8 @@ def test_single_cell_xarray_config_metadata_defaults_nonempty(tmp_path):
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.slow
+@_needs_cache
 def test_xarray_build_has_in_document_emitter(tmp_path):
     from v2ecoli import build_composite
     comp = build_composite("ecoli_baseline",
@@ -65,6 +77,8 @@ def test_xarray_build_has_in_document_emitter(tmp_path):
     assert "bulk" in wires and "listeners" in wires
 
 
+@pytest.mark.slow
+@_needs_cache
 def test_parquet_default_still_parquet(tmp_path):
     from v2ecoli import build_composite
     comp = build_composite("ecoli_baseline", cache_dir=_CACHE_DIR)
@@ -74,6 +88,7 @@ def test_parquet_default_still_parquet(tmp_path):
 
 
 @pytest.mark.slow
+@_needs_cache
 def test_xarray_run_captures_bulk_and_listeners(tmp_path):
     """The crux: a real 5-tick single-cell run streams non-empty bulk +
     a substantial listener set to zarr."""
@@ -108,3 +123,8 @@ def test_xarray_run_captures_bulk_and_listeners(tmp_path):
     assert len(listener_leaves) >= 30, (
         f"too few listener leaves captured: {len(listener_leaves)} "
         f"({sorted(listener_leaves)})")
+
+    # F3: the run-end flush hook finalized the writer, so a SECOND run() must
+    # fail loudly (single-run sink) rather than silently drive a closed writer.
+    with pytest.raises(RuntimeError, match="already closed"):
+        comp.run(5)

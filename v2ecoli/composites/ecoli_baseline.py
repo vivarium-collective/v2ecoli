@@ -346,6 +346,18 @@ class SingleCellXArrayEmitter(Emitter):
         self._leaf_key_paths = [tuple(p.split(".")[1:]) for p in listener_paths]
 
     def update(self, state, interval=None):
+        if self._em is not None and getattr(self._em, "_closed", False):
+            # F3: build_composite's run-end flush hook calls close_emitter()
+            # after each run(), which finalizes the zarr writer. A SECOND run()
+            # on the same xarray composite would drive updates into a closed
+            # writer and silently no-op/corrupt. Fail loudly and actionably
+            # instead — this is a single-run sink by design.
+            raise RuntimeError(
+                "SingleCellXArrayEmitter was already closed by the run-end flush "
+                "hook: the in-document single-cell XArray sink supports ONE run() "
+                "per build_composite(...). Rebuild the composite (a fresh "
+                "build_composite(..., emitter='xarray')) for another run, or use "
+                "emitter='parquet' if you need to resume/extend a run.")
         if self._em is None:
             self._lazy_init()
         # C1: project the structured bulk record array to a plain int64 vector.
@@ -379,13 +391,27 @@ class SingleCellXArrayEmitter(Emitter):
         """Flush the trailing partial buffer and finalize the zarr store.
 
         Idempotent. Swallows the known pbg_emitters ``flush(final=True)`` assert
-        (buffer exactly full at close) — mid-run flushes already wrote those rows.
+        (buffer exactly full at close) ONLY when at least one buffer already
+        reached disk mid-run — those rows are safe and only the just-flushed
+        trailing buffer tripped the boundary assert. If NOTHING was ever written
+        (``num_writes <= 0``), the store would be left empty/without a success
+        marker, so the assert is re-raised with context instead of masked (F4).
         """
-        if self._em is not None and not getattr(self._em, "_closed", False):
-            try:
-                self._em.close(success=True)
-            except AssertionError:
-                pass
+        if self._em is None or getattr(self._em, "_closed", False):
+            return
+        try:
+            self._em.close(success=True)
+        except AssertionError:
+            writer = getattr(self._em, "writer", None)
+            num_writes = getattr(writer, "num_writes", 0)
+            if num_writes and num_writes > 0:
+                # benign trailing-buffer boundary — earlier buffers are on disk
+                return
+            raise RuntimeError(
+                "SingleCellXArrayEmitter.close_emitter(): the XArray final flush "
+                "asserted before any buffer reached disk — the zarr store at "
+                f"{(self.config or {}).get('out_uri')!r} is likely empty/unfinalized. "
+                "This is NOT the benign buffer-full-at-close boundary.")
 
 
 # ---------------------------------------------------------------------------
@@ -1502,6 +1528,17 @@ def baseline(
         # sweeps (n_seeds>1 / n_generations>1 dispatches to
         # _build_batch_document before this branch is ever reached), so this
         # only changes the plain single-cell build_composite path.
+        import warnings  # noqa: PLC0415
+        warnings.warn(
+            "emitter='xarray' uses the in-document single-cell XArray sink: it "
+            "streams bulk + listeners to zarr with bounded memory and is "
+            "validated for short/moderate runs. Its per-leaf view is discovered "
+            "from the first tick's realized shapes, so a VERY long run may hit an "
+            "upstream pbg_emitters ragged-vector limitation (a listener leaf that "
+            "later changes length or disappears). For long single-cell runs "
+            "prefer emitter='parquet' (the robust default).",
+            stacklevel=2,
+        )
         _xr_out = _resolve_xarray_out_uri(experiment_id, out_dir)
         # Static config skeleton only — view/output_metadata are discovered
         # lazily from the REALIZED state by SingleCellXArrayEmitter at run time

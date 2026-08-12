@@ -78,6 +78,54 @@ import os
 #   this is exactly the kind of role-vs-copy-number question NFsim rules
 #   should eventually constrain properly, not something to hand-fix here.
 #
+# REAL BULK MOLECULE IDS (2026-08-12, same day, later): species keys below
+# renamed from generic placeholder names (fliF, flgH, ...) to the ACTUAL
+# v2ecoli WCM bulk molecule IDs (FLIF-FLAGELLAR-MS-RING[i],
+# FLGH-FLAGELLAR-L-RING[j], ...) -- part of NFSIM_WCM_WIRING_PLAN.md step 1,
+# so this model can eventually read/write the SAME shared bulk pool the real
+# WCM Steps use, with no translation layer needed. Every ID cross-checked
+# directly against the real, currently-running Step files
+# (flagella_motor_switch_assembly.py, flagella_export_apparatus_assembly.py,
+# flagella_motor_complex_assembly.py, flagella_filament_nucleation.py,
+# flagella_filament_elongation.py) and/or reconstruction/ecoli/flat/*.tsv,
+# not guessed from cistron IDs -- caught one real mismatch this way: FlhC's
+# actual bulk protein ID is MONOMER0-2488[c], NOT EG10319-MONOMER[c] (EG10319
+# is the gene/cistron ID referenced in flagella_transcription_regulation.py's
+# docstring, a different EcoCyc accession from the protein monomer itself;
+# confirmed via CPLX0-3930_RXN's real definition in complexation_reactions.tsv:
+# {"CPLX0-3930":1, "EG10320-MONOMER":-4, "MONOMER0-2488":-2}).
+#
+# REAL BUG FOUND IN THE ACTUAL WCM CODE (not an NFsim issue, flagged here
+# since this cross-referencing work is what surfaced it): the canonical
+# reaction spec (complexation_reactions_modified.tsv,
+# "FLAGELLAR-MOTOR-COMPLEX_RXN") includes FLGI-FLAGELLAR-P-RING at -26,
+# matching flagella_motor_complex_assembly.py's OWN docstring ("FlgH/FlgI=26
+# (L-ring/P-ring)") -- but that Step's actual _REQUIREMENTS dict only
+# consumes FlgH, never FlgI. The real bulk ID exists and resolves fine
+# (FLGI-FLAGELLAR-P-RING[j], confirmed in reconstruction/ecoli/flat/
+# proteins.tsv) -- this looks like a real, if minor, omission in the
+# currently-running Step, not a deliberate simplification (nothing in that
+# file's docstring explains dropping it). NOT fixed here -- out of scope for
+# this NFsim renaming pass, flagged for a separate decision. This NFsim
+# model INCLUDES flgI (matching the canonical/cited stoichiometry) rather
+# than silently perpetuating the apparent gap.
+#
+# THREE SPECIES KEPT AS DESCRIPTIVE NAMES, NOT RENAMED -- no real WCM bulk
+# molecule corresponds to them:
+#   'flagellar export apparatus subunit' -- purely this generator's own
+#     internal bookkeeping (splits the 9-reactant export-apparatus assembly
+#     into two sub-reactions; the real WCM Step does this in one shot).
+#   'flagellar hook' -- the real WCM has NO discrete "hook complete" bulk
+#     molecule at all; flagella_filament_nucleation.py merges hook
+#     completion and nucleation into a single Step/event (consumes motor
+#     complex + 120x FlgE + 11x FlgK + 11x FlgL directly, creating a
+#     nascent_flagellum UNIQUE molecule, not a bulk one).
+#   'flagella' (final observable) -- corresponds to creating a
+#     nascent_flagellum UNIQUE molecule in the real pipeline (via
+#     flagella_filament_nucleation.py today), not a bulk-store molecule --
+#     bridging this is the wrapper Step's job (NFSIM_WCM_WIRING_PLAN.md
+#     step 3), not a rename.
+#
 # FLIC REMOVAL (2026-08-12): fliC was briefly set to -5000 (matching
 # v2ecoli's current target_length) and immediately caused the SAME
 # combinatorial/file-size explosion v2ecoli itself hit and already solved --
@@ -104,65 +152,100 @@ import os
 # named 'flagella' for backward compatibility with run_nfsim_assembly.py's
 # existing observable name -- see that script's own updated comment.
 # ---------------------------------------------------------------------------
+# Old placeholder-name version kept per standing preserve-old-code rule:
+# COMPLEXATION_STOICHIOMETRY = {
+#     'flhDC': {
+#         'flhD': -4.0,
+#         'flhC': -2.0,
+#         'flhDC': 1.0,
+#     },
+#     'flagellar motor switch reaction': {
+#         'flagellar motor switch': 1.0,
+#         'fliF': -34.0, 'fliG': -34.0, 'fliM': -34.0, 'fliN': -111.0,
+#     },
+#     'flagellar export apparatus reaction 1': {
+#         'flagellar export apparatus subunit': 1.0,
+#         'flagellar motor switch': -1.0,
+#         'flhA': -9.0, 'flhB': -1.0, 'fliO': -1.0, 'fliP': -5.0,
+#         'fliQ': -4.0, 'fliR': -1.0, 'fliJ': -1.0, 'fliI': -6.0,
+#     },
+#     'flagellar export apparatus reaction 2': {
+#         'flagellar export apparatus': 1.0,
+#         'flagellar export apparatus subunit': -1.0,
+#         'fliH': -12.0,
+#     },
+#     'flagellar motor reaction': {
+#         'flagellar motor': 1.0,
+#         'flagellar export apparatus': -1.0,
+#         'fliL': -2.0, 'flgH': -26.0, 'motA': -55.0, 'motB': -22.0,
+#         'flgB': -5.0, 'flgC': -6.0, 'flgF': -5.0, 'flgG': -24.0,
+#         'flgI': -26.0, 'fliE': -6.0,
+#     },
+#     'flagellar hook reaction': {
+#         'flagellar hook': 1,
+#         'flgE': -120.0,
+#     },
+#     'flagellum reaction': {
+#         'flagella': 1.0,
+#         'flagellar motor': -1.0,
+#         'flgL': -11.0, 'flgK': -11.0, 'fliD': -5.0, 'flagellar hook': -1,
+#     },
+# }
 COMPLEXATION_STOICHIOMETRY = {
     'flhDC': {
-        'flhD': -4.0,
-        'flhC': -2.0,
-        'flhDC': 1.0,
+        'EG10320-MONOMER[c]': -4.0,   # was flhD
+        'MONOMER0-2488[c]': -2.0,     # was flhC -- NOT EG10319-MONOMER, see note above
+        'CPLX0-3930[c]': 1.0,         # was flhDC
     },
     'flagellar motor switch reaction': {
-        'flagellar motor switch': 1.0,
-        'fliF': -34.0,   # MS-ring -- MISSING before, added (MS-ring ordering fix)
-        'fliG': -34.0,   # was -26
-        'fliM': -34.0,   # unchanged
-        'fliN': -111.0,  # was -1
+        'CPLX0-7450[i]': 1.0,                    # was 'flagellar motor switch'
+        'FLIF-FLAGELLAR-MS-RING[i]': -34.0,       # was fliF
+        'FLIG-FLAGELLAR-SWITCH-PROTEIN[i]': -34.0,  # was fliG
+        'FLIM-FLAGELLAR-C-RING-SWITCH[i]': -34.0,   # was fliM
+        'FLIN-FLAGELLAR-C-RING-SWITCH[m]': -111.0,  # was fliN
     },
     'flagellar export apparatus reaction 1': {
-        'flagellar export apparatus subunit': 1.0,
-        'flagellar motor switch': -1.0,  # NEW -- C-ring dependency (hierarchy fix)
-        'flhA': -9.0,    # was -1
-        'flhB': -1.0,    # unchanged
-        'fliO': -1.0,    # unchanged -- open question, see note above
-        'fliP': -5.0,    # was -1
-        'fliQ': -4.0,    # was -1
-        'fliR': -1.0,    # unchanged (already the "1" in 5:4:1)
-        'fliJ': -1.0,    # unchanged
-        'fliI': -6.0,    # unchanged
+        'flagellar export apparatus subunit': 1.0,  # no real bulk ID -- generator-internal, see note above
+        'CPLX0-7450[i]': -1.0,        # was 'flagellar motor switch'
+        'G370-MONOMER[i]': -9.0,      # was flhA
+        'G7028-MONOMER[i]': -1.0,     # was flhB
+        'EG11224-MONOMER[j]': -1.0,   # was fliO
+        'EG11975-MONOMER[i]': -5.0,   # was fliP
+        'EG11976-MONOMER[j]': -4.0,   # was fliQ
+        'EG11977-MONOMER[i]': -1.0,   # was fliR
+        'G378-MONOMER[c]': -1.0,      # was fliJ
+        'G377-MONOMER[c]': -6.0,      # was fliI
     },
     'flagellar export apparatus reaction 2': {
-        'flagellar export apparatus': 1.0,
-        'flagellar export apparatus subunit': -1.0,
-        'fliH': -12.0,   # unchanged
+        'CPLX0-7451[j]': 1.0,                     # was 'flagellar export apparatus'
+        'flagellar export apparatus subunit': -1.0,  # no real bulk ID -- generator-internal
+        'EG11656-MONOMER[c]': -12.0,  # was fliH
     },
     'flagellar motor reaction': {
-        'flagellar motor': 1.0,
-        'flagellar export apparatus': -1.0,  # NEW -- moved here from flagellum reaction (hierarchy fix)
-        'fliL': -2.0,    # unchanged
-        'flgH': -26.0,   # was -1
-        'motA': -55.0,   # was -1
-        'motB': -22.0,   # was -1
-        'flgB': -5.0,    # was -1
-        'flgC': -6.0,    # was -1
-        'flgF': -5.0,    # was -1
-        'flgG': -24.0,   # was -1
-        'flgI': -26.0,   # was -1
-        'fliE': -6.0,    # was -1
-        # 'flagellar motor switch': -1.0,  REMOVED -- consumed upstream now (hierarchy fix)
-        # 'fliF': -1.0,  REMOVED -- consumed upstream now (MS-ring ordering fix)
+        'FLAGELLAR-MOTOR-COMPLEX[j]': 1.0,   # was 'flagellar motor'
+        'CPLX0-7451[j]': -1.0,               # was 'flagellar export apparatus'
+        'EG10322-MONOMER[j]': -2.0,          # was fliL
+        'FLGH-FLAGELLAR-L-RING[j]': -26.0,   # was flgH
+        'MOTA-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -55.0,  # was motA
+        'MOTB-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -22.0,  # was motB
+        'FLGB-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgB
+        'FLGC-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -6.0,   # was flgC
+        'FLGF-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgF
+        'FLGG-FLAGELLAR-MOTOR-ROD-PROTEIN[o]': -24.0,  # was flgG
+        'FLGI-FLAGELLAR-P-RING[j]': -26.0,   # was flgI -- see "REAL BUG FOUND" note above
+        'EG11346-MONOMER[p]': -6.0,          # was fliE
     },
     'flagellar hook reaction': {
-        'flagellar hook': 1,
-        'flgE': -120.0,  # unchanged, already correct
+        'flagellar hook': 1,           # no real bulk ID -- see note above
+        'G361-MONOMER[c]': -120.0,     # was flgE
     },
     'flagellum reaction': {
-        'flagella': 1.0,   # hook-basal-body complete -- NOT the full filament-bearing organelle, see FLIC REMOVAL note above
-        'flagellar motor': -1.0,  # unchanged
-        # 'fliC': -5000.0,  REMOVED -- see FLIC REMOVAL note above (kept per standing preserve-old-code rule)
-        'flgL': -11.0,   # was -1
-        'flgK': -11.0,   # was -1
-        'fliD': -5.0,    # unchanged -- cap, still installed here even though the filament it caps isn't modeled
-        'flagellar hook': -1,  # unchanged
-        # 'flagellar export apparatus': -1.0,  REMOVED -- moved to flagellar motor reaction (hierarchy fix)
+        'flagella': 1.0,   # no real bulk ID (maps to nascent_flagellum creation) -- see note above
+        'FLAGELLAR-MOTOR-COMPLEX[j]': -1.0,  # was 'flagellar motor'
+        'EG11545-MONOMER[e]': -11.0,   # was flgL
+        'EG11967-MONOMER[e]': -11.0,   # was flgK
+        'EG10841-MONOMER[e]': -5.0,    # was fliD
+        'flagellar hook': -1,          # no real bulk ID -- see note above
     },
 }
 
@@ -231,15 +314,71 @@ K_COMPLETION = 10.0   # still an unconverted placeholder -- no literature search
 # this is a design-level ratio choice, analogous in spirit to v2ecoli's own
 # ~1000x-scale gap between its measured nucleation_rate=0.00167/s and its
 # elongation rate, not a directly measured value).
-NUCLEATION_SUPPRESSION_FACTOR = 1000.0
+# Old value kept per standing preserve-old-code rule:
+# NUCLEATION_SUPPRESSION_FACTOR = 1000.0
+#
+# RESCALED 2026-08-12 (NFSIM_WCM_WIRING_PLAN.md step 2): 1000 was calibrated
+# against the standalone demo's ARTIFICIAL seed counts (n_flagella=5 scaled,
+# e.g. FliF=170). Once seeded from REAL WCM ambient bulk counts instead
+# (diagnostic_real_bulk_seeding.py), that factor was nowhere near enough:
+# nucleation propensity is proportional to monomer_count^2 (homodimer
+# nucleation for most reactions here), and real ambient counts run
+# meaningfully higher than the demo's -- FliF real=657 vs demo=170 (3.86x
+# count -> ~14.9x propensity), FlgE real=3508 vs demo=600 (5.85x count ->
+# ~34.2x propensity, the worst case that was actually observed blocking
+# hook progress: confirmed directly, ~67-70 distinct partial scaffolds
+# nucleated in parallel and NONE completed across 8 simulated hours, free
+# FliF driven from 657 down to a floor of 14 split across ~70 competitors).
+# Rescaled by ~35x (to 35,000) to cover that worst observed case with some
+# margin. This is a single GLOBAL constant applied uniformly to every
+# reaction's nucleation rate -- a real, accepted limitation flagged
+# explicitly (chosen deliberately over reworking the rate law to scale
+# per-reaction with each reaction's own ambient monomer count, a bigger
+# change deferred for now): different reactions have different real:demo
+# ratios (the flhDC reaction's nucleating species, MONOMER0-2488/FlhC, real
+# ratio is ~65x count / ~4200x propensity -- FAR more suppressed than
+# FliF's or FlgE's case, but this doesn't block downstream assembly since
+# nothing else in this model consumes CPLX0-3930/FlhDC). Revisit if a
+# future reaction's nucleating species has a real:demo ratio outside the
+# FliF-FlgE range this was tuned against.
+NUCLEATION_SUPPRESSION_FACTOR = 35000.0
 
 # Number of flagella worth of monomers to provide
 N_FLAGELLA = 5
 
 
 def _safe_name(name):
-    """Convert a name to a valid BNG identifier."""
-    return name.replace(' ', '_').replace('-', '_')
+    """Convert a name to a valid BNG identifier.
+
+    Extended 2026-08-12 to also strip '[' / ']' -- species keys are now real
+    v2ecoli bulk molecule IDs (e.g. 'FLIF-FLAGELLAR-MS-RING[i]'), which carry
+    a compartment suffix BNGL identifiers can't contain. This mapping is
+    deterministic and one-way by design: a future wrapper Step that needs to
+    go from a safe name back to the real bulk ID should keep its OWN
+    {_safe_name(real_id): real_id} lookup built from the known real IDs
+    (e.g. via real_bulk_ids() below), not try to invert this string
+    transform, since '-' and '[' both collapse to the same '_' here.
+    """
+    return name.replace(' ', '_').replace('-', '_').replace('[', '_').replace(']', '')
+
+
+# Species keys in COMPLEXATION_STOICHIOMETRY that ARE real v2ecoli bulk
+# molecule IDs (i.e. everything except the three generator-internal-only
+# names documented above: 'flagellar export apparatus subunit',
+# 'flagellar hook', 'flagella'). Added 2026-08-12 for the future wrapper
+# Step (NFSIM_WCM_WIRING_PLAN.md step 3) to build its safe-name -> real-ID
+# lookup from, rather than guessing/inverting _safe_name()'s output.
+_NON_BULK_SPECIES = {'flagellar export apparatus subunit', 'flagellar hook', 'flagella'}
+
+
+def real_bulk_ids():
+    """Return the set of species names in COMPLEXATION_STOICHIOMETRY that are
+    real v2ecoli bulk molecule IDs (excludes the 3 generator-internal-only
+    names -- see _NON_BULK_SPECIES)."""
+    names = set()
+    for stoich in COMPLEXATION_STOICHIOMETRY.values():
+        names.update(stoich.keys())
+    return names - _NON_BULK_SPECIES
 
 
 def _parse_reaction(rxn_name, stoich):
@@ -270,8 +409,7 @@ def default_production_rates():
     rates = {}
     for species, count in demand.items():
         if species not in complex_names:
-            safe = species.replace(' ', '_').replace('-', '_')
-            rates[f'Free_{safe}'] = count / duration
+            rates[f'Free_{_safe_name(species)}'] = count / duration
 
     return rates
 

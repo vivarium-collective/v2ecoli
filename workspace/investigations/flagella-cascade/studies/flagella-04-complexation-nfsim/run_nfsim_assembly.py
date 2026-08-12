@@ -52,15 +52,24 @@ from process_bigraph.emitter import RAMEmitter
 STUDY_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Ordered assembly chain (coarse stages, in assembly order).
+# RENAMED 2026-08-12 (NFSIM_WCM_WIRING_PLAN.md step 1): observable names now
+# match the real v2ecoli bulk molecule IDs the model was renamed to use
+# (CPLX0-7451[j] -> CPLX0_7451_j, etc. -- see generate_flagella_bngl.py's
+# _safe_name()). Old placeholder names kept as comments per standing
+# preserve-old-code rule.
 CHAIN = [
-    ("flagellar_export_apparatus", "export apparatus", "#1f77b4"),
-    ("flagellar_motor", "motor / basal body", "#2ca02c"),
-    ("flagellar_hook", "hook", "#ff7f0e"),
+    # ("flagellar_export_apparatus", "export apparatus", "#1f77b4"),
+    ("CPLX0_7451_j", "export apparatus", "#1f77b4"),
+    # ("flagellar_motor", "motor / basal body", "#2ca02c"),
+    ("FLAGELLAR_MOTOR_COMPLEX_j", "motor / basal body", "#2ca02c"),
+    ("flagellar_hook", "hook", "#ff7f0e"),  # no real bulk ID -- see model docstring
     ("flagella", "hook-basal-body complete (filament not modeled -- see module docstring)", "#d62728"),
 ]
 MONOMERS = [
-    ("Free_fliF", "FliF (MS-ring)", "#9467bd"),
-    ("Free_flgE", "FlgE (hook)", "#8c564b"),
+    # ("Free_fliF", "FliF (MS-ring)", "#9467bd"),
+    ("Free_FLIF_FLAGELLAR_MS_RING_i", "FliF (MS-ring)", "#9467bd"),
+    # ("Free_flgE", "FlgE (hook)", "#8c564b"),
+    ("Free_G361_MONOMER_c", "FlgE (hook)", "#8c564b"),
     # ("Free_fliC", "FliC (flagellin)", "#17becf"),  REMOVED 2026-08-12 -- fliC
     # is no longer a species in this model at all (see FLIC REMOVAL note in
     # generate_flagella_bngl.py); this observable no longer exists.

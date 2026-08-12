@@ -93,9 +93,27 @@ full regulatory-loop rewrite — it's a swap of what feeds the loop.
 
 ## Recommended rollout — not all at once
 
-1. Rename BNGL species to real bulk IDs; re-verify the standalone model
-   still runs correctly (same kind of isolated test used to validate the
-   scaffold-persistence fix).
+1. **DONE (2026-08-12).** Renamed BNGL species to real bulk IDs in
+   `generate_flagella_bngl.py` (e.g. `fliF` -> `FLIF-FLAGELLAR-MS-RING[i]`),
+   cross-checked directly against the real running Steps and
+   `reconstruction/ecoli/flat/*.tsv`, not guessed. Caught two real findings
+   in the process: (a) FlhC's real bulk protein ID is `MONOMER0-2488[c]`,
+   not `EG10319-MONOMER[c]` as the cistron reference in
+   `flagella_transcription_regulation.py`'s docstring might suggest; (b) the
+   canonical reaction spec includes FlgI (`FLGI-FLAGELLAR-P-RING[j]`, -26)
+   in the motor-complex reaction, matching `flagella_motor_complex_assembly.py`'s
+   own docstring, but that Step's actual `_REQUIREMENTS` dict never consumes
+   it -- a real, apparently unintentional gap in the currently-running WCM
+   code, flagged but NOT fixed here (out of scope for this rename pass).
+   Three species have no real bulk-ID equivalent and were deliberately left
+   as descriptive names (`flagellar export apparatus subunit`, `flagellar
+   hook`, `flagella`) -- see the model's own docstring for why. Re-verified:
+   rule count unchanged (588), standalone run at 8 simulated hours produces
+   the same order-of-magnitude result as before the rename (export=34,
+   motor=13, hook=255, flagella=2 vs. pre-rename export=36, motor=15,
+   hook=252, flagella=1) -- consistent with normal stochastic variance, not
+   a regression. `run_nfsim_assembly.py`'s tracked observable names updated
+   to match.
 2. Build the wrapper Step; test against a **minimal** composite with a real
    bulk store (not the full 55-process baseline) — a diagnostic script,
    checking mass conservation and correct handoff to a stub/real
@@ -105,6 +123,47 @@ full regulatory-loop rewrite — it's a swap of what feeds the loop.
    too (preserve-old-code rule; also gives an A/B comparison for free —
    NFsim-driven vs. deterministic-Step-driven assembly under otherwise
    identical regulation).
+
+2. **IN PROGRESS (2026-08-12).** Built `diagnostic_real_bulk_seeding.py`:
+   reads the REAL WCM's actual bulk counts for all 33 real-bulk-ID species
+   (via a live `ecoli_baseline` composite), seeds `NFSimProcess.observables`
+   directly from them, runs with NO `MonomerProduction` at all. Confirmed
+   all 33 real IDs resolve correctly end-to-end (structural proof step 1's
+   renaming works against a live composite, not just standalone).
+
+   REAL FINDING, not a bug in this diagnostic: nothing ever completes.
+   `~67-70 distinct partial scaffolds` nucleate almost immediately and
+   NEVER finish across 8 simulated hours -- free FliF depletes from its
+   real ambient count (657) down to a floor of 14, split across ~70
+   simultaneous competing scaffolds, each needing 34 copies to complete.
+   Root cause: `NUCLEATION_SUPPRESSION_FACTOR=1000` was calibrated against
+   the old standalone demo's artificial seed counts (~170 FliF, from
+   `n_flagella=5`-scaled defaults) -- real WCM ambient pools are ~4x
+   larger, and since nucleation propensity scales with count^2, that's
+   ~15x more simultaneous nucleation events, reproducing the EXACT
+   "many parallel scaffolds, none finish" failure mode already found and
+   fixed once this session (see `flagella-04-nucleation-rate-fixed-real-
+   assembly-confirmed` in study.yaml) -- just resurfacing because that
+   fix's calibration doesn't transfer to real WCM copy numbers. NOT yet
+   fixed -- needs a decision on how to recalibrate (a larger fixed
+   suppression factor? scale suppression by monomer count so real vs.
+   demo scales both work? something else?) before continuing to step 3.
+
+   RESOLVED (2026-08-12, same day): chose the fast option (a larger fixed
+   global constant), explicitly accepting the tradeoff that it's tuned to
+   today's observed real:demo ratio rather than derived per-reaction.
+   `NUCLEATION_SUPPRESSION_FACTOR` rescaled 1000 -> 35,000, sized to cover
+   the worst directly-relevant observed case (FlgE/hook: real=3508 vs.
+   demo=600, ~34.2x propensity increase) with margin. Re-ran the same
+   real-bulk-seeding diagnostic: 5x CPLX0-7450 (C-ring) and 28x complete
+   hooks formed over 8 simulated hours, material still actively flowing
+   (Free_FLIF 657->287, scaffold count still growing at the end, not
+   stalled) -- a real, hierarchically-bottlenecked result (export apparatus
+   and motor complex hadn't progressed yet by t=28800s, consistent with
+   depending on only 5 C-rings having formed so far, not a bug). Step 2 is
+   now functionally complete: NFsim runs correctly from ONLY the real WCM
+   ambient bulk pool, no synthetic MonomerProduction feed at all.
+   `diagnostic_real_bulk_seeding.py` is the artifact demonstrating this.
 
 ## Explicitly out of scope for this plan
 

@@ -20,6 +20,11 @@
     
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
+    
+    
+    
+    <button type="button" class="btn-mini" onclick="window._vivNotebookFromCard(event, 'perturbation-demo')" title="Download this study's investigation runnable notebook (includes this study)">↓ notebook</button>
+    
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
@@ -912,7 +917,7 @@ express each as a one-line variant of the baseline composite?
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "composite_state", "path": "agents.0.ecoli-polypeptide-initiation"}
-expect:  null</pre>
+expect:  {"note": "translation_efficiencies[lacY monomer] == 0 (unit-asserted in tests/test_ko_composites.py)", "op": "eq"}</pre>
       </details>
       
       
@@ -949,7 +954,7 @@ expect:  null</pre>
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "readout", "observable": "listeners.mass.dry_mass"}
-expect:  null</pre>
+expect:  {"note": "dry-mass increment on rich media \u003e minimal (directional; demonstration only)", "op": "gt"}</pre>
       </details>
       
       
@@ -1074,7 +1079,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "branch": "main", "lockfile": "uv.lock@9c50a5487b25", "generated_at": "2026-08-07 15:44 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "932a1894609bb1266356bf98129e2f8dc2e5df30", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/932a1894609bb1266356bf98129e2f8dc2e5df30", "branch": "main", "lockfile": "uv.lock@2e84860bb535", "generated_at": "2026-08-12 22:44 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "ko-and-media";

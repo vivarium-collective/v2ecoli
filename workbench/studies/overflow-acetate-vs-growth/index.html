@@ -20,6 +20,11 @@
     
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
+    
+    
+    
+    <button type="button" class="btn-mini" onclick="window._vivNotebookFromCard(event, 'metabolism-overflow')" title="Download this study's investigation runnable notebook (includes this study)">↓ notebook</button>
+    
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
@@ -89,7 +94,7 @@
           <span class="status-detail-axis">2 · Execution</span>
           <span class="status-chip gate-state-passed">ran</span>
           
-          <span class="gate-computed-chip gate-state-passed" title="2 completed run(s)">◆ computed: ran</span>
+          <span class="gate-computed-chip gate-state-passed" title="4 completed run(s)">◆ computed: ran</span>
           
           
           
@@ -784,18 +789,6 @@ a mis-parameterised biomass composition.
           </div>
         </div>
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
-          </div>
-        </div>
-        
       </div>
     </div>
     
@@ -1282,24 +1275,17 @@ curve comparison.
         
         data-pytest-node="v2ecoli-reproduces-acetate-overflow-onset"
         data-classification="primary"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">v2ecoli-reproduces-acetate-overflow-onset</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does v2ecoli&#39;s acetate response show the overflow rise (acetate-carbon yield rising above a critical growth rate)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Card verdict mismatch — &#39;no overflow (yield &lt;= 0.005 through x=0.954; ref overflows)&#39;. Acetate 0.0 at all 6 caps. This is the PREDICTED baseline-FBA outcome, but see the caveat: graded on a ~0.03/h wide x-range.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1326,24 +1312,17 @@ expect:  {"op": "report_card_group_within_tol"}</pre>
         
         data-pytest-node="carbon-balance-closes-under-titration"
         data-classification="diagnostic"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-diagnostic">diagnostic</span>
         <strong style="font-size: 0.9em;">carbon-balance-closes-under-titration</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Across the uptake titration, does the model&#39;s carbon bookkeeping close — i.e. is secreted carbon never greater than carbon taken up?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: cap=1 trips violation_C_created: C_out 11.83 &gt; C_in 6.0 mmolC/gDCW/h. Closure degrades monotonically as the cap tightens (1.11 / 1.26 / 1.53 / 2.31 / 3.59 / 7.93 at caps 6 -&gt; 1).</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1370,24 +1349,17 @@ expect:  {"op": "eq", "value": false}</pre>
         
         data-pytest-node="biomass-yield-within-stoichiometric-ceiling"
         data-classification="diagnostic"
-        data-result="FAIL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-diagnostic">diagnostic</span>
         <strong style="font-size: 0.9em;">biomass-yield-within-stoichiometric-ceiling</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Is the emergent biomass yield Yxs at or below the stoichiometric ceiling for aerobic glucose growth?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">note: Yxs = 0.92 / 1.04 / 1.29 / 1.71 / 2.59 / 5.30 gDW/g glucose at caps 6 -&gt; 1; measured band 0.355-0.444, stoichiometric ceiling 0.538. Even the slack-cap value (0.92) is ~1.7x the ceiling.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1526,15 +1498,15 @@ by converting the model side. See inputs/notes/basan2015.md.
         baseline · seed ? ·
         ?s simulated ·
         ? history rows ·
-        started 2026-07-22
+        started 1784678400.0
       </div>
       
       
       
       <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>4</strong> test outcomes
+        <strong>1</strong> test outcome
         — <span style="color:#065f46;font-weight:600">1 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">3 FAIL</span>.
+        <span style="color:#991b1b;font-weight:600">0 FAIL</span>.
         Per-test outcomes (measured value · evaluator · band) are canonical on the
         <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
       </p>
@@ -1567,7 +1539,7 @@ by converting the model side. See inputs/notes/basan2015.md.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "branch": "main", "lockfile": "uv.lock@9c50a5487b25", "generated_at": "2026-08-07 15:44 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "932a1894609bb1266356bf98129e2f8dc2e5df30", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/932a1894609bb1266356bf98129e2f8dc2e5df30", "branch": "main", "lockfile": "uv.lock@2e84860bb535", "generated_at": "2026-08-12 22:44 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "overflow-acetate-vs-growth";

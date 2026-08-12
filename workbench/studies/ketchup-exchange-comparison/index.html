@@ -20,6 +20,11 @@
     
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
+    
+    
+    
+    <button type="button" class="btn-mini" onclick="window._vivNotebookFromCard(event, 'ketchup-baseline-comparison')" title="Download this study's investigation runnable notebook (includes this study)">↓ notebook</button>
+    
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
@@ -89,7 +94,7 @@
           <span class="status-detail-axis">2 · Execution</span>
           <span class="status-chip gate-state-passed">complete</span>
           
-          <span class="gate-computed-chip gate-state-passed" title="9 completed run(s)">◆ computed: ran</span>
+          <span class="gate-computed-chip gate-state-passed" title="18 completed run(s)">◆ computed: ran</span>
           
           
           
@@ -1285,24 +1290,17 @@ graded by the report-card flux_scatter criterion?
         
         data-pytest-node="v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange"
         data-classification="primary"
-        data-result="PARTIAL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">v2ecoli-baseline-matches-ketchup-k-ecoli74-exchange</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli74 (flux_scatter R^2)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Report card: MISMATCH (whole-vector R^2 = -0.89, 4 matched + 2 lost [acetate, SO4]; per-metabolite O2/CO2 mismatch). Directions agree but v2ecoli respires far less per glucose (O2 -9 vs -135, CO2 +33 vs +144) and secretes no acetate (KETCHUP +71). PARTIAL = directionally consistent, quantitatively divergent; expected whole-cell-FBA vs batch-MFA core divergence.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1329,24 +1327,17 @@ expect:  {"op": "correlates", "r2_min": 0.8}</pre>
         
         data-pytest-node="v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange"
         data-classification="primary"
-        data-result="PARTIAL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">v2ecoli-baseline-matches-ketchup-k-ecoli307-exchange</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does the v2ecoli baseline central-carbon exchange vector match KETCHUP k-ecoli307 (flux_scatter R^2)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Report card: MISMATCH (whole-vector R^2 = -0.72; same pattern as k-ecoli74, the two KETCHUP models agree closely). NH3 closer here (v2ecoli -136 vs -81). Directions consistent, magnitudes + acetate overflow diverge.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1373,24 +1364,17 @@ expect:  {"op": "correlates", "r2_min": 0.8}</pre>
         
         data-pytest-node="v2ecoli-baseline-matches-millard2017-exchange"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">v2ecoli-baseline-matches-millard2017-exchange</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">Does the v2ecoli baseline central-carbon exchange vector match the Millard 2017 ODE (flux_scatter R^2)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Report card: WITHIN_TOL (R^2 = 1.00 over the 1 active shared exchange). v2ecoli&#39;s baseline agrees with the Millard 2017 ODE: both glucose-limited with no acetate overflow. Millard exchanges only glucose + acetate (no O2/CO2/NH3/SO4), so the match is narrow but directionally and qualitatively consistent. v2ecoli&#39;s phenotype lines up with a glucose-limited kinetic model, not the batch-aerobic KETCHUP cores.</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1417,24 +1401,17 @@ expect:  {"op": "correlates", "r2_min": 0.8}</pre>
         
         data-pytest-node="v2ecoli-baseline-matches-fba-bridge-exchange"
         data-classification="secondary"
-        data-result="PARTIAL"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-secondary">secondary</span>
         <strong style="font-size: 0.9em;">v2ecoli-baseline-matches-fba-bridge-exchange</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;">How close is the v2ecoli + Millard FBA-bridge exchange vector to the bare v2ecoli baseline (flux_scatter R^2)?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Report card: MISMATCH but the closest candidate (whole-vector R^2 = +0.65, positive, vs the bare cores&#39; negative R^2; 3 matched, 1 appeared, 1 lost). Pinning v2ecoli&#39;s central-carbon FBA to the Millard ODE deepens respiration ~3× (O2 ≈ -26 vs baseline -9 per 100 glucose, toward but well below the cores&#39; -135) while keeping the baseline&#39;s acetate-free, CO2-quiet exchange signature. Live whole-cell run, viable (dry_mass 380→385 fg over 60 ticks).</code>
-        
-      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1587,14 +1564,6 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
       
       
       
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>4</strong> test outcomes
-        — <span style="color:#065f46;font-weight:600">1 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">0 FAIL</span> · <span style="color:#92400e;font-weight:600">3 partial</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
-      
     </div>
     
     
@@ -1623,7 +1592,7 @@ OXYGEN-MOLECULE[p], AMMONIUM[c], SULFATE[p]).
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/abb828357e7df5b7a53b2d57cc6b052ad84ce99d", "branch": "main", "lockfile": "uv.lock@9c50a5487b25", "generated_at": "2026-08-07 15:44 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "932a1894609bb1266356bf98129e2f8dc2e5df30", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/932a1894609bb1266356bf98129e2f8dc2e5df30", "branch": "main", "lockfile": "uv.lock@2e84860bb535", "generated_at": "2026-08-12 22:44 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "ketchup-exchange-comparison";

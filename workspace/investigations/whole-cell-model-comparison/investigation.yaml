@@ -2,6 +2,22 @@ schema_version: 4
 name: whole-cell-model-comparison
 title: "Whole-Cell Model Comparison"
 question: Does v2ecoli reproduce vEcoli across nutrient conditions and metabolism process swaps?
+# Member studies (one per comparison config) — the dashboard/linkage lists an
+# investigation's studies from `members:`, so without this the study dirs on disk
+# (each with `investigation: whole-cell-model-comparison`) never appear in the UI.
+members:
+- parca
+- basal
+- with_aa
+- acetate
+- succinate
+- no_oxygen
+- metabolism_redux_basal
+- metabolism_redux_with_aa
+- metabolism_redux_acetate
+- metabolism_redux_succinate
+- metabolism_redux_no_oxygen
+- statistical
 comparison:
   candidate: v2ecoli
   reference:

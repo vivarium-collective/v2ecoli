@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.10.1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>flagella-cascade-biology-pipeline-2026-08-12</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    .display.math{display: block; text-align: center; margin: 0.5rem auto;}
+  </style>
+  <link rel="stylesheet" href="/dev/fd/11" />
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({startOnLoad:false, theme:'default'});
+window.addEventListener('load', async () => {
+  const nodes = document.querySelectorAll('pre.mermaid');
+  for (let i = 0; i < nodes.length; i++) {
+    const el = nodes[i];
+    const src = el.textContent;
+    try {
+      const { svg } = await mermaid.render('mmd-' + i, src);
+      el.innerHTML = svg;
+    } catch (e) {
+      el.innerHTML = '<pre style="color:red">MERMAID RENDER FAILED: ' + e.message + '</pre>';
+    }
+  }
+  window.__mermaidDone = true;
+});
+</script>
+</head>
+<body>
+<h1
+id="the-flagellar-regulatory-assembly-cascade-biology-paired-to-code">The
+Flagellar Regulatory &amp; Assembly Cascade — Biology Paired to
+Code</h1>
+<p><em>Every biological claim below is paired with the exact file/line
+in v2ecoli that implements it.</em></p>
+<hr />
+<h2 id="class-i-flhd4c2-master-regulator">Class I — FlhD4C2 master
+regulator</h2>
+<ul>
+<li><strong>Biology:</strong> FlhD4C2 heterohexamer (4x FlhD + 2x FlhC)
+activates all Class II promoters.</li>
+<li><strong>Code:</strong> assembled via the <em>unmodified</em>
+<code>CPLX0-3930_RXN</code> complexation reaction (not a custom Step) —
+its own transcription is untouched; it only enters the regulation math
+as a bulk count read in
+<code>flagella_transcription_regulation.py:187</code>
+(<code>flhDC_count = counts(states["bulk"], self.flhDC_idx)</code>).</li>
+</ul>
+<h2 id="class-ii-class-iii-the-sum-gate">Class II / Class III — the
+SUM-gate</h2>
+<p><code>v2ecoli/processes/flagella_transcription_regulation.py</code></p>
+<ul>
+<li><strong>Biology:</strong> two normalized signals, X (FlhDC
+saturation) and Y (free FliA saturation), drive gene expression via
+Michaelis-Menten terms.
+<ul>
+<li><strong>Code:</strong> lines 190-191 —
+<code>X = flhDC_count / (K_flhDC + flhDC_count)</code>,
+<code>Y = fliA_count / (K_fliA + fliA_count)</code>.</li>
+</ul></li>
+<li><strong>Biology:</strong> Class II genes integrate X and Y with
+per-gene weights (beta, beta’) — Kalir &amp; Alon’s bilinear SUM gate.
+<ul>
+<li><strong>Code:</strong> weights are
+<code>config_schema["beta"]</code> / <code>["beta_prime"]</code>, lines
+81-83, one value per of the 7 Class II TUs; the gate itself is computed
+at line 200:
+<code>p_i = (beta*X + beta_prime*Y) / (beta+beta_prime)</code>.</li>
+</ul></li>
+<li><strong>Biology:</strong> gate output is normalized so it equals
+ParCa’s basal probability exactly at reference (t=0) conditions.
+<ul>
+<li><strong>Code:</strong> <code>X_ref</code>/<code>p_i_ref</code>
+captured once on the first call, lines 195-197; applied at lines 205-212
+(<code>init_prob_override_new[rows] = p_i[i] / safe_p_i_ref[i] * flg_classII_basal_probs[i]</code>).</li>
+</ul></li>
+<li><strong>Biology:</strong> Class III genes depend on free FliA
+<em>alone</em>, not FlhDC.
+<ul>
+<li><strong>Code:</strong> lines 214-219 —
+<code>init_prob_override_new[rows] = Y * self.flg_classIII_basal_probs[j]</code>,
+looped separately over <code>flg_classIII_TU_ids</code>.</li>
+</ul></li>
+<li><strong>Biology:</strong> this bypasses ordinary TF-binding to avoid
+double-counting.
+<ul>
+<li><strong>Code:</strong> line 222 — writes straight to
+<code>promoters["set"]["init_prob_override"]</code>, which
+<code>transcript_initiation</code> substitutes directly (see module
+docstring lines 30-32 for why).</li>
+</ul></li>
+</ul>
+<h2 id="step-1-ms-ring-c-ring">Step 1 — MS-ring + C-ring</h2>
+<p><code>flagella_motor_switch_assembly.py</code></p>
+<ul>
+<li><strong>Biology:</strong> FliF (MS-ring) forms first, then
+FliG/FliM/FliN (C-ring) assemble onto it — real order per Minamino &amp;
+Namba 2008.
+<ul>
+<li><strong>Code:</strong> <code>_REQUIREMENTS</code> dict, lines 78-83
+— FliF:34, FliG:34, FliM:34, FliN:111; FliF was added here specifically
+in the “MS-RING ORDERING FIX” (line 45 comment).</li>
+</ul></li>
+<li><strong>Biology:</strong> ordinary complexation is fast — not
+rate-limited.
+<ul>
+<li><strong>Code:</strong> <code>update()</code>, lines 136-152 —
+<code>n_formed = min(available // per_unit)</code>, converts as much as
+material allows every single tick (no rate constant anywhere in this
+Step).</li>
+</ul></li>
+</ul>
+<h2 id="step-2-export-apparatus-type-iii-secretion-system">Step 2 —
+Export apparatus (Type III secretion system)</h2>
+<p><code>flagella_export_apparatus_assembly.py</code></p>
+<ul>
+<li><strong>Biology:</strong>
+FlhA(x9)/FlhB/FliO/FliP:FliQ:FliR(5:4:1)/FliH(x12)/FliI(x6)/FliJ insert
+into the pre-formed ring.
+<ul>
+<li><strong>Code:</strong> <code>_REQUIREMENTS</code>, lines 61-72, one
+entry per protein with its real stoichiometric coefficient and citation
+in the header comment (lines 37-43).</li>
+</ul></li>
+<li><strong>Biology:</strong> this reaction now depends on the C-ring
+existing first (real hierarchy).
+<ul>
+<li><strong>Code:</strong> <code>"CPLX0-7450[i]": 1</code> at line 62 —
+added in the “HIERARCHY FIX,” explained lines 16-27.</li>
+</ul></li>
+<li><strong>Biology:</strong> FlhA-FlhB binding kinetics have a real
+measured rate constant (McMurry et al. 2015).
+<ul>
+<li><strong>Code:</strong> not used <em>inside</em> this Step directly
+(it’s deterministic, not kinetic) — that rate constant instead lives in
+the NFsim side of the project (<code>K_ON_FLHA_FLHB_MOLAR</code> in
+<code>generate_flagella_bngl.py</code>), used as the general
+binding-rate anchor there.</li>
+</ul></li>
+</ul>
+<h2 id="step-3-motor-complex-basal-body">Step 3 — Motor complex / basal
+body</h2>
+<p><code>flagella_motor_complex_assembly.py</code></p>
+<ul>
+<li><strong>Biology:</strong> L-ring/P-ring (FlgH/FlgI x26), stator
+(MotA x55 / MotB x22), rod (FlgB/C/F proximal, FlgG x24 distal), FliL,
+FliE.
+<ul>
+<li><strong>Code:</strong> <code>_REQUIREMENTS</code>, lines 78-88.</li>
+</ul></li>
+<li><strong>Biology:</strong> C-ring and MS-ring are <em>not</em>
+consumed again here — already folded in via CPLX0-7451.
+<ul>
+<li><strong>Code:</strong> lines 68-77 — old requirements kept as
+comments (<code># "CPLX0-7450[i]": 1</code>,
+<code># "FLIF-FLAGELLAR-MS-RING[i]": 34</code>) with the hierarchy-fix
+explanation directly above (lines 33-49).</li>
+</ul></li>
+</ul>
+<h2 id="step-4-hook-nucleation">Step 4 — Hook nucleation</h2>
+<p><code>flagella_filament_nucleation.py</code></p>
+<ul>
+<li><strong>Biology:</strong> nucleating a <em>new</em> flagellum is
+rare — existing structures absorb excess subunit instead
+(Chang/Sung/Hong 2025).
+<ul>
+<li><strong>Code:</strong> <code>nucleation_rate</code> config default
+0.00167 (line 126); converted to a fixed interval —
+<code>self.nucleation_interval = 1.0 / self.nucleation_rate</code> (line
+150) — fires exactly one event per interval, not a per-tick
+probability.</li>
+</ul></li>
+<li><strong>Biology:</strong> consumes 1 motor complex + 120 FlgE + 11
+FlgK + 11 FlgL — matches everything CPLX0-7452 needs except the filament
+itself.
+<ul>
+<li><strong>Code:</strong> <code>_NUCLEATION_REQUIREMENTS</code>, lines
+95-100.</li>
+</ul></li>
+<li><strong>Biology/engineering note:</strong> the first tick must not
+fire immediately (rate limiting has to apply from t=0 too).
+<ul>
+<li><strong>Code:</strong> <code>first_call</code> guard, lines 164,
+169-176 — first call only starts the clock, documented as the “SECOND
+BUG FOUND AND FIXED” (lines 58-72).</li>
+</ul></li>
+</ul>
+<h2 id="step-5-filament-elongation">Step 5 — Filament elongation</h2>
+<p><code>flagella_filament_elongation.py</code></p>
+<ul>
+<li><strong>Biology:</strong> FliC is added at the distal tip via
+injection-diffusion; rate slows as the filament lengthens (Renault et
+al. 2017).
+<ul>
+<li><strong>Code:</strong> rate formula implemented at line 206 —
+<code>desired = round(rate_a / (rate_b + lengths) * dt)</code>;
+constants <code>rate_a=26450.0</code>, <code>rate_b=575.0</code> at
+lines 156-157.</li>
+</ul></li>
+<li><strong>Biology:</strong> simultaneous filaments compete for the
+same free-FliC pool.
+<ul>
+<li><strong>Code:</strong> fair-share scaling, lines 210-216 —
+<code>scale = fliC_available / total_desired</code>.</li>
+</ul></li>
+<li><strong>Biology:</strong> target length is a real (short-range)
+literature value, not arbitrary.
+<ul>
+<li><strong>Code:</strong> <code>TARGET_LENGTH = 5000</code> at line
+129, with the 20,000 -&gt; 10,000 -&gt; 5,000 revision history kept as
+comments (line 127) and justified in the docstring (lines 81-105).</li>
+</ul></li>
+<li><strong>Biology:</strong> completion requires the cap protein FliD
+(x5) and produces one real complete flagellum.
+<ul>
+<li><strong>Code:</strong> <code>fliD_per_completion</code> config
+default 5 (line 152); completion check
+<code>did_complete = new_lengths &gt;= target_length</code> (line
+219).</li>
+</ul></li>
+</ul>
+<h2 id="the-checkpoint-flgm-secretion">The checkpoint — FlgM
+secretion</h2>
+<p><code>flagella_flgm_secretion.py</code></p>
+<ul>
+<li><strong>Biology:</strong> complete flagella actively pump FlgM out;
+this shifts the FlgM-FliA equilibrium to free FliA.
+<ul>
+<li><strong>Code:</strong> <code>update()</code>, lines 96-117 — reads
+<code>hbb_count</code> (line 102) and <code>flgM_count</code> (line
+103), computes export at lines 105-112.</li>
+</ul></li>
+<li><strong>Biology:</strong> export rate calibrated from real FlgM
+half-life measurements (~30min -&gt; ~2min).
+<ul>
+<li><strong>Code:</strong> <code>secretion_rate</code> config default
+0.1, line 70 (with the calibration math in the comment directly above,
+lines 67-70).</li>
+</ul></li>
+<li><strong>Biology/simplification flagged directly in the
+code:</strong> real trigger is hook completion (FliK-sensed), not full
+filament completion — this Step uses the latter as a practical proxy.
+<ul>
+<li><strong>Code:</strong> <code>hbb_id</code> default
+<code>"CPLX0-7452[j]"</code> (line 66), with the justification written
+directly in the docstring, lines 24-27.</li>
+</ul></li>
+<li><strong>Biology:</strong> exported amount never exceeds available
+FlgM (mass balance).
+<ul>
+<li><strong>Code:</strong> line 110 —
+<code>min(int(flgM_count), int(round(hbb_count * secretion_rate * timestep)))</code>.</li>
+</ul></li>
+</ul>
+<h2 id="whats-missing-flhdc-degradation">What’s missing — FlhDC
+degradation</h2>
+<ul>
+<li><strong>Biology:</strong> FliT-mediated degradation is real in
+<em>Salmonella</em> but shown absent in <em>E. coli</em> K-12 (Albanna
+et al. 2018).
+<ul>
+<li><strong>Code:</strong> fully removed from
+<code>ecoli_baseline.py</code>’s active <code>flagella_regulation</code>
+step list — visible only as commented-out history at lines 546-563
+(<code># 'ecoli-flit-flhdc-checkpoint'</code>), and the reasoning is in
+the block comment at lines 500-518.</li>
+</ul></li>
+<li><strong>Biology:</strong> YdiV is the planned real replacement, not
+yet verified for K-12.
+<ul>
+<li><strong>Code:</strong> doesn’t exist yet anywhere in the codebase —
+no file, no Step, no reaction. Purely a literature-search +
+NFsim-implementation task (task #33 on the list).</li>
+</ul></li>
+<li><strong>Biology:</strong> consequence — no decay pathway for FlhD4C2
+at all right now.
+<ul>
+<li><strong>Code:</strong> confirmed by absence —
+<code>protein_degradation.py</code> only ever touches monomers (never
+queried against CPLX0-3930), and no other Step in the active
+<code>flagella_regulation</code> list references it as a reactant.</li>
+</ul></li>
+</ul>
+<hr />
+<h2
+id="appendix-full-pipeline-order-as-wired-in-ecoli_baseline.py">Appendix:
+full pipeline order (as wired in <code>ecoli_baseline.py</code>)</h2>
+<ol type="1">
+<li><code>ecoli-flagella-motor-switch-assembly</code></li>
+<li><code>ecoli-flagella-export-apparatus-assembly</code></li>
+<li><code>ecoli-flagella-motor-complex-assembly</code></li>
+<li><code>ecoli-flagella-filament-nucleation</code></li>
+<li><code>ecoli-flagella-filament-elongation</code></li>
+<li><code>ecoli-flagella-flgm-secretion</code></li>
+<li><code>ecoli-flagella-transcription-regulation</code></li>
+</ol>
+<p>All <code>before_steps</code> on
+<code>ecoli-transcript-initiation</code>; opt-in only via
+<code>enable_features('flagella_regulation')</code>.</p>
+<div style="page-break-before: always;">
+
+</div>
+<h2 id="why-execution-order-doesnt-need-to-match-this-loop">Why
+execution order doesn’t need to match this loop</h2>
+<p>A natural question when looking at the execution order above:
+shouldn’t regulation run <em>before</em> assembly, since regulation is
+what supplies the protein assembly consumes? Answered directly,
+empirically, added 2026-08-12:</p>
+<p><strong>No — because nothing regulation decides <em>this tick</em>
+can reach the protein pool <em>this tick</em> anyway.</strong>
+Regulation’s output is a live, same-tick readout of the current FliA
+count (<code>init_prob_override</code> is recomputed fresh every single
+tick, immediately tracking FliA) — but turning that readout into an
+actual new protein molecule requires <code>transcript_initiation</code>
+-&gt; <code>transcript_elongation</code> (many ticks to transcribe a
+gene) -&gt; <code>polypeptide_initiation</code> -&gt;
+<code>polypeptide_elongation</code> (many more ticks to translate it).
+That real, multi-hundred-tick delay exists regardless of where any Step
+sits in the per-tick execution list — moving step order around cannot
+close a gap caused by real RNA-polymerase/ribosome kinetics.</p>
+<p>Meanwhile, assembly Steps each tick consume from a <strong>shared
+bulk pool</strong> that was stocked by transcription/translation
+decisions made long ago — not by anything regulation decided this tick.
+Verified directly
+(<code>diagnostic_transcription_to_protein_lag.py</code>): a burst of
+free FliC protein (0 -&gt; 10,807 -&gt; 17,576) appeared in the first
+~600s of a diagnostic run, entirely from mRNA/ribosomes that already
+existed <em>before the run started</em> – completely unrelated to that
+run’s own regulatory changes, which only began meaningfully affecting
+<code>init_prob_override</code> around t~1000s onward.</p>
+<h3 id="the-full-story-as-a-loop-not-a-line">The full story, as a loop
+(not a line)</h3>
+<pre class="mermaid"><code>flowchart LR
+    A[&quot;FliA rises&quot;] --&gt; B[&quot;init_prob_override rises\n(same tick)&quot;]
+    B --&gt; C[&quot;new RNA polymerase\nmay start\n(next tick+)&quot;]
+    C --&gt; D[&quot;mRNA finishes\n(many ticks later)&quot;]
+    D --&gt; E[&quot;ribosome may start\ntranslating it&quot;]
+    E --&gt; F[&quot;new protein monomer\nadded to shared bulk pool\n(many more ticks later)&quot;]
+    F --&gt; G[&quot;assembly Step sees a\nbigger number available,\nbuilds more&quot;]
+    G --&gt; H[&quot;more complete flagella&quot;]
+    H --&gt; I[&quot;more FlgM secretion&quot;]
+    I --&gt; A</code></pre>
+<p><strong>Shown starting at regulation for clarity</strong> — in a real
+running cell this loop is always mid-cycle, with assembly continuously
+drawing on protein synthesized during <em>earlier</em> iterations of
+this same loop, not waiting for the iteration being described. There is
+no true “first” step; regulation is simply a clean, illustrative point
+to begin explaining a process that is, in reality, always already in
+motion.</p>
+</body>
+</html>

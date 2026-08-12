@@ -1,12 +1,26 @@
-"""Maya's Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim).
+"""Maya's Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim engine,
+v2ecoli-owned model).
 
-Brings in the existing flagella-assembly example from
-https://github.com/vivarium-collective/pbg-nfsim (a process-bigraph wrapper for
-BioNetGen/NFsim). The BNGL model encodes hierarchical complexation of ~30 flagellar
-proteins through 7 sequential reactions (237 rules): free monomers -> export
-apparatus -> motor/basal body -> hook -> complete flagellum. This is the ordered,
-conditional assembly that the stochastic Gillespie complexation cannot capture
-(Aim 2B rationale).
+Runs pbg-nfsim (https://github.com/vivarium-collective/pbg-nfsim, a process-bigraph
+wrapper for BioNetGen/NFsim) against THIS investigation's own BNGL model --
+models/generate_flagella_bngl.py, models/flagella_complexation.bngl -- not
+pbg-nfsim's bundled example (moved here 2026-08-12 so the model can evolve
+alongside v2ecoli's own flagella reaction network and eventually couple to it
+directly; see flagella_nfsim_assembly.py's module docstring). The BNGL model
+encodes hierarchical complexation of ~30 flagellar proteins through 7 sequential
+reactions (588 rules, real cryo-EM-cited stoichiometry -- see the model's own
+docstring for full provenance): free monomers -> export apparatus -> motor/basal
+body -> hook -> hook-basal-body complete. This is the ordered, conditional
+assembly that the stochastic Gillespie complexation cannot capture (Aim 2B
+rationale).
+
+NOTE (2026-08-12): FliC/filament elongation is NOT modeled here -- excluded from
+the BNGL rule network entirely (see the model's FLIC REMOVAL docstring note) to
+avoid the same combinatorial/file-size explosion v2ecoli itself hit and already
+solved by moving filament growth to an incremental process outside the
+combinatorial engine (flagella_filament_elongation.py). The "flagella" observable
+below tracks assembly complete through the HOOK-BASAL-BODY stage, not a
+filament-bearing organelle -- label reflects this.
 
 This driver runs the composed production+complexation workflow (MonomerProduction
 feeds monomers; NFSimProcess assembles them) and renders the staged appearance of
@@ -42,12 +56,14 @@ CHAIN = [
     ("flagellar_export_apparatus", "export apparatus", "#1f77b4"),
     ("flagellar_motor", "motor / basal body", "#2ca02c"),
     ("flagellar_hook", "hook", "#ff7f0e"),
-    ("flagella", "complete flagellum", "#d62728"),
+    ("flagella", "hook-basal-body complete (filament not modeled -- see module docstring)", "#d62728"),
 ]
 MONOMERS = [
     ("Free_fliF", "FliF (MS-ring)", "#9467bd"),
     ("Free_flgE", "FlgE (hook)", "#8c564b"),
-    ("Free_fliC", "FliC (flagellin)", "#17becf"),
+    # ("Free_fliC", "FliC (flagellin)", "#17becf"),  REMOVED 2026-08-12 -- fliC
+    # is no longer a species in this model at all (see FLIC REMOVAL note in
+    # generate_flagella_bngl.py); this observable no longer exists.
 ]
 
 
@@ -140,6 +156,31 @@ def figure(rec):
     fig2.savefig(out2, format="svg", bbox_inches="tight")
     plt.close(fig2)
     print("wrote", out2)
+
+    # Small multiples: one panel per stage, each with its OWN y-axis scale.
+    # Added 2026-08-12 -- the stacked/overlaid views above put hook (a fast,
+    # cheap-to-finish intermediate that piles up waiting on the much slower
+    # motor supply -- motor needs 9x FlhA plus the full export-apparatus
+    # chain first) on the same visual scale as motor/flagella, so hook's
+    # tall curve/band visually swallows the low-count stages entirely. This
+    # view lets each stage's own shape/rise be seen regardless of its
+    # absolute scale relative to the others.
+    fig3, axes = plt.subplots(2, 2, figsize=(10, 7), sharex=True)
+    for ax, (key, label, color) in zip(axes.flat, CHAIN):
+        ax.plot(t, rec[key], "-o", ms=3, color=color)
+        ax.set_title(label, fontsize=10)
+        ax.set_ylabel("count")
+        final_n = int(rec[key][-1])
+        ax.text(0.97, 0.05, f"final: {final_n}", transform=ax.transAxes,
+                ha="right", va="bottom", fontsize=9, color=color)
+    for ax in axes[-1, :]:
+        ax.set_xlabel("time (min)")
+    fig3.suptitle("NFsim flagellar assembly — each stage on its own scale", y=1.02)
+    fig3.tight_layout()
+    out3 = f"{STUDY_DIR}/charts/03_nfsim_assembly_small_multiples.svg"
+    fig3.savefig(out3, format="svg", bbox_inches="tight")
+    plt.close(fig3)
+    print("wrote", out3)
 
 
 def main():

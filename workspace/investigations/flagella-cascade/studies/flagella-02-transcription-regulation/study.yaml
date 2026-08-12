@@ -827,6 +827,13 @@ findings:
       (never replenished) -- see flagella-02-export-apparatus-ssa-race-fix
       below for why, and its resolution.
     expected: "Real dependency correctly wired; did not yet expect the SSA-vs-Step race this surfaced."
+  note_2026_08_12_roadmap: >-
+    Maya's explicit direction: hold target_length at 5,000 for now (10,000
+    "is a lot right now"; 20,000 "is too much"). Planned roadmap, not
+    scheduled: once the reaction network is solidified and validated
+    (post-NFsim migration work), upgrade target_length back toward 10,000.
+    Not itself a finding -- logged so the 5,000 value isn't mistaken for a
+    permanent decision.
 
 - id: flagella-02-export-apparatus-ssa-race-fix
   kind: computational
@@ -906,6 +913,68 @@ findings:
   evidence:
     observed: "Code fix verified by direct read of update_condition/inputs()/update() before editing (next_update_time default 0.0, confirmed causal). Full single-gen rerun pending as of this entry -- expect the first flagellum's growth curve to start ~600s later than in v10, not to change the steady-state ~600s/flagellum cadence."
     expected: "First nucleation event delayed to ~t=600s instead of ~t=0-120s; all downstream completions shifted later by the same amount, steady-state cadence unchanged."
+
+- id: flagella-02-division-nascent-flagellum-reverified-v11
+  kind: computational
+  status: confirmed
+  statement: >-
+    (2026-08-11, same day) divide_nascent_flagellum (v2ecoli/library/
+    division.py) was found and fixed 2026-08-06 -- see CHANGES_2026-08-06.md
+    section 6b -- and verified at the time with a real division producing
+    non-overlapping filament_length sets in the two daughters. That
+    verification pre-dates every fix in this session (FliT checkpoint
+    removal, both assembly-hierarchy fixes, the SSA-vs-Step race fix, the
+    nucleation first-tick fix, target_length 10000->5000); none of them
+    touch division.py, but none had been tested against a run crossing the
+    division boundary either (every single-gen diagnostic this session
+    deliberately stayed under 2400s to avoid it). Re-verified directly
+    against out/cache_full_flit_v11 with a new permanent script,
+    verify_division_nascent_flagellum.py -- a stronger check than the
+    original (compares unique_index sets, real molecular identity, not just
+    filament_length values that could coincidentally collide).
+  evidence:
+    observed: >-
+      Real division fired at t=2524s (matches the ~2520s expectation
+      established across this investigation). The single in-progress
+      flagellum (unique_index=1729382256910270467, filament_length=2496/5000
+      at division) went entirely to one daughter (01); the other (00) got
+      none -- a valid binomial, whole-unit outcome, not a fractional split.
+      Combined daughters' unique_index set exactly equals the mother's
+      pre-division set: zero overlap between daughters, zero loss, zero
+      invention. PASS.
+    expected: "No duplication (an index present in both daughters), no loss (an index present in neither), exact partition of the mother's set -- confirmed."
+  note_2026_08_12_multigen: >-
+    Extended to 3 real generations, following one daughter forward each time
+    (unbiased random pick, same pattern as run_lineage_multigen.py) --
+    charts/14_division_nascent_flagellum_verify.svg. ALL 3 divisions PASS
+    (exact partition every time). Generation spans: gen1 42.0 min (dry_mass
+    381.1->698.0 fg), gen2 47.0 min (354.3->611.5 fg), gen3 56.0 min
+    (309.0->642.7 fg) -- generation time climbs alongside shrinking daughter
+    birth mass (381->354->309 fg), a coherent correlation (smaller cell
+    needs more absolute growth to reach the same division-triggering
+    chromosome-replication milestone) but NOT itself resolved: 3 generations
+    from one seed can't distinguish normal single-lineage stochastic
+    variability (real bacteria don't split exactly 50/50 every time) from a
+    genuine compounding drift bug. This exact multi-generation methodology
+    already had ONE real, documented mass-drift bug found+fixed 2026-08-07
+    (see run_lineage_multigen.py's own docstring), so a second, subtler one
+    isn't implausible -- but unconfirmed. Explicitly out of scope for this
+    investigation (chromosome_replication.py / mass-partitioning, not
+    flagella-specific, and untouched by anything this session changed) --
+    flagged for whoever next runs multi-generation tests with this pattern,
+    not pursued further here per Maya's explicit call.
+
+    CORRECTION, same day: an earlier version of this same diagnostic
+    additionally tried to capture the Division Step's own internal
+    division_time from its stdout log (a Tee + regex), and reported
+    generations 2/3 dividing every ~5-8 minutes -- alarmingly fast, correctly
+    flagged as implausible by Maya (real E. coli's fastest known division
+    time is ~20 min). That number was WRONG: a bug in the stdout-parsing
+    capture itself (a stale, never-cleared buffer kept matching generation
+    1's timestamp), not a property of the simulation. Confirmed by comparing
+    against this script's own independently-recorded sample timestamps,
+    which were correct the whole time. The parsing feature has been removed
+    entirely from verify_division_nascent_flagellum.py.
 
 visualizations:
 - address: image:charts/01_full_override_gated_cascade.svg
@@ -1114,6 +1183,13 @@ open_decisions:
     raised_by: system
     date: '2026-08-11'
     status: OPEN -- Maya's explicit call to leave as-is for now
+    note_2026_08_12: >-
+      Maya's direction: keep FliO at -1 in CPLX0-7451_RXN for now (no
+      further stoichiometry change), and constrain its real scaffold-vs-
+      consumed role via NFsim rules once the WCM-NFsim coupling exists,
+      rather than resolving it with another copy-number fix in the
+      deterministic Step network. Not resolved here -- deferred to the
+      NFsim migration by design.
     question: >-
       CPLX0-7451_RXN (flagellar export apparatus) currently consumes FliO
       (EG11224-MONOMER) at -1, as a genuine reactant of the reaction that
@@ -1188,6 +1264,19 @@ open_decisions:
       flagella_regulation enabled should expect FlhD4C2 (and therefore
       Class II/III expression) to grow without the basal-turnover brake it
       had before 2026-08-10.
+    note_2026_08_12: >-
+      Maya's direction, revised: do NOT re-attempt a FliT-based checkpoint
+      Step in the deterministic-Step network -- the FliT approach tried
+      2026-08-05/06 was "too much" (too heavy-handed/manual for what should
+      be a rule-based mechanism). Instead: (1) represent the FlhD4C2
+      degradation/turnover pathway as an NFsim rule once the WCM-NFsim
+      coupling exists, controlled there rather than as a standalone Step;
+      (2) reconsider the anti-FlhDC factor itself -- YdiV (an EAL-domain
+      pseudo-phosphodiesterase that binds FlhD4C2 and targets it for ClpXP
+      degradation) is a real, E. coli-native (not Salmonella-borrowed like
+      FliT) candidate mechanism, worth checking against literature before
+      building any NFsim rule around it. Not implemented yet -- logged as
+      the intended direction.
   - id: multigen-flagella-completion-still-untested-past-3-generations
     raised_by: system
     date: '2026-08-07'

@@ -90,12 +90,12 @@ conditions:
       params:
         cpus: 8
         cache_dir: out/cache-genotype-00-ko
-        # The knockout's own manifest. Left empty ONLY because the generator that
-        # emits it does not exist yet (see the ko-generator gate below) -- not because
-        # this build is wild type. Until it carries a real path this variant is still
-        # indistinguishable from its baseline, so the study remains unrunnable; the
-        # difference from before #457 is that the gap is now a missing VALUE rather
-        # than a missing mechanism.
+        # The knockout's own manifest, left empty here deliberately. The generator
+        # exists (ecoli-sources#12, pinned via #471) and ParCa builds from a declared
+        # manifest (#482), so this is no longer a gap: the genotype_build_integrity
+        # card GENERATES the bundle itself from `report_card_refs.gene_ids` rather than
+        # pinning a path that would go stale. Set it only to drive a standalone ParCa
+        # run outside the card.
         bundle_manifest: ''
       perturbation: >-
         ParCa-level knockout - the gene is spliced out of the chromosome before
@@ -114,9 +114,11 @@ conditions:
     # sim_data can no longer be silently attributed to a genotype it was not built from,
     # which is the provenance claim every study below rests on.
     #
-    # What #457 does NOT buy, stated so the remaining gates are read correctly: the
-    # declaration is structural. Naming a manifest does not make the runner build from it
-    # -- that needs the study runner to drive ParCa, explicitly out of scope there.
+    # What #457 did NOT buy was effectiveness: the declaration was structural, and naming
+    # a manifest did not make anything build from it. CLOSED by v2ecoli#482 (verified
+    # 2026-08-13 on main @ 60f3e4b8) -- _resolve_raw_data() builds a KnowledgeBaseEcoli
+    # from the declared bundle_manifest when none is injected, so a declared genotype is
+    # now the genotype that gets built. All three gates below are consequently satisfied.
     - name: target-gene
       gate: satisfied
       detail: >-
@@ -304,15 +306,15 @@ tests:
 
 readouts:
   - name: feature-sequence-round-trip
-    status: derived-needed
+    status: done
     description: >-
       Per-feature comparison of wild-type vs knockout sequence at the feature's own
       coordinates, bucketed by unchanged-length / shrunk / removed.
   - name: chromosome-length
-    status: derived-needed
+    status: done
     description: Genome length before and after the deletion.
   - name: feature-inventory
-    status: derived-needed
+    status: done
     description: >-
       Counts of genes, transcription units and DNA sites before and after.
 
@@ -331,7 +333,7 @@ readouts:
       does not address the absence itself, which is tracked separately and is
       out of scope for this study.
   - name: deleted-gene-set-membership
-    status: derived-needed
+    status: done
     description: >-
       Whether the deleted gene appears in valid_gene_ids and in all_mRNA_cistrons, plus
       the tombstone's own state (row present, coordinates null). Reported together so a
@@ -341,8 +343,13 @@ readouts:
     status: derived-needed
     description: >-
       Mechanistic amino-acid supply kcats from the fitted sim_data, knockout vs wild type.
+      The only readout here still requiring a ParCa run, and the reason the two fit axes
+      report `ungraded`: a fast-mode build's fitted parameters must not be graded (see the
+      run-mode limitation). Needs a full-mode build to become gradeable.
 
-# No `report_cards:` declaration yet, deliberately. The build-integrity card does not
+# SUPERSEDED: the card now exists and IS declared above. Retained because the two
+# upstream seams it names are still real.
+# (was) No `report_cards:` declaration yet, deliberately. The build-integrity card does not
 # exist, and on the Gen-2 path `report_cards:` is a NAME-membership eligibility test
 # (flush.py + report_cards/__init__.py), so listing a card here would assert that a
 # renderable card exists. Following the precedent set by

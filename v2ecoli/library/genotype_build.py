@@ -43,7 +43,6 @@ gene it may be the correct answer.
 """
 from __future__ import annotations
 
-import pickle
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -251,8 +250,14 @@ def measure_fit(state: dict | None) -> dict:
 
 
 def load_state(path: "str | Path") -> dict:
-    with open(path, "rb") as fh:
-        return pickle.load(fh)
+    """Load a ParCa state, gzipped or not.
+
+    Delegates to the ParCa data_loader rather than calling ``pickle.load`` here: that
+    loader carries a remapping Unpickler for legacy module paths (``v2parca.*``,
+    bare ``reconstruction.*``), so a state written by an older tree still loads.
+    """
+    from v2ecoli.processes.parca.data_loader import load_parca_state
+    return load_parca_state(path)
 
 
 # --------------------------------------------------------------------------

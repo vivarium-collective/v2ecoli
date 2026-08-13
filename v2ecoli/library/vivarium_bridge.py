@@ -34,11 +34,121 @@ needs ``ports_schema()`` and ``next_update()`` / ``update()``), matching the
 "no vivarium-core import" contract of ``ecoli_step.py``.
 """
 
+import os
+import sys
+
 from bigraph_schema.methods import render
 from bigraph_schema.schema import Overwrite
 
 from v2ecoli.library.ecoli_step import EcoliProcess, EcoliStep
 from v2ecoli.library.schema_types import UNIQUE_TYPES
+
+
+def _has_serializer_tags(obj):
+    """True if any leaf string looks like a vEcoli serializer tag (``!Tag[...]``)."""
+    if isinstance(obj, str):
+        return obj.startswith("!") and "[" in obj
+    if isinstance(obj, dict):
+        return any(_has_serializer_tags(v) for v in obj.values())
+    if isinstance(obj, (list, tuple)):
+        return any(_has_serializer_tags(v) for v in obj)
+    return False
+
+
+def _walk_deserialize(params, sers):
+    """Recursively deserialize tagged strings with the given serializers."""
+    def walk(v):
+        if isinstance(v, str):
+            for s in sers:
+                try:
+                    if s.can_deserialize(v):
+                        return s.deserialize(v)
+                except Exception:  # noqa: BLE001 — a serializer that mis-claims
+                    continue
+            return v
+        if isinstance(v, dict):
+            return {k: walk(x) for k, x in v.items()}
+        if isinstance(v, (list, tuple)):
+            return type(v)(walk(x) for x in v)
+        return v
+    return walk(params)
+
+
+def _deserialize_v1_params(params):
+    """Resolve a wrapped vEcoli process's serialized config tags into real values
+    before it reads them.
+
+    vEcoli configs may carry serialized values as tagged strings —
+    ``!ParameterSerializer[mecillinam>pbp2>binding_kf]`` (a parameter read from the
+    fork's ``ecoli.library.parameters.param_store``) or ``!units[0 1 / second]`` (a
+    pint Quantity). Without deserialization a process like ``gillespie`` receives
+    ``"!ParameterSerializer[...]"`` as a bare string and crashes comparing it to a
+    number.
+
+    ``!units`` resolves against whatever ecoli is loaded, but ``!ParameterSerializer``
+    reads the FORK's ``param_store`` (the installed vEcoli's lacks e.g. mecillinam
+    params). So briefly activate the fork's ``ecoli.*`` (evict installed, fork first
+    on ``sys.path``) for the deserialization, then restore — mirroring
+    ``inject._fork_registry``. Best-effort: any string no serializer claims is left
+    untouched; if the fork can't be resolved we fall back to the loaded serializers."""
+    # Cheap fast path: most wrapped processes carry no serializer tags — skip the
+    # (expensive, module-swapping) fork activation entirely for them.
+    if not _has_serializer_tags(params):
+        return params
+    fork = os.environ.get("V2E_VECOLI_DIR")
+    fork = os.path.abspath(os.path.expanduser(fork)) if fork else None
+    saved, fork_added = {}, False
+    try:
+        if fork and os.path.isdir(fork):
+            for k in [k for k in list(sys.modules)
+                      if k == "ecoli" or k.startswith("ecoli.")]:
+                saved[k] = sys.modules.pop(k)
+            # Force the fork to the FRONT so a fresh ``import ecoli.*`` resolves to
+            # it, not the installed vEcoli (which the run already has on sys.path).
+            sys.path.insert(0, fork)
+            fork_added = True
+        from vivarium.core.registry import (Registry, Serializer,
+                                             serializer_registry)
+        sers = list(serializer_registry.registry.values())
+        try:
+            # Build FRESH serializer instances from the fork's serialize module:
+            # the registry's instances were bound to the installed param_store at
+            # registration; a fresh ParameterSerializer() binds the fork's (which
+            # actually has e.g. mecillinam params). Put them first.
+            # Importing the fork's ecoli re-registers emitters/processes into
+            # vivarium's GLOBAL singleton registries (already populated by the
+            # installed ecoli), which errors on duplicate keys — so make
+            # Registry.register idempotent for the duration of the fork import.
+            _orig_reg = Registry.register
+
+            def _idem(self, key, item, *a, **k):
+                if key in getattr(self, "registry", {}):
+                    return
+                return _orig_reg(self, key, item, *a, **k)
+
+            Registry.register = _idem
+            try:
+                import ecoli.library.serialize as _fs  # noqa: F401
+            finally:
+                Registry.register = _orig_reg
+            fork_sers = [c() for c in vars(_fs).values()
+                         if isinstance(c, type) and issubclass(c, Serializer)
+                         and c is not Serializer]
+            sers = fork_sers + sers
+        except Exception:  # noqa: BLE001 — fall back to registry serializers
+            pass
+        return _walk_deserialize(params, sers) if sers else params
+    finally:
+        if saved:
+            for k in [k for k in list(sys.modules)
+                      if k == "ecoli" or k.startswith("ecoli.")]:
+                del sys.modules[k]
+            sys.modules.update(saved)
+        if fork_added:
+            try:
+                sys.path.remove(fork)
+            except ValueError:
+                pass
 
 
 def _strip_pint_magnitudes(obj):
@@ -314,8 +424,10 @@ def wrap_vivarium_process(
         def initialize(self, config):
             # vivarium processes take ``parameters`` positionally and merge
             # their own ``defaults`` in __init__, so self.parameters (user
-            # overrides) is enough.
-            self._v1 = v1_cls(self.parameters)
+            # overrides) is enough. First resolve vEcoli's serialized config
+            # tags (!ParameterSerializer[...] / !units[...]) into real values —
+            # e.g. gillespie's rate constants — which the wrapped v1 expects.
+            self._v1 = v1_cls(_deserialize_v1_params(self.parameters))
             self._typed_ports = translate_ports(self.core, self._v1.ports_schema())
 
         def inputs(self):

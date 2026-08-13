@@ -4,11 +4,14 @@ investigation: genotype-perturbation-response
 title: Does a ParCa-level knockout reconstruct into a self-consistent sim_data?
 created: '2026-08-04'
 
-# Canonical 6-axis status. Designed and specified; NOT implemented. The genotype can
-# now be DECLARED (v2ecoli#457), but the knockout's manifest cannot yet be PRODUCED --
-# the ecoli-sources KO generator does not exist. See model_settings.
+# Canonical 6-axis status. Designed, specified and implemented as of 2026-08-13: all
+# three required-before-run gates are satisfied (see model_settings), and the
+# genotype_build_integrity card grades five structural axes from a generated knockout
+# bundle with no ParCa fit. The two ParCa-fit axes report `ungraded` until a full-mode
+# build exists -- a data gap, not an implementation one; a fast-mode build's fitted
+# parameters must not be graded (see the run-mode limitation).
 design_status: complete
-implementation_status: not_started
+implementation_status: complete
 expert_review_status: not_requested
 
 question: >-

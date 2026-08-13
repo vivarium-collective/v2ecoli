@@ -22,6 +22,7 @@ from typing import Any
 from urllib import parse
 
 from ecoli.library.parquet_emitter import USE_UINT16, USE_UINT32
+from v2ecoli.cache import is_s3_uri
 
 
 VECOLI_PARQUET_DTYPE_OVERRIDES: dict[str, str] = (
@@ -62,6 +63,13 @@ def parquet_vecoli(
 
     The returned dict is suitable for passing as the ``config`` to
     ``v2ecoli.library.parquet_emitter.ParquetEmitter``.
+
+    ``out_dir`` may be a local path OR an ``s3://`` URI. ParquetEmitter only
+    takes an S3 URI verbatim via its own ``out_uri`` config key — its
+    ``out_dir`` key is always run through ``os.path.abspath()``, which mangles
+    an ``s3://`` string into a bogus local path. Routing to the right key here
+    keeps every caller (this preset is the only place that builds a
+    ParquetEmitter config in this codebase) from having to know that detail.
     """
     quoted = parse.quote_plus(experiment_id)
     metadata: dict[str, Any] = {
@@ -74,8 +82,9 @@ def parquet_vecoli(
     if extra_metadata:
         metadata.update(extra_metadata)
 
+    location_key = "out_uri" if is_s3_uri(out_dir) else "out_dir"
     return {
-        "out_dir": out_dir,
+        location_key: out_dir,
         "batch_size": batch_size,
         "threaded": threaded,
         "flatten_separator": "__",

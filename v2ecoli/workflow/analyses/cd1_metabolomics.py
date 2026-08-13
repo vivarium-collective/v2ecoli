@@ -33,6 +33,7 @@ from v2ecoli.workflow.analyses._helpers import (
     bulk_field_ids,
     cd1_filter_clause,
     read_stacked_columns,
+    run_chunked,
     with_cross_cell_stats,
 )
 from v2ecoli.workflow.analysis import Analysis
@@ -83,32 +84,38 @@ class Cd1Metabolomics(Analysis):
         )
         id_cols = ", ".join(_ID_COLS)
         idx_list_literal = "[" + ", ".join(str(i) for i in mtb_idxs) + "]"
+        filtered_sql = f"""
+            SELECT list_select(bulk__count, {idx_list_literal}) AS metabolites,
+                {id_cols}
+            FROM ({history_subquery})
+            {filter_clause}
+        """
 
-        metabolite_data = conn.sql(
-            f"""
-            WITH history AS ({history_subquery}),
-            filtered AS (
-                SELECT list_select(bulk__count, {idx_list_literal}) AS metabolites,
-                    {id_cols}
-                FROM history
-                {filter_clause}
-            ),
-            exploded AS (
+        def _batch_sql(cell_filter: str) -> str:
+            return f"""
+                WITH filtered AS (
+                    SELECT * FROM ({filtered_sql}) WHERE {cell_filter}
+                ),
+                exploded AS (
+                    SELECT
+                        unnest(metabolites) AS metabolite_count,
+                        generate_subscripts(metabolites, 1) AS idx,
+                        {id_cols}
+                    FROM filtered
+                )
                 SELECT
-                    unnest(metabolites) AS metabolite_count,
-                    generate_subscripts(metabolites, 1) AS idx,
-                    {id_cols}
-                FROM filtered
-            )
-            SELECT
-                idx,
-                {id_cols},
-                AVG(metabolite_count) AS metabolite_mean
-            FROM exploded
-            GROUP BY idx, {id_cols}
-            ORDER BY idx, {id_cols}
-            """
-        ).pl()
+                    idx,
+                    {id_cols},
+                    AVG(metabolite_count) AS metabolite_mean
+                FROM exploded
+                GROUP BY idx, {id_cols}
+                ORDER BY idx, {id_cols}
+                """
+
+        # Chunked one cell at a time (see run_chunked's docstring / item 38):
+        # the full-sweep unnest of every cell's bulk-count array at once is
+        # what OOM-kills this analysis. Same AVG math, just per cell.
+        metabolite_data = run_chunked(conn, filtered_sql, _batch_sql, id_cols=_ID_COLS)
 
         if metabolite_data.is_empty():
             empty = pl.DataFrame({"EcoCyc Compound ID": [], "mean": [], "std": []})

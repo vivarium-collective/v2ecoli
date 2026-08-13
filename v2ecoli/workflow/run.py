@@ -154,12 +154,13 @@ def _run_sweep_parallel(config: dict[str, Any], branches, mode: str, *,
     complete = bool(branch_result) and all(
         v.get("complete") for v in branch_result.values())
 
+    from v2ecoli.cache import is_s3_uri, save_json
+
     out_dir = config.get("out_dir") or "out/workflow"
-    os.makedirs(out_dir, exist_ok=True)
-    import json
-    with open(os.path.join(out_dir, "summary.json"), "w") as f:
-        json.dump({k: rv.get("summary") or {} for k, rv in branch_result.items()},
-                  f, indent=2, default=str)
+    if not is_s3_uri(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+    save_json({k: rv.get("summary") or {} for k, rv in branch_result.items()},
+              os.path.join(out_dir, "summary.json"))
 
     result = {
         "complete": complete,
@@ -227,13 +228,14 @@ def _run_sweep_sequential(config: dict[str, Any], *, max_sim_time: float = 1e9,
         for k, v in branches.items()
     }
 
+    from v2ecoli.cache import is_s3_uri, save_json
+
     out_dir = config.get("out_dir") or "out/workflow"
-    os.makedirs(out_dir, exist_ok=True)
+    if not is_s3_uri(out_dir):
+        os.makedirs(out_dir, exist_ok=True)
     if write_summary:
-        import json
-        with open(os.path.join(out_dir, "summary.json"), "w") as f:
-            json.dump({k: rv["summary"] for k, rv in branch_result.items()},
-                      f, indent=2, default=str)
+        save_json({k: rv["summary"] for k, rv in branch_result.items()},
+                  os.path.join(out_dir, "summary.json"))
 
     result = {
         "complete": complete,

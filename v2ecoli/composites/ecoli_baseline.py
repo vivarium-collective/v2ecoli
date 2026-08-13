@@ -886,6 +886,9 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Build the batch-orchestrator document (seeds × generations lineage).
 
@@ -900,6 +903,13 @@ def _build_batch_document(
     ``seed .. seed+n_seeds-1``); ``knockouts`` + ``config_overrides`` fold into
     the runner's panel-wide ``base_config_overrides`` (applied to every seed);
     ``media`` threads through to each per-seed ``baseline`` build.
+
+    ``initial_carry_state_path``/``initial_generation_index``/
+    ``daughter_state_out_path`` (backlog item 34): a wave orchestrator's own
+    per-seed-per-generation checkpoint/resume keys, passed straight through to
+    ``BatchBaselineRunner`` -> ``run_workflow`` -> ``meta_composite.py``'s
+    per-branch ``LineageProcess`` config. Empty/0 (default) = today's
+    single-invocation-runs-every-generation behavior, unchanged.
     """
     from v2ecoli.core import load_cache_bundle
     from v2ecoli.perturbations import translation_efficiency_override
@@ -946,6 +956,9 @@ def _build_batch_document(
         "parallel": parallel or "",
         "base_config_overrides": base_config_overrides,
         "media": media,
+        "initial_carry_state_path": initial_carry_state_path,
+        "initial_generation_index": int(initial_generation_index),
+        "daughter_state_out_path": daughter_state_out_path,
     }
     runner = _make_instance(BatchBaselineRunner, runner_config, core)
     state = {
@@ -1177,6 +1190,33 @@ def _build_batch_document(
             "description": "Batch runs only: 'ray' to fan out across worker "
                            "processes; '' for sequential.",
         },
+        "initial_carry_state_path": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only, per-generation checkpoint/resume "
+                           "(backlog item 34): path to a prior generation's "
+                           "saved daughter state, threaded to every branch's "
+                           "LineageProcess. Empty = fresh lineage at generation "
+                           "0 (default, unchanged single-invocation behavior). "
+                           "Set together with initial_generation_index by a "
+                           "wave orchestrator resuming a checkpointed lineage.",
+        },
+        "initial_generation_index": {
+            "type": "integer",
+            "default": 0,
+            "description": "Batch runs only, per-generation checkpoint/resume: "
+                           "the generation index this invocation resumes at. "
+                           "Must be 0 when initial_carry_state_path is empty "
+                           "(enforced by LineageProcess at run time).",
+        },
+        "daughter_state_out_path": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only, per-generation checkpoint/resume: "
+                           "path to persist this invocation's daughter state "
+                           "to, for the next generation's job to resume from. "
+                           "Empty = no checkpoint hand-off.",
+        },
     },
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
@@ -1225,6 +1265,9 @@ def baseline(
     analyses: Any = "applicable",
     study: str = "",
     parallel: str = "ray",
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -1276,9 +1319,17 @@ def baseline(
             per seed (seeds seed..seed+n_seeds-1) at run time and flushes the
             ported analyses (absorbs the former batch_baseline composite). The
             other batch knobs (single_daughters, time_step, max_duration,
-            variants, out_dir, experiment_id, analyses, study, parallel) apply
-            only in batch mode; knockouts/media/config_overrides carry through to
-            every seed. n_seeds==1, n_generations==1 (default) = single cell.
+            variants, out_dir, experiment_id, analyses, study, parallel,
+            initial_carry_state_path, initial_generation_index,
+            daughter_state_out_path) apply only in batch mode;
+            knockouts/media/config_overrides carry through to every seed.
+            n_seeds==1, n_generations==1 (default) = single cell.
+        initial_carry_state_path, initial_generation_index,
+            daughter_state_out_path: batch-mode-only per-generation
+            checkpoint/resume (backlog item 34) — a wave orchestrator's own
+            resume hand-off, passed straight through to each branch's
+            LineageProcess. Empty/0 (default) = unchanged single-invocation
+            behavior; see BatchBaselineRunner/LineageProcess for the contract.
         ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
@@ -1317,7 +1368,10 @@ def baseline(
             max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
             study=study, parallel=parallel, variants=variants,
-            knockouts=knockouts, config_overrides=config_overrides, media=media)
+            knockouts=knockouts, config_overrides=config_overrides, media=media,
+            initial_carry_state_path=initial_carry_state_path,
+            initial_generation_index=initial_generation_index,
+            daughter_state_out_path=daughter_state_out_path)
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)

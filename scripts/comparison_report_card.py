@@ -662,9 +662,135 @@ def _schema_table(iface: dict | None) -> str:
             + "</tbody></table>")
 
 
+def _transferred_source(fork_repo: str, proc_name: str):
+    """``(rel_path, source_code)`` for a transferred fork process, read DIRECTLY
+    from the fork checkout WITHOUT importing it.
+
+    Importing the fork's process stack (to resolve the class) pulls in jax /
+    gillespy2 / ray, which (a) leaves non-daemon threads that wedge the report
+    process at exit and (b) resolves the INSTALLED ecoli's copy (shadow), not the
+    fork's. Instead, map the registry name to a source file heuristically and read
+    the fork file — so the embedded code is the EXACT vEcoli-private code that was
+    transferred. Best-effort: ``(None, None)`` if no matching module is found."""
+    try:
+        import glob as _glob
+        fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+        # registry name -> module stem: "ecoli-metabolism-redux" -> "metabolism_redux"
+        stem = proc_name.split("/")[-1]
+        for pre in ("ecoli-", "ecoli_"):
+            if stem.startswith(pre):
+                stem = stem[len(pre):]
+        stem = stem.replace("-", "_")
+        cands = _glob.glob(os.path.join(fork_abs, "ecoli", "**", stem + ".py"),
+                           recursive=True)
+        for src in cands:
+            code_txt = Path(src).read_text(encoding="utf-8")
+            # confirm it defines a process/step class (avoid an unrelated match)
+            if "class " in code_txt and any(
+                    k in code_txt for k in ("Process", "Step", "ports_schema",
+                                            "next_update", "calculate_request")):
+                return os.path.relpath(src, fork_abs), code_txt
+        return None, None
+    except Exception:  # noqa: BLE001 — never break the report over a source read
+        return None, None
+
+
+def _source_block(name: str, fork: str, rel: str, code: str) -> str:
+    """A labeled, scrollable code block embedding a transferred process's full source."""
+    import html as _html
+    lines = code.count("\n") + 1
+    return (
+        f"<div style='margin-top:12px'>"
+        f"<div style='font-size:12px;color:#374151;margin:4px 0'>"
+        f"<b>{_html.escape(name)}</b> — full transferred source "
+        f"(<code>{_html.escape(rel)}</code>, {lines} lines, from fork "
+        f"<code>{_html.escape(fork)}</code>):</div>"
+        f"<pre style='max-height:560px;overflow:auto;background:#0d1117;color:#e6edf3;"
+        f"padding:12px;border-radius:6px;font-size:12px;line-height:1.45;margin:0'>"
+        f"<code>{_html.escape(code)}</code></pre></div>")
+
+
+def _git_provenance(path: str | None) -> dict | None:
+    """{name, lineage-agnostic git facts} for a repo checkout, or None. ``name``
+    prefers the origin remote's repo slug (e.g. ``sms-ecoli``, ``vEcoli-private``)
+    and falls back to the directory basename."""
+    if not path:
+        return None
+    path = os.path.abspath(os.path.expanduser(path))
+    if not os.path.isdir(path):
+        return None
+    import subprocess
+
+    def _g(*args: str) -> str:
+        try:
+            r = subprocess.run(["git", "-C", path, *args],
+                               capture_output=True, text=True, timeout=5)
+            return r.stdout.strip()
+        except Exception:  # noqa: BLE001
+            return ""
+
+    remote = _g("config", "--get", "remote.origin.url")
+    slug = ""
+    if remote:
+        slug = remote.rstrip("/").split("/")[-1]
+        if slug.endswith(".git"):
+            slug = slug[:-4]
+    return {
+        "name": slug or os.path.basename(path),
+        "branch": _g("rev-parse", "--abbrev-ref", "HEAD"),
+        "commit": _g("rev-parse", "--short", "HEAD"),
+        "remote": remote,
+        "path": path,
+    }
+
+
+def repositories_section(candidate: dict | None, reference: dict | None) -> dict:
+    """A top-of-report panel naming the two ACTUAL repositories being compared,
+    with commits — so the reader sees `sms-ecoli` / `vEcoli-private`, not just the
+    generic `v2ecoli` / `vEcoli` lineage labels."""
+    def _row(role: str, lineage: str, prov: dict | None) -> str:
+        if not prov:
+            return (f"<tr><td>{role}</td><td colspan='4'>"
+                    f"<em>unknown (no checkout resolved)</em></td></tr>")
+        rurl = prov.get("remote") or ""
+        rcell = (f"<a href='{report._e(rurl)}'>{report._e(rurl)}</a>"
+                 if rurl.startswith("http") else report._e(rurl or "—"))
+        return (f"<tr><td>{role}</td>"
+                f"<td><b>{report._e(prov['name'])}</b> "
+                f"<span style='color:#6b7280'>({lineage})</span></td>"
+                f"<td><code>{report._e(prov.get('branch') or '?')}</code></td>"
+                f"<td><code>{report._e(prov.get('commit') or '?')}</code></td>"
+                f"<td style='font-size:12px'>{rcell}</td></tr>")
+    table = ("<table><thead><tr><th>role</th><th>repository</th><th>branch</th>"
+             "<th>commit</th><th>remote</th></tr></thead><tbody>"
+             + _row("Candidate (measured)", "v2ecoli", candidate)
+             + _row("Reference (baseline)", "vEcoli", reference)
+             + "</tbody></table>")
+    cand_n = (candidate or {}).get("name", "the candidate")
+    ref_n = (reference or {}).get("name", "the reference")
+    # The section `desc` is HTML-escaped by the renderer, so it must be plain text;
+    # the rich prose (bold repo names, &Delta;) goes in `html`, which renders raw.
+    intro = (
+        f"<p style='margin:0 0 12px;line-height:1.5'>This report compares "
+        f"<b>{report._e(cand_n)}</b> (the v2ecoli-lineage <em>candidate</em>) against "
+        f"<b>{report._e(ref_n)}</b> (the vEcoli-lineage <em>reference</em>). Every "
+        f"&Delta; below is the candidate measured against the reference at matched "
+        f"gen-1 timepoints. Both engines run as process-bigraph composites.</p>")
+    return {
+        "title": "Repositories compared",
+        "kind": "content",
+        "nav_group": "Overall",
+        "desc": (f"Comparing {cand_n} (candidate, v2ecoli lineage) against "
+                 f"{ref_n} (reference, vEcoli lineage); each delta is candidate vs "
+                 f"reference at matched gen-1 timepoints."),
+        "html": intro + table,
+    }
+
+
 def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None:
     """Surface the fork processes converted + injected into the v2ecoli composite,
-    with each one's RESULTING process-bigraph schema (resolved port types).
+    with each one's RESULTING process-bigraph schema (resolved port types) AND the
+    full transferred source code, read from the fork checkout.
 
     Sourced from the build-config sidecar's ``options.overrides.injected_processes``
     (written by run_comparison_ensemble): the add_processes + swap_processes that
@@ -698,8 +824,18 @@ def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None
     table = ("<table><thead><tr><th>process</th><th>mode</th><th>note</th>"
              "<th>conversion</th></tr></thead><tbody>"
              + "".join(rows) + "</tbody></table>")
+    # Embed the FULL transferred source for every converted process, read from the
+    # fork checkout — so the report always carries the exact code that ran. Dedupe
+    # by source file (co-located processes share a module).
+    src_blocks: list[str] = []
+    seen_files: set[str] = set()
+    for name in list(adds) + list(swaps.values()):
+        rel, code = _transferred_source(fork, name)
+        if code and rel not in seen_files:
+            seen_files.add(rel)
+            src_blocks.append(_source_block(name, fork, rel, code))
     return {
-        "title": f"{cond} — converted processes",
+        "title": f"{cond} — transferred process code (from vEcoli-private)",
         "kind": "content",
         "nav_group": "Config",
         "desc": (f"Fork (vEcoli) processes auto-converted by the v2ecoli bridge "
@@ -707,8 +843,10 @@ def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None
                  f"v2ecoli composite for '{cond}', from fork <code>{fork}</code>. "
                  f"Each row shows the conversion plus the RESULTING process-bigraph "
                  f"schema (resolved input/output port types). Each ran in the "
-                 f"v2ecoli engine of this comparison."),
-        "html": table,
+                 f"v2ecoli engine of this comparison. The FULL transferred source "
+                 f"code of each converted process is embedded below, read from the "
+                 f"fork checkout."),
+        "html": table + "".join(src_blocks),
     }
 
 
@@ -837,6 +975,97 @@ def eval_section(cond: str, per_obs: dict) -> dict:
         "rows": rows}
 
 
+def _find_new_genes(obj):
+    """Best-effort recursive search for a ``new_genes`` value in a fork config."""
+    if isinstance(obj, dict):
+        if obj.get("new_genes"):
+            return obj["new_genes"]
+        for v in obj.values():
+            r = _find_new_genes(v)
+            if r:
+                return r
+    elif isinstance(obj, list):
+        for v in obj:
+            r = _find_new_genes(v)
+            if r:
+                return r
+    return None
+
+
+def _condition_summary(spec, v2_build):
+    """What a condition's config changes vs the plain baseline: transferred
+    process swaps/adds (real code transfer) and any genome variant (new_genes).
+    ``transfers`` is True only when a PROCESS was injected."""
+    cfg = str(getattr(spec, "config", "") or "")
+    inj = (((v2_build or {}).get("options") or {}).get("overrides") or {}).get(
+        "injected_processes") or {}
+    swaps = dict(inj.get("swap_processes") or {})
+    adds = list(inj.get("add_processes") or [])
+    new_genes = None
+    fork = os.environ.get("V2E_VECOLI_DIR")
+    if fork and cfg.endswith(".json"):
+        try:
+            new_genes = _find_new_genes(json.load(
+                open(os.path.join(os.path.expanduser(fork), cfg))))
+        except Exception:  # noqa: BLE001
+            pass
+    return {"config": cfg or "baseline (built-in condition)", "swaps": swaps,
+            "adds": adds, "new_genes": new_genes, "transfers": bool(swaps or adds)}
+
+
+def _transfer_phrase(summary):
+    """One-line HTML describing what a condition transfers/changes."""
+    if summary["transfers"]:
+        parts = [f"<code>{report._e(o)}</code>&rarr;<code>{report._e(n)}</code>"
+                 for o, n in summary["swaps"].items()]
+        parts += [f"add <code>{report._e(a)}</code>" for a in summary["adds"]]
+        txt = "<b>transfers process:</b> " + ", ".join(parts)
+    else:
+        txt = "<span style='color:#6b7280'>no process transferred</span>"
+    if summary["new_genes"]:
+        txt += f" · genome variant <code>{report._e(summary['new_genes'])}</code>"
+    return txt
+
+
+def conditions_map_section(summaries):
+    """Overview table: each CONDITION == a CONFIG, and what it transfers/changes.
+    Makes the condition↔config equivalence explicit up front."""
+    rows = []
+    for name, s in summaries.items():
+        rows.append(
+            f"<tr><td><b>{report._e(name)}</b></td>"
+            f"<td><code>{report._e(s['config'])}</code></td>"
+            f"<td>{_transfer_phrase(s)}</td></tr>")
+    table = ("<table><thead><tr><th>condition</th><th>config</th>"
+             "<th>what it transfers / changes vs baseline</th></tr></thead><tbody>"
+             + "".join(rows) + "</tbody></table>")
+    return {
+        "title": "Conditions ↔ configs",
+        "kind": "content",
+        "nav_group": "Overall",
+        "desc": ("Each condition below IS a config from the reference repo, run on "
+                 "both engines. A config either transfers a process (its full source "
+                 "is embedded in that condition's section) or only changes the genome/"
+                 "settings. 'baseline' is the plain wild-type condition (no config)."),
+        "html": table,
+    }
+
+
+def _condition_banner(name, summary):
+    """A prominent divider that starts each condition's section, so the boundary
+    between conditions is obvious while scrolling."""
+    html = (
+        f"<div style='border-top:4px solid #2563eb;margin-top:8px;padding:14px 0 2px'>"
+        f"<div style='font-size:12px;letter-spacing:.08em;color:#2563eb;"
+        f"font-weight:700'>CONDITION</div>"
+        f"<div style='font-size:22px;font-weight:800;margin:2px 0'>"
+        f"{report._e(name)}</div>"
+        f"<div style='font-size:13px'>config: <code>{report._e(summary['config'])}"
+        f"</code> &nbsp;·&nbsp; {_transfer_phrase(summary)}</div></div>")
+    return {"title": f"▸ {name}", "kind": "content", "nav_group": name,
+            "desc": "", "html": html}
+
+
 def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
                           studies_root=None):
     """Overview + per-study assigned-card sections, driven by study specs (the
@@ -859,6 +1088,15 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
         verdict_root = f"docs/report_cards/{specs[0].invest_name}"
     overview = overview_section(cond_data); overview["nav_group"] = "Overall"
     sections = [overview]
+    # Per-condition summaries (each condition IS a config) + the condition↔config map.
+    summaries = {}
+    for spec in specs:
+        if spec.name in cond_data:
+            v2d = conds.get(spec.name, ("", ""))[0]
+            summaries[spec.name] = _condition_summary(
+                spec, _read_v2ecoli_build_config(v2d))
+    if summaries:
+        sections.append(conditions_map_section(summaries))
     for spec in specs:
         name = spec.name
         if name not in cond_data:
@@ -866,6 +1104,8 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
             continue
         per_obs, plot_trajs, v2_bounds = cond_data[name]
         v2_dir, ve_dir = conds.get(name, ("", ""))
+        # Prominent divider so each condition's block is obvious while scrolling.
+        sections.append(_condition_banner(name, summaries[name]))
         state = {"name": name, "condition": spec.condition, "seeds": spec.seeds,
                  "generations": spec.gens, "variant": 0, "observables": per_obs,
                  "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
@@ -883,6 +1123,13 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
             viz.append({"name": card, "html": out["card_html"],
                         "verdict": card_verdicts[card]["verdict"],
                         "axes": card_verdicts[card]["axes"]})
+        # Converted-processes panel — for any study whose candidate injected fork
+        # processes (e.g. metabolism_redux), surface the conversion AND embed the
+        # FULL transferred source read from the fork checkout. No-op otherwise.
+        conv = converted_processes_section(name, _read_v2ecoli_build_config(v2_dir))
+        if conv is not None:
+            conv["nav_group"] = name
+            sections.append(conv)
         if verdict_root:
             write_condition_verdict(verdict_root, name, card_verdicts)
         if studies_root:
@@ -1076,9 +1323,15 @@ def main(argv=None):
             sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    title = (f"vEcoli-pbg ↔ v2ecoli-pbg — process-bigraph comparison ({gen})"
-             if skip_nextflow
-             else f"v2ecoli ↔ vEcoli — standardized comparison ({gen})")
+    # Name the ACTUAL repositories (e.g. sms-ecoli / vEcoli-private), not just the
+    # generic v2ecoli / vEcoli lineage labels. Candidate = the v2ecoli-lineage
+    # checkout this script runs from; reference = the vEcoli fork at V2E_VECOLI_DIR.
+    cand = _git_provenance(str(Path(__file__).resolve().parents[1]))
+    ref = _git_provenance(os.environ.get("V2E_VECOLI_DIR"))
+    sections = [repositories_section(cand, ref)] + sections
+    cand_lbl = f"{cand['name']} (v2ecoli)" if cand else "v2ecoli"
+    ref_lbl = f"{ref['name']} (vEcoli)" if ref else "vEcoli"
+    title = f"{cand_lbl} ↔ {ref_lbl} — whole-cell model comparison ({gen})"
     html = report.render_report(sections, title=title)
 
     out = Path(args.out)
@@ -1100,3 +1353,10 @@ def main(argv=None):
 
 if __name__ == "__main__":
     main()
+    # Force a clean exit: embedding the transferred fork source imports the fork's
+    # process stack (jax / gillespy2 / ray), which can leave non-daemon threads
+    # that keep the process alive after the report is written — which then blocks
+    # the study→study orchestration. The report is fully flushed above, so exit now.
+    sys.stdout.flush()
+    sys.stderr.flush()
+    os._exit(0)

@@ -67,7 +67,8 @@ class StudyContext:
 
     @classmethod
     def load(cls, ws_root: Path, study_name: str) -> "StudyContext":
-        sd = ws_root / "workspace" / "studies" / study_name
+        from viva_workspace import study_dir as _study_dir
+        sd = _study_dir(ws_root, study_name)
         spec_path = sd / "study.yaml"
         spec = {}
         if spec_path.is_file():

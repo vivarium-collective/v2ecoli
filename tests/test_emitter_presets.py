@@ -67,6 +67,26 @@ def test_parquet_vecoli_quote_plus_on_special_chars():
 
 
 @pytest.mark.fast
+def test_parquet_vecoli_routes_s3_uri_to_out_uri_not_out_dir():
+    """ParquetEmitter only takes an s3:// URI verbatim via its own out_uri
+    config key -- its out_dir key always runs through os.path.abspath(),
+    which mangles an s3:// string into a bogus local path (backlog item 35:
+    per-generation chain-dispatch jobs write their parquet sweep directly to
+    a per-seed S3 prefix)."""
+    from v2ecoli.library.emitter_presets import parquet_vecoli
+
+    cfg = parquet_vecoli("s3://my-bucket/vecoli-output/exp1/seed_00",
+                         experiment_id="exp1")
+    assert cfg["out_uri"] == "s3://my-bucket/vecoli-output/exp1/seed_00"
+    assert "out_dir" not in cfg
+
+    # A local path keeps using out_dir, unchanged.
+    local_cfg = parquet_vecoli("/tmp/test_out", experiment_id="exp1")
+    assert local_cfg["out_dir"] == "/tmp/test_out"
+    assert "out_uri" not in local_cfg
+
+
+@pytest.mark.fast
 def test_parquet_vecoli_extra_metadata_merges():
     from v2ecoli.library.emitter_presets import parquet_vecoli
 

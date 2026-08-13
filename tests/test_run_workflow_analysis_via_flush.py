@@ -20,9 +20,11 @@ def test_run_workflow_does_not_call_run_analyses_directly(monkeypatch, tmp_path)
                         lambda *a, **k: {"placed": [], "skipped": [], "study": "demo"},
                         raising=False)
 
+    import yaml
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
-    import yaml
     (sd / "study.yaml").write_text(yaml.safe_dump({"name": "demo"}))
 
     cfg = {"study": "demo", "out_dir": "out/x", "ws_root": str(tmp_path),

@@ -25,6 +25,7 @@ from duckdb import DuckDBPyConnection
 from v2ecoli.workflow.analyses._helpers import (
     cd1_filter_clause,
     read_stacked_columns,
+    run_chunked,
     with_cross_cell_stats,
 )
 from v2ecoli.workflow.analysis import Analysis
@@ -62,30 +63,36 @@ class Cd1Transcriptomics(Analysis):
             order_results=False,
         )
         id_cols = ", ".join(_ID_COLS)
+        filtered_sql = f"""
+            SELECT * FROM ({history_subquery})
+            {filter_clause}
+        """
 
-        transcriptomics = conn.sql(
-            f"""
-            WITH history AS ({history_subquery}),
-            filtered AS (
-                SELECT * FROM history
-                {filter_clause}
-            ),
-            exploded AS (
+        def _batch_sql(cell_filter: str) -> str:
+            return f"""
+                WITH filtered AS (
+                    SELECT * FROM ({filtered_sql}) WHERE {cell_filter}
+                ),
+                exploded AS (
+                    SELECT
+                        unnest(mrna_counts) AS mrna_count,
+                        generate_subscripts(mrna_counts, 1) AS idx,
+                        {id_cols}
+                    FROM filtered
+                )
                 SELECT
-                    unnest(mrna_counts) AS mrna_count,
-                    generate_subscripts(mrna_counts, 1) AS idx,
-                    {id_cols}
-                FROM filtered
-            )
-            SELECT
-                idx,
-                {id_cols},
-                AVG(mrna_count) AS mrna_avg
-            FROM exploded
-            GROUP BY idx, {id_cols}
-            ORDER BY idx, {id_cols}
-            """
-        ).pl()
+                    idx,
+                    {id_cols},
+                    AVG(mrna_count) AS mrna_avg
+                FROM exploded
+                GROUP BY idx, {id_cols}
+                ORDER BY idx, {id_cols}
+                """
+
+        # Chunked one cell at a time (see run_chunked's docstring / item 38):
+        # the full-sweep unnest of every cell's mRNA-count array at once is
+        # what OOM-kills this analysis. Same AVG math, just per cell.
+        transcriptomics = run_chunked(conn, filtered_sql, _batch_sql, id_cols=_ID_COLS)
 
         if transcriptomics.is_empty():
             empty = pl.DataFrame({"EcoCyc Gene ID": [], "mean": [], "std": []})

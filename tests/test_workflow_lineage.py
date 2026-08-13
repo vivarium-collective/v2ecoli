@@ -2,9 +2,15 @@ import pytest
 from v2ecoli.workflow.lineage import LineageProcess
 
 
-def _make(monkeypatch, generations, divide_after=2):
+def _make(monkeypatch, generations, divide_after=2, **wave_kwargs):
     """Build a LineageProcess whose _build_generation/_run_until_division are
-    stubbed so we can test generation counting without a real cell composite."""
+    stubbed so we can test generation counting without a real cell composite.
+
+    ``wave_kwargs`` accepts the per-generation checkpoint/resume keys
+    (initial_carry_state_path / initial_generation_index / daughter_state_out_path,
+    backlog item 34) -- omitted, they default to "" / 0 / "", i.e. today's
+    unchanged single-invocation-runs-every-generation behavior.
+    """
     lp = LineageProcess.__new__(LineageProcess)
     # Minimal config + state normally set by Process.__init__/initialize.
     lp.config = {
@@ -12,6 +18,9 @@ def _make(monkeypatch, generations, divide_after=2):
         "variant_name": "baseline", "config_overrides": {}, "generations": generations,
         "single_daughters": True, "experiment_id": "t", "out_dir": "out/t",
         "max_duration_per_gen": 100.0,
+        "initial_carry_state_path": wave_kwargs.get("initial_carry_state_path", ""),
+        "initial_generation_index": wave_kwargs.get("initial_generation_index", 0),
+        "daughter_state_out_path": wave_kwargs.get("daughter_state_out_path", ""),
     }
     lp.initialize(lp.config)
     calls = {"built": 0}
@@ -223,3 +232,183 @@ def test_divide_flag_detected_when_agent_id_diverges_from_inner_cell():
 
     divided, _daughter, _dry_mass = lp._run_until_division(1.0)
     assert divided is True       # False before the fix (looked up agents["00"])
+
+
+# --- per-generation checkpoint/resume (backlog item 34) ----------------------
+#
+# Contract: 3 new optional LineageProcess config keys let a wave orchestrator
+# run ONE generation per invocation, chained via daughter-state S3 handoff --
+# initial_carry_state_path / initial_generation_index seed a resumed wave,
+# daughter_state_out_path persists this invocation's own daughter for the
+# NEXT wave to pick up. All three default to ""/0/"", which must reproduce
+# today's unchanged single-invocation-runs-every-generation behavior exactly.
+
+def test_backward_compatible_defaults_start_fresh_with_no_carry_state(monkeypatch):
+    lp, _ = _make(monkeypatch, generations=1)
+    assert lp._generation == 0
+    assert lp._carry_state is None
+
+
+def test_initial_generation_index_requires_carry_state_path():
+    """A nonzero start with no state to seed it would silently mislabel a
+    fresh cell as a later generation (wrong parquet/zarr partition, wrong
+    summary["generation"]) -- must fail loudly instead."""
+    lp = LineageProcess.__new__(LineageProcess)
+    lp.config = {
+        "cache_dir": "x", "seed": 0, "lineage_seed": 0, "variant_index": 0,
+        "variant_name": "baseline", "config_overrides": {}, "generations": 1,
+        "single_daughters": True, "experiment_id": "t", "out_dir": "out/t",
+        "max_duration_per_gen": 100.0, "initial_carry_state_path": "",
+        "initial_generation_index": 3, "daughter_state_out_path": "",
+    }
+    with pytest.raises(ValueError, match="initial_generation_index"):
+        lp.initialize(lp.config)
+
+
+def test_resume_loads_carry_state_and_starts_at_given_generation(monkeypatch):
+    import v2ecoli.cache as cache_mod
+    loaded = {"bulk": "RESUMED_BULK", "unique": {}}
+    calls = {"path": None}
+
+    def fake_load(path):
+        calls["path"] = path
+        return loaded
+
+    monkeypatch.setattr(cache_mod, "load_initial_state", fake_load)
+    lp, _ = _make(monkeypatch, generations=1,
+                  initial_carry_state_path="s3://bucket/seed0/gen4/daughter.json",
+                  initial_generation_index=5)
+    assert lp._generation == 5
+    assert lp._carry_state is loaded
+    assert calls["path"] == "s3://bucket/seed0/gen4/daughter.json"
+    # Regression (task #14): a resumed process's agent_id must match the
+    # phylogeny depth a continuous single-process run would have reached by
+    # generation 5 ("0"*6), not restart at "0" (depth 1). The xarray/zarr
+    # emitter derives its own generation number from len(agent_id), so a
+    # wrong-depth agent_id makes every resumed generation misresolve as
+    # "generation 1" and collide with the real prior generation's S3 content.
+    assert lp._agent_id == "0" * 6
+
+
+def test_daughter_state_persisted_when_configured_and_divided(monkeypatch):
+    import v2ecoli.cache as cache_mod
+    saved = {}
+
+    def fake_save(initial_state, path):
+        saved["state"] = initial_state
+        saved["path"] = path
+
+    monkeypatch.setattr(cache_mod, "save_initial_state", fake_save)
+    lp, _ = _make(monkeypatch, generations=2, divide_after=1,
+                  daughter_state_out_path="s3://bucket/seed0/gen0/daughter.json")
+    out = {}
+    for _ in range(10):
+        out = lp.update({}, 1.0)
+        if out.get("summary") or out.get("complete"):
+            break
+    assert saved["path"] == "s3://bucket/seed0/gen0/daughter.json"
+    # The fake divide()'s daughter, PLUS the generation-0 summary accumulated so
+    # far (backlog item 35: a per-generation job's saved daughter state must
+    # also carry the running summary history, or the NEXT generation's job has
+    # no way to reconstruct a complete per-seed summary.json across separate
+    # process invocations).
+    assert saved["state"]["bulk"] == {}
+    assert saved["state"]["unique"] == {}
+    assert [s["generation"] for s in saved["state"]["_prior_summaries"]] == [0]
+
+
+def test_daughter_state_carries_prior_summaries_forward_across_resume(monkeypatch):
+    """A resumed generation's own saved daughter state must include BOTH the
+    summaries it restored from the carry-state AND its own new entry -- the
+    real regression test for the per-seed summary.json accumulation fix
+    (without this, every chained job's summary.json only ever reflects the
+    single generation IT computed, and each subsequent job's write silently
+    discards every prior generation's history)."""
+    import v2ecoli.cache as cache_mod
+
+    prior_summary = {"generation": 0, "agent_id": "0", "duration": 1.0,
+                      "dry_mass": 100.0, "divided": True}
+    monkeypatch.setattr(cache_mod, "load_initial_state", lambda path: {
+        "bulk": {}, "unique": {}, "_prior_summaries": [dict(prior_summary)]})
+    saved = {}
+    monkeypatch.setattr(cache_mod, "save_initial_state",
+                         lambda state, path: saved.update(state=state, path=path))
+
+    lp, _ = _make(monkeypatch, generations=1, divide_after=1,
+                  initial_carry_state_path="s3://bucket/seed0/gen0/daughter.json",
+                  initial_generation_index=1,
+                  daughter_state_out_path="s3://bucket/seed0/gen1/daughter.json")
+    # Restored on initialize(), before any tick runs.
+    assert lp._summaries == [prior_summary]
+    assert lp._carry_state is not None
+    assert "_prior_summaries" not in lp._carry_state  # popped, not left for apply_carry_state
+
+    out = {}
+    for _ in range(10):
+        out = lp.update({}, 1.0)
+        if out.get("summary") or out.get("complete"):
+            break
+    assert [s["generation"] for s in saved["state"]["_prior_summaries"]] == [0, 1]
+
+
+def test_daughter_state_not_persisted_without_a_daughter(monkeypatch):
+    """Timed out without dividing -> nothing to hand off, mirrors
+    self._carry_state staying None in that case."""
+    import v2ecoli.cache as cache_mod
+    calls = {"n": 0}
+    monkeypatch.setattr(cache_mod, "save_initial_state",
+                         lambda *a, **kw: calls.__setitem__("n", calls["n"] + 1))
+
+    lp, _ = _make(monkeypatch, generations=1, divide_after=10_000,  # never divides
+                  daughter_state_out_path="s3://bucket/seed0/gen0/daughter.json")
+    lp.config["max_duration_per_gen"] = 1.0  # times out on the first tick
+    out = lp.update({}, 1.0)
+    assert out.get("complete") is True
+    assert calls["n"] == 0
+
+
+def test_single_wave_invocation_completes_after_one_generation_labeled_correctly(monkeypatch):
+    """The wave-orchestrator contract: generations=1 always completes after
+    exactly the ONE generation at initial_generation_index, and the summary
+    reports the real (resumed) generation number, not a within-invocation 0."""
+    import v2ecoli.cache as cache_mod
+    monkeypatch.setattr(cache_mod, "load_initial_state",
+                         lambda path: {"bulk": {}, "unique": {}})
+    lp, _ = _make(monkeypatch, generations=1, divide_after=1,
+                  initial_carry_state_path="s3://bucket/seed0/gen6/daughter.json",
+                  initial_generation_index=7)
+    out = {}
+    for _ in range(10):
+        out = lp.update({}, 1.0)
+        if out.get("complete"):
+            break
+    assert out["complete"] is True
+    assert len(lp._summaries) == 1
+    assert lp._summaries[0]["generation"] == 7   # real generation number, not 0
+    assert lp._summaries[0]["agent_id"] == "0" * 8
+
+
+@pytest.mark.parametrize("gen_index", [0, 1, 2, 7])
+def test_agent_id_depth_matches_resumed_generation(monkeypatch, gen_index):
+    """Regression test for task #14 (backlog item 34's per-generation
+    chain-dispatch bug). ``LineageProcess.initialize`` used to hardcode
+    ``self._agent_id = "0"`` regardless of ``initial_generation_index``, so
+    every chain job resolved to the SAME agent_id no matter which generation
+    it actually resumed. The xarray/zarr emitter reads ``len(agent_id)`` as
+    the generation number, so every generation past 0 misresolved as
+    "generation 1" (a fresh-lineage store) and collided with the real prior
+    generation's content sitting at the shared per-seed S3 prefix -- the
+    actual bug behind every real gen1+ chain job silently no-op'ing while
+    reporting SUCCEEDED. Under single_daughters=True (the only supported
+    mode), the phylogeny walk always keeps the "...0" daughter
+    (select_carry_daughter), so the correct depth is exactly gen_index + 1.
+    """
+    import v2ecoli.cache as cache_mod
+    monkeypatch.setattr(cache_mod, "load_initial_state",
+                         lambda path: {"bulk": {}, "unique": {}})
+    kwargs = {}
+    if gen_index:
+        kwargs = {"initial_carry_state_path": "s3://bucket/seed0/gen/daughter.json",
+                  "initial_generation_index": gen_index}
+    lp, _ = _make(monkeypatch, generations=1, divide_after=1, **kwargs)
+    assert lp._agent_id == "0" * (gen_index + 1)

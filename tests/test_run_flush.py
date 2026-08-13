@@ -8,7 +8,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from v2ecoli.workflow.flush import run_flush
 
 
+def _mk_workspace(tmp_path):
+    # Declare the nested studies layout the shared viva_workspace resolver reads
+    # (matches v2ecoli's real workspace.yaml).
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}})
+    )
+
+
 def _study(tmp_path, slug="demo", tests=None):
+    _mk_workspace(tmp_path)
     sd = tmp_path / "workspace" / "studies" / slug
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(
@@ -38,6 +47,7 @@ def test_run_flush_skips_card_that_raises(core, tmp_path, monkeypatch):
 
 def test_run_flush_skips_step_when_placement_raises(core, tmp_path, monkeypatch):
     import yaml
+    _mk_workspace(tmp_path)
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(

@@ -24,6 +24,8 @@ class _DemoCard(ReportCardStep):
 
 
 def _ctx(tmp_path, spec=None):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(spec or {"name": "demo"}))

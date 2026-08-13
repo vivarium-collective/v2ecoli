@@ -44,6 +44,25 @@ from v2ecoli.library.ecoli_step import EcoliProcess, EcoliStep
 from v2ecoli.library.schema_types import UNIQUE_TYPES
 
 
+def _overlay_initial_defaults(typed, init):
+    """Recursively set ``_default`` in a translate_ports typed-port tree from a
+    vivarium process's ``initial_state()`` dict.
+
+    A wrapped process may seed real initial values through its ``initial_state()``
+    METHOD (not just the ports_schema ``_default`` or the config's ``initial_state``)
+    — e.g. antibiotic-transport-odeint fills ``reaction_parameters`` from its
+    ``initial_reaction_parameters``. Without applying it, that store is left at the
+    schema's placeholder defaults and the process crashes reading it."""
+    if not isinstance(typed, dict) or not isinstance(init, dict):
+        return
+    for k, v in init.items():
+        t = typed.get(k)
+        if isinstance(t, dict) and "_default" in t:
+            t["_default"] = v
+        elif isinstance(t, dict):
+            _overlay_initial_defaults(t, v)
+
+
 def _has_serializer_tags(obj):
     """True if any leaf string looks like a vEcoli serializer tag (``!Tag[...]``)."""
     if isinstance(obj, str):
@@ -429,6 +448,16 @@ def wrap_vivarium_process(
             # e.g. gillespie's rate constants — which the wrapped v1 expects.
             self._v1 = v1_cls(_deserialize_v1_params(self.parameters))
             self._typed_ports = translate_ports(self.core, self._v1.ports_schema())
+            # Apply the wrapped process's own initial_state() to the port defaults
+            # (faithful to how vEcoli seeds e.g. antibiotic reaction_parameters
+            # from initial_reaction_parameters). Best-effort: a process without a
+            # meaningful initial_state() is a no-op.
+            try:
+                v1_init = self._v1.initial_state()
+                if isinstance(v1_init, dict) and isinstance(self._typed_ports, dict):
+                    _overlay_initial_defaults(self._typed_ports, v1_init)
+            except Exception:  # noqa: BLE001 — never break the build over init state
+                pass
 
         def inputs(self):
             return {k: ({'_type': 'node'} if k in defer else v)

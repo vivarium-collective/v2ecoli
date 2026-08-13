@@ -85,6 +85,37 @@ def translate_vecoli_config(vecoli: dict[str, Any]) -> dict[str, Any]:
     return v2
 
 
+_DEFAULT_PORT_UNITS = {
+    "ecoli-metabolism-redux": {"attach": {"boundary": "mM"}, "strip": ["listeners"]},
+    "ecoli-metabolism-redux-classic": {"attach": {"boundary": "mM"}, "strip": ["listeners"]},
+}
+
+
+def _apply_default_port_units(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Fill in the port-units bridging a known swapped/added process needs, if the
+    config didn't set it — so a metabolism-redux swap doesn't crash the v2ecoli
+    composite with ``[mol] can't be converted to [mmol/L]`` at the boundary port.
+    No-op unless the config swaps/adds a known process."""
+    swaps = set((cfg.get("swap_processes") or {}).values()) | set(
+        cfg.get("add_processes") or [])
+    attach = dict(cfg.get("attach_pint_ports") or {})
+    strip = dict(cfg.get("strip_pint_ports") or {})
+    changed = False
+    for proc in swaps & set(_DEFAULT_PORT_UNITS):
+        d = _DEFAULT_PORT_UNITS[proc]
+        if proc not in attach:
+            attach[proc] = d["attach"]
+            changed = True
+        if proc not in strip:
+            strip[proc] = d["strip"]
+            changed = True
+    if changed:
+        cfg = dict(cfg)
+        cfg["attach_pint_ports"] = attach
+        cfg["strip_pint_ports"] = strip
+    return cfg
+
+
 def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, Any]:
     """Resolve a vEcoli fork config WITHOUT needing the fork's own venv.
 
@@ -100,12 +131,13 @@ def resolve_vecoli_config_local(config_path: str, fork_dir: str) -> dict[str, An
     config_dir = os.path.dirname(abspath)
     try:
         from v2ecoli.workflow.config import load_config_with_inheritance
-        return load_config_with_inheritance(abspath, config_dir=config_dir)
+        return _apply_default_port_units(
+            load_config_with_inheritance(abspath, config_dir=config_dir))
     except Exception:
         # Last-resort fallback: a flat read (no inheritance) so a missing v2ecoli
         # loader / unexpected schema still yields the config body.
         with open(abspath) as fh:
-            return json.load(fh)
+            return _apply_default_port_units(json.load(fh))
 
 
 VECOLI_REPO = "/Users/eranagmon/code/vEcoli"
@@ -126,7 +158,7 @@ def resolve_vecoli_config(config_path: str,
         [vecoli_python, "-c", snippet, config_path],
         cwd=vecoli_repo, text=True,
     )
-    return json.loads(out)
+    return _apply_default_port_units(json.loads(out))
 
 
 

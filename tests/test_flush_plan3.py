@@ -9,6 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def _study(tmp_path, slug="demo", spec=None):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / slug
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(spec or {"name": slug}))

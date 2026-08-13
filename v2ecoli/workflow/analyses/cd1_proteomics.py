@@ -24,6 +24,7 @@ from duckdb import DuckDBPyConnection
 from v2ecoli.workflow.analyses._helpers import (
     cd1_filter_clause,
     read_stacked_columns,
+    run_chunked,
     with_cross_cell_stats,
 )
 from v2ecoli.workflow.analysis import Analysis
@@ -58,31 +59,37 @@ class Cd1Proteomics(Analysis):
             history_sql, ["listeners__monomer_counts"], order_results=False
         )
         id_cols = ", ".join(_ID_COLS)
+        filtered_sql = f"""
+            SELECT listeners__monomer_counts AS monomer_counts, {id_cols}
+            FROM ({history_subquery})
+            {filter_clause}
+        """
 
-        proteomics = conn.sql(
-            f"""
-            WITH history AS ({history_subquery}),
-            filtered AS (
-                SELECT listeners__monomer_counts AS monomer_counts, {id_cols}
-                FROM history
-                {filter_clause}
-            ),
-            exploded AS (
+        def _batch_sql(cell_filter: str) -> str:
+            return f"""
+                WITH filtered AS (
+                    SELECT * FROM ({filtered_sql}) WHERE {cell_filter}
+                ),
+                exploded AS (
+                    SELECT
+                        unnest(monomer_counts) AS monomer_count,
+                        generate_subscripts(monomer_counts, 1) AS idx,
+                        {id_cols}
+                    FROM filtered
+                )
                 SELECT
-                    unnest(monomer_counts) AS monomer_count,
-                    generate_subscripts(monomer_counts, 1) AS idx,
-                    {id_cols}
-                FROM filtered
-            )
-            SELECT
-                idx,
-                {id_cols},
-                AVG(monomer_count) AS monomer_mean
-            FROM exploded
-            GROUP BY idx, {id_cols}
-            ORDER BY idx, {id_cols}
-            """
-        ).pl()
+                    idx,
+                    {id_cols},
+                    AVG(monomer_count) AS monomer_mean
+                FROM exploded
+                GROUP BY idx, {id_cols}
+                ORDER BY idx, {id_cols}
+                """
+
+        # Chunked one cell at a time: the full-sweep unnest of every cell's
+        # monomer-count array at once is what OOM-kills this analysis (item
+        # 38) — see run_chunked's docstring for why per-cell chunks are safe.
+        proteomics = run_chunked(conn, filtered_sql, _batch_sql, id_cols=_ID_COLS)
 
         if proteomics.is_empty():
             empty = pl.DataFrame({"EcoCyc Monomer ID": [], "mean": [], "std": []})

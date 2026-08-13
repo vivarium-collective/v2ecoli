@@ -12,6 +12,10 @@ dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
     "viva-superpowers",
+    # Shared source of truth for workspace-layout logic (WorkspacePaths,
+    # find_workspace_root, study_dir, package_slug). Replaces v2ecoli's own
+    # divergent study-dir resolvers + root-walkers. Git source pinned below.
+    "viva-workspace",
     "pbg-copasi",
     "pbg-parsimony",
     "pbg-bioreactordesign",
@@ -67,6 +71,14 @@ dependencies = [
     # [tool.uv.sources] for uv-native resolution.
     "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
     "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
+    # S3 backend for fsspec (a pbg-emitters[parquet] dep). Both ParquetEmitter
+    # (url_to_fs) and the XArray/zarr store (zarr.open_group) already accept an
+    # s3:// out_uri/store natively — s3fs is the one missing piece that lets an
+    # s3:// URI actually resolve instead of failing with "unknown protocol"
+    # (backlog item 33/35: per-generation chain-dispatch jobs write directly to
+    # a per-seed S3 prefix rather than relying solely on the container
+    # entrypoint's end-of-job `aws s3 sync`).
+    "s3fs>=2024.1",
     # NeuralProcess surrogate of the baseline (investigations/surrogate-modeling).
     # Pulls torch; surfaced in the dashboard Registry via build_core() + the
     # dashboard.registry.include allow-list in workspace.yaml.
@@ -151,6 +163,7 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
+viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }
 # Transitive consumers (pbg-bioreactordesign, viva-munk, spatio-flux) still
 # require the "pbg-superpowers" name; resolve it to the deprecation shim that
 # lives in the viva-superpowers repo's shim/ subdir (re-exports viva_superpowers).

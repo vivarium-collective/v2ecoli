@@ -103,6 +103,15 @@ class LineageProcess(Process):
         "config_overrides": {"_default": {}},
         "generations": {"_type": "integer", "_default": 1},
         "single_daughters": {"_type": "boolean", "_default": True},
+        # Per-generation checkpoint/resume (backlog item 34): externalizes the
+        # daughter-state hand-off vEcoli-private's Nextflow driver does via task
+        # I/O (sim.nf), so a wave orchestrator can retry at generation
+        # granularity instead of whole-lineage granularity. All three default
+        # to empty/0, which is today's single-invocation-runs-every-generation
+        # behavior, unchanged.
+        "initial_carry_state_path": {"_type": "string", "_default": ""},
+        "initial_generation_index": {"_type": "integer", "_default": 0},
+        "daughter_state_out_path": {"_type": "string", "_default": ""},
         "experiment_id": {"_type": "string", "_default": "default"},
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
@@ -119,12 +128,46 @@ class LineageProcess(Process):
 
     def initialize(self, config):
         self._composite = None
-        self._generation = 0          # 0-based current generation
-        self._agent_id = "0"
+        carry_path = str(config.get("initial_carry_state_path") or "")
+        gen_index = int(config.get("initial_generation_index") or 0)
+        if not carry_path and gen_index != 0:
+            # A nonzero start with no state to seed it silently mislabels a
+            # fresh cell as a later generation (wrong parquet/zarr partition,
+            # wrong summary["generation"]) instead of failing loudly.
+            raise ValueError(
+                "LineageProcess: initial_generation_index must be 0 when "
+                "initial_carry_state_path is empty.")
+        self._generation = gen_index  # 0-based current generation; >0 resumes a checkpointed wave
+        # Under single_daughters=True (the only supported mode, enforced below
+        # in update()), the phylogeny walk is deterministic: select_carry_daughter
+        # always keeps the "...0" daughter, so a continuous single-process run
+        # reaches agent_id "0"*(generation+1) by the time it starts generation
+        # `generation`. A per-generation chain job (backlog item 34) restores
+        # `_generation` from `initial_generation_index` above but must restore
+        # `_agent_id` to match, or every chain job resolves to the SAME agent_id
+        # ("0") regardless of which generation it's actually resuming — which the
+        # xarray/zarr emitter reads as "generation 1" (`len(agent_id)`) every
+        # time, mistaking gen1+'s real pre-existing S3 content (from the shared
+        # per-seed prefix) for a collision on a supposedly-fresh store.
+        self._agent_id = "0" * (gen_index + 1)
         self._gen_elapsed = 0.0
         self._carry_state: dict | None = None
+        if carry_path:
+            from v2ecoli.cache import load_initial_state
+            self._carry_state = load_initial_state(carry_path)
         self._complete = False
         self._summaries: list[dict] = []
+        # Per-generation checkpoint hand-off (backlog item 34/35): each
+        # generation is a SEPARATE process invocation, so self._summaries would
+        # otherwise only ever contain THIS generation's own entry, and a
+        # per-seed summary.json written from it would silently lose every prior
+        # generation's history the moment the next generation's job overwrites
+        # it. Restoring the accumulated list here (saved alongside the daughter
+        # state, see update() below) makes each write authoritative for the
+        # seed's FULL history so far, matching what the analysis step already
+        # expects from a single-invocation run's summary.json.
+        if self._carry_state and "_prior_summaries" in self._carry_state:
+            self._summaries = list(self._carry_state.pop("_prior_summaries"))
         self._needs_build = True      # True → call _build_generation on next tick
         # xarray emitter state (only used when config["emitter"] == "xarray")
         self._xarray_em = None        # live XArrayEmitter for the current gen
@@ -220,6 +263,8 @@ class LineageProcess(Process):
             _build_emitter, filter_view_to_existing_leaves,
             extract_output_metadata_from_state)
 
+        from v2ecoli.cache import is_s3_uri
+
         arg = dict(self.config.get("emitter_arg") or {})
         raw_view = arg.get("view") or DEFAULT_XARRAY_VIEW
         raw_view = [dict(e, root=tuple(e["root"])) for e in raw_view]
@@ -229,6 +274,7 @@ class LineageProcess(Process):
         predicate = transducer.get("predicate")
         writer = arg.get("writer")
         out_dir = arg.get("out_dir") or self.config["out_dir"]
+        out_is_s3 = is_s3_uri(out_dir)
 
         wrapped = {"agents": {"0": emit_cell}}
         view = filter_view_to_existing_leaves(wrapped, raw_view)
@@ -244,9 +290,15 @@ class LineageProcess(Process):
                 out_dir,
                 f"{self.config['experiment_id']}_v{int(self.config['variant_index'])}"
                 f"_s{int(self.config['lineage_seed'])}.zarr")
-        if self._generation == 0 and os.path.exists(self._xarray_store):
-            shutil.rmtree(self._xarray_store)  # fresh store for a new lineage
-        os.makedirs(out_dir, exist_ok=True)
+        if not out_is_s3:
+            # Local-filesystem-only bookkeeping: zarr's own S3 store (opened via
+            # zarr.open_group(store=...) inside pbg-emitters) handles "fresh
+            # store" / "create the prefix" semantics itself for s3:// URIs — an
+            # os.path.exists/os.makedirs call on an s3:// string is meaningless
+            # (checks/creates a bogus local path, never the real object prefix).
+            if self._generation == 0 and os.path.exists(self._xarray_store):
+                shutil.rmtree(self._xarray_store)  # fresh store for a new lineage
+            os.makedirs(out_dir, exist_ok=True)
 
         metadata_base = {
             "experiment_id": self.config["experiment_id"],
@@ -386,6 +438,21 @@ class LineageProcess(Process):
             "dry_mass": dry_mass,
             "divided": bool(divided),
         })
+
+        # Per-generation checkpoint hand-off (backlog item 34): persist whatever
+        # would otherwise only ever live in self._carry_state, so a wave
+        # orchestrator can feed it to the NEXT generation's own process
+        # invocation. Fires regardless of which branch follows — a
+        # one-wave-per-invocation caller (generations=1) always takes the
+        # "complete" branch below, but still needs THIS generation's daughter
+        # written out. No daughter (timed out without dividing) means nothing
+        # to hand off, mirroring self._carry_state staying None in that case.
+        out_path = str(self.config.get("daughter_state_out_path") or "")
+        if out_path and daughter is not None:
+            from v2ecoli.cache import save_initial_state
+            payload = dict(daughter)
+            payload["_prior_summaries"] = list(self._summaries)
+            save_initial_state(payload, out_path)
 
         self._generation += 1
         if self._generation >= int(self.config["generations"]):

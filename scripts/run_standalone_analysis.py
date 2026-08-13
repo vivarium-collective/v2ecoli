@@ -47,23 +47,41 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 
+def _run_aws(args: list[str], tries: int = 3, backoff_s: float = 5.0) -> None:
+    """Run an ``aws`` CLI subprocess, retrying transient failures.
+
+    S3 network blips (e.g. a momentary DNS/connectivity hiccup to the
+    bucket's virtual-hosted endpoint) have hit this exact call three times
+    in one real investigation session -- always transient (a bare retry
+    moments later always succeeded), never a credentials/permissions issue.
+    Real ``aws sts get-caller-identity``/``aws s3 ls`` checks confirmed this
+    each time before retrying by hand; this bakes that same retry in.
+    """
+    last_err: subprocess.CalledProcessError | None = None
+    for attempt in range(1, tries + 1):
+        try:
+            subprocess.run(args, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            return
+        except subprocess.CalledProcessError as e:
+            last_err = e
+            if attempt < tries:
+                time.sleep(backoff_s * attempt)
+    assert last_err is not None
+    raise last_err
+
+
 def _aws_cp(src: str, dst: str) -> None:
-    subprocess.run(
-        ["aws", "s3", "cp", src, dst],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-    )
+    _run_aws(["aws", "s3", "cp", src, dst])
 
 
 def _aws_sync(src: str, dst: str) -> None:
-    subprocess.run(
-        ["aws", "s3", "sync", src, dst],
-        check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-    )
+    _run_aws(["aws", "s3", "sync", src, dst])
 
 
 def build_multiseed_rows(out_uri: str, n_seeds: int, tmp: Path) -> list[dict[str, Any]]:
@@ -115,7 +133,19 @@ def run_duckdb_analyses(
     except Exception as e:  # noqa: BLE001 -- surface any analysis failure in the manifest
         errors.append({"scale": scale, "error": f"{type(e).__name__}: {e}"})
         return written, errors
-    _aws_sync(str(local_out), outdir)
+    try:
+        _aws_sync(str(local_out), outdir)
+    except subprocess.CalledProcessError as e:
+        # A sync failure here must NOT crash the whole multi-scale run --
+        # real incident: an earlier version let this propagate uncaught,
+        # which killed a multi-hour run at the FIRST scale's sync and lost
+        # every downstream scale's real results (incl. every cd1_* module,
+        # all of which live in a later scale) to what was, both times, a
+        # transient network blip. Record it like every other per-scale
+        # failure in this function and let the remaining scales still run.
+        stderr = e.stderr.decode()[:500] if e.stderr else str(e)
+        errors.append({"scale": scale, "error": f"aws s3 sync failed: {stderr}"})
+        return written, errors
     # run_analyses() writes ONE analysis.json covering every name in `entries`
     # (plus viz/ptools per-group files) -- one manifest entry, not one per name.
     written.append(f"{outdir}/analysis.json")

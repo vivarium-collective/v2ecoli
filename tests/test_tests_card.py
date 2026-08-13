@@ -10,6 +10,8 @@ from v2ecoli.workflow.report_cards.tests_card import TestsCard
 
 
 def _ctx(tmp_path, tests):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump({"name": "Demo", "tests": tests}))

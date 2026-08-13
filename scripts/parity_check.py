@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """Parity gate for behavior-preserving composite refactors.
 
-The v2ecoli ``baseline`` composite is bit-deterministic run-to-run, so a
+The v2ecoli ``ecoli_baseline`` composite is bit-deterministic run-to-run, so a
 refactor that claims to preserve behavior must reproduce a deep state
 signature exactly. This script is the standard gate for that claim and MUST
 be run after any change to derivers, processes, port schemas, or the
@@ -133,7 +133,7 @@ def build_check(composite_name, cache_dir):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--composite", default="baseline")
+    ap.add_argument("--composite", default="ecoli_baseline")
     ap.add_argument("--seconds", type=int, default=120)
     ap.add_argument("--chunk", type=int, default=10)
     ap.add_argument("--cache-dir", default="out/cache")

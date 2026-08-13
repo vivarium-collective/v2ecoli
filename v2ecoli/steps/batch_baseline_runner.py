@@ -174,6 +174,9 @@ def build_workflow_config(
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Translate the composite's parameters into a v2ecoli workflow config.
 
@@ -186,6 +189,11 @@ def build_workflow_config(
         n_generations  -> generations
         base_seed      -> lineage_seed         (first seed; seeds are contiguous)
         max_duration   -> max_duration_per_gen (LineageProcess caps per generation)
+
+    ``initial_carry_state_path``/``initial_generation_index``/
+    ``daughter_state_out_path`` (backlog item 34) pass through unrenamed —
+    ``meta_composite.py``'s per-branch ``LineageProcess`` config reads these
+    exact key names off this function's returned dict.
     """
     config: dict[str, Any] = {
         "experiment_id": experiment_id,
@@ -217,6 +225,16 @@ def build_workflow_config(
         # variant grid) — how batch_baseline's `knockouts` knocks a gene out
         # across all seeds without forking a comparison arm.
         config["base_config_overrides"] = dict(base_config_overrides)
+    if initial_carry_state_path:
+        # Per-generation checkpoint/resume (backlog item 34): a wave
+        # orchestrator's own resume hand-off. initial_generation_index is only
+        # meaningful alongside a real carry-state path (LineageProcess itself
+        # enforces index==0 when the path is empty), so both are gated here
+        # together rather than independently.
+        config["initial_carry_state_path"] = initial_carry_state_path
+        config["initial_generation_index"] = int(initial_generation_index)
+    if daughter_state_out_path:
+        config["daughter_state_out_path"] = daughter_state_out_path
     return config
 
 
@@ -309,6 +327,9 @@ def dispatch_batch(
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
     run_workflow_fn: "Callable[..., dict] | None" = None,
 ) -> dict:
     """Run the seeds × generations batch and assemble the ``batch`` result dict.
@@ -327,7 +348,10 @@ def dispatch_batch(
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
         variants=variants, analyses=analyses, study=study,
-        base_config_overrides=base_config_overrides, media=media)
+        base_config_overrides=base_config_overrides, media=media,
+        initial_carry_state_path=initial_carry_state_path,
+        initial_generation_index=initial_generation_index,
+        daughter_state_out_path=daughter_state_out_path)
 
     # Before the run, so the flush that follows it inside run_workflow can
     # resolve the sweep's sim_data (see link_sim_data).
@@ -395,6 +419,14 @@ class BatchBaselineRunner(Step):
         "base_config_overrides": {"_default": {}},
         # Panel-wide media condition, threaded to every per-seed baseline() build.
         "media": {"_default": "minimal"},
+        # Per-generation checkpoint/resume (backlog item 34): a wave
+        # orchestrator's own per-seed-per-generation override keys, threaded
+        # unrenamed to meta_composite.py's per-branch LineageProcess config.
+        # Empty/0 = today's single-invocation-runs-every-generation behavior,
+        # unchanged.
+        "initial_carry_state_path": "string",
+        "initial_generation_index": "integer",
+        "daughter_state_out_path": "string",
     }
     topology = {
         "batch": ("batch",),
@@ -421,6 +453,9 @@ class BatchBaselineRunner(Step):
         self.study = cfg.get("study") or ""
         self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
         self.media = cfg.get("media") or "minimal"
+        self.initial_carry_state_path = cfg.get("initial_carry_state_path") or ""
+        self.initial_generation_index = int(cfg.get("initial_generation_index") or 0)
+        self.daughter_state_out_path = cfg.get("daughter_state_out_path") or ""
         # None => default "ray"; "" / "sequential" / "none" => sequential (None).
         p = cfg.get("parallel")
         if p is None:
@@ -483,5 +518,8 @@ class BatchBaselineRunner(Step):
             study=self.study,
             base_config_overrides=self.base_config_overrides,
             media=self.media,
+            initial_carry_state_path=self.initial_carry_state_path,
+            initial_generation_index=self.initial_generation_index,
+            daughter_state_out_path=self.daughter_state_out_path,
         )
         return {"batch": result}

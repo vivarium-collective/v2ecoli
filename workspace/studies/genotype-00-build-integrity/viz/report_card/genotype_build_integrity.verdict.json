@@ -1,0 +1,88 @@
+{
+ "schema": "report_card_verdict/v1",
+ "model_ref": "v2ecoli ParCa (no fit)",
+ "reference_model": "v2ecoli wild-type build",
+ "generated": "",
+ "overall": "within_tol",
+ "groups": {
+  "genome": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "chromosome_length.ok",
+     "label": "Chromosome length matches the deleted span",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    },
+    {
+     "id": "round_trip.ok",
+     "label": "Every surviving feature's sequence is preserved",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    },
+    {
+     "id": "coordinate_shift.ok",
+     "label": "Downstream features shift exactly; upstream unmoved",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    }
+   ]
+  },
+  "knowledge_base": {
+   "verdict": "within_tol",
+   "axes": [
+    {
+     "id": "tombstone.ok",
+     "label": "Exactly the deleted genes are tombstoned",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    },
+    {
+     "id": "functional_absence.ok",
+     "label": "Deleted genes leave valid_gene_ids and all_mRNA_cistrons",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    }
+   ]
+  },
+  "parca_fit": {
+   "verdict": "ungraded",
+   "axes": [
+    {
+     "id": "fit.completed",
+     "label": "Fit completes on the perturbed genome",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "\u2014",
+     "detail": {}
+    },
+    {
+     "id": "fit.conditions_fitted",
+     "label": "Conditions fitted (len(cell_specs))",
+     "verdict": "ungraded",
+     "value": null,
+     "meter": "\u2014",
+     "detail": {}
+    }
+   ]
+  }
+ },
+ "title": "Genotype build integrity \u2014 knockout of EG10526",
+ "genotype": {
+  "gene_ids": [
+   "EG10526"
+  ],
+  "genotype_id": "2e013536817c75d2",
+  "manifest": "/Users/chris/projects/SMS/v2ecoli-geno/out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv"
+ }
+}

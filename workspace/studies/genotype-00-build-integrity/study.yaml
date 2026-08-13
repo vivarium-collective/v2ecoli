@@ -115,22 +115,40 @@ conditions:
     # declaration is structural. Naming a manifest does not make the runner build from it
     # -- that needs the study runner to drive ParCa, explicitly out of scope there.
     - name: target-gene
-      gate: required-before-run
+      gate: satisfied
       detail: >-
-        Proposed first target EG10526 (lacY) - the gene the landed translation-level study
+        SATISFIED - first target is EG10526 (lacY), and it builds: a fast-mode ParCa on the
+        lacY knockout bundle completed all 9 steps in 104 s, exit 0, with
+        mechanistic_fit_status ok for supply, export and uptake (2026-08-13, main @
+        60f3e4b8). The 7-8 dangling references the generator leaves by design (D17) did not
+        break the build.
+
+        Rationale for the choice, unchanged: EG10526 is the gene the landed
+        translation-level study
         (ko-and-media) already uses, so the two knockout mechanisms share a reference point,
         and it sits inside the lac operon, which exercises the straddling-feature branch of
         the round-trip invariant. On the real KB a lacY deletion truncates one transcription
         unit and shortens four others. A non-operonic gene would leave the second branch of
         the invariant untested.
     - name: effective-build-from-the-declared-manifest
-      gate: required-before-run
+      gate: satisfied
       detail: >-
-        Declaring a genotype is not the same as building from it. v2ecoli#457 gave the
-        parca generator bundle_manifest / bundle_overrides, but the declaration is
-        STRUCTURAL: step_01_initialize.py warns "the fit will proceed against the
-        injected raw_data; the declared manifest is provenance only". So a study run
-        today would build whatever raw_data it was handed and merely note a mismatch.
+        SATISFIED by v2ecoli#482, verified 2026-08-13 on main @ 60f3e4b8. Declaring a
+        genotype is not the same as building from it, and until #482 it was not:
+        step_01_initialize.py warned "the fit will proceed against the injected raw_data;
+        the declared manifest is provenance only", so a run would have built the wild type
+        and merely noted a mismatch.
+
+        #482 added _resolve_raw_data(): when no KnowledgeBaseEcoli is injected it builds
+        one, honouring the declared bundle_manifest via SourceBundle(base_manifest=...).
+        The chain is parca generator param -> _build_step_slots -> step_01_initialize.py
+        -> SourceBundle. The v2ecoli-parca CLI honours the same manifest. The residual
+        warning now fires only when an INJECTED raw_data disagrees with the declaration,
+        which is a mismatch alarm rather than a statement that declaration is inert.
+
+        Verified against a real lacY (EG10526) knockout bundle: genome spliced by exactly
+        1254 bp (the 361926-363179 span), the gene tombstoned with null coordinates, all
+        downstream features shifted by exactly 1254.
 
         Something must construct raw_data FROM the declared manifest when a study runs.
         Verified 2026-08-07 that v2ecoli#468 did NOT close this - that PR fixed override
@@ -142,10 +160,30 @@ conditions:
         Recorded as its own gate because a reader scanning this list would otherwise
         conclude the KO generator is the last blocker on the build path, and it is not.
     - name: ko-generator
-      gate: required-before-run
+      gate: satisfied
       detail: >-
-        The ecoli-sources KO generator that emits the perturbed bundle + manifest. Does not
-        exist yet; this study is its acceptance target.
+        SATISFIED. The ecoli-sources KO generator that emits the perturbed bundle +
+        manifest landed as ecoli-sources#12 and is reachable from v2ecoli: the pin in
+        pyproject.toml moved to rev 2dfabd52 in v2ecoli#471. Merging in ecoli-sources does
+        not make code reachable from v2ecoli until the pin moves, so both halves were
+        required.
+
+        This study was its acceptance target, and the generator passes it: knockout()
+        writes the six coupled canonical keys and compose_variant_bundle() produces a
+        manifest that ParCa builds from (see the effective-build gate above).
+
+report_cards:
+  - genotype_build_integrity
+
+# The card generates its own knockout bundle and builds raw_data for both arms, so
+# the four structural axes need no ParCa run. `mode` and `parca_state` are omitted
+# deliberately: without a built state the fit axes stay UNGRADED, which is the honest
+# outcome. Supply a full-mode parca_state to grade them - a fast-mode state must not
+# be graded (see the run-mode limitation).
+report_card_refs:
+  genotype_build_integrity:
+    gene_ids:
+      - EG10526
 
 inputs:
   - artifact: sim_data
@@ -238,13 +276,24 @@ tests:
     measure:
       kind: derived
       detail: >-
-        Condition count fitted (51 = full mode), cache-bundle artifact presence, and the
-        fitted AA-supply kcats against their wild-type values. RFC-007 flags ParCa-level
-        changes as interacting with mechanistic amino-acid supply parameter fitting, and
-        Riley identified this as the specific un-stress-tested area; genotype-03 probes it
-        with AA-pathway genes, and this axis is the general build-time detector. A
+        Condition count fitted, cache-bundle artifact presence, and the fitted AA-supply
+        kcats against their wild-type values. RFC-007 flags ParCa-level changes as
+        interacting with mechanistic amino-acid supply parameter fitting, and Riley
+        identified this as the specific un-stress-tested area; genotype-03 probes it with
+        AA-pathway genes, and this axis is the general build-time detector. A
         non-converging fit is RECORDED as the outcome, not treated as a broken study - for
         an essential gene it may be the correct answer.
+
+        Count fitted conditions as len(cell_specs), NOT len(conditions). Measured
+        2026-08-13 on main @ 60f3e4b8: a fast-mode build has conditions = 51 but
+        cell_specs = 7 (basal, with_aa, acetate, succinate, no_oxygen, and the two
+        CPLX-125 arms). `conditions` is the full condition LIST and reads 51 in both
+        modes, so an axis implemented against it would pass at 51 on a fast build and
+        never discriminate. cell_specs holds the conditions actually fitted, which is the
+        quantity this axis means.
+
+        Mode is therefore load-bearing and must be recorded with any result from this
+        axis. See the run-mode limitation below.
     pass_if:
       op: in_range
       # Band deliberately unset: what counts as an in-range kcat shift is exactly what the
@@ -261,7 +310,23 @@ readouts:
     description: Genome length before and after the deletion.
   - name: feature-inventory
     status: derived-needed
-    description: Counts of genes, transcription units and DNA sites before and after.
+    description: >-
+      Counts of genes, transcription units and DNA sites before and after.
+
+      DNA sites are counted EXCLUDING ids matching `G0-DNAA-*`. Those 13 rows
+      (oriC and dnaA-promoter DnaA boxes) are supplied by v2ecoli's
+      `flat_overrides/dna_sites.tsv`, not by the ecoli-sources base table. A
+      knockout variant generates the `dna_sites` key, and a generated key takes
+      precedence over the whole-file override (v2ecoli#466/#468), so the 13 rows
+      are absent from every knockout build. The count therefore falls by 13
+      regardless of which gene is deleted - measured identical for lacY
+      (EG10526), pgi (EG10702) and tpiA (EG11015) - which makes it a constant
+      property of the build path, not an effect of the perturbation. Including
+      them would attribute a fixed -13 offset to the knockout.
+
+      The exclusion keeps this readout measuring what it claims to measure. It
+      does not address the absence itself, which is tracked separately and is
+      out of scope for this study.
   - name: deleted-gene-set-membership
     status: derived-needed
     description: >-
@@ -346,3 +411,18 @@ limitations:
   - >-
       The AA-kcat axis has no band yet, so it is a recorded observation rather than a graded
       criterion on the first pass.
+  - >-
+      Run mode is load-bearing and the two tiers answer different questions. A fast-mode
+      build (~104 s measured) fits 7 of 51 conditions and is sufficient for the structural
+      readouts - sequence round-trip, chromosome length, feature inventory, and
+      deleted-gene set membership were all measured on one. A full-mode build (several
+      hours, per docs/generate_full_parca.md) fits all conditions and is required before
+      any claim about FITTED PARAMETER VALUES, because the CLI's own --allow-partial-fit
+      help flags step 9's mechanistic fits as failing on "numerically-marginal kinetics
+      (e.g. debug mode's truncated TF set)" - the exact regime a fast build is in. So
+      fast-mode kcat magnitudes are not trustworthy and must not be graded.
+
+      The practical consequence is that this study can screen a genotype panel cheaply in
+      fast mode and reserve full-mode builds for genotypes advancing to physiology. That
+      is what makes a panel or a genome-wide screen tractable at all: the alternative
+      prices every genotype at hours.

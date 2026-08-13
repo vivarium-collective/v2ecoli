@@ -35,9 +35,11 @@ def history_files(sweep_dir: str) -> list[str]:
             os.path.join(sweep_dir, "**", "history", "**", "*.pq"), recursive=True))
     # DuckDB's glob() lists object storage through the same httpfs extension the
     # read needs — so listing costs no extra dependency and no parquet read.
-    import duckdb
+    import tempfile
 
-    conn = duckdb.connect()
+    from pbg_emitters import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     configure_duckdb_s3(conn)
     pattern = sweep_dir.rstrip("/") + "/**/history/**/*.pq"
     try:
@@ -83,9 +85,11 @@ def connect_for(sweep_dir: str):
     The counterpart to :func:`history_files` for callers that own their own
     connection: pair the two and neither has to know where the sweep lives.
     """
-    import duckdb
+    import tempfile
 
-    conn = duckdb.connect()
+    from pbg_emitters import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     return conn

@@ -252,7 +252,9 @@ def resolve_validation_data(sim_data):
 
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
-    import duckdb
+    import tempfile
+
+    from pbg_emitters import create_duckdb_conn
 
     div_by_cell: dict[tuple, dict] = {}
     spath = os.path.join(sweep_dir, "summary.json")
@@ -277,7 +279,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
-    conn = duckdb.connect()
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -435,8 +437,10 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
     def _analysis_ctx() -> tuple:
         if not _ctx:
-            import duckdb
-            _ctx["conn"] = duckdb.connect()
+            import tempfile
+
+            from pbg_emitters import create_duckdb_conn
+            _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
             if is_s3_uri(sweep_dir):
                 configure_duckdb_s3(_ctx["conn"])
             _ctx["from_clause"] = _history_from_clause(sweep_dir)

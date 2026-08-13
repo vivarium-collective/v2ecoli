@@ -32,23 +32,35 @@ def test_all_connection_sites_use_configured_factory_not_bare_connect():
     ``v2ecoli.library.parquet_emitter`` / ``pbg_emitters`` — no new dependency)
     instead of a bare, unconfigured connection. This is a real source-content
     assertion, not a mock of DuckDB's own behavior (which ``pbg_emitters``
-    already owns and tests) — it only guards that THIS file keeps calling the
-    configured factory at every site, so a future edit can't silently
+    already owns and tests) — it only guards that the analysis DuckDB path keeps
+    calling the configured factory at every site, so a future edit can't silently
     reintroduce a bare ``duckdb.connect()``.
+
+    v2ecoli splits the connection sites across two modules (upstream vEcoli-private
+    kept them in one): ``sweep_io`` owns the S3/glob helpers (``history_files``,
+    ``connect_for``) and ``analysis_runner`` owns the record builders
+    (``build_cell_records``, ``run_analyses._analysis_ctx``). Both are scanned.
     """
     import inspect
+
+    import v2ecoli.library.sweep_io as sio
     import v2ecoli.workflow.analysis_runner as ar
 
-    source = inspect.getsource(ar)
-    assert "duckdb.connect()" not in source, (
-        "found a bare duckdb.connect() — every connection site must go through "
-        "create_duckdb_conn(temp_dir=...) so DuckDB can spill to disk instead "
-        "of OOM-killing the container (item 38)"
+    for mod in (ar, sio):
+        source = inspect.getsource(mod)
+        assert "duckdb.connect()" not in source, (
+            f"found a bare duckdb.connect() in {mod.__name__} — every connection "
+            "site must go through create_duckdb_conn(temp_dir=...) so DuckDB can "
+            "spill to disk instead of OOM-killing the container (item 38)"
+        )
+    connect_call_count = sum(
+        inspect.getsource(mod).count("create_duckdb_conn(temp_dir=")
+        for mod in (ar, sio)
     )
-    connect_call_count = source.count("create_duckdb_conn(temp_dir=")
-    assert connect_call_count == 3, (
-        f"expected all 3 known connection sites (history_files, "
-        f"build_cell_records, run_analyses._analysis_ctx) to use "
+    assert connect_call_count == 4, (
+        "expected all 4 known connection sites (sweep_io.history_files, "
+        "sweep_io.connect_for, analysis_runner.build_cell_records, "
+        "analysis_runner.run_analyses._analysis_ctx) to use "
         f"create_duckdb_conn(temp_dir=...), found {connect_call_count}"
     )
 

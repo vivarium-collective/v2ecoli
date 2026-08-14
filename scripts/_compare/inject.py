@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import inspect
 import json
 import os
 import sys
@@ -173,6 +174,43 @@ def _restore_ecoli(saved_real: dict, fork_repo: str) -> None:
         pass
 
 
+def _force_fork_class(fork_repo: str, cls: type) -> type:
+    """Return the FORK's version of a class, defeating the installed-vEcoli shadow.
+
+    ``registry.access(name)`` keeps the INSTALLED class for names shared with the
+    installed vEcoli (``_fork_registry``'s idempotent registration skips re-adding
+    the fork's). For a process that exists in BOTH — e.g. the antibiotic subsystem
+    (``antibiotic-transport-odeint``, ``permeability``, ...) — the installed class
+    can carry a DIFFERENT store structure and crash at runtime. Re-import the class
+    from the fork's own module and return that. No-op if ``cls`` is already the
+    fork's; falls back to ``cls`` if the fork copy can't be resolved."""
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    try:
+        if os.path.abspath(inspect.getfile(cls)).startswith(fork_abs):
+            return cls  # already the fork's
+    except Exception:  # noqa: BLE001 — builtins / no source file
+        pass
+    module, qualname = cls.__module__, cls.__qualname__
+    if fork_repo not in sys.path:
+        sys.path.insert(0, fork_repo)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    try:
+        with _idempotent_registration():
+            fork_mod = importlib.import_module(module)
+        obj = fork_mod
+        for part in qualname.split("."):
+            obj = getattr(obj, part)
+        return obj
+    except Exception:  # noqa: BLE001 — fall back to the shadowed class
+        return cls
+    finally:
+        _restore_ecoli(saved_real, fork_repo)
+
+
 def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     """Build a fork process's config from the FORK's own ``LoadSimData``.
 
@@ -302,6 +340,10 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             cls = registry.access(name)
         except KeyError:
             raise InjectionError(f"add/swap process {name!r} not in fork registry.")
+        # Defeat the installed-vEcoli shadow: for names shared with the installed
+        # ecoli, `access` returns the INSTALLED class (whose store layout may
+        # differ). Force the fork's own class so the transferred code actually runs.
+        cls = _force_fork_class(fork_repo, cls)
         kind = classify_process(cls)
         if kind == "partitioned":
             raise InjectionError(

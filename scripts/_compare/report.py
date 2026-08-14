@@ -41,6 +41,11 @@ _THEME_CSS = (
 
 _CSS = _THEME_CSS + """
 * { box-sizing: border-box; }
+/* Guarantee semantic bold renders bold everywhere. Component rules below
+   restyle <b>/<strong> COLOR (e.g. `.port b`) but must never drop weight;
+   some embedded card fragments also normalize font-weight, which made bold
+   text read as plain. Pin the weight up front so all bold stays bold. */
+b, strong { font-weight: 700; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   margin:0; background:var(--bg); color:var(--ink); line-height:1.45; }
 header.top { background:linear-gradient(135deg,#1f2937,#111827); color:#fff;

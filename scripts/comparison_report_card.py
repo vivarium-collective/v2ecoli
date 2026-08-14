@@ -280,27 +280,27 @@ def overview_section(cond_data: dict) -> dict:
     n_cond = len(cond_data)
     seeds_desc = (f"{next(iter(seed_counts))} seeds × gen-1 each"
                   if len(seed_counts) == 1 and seed_counts != {0}
-                  else "per-condition seeds (see column)")
+                  else "per-config seeds (see column)")
     th = ('padding:6px 11px;text-align:right;font-size:11px;'
           'text-transform:uppercase;letter-spacing:.5px;color:var(--muted)')
-    head = (f'<th style="{th};text-align:left">condition</th>'
+    head = (f'<th style="{th};text-align:left">config</th>'
             f'<th style="{th};text-align:center">seeds</th>'
             + "".join(f'<th style="{th}">{_e(lbl)}</th>' for _, lbl in cols)
-            + f'<th style="{th};text-align:left">condition verdict</th>')
+            + f'<th style="{th};text-align:left">config verdict</th>')
     hdr = (f'<p style="margin:0 0 12px;font-size:14px">'
            f'<b>Overall:</b> {_verdict_chip(overall)} '
-           f'&middot; {n_cond} condition{"s" if n_cond != 1 else ""} '
+           f'&middot; {n_cond} config{"s" if n_cond != 1 else ""} '
            f'&middot; {seeds_desc}</p>')
     table = (
         '<table style="border-collapse:collapse;width:100%;font-size:13px">'
         f'<thead><tr>{head}</tr></thead>'
         f'<tbody>{"".join(body_rows)}</tbody></table>')
-    return {"title": "Overview — all conditions", "kind": "content",
-            "desc": "Summary matrix — every condition (row) × every observable "
+    return {"title": "Overview — results by config", "kind": "content",
+            "desc": "Summary matrix — every config (row) × every measurement "
                     "(column). Each cell is the matched gen-1 |Δ| (median over "
                     "seeds), colored 5% within / 10% drift / else mismatch; "
-                    "vEcoli = reference. Trailing column = the condition's "
-                    "worst-axis verdict.",
+                    "the private reference repository = baseline. Trailing column "
+                    "= that config's worst-axis verdict.",
             "html": hdr + table}
 
 
@@ -787,6 +787,59 @@ def repositories_section(candidate: dict | None, reference: dict | None) -> dict
     }
 
 
+def how_to_read_section(candidate: dict | None, reference: dict | None) -> dict:
+    """Plain-language orientation for reviewers unfamiliar with the codebase
+    (security / compliance audience). States the report's two purposes, what it
+    is NOT (a full repository diff), and how to read each config block. All rich
+    text lives in ``html`` (the renderer escapes ``desc``)."""
+    cand_n = (candidate or {}).get("name", "this repository")
+    ref_n = (reference or {}).get("name", "the private reference repository")
+    body = (
+        f"<p style='margin:0 0 14px;line-height:1.55;font-size:14px'>"
+        f"This report has <strong>two purposes</strong>:</p>"
+        f"<ol style='margin:0 0 16px;padding-left:22px;line-height:1.55;font-size:14px'>"
+        f"<li style='margin-bottom:8px'><strong>Show the code that was transferred</strong> "
+        f"from the private repository (<b>{report._e(ref_n)}</b>) into "
+        f"<b>{report._e(cand_n)}</b>. Each transferred process is shown with its "
+        f"<strong>full source code</strong>, embedded inline in that config's section below.</li>"
+        f"<li style='margin-bottom:0'><strong>Demonstrate the behavioral impact</strong> "
+        f"of those transfers, by running both repositories in simulation and comparing "
+        f"their outputs through <strong>report cards</strong> (pass / drift / mismatch "
+        f"verdicts on standard whole-cell measurements).</li></ol>"
+        f"<div style='background:var(--card,#f8fafc);border-left:4px solid #f59e0b;"
+        f"padding:12px 16px;margin:0 0 16px;border-radius:4px;font-size:13.5px;line-height:1.55'>"
+        f"<strong>What this report is NOT:</strong> it is <strong>not a full repository "
+        f"diff</strong>. It does not enumerate every changed file. It focuses on the "
+        f"transferred simulation <em>processes</em> (the biological model code) and the "
+        f"measurable effect of running them.</div>"
+        f"<p style='margin:0 0 8px;line-height:1.55;font-size:14px'>"
+        f"<strong>How to read it:</strong></p>"
+        f"<ul style='margin:0;padding-left:22px;line-height:1.55;font-size:13.5px'>"
+        f"<li style='margin-bottom:6px'>Each section below is one <strong>config</strong> "
+        f"(a configuration file that defines a simulation scenario). "
+        f"<code>baseline</code> / <code>basal</code> is the plain wild-type cell with no "
+        f"transferred code &mdash; the control.</li>"
+        f"<li style='margin-bottom:6px'>A config either <strong>transfers a process</strong> "
+        f"(its source is embedded in that section) or only <strong>changes settings / the "
+        f"genome</strong> (no new code) &mdash; each section states which.</li>"
+        f"<li style='margin-bottom:6px'>Within a config: the <strong>transferred source "
+        f"code</strong> comes first, then the <strong>simulation runs</strong>, then the "
+        f"<strong>report-card evaluation</strong> comparing the two repositories.</li>"
+        f"<li style='margin-bottom:0'>Verdict colors: "
+        f"<span style='color:#16a34a;font-weight:700'>&#9679; within tolerance</span> &middot; "
+        f"<span style='color:#d97706;font-weight:700'>&#9679; drift</span> &middot; "
+        f"<span style='color:#dc2626;font-weight:700'>&#9679; mismatch</span>.</li></ul>")
+    return {
+        "title": "Overview — how to read this report",
+        "kind": "content",
+        "nav_group": "Overall",
+        "desc": ("Start here. This report shows (1) the simulation code transferred from "
+                 "the private repository into this one, and (2) the behavioral impact of "
+                 "those transfers via simulation report cards. It is not a full repository diff."),
+        "html": body,
+    }
+
+
 def converted_processes_section(cond: str, v2_build: dict | None) -> dict | None:
     """Surface the fork processes converted + injected into the v2ecoli composite,
     with each one's RESULTING process-bigraph schema (resolved port types) AND the
@@ -1036,17 +1089,18 @@ def conditions_map_section(summaries):
             f"<tr><td><b>{report._e(name)}</b></td>"
             f"<td><code>{report._e(s['config'])}</code></td>"
             f"<td>{_transfer_phrase(s)}</td></tr>")
-    table = ("<table><thead><tr><th>condition</th><th>config</th>"
+    table = ("<table><thead><tr><th>config</th><th>config file</th>"
              "<th>what it transfers / changes vs baseline</th></tr></thead><tbody>"
              + "".join(rows) + "</tbody></table>")
     return {
-        "title": "Conditions ↔ configs",
+        "title": "Configs in this report",
         "kind": "content",
         "nav_group": "Overall",
-        "desc": ("Each condition below IS a config from the reference repo, run on "
-                 "both engines. A config either transfers a process (its full source "
-                 "is embedded in that condition's section) or only changes the genome/"
-                 "settings. 'baseline' is the plain wild-type condition (no config)."),
+        "desc": ("Each row is one config (a configuration file defining a simulation "
+                 "scenario), run on both repositories. A config either transfers a "
+                 "process (its full source is embedded in that config's section below) "
+                 "or only changes the genome / settings. 'baseline' is the plain "
+                 "wild-type cell with no transferred code — the control."),
         "html": table,
     }
 
@@ -1057,10 +1111,10 @@ def _condition_banner(name, summary):
     html = (
         f"<div style='border-top:4px solid #2563eb;margin-top:8px;padding:14px 0 2px'>"
         f"<div style='font-size:12px;letter-spacing:.08em;color:#2563eb;"
-        f"font-weight:700'>CONDITION</div>"
+        f"font-weight:700'>CONFIG</div>"
         f"<div style='font-size:22px;font-weight:800;margin:2px 0'>"
         f"{report._e(name)}</div>"
-        f"<div style='font-size:13px'>config: <code>{report._e(summary['config'])}"
+        f"<div style='font-size:13px'>config file: <code>{report._e(summary['config'])}"
         f"</code> &nbsp;·&nbsp; {_transfer_phrase(summary)}</div></div>")
     return {"title": f"▸ {name}", "kind": "content", "nav_group": name,
             "desc": "", "html": html}
@@ -1328,7 +1382,11 @@ def main(argv=None):
     # checkout this script runs from; reference = the vEcoli fork at V2E_VECOLI_DIR.
     cand = _git_provenance(str(Path(__file__).resolve().parents[1]))
     ref = _git_provenance(os.environ.get("V2E_VECOLI_DIR"))
-    sections = [repositories_section(cand, ref)] + sections
+    # Reviewer orientation FIRST (plain-language purpose + how-to-read), then the
+    # repositories panel, then the results. Prevents the report being misread as a
+    # full repository diff.
+    sections = [how_to_read_section(cand, ref),
+                repositories_section(cand, ref)] + sections
     cand_lbl = f"{cand['name']} (v2ecoli)" if cand else "v2ecoli"
     ref_lbl = f"{ref['name']} (vEcoli)" if ref else "vEcoli"
     title = f"{cand_lbl} ↔ {ref_lbl} — whole-cell model comparison ({gen})"

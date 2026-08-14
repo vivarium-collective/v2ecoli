@@ -153,7 +153,23 @@ def write_run_identity_record(out_dir: str, record: dict) -> None:
     the record (e.g. to embed it in its own ``run_config``/``summary.json``
     too) doesn't pay for a second ``git``/cache-fingerprint round trip just
     to also write the canonical sidecar.
+
+    ``out_dir`` may be an ``s3://`` URI, in which case the write is delegated
+    to :func:`v2ecoli.cache.save_json`, exactly mirroring how the sibling
+    ``summary.json`` in ``v2ecoli/workflow/run.py`` is written. That matters
+    because the local path here is ``pathlib``-based and ``Path("s3://b/k")``
+    silently collapses to ``s3:/b/k`` — a sweep dispatched to S3 would
+    otherwise land its identity in a local directory named ``s3:`` and read
+    back as having none, which is the exact silent-provenance-loss failure
+    ``run_identity.json`` exists to prevent. ``save_json`` stages through a
+    temp file and uploads, so the S3 branch keeps the same all-or-nothing
+    property the local branch gets from ``os.replace``.
     """
+    if str(out_dir).startswith(_S3_PREFIX):
+        from v2ecoli.cache import save_json
+
+        save_json(record, out_dir.rstrip("/") + "/" + RUN_IDENTITY_FILENAME)
+        return
     path = Path(out_dir) / RUN_IDENTITY_FILENAME
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(".json.tmp")

@@ -92,3 +92,47 @@ def test_write_run_identity_is_atomic_no_half_file_on_write(tmp_path):
     assert sorted(p.name for p in out_dir.iterdir()) == [RUN_IDENTITY_FILENAME]
     with open(out_dir / RUN_IDENTITY_FILENAME) as f:
         json.load(f)  # well-formed, not a partial write
+
+
+def test_write_run_identity_record_routes_an_s3_out_dir_through_save_json(
+        monkeypatch, tmp_path):
+    """An ``s3://`` out_dir must be delegated to ``v2ecoli.cache.save_json``,
+    the same writer the sibling ``summary.json`` uses (#485).
+
+    Regression guard with teeth: the local path is ``pathlib``-based, and
+    ``Path("s3://bucket/run")`` silently collapses to ``s3:/bucket/run``. Without
+    this branch a sweep dispatched to S3 writes its identity into a local
+    directory literally named ``s3:`` and reads back as having none — provenance
+    lost with no error, which is the failure ``run_identity.json`` exists to
+    prevent. Never touches the network: ``save_json`` is monkeypatched.
+    """
+    import v2ecoli.cache
+
+    calls = []
+    monkeypatch.setattr(v2ecoli.cache, "save_json",
+                        lambda data, path: calls.append((data, path)))
+    monkeypatch.chdir(tmp_path)  # so a regression's stray local write lands here
+
+    record = {"code": {"commit": "s3run"}, "cache_version": {}, "design": {}}
+    write_run_identity_record("s3://bucket/sweeps/run-1", record)
+
+    assert calls == [(record, f"s3://bucket/sweeps/run-1/{RUN_IDENTITY_FILENAME}")]
+    # the pathlib collapse ("s3:/bucket/...") must not have happened
+    assert not (tmp_path / "s3:").exists()
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_write_run_identity_record_local_path_does_not_use_save_json(
+        monkeypatch, tmp_path):
+    """The other half of the branch: a local out_dir keeps the tmp-file +
+    os.replace path untouched and must NOT reach for save_json."""
+    import v2ecoli.cache
+
+    def _fail(*_a, **_k):
+        raise AssertionError("local write must not route through save_json")
+
+    monkeypatch.setattr(v2ecoli.cache, "save_json", _fail)
+
+    record = {"code": {"commit": "local"}, "cache_version": {}, "design": {}}
+    write_run_identity_record(str(tmp_path / "d"), record)
+    assert read_run_identity(str(tmp_path / "d")) == record

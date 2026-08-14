@@ -28,44 +28,15 @@ _HAS_CACHE = os.path.isdir(DEFAULT_CACHE_DIR)
 _skip_no_cache = pytest.mark.skipif(
     not _HAS_CACHE, reason=f"no ParCa cache at {DEFAULT_CACHE_DIR}")
 
-# KNOWN UPSTREAM BLOCKER (not a bug in this module's wiring): the real
-# ecoli_baseline sim runs to completion under CompositeTask's
-# `run_composite --build` subprocess (FBA solves, the ParquetEmitter writes
-# real per-seed output under the match's results/ dir) -- but that
-# subprocess's mandatory `--state-out` write then calls
-# `composite.serialize_schema()`, which walks v2ecoli's `LabeledArray` types
-# (`monomer_counts_vec` / `rna_init_event_per_cistron_vec`, registered with a
-# STRING `_data` by v2ecoli.steps.derivers.counts_deriver/rnap_data's
-# `register_labeled_array` -- deliberate, so the type survives a
-# dashboard serialize/rebuild round-trip, per its docstring) and crashes in
-# the installed `bigraph_schema==1.6.0` (pinned git commit 3322e39a,
-# non-editable, not one of this task's worktrees):
-#
-#   File ".../bigraph_schema/methods/serialize.py", line 386, in render
-#     data_schema = dtype_schema(schema._data)
-#   File ".../bigraph_schema/schema.py", line 409, in dtype_schema
-#     data = nf.dtype_to_descr(dtype)
-#   File ".../numpy/lib/_utils_impl.py", line 745, in drop_metadata
-#     if dtype.fields is not None:
-#   AttributeError: 'str' object has no attribute 'fields'
-#
-# Reproduced INDEPENDENTLY of this module: `python -m
-# process_bigraph.run_composite --build <hand-written ecoli_baseline recipe>
-# --state-out out.json` hits the identical traceback with no CompositeTask,
-# ResultsStep, or ReportCard involved -- so this is squarely a
-# bigraph_schema/v2ecoli-LabeledArray interaction never previously exercised
-# by a full ecoli_baseline `--state-out` write, not a v2ecoli/workflow/build.py
-# wiring defect. `xfail` (not `skip`): the assertion below intentionally
-# still runs so an upstream fix flips this to XPASS as a signal to remove
-# the marker.
-_xfail_upstream_dtype_bug = pytest.mark.xfail(
-    reason=(
-        "bigraph_schema.dtype_schema() cannot render v2ecoli's string-_data "
-        "LabeledArray types (monomer_counts_vec/rna_init_event_per_cistron_vec) "
-        "during composite.serialize_schema() -- AttributeError: 'str' object "
-        "has no attribute 'fields'. Upstream bigraph_schema bug, reproduced "
-        "independent of this module's wiring; see comment above."),
-    strict=False)
+# NOTE: an earlier revision of this suite xfailed the four run-based tests
+# below over a `--state-out` serialization crash inside the installed
+# `bigraph_schema==1.6.0` (v2ecoli's string-_data LabeledArray types --
+# monomer_counts_vec/rna_init_event_per_cistron_vec -- couldn't render).
+# Fixed upstream: process-bigraph commit d051665 makes `run_composite
+# --state-out` best-effort (writes a marker document + warns instead of
+# raising on a serialization failure), so the sim subprocess now exits 0
+# whenever the real run succeeded. These are real (non-xfail) assertions
+# again.
 
 
 # ── (a) unit: composite document shape, no run ──────────────────────────
@@ -100,7 +71,6 @@ def test_build_parca_sim_composite_seeds_store_is_a_list(tmp_path):
 # ── (b) MILESTONE integration: real run, real verdict ───────────────────
 
 @_skip_no_cache
-@_xfail_upstream_dtype_bug
 def test_milestone_workflow_runs_real_sims_and_produces_a_gating_verdict(tmp_path):
     outdir = str(tmp_path / "run")
     rc = main([
@@ -122,7 +92,6 @@ def test_milestone_workflow_runs_real_sims_and_produces_a_gating_verdict(tmp_pat
 
 
 @_skip_no_cache
-@_xfail_upstream_dtype_bug
 def test_milestone_workflow_verdict_status_and_real_results_handle(tmp_path):
     outdir = str(tmp_path / "run")
     composite = build_parca_sim_composite(
@@ -141,10 +110,31 @@ def test_milestone_workflow_verdict_status_and_real_results_handle(tmp_path):
     assert verdict["checks"][0]["name"] == "emitted_records"
 
 
+def _sim_launch_count(spy) -> int:
+    """How many of ``spy``'s captured ``subprocess.run`` calls actually
+    launched a ``run_composite`` sim subprocess.
+
+    The mock target (``process_bigraph.workflow.tasks.subprocess.run``)
+    patches the ``run`` attribute on the singleton ``subprocess`` module --
+    ``tasks.subprocess`` IS ``build.subprocess`` IS the one process-wide
+    module object -- so it also intercepts unrelated ``subprocess.run``
+    calls elsewhere in the same process, e.g. ``v2ecoli.workflow.build._git_sha``'s
+    ``git rev-parse HEAD`` lookup inside ``main()``. Count only calls whose
+    argv actually invokes ``process_bigraph.run_composite`` (the real sim
+    launch ``CompositeTask._run_match`` issues) so an unrelated subprocess
+    call never masquerades as a sim (re)run.
+    """
+    count = 0
+    for call in spy.call_args_list:
+        cmd = call.args[0] if call.args else call.kwargs.get("args")
+        if cmd and any("process_bigraph.run_composite" in str(part) for part in cmd):
+            count += 1
+    return count
+
+
 # ── (c) cache hit: second identical run, near-zero subprocess launches ──
 
 @_skip_no_cache
-@_xfail_upstream_dtype_bug
 def test_milestone_workflow_second_identical_run_is_a_cache_hit(tmp_path):
     outdir = str(tmp_path / "run")
     argv = [
@@ -158,9 +148,10 @@ def test_milestone_workflow_second_identical_run_is_a_cache_hit(tmp_path):
             "process_bigraph.workflow.tasks.subprocess.run",
             wraps=__import__("subprocess").run) as spy:
         assert main(argv) == 0
-        assert spy.call_count == 0, (
+        launches = _sim_launch_count(spy)
+        assert launches == 0, (
             f"expected zero sim subprocess launches on a cache-hit rerun, "
-            f"got {spy.call_count}")
+            f"got {launches} (raw call_count={spy.call_count})")
 
     prov_path = os.path.join(outdir, ".pbg", "work", "ecoli_baseline", "provenance.json")
     provenance = json.loads(open(prov_path).read())
@@ -171,7 +162,6 @@ def test_milestone_workflow_second_identical_run_is_a_cache_hit(tmp_path):
 # ── (d) cache miss: changed steps re-runs the sims ───────────────────────
 
 @_skip_no_cache
-@_xfail_upstream_dtype_bug
 def test_milestone_workflow_changed_steps_is_a_cache_miss(tmp_path):
     outdir = str(tmp_path / "run")
     base_argv = [
@@ -185,9 +175,10 @@ def test_milestone_workflow_changed_steps_is_a_cache_miss(tmp_path):
             "process_bigraph.workflow.tasks.subprocess.run",
             wraps=__import__("subprocess").run) as spy:
         assert main(base_argv + ["--steps", "7"]) == 0
-        assert spy.call_count == 2, (
+        launches = _sim_launch_count(spy)
+        assert launches == 2, (
             f"expected a real subprocess per seed on a steps-changed cache "
-            f"miss, got {spy.call_count}")
+            f"miss, got {launches} (raw call_count={spy.call_count})")
 
     prov_path = os.path.join(outdir, ".pbg", "work", "ecoli_baseline", "provenance.json")
     provenance = json.loads(open(prov_path).read())

@@ -1,7 +1,13 @@
 """Analyses as process-bigraph Steps that run on simulation results.
 
-Defines the AnalysisStep base, the five-scale registry mirroring vEcoli's
-analysis hierarchy, and one worked example (MassFractionSummary, ``single``
+The ``AnalysisStep``/``Analysis`` bases + ``ANALYSIS_SCALES`` registry now live
+in ``viva_superpowers.post_sim`` (the post-sim Step family's one home) and are
+re-exported here for back-compat: existing call sites
+(``from v2ecoli.workflow.analysis import AnalysisStep`` etc.) keep working
+unchanged.
+
+This module keeps the five-scale registry's concrete analyses mirroring
+vEcoli's analysis hierarchy, starting with MassFractionSummary (``single``
 scale). Each scale declares which slice of emitted results it reads:
 
     single          one cell's timeseries
@@ -17,121 +23,13 @@ from __future__ import annotations
 
 import statistics
 from v2ecoli.library.quantity_helpers import fg_magnitude
-from typing import Any
 
-from process_bigraph.composite import SyncUpdate
-
-from v2ecoli.steps.base import V2Step
-from v2ecoli.workflow.post_sim import register_post_sim
-
-
-# scale name -> human description of the result slice it consumes
-ANALYSIS_SCALES: dict[str, str] = {
-    "single": "one cell's timeseries",
-    "multidaughter": "sister cells from one division",
-    "multigeneration": "cells across a lineage's generations",
-    "multiseed": "cells across seeds of one variant",
-    "multivariant": "cells across all variants",
-}
-
-# analysis name -> AnalysisStep subclass. Populated by __init_subclass__ for any
-# subclass that defines its own ``name``; analysis_options entries resolve here.
-ANALYSIS_REGISTRY: dict[str, type] = {}
-
-
-class Analysis(V2Step):
-    """Visualization-like analysis: reads sim output via a DuckDB connection +
-    the ParCa ``sim_data``, and emits a rendered ``view`` (HTML) plus optional
-    ``data`` (map). Faithful native ports of vEcoli's ``plot()`` analyses build
-    on this base (cf. the record-based ``AnalysisStep`` for emitted-observable
-    analyses). Subclasses set ``scale`` + ``name`` and implement ``analyze``.
-
-    Live, non-serializable handles (``conn``, ``sim_data``) are injected by the
-    runner into the state dict passed to ``update``; ``inputs()`` declares them
-    for discoverability with a permissive ("any") type.
-    """
-
-    scale: str = "single"
-    config_schema = {}
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls.scale not in ANALYSIS_SCALES:
-            raise ValueError(
-                f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
-        if "name" in cls.__dict__:
-            ANALYSIS_REGISTRY[cls.name] = cls
-        if "name" in cls.__dict__:
-            register_post_sim(cls, "analysis")
-
-    def inputs(self):
-        return {
-            "conn": "any", "history_sql": "string",
-            "config_sql": "string", "success_sql": "string",
-            "sim_data": "any", "validation_data": "any",
-            "variant_metadata": "any",
-        }
-
-    def outputs(self):
-        return {"view": "string", "data": "map"}
-
-    def analyze(self, *, conn, history_sql, sim_data, **ctx) -> dict:
-        """Return {"view": <html str>, "data": <map>} (either key optional)."""
-        raise NotImplementedError
-
-    def invoke(self, state, interval=None):
-        # Fail loudly (like AnalysisStep): a broken analyze() must surface.
-        return SyncUpdate(self.update(state))
-
-    def update(self, state, interval=None):
-        kwargs = {k: state.get(k) for k in self.inputs()}
-        out = self.analyze(**kwargs) or {}
-        return {"view": out.get("view", ""), "data": out.get("data", {})}
-
-
-class AnalysisStep(V2Step):
-    """Base for result-consuming analysis Steps.
-
-    Subclasses set ``scale`` (one of ANALYSIS_SCALES) and implement
-    ``analyze(rows) -> dict``. ``rows`` is a list of emitted result records
-    (dicts shaped like the partitioned parquet rows / in-state snapshots) for
-    the slice this scale covers. The Step's update() reads ``results`` from
-    state and writes the analysis output to ``analysis``.
-    """
-
-    scale: str = "single"
-    config_schema = {}
-
-    def __init_subclass__(cls, **kwargs):
-        super().__init_subclass__(**kwargs)
-        if cls.scale not in ANALYSIS_SCALES:
-            raise ValueError(
-                f"{cls.__name__}.scale={cls.scale!r} not in {sorted(ANALYSIS_SCALES)}")
-        # Register concrete analyses (those declaring their own ``name``).
-        if "name" in cls.__dict__:
-            ANALYSIS_REGISTRY[cls.name] = cls
-        if "name" in cls.__dict__:
-            register_post_sim(cls, "analysis")
-
-    def inputs(self):
-        return {"results": "list"}
-
-    def outputs(self):
-        return {"analysis": "map"}
-
-    def analyze(self, rows: list[dict[str, Any]]) -> dict[str, Any]:
-        raise NotImplementedError
-
-    def invoke(self, state, interval=None):
-        # Analyses should fail loudly: unlike the simulation Steps (whose
-        # V2Step.invoke swallows errors to keep the step cascade alive), a
-        # broken or unimplemented analyze() must surface, not silently
-        # return {}.
-        return SyncUpdate(self.update(state))
-
-    def update(self, state, interval=None):
-        rows = state.get("results") or []
-        return {"analysis": self.analyze(rows)}
+from viva_superpowers.post_sim import (  # noqa: F401
+    ANALYSIS_REGISTRY,
+    ANALYSIS_SCALES,
+    Analysis,
+    AnalysisStep,
+)
 
 
 class MassFractionSummary(AnalysisStep):

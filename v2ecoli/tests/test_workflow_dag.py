@@ -5,9 +5,11 @@ runs under ``CompositeTask`` -> a real ``ResultsStep`` -> gating
 ``process_bigraph.workflow.run_workflow`` (``LocalRunner``).
 
 (a) is a pure unit test over the built (unrun) ``Composite`` document -- no
-cache needed. (b)-(d) actually RUN the workflow end to end against the real
-ParCa cache at ``v2ecoli.workflow.build.DEFAULT_CACHE_DIR`` and are skipped
-if that cache isn't present locally.
+cache needed -- and is marked ``fast``. (b)-(d) actually RUN the workflow end
+to end against the real ParCa cache at
+``v2ecoli.workflow.build.DEFAULT_CACHE_DIR`` (override via
+``V2ECOLI_PARCA_CACHE_DIR``); they're marked ``slow`` (real 60s+ sims) and
+skip if that cache isn't present.
 """
 from __future__ import annotations
 
@@ -22,7 +24,10 @@ import pytest
 from v2ecoli.workflow.build import DEFAULT_CACHE_DIR, build_parca_sim_composite, main
 
 
-pytestmark = pytest.mark.fast
+# No module-level `pytestmark`: this file mixes the two conventions --
+# (a)'s pure composite-shape tests are `fast` (no simulation cache needed),
+# while (b)-(d) launch real 60s+ ecoli_baseline sims and are `slow` (see
+# per-test markers below).
 
 _HAS_CACHE = os.path.isdir(DEFAULT_CACHE_DIR)
 _skip_no_cache = pytest.mark.skipif(
@@ -41,6 +46,7 @@ _skip_no_cache = pytest.mark.skipif(
 
 # ── (a) unit: composite document shape, no run ──────────────────────────
 
+@pytest.mark.fast
 def test_build_parca_sim_composite_wires_scatter_task_and_bridge(tmp_path):
     composite = build_parca_sim_composite(
         seeds=[0, 1], steps=2, outdir=str(tmp_path))
@@ -62,6 +68,7 @@ def test_build_parca_sim_composite_wires_scatter_task_and_bridge(tmp_path):
     assert "verdict" in bridge_outputs
 
 
+@pytest.mark.fast
 def test_build_parca_sim_composite_seeds_store_is_a_list(tmp_path):
     composite = build_parca_sim_composite(
         seeds=[0, 1, 2], steps=1, outdir=str(tmp_path))
@@ -70,6 +77,7 @@ def test_build_parca_sim_composite_seeds_store_is_a_list(tmp_path):
 
 # ── (b) MILESTONE integration: real run, real verdict ───────────────────
 
+@pytest.mark.slow
 @_skip_no_cache
 def test_milestone_workflow_runs_real_sims_and_produces_a_gating_verdict(tmp_path):
     outdir = str(tmp_path / "run")
@@ -91,6 +99,7 @@ def test_milestone_workflow_runs_real_sims_and_produces_a_gating_verdict(tmp_pat
         assert os.path.isdir(result_dir), f"seed {key}: expected a results dir at {result_dir}"
 
 
+@pytest.mark.slow
 @_skip_no_cache
 def test_milestone_workflow_verdict_status_and_real_results_handle(tmp_path):
     outdir = str(tmp_path / "run")
@@ -134,6 +143,7 @@ def _sim_launch_count(spy) -> int:
 
 # ── (c) cache hit: second identical run, near-zero subprocess launches ──
 
+@pytest.mark.slow
 @_skip_no_cache
 def test_milestone_workflow_second_identical_run_is_a_cache_hit(tmp_path):
     outdir = str(tmp_path / "run")
@@ -161,6 +171,7 @@ def test_milestone_workflow_second_identical_run_is_a_cache_hit(tmp_path):
 
 # ── (d) cache miss: changed steps re-runs the sims ───────────────────────
 
+@pytest.mark.slow
 @_skip_no_cache
 def test_milestone_workflow_changed_steps_is_a_cache_miss(tmp_path):
     outdir = str(tmp_path / "run")

@@ -28,6 +28,11 @@ Import ``v2ecoli`` first (module docstring convention shared with
 ``v2ecoli.steps.parca_bundle``): a pre-existing ``process_bigraph/emitter.py``
 circular import is avoided by importing v2ecoli before ``process_bigraph``
 touches it.
+
+The ParCa cache dir defaults to ``DEFAULT_CACHE_DIR`` (a canonical-checkout
+path), overridable via the ``V2ECOLI_PARCA_CACHE_DIR`` env var or the CLI's
+``--cache-dir`` -- portable across machines/CI where that literal path
+doesn't exist.
 """
 from __future__ import annotations
 
@@ -51,7 +56,11 @@ from viva_superpowers import ReportCardStep, ResultsStep
 #: Absolute default ParCa cache directory (a pre-built bundle -- see
 #: ``ParcaBundleStep``'s module docs). Never resolved relative to cwd: the
 #: milestone integration test/CLI may run from a neutral directory.
-DEFAULT_CACHE_DIR = "/Users/eranagmon/code/v2ecoli/out/cache"
+#: Overridable via ``V2ECOLI_PARCA_CACHE_DIR`` (e.g. on another machine/CI
+#: where the canonical checkout's ``out/cache`` doesn't exist) -- the literal
+#: path below is only the fallback when that env var is unset.
+DEFAULT_CACHE_DIR = os.environ.get(
+    "V2ECOLI_PARCA_CACHE_DIR", "/Users/eranagmon/code/v2ecoli/out/cache")
 
 
 # ── small adapter Steps (glue between ParcaBundleStep / CompositeTask /

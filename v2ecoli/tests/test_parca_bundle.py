@@ -10,6 +10,7 @@ hashes files that already exist at ``bundle_dir``.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -58,7 +59,9 @@ def test_parca_bundle_step_emits_sim_data_ref(bundle_dir):
 
     assert ref['kind'] == 'sim_data'
     assert ref['hash']
-    assert 'sim_data_cache.dill' in ref['store']
+    # store is the bundle DIRECTORY, not a file — downstream (T8/T9) injects
+    # it directly as load_cache_bundle's cache_dir, which requires a dir.
+    assert os.path.exists(os.path.join(ref['store'], 'sim_data_cache.dill'))
 
 
 def test_parca_bundle_step_hash_is_deterministic(bundle_dir):

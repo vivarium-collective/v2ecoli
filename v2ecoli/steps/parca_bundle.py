@@ -18,7 +18,8 @@ import os
 from process_bigraph import Step
 from process_bigraph.artifacts import ArtifactRef, SIM_DATA, write_fingerprint
 
-from v2ecoli.core import load_cache_bundle
+from v2ecoli.core import _cache_verify_skipped
+from v2ecoli.library.cache_version import verify_cache_version
 
 
 def _sha256_file(path: str, chunk_size: int = 1024 * 1024) -> bytes:
@@ -66,10 +67,15 @@ class ParcaBundleStep(Step):
 
     Fixture/pre-cached use only: ``bundle_dir`` must point at a directory a
     prior ParCa run (or a fixture-derived ``save_sim_input`` call) has
-    already populated. ``update()`` reuses ``v2ecoli.core.load_cache_bundle``
-    to verify the bundle is genuine and loadable (subject to the usual
-    ``V2ECOLI_SKIP_CACHE_VERIFY`` escape hatch for a worktree whose content
-    fingerprint has legitimately moved), then content-addresses its files.
+    already populated. ``update()`` reuses
+    ``v2ecoli.library.cache_version.verify_cache_version`` to check the
+    bundle is genuine (subject to the usual ``V2ECOLI_SKIP_CACHE_VERIFY``
+    escape hatch for a worktree whose content fingerprint has legitimately
+    moved) WITHOUT loading the (often hundreds-of-MB) dill payload itself,
+    then content-addresses its files. ``ref.store`` is the bundle
+    **directory** — downstream consumers (e.g. the T8/T9 sim) inject it
+    directly as ``load_cache_bundle``'s ``cache_dir`` argument, which joins
+    filenames onto it and requires a directory, not a file.
     """
 
     config_schema = {
@@ -85,11 +91,14 @@ class ParcaBundleStep(Step):
     def update(self, state):
         bundle_dir = self.config['bundle_dir']
 
-        # Validate bundle_dir is a genuine, loadable ParCa bundle before
-        # handing out a reference to it — reuses the same staleness check
-        # every other cache_dir consumer (e.g. ecoli_baseline) relies on,
-        # rather than re-deriving it here.
-        load_cache_bundle(bundle_dir)
+        # Validate bundle_dir is a genuine ParCa bundle before handing out a
+        # reference to it — the same staleness check every other cache_dir
+        # consumer (e.g. ecoli_baseline, load_cache_bundle) relies on, but
+        # WITHOUT the ~157MB dill load + deep-copy load_cache_bundle would
+        # otherwise force: this Step is orchestration plumbing, not a sim
+        # consumer, and must stay cheap.
+        if not _cache_verify_skipped():
+            verify_cache_version(bundle_dir)
 
         bundle_hash, context = _bundle_hash(bundle_dir)
 
@@ -102,7 +111,7 @@ class ParcaBundleStep(Step):
         ref = ArtifactRef(
             kind=SIM_DATA,
             hash=bundle_hash,
-            store=os.path.join(bundle_dir, 'sim_data_cache.dill'),
+            store=bundle_dir,
             context=context,
         )
         return {'sim_data': ref.to_dict()}

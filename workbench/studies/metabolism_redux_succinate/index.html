@@ -21,10 +21,6 @@
   </h1>
   <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
     
-    
-    
-    <button type="button" class="btn-mini" onclick="window._vivNotebookFromCard(event, 'whole-cell-model-comparison')" title="Download this study's investigation runnable notebook (includes this study)">↓ notebook</button>
-    
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
   </span>
@@ -319,6 +315,11 @@
 /* SVGs/PNGs scale to fit their card; preserves aspect ratio so a 1400×484
    chart shrinks instead of overflowing horizontally + clipping. */
 .figure-card svg,.figure-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+/* Inline SVGs with <foreignObject> HTML (loom figure exports) don't scale via
+   max-width in WebKit; study-detail.js _fitSvgScale shrinks them with a
+   transform inside this wrapper. overflow:hidden clips sub-pixel spill. */
+.figure-svg-scale{display:block;width:100%;overflow:hidden}
+.figure-svg-scale svg{display:block;max-width:none}
 .figure-desc{margin:8px 12px 0;font-size:0.85em;color:#475569}
 .figure-caption-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;font-size:0.85em;color:#475569;border-top:1px solid #f1f5f9;background:#f8fafc}
 .figure-source-chip{font-size:0.68em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#64748b;flex-shrink:0}
@@ -602,7 +603,11 @@
 
 
 <section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
-  <h2 class="overview-label" style="margin-bottom:8px">Model composition</h2>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+    <h2 class="overview-label" style="margin:0">Model composition</h2>
+    
+    <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'metabolism_redux_succinate', 'whole-cell-model-comparison')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
+  </div>
   
   
   
@@ -741,6 +746,9 @@
 <section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
 
   <div class="overview-section study-figures figure-gallery" id="visualize-section">
+
+    
+    
 
     <div id="native-gallery-panel" class="figure-mount"><p class="empty-message">Loading figures…</p></div>
 
@@ -1211,7 +1219,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "932a1894609bb1266356bf98129e2f8dc2e5df30", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/932a1894609bb1266356bf98129e2f8dc2e5df30", "branch": "main", "lockfile": "uv.lock@2e84860bb535", "generated_at": "2026-08-12 22:44 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "029cd67319154c184a7fd4a9fb03124df4472163", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/029cd67319154c184a7fd4a9fb03124df4472163", "branch": "main", "lockfile": "uv.lock@3b62350fb2eb", "generated_at": "2026-08-14 18:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "metabolism_redux_succinate";

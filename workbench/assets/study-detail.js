@@ -360,7 +360,8 @@
         + '></iframe>'
       : (c.img
         ? '<img class="chart-img figure-media" src="' + c.img + '" alt="' + (c.key || 'chart') + '" loading="lazy">'
-        : (c.svg || ''));
+        // Inline SVGs are wrapped so _fitSvgScale can shrink them (see below).
+        : (c.svg ? '<div class="figure-svg-scale">' + c.svg + '</div>' : ''));
     var desc = c.caption ? '<div class="chart-caption">' + c.caption + '</div>' : '';
     var runLink = c.run_id
       ? '<a href="#" class="figure-run-link" data-run-id="' + escapeHtmlForTests(String(c.run_id)) + '">from run '
@@ -373,6 +374,78 @@
       + runLink
       + '</div></div>';
   }
+
+  // Shrink one inline-SVG figure to its card width via CSS transform. Needed
+  // because loom figure SVGs carry <foreignObject> HTML that WebKit renders at
+  // intrinsic size (the `svg{max-width:100%}` rule scales the box but not the
+  // HTML inside it), overflowing the card. transform:scale() scales the whole
+  // subtree — foreignObject included — in every browser. Only ever shrinks;
+  // small figures keep their native size, left-aligned.
+  function _fitSvgScale(wrap) {
+    var svg = wrap && wrap.querySelector('svg');
+    if (!svg) return;
+    var vb = (svg.getAttribute('viewBox') || '').split(/[\s,]+/).map(parseFloat);
+    var iw = (vb.length === 4 && vb[2]) ? vb[2] : (parseFloat(svg.getAttribute('width')) || 0);
+    var ih = (vb.length === 4 && vb[3]) ? vb[3] : (parseFloat(svg.getAttribute('height')) || 0);
+    if (!iw || !ih) return;
+    // Pin the SVG to its intrinsic px size so the transform (not max-width) is
+    // the only thing scaling it — otherwise the two compound.
+    svg.style.width = iw + 'px';
+    svg.style.height = ih + 'px';
+    svg.style.maxWidth = 'none';
+    svg.style.transformOrigin = 'top left';
+    var cw = wrap.clientWidth || wrap.getBoundingClientRect().width || iw;
+    var scale = (cw > 0 && iw > cw) ? (cw / iw) : 1;
+    svg.style.transform = scale < 1 ? ('scale(' + scale + ')') : 'none';
+    // transform doesn't shrink the layout box, so reserve the scaled height
+    // explicitly (else the card leaves a full-height gap below the figure).
+    wrap.style.height = Math.ceil(ih * scale) + 'px';
+  }
+  function _fitAllSvgScales() {
+    var wraps = document.querySelectorAll('.figure-svg-scale');
+    for (var i = 0; i < wraps.length; i++) _fitSvgScale(wraps[i]);
+  }
+  window._fitAllSvgScales = _fitAllSvgScales;
+  // Re-fit on viewport resize (debounced); the card width tracks the window.
+  var _svgScaleRt;
+  window.addEventListener('resize', function () {
+    if (_svgScaleRt) window.clearTimeout(_svgScaleRt);
+    _svgScaleRt = window.setTimeout(_fitAllSvgScales, 120);
+  });
+
+  // "↓ visualizations" download. The button's markup lives in the study-detail
+  // shell but its handler was only defined in walkthrough.js — which the shell
+  // does NOT load — so the inline onclick threw ReferenceError and the button
+  // silently did nothing. Define it here (the shell loads study-detail.js).
+  // Probe first: the zip only holds declared IMAGE files, and in a snapshot an
+  // absent file 404s; a bare <a download> to a 404 reads as a broken button.
+  window._vivStudyFiguresFromCard = function (ev, slug) {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    var c = window.__DASH_CONFIG__ || {};
+    var base = c.basePath || '';
+    var url = (c.mode === 'snapshot')
+      ? base + '/figures/studies/' + encodeURIComponent(slug) + '.zip'
+      : '/api/study/' + encodeURIComponent(slug) + '/figures.zip';
+    function _notify(msg) {
+      if (typeof window._showToast === 'function') window._showToast(msg);
+      else window.alert(msg);
+    }
+    fetch(url).then(function (r) {
+      if (!r.ok) {
+        _notify('No downloadable figure archive for "' + slug + '" '
+          + '(its visualizations have no exportable image files).');
+        return null;
+      }
+      return r.blob();
+    }).then(function (blob) {
+      if (!blob) return;
+      var href = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = href; a.download = slug + '-figures.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      window.setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+    }).catch(function (e) { _notify('Figure download failed: ' + e); });
+  };
   // Figures tab (Fable A #3): the empty state is computed over the UNION of
   // the three figure sources — native gallery, embed_visualizations iframes
   // (server-rendered, present in the DOM from page load), and latest-run
@@ -526,7 +599,13 @@
     _nativeGalleryLoaded = true;
     var slug = studyName();
     fetch('/api/study-native-gallery/' + encodeURIComponent(slug))
-      .then(function (r) { return r.json(); })
+      // Check r.ok before r.json(): a non-OK response (404 in a static snapshot
+      // where this live-only endpoint is absent, or 5xx from an errored live
+      // route) is treated as "no panels" -> the clean empty state below, not the
+      // hard "Failed to load baseline figures." error. Guarding r.ok also avoids
+      // parsing an SPA HTML 404 body as JSON. Only a genuine network/parse
+      // failure now reaches .catch.
+      .then(function (r) { return r.ok ? r.json() : { run_id: null, panels: {} }; })
       .then(function (d) {
         var panels = (d && d.panels) || {};
         var names = Object.keys(panels);
@@ -656,6 +735,13 @@
       var composite = block.getAttribute('data-model-composite');
       var overridesJson = block.getAttribute('data-model-overrides') || '{}';
       if (!composite) { mount.innerHTML = ''; return; }
+      // Editing is only possible for a real study.baseline[] entry (the
+      // add-then-remove save below replaces THAT entry) -- the conditions-only
+      // fallback card (no .baseline-composite-input, see study-detail.html)
+      // has no baseline[] entry to replace, so it stays read-only, exactly
+      // like its existing "Set composite" control already does.
+      var baselineInput = block.querySelector('.baseline-composite-input');
+      var baselineName = baselineInput ? baselineInput.getAttribute('data-baseline-name') : '';
       fetch('/api/composite-resolve?id=' + encodeURIComponent(composite) + '&overrides=' + encodeURIComponent(overridesJson))
         .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
         .then(function (res) {
@@ -664,18 +750,73 @@
             return;
           }
           var overrides = {}; try { overrides = JSON.parse(overridesJson); } catch (e) {}
-          _renderModelConfig(mount, res.body.parameters, overrides, esc);
+          _renderModelConfig(mount, res.body.parameters, overrides, esc, composite, baselineName);
         }).catch(function () { mount.innerHTML = ''; });
     });
   }
   window._loadModelConfig = _loadModelConfig;
 
-  function _renderModelConfig(mount, params, overrides, esc) {
+  // Coerce a raw <input> string to the composite's declared parameter type —
+  // mirrors process_bigraph.composite_spec._cast's canonical type vocabulary
+  // (integer/float/string/boolean; list/map are JSON-parsed best-effort) so a
+  // saved override behaves the same as a composite-authored default of the
+  // same declared type instead of always landing as a raw string.
+  function _coerceParamValue(raw, type) {
+    switch (type) {
+      case 'integer': { var i = parseInt(raw, 10); return isNaN(i) ? raw : i; }
+      case 'float': { var f = parseFloat(raw); return isNaN(f) ? raw : f; }
+      case 'boolean': return /^(true|1|yes)$/i.test(String(raw).trim());
+      case 'list': case 'map':
+        try { return JSON.parse(raw); } catch (e) { return raw; }
+      default: return raw;
+    }
+  }
+
+  // Save edited baseline params via the SAME add-then-remove sequence
+  // .baseline-composite-set already uses (there is no single "update in
+  // place" endpoint — see that handler's own comment). Only params the user
+  // actually EDITED this session (input.dataset.edited) are merged into a
+  // COPY of the study's current full params (`overrides`) — an untouched
+  // param must never be silently promoted from "composite default" to a
+  // frozen explicit override just because a sibling field was edited, and an
+  // edited param must never wipe every other already-authored override.
+  function _saveModelParams(mount, overrides, btn, status) {
+    var merged = Object.assign({}, overrides || {});
+    var editedKeys = [];
+    mount.querySelectorAll('.model-param-input').forEach(function (input) {
+      if (input.dataset.edited !== '1') return;
+      merged[input.dataset.paramKey] = _coerceParamValue(input.value, input.dataset.paramType);
+      editedKeys.push(input.dataset.paramKey);
+    });
+    if (!editedKeys.length) { status.textContent = 'No changes to save.'; return; }
+    var composite = btn.dataset.composite;
+    var oldName = btn.dataset.baselineName;
+    var newName = oldName + '-' + Date.now().toString(36);
+    btn.disabled = true;
+    status.textContent = 'Saving…';
+    api('POST', '/api/study-baseline-add', {study: studyName(), name: newName, composite: composite, params: merged})
+      .then(function (addResult) {
+        if (addResult.status !== 200) throw addResult;
+        return api('POST', '/api/study-baseline-remove', {study: studyName(), name: oldName});
+      })
+      .then(function (r) {
+        if (r.status === 200) { location.reload(); return; }
+        btn.disabled = false;
+        status.textContent = 'Error: ' + (r.body && r.body.error || r.status);
+      })
+      .catch(function (addResult) {
+        btn.disabled = false;
+        status.textContent = 'Error: ' + (addResult.body && addResult.body.error || addResult.status);
+      });
+  }
+
+  function _renderModelConfig(mount, params, overrides, esc, composite, baselineName) {
     var keys = Object.keys(params);
     if (!keys.length) {
       mount.innerHTML = '<p class="muted" style="font-size:0.85em;margin:0">This composite takes no configurable parameters.</p>';
       return;
     }
+    var editable = !!baselineName;
     var effective = {};
     var rows = keys.map(function (k) {
       var def = params[k] || {};
@@ -683,10 +824,15 @@
       var val = overridden ? overrides[k] : def.default;
       effective[k] = val;
       var shown = (val === undefined || val === null) ? '—' : val;
+      var valueCell = editable
+        ? '<input type="text" class="model-param-input" data-param-key="' + esc(k) + '" ' +
+          'data-param-type="' + esc(def.type || '') + '" value="' + esc(shown === '—' ? '' : shown) + '" ' +
+          'style="width:100%;min-width:80px;font-family:monospace;font-size:0.85em;padding:2px 4px;box-sizing:border-box" />'
+        : '<code>' + esc(shown) + '</code>';
       return '<tr' + (overridden ? ' style="background:#eff6ff"' : '') + '>' +
         '<td style="padding:3px 8px"><code>' + esc(k) + '</code></td>' +
         '<td style="padding:3px 8px;color:#6b7280">' + esc(def.type || '') + '</td>' +
-        '<td style="padding:3px 8px"><code>' + esc(shown) + '</code>' +
+        '<td style="padding:3px 8px">' + valueCell +
         (overridden ? ' <span style="color:#2563eb;font-size:0.72em;font-weight:600">override</span>' : '') + '</td>' +
         '<td style="padding:3px 8px;color:#6b7280">' + esc(def.description || '') + '</td></tr>';
     }).join('');
@@ -697,9 +843,25 @@
       '<thead><tr>' + ['Parameter', 'Type', 'Value', 'Description'].map(function (h) {
         return '<th style="text-align:left;padding:3px 8px;border-bottom:1px solid #e5e7eb;color:#6b7280;">' + h + '</th>';
       }).join('') + '</tr></thead><tbody>' + rows + '</tbody></table></div>' +
+      (editable
+        ? '<div style="display:flex;align-items:center;gap:8px;margin-top:6px">' +
+          '<button type="button" class="action-btn model-config-save" style="font-size:0.8em">Save parameter changes</button>' +
+          '<span class="model-config-status muted" style="font-size:0.8em"></span></div>'
+        : '') +
       '<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:0.82em">Full resolved config (JSON)</summary>' +
       '<pre style="font-size:0.78em;background:#f8fafc;padding:8px;border-radius:4px;overflow-x:auto;margin:4px 0 0">' +
       esc(JSON.stringify(effective, null, 2)) + '</pre></details>';
+    if (!editable) return;
+    mount.querySelectorAll('.model-param-input').forEach(function (input) {
+      input.addEventListener('input', function () { input.dataset.edited = '1'; });
+    });
+    var saveBtn = mount.querySelector('.model-config-save');
+    var status = mount.querySelector('.model-config-status');
+    saveBtn.dataset.composite = composite || '';
+    saveBtn.dataset.baselineName = baselineName;
+    saveBtn.addEventListener('click', function () {
+      _saveModelParams(mount, overrides, saveBtn, status);
+    });
   }
 
   // Simulations tab: the study's runs rendered with the SHARED Simulations-DB
@@ -784,6 +946,7 @@
         '<div style="margin-top:10px">' + sectionLabel('Results') + resultsHtml + '</div>' +
       '</div>';
     _wireFigureRunLinks(host);
+    window.requestAnimationFrame(_fitAllSvgScales);
     host.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
   window._showRunDetail = _showRunDetail;
@@ -838,6 +1001,8 @@
         }
         panel.innerHTML = html;
         _wireFigureRunLinks(panel);
+        // rAF: measure card width after layout so the transform scale is right.
+        window.requestAnimationFrame(_fitAllSvgScales);
         if (panelId === 'viz-charts-panel') {
           _figuresSourceState.charts = true;
           _updateFiguresEmptyState();
@@ -1133,21 +1298,58 @@
   // function fired the actual AWS Batch dispatch. Show it and require an
   // explicit confirm, so a workspace-identity mismatch is caught here, before
   // money gets spent, not discovered afterward via aws batch describe-jobs.
+  //
+  // Deliberate addition beyond the || 1 removal below: window._study can be a
+  // STALE in-memory copy fetched before a param edit landed server-side (a
+  // confirmed real failure mode, not theoretical -- a tab left open across a
+  // baseline-param save re-dispatched the OLD 1x1 params from memory even
+  // though study.yaml on disk was already correct). Re-fetching via
+  // window.DataSource.loadStudy immediately before reading params closes that
+  // gap; window._study is refreshed too so the rest of the page stops reading
+  // stale state from this point on as well.
   function _dispatchRemotePinned(cfg) {
-    var msg = 'Dispatch to AWS Batch:\n\n' +
-      '  repo:    ' + (cfg.repo_url || '(unknown)') + '\n' +
-      '  branch:  ' + (cfg.branch || '(unknown)') + '\n' +
-      '  commit:  ' + ((cfg.commit || '(unknown)').slice(0, 12)) + '\n' +
-      '  simulator id: ' + cfg.simulator_id + '\n\n' +
-      'Proceed?';
-    if (!confirm(msg)) return _CANCELLED;
-    var baseline = (window._study && window._study.baseline) || [];
-    var params = (baseline[0] && baseline[0].params) || {};
-    return api('POST', '/api/remote-run-submit', {
-      study: studyName(),
-      simulator_id: cfg.simulator_id,
-      num_generations: params.n_generations || 1,
-      num_seeds: params.n_seeds || 1,
+    var slug = studyName();
+    var refetch = (window.DataSource && window.DataSource.loadStudy)
+      ? window.DataSource.loadStudy(slug).catch(function () { return null; })
+      : Promise.resolve(null);
+    return refetch.then(function (freshStudy) {
+      if (freshStudy) window._study = freshStudy;
+      var baseline = (window._study && window._study.baseline) || [];
+      var params = (baseline[0] && baseline[0].params) || {};
+      var numGenerations = params.n_generations;
+      var numSeeds = params.n_seeds;
+      // n_generations/n_seeds directly size a real AWS Batch job -- unlike
+      // ordinary composite params (already correctly default-backed via
+      // /api/composite-resolve, untouched here), an explicit value the user
+      // set must NEVER be silently replaced by a default. An unset value
+      // blocks the dispatch outright rather than falling back to 1x1.
+      var missing = [];
+      if (!numGenerations) missing.push('n_generations');
+      if (!numSeeds) missing.push('n_seeds');
+      if (missing.length) {
+        alert(
+          'Cannot dispatch: ' + missing.join(' and ') +
+          (missing.length > 1 ? ' are' : ' is') + ' not set.\n\n' +
+          'Set ' + (missing.length > 1 ? 'both' : 'it') + ' in the Model tab ' +
+          '(Runnable models → edit ' + missing.join(' / ') + ' → Save parameter changes) before running.'
+        );
+        return _CANCELLED;
+      }
+      var msg = 'Dispatch to AWS Batch:\n\n' +
+        '  repo:    ' + (cfg.repo_url || '(unknown)') + '\n' +
+        '  branch:  ' + (cfg.branch || '(unknown)') + '\n' +
+        '  commit:  ' + ((cfg.commit || '(unknown)').slice(0, 12)) + '\n' +
+        '  simulator id: ' + cfg.simulator_id + '\n' +
+        '  generations:  ' + numGenerations + '\n' +
+        '  seeds:        ' + numSeeds + '\n\n' +
+        'Proceed?';
+      if (!confirm(msg)) return _CANCELLED;
+      return api('POST', '/api/remote-run-submit', {
+        study: slug,
+        simulator_id: cfg.simulator_id,
+        num_generations: numGenerations,
+        num_seeds: numSeeds,
+      });
     });
   }
   window._dispatchCurrentSpecBaseline = _dispatchCurrentSpecBaseline;

@@ -59,6 +59,7 @@ from v2ecoli.composites._helpers import (
 from v2ecoli.core import build_core
 from v2ecoli.library.sqlite_run import run_multigen_sqlite
 from v2ecoli.library.parquet_run import run_multigen_parquet
+from v2ecoli.library.run_provenance import write_run_identity
 
 
 INVESTIGATION_SLUG = "multiscale-bioprocess"
@@ -405,6 +406,23 @@ def _run_one_variant(
         max_step = n_rows - 1 if n_rows > 0 else 0
         artifact = str(
             (parquet_root / simulation_id).relative_to(REPO_ROOT)
+        )
+        # v2ecoli#472/#473: canonical run_identity.json sidecar, at the actual
+        # sweep_dir sim_vector_cache._run_commit reads (out_dir/experiment_id,
+        # not out_dir itself — this runner nests one experiment_id per run
+        # under a shared per-study parquet_root).
+        write_run_identity(
+            str(parquet_root / simulation_id), cache_dir=cache_dir,
+            design={
+                "experiment_id": simulation_id,
+                "sim_name": sim_name,
+                "study_slug": study_slug,
+                "investigation_slug": INVESTIGATION_SLUG,
+                "duration_sec": duration_sec,
+                "max_generations": max_generations,
+                "chunk": chunk,
+                "single_daughters": single_daughters,
+            },
         )
 
     else:

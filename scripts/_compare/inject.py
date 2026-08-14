@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import importlib
+import inspect
 import json
 import os
 import sys
@@ -173,6 +174,43 @@ def _restore_ecoli(saved_real: dict, fork_repo: str) -> None:
         pass
 
 
+def _force_fork_class(fork_repo: str, cls: type) -> type:
+    """Return the FORK's version of a class, defeating the installed-vEcoli shadow.
+
+    ``registry.access(name)`` keeps the INSTALLED class for names shared with the
+    installed vEcoli (``_fork_registry``'s idempotent registration skips re-adding
+    the fork's). For a process that exists in BOTH — e.g. the antibiotic subsystem
+    (``antibiotic-transport-odeint``, ``permeability``, ...) — the installed class
+    can carry a DIFFERENT store structure and crash at runtime. Re-import the class
+    from the fork's own module and return that. No-op if ``cls`` is already the
+    fork's; falls back to ``cls`` if the fork copy can't be resolved."""
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    try:
+        if os.path.abspath(inspect.getfile(cls)).startswith(fork_abs):
+            return cls  # already the fork's
+    except Exception:  # noqa: BLE001 — builtins / no source file
+        pass
+    module, qualname = cls.__module__, cls.__qualname__
+    if fork_repo not in sys.path:
+        sys.path.insert(0, fork_repo)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    try:
+        with _idempotent_registration():
+            fork_mod = importlib.import_module(module)
+        obj = fork_mod
+        for part in qualname.split("."):
+            obj = getattr(obj, part)
+        return obj
+    except Exception:  # noqa: BLE001 — fall back to the shadowed class
+        return cls
+    finally:
+        _restore_ecoli(saved_real, fork_repo)
+
+
 def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     """Build a fork process's config from the FORK's own ``LoadSimData``.
 
@@ -188,25 +226,106 @@ def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     return dict(loader.get_config_by_name(name))
 
 
-def translate_vivarium_topology(topo: dict) -> dict[str, list]:
-    """Translate a vivarium-1.0 topology to process-bigraph port→store paths.
+def _compose_store_path(base: list, rel) -> list:
+    """Resolve a vivarium sub-path ``rel`` against an accumulated ``base``.
 
-    A flat entry ``port: (a, b)`` becomes ``port: [a, b]``. A *nested* vivarium
-    entry ``port: {"_path": base, sub: relpath, ...}`` wires the port to its
-    ``_path`` base store (the subports live under it, matching the bridged
-    process's typed sub-ports) — so a metabolism ``environment`` port declared as
-    ``{"_path": ("environment",), "exchange": ("exchange",)}`` auto-wires to
-    ``["environment"]`` instead of the corrupt ``["_path", "exchange"]`` a plain
-    ``list()`` produced. Ports with no ``_path`` fall back to the port name.
+    Applies vivarium path semantics for a SINGLE-CELL mount (the harness injects
+    into the top-level ``ecoli_baseline``, not a spatial ``agents/<id>``
+    compartment):
+      - ``".."`` pops one segment off ``base``; when ``base`` is already at root
+        it is the *phantom agent-compartment hop* the spatial config assumes but
+        the single-cell composite lacks — consumed as a no-op so the leaf lands
+        root-relative (e.g. ``species.bulk: ["..","bulk"] -> ["bulk"]``).
+      - ``"null"`` / ``None`` are grouping markers that contribute no store
+        segment (they appear as ``_path: ["null"]``) — skipped.
+      - any other segment is appended.
     """
-    out: dict[str, list] = {}
-    for port, path in dict(topo).items():
-        if isinstance(path, dict):
-            base = path.get("_path", (port,))
-            out[port] = list(base)
+    path = list(base)
+    for seg in list(rel):
+        if seg == "..":
+            if path:
+                path.pop()
+        elif seg in ("null", None):
+            continue
         else:
-            out[port] = list(path)
+            path.append(seg)
+    return path
+
+
+def _has_scatter(node) -> bool:
+    """True if a topology subtree wires leaves ACROSS stores (``..``-relative
+    paths or a ``["null"]`` grouping ``_path``) rather than all under one base.
+
+    A non-scattered nested port (metabolism's ``environment``:
+    ``{"_path": ("environment",), "exchange": ("exchange",)}``) mounts its WHOLE
+    port subtree at the base store, so subports the topology doesn't name (e.g.
+    ``environment.media_id`` / ``environment.exchange_data``, read but unmapped)
+    still resolve. A scattered port (vEcoli's antibiotic subsystem) needs each
+    named leaf wired individually."""
+    if isinstance(node, dict):
+        p = node.get("_path")
+        if p is not None and any(s in ("null", None) for s in list(p)):
+            return True
+        return any(_has_scatter(v) for k, v in node.items() if k != "_path")
+    return ".." in list(node)
+
+
+def translate_vivarium_topology(topo: dict, _base: list | None = None) -> dict:
+    """Translate a vivarium-1.0 topology to a process-bigraph wires tree.
+
+    A flat entry ``port: (a, b)`` becomes ``port: [a, b]``. A nested port with a
+    real ``_path`` and NO cross-store scatter collapses to that base (so the
+    whole port subtree mounts there — preserving vivarium's convention that
+    unmapped subports resolve under the base; this is metabolism's ``environment``
+    and matches the pre-existing behavior exactly). A *scattered* nested port —
+    vEcoli's antibiotic subsystem, whose sub-ports fan out across stores via
+    ``..``-relative paths (e.g. ``mecillinam.species.bulk -> ["..","bulk"]``,
+    ``mecillinam.reaction_parameters.decay.kf ->
+    ["..","kinetic_parameters","mecillinam","decay_kf"]``) — is preserved as a
+    nested wires tree so ``make_edge``/``list_paths`` wires each leaf to its real
+    store. Collapsing a scattered port to its ``_path`` base silently dropped
+    every leaf (the bulk store never reached the process → ``bulk["id"]`` on a
+    bare list). Each leaf resolves to a root-relative path via
+    :func:`_compose_store_path` (the single-cell mount consumes the phantom
+    agent-compartment ``..``).
+    """
+    base = list(_base or [])
+    out: dict = {}
+    for port, path in dict(topo).items():
+        if port == "_path":
+            continue
+        if isinstance(path, dict):
+            real_path = None
+            if "_path" in path and not any(s in ("null", None) for s in list(path["_path"])):
+                real_path = path["_path"]
+            if real_path is not None and not _has_scatter(path):
+                # Simple subtree (metabolism): collapse to the base store.
+                out[port] = _compose_store_path(base, real_path)
+            else:
+                # Scattered subsystem (antibiotic): wire each leaf individually.
+                sub_base = _compose_store_path(base, real_path) if real_path is not None else base
+                out[port] = translate_vivarium_topology(path, _base=sub_base)
+        else:
+            out[port] = _compose_store_path(base, path)
     return out
+
+
+def _iter_leaf_paths(topology):
+    """Yield ``(port_key_path, store_path)`` for every leaf in a (possibly
+    nested) translated topology. ``store_path`` is a list; ``port_key_path`` is
+    the tuple of nested port names leading to it. Flat entries yield one leaf."""
+    def walk(node, prefix):
+        if isinstance(node, dict):
+            for k, v in node.items():
+                yield from walk(v, prefix + (k,))
+        else:
+            yield prefix, node
+    yield from walk(topology, ())
+
+
+def _topology_store_roots(topology) -> set:
+    """Root store names touched by any leaf of a translated topology."""
+    return {p[0] for _, p in _iter_leaf_paths(topology) if p}
 
 
 def _deep_merge(base: dict, over: dict) -> dict:
@@ -302,6 +421,10 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             cls = registry.access(name)
         except KeyError:
             raise InjectionError(f"add/swap process {name!r} not in fork registry.")
+        # Defeat the installed-vEcoli shadow: for names shared with the installed
+        # ecoli, `access` returns the INSTALLED class (whose store layout may
+        # differ). Force the fork's own class so the transferred code actually runs.
+        cls = _force_fork_class(fork_repo, cls)
         kind = classify_process(cls)
         if kind == "partitioned":
             raise InjectionError(
@@ -338,7 +461,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
 
         # Slice the config's resolved initial_state to THIS process's topology
         # roots, so each process seeds only the stores it actually wires.
-        roots = {path[0] for path in topo.values() if path}
+        roots = _topology_store_roots(topo)
         proc_initial = {r: config_initial_state[r]
                         for r in roots if r in config_initial_state}
 
@@ -437,15 +560,44 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
     except Exception as e:  # noqa: BLE001 — never block injection on schema probe
         print(f"[inject] {name}: ports_schema probe skipped ({type(e).__name__}: {e})")
         return
-    for port, path in topology.items():
+    for port_keys, path in _iter_leaf_paths(topology):
         if not path:
             continue
-        defaults = _schema_defaults(pschema.get(port) if isinstance(pschema, dict) else None)
-        node = cell_state
-        for seg in path:
-            node = node.setdefault(seg, {})
-        if defaults and isinstance(node, dict):
-            _merge_missing(node, defaults)
+        # Follow the nested port-key path into the (nested) ports_schema to find
+        # this leaf's declared default(s); a scattered antibiotic sub-port like
+        # ``mecillinam.species.bulk`` seeds only the store it actually wires.
+        schema_node = pschema if isinstance(pschema, dict) else None
+        for k in port_keys:
+            schema_node = schema_node.get(k) if isinstance(schema_node, dict) else None
+        if isinstance(schema_node, dict) and "_default" in schema_node:
+            # A LEAF port (e.g. ``volumes.cytoplasm`` -> ``0 * units.fL``): seed
+            # the store itself with the default VALUE, not an empty ``{}``.
+            # Leaving ``{}`` makes pbg realize a ``quantity``-typed store against a
+            # dict with no ``magnitude`` field -> ``KeyError: 'magnitude'`` at
+            # build. Only fill if the store slot is still absent (composite wins).
+            default_val = schema_node["_default"]
+            # SKIP empty-string ports_schema placeholders (vEcoli's antibiotic
+            # declares ``reaction_parameters`` leaves as ``""`` — real values are
+            # serializer tags resolved by the bridge's initial_state() overlay,
+            # #489). Seeding "" into a ``quantity``-typed store (``kinetic_parameters``
+            # rate constants, written by ``permeability``) makes pbg realize an
+            # empty-string pint magnitude at build. Leaving the slot absent lets
+            # the wrapped process's overlaid port default (the deserialized
+            # quantity) flow in instead.
+            if isinstance(default_val, str) and default_val == "":
+                continue
+            parent = cell_state
+            for seg in path[:-1]:
+                parent = parent.setdefault(seg, {})
+            if isinstance(parent, dict) and path[-1] not in parent:
+                parent[path[-1]] = default_val
+        else:
+            defaults = _schema_defaults(schema_node)
+            node = cell_state
+            for seg in path:
+                node = node.setdefault(seg, {})
+            if defaults and isinstance(node, dict):
+                _merge_missing(node, defaults)
     # Overlay the config-resolved initial_state (config wins over schema
     # defaults) onto the NEW stores this injection introduced. Roots that v2's
     # baseline already owns (``protected_roots`` — e.g. the structured ``bulk``
@@ -464,8 +616,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
         else:
             cell_state[root] = value
     # Surface what top-level stores this process introduced / seeded.
-    intro = sorted({path[0] for path in topology.values()
-                    if path and path[0] in cell_state})
+    intro = sorted({r for r in _topology_store_roots(topology) if r in cell_state})
     seeded = sorted(r for r in (initial_state or {}) if r not in protected)
     if skipped:
         print(f"[inject] {name}: config initial_state for baseline store(s) "
@@ -528,8 +679,15 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             if spec.get("defer_ports") is not None:
                 defer_ports = list(spec["defer_ports"])
             else:
+                # Auto-defer only FLAT top-level ports whose root store exists —
+                # deferring sets a port to {_type:node}, which for a nested,
+                # *scattered* port (antibiotic's ``mecillinam``) would erase the
+                # ``bulk_array`` typing its ``species.bulk`` leaf needs. Scattered
+                # ports keep their translate_ports typing (bulk stays bulk_array);
+                # per-leaf store-type deferral, where needed, is handled by the
+                # nested wiring landing on the composite's own typed stores.
                 defer_ports = [p for p, path in spec["topology"].items()
-                               if path and path[0] in cell_state]
+                               if isinstance(path, list) and path and path[0] in cell_state]
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
                                             as_step=spec["as_step"],
                                             output_ports=spec.get("output_ports"),
@@ -538,9 +696,8 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
                                             attach_pint_ports=spec.get("attach_pint_ports"))
         else:  # pbg_native
             wrapped = cls
-            for port, path in spec["topology"].items():
-                root = path[0] if path else None
-                if root is not None and root not in cell_state:
+            for root in _topology_store_roots(spec["topology"]):
+                if root not in cell_state:
                     cell_state[root] = {}
         core.register_link(spec["name"], wrapped)
         # ALSO register under the exact address make_edge() will stamp on this

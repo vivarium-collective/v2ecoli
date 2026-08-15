@@ -56,12 +56,12 @@ def build_core():
     except Exception:
         pass
     try:
-        from pbg_emitters import ParquetEmitter
+        from viva_emitters import ParquetEmitter
         core.register_link("ParquetEmitter", ParquetEmitter)
     except Exception:
         pass
     try:
-        from pbg_emitters import XArrayEmitter
+        from viva_emitters import XArrayEmitter
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass

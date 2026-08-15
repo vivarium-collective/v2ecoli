@@ -31,6 +31,14 @@ def test_tiny_sweep_runs_to_completion(tmp_path):
     result = run_workflow(config, max_sim_time=20.0, pbg_out=str(tmp_path / "sweep.pbg"))
     assert result["complete"] is True
     assert os.path.exists(str(tmp_path / "sweep.pbg"))
+
+    # v2ecoli#472/#473: the driver writes the canonical run_identity.json
+    # sidecar next to summary.json; sim_vector_cache._run_commit reads it.
+    from v2ecoli.library.run_provenance import read_run_identity
+    identity = read_run_identity(str(tmp_path / "parquet"))
+    assert identity is not None
+    assert identity["code"]["commit"]
+    assert identity["design"]["experiment_id"] == "smoke"
     # one branch, completed
     assert len(result["branches"]) == 1
     assert all(b["complete"] for b in result["branches"].values())

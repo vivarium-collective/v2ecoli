@@ -33,6 +33,7 @@ from v2ecoli.types import ECOLI_TYPES
 
 __all__ = [
     "build_core",
+    "register_ecoli_core",
     "load_cache_bundle",
     "save_cache",
     "save_sim_input",
@@ -40,9 +41,16 @@ __all__ = [
 ]
 
 
-def build_core():
-    """Create and configure a bigraph-schema core with ecoli types."""
-    core = allocate_core()
+def register_ecoli_core(core):
+    """Register ecoli types/links onto an EXISTING bigraph-schema core.
+
+    Behavior-preserving split of ``build_core``'s post-``allocate_core()``
+    body: this is the piece a ``@composite_generator``'s ``core_extensions``
+    hook needs (see ``v2ecoli.composites.ecoli_baseline``) so a generic
+    runner can provision a bare core via ``core_extensions`` alone, without
+    calling ``build_core()`` itself. ``build_core()`` below is now just
+    ``register_ecoli_core(allocate_core())``.
+    """
     core.register_types(ECOLI_TYPES)
     # Register emitters as links so they're discoverable (dashboard scans
     # core.link_registry for Emitter subclasses). Parquet stays the default
@@ -114,6 +122,11 @@ def build_core():
     except Exception:  # noqa: BLE001 — never let card registration break build_core
         pass
     return core
+
+
+def build_core():
+    """Create and configure a bigraph-schema core with ecoli types."""
+    return register_ecoli_core(allocate_core())
 
 
 # Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite

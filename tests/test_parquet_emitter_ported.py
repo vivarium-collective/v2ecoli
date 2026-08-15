@@ -48,7 +48,6 @@ from v2ecoli.library.parquet_emitter import (  # noqa: E402
     ParquetEmitter,
     create_duckdb_conn,
     flatten_dict,
-    json_to_parquet,
     list_columns,
     named_idx,
     ndidx_to_duckdb_expr,

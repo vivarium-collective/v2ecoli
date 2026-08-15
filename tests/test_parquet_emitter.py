@@ -13,7 +13,7 @@ import pytest
 # Skip cleanly in that case.
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 
 @pytest.mark.fast

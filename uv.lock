@@ -2912,32 +2912,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbg-emitters"
-version = "0.2.1"
-source = { git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main#d34c2518bbcc330659f5b5dedfbd5a0b19cf026b" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-]
-
-[package.optional-dependencies]
-parquet = [
-    { name = "duckdb" },
-    { name = "fsspec" },
-    { name = "polars" },
-    { name = "pyarrow" },
-    { name = "tqdm" },
-]
-xarray = [
-    { name = "pint" },
-    { name = "unum" },
-    { name = "xarray" },
-    { name = "zarr" },
-    { name = "zarrs" },
-]
-
-[[package]]
 name = "pbg-ketchup"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main#c023e55902e8fa72754118f951bbfde5e2a4deaa" }
@@ -4554,7 +4528,6 @@ dependencies = [
     { name = "pandas" },
     { name = "pbg-bioreactordesign" },
     { name = "pbg-copasi" },
-    { name = "pbg-emitters", extra = ["parquet", "xarray"] },
     { name = "pbg-ketchup" },
     { name = "pbg-parsimony" },
     { name = "pbg-torch" },
@@ -4569,6 +4542,7 @@ dependencies = [
     { name = "sympy" },
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
+    { name = "viva-emitters", extra = ["parquet", "xarray"] },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
     { name = "viva-workspace" },
@@ -4599,8 +4573,6 @@ requires-dist = [
     { name = "pandas" },
     { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main" },
     { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
-    { name = "pbg-emitters", extras = ["parquet"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
-    { name = "pbg-emitters", extras = ["xarray"], git = "https://github.com/vivarium-collective/pbg-emitters.git?branch=main" },
     { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main" },
     { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/pbg-openmm.git?branch=main" },
     { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
@@ -4620,6 +4592,7 @@ requires-dist = [
     { name = "unum" },
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
+    { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.2.3" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
     { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
@@ -4714,6 +4687,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/82/b4/8c2294e66db930de5c2b69c3e867ce98cc53a7bbd0050403ae274c700930/viva_emitters-0.2.3.tar.gz", hash = "sha256:208bc26a7c69dfee8b7a62ac012a21d5eb834a5cbc9afd3fbf6a2661971bdba3", size = 111540, upload-time = "2026-08-10T01:51:07.431Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/19/ad/add1f3a64cf14bccdaa8e39f1209743d42a5a9f09c57264dadd12bcf576f/viva_emitters-0.2.3-py3-none-any.whl", hash = "sha256:196cd751b4bb0023d08b7ea7668ba2f0c4a5c45518f927ea7d3c602f4c89fca5", size = 91748, upload-time = "2026-08-10T01:51:05.958Z" },
+]
+
+[package.optional-dependencies]
+parquet = [
+    { name = "duckdb" },
+    { name = "fsspec" },
+    { name = "polars" },
+    { name = "pyarrow" },
+    { name = "tqdm" },
+]
+xarray = [
+    { name = "pint" },
+    { name = "unum" },
+    { name = "xarray" },
+    { name = "zarr" },
+    { name = "zarrs" },
 ]
 
 [[package]]

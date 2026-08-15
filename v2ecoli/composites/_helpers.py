@@ -28,7 +28,7 @@ import warnings
 # Framework-generic per-agent emitter-lifecycle registry (register / get /
 # unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
 # parquet-named wrappers below so existing call sites keep working.
-from pbg_emitters.lifecycle import (
+from viva_emitters.lifecycle import (
     register_emitter as register_parquet_emitter,
     get_emitter as get_parquet_emitter,  # noqa: F401 — re-exported for external call sites
     unregister_emitter as _unregister_emitter,
@@ -329,7 +329,7 @@ _NULL_EMITTER_OVERRIDE: bool = False
 _DEFAULT_EMITTER_DECL: dict | None = None
 
 # Per-agent registry of live ParquetEmitter step instances (framework-generic
-# registry imported at module top from ``pbg_emitters.lifecycle``). Populated
+# registry imported at module top from ``viva_emitters.lifecycle``). Populated
 # when ``_get_special_step('emitter')`` constructs an emitter under a parquet
 # override; consulted by ``Division.next_update`` so the parent's trailing
 # partial batch can be ``close(success=True)``-d before the agent is
@@ -395,7 +395,7 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
 
     if address == "ParquetEmitter":
         try:
-            from pbg_emitters import ParquetEmitter
+            from viva_emitters import ParquetEmitter
         except ImportError:
             # A generator-declared *default* must not hard-fail the build when
             # the optional [parquet] extra is absent (e.g. CI behavior-tests
@@ -826,7 +826,7 @@ def flush_parquet(composite, *, success: bool = True) -> int:
     emitter step).
     """
     try:
-        from pbg_emitters import ParquetEmitter
+        from viva_emitters import ParquetEmitter
     except ImportError:
         return 0
     return ParquetEmitter.flush_all_in_composite(composite, success=success)
@@ -1188,7 +1188,7 @@ def _get_special_step(loader, step_name, core):
         # Imported directly from pbg-emitters (the upstream library);
         # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
         try:
-            from pbg_emitters import ParquetEmitter
+            from viva_emitters import ParquetEmitter
         except ImportError:
             ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.

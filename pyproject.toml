@@ -65,13 +65,13 @@ dependencies = [
     # default (workspace.yaml runtime.default_emitter = parquet); XArray is
     # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
     # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
-    # pbg-emitters; v2ecoli.library.{parquet,xarray}_emitter are shims. PEP 508
-    # direct-URL since pbg-emitters is not yet on PyPI — works with both pip
-    # (CI) and uv; pip/uv union the two extras of the same package. Mirrored in
-    # [tool.uv.sources] for uv-native resolution.
-    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-    # S3 backend for fsspec (a pbg-emitters[parquet] dep). Both ParquetEmitter
+    # viva-emitters (the renamed pbg-emitters); v2ecoli.library.{parquet,xarray}_emitter
+    # are shims. viva-emitters ships on PyPI (0.2.3+), so a plain PEP 508 dep — no
+    # git source, no `pbg-emitters` name-check trap (the renamed repo builds as
+    # viva-emitters). [parquet] pulls duckdb/polars/pyarrow/fsspec/tqdm; [xarray]
+    # pulls xarray/zarr/zarrs.
+    "viva-emitters[parquet,xarray]>=0.2.3",
+    # S3 backend for fsspec (a viva-emitters[parquet] dep). Both ParquetEmitter
     # (url_to_fs) and the XArray/zarr store (zarr.open_group) already accept an
     # s3:// out_uri/store natively — s3fs is the one missing piece that lets an
     # s3:// URI actually resolve instead of failing with "unknown protocol"
@@ -173,7 +173,6 @@ pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.gi
 pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
-pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
 pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }

@@ -254,7 +254,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
     import tempfile
 
-    from pbg_emitters import create_duckdb_conn
+    from viva_emitters import create_duckdb_conn
 
     div_by_cell: dict[tuple, dict] = {}
     spath = os.path.join(sweep_dir, "summary.json")
@@ -439,7 +439,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         if not _ctx:
             import tempfile
 
-            from pbg_emitters import create_duckdb_conn
+            from viva_emitters import create_duckdb_conn
             _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
             if is_s3_uri(sweep_dir):
                 configure_duckdb_s3(_ctx["conn"])

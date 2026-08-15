@@ -17,17 +17,17 @@ Notes on the shim surface:
     tests using ``unittest.mock.patch("v2ecoli.library.parquet_emitter
     .ThreadPoolExecutor", ...)`` keep finding the attribute. Production
     code inside ParquetEmitter resolves ``ThreadPoolExecutor`` against
-    pbg_emitters.parquet_emitter, so patches on this module no longer
+    viva_emitters.parquet_emitter, so patches on this module no longer
     intercept the running emitter — tests that need to swap the executor
-    must patch ``pbg_emitters.parquet_emitter.ThreadPoolExecutor``.
+    must patch ``viva_emitters.parquet_emitter.ThreadPoolExecutor``.
 """
 
 # Re-export the public API from pbg-emitters. If the [parquet] extra
 # (and therefore duckdb / polars / fsspec / ...) isn't installed,
-# ``from pbg_emitters import ParquetEmitter`` raises ImportError; we
+# ``from viva_emitters import ParquetEmitter`` raises ImportError; we
 # wrap that in a friendlier message that points at the v2ecoli extra.
 try:
-    from pbg_emitters import (  # noqa: F401
+    from viva_emitters import (  # noqa: F401
         ParquetEmitter,
         BlockingExecutor,
         METADATA_PREFIX,

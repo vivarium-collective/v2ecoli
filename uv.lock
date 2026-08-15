@@ -3126,7 +3126,7 @@ wheels = [
 [[package]]
 name = "process-bigraph"
 version = "1.8.3"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#8b9830f9128b0506d72c0ab2e2f885654efd9d21" }
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#2d4a437fd0bebdc200e73a9c52b5fd0c94650ec2" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },

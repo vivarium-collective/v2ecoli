@@ -36,21 +36,16 @@ executive:
     PR #197), and gtpPerElongation / ribosomeElongationRate turned out to be inert.
   verdict_status: passed
   decisions_needed:
-  - question: Accept the param-uq-05 strain-design SMOKE result, or gate on the production ensemble first?
+  - question: Scale param-uq-05 to n≥24 / ≥3 seeds to resolve the surrogate and pass the adversarial-null check?
     context: |
-      The GFP-ParCa build + pbg-uq new-gene pipeline now run end-to-end (smoke:
-      n=12, 3 seeds, 1 gen). Preliminary: exp & trl_eff co-dominant for product
-      (refutes "exp dominates"), trl_eff dominates growth. But the product
-      surrogate is under-resolved (51% test error), argmax is not seed-robust, and
-      strategy-2 (by-generation) is missing. A converged production ensemble is
-      running on the mini to resolve these before the milestone claim is firm.
-  - question: Fix the by-generation (strategy 2) daughter-cache blocker in the UQ harness?
-    context: |
-      run_multigen_xarray reads out/cache/initial_state.json for daughters, but each
-      variant sample builds a per-sample TEMP cache → division FileNotFoundError, so
-      runs stay single-generation regardless of step budget. Strategy 2 (the
-      induction-timing decomposition) needs the daughter-cache path threaded through
-      — a harness fix, not more compute. Follow-up for full milestone coverage.
+      All three aggregation strategies are now delivered (2-gen ensemble; strategy-2
+      daughter-cache blocker fixed in commit 058f0a13). The ranking (trl_eff > exp
+      for product) is robust across seeds and generations, and the by-generation
+      trend is real. BUT at n=12 the surrogate is under-resolved — the inert decoy
+      leaks 0.24–0.51 (>> 0.05 null) and product test error ≈ 61% — so the
+      adversarial-null gate still FAILS and absolute Sobol magnitudes stay
+      qualitative. A larger ensemble (n≥24, ≥3 seeds) would firm the magnitudes and
+      is the remaining step to a fully-passed milestone claim.
   decisions_resolved:
   - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
     decision: YES — built and ran (param-uq-04-deep-params).
@@ -123,7 +118,7 @@ at_a_glance:
 - study: param-uq-04-deep-params
   role: "RAN: extends UQ to deep SimulationDataEcoli physiological params via a sim_data injection adapter. Finds the dry-mass fraction dominates mass variance (Sobol ≈ 1.0) and co-dominates growth (≈0.5, with RNAP elongation rate); FBA kinetic weight inert. Establishes a cheap (~2 s/sample) deep-param injection path — the pivot's ~2.5-min-ParCa premise was wrong."
 - study: param-uq-05-strain-design
-  role: "SMOKE result (production ensemble running): turns the pbg-uq machinery on a STRAIN-DESIGN use case — a GFP new-gene insert swept via expression + translation-efficiency knobs. Pipeline runs end-to-end on the GFP strain; preliminary reading (n=12, 3 seeds) — exp & trl_eff CO-DOMINANT for product level (refutes 'exp dominates'), trl_eff dominates growth cost; product surrogate under-resolved (51% err) and argmax not yet seed-robust; strategy-2 (by-generation) pending division. Delivers strategies 1 & 3; the parameter-uq deliverable absorbing the standalone uqEcoli demo."
+  role: "PRELIMINARY result — all 3 aggregation strategies delivered (2-gen ensemble, n=12, 56 records). Turns the pbg-uq machinery on a STRAIN-DESIGN use case (GFP new-gene, expression + translation-efficiency knobs). trl_eff DOMINATES product level (Sobol ≈0.58 vs exp 0.27), robust across seeds AND generations (refutes 'exp dominates'). Strategy-2 (by-generation) shows exp matters more early (0.35→0.19) and trl_eff more late (0.53→0.64) — the aggregation choice is informative, as hypothesized. Under-resolved at n=12 (decoy leaks, ~61% err → adversarial-null still fails; ranking+trend asserted, not magnitudes); n≥24 follow-up. The parameter-uq deliverable absorbing the standalone uqEcoli demo."
 
 biological_story: |
   Translation is one of the cell's largest energy sinks, so which elongation dial
@@ -157,15 +152,24 @@ biological_story: |
   ensemble — averaged over the whole population, split by generation across the
   induction, and split by stochastic seed — so the aggregation choice becomes part
   of the finding rather than a hidden assumption. This is the strain-design study
-  (param-uq-05). A first SMOKE ensemble (n=12, 3 seeds, 1 generation) already runs
-  the pipeline end-to-end on the GFP strain and gives a preliminary reading:
-  expression and translation efficiency are CO-DOMINANT for product level
-  (refuting the pre-registered "expression dominates" guess), while translation
-  efficiency dominates the small growth-rate cost. Two honesty flags temper it —
-  the product-level surrogate is under-resolved at this budget (51% held-out
-  error) and the dominant knob is not yet robust across seeds — and one strategy
-  is still missing: by-generation needs cell division, which the short smoke
-  window didn't reach. A converged production ensemble is running to resolve both.
+  (param-uq-05). A 2-generation ensemble (n=12, 2 seeds, 56 records across gens
+  1 and 2) now runs the pipeline end-to-end on the GFP strain and delivers all
+  three aggregation strategies. The reading: translation efficiency, not
+  expression, is the dominant lever on product level (total-order Sobol ≈ 0.58 vs
+  0.27 under population aggregation) — and it wins in every seed and every
+  generation, so the ranking is robust. This REFUTES the pre-registered "expression
+  dominates" hypothesis. The pre-registered expectation that the aggregation choice
+  is itself informative, however, is BORNE OUT: strategy 2 (by-generation) exposes
+  a magnitude trend the population average hides — expression's share falls from
+  generation 1 to 2 (0.35 → 0.19) while translation efficiency's rises (0.53 →
+  0.64), consistent with the founder's induction ramp mattering early and the
+  daughter's steady-state translation mattering later. Two honest limits remain:
+  at n=12 the surrogate is under-resolved (the inert decoy leaks 0.24–0.51, well
+  above the 0.05 null, and product test error ≈ 61%), so only the RANKING and the
+  generational TREND are asserted, not absolute magnitudes; and growth-rate
+  variance is too small (a light GFP load) to attribute — no growth ranking is
+  claimed. A larger budget (n≥24, ≥3 seeds) is the follow-up to firm the
+  magnitudes and pass the adversarial-null check.
 
 acceptance_criteria:
 - study: param-uq-00-screen

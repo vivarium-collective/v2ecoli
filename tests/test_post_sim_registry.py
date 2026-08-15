@@ -38,4 +38,4 @@ def test_blank_name_is_noop():
 
 
 def test_kinds_constant():
-    assert KINDS == ("analysis", "visualization", "report_card")
+    assert KINDS == ("analysis", "visualization", "test")

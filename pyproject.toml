@@ -117,7 +117,7 @@ v2e-compare = "scripts.compare_cli:main"
 "v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "v2ecoli/tests"]
 markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
     "slow: runs full simulations (60s+)",

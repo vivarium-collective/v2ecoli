@@ -129,6 +129,33 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
             "default": "0",
             "description": "Agent key under 'agents' the vEcoli node lives at.",
         },
+        "whole_config": {
+            "type": "string",
+            "default": "",
+            "description": (
+                "Optional full fork config (path relative to reference_repo or "
+                "absolute) loaded NATIVELY by EcoliSim (its add_processes / "
+                "spatial_environment_config / variants applied) instead of the "
+                "swap-only fork_config path. Empty = swap/baseline behavior."
+            ),
+        },
+        "variant": {
+            "type": "integer",
+            "default": 0,
+            "description": (
+                "1-based index into the loaded config's 'variants' grid "
+                "(0 = unperturbed baseline). Requires whole_config."
+            ),
+        },
+        "observable_bulk_ids": {
+            "type": "list",
+            "default": [],
+            "description": (
+                "Bulk molecule ids to emit as observables (path 'bulk.<id>') "
+                "for downstream sweep/phenotype extraction. Empty = mass/count "
+                "observables only."
+            ),
+        },
     },
     default_n_steps=2700,
 )
@@ -142,6 +169,9 @@ def vecoli(
     cache_dir: str = "out/cache",
     time_step: float = 1.0,
     agent_id: str = "0",
+    whole_config: str = "",
+    variant: int = 0,
+    observable_bulk_ids: list | None = None,
 ) -> dict:
     """Build the process-bigraph document for genuine vEcoli as one node.
 
@@ -165,39 +195,65 @@ def vecoli(
         cache_dir: directory holding the matching ParCa simData.cPickle.
         time_step: simulation time step (seconds).
         agent_id: agent key under 'agents' the vEcoli node lives at.
+        whole_config: optional full fork config loaded NATIVELY by EcoliSim
+            (its own add_processes / spatial_environment_config / variants
+            applied) instead of the swap-only fork_config path. Empty
+            (default) preserves the existing swap/baseline behavior.
+        variant: 1-based index into the loaded config's 'variants' grid
+            (0 = unperturbed baseline). Only meaningful with whole_config.
+        observable_bulk_ids: bulk molecule ids to emit as observables for
+            downstream sweep/phenotype extraction.
 
     Returns:
         Process-bigraph document dict with keys ``schema``/``state``.
     """
     from v2ecoli.library.vivarium_ecoli_engine import (
-        build_vivarium_ecoli, VivariumEcoliProcess)
+        build_vivarium_ecoli, VivariumEcoliProcess, set_ecolisim_config_file)
 
     if core is None:
         core = build_core()
 
     sim_data_path = _resolve_sim_data_path(cache_dir)
-    swap_processes, flow = _resolve_fork_config(reference_repo, fork_config)
+
+    if whole_config:
+        # Native whole-config load: EcoliSim reads add_processes / spatial /
+        # variants from this file. Resolve relative to the fork checkout.
+        cfg_path = whole_config
+        if not os.path.isabs(cfg_path):
+            base = reference_repo or os.environ.get("V2E_VECOLI_DIR", "")
+            cfg_path = os.path.join(base, cfg_path)
+        set_ecolisim_config_file(cfg_path)
+        swap_processes, flow = None, None      # native path, not swap
+    else:
+        swap_processes, flow = _resolve_fork_config(reference_repo, fork_config)
 
     # Build the (fork-parameterized) genuine-vEcoli engine and hand it to the
     # process via the same PENDING_HANDLE injection
     # build_vivarium_ecoli_composite uses, so the process doesn't rebuild
     # EcoliSim a second time.
-    VivariumEcoliProcess._PENDING_HANDLE = build_vivarium_ecoli(
-        sim_data_path=sim_data_path,
-        condition=condition,
-        seed=int(seed),
-        time_step=float(time_step),
-        swap_processes=swap_processes,
-        flow=flow,
-        fork_dir=(reference_repo or None),
-    )
-    proc = VivariumEcoliProcess(config={
-        "sim_data_path": sim_data_path,
-        "condition": condition,
-        "seed": int(seed),
-        "time_step": float(time_step),
-        "fork_dir": reference_repo or "",
-    }, core=core)
+    try:
+        VivariumEcoliProcess._PENDING_HANDLE = build_vivarium_ecoli(
+            sim_data_path=sim_data_path,
+            condition=condition,
+            seed=int(seed),
+            time_step=float(time_step),
+            swap_processes=swap_processes,
+            flow=flow,
+            fork_dir=(reference_repo or None),
+            variant=int(variant),
+        )
+        proc = VivariumEcoliProcess(config={
+            "sim_data_path": sim_data_path,
+            "condition": condition,
+            "seed": int(seed),
+            "time_step": float(time_step),
+            "fork_dir": reference_repo or "",
+            "variant": int(variant),
+            "observable_bulk_ids": list(observable_bulk_ids or []),
+        }, core=core)
+    finally:
+        if whole_config:
+            set_ecolisim_config_file(None)   # deterministic isolation
     iface = proc.interface()
 
     cell_state = {

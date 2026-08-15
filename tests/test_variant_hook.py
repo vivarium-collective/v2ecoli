@@ -48,3 +48,9 @@ def test_apply_dispatches_to_variant_module(monkeypatch):
     assert out["touched"] is True
     assert applied["params"] == {"dose": 1}
     assert meta == {"variant_name": "demo_variant", "variant_index": 2, "params": {"dose": 1}}
+
+
+def test_multiple_variants_raises_valueerror(monkeypatch):
+    _stub_parse_variants(monkeypatch)
+    with pytest.raises(ValueError):
+        ve._select_variant_params({"a": {}, "b": {}}, 1)

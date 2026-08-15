@@ -204,7 +204,9 @@ def build_vivarium_ecoli(
         if _nutrients:
             sim.config["fixed_media"] = _nutrients
         sim.config["sim_data"] = _sd_obj
-    except Exception as _mediaerr:  # noqa: BLE001 — never block the build
+    except (IndexError, ValueError):
+        raise            # variant selection/apply errors must fail loud
+    except Exception as _mediaerr:  # noqa: BLE001 — media reuse is best-effort
         print(f"[build_vivarium_ecoli] media-from-condition skipped: "
               f"{type(_mediaerr).__name__} {_mediaerr}")
     # Division is handled by THIS module's single-lineage loop (genuine divide_cell

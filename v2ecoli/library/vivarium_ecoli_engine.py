@@ -33,6 +33,28 @@ from v2ecoli.library.upstream_division import _n_chromosomes, _inc_to_fg
 from v2ecoli.library.division import divide_cell
 
 
+# Path to a FULL vEcoli config file the wrapped ``EcoliSim`` should load natively
+# (add_processes / process_configs / topology / spatial_environment_config /
+# variants). None => build the default baseline sim (``swap_processes``/``flow``
+# only). Set for the duration of a run by ``run_vivarium_ecoli_pbg_multigen``
+# (which restores it in a ``finally``), so every per-generation ``build_vivarium_
+# ecoli`` rebuild picks it up without threading a param through 3 call sites, and
+# a whole-config run cannot leak into a later default run in the same process.
+_ECOLISIM_CONFIG_FILE: str | None = None
+
+
+def set_ecolisim_config_file(path: str | None) -> None:
+    """Point the wrapped single-node ``EcoliSim`` at a full vEcoli config file to
+    load natively (or clear it with ``None``). Faithful-by-construction: vEcoli's
+    own composer applies ``add_processes``/``process_configs``/``topology``/
+    ``spatial_environment_config``/``variants``/etc. exactly as upstream, so a
+    config whose model content can't be expressed as ``swap_processes``/``flow``
+    (a multi-agent / spatial-environment model) still runs correctly as one pbg
+    node — for ANY fork selected by ``$V2E_VECOLI_DIR``."""
+    global _ECOLISIM_CONFIG_FILE
+    _ECOLISIM_CONFIG_FILE = path
+
+
 # ---------------------------------------------------------------------------
 # Build a genuine vEcoli vivarium Engine (fork-parameterized)
 # ---------------------------------------------------------------------------
@@ -73,12 +95,47 @@ def build_vivarium_ecoli(
     EcoliSim = up["EcoliSim"]
     from vivarium.core.engine import Engine
 
+    _cfgfile = _ECOLISIM_CONFIG_FILE
     _argv = sys.argv
-    sys.argv = sys.argv[:1]
+    _cwd = os.getcwd()
+    _fork = fork_dir or os.environ.get("V2E_VECOLI_DIR")
+    _saved_sers: dict = {}
+    if _cfgfile:
+        # Fork-bind vivarium's serializers before ``EcoliSim`` deserializes the
+        # config's ``!ParameterSerializer[...]`` / ``!units[...]`` tags. A
+        # Serializer binds ``param_store`` at its module's import time; the
+        # INSTALLED vEcoli (registered into vivarium's GLOBAL serializer_registry
+        # first) lacks fork-only params -> "No parameter found at path". Replace
+        # each registered serializer with a FRESH instance imported from the
+        # fork's ``ecoli.library.serialize`` (now first on sys.path after
+        # ``_ensure_upstream``), and RESTORE the originals afterward so this does
+        # not leak into a later default run in the same process (determinism).
+        try:
+            import importlib as _il
+            from vivarium.core.registry import serializer_registry as _sreg, Serializer as _Ser
+            _fs = _il.import_module("ecoli.library.serialize")
+            for _nm, _obj in list(_sreg.registry.items()):
+                _forkcls = getattr(_fs, type(_obj).__name__, None)
+                if isinstance(_forkcls, type) and issubclass(_forkcls, _Ser) and _forkcls is not _Ser:
+                    _saved_sers[_nm] = _obj
+                    _sreg.registry[_nm] = _forkcls()
+        except Exception as _se:  # noqa: BLE001 — fall back to registry serializers
+            print(f"[build_vivarium_ecoli] serializer fork-bind skipped "
+                  f"({type(_se).__name__}: {_se})")
+    # A full config file loads via ``--config`` (EcoliSim resolves its
+    # ``inherit_from`` chain relative to the fork's own configs dir, so run from
+    # cwd = the fork checkout). Empty argv => the default baseline sim.
+    sys.argv = ([sys.argv[0], "--config", _cfgfile] if _cfgfile else sys.argv[:1])
     try:
+        if _cfgfile and _fork and os.path.isdir(_fork):
+            os.chdir(_fork)
         sim = EcoliSim.from_cli()
     finally:
         sys.argv = _argv
+        os.chdir(_cwd)
+        if _saved_sers:
+            from vivarium.core.registry import serializer_registry as _sreg2
+            _sreg2.registry.update(_saved_sers)
 
     sim.config["condition"] = condition
     sim.config["seed"] = int(seed)
@@ -198,8 +255,18 @@ OBSERVABLES = MASS_OBS + COUNT_OBS
 
 def cell_observables(engine) -> dict:
     """Pull the 7 comparison observables from the live Engine state. Single-cell, no
-    agents wrapper (divide=False). Scalar axes + the raw bulk/unique for division."""
+    agents wrapper (divide=False). Scalar axes + the raw bulk/unique for division.
+
+    Spatial-aware: a whole-config run with a ``spatial_environment_config`` builds
+    vEcoli's own colony composite whose top-level state is
+    ``{agents:{<id>:cell}, multibody, reaction_diffusion, fields}`` — the cell's
+    ``listeners``/``bulk``/``unique`` live under ``agents/<id>``, not the top level.
+    Follow the first agent so the emit + the division gate read the real cell (else
+    every observable reads 0 off an empty top level)."""
     st = _state(engine)
+    _agents = st.get("agents")
+    if isinstance(_agents, dict) and _agents:
+        st = _agents.get("0") or next(iter(_agents.values()))
     listeners = st.get("listeners", {}) or {}
     mass = listeners.get("mass", {}) or {}
     umc = listeners.get("unique_molecule_counts", {}) or {}
@@ -457,8 +524,16 @@ def run_vivarium_ecoli_pbg_multigen(
     experiment_id: str = "vecoli",
     variant: int = 0,
     lineage_seed: int = 0,
+    whole_config: str | None = None,
 ) -> dict:
     """Single-lineage multigen for the vEcoli **pbg node**, emitting the v2ecoli-format zarr.
+
+    ``whole_config`` (a full vEcoli config-file path) makes the wrapped ``EcoliSim``
+    load that config NATIVELY instead of the default baseline — so a config whose
+    model content can't be expressed as ``swap_processes``/``flow`` (one declaring
+    ``add_processes`` and/or a ``spatial_environment_config``) runs faithfully as
+    one node. Scoped to this call (restored in ``finally``) for deterministic
+    isolation.
 
     Each generation is a one-node pbg ``Composite`` (``VivariumEcoliProcess``) driven by
     ``composite.run``; a per-generation ``XArrayEmitter`` writes a ``generation=N``
@@ -471,6 +546,10 @@ def run_vivarium_ecoli_pbg_multigen(
     from pathlib import Path
     from v2ecoli.library.xarray_run import _build_emitter, _filter_agent_state
     from v2ecoli.library.upstream_division import daughter_phylogeny_id
+
+    # Scope the whole-config selection to this run so every per-generation
+    # ``build_vivarium_ecoli`` rebuild sees it and a later default run is unaffected.
+    set_ecolisim_config_file(whole_config)
 
     if core is None:
         from v2ecoli.core import build_core
@@ -559,6 +638,7 @@ def run_vivarium_ecoli_pbg_multigen(
         partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
         divisions += 1
 
+    set_ecolisim_config_file(None)  # reset for the next run (deterministic isolation)
     return {"generations": gens_done, "divisions": divisions,
             "store": store_path, "final_cell_mass": final_cell_mass,
             "build_config": build_config}

@@ -201,6 +201,7 @@ def build_vivarium_ecoli(
     # sim_data_path natively — EXCEPT when a variant is requested: we must not
     # silently run the unperturbed baseline, so a preload failure there is loud.
     _sd_obj = None
+    _variant_simdata_tmp = None   # temp pickle holding variant-mutated sim_data
     try:
         import pickle as _pickle
         with open(sim_data_path, "rb") as _sdf:
@@ -223,6 +224,22 @@ def build_vivarium_ecoli(
             if _vmeta:
                 print(f"[build_vivarium_ecoli] applied config variant "
                       f"'{_vmeta['variant_name']}' #{variant}: {_vmeta['params']}")
+                # PERSIST the variant-mutated sim_data and repoint sim_data_path.
+                # The composer's ``LoadSimData`` ALWAYS reloads sim_data from
+                # ``sim_data_path`` and IGNORES a handed-in ``sim.config['sim_data']``
+                # object, so an in-memory-only variant (e.g. a ``field_timeline``
+                # that ``LoadSimData.get_field_timeline_config`` reads off
+                # ``external_state``) is silently discarded and the run reverts to
+                # the unperturbed baseline. Writing the mutated sim_data to a temp
+                # pickle and pointing sim_data_path at it is what actually delivers
+                # the variant to the composer.
+                import tempfile as _tf
+                _vfd, _variant_simdata_tmp = _tf.mkstemp(
+                    prefix="v2e_variant_simdata_", suffix=".cPickle")
+                os.close(_vfd)
+                with open(_variant_simdata_tmp, "wb") as _vf:
+                    _pickle.dump(_sd_obj, _vf)
+                sim.config["sim_data_path"] = _variant_simdata_tmp
         # The condition's nutrients (fixed_media) IS best-effort — a lookup miss
         # just means EcoliSim keeps its default media; never fatal.
         try:
@@ -276,6 +293,14 @@ def build_vivarium_ecoli(
         sim.build_ecoli()
     finally:
         _em.Ecoli.__init__ = _orig_init
+        # The composer has now loaded sim_data from sim_data_path; the temp
+        # pickle (if any) has served its purpose — remove it so per-generation
+        # variant builds don't leak ~300MB files.
+        if _variant_simdata_tmp:
+            try:
+                os.unlink(_variant_simdata_tmp)
+            except OSError:
+                pass
     composer = _captured.get("composer")
     if composer is not None:
         try:

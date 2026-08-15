@@ -155,7 +155,19 @@ def _run_one(dill_path, exp, trl_eff, seed, steps, gens, chunk):
                 "time_step": 1.0, "max_duration": float(steps)}
         _set_null(True)
         try:
-            doc = _baseline(core=_core, seed=int(seed), bundle=bundle, emitter="xarray")
+            # cache_dir MUST be passed (not just bundle): baseline threads it
+            # into the Division step config (v2ecoli/composites/_helpers.py
+            # div_config['cache_dir'] <- loader.cache_dir <- baseline cache_dir),
+            # and at each division the daughter cell is rebuilt via
+            # baseline(cache_dir=<that>) which reads <cache_dir>/initial_state.json.
+            # A bundle dict cannot carry its origin path, so without cache_dir the
+            # Division step falls back to the default 'out/cache' and division
+            # dies with FileNotFoundError -> runs stay single-generation. Pointing
+            # it at this sample's temp cache lets daughters read the SAME variant
+            # sim_data the parent was built from, so strategy-2 (by-generation)
+            # data actually flows.
+            doc = _baseline(core=_core, seed=int(seed), bundle=bundle,
+                            cache_dir=cache_dir, emitter="xarray")
         finally:
             _set_null(False)
         comp = _Composite(doc, core=_core)

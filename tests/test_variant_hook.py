@@ -54,3 +54,29 @@ def test_multiple_variants_raises_valueerror(monkeypatch):
     _stub_parse_variants(monkeypatch)
     with pytest.raises(ValueError):
         ve._select_variant_params({"a": {}, "b": {}}, 1)
+
+
+def test_variant_requested_but_empty_config_raises(monkeypatch):
+    # Finding #3 (spirit): variant>=1 with no 'variants' block must fail loud,
+    # never silently run the unperturbed baseline.
+    _stub_parse_variants(monkeypatch)
+    with pytest.raises(ValueError):
+        ve._select_variant_params({}, 2)
+
+
+def test_variant_zero_with_empty_config_is_baseline_noop():
+    # Back-compat: baseline is still a strict no-op (no fork import needed).
+    assert ve._select_variant_params({}, 0) == (None, None)
+
+
+def test_apply_variant_import_error_propagates(monkeypatch):
+    # A missing ecoli.variants.<name> module must raise (ImportError), not be
+    # swallowed into a silent baseline. This is the failure the build-level try
+    # used to swallow (Finding #3).
+    _stub_parse_variants(monkeypatch)
+    import importlib
+    def _boom(name):
+        raise ImportError(f"no module {name}")
+    monkeypatch.setattr(importlib, "import_module", _boom)
+    with pytest.raises(ImportError):
+        ve._apply_config_variant({}, {"demo_variant": {}}, 2)

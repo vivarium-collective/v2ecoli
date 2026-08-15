@@ -64,8 +64,14 @@ def _select_variant_params(variants_config: dict, variant_index: int):
     baseline, else ``(variant_name, params_dict)``. Delegates the grid expansion
     (op prod/zip/add, value/linspace/arange) entirely to the fork.
     """
-    if not variants_config or variant_index <= 0:
-        return None, None
+    if variant_index <= 0:
+        return None, None                       # baseline: strict no-op
+    if not variants_config:
+        # variant_index >= 1 but nothing to select from → fail loud rather than
+        # silently running the unperturbed baseline (Finding #3 in spirit).
+        raise ValueError(
+            f"variant index {variant_index} requested but config has no "
+            f"'variants' block to select from")
     if len(variants_config) != 1:
         raise ValueError(
             f"expected exactly one variant in config, got {sorted(variants_config)}")
@@ -190,25 +196,45 @@ def build_vivarium_ecoli(
     # minimal_minus_oxygen (O2=0). Set the condition's nutrients as fixed_media
     # (flows through Ecoli(config) -> LoadSimData(**config)). Hand the loaded
     # sim_data in too so EcoliSim reuses it (skips a 2nd ~300MB load).
+    # Preload sim_data ONCE (reuse it so EcoliSim skips a 2nd ~300MB load). The
+    # preload itself is best-effort — on failure EcoliSim just loads
+    # sim_data_path natively — EXCEPT when a variant is requested: we must not
+    # silently run the unperturbed baseline, so a preload failure there is loud.
+    _sd_obj = None
     try:
         import pickle as _pickle
         with open(sim_data_path, "rb") as _sdf:
             _sd_obj = _pickle.load(_sdf)
+    except Exception as _loaderr:  # noqa: BLE001 — sim_data reuse is best-effort
+        if _cfgfile and int(variant):
+            raise        # a requested variant cannot be applied → fail loud
+        print(f"[build_vivarium_ecoli] sim_data preload skipped: "
+              f"{type(_loaderr).__name__} {_loaderr}")
+
+    if _sd_obj is not None:
+        # Variant application must fail LOUD for ALL exception types — it is
+        # deliberately NOT inside the best-effort media block below. A swallowed
+        # ImportError (fork off path) / KeyError / AttributeError from
+        # parse_variants/apply_variant would silently run the UNPERTURBED
+        # baseline while the caller believes variant=k applied.
         if _cfgfile and int(variant):
             _variants_cfg = sim.config.get("variants") or {}
             _sd_obj, _vmeta = _apply_config_variant(_sd_obj, _variants_cfg, int(variant))
             if _vmeta:
                 print(f"[build_vivarium_ecoli] applied config variant "
                       f"'{_vmeta['variant_name']}' #{variant}: {_vmeta['params']}")
-        _nutrients = (_sd_obj.conditions.get(condition, {}) or {}).get("nutrients")
-        if _nutrients:
-            sim.config["fixed_media"] = _nutrients
+        # The condition's nutrients (fixed_media) IS best-effort — a lookup miss
+        # just means EcoliSim keeps its default media; never fatal.
+        try:
+            _nutrients = (_sd_obj.conditions.get(condition, {}) or {}).get("nutrients")
+            if _nutrients:
+                sim.config["fixed_media"] = _nutrients
+        except Exception as _mediaerr:  # noqa: BLE001 — media reuse is best-effort
+            print(f"[build_vivarium_ecoli] media-from-condition skipped: "
+                  f"{type(_mediaerr).__name__} {_mediaerr}")
+        # Hand the loaded (possibly variant-mutated) sim_data to EcoliSim so it
+        # reuses THIS object (must always run when the preload succeeded).
         sim.config["sim_data"] = _sd_obj
-    except (IndexError, ValueError):
-        raise            # variant selection/apply errors must fail loud
-    except Exception as _mediaerr:  # noqa: BLE001 — media reuse is best-effort
-        print(f"[build_vivarium_ecoli] media-from-condition skipped: "
-              f"{type(_mediaerr).__name__} {_mediaerr}")
     # Division is handled by THIS module's single-lineage loop (genuine divide_cell
     # between generations), not vivarium's in-Engine Division roundtrip — so each
     # generation is one clean genuine-vEcoli Engine.
@@ -331,12 +357,36 @@ def cell_observables(engine) -> dict:
     return obs
 
 
-def _select_bulk_observables(obs_bulk: dict, ids: list) -> dict:
-    """Pick ``ids`` out of the inner cell's bulk name->count map as floats.
-    A missing id yields 0.0 (a species absent this tick), never a KeyError."""
+def _select_bulk_observables(obs_bulk, ids: list) -> dict:
+    """Pick ``ids`` out of the inner cell's bulk store as floats.
+
+    Handles BOTH representations the wrapped engine can hand us:
+    - a numpy structured array (the REAL vEcoli ``bulk`` store: fields ``id``
+      and ``count`` — see ``ecoli.library.schema`` / ``initial_conditions``),
+      resolved id->count via a name->index map built once per call;
+    - a plain ``Mapping`` (name->count), the shape the dict-based tests use.
+
+    A requested id absent from the store yields ``0.0`` (a species absent this
+    tick), never a KeyError/IndexError. Empty ``ids`` -> ``{}``. ``None`` or any
+    unexpected value falls back to the mapping path -> all ``0.0`` (no crash).
+
+    PURE: operates only on the passed array/dict — no fork import. Never uses
+    truthiness on ``obs_bulk`` (a multi-element ndarray raises ValueError on
+    ``bool``); emptiness is gated solely on ``ids``.
+    """
     if not ids:
         return {}
-    src = obs_bulk or {}
+    # numpy structured array (has a compound dtype with the expected fields)
+    dtype = getattr(obs_bulk, "dtype", None)
+    if dtype is not None and dtype.names is not None \
+            and "id" in dtype.names and "count" in dtype.names:
+        name_to_idx = {str(n): i for i, n in enumerate(obs_bulk["id"])}
+        counts = obs_bulk["count"]
+        return {i: (float(counts[name_to_idx[i]]) if i in name_to_idx else 0.0)
+                for i in ids}
+    # Mapping (dict-like) fallback: name->count, missing -> 0.0.
+    from collections.abc import Mapping
+    src = obs_bulk if isinstance(obs_bulk, Mapping) else {}
     return {i: float(src.get(i, 0.0)) for i in ids}
 
 
@@ -485,6 +535,13 @@ def build_vivarium_ecoli_composite(
     }, core=core)
     iface = proc.interface()
 
+    # Wire the process's output ports to the agent's stores. The process only
+    # DECLARES a ``bulk`` output port when observable ids are configured, so only
+    # then do we wire ``bulk`` -> ``["bulk"]`` (agents/<id>/bulk); otherwise pbg
+    # would drop an unmapped-but-declared port and the observables never land.
+    _outputs = {"listeners": ["listeners"]}
+    if list(observable_bulk_ids or []):
+        _outputs["bulk"] = ["bulk"]
     cell_state = {
         "vivarium_ecoli": {
             "_type": "process",
@@ -492,7 +549,7 @@ def build_vivarium_ecoli_composite(
             "_inputs": iface.get("inputs", {}),
             "_outputs": iface.get("outputs", {}),
             "inputs": {},
-            "outputs": {"listeners": ["listeners"]},
+            "outputs": _outputs,
             "interval": float(time_step),
         }
     }

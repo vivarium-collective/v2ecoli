@@ -256,6 +256,13 @@ def vecoli(
             set_ecolisim_config_file(None)   # deterministic isolation
     iface = proc.interface()
 
+    # Wire the process's output ports to the agent's stores. The process only
+    # DECLARES a ``bulk`` output port when observable ids are configured, so only
+    # then do we wire ``bulk`` -> ``["bulk"]`` (agents/<id>/bulk); otherwise pbg
+    # would drop an unmapped-but-declared port and the observables never land.
+    _outputs = {"listeners": ["listeners"]}
+    if list(observable_bulk_ids or []):
+        _outputs["bulk"] = ["bulk"]
     cell_state = {
         "vivarium_ecoli": {
             "_type": "process",
@@ -263,7 +270,7 @@ def vecoli(
             "_inputs": iface.get("inputs", {}),
             "_outputs": iface.get("outputs", {}),
             "inputs": {},
-            "outputs": {"listeners": ["listeners"]},
+            "outputs": _outputs,
             "interval": float(time_step),
         }
     }

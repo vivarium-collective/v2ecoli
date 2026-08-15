@@ -46,7 +46,7 @@ import sys
 from typing import Any, Iterable, Optional
 
 from process_bigraph import Composite, allocate_core
-from process_bigraph.composite import Step, SyncUpdate
+from process_bigraph.composite import Step
 from process_bigraph.workflow import run_workflow
 from process_bigraph.workflow.tasks import CompositeTask
 

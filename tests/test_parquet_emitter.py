@@ -1,7 +1,5 @@
 """Unit tests for v2ecoli.library.parquet_emitter.ParquetEmitter."""
 
-import os
-from pathlib import Path
 
 import pytest
 
@@ -13,7 +11,7 @@ import pytest
 # Skip cleanly in that case.
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 
 @pytest.mark.fast

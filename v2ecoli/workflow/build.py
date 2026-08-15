@@ -20,7 +20,7 @@ completion in one call — see ``process_bigraph.workflow.backend`` module docs.
                                                     |
                                         results (viva_superpowers.ResultsStep)
                                                     |
-                                        report (SimGateCard) -> verdict
+                                        report (SimGateTest) -> verdict
                                                     |
                                                  bridge
 
@@ -51,7 +51,7 @@ from process_bigraph.workflow import run_workflow
 from process_bigraph.workflow.tasks import CompositeTask
 
 from v2ecoli.steps.parca_bundle import ParcaBundleStep
-from viva_superpowers import ReportCardStep, ResultsStep
+from viva_superpowers import TestStep, ResultsStep, TestBuilder, check, value
 
 #: Absolute default ParCa cache directory (a pre-built bundle -- see
 #: ``ParcaBundleStep``'s module docs). Never resolved relative to cwd: the
@@ -113,15 +113,16 @@ class _SeedResultPaths(Step):
         return {"paths": paths}
 
 
-class SimGateCard(ReportCardStep):
-    """Minimal gating report card over a real ``ResultsHandle``.
+class SimGateTest(TestStep):
+    """Minimal gating Test over a real ``ResultsHandle``.
 
-    Unlike ``viva_superpowers.ReportCardStep``'s default ``StudyContext``
-    contract (``build(study)``), this card reads the run's emitted records
-    directly off the ``ResultsHandle`` ``ResultsStep`` produced -- the real
-    per-seed ``CompositeTask`` output, never a fixture. Verdict shape follows
-    the gating convention documented on ``ReportCardStep``:
-    ``{status, checks, summary}``.
+    Unlike ``viva_superpowers.TestStep``'s default ``StudyContext`` contract
+    (``build(study)``), this test reads the run's emitted records directly off
+    the ``ResultsHandle`` ``ResultsStep`` produced -- the real per-seed
+    ``CompositeTask`` output, never a fixture. It grades the emitted-record
+    count with ``check()`` and emits a ``report_card_verdict/v2`` doc: the
+    ``overall`` verdict gates, and the ``emitted_records`` axis carries a signed
+    ``margin`` (the agent-feedback gradient).
     """
 
     name = "sim_gate"
@@ -132,19 +133,17 @@ class SimGateCard(ReportCardStep):
     def update(self, state, interval=None):
         handle = state.get("results")
         rows = handle.records() if hasattr(handle, "records") else (handle or [])
-        checks = [{
-            "name": "emitted_records",
-            "passed": bool(rows),
-            "detail": f"{len(rows)} emitted rows",
-        }]
-        status = "pass" if rows else "fail"
-        summary = (
-            f"{len(rows)} emitted rows across the run" if rows
-            else "no emitted rows found -- sim(s) may have failed to emit")
-        verdict = {"status": status, "checks": checks, "summary": summary}
+        n = len(rows)
+        axis = check(
+            "emitted_records", "Emitted records", observed=n,
+            expected=value(1, op=">="), severity="hard",
+            detail=(f"{n} emitted rows across the run" if n
+                    else "no emitted rows found -- sim(s) may have failed to emit"))
+        verdict = TestBuilder(model_ref="sim_gate").add("Run", axis).build()
+        status = verdict["overall"]
         html = (
-            f"<html><body><h1>sim_gate: {status}</h1><p>{summary}</p></body>"
-            f"</html>")
+            f"<html><body><h1>sim_gate: {status}</h1>"
+            f"<p>{n} emitted rows across the run</p></body></html>")
         return {"view": html, "data": verdict}
 
 
@@ -161,7 +160,7 @@ def _outer_core():
     core.register_link("CompositeTask", CompositeTask)
     core.register_link("SeedResultPaths", _SeedResultPaths)
     core.register_link("ResultsStep", ResultsStep)
-    core.register_link("SimGateCard", SimGateCard)
+    core.register_link("SimGateTest", SimGateTest)
     return core
 
 
@@ -180,9 +179,10 @@ def build_parca_sim_composite(
     ``parca`` (a pre-built ParCa bundle -> a content-addressed ``sim_data``
     ref) feeds ``sims`` (one ``ecoli_baseline`` build per seed, scattered by
     ``CompositeTask``), whose per-seed results feed a real
-    ``ResultsStep`` -> gating ``ReportCardStep`` Evaluate tail. The bridge
-    exposes ``verdict`` (the gate's ``{status, checks, summary}``) and, for
-    inspection, the raw per-seed ``results`` paths.
+    ``ResultsStep`` -> gating ``TestStep`` Evaluate tail. The bridge exposes
+    ``verdict`` (the gate's graded ``report_card_verdict/v2`` doc: ``overall``
+    + per-axis ``margin``) and, for inspection, the raw per-seed ``results``
+    paths.
     """
     outdir = os.path.abspath(outdir)
     artifact_root = os.path.join(outdir, ".pbg", "artifacts")
@@ -254,7 +254,7 @@ def build_parca_sim_composite(
         },
         "report": {
             "_type": "step",
-            "address": "local:SimGateCard",
+            "address": "local:SimGateTest",
             "config": {},
             "inputs": {"results": ["results_handle"]},
             "outputs": {"view": ["report_view"], "data": ["verdict"]},

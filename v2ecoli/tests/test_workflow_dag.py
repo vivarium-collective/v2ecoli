@@ -112,11 +112,15 @@ def test_milestone_workflow_verdict_status_and_real_results_handle(tmp_path):
 
     assert result.status == "ok"
     verdict = result.outputs["verdict"]
-    assert verdict["status"] in {"pass", "fail", "warn"}
-    # The card's verdict summary must be driven by REAL emitted rows (the
-    # actual CompositeTask/ecoli_baseline output), never a fixture stand-in.
-    assert "checks" in verdict and verdict["checks"]
-    assert verdict["checks"][0]["name"] == "emitted_records"
+    # SimGateTest emits a graded report_card_verdict/v2 doc (overall gates).
+    assert verdict["schema"] == "report_card_verdict/v2"
+    assert verdict["overall"] in {"within_tol", "drift", "mismatch", "ungraded"}
+    # The gate axis must be driven by REAL emitted rows (the actual
+    # CompositeTask/ecoli_baseline output), never a fixture stand-in, and it
+    # carries a signed margin (the agent-feedback gradient).
+    axes = verdict["groups"]["run"]["axes"]
+    assert axes[0]["id"] == "emitted_records"
+    assert axes[0]["margin"] is not None
 
 
 def _sim_launch_count(spy) -> int:

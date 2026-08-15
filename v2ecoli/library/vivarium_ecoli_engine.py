@@ -121,6 +121,7 @@ def build_vivarium_ecoli(
     fork_dir: str | None = None,
     initial_overlay: dict | None = None,
     variant: int = 0,
+    observable_bulk_ids: list | None = None,
 ) -> EngineHandle:
     """Build the genuine upstream vEcoli composite and wrap its vivarium Engine.
 
@@ -130,6 +131,9 @@ def build_vivarium_ecoli(
     generation; ``None`` builds a fresh founder. ``variant`` selects a 1-based grid
     point from the loaded config's ``variants`` block (0 = baseline, no-op); only
     applies when a full config file (``set_ecolisim_config_file``) is in effect.
+    ``observable_bulk_ids`` is accepted as a no-op passthrough for symmetry with
+    ``build_vivarium_ecoli_composite``/``VivariumEcoliProcess`` — the process reads
+    its own ``observable_bulk_ids`` config directly; nothing here consumes it.
     """
     if fork_dir:
         os.environ["V2E_VECOLI_DIR"] = fork_dir
@@ -371,6 +375,7 @@ class VivariumEcoliProcess(Process):
         "time_step": {"_type": "float", "_default": 1.0},
         "exclude_processes": {"_type": "list[string]", "_default": []},
         "fork_dir": {"_type": "string", "_default": ""},
+        "variant": {"_type": "integer", "_default": 0},
         "observable_bulk_ids": {"_type": "list[string]", "_default": []},
     }
 
@@ -393,6 +398,7 @@ class VivariumEcoliProcess(Process):
                 time_step=float(self.config["time_step"]),
                 exclude_processes=list(self.config.get("exclude_processes") or []) or None,
                 fork_dir=(self.config.get("fork_dir") or None),
+                variant=int(self.config.get("variant") or 0),
             )
             self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
 
@@ -450,6 +456,8 @@ def build_vivarium_ecoli_composite(
     core=None,
     agent_id: str = "0",
     initial_overlay: dict | None = None,
+    variant: int = 0,
+    observable_bulk_ids: list | None = None,
 ):
     """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
     ``agents/<agent_id>`` — the genuine-vEcoli analogue of the v2ecoli agent composite,
@@ -470,12 +478,15 @@ def build_vivarium_ecoli_composite(
         sim_data_path=sim_data_path, condition=condition, seed=int(seed),
         time_step=float(time_step), exclude_processes=list(exclude_processes or []) or None,
         swap_processes=swap_processes or None, flow=flow or None,
-        fork_dir=fork_dir or None, initial_overlay=initial_overlay)
+        fork_dir=fork_dir or None, initial_overlay=initial_overlay, variant=int(variant),
+        observable_bulk_ids=observable_bulk_ids)
     proc = VivariumEcoliProcess(config={
         "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
         "time_step": float(time_step),
         "exclude_processes": list(exclude_processes or []),
         "fork_dir": fork_dir or "",
+        "variant": int(variant),
+        "observable_bulk_ids": list(observable_bulk_ids or []),
     }, core=core)
     iface = proc.interface()
 
@@ -655,7 +666,7 @@ def run_vivarium_ecoli_pbg_multigen(
             time_step=time_step, exclude_processes=exclude_processes,
             swap_processes=swap_processes, flow=flow,
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
-            initial_overlay=overlay)
+            initial_overlay=overlay, variant=variant)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise
         if gen == 0:                       # capture vEcoli's OWN resolved config once

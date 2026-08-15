@@ -313,6 +313,12 @@ def _join_vectors(a, b) -> dict:
     ``n_provisional``, and it is genuinely one-sided rather than an oversight —
     see the note where it is counted.
 
+    Returns the two renormalized vectors as ``a`` and ``b``, and each side's
+    panel sizes as ``n_{a,b}_rows`` / ``n_{a,b}_detected``. ``exp``, ``sim``,
+    ``n_measured`` and ``n_detected`` are **deprecated aliases** for the side-A
+    fields, retained only so a vendoring tree can migrate independently of a
+    sync; new callers should not use them.
+
     Order matters and is the decided one, and the id-space test comes FIRST:
     filter each operand by its own detection rule → intersect the id-spaces →
     renormalize BOTH sides to ppm over that shared set → let the caller take the
@@ -388,10 +394,33 @@ def _join_vectors(a, b) -> dict:
         tot = sum(vec)
         return [v * _PPM / tot for v in vec] if tot > 0 else vec
 
+    a_ppm, b_ppm = _ppm(a_raw), _ppm(b_raw)
+
     return {
         "ids": ids, "symbols": syms,
-        "exp": _ppm(a_raw), "sim": _ppm(b_raw),
+        # ``a``/``b`` match the convention every other paired field in this dict
+        # already uses (``kind_a``, ``n_nonpositive_b``, ``detection_informative_a``
+        # …). The two vectors and the two panel counts were the last fields named
+        # for a measurement-vs-model split this function's own docstring says it
+        # does not make — and the names were not merely untidy:
+        #
+        #   * the FIRST operand was returned under the key ``exp``, regardless of
+        #     kind, so a consumer plotting ``exp`` on the x-axis mislabelled its
+        #     axes whenever the caller passed the model first (R² is symmetric,
+        #     so no score was ever wrong — only the labels);
+        #   * a sim↔sim join reported ``n_measured`` about a simulation.
+        "a": a_ppm, "b": b_ppm,
         "n_shared": len(ids),
+        # Panel sizes, now reported for BOTH sides. Only side A's were exposed
+        # before, which is itself the asymmetry: a reader could see how much of
+        # the first operand's panel survived detection and not the second's.
+        "n_a_rows": int(len(a.frame)), "n_a_detected": int(len(a_rows)),
+        "n_b_rows": int(len(b.frame)), "n_b_detected": int(len(b_rows)),
+        # DEPRECATED aliases — identical values, kept so a downstream tree that
+        # vendors this file can migrate on its own schedule instead of in
+        # lockstep with a sync. Remove once sms-ecoli's vs_experiment.py reads
+        # the symmetric names.
+        "exp": a_ppm, "sim": b_ppm,
         "n_measured": int(len(a.frame)),
         "n_detected": int(len(a_rows)),
         # Coverage: present and usable on one side, no row at all on the other.

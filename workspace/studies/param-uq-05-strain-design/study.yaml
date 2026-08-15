@@ -1,0 +1,387 @@
+schema_version: 4
+name: param-uq-05-strain-design
+investigation: parameter-uq
+title: "Strain-design UQ — which new-gene knob (expression vs translation efficiency) drives product/growth variance, decomposed across aggregation strategies 1–3"
+created: '2026-08-15'
+status: designed
+
+# Canonical 6-axis status. This study is DESIGNED and wired; the compute
+# (GFP-ParCa build + pbg-uq ensemble) has not run yet, so nothing downstream of
+# simulation is claimed. No results are asserted below — every result slot is a
+# planned acceptance target, not a finding.
+design_status: complete
+implementation_status: in_progress   # pbg-uq new-gene driver + aggregation strategies 1–3 being wired
+simulation_status: not_started
+evaluation_status: not_started
+gate_status: pending
+expert_review_status: pending
+
+# Investigation-graph node fields.
+claim: |
+  (PENDING — set at Evaluate.) Planned headline: among the GFP new-gene
+  strain-design knobs reachable via the public new_gene_internal_shift variant,
+  identify whether expression (exp) or translation efficiency (trl_eff) dominates
+  variance in new-gene product level and in instantaneous growth rate — and show
+  how that ranking changes (or holds) under the three UQ aggregation strategies
+  (population / by-generation / by-seed).
+confidence: Planned
+
+question: |
+  For a GFP new-gene strain-design use case in v2ecoli: (1) does the pbg-uq
+  forward-UQ pipeline run end-to-end when the swept knobs are new-gene
+  expression + translation-efficiency factors (public new_gene_internal_shift)?
+  (2) Which knob dominates variance in new-gene product level and in growth rate?
+  (3) Does the dominant-knob ranking depend on the aggregation strategy — a single
+  bulk-population average (strategy 1), stratified by generation across the
+  induction shift (strategy 2), or stratified by stochastic seed (strategy 3)?
+
+hypothesis: |
+  Expression (exp) is the dominant lever on new-gene product level (a direct
+  transcription-level scaling), while translation efficiency (trl_eff) contributes
+  a smaller, more interaction-laden share. Because new_gene_internal_shift induces
+  at a chosen generation, the by-generation aggregation (strategy 2) is expected to
+  reveal induction-timing structure that the population aggregation (strategy 1)
+  averages away — i.e. the strategy choice is itself informative, not merely a
+  variance-reduction knob. Growth-rate sensitivity to either knob is expected to be
+  modest at the demonstration window (product expression is a small metabolic load).
+
+objective: |
+  Run a forward-UQ on a GFP new-gene v2ecoli strain, sweeping the two public
+  strain-design knobs (expression, translation efficiency), to (a) rank their
+  Sobol contributions to new-gene product level and growth rate, and (b)
+  demonstrate the milestone's required decomposition across aggregation strategies
+  1–3. This is the parameter-uq investigation's strain-design extension — the
+  "systematic sweep across the full parameter space" the overview anticipates —
+  and the concrete demonstration deliverable for the M8 / 08.4.2 UQ milestone,
+  built natively in v2ecoli (pbg-uq) rather than the standalone uqEcoli pipeline.
+
+description: |
+  The sibling studies param-uq-00..04 established that the pbg-uq forward-UQ
+  pipeline runs on the v2ecoli baseline and that, among physiological elongation
+  knobs, ribosome basal_elongation_rate dominates growth-rate variance. This study
+  turns the same machinery on a STRAIN-DESIGN use case: a heterologous GFP
+  new-gene insert (ParCa `new_genes: gfp`), swept via the public
+  new_gene_internal_shift variant's two continuous factors — expression (`exp`)
+  and translation efficiency (`trl_eff`).
+
+  Two things make it the milestone demonstration rather than another physiology
+  sweep. First, the observable of interest is an ENGINEERING output — new-gene
+  product level — so the Sobol ranking answers a design question ("which knob to
+  turn to move product yield"). Second, the milestone explicitly requires applying
+  aggregation strategies 1–3, and new_gene_internal_shift's generational induction
+  makes strategy 2 (by-generation) mechanistically meaningful: the same ensemble,
+  aggregated three ways, is expected to yield three readings, and the study's job
+  is to report and interpret that difference — not to pick one.
+
+  Prerequisite (hard): no existing sim_data cache carries a new gene, so a
+  dedicated ParCa build with `new_genes: gfp` is required before any sampling.
+  That build is the study's first implementation step and runs on the mini.
+
+pipeline_gate:
+  prerequisites:
+    - param-uq-01-elongation
+    - param-uq-03-growth-stratified
+  proceed_condition: |
+    param-uq-01-elongation.gate_status == passed (the pbg-uq forward-UQ pipeline
+    runs end-to-end on v2ecoli) AND a GFP-new-gene sim_data is built and verified
+    (get_new_gene_ids_and_indices returns a non-empty set).
+  blocks_until_resolved: |
+    Without a GFP-new-gene sim_data the strain-design knobs are inert and no
+    sampling is meaningful; the GFP-ParCa build is the first implementation gate.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    # NOTE: baseline must be built from a GFP-new-gene sim_data (ParCa
+    # new_genes: gfp). Recorded as an enforced input below; wiring in progress.
+  variants:
+    - name: new_gene_expression
+      detail: "new_gene_internal_shift exp_trl_eff.exp — factor scaling induced new-gene expression."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: new_gene_translation_efficiency
+      detail: "new_gene_internal_shift exp_trl_eff.trl_eff — factor scaling induced new-gene translation efficiency."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  interventions:
+    - name: aggregation-strategy-1-population
+      detail: "Bulk average across all cells & timepoints (uniform)."
+    - name: aggregation-strategy-2-by-generation
+      detail: "Stratify by generation across the induction shift; requires generations >= 2."
+    - name: aggregation-strategy-3-by-seed
+      detail: "Stratify by stochastic (lineage) seed; requires multiple seeds."
+    - name: adversarial-inert-knob
+      detail: "A knob that SHOULD be inert for product level — a post-induction knockout_gen with expression already floored — must return near-zero Sobol, or the sensitivity readout is not trustworthy."
+
+assumptions:
+  - name: new-gene-present
+    detail: |
+      The strain-design knobs only do anything on a sim_data built with the
+      new-gene option enabled. get_new_gene_ids_and_indices(sim_data) must return
+      a non-empty GFP cistron/monomer set; a vanilla baseline errors. Verified as
+      an implementation gate before sampling.
+  - name: demonstration-window
+    detail: |
+      A short demonstration ensemble (few generations, modest sample budget) is a
+      DEMONSTRATION of the strategy decomposition, not a converged full-parameter
+      global sweep. Scope claims accordingly.
+
+tests:
+  - name: strain-design-uq-pipeline-runs-end-to-end
+    observable: pbg-uq ensemble over the two new-gene knobs completes on a GFP sim_data
+    condition: |
+      A GFP-ParCa sim_data is built; PCRV sampling over (exp, trl_eff) runs
+      >= 2 generations x multiple seeds; per-sample new-gene product level and
+      growth rate are emitted; a PCE surrogate fits with reported test error.
+    rationale: |
+      The milestone's need-to-have is a working strain-design demonstration; this
+      is the end-to-end liveness gate.
+  - name: aggregation-strategies-1-3-decomposed
+    observable: Sobol indices reported under all three aggregation strategies
+    condition: |
+      The same ensemble is aggregated three ways (population, by-generation,
+      by-seed) and the study reports a Sobol ranking for each, plus an explicit
+      statement of whether/why the rankings differ.
+    rationale: |
+      "Apply sensitivity analysis for aggregation strategies (1–3)" is the
+      explicit milestone wording. Passing means the decomposition is present and
+      interpreted, not that any particular knob wins.
+  - name: dominant-knob-identified-and-robust
+    observable: a ranked Sobol ordering of (exp, trl_eff) for product level, stable across seeds
+    condition: |
+      One knob's total-order Sobol ranking is stable across PCRV seeds (argmax
+      identical), with the surrogate test error reported. Direction (exp vs
+      trl_eff) is not pre-judged.
+    rationale: |
+      The design question ("which knob moves product yield") needs a robust,
+      not a single-seed, answer.
+  - name: adversarial-inert-knob-returns-null
+    observable: Sobol index of the deliberately-inert knob
+    condition: "The inert adversarial knob's total-order Sobol is near-zero (within noise)."
+    rationale: |
+      Rigor: the sensitivity readout must reject a knob that cannot affect the
+      observable, or it cannot be trusted to accept one that does.
+
+runs: []
+
+planned_runs:
+  - name: gfp-parca-build
+    status: planned
+    n_steps: 0
+    details: |
+      ParCa build with new_genes: gfp on the mini → sim_data with a GFP new gene.
+      Gate: get_new_gene_ids_and_indices(sim_data) non-empty. Not a simulation
+      (n_steps=0); the prerequisite build for every run below.
+  - name: strain-design-screen
+    status: planned
+    n_steps: 120
+    details: |
+      Low→high screen of (exp, trl_eff) on the GFP baseline to set production
+      bounds and confirm each knob moves new-gene product level; seeds [0].
+  - name: strain-design-ensemble
+    status: planned
+    n_steps: 480
+    details: |
+      Production PCRV ensemble over (exp, trl_eff), >= 2 generations x 3 PCRV
+      seeds [0,1,2], XArray emitter. Emits new-gene product level + growth rate
+      per cell/generation so strategies 1–3 can all be computed from one ensemble.
+      tests: [strain-design-uq-pipeline-runs-end-to-end,
+      aggregation-strategies-1-3-decomposed, dominant-knob-identified-and-robust,
+      adversarial-inert-knob-returns-null]
+
+simulation_set:
+  - name: gfp-parca-build
+    kind: build
+    status: planned
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    description: "ParCa build with new_genes: gfp → GFP-new-gene sim_data (prerequisite; not a sim)."
+    duration_steps: 0
+    seeds: [0]
+    metrics: [new_gene_cistron_count]
+    pass_fail_tests: []
+  - name: strain-design-screen
+    kind: screen
+    status: planned
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {new_gene_internal_shift.exp_trl_eff.exp: "low..high", new_gene_internal_shift.exp_trl_eff.trl_eff: "low..high"}
+    description: "Screen (exp, trl_eff) on the GFP baseline; set production bounds, confirm knobs move product level."
+    duration_steps: 120
+    seeds: [0]
+    metrics: [new_gene_product_level]
+    pass_fail_tests: [strain-design-uq-pipeline-runs-end-to-end]
+  - name: strain-design-ensemble
+    kind: uq-ensemble
+    status: planned
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {sampler: PCRV, knobs: [exp, trl_eff], seeds: 3, generations: 2}
+    description: "Production PCRV ensemble; PCE + Sobol under aggregation strategies 1–3."
+    duration_steps: 480
+    seeds: [0, 1, 2]
+    metrics: [new_gene_product_level, instantaneous_growth_rate, sobol_indices_per_strategy, pce_test_error]
+    pass_fail_tests: [aggregation-strategies-1-3-decomposed, dominant-knob-identified-and-robust, adversarial-inert-knob-returns-null]
+
+visualizations:
+  - name: Sobol sensitivity by aggregation strategy
+    chart: image
+    address: image:charts/sobol_by_strategy.png
+    config:
+      title: "PLANNED — Strain-design Sobol (exp vs trl_eff) under aggregation strategies 1–3"
+    render: |
+      PLANNED mockup (pending the ensemble): grouped Sobol bars for exp and
+      trl_eff on new-gene product level, one group per aggregation strategy
+      (population / by-generation / by-seed), whiskers = across-seed range. The
+      milestone figure — shows whether the ranking is strategy-invariant.
+  - name: PCE response — product level vs strain-design knobs
+    chart: image
+    address: image:charts/pce_response_strain_design.png
+    config:
+      title: "PLANNED — PCE surrogate: new-gene product level vs exp and vs trl_eff (other at midpoint)"
+    render: |
+      PLANNED mockup: predicted new-gene product level across each knob's range,
+      illustrating the expected steeper response to expression than to
+      translation efficiency.
+
+# Report is authored at Evaluate, over REAL emitted numbers. Left as the planned
+# frame here — verdict pending simulation. No Sobol values are invented.
+report:
+  title: param-uq-05-strain-design — strain-design UQ across aggregation strategies 1–3
+  verdict: pending
+  confidence: pending
+  evidence_quality: "PLANNED — GFP-ParCa build + pbg-uq ensemble (>=2 gen x multi-seed), order-2 PCE; numbers pending run."
+  objective: |
+    Rank the two GFP new-gene strain-design knobs (expression, translation
+    efficiency) by Sobol contribution to product level and growth rate, and
+    demonstrate the milestone-required decomposition across aggregation
+    strategies 1–3.
+  setup: |
+    ### Parameter Specifications (swept knobs)
+
+    Both knobs come from the PUBLIC `new_gene_internal_shift` variant
+    (present in v2ecoli's ecoli build), applied to a GFP-new-gene sim_data.
+
+    | Parameter | Variant path | Nominal | Planned range | Description |
+    |---|---|---|---|---|
+    | `exp` | `new_gene_internal_shift.exp_trl_eff.exp` | 1.0 | ~0.5–5.0 | Factor scaling induced new-gene expression (transcription-level). |
+    | `trl_eff` | `new_gene_internal_shift.exp_trl_eff.trl_eff` | 1.0 | ~0.5–2.0 | Factor scaling induced new-gene translation efficiency. |
+
+    (Ranges mirror the historical violacein-pathway X-space bounds and will be
+    screened before the production ensemble.)
+
+    ### Tracked observables
+
+    | Observable | Path | Why |
+    |---|---|---|
+    | new-gene product level | new-gene monomer count (GFP) | The engineering output the strain-design ranking is about. |
+    | `instantaneous_growth_rate` | `listeners.mass.instantaneous_growth_rate` | Growth-rate load of expressing the product. |
+
+    ### Methodology (planned)
+
+    | Field | Value |
+    |---|---|
+    | Tool | pbg-uq · `examples/v2ecoli_uq_ensemble.py` (new-gene knob path) |
+    | Composite | `v2ecoli.composites.ecoli_baseline` built from GFP `new_genes: gfp` sim_data |
+    | Sampling | PCRV (uniform prior) over (exp, trl_eff) |
+    | Surrogate | order-2 Polynomial Chaos Expansion, analytic Sobol (Sudret 2008) |
+    | Aggregation | strategies 1 (population), 2 (by-generation), 3 (by-seed) |
+    | Budget | demonstration ensemble: >= 2 generations x multiple PCRV seeds |
+    | Compute | mini (GFP ParCa + ensemble) |
+  result: |
+    PENDING — populated at Evaluate from the emitted ensemble. No Sobol values are
+    asserted until the run completes.
+  interpretation: |
+    PENDING.
+  decision: |
+    PENDING — gated on the four tests above.
+
+readouts:
+  - name: new_gene_product_level
+    notes: "GFP new-gene monomer count — the engineering output."
+  - name: sobol_indices_per_strategy
+    notes: "Sobol ranking of (exp, trl_eff) under each of aggregation strategies 1–3."
+  - name: pce_test_error
+    notes: "Surrogate test relative error, per strategy/seed."
+
+enforced_params:
+  - name: new_genes
+    value: gfp
+    detail: "ParCa build must enable the GFP new-gene option, else the knobs are inert."
+
+study_card:
+  role: |
+    The strain-design extension of parameter-uq: turns the established pbg-uq
+    forward-UQ machinery on an engineering (new-gene product) observable and
+    delivers the M8/08.4.2 milestone's required aggregation-strategy-1–3
+    demonstration, natively in v2ecoli.
+
+biological_summary: |
+  A heterologous GFP gene is inserted (ParCa new_genes: gfp) and induced via the
+  public new_gene_internal_shift variant. Two design knobs — how strongly the gene
+  is transcribed (expression) and how efficiently its mRNA is translated
+  (translation efficiency) — are swept, and forward UQ ranks their contribution to
+  product level and to the growth-rate cost of expression.
+
+literature_anchors:
+  - claim: "new_gene GFP insert + internal-shift induction is the standard vEcoli/v2ecoli new-gene mechanism."
+    model_observable: "new_gene_internal_shift.exp_trl_eff.{exp,trl_eff}; new_genes: gfp"
+    source: "v2ecoli/vEcoli new-gene subsystem (reconstruction/ecoli/flat/new_gene_data/gfp)"
+
+model_change:
+  base_model: v2ecoli.composites.ecoli_baseline
+  detail: |
+    No change to the composite topology. A GFP new-gene sim_data (ParCa
+    new_genes: gfp) replaces the vanilla baseline sim_data; the external pbg-uq
+    driver wraps baseline() per sample and applies the new_gene_internal_shift
+    knob values.
+
+implementation_requirements:
+  - name: gfp-parca-build
+    detail: |
+      Build a sim_data with new_genes: gfp on the mini; verify
+      get_new_gene_ids_and_indices returns a non-empty GFP set before sampling.
+  - name: pbg-uq-new-gene-driver
+    detail: |
+      Extend examples/v2ecoli_uq_ensemble.py (or a sibling) to sweep the
+      new_gene_internal_shift exp_trl_eff knobs and emit new-gene product level.
+  - name: aggregation-strategies-1-3
+    detail: |
+      Aggregate the ensemble population / by-generation / by-seed and report a
+      Sobol ranking for each. by-generation requires generations >= 2; by-seed
+      requires multiple seeds — set the run budget accordingly.
+
+behavior_tests:
+  - name: strain-design-uq-pipeline-runs-end-to-end
+    expectation: "PCRV ensemble over (exp, trl_eff) completes on the GFP sim_data with a fitted PCE."
+    status: planned
+  - name: aggregation-strategies-1-3-decomposed
+    expectation: "One ensemble yields a Sobol ranking under each of population / by-generation / by-seed, with the difference interpreted."
+    status: planned
+  - name: dominant-knob-identified-and-robust
+    expectation: "The dominant knob's total-order Sobol ranking is argmax-stable across PCRV seeds."
+    status: planned
+  - name: adversarial-inert-knob-returns-null
+    expectation: "The deliberately-inert knob returns near-zero total-order Sobol (within noise)."
+    status: planned
+
+conclusion_verdicts:
+  - claim: "The pbg-uq forward-UQ pipeline runs end-to-end on a GFP new-gene strain-design use case."
+    verdict: pending
+    basis: "Awaiting the GFP-ParCa build + strain-design ensemble run (planned)."
+  - claim: "Sobol rankings can be decomposed across aggregation strategies 1–3 from a single ensemble."
+    verdict: pending
+    basis: "The milestone gate; requires generations >= 2 and multiple seeds in the production run."
+  - claim: "Expression (exp) dominates new-gene product-level variance over translation efficiency (trl_eff)."
+    verdict: pending
+    basis: "Directional hypothesis; a null or reversed result is a valid finding, not a failure."
+
+falsifiability: |
+  The study FAILS its rigor bar if (a) the adversarial inert knob returns a
+  non-null Sobol index, (b) the dominant-knob ranking flips across seeds within a
+  single strategy (not robust), or (c) the three aggregation strategies cannot be
+  computed from one ensemble. A null or reversed expression-vs-trl_eff result is a
+  valid finding, not a failure — only the pipeline/robustness/decomposition gates
+  are pass/fail.
+
+robustness:
+  detail: |
+    Ranking robustness is asserted across PCRV seeds (argmax stability), and the
+    aggregation-strategy comparison is itself a robustness probe: a ranking that
+    holds across all three strategies is stronger than one that only appears under
+    population averaging.

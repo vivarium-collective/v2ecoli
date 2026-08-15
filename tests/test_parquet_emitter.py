@@ -1,7 +1,5 @@
 """Unit tests for v2ecoli.library.parquet_emitter.ParquetEmitter."""
 
-import os
-from pathlib import Path
 
 import pytest
 

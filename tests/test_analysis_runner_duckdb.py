@@ -95,7 +95,6 @@ def test_create_duckdb_conn_actually_configures_spill_and_memory_pragmas(tmp_pat
 
 
 import glob as _glob
-import json as _json
 import os as _os
 import pytest as _pytest
 

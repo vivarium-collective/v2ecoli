@@ -18,7 +18,15 @@
     },
     {
      "id": "round_trip.ok",
-     "label": "Every surviving feature's sequence is preserved",
+     "label": "Two-branch round trip over genes, TUs and DNA sites: unchanged features byte-identical, straddling features exactly excised",
+     "verdict": "within_tol",
+     "value": true,
+     "meter": "pass",
+     "detail": {}
+    },
+    {
+     "id": "coordinate_bounds.ok",
+     "label": "Every coordinate lies within 1..genome_length",
      "verdict": "within_tol",
      "value": true,
      "meter": "pass",
@@ -83,6 +91,6 @@
    "EG10526"
   ],
   "genotype_id": "2e013536817c75d2",
-  "manifest": "/Users/chris/projects/SMS/v2ecoli-geno/out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv"
+  "manifest": "bundle/reference_bundle.tsv"
  }
 }

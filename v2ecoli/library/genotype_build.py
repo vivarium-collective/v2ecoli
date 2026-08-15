@@ -111,6 +111,65 @@ def _dna_site_ids(raw_data: Any, *, exclude_dnaa: bool = True) -> dict[str, dict
     }
 
 
+def _coord(value: Any) -> "int | None":
+    """Normalize a flat-file coordinate. The TSVs are JSON-typed but not uniformly:
+    transcription-unit rows can carry string coordinates, and overlay-derived rows
+    hold '' rather than null (D20). Both read as "no coordinate" here."""
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
+def _expected_after_deletion(wt_seq: str, left: int, right: int,
+                             spans: Iterable[tuple[int, int]]) -> str:
+    """The sequence a wild-type feature at [left, right] (1-based inclusive) should
+    carry after the deletion spans are excised. Spans are in wild-type coordinates;
+    excising in descending order keeps the relative indices of lower spans valid."""
+    out = wt_seq
+    for l, r in sorted(spans, key=lambda s: s[0], reverse=True):
+        lo, hi = max(left, l), min(right, r)
+        if lo <= hi:
+            out = out[:lo - left] + out[hi - left + 1:]
+    return out
+
+
+def _round_trip_features(wt_feats: dict, ko_feats: dict, wt_genome: str,
+                         ko_genome: str, spans: dict) -> dict:
+    """Two-branch round trip over one feature class.
+
+    Unchanged length => the sequence must be byte-identical to the wild-type read;
+    shrunk => it must equal the wild-type read with exactly the deleted span excised.
+    The single-branch "everything identical" form is vacuous for an off-by-one
+    splice (it preserves every length), which is why both branches exist and the
+    shrunk count is reported: zero shrunk features means the second branch was
+    never exercised.
+    """
+    identical = shrunk_ok = differing = no_coords = 0
+    examples: list[str] = []
+    for fid, kf in ko_feats.items():
+        wf = wt_feats.get(fid)
+        if wf is None:
+            continue
+        wl, wr = _coord(wf.get("left_end_pos")), _coord(wf.get("right_end_pos"))
+        kl, kr = _coord(kf.get("left_end_pos")), _coord(kf.get("right_end_pos"))
+        if None in (wl, wr, kl, kr):
+            no_coords += 1
+            continue
+        ws, ks = wt_genome[wl - 1:wr], ko_genome[kl - 1:kr]
+        expected = _expected_after_deletion(ws, wl, wr, spans.values())
+        if ks == expected:
+            if len(ks) == len(ws):
+                identical += 1
+            else:
+                shrunk_ok += 1
+        else:
+            differing += 1
+            if len(examples) < 10:
+                examples.append(fid)
+    return {"identical": identical, "shrunk_excised_ok": shrunk_ok,
+            "differing": differing, "no_coords": no_coords, "examples": examples}
+
+
 def measure_structure(wt: Any, ko: Any, gene_ids: Iterable[str],
                       spans: dict[str, tuple[int, int]]) -> dict:
     """The four fit-free readouts, as a card node tree.
@@ -125,26 +184,24 @@ def measure_structure(wt: Any, ko: Any, gene_ids: Iterable[str],
     wt_len, ko_len = len(wt.genome_sequence), len(ko.genome_sequence)
     observed_delta = wt_len - ko_len
 
-    # -- feature-sequence-round-trip --------------------------------------
+    # -- feature-sequence-round-trip (two-branch, three feature classes) ----
     # Compared by CONTENT, not length: a length-preserving off-by-one would pass a
-    # length check while corrupting every downstream feature.
+    # length check while corrupting every downstream feature. Genes never shrink
+    # (the target tombstones instead), so transcription units are what exercise the
+    # shrunk branch — on the real KB a lacY deletion truncates lac-operon TUs.
     wt_genes = {g["id"]: g for g in wt.genes}
-    identical = differing = tombstoned = 0
-    mismatches: list[str] = []
-    for gid, kg in ((g["id"], g) for g in ko.genes):
-        wg = wt_genes.get(gid)
-        if wg is None:
-            continue
-        ks = _feature_seq(kg, ko.genome_sequence)
-        if ks is None:
-            tombstoned += 1
-            continue
-        if ks == _feature_seq(wg, wt.genome_sequence):
-            identical += 1
-        else:
-            differing += 1
-            if len(mismatches) < 10:
-                mismatches.append(gid)
+    wt_sites, ko_sites = _dna_site_ids(wt), _dna_site_ids(ko)
+    rt_classes = {
+        "genes": _round_trip_features(
+            wt_genes, {g["id"]: g for g in ko.genes},
+            wt.genome_sequence, ko.genome_sequence, spans),
+        "transcription_units": _round_trip_features(
+            {t["id"]: t for t in wt.transcription_units},
+            {t["id"]: t for t in ko.transcription_units},
+            wt.genome_sequence, ko.genome_sequence, spans),
+        "dna_sites": _round_trip_features(
+            wt_sites, ko_sites, wt.genome_sequence, ko.genome_sequence, spans),
+    }
 
     # -- tombstone accounting ---------------------------------------------
     # The wild type already carries genes with null coordinates; only the DELTA is
@@ -157,7 +214,6 @@ def measure_structure(wt: Any, ko: Any, gene_ids: Iterable[str],
     # -- downstream coordinate shift --------------------------------------
     # Every DNA site above the cut shifts by exactly the deleted length; everything
     # below it must not move. Checked per-site rather than in aggregate.
-    wt_sites, ko_sites = _dna_site_ids(wt), _dna_site_ids(ko)
     hi = max((r for _, r in spans.values()), default=0)
     lo = min((l for l, _ in spans.values()), default=0)
     shifted = unmoved = 0
@@ -179,6 +235,30 @@ def measure_structure(wt: Any, ko: Any, gene_ids: Iterable[str],
                 unmoved += 1
             else:
                 wrong.append(sid)
+
+    # -- coordinate bounds --------------------------------------------------
+    # Every surviving coordinate must satisfy 1 <= left <= right <= genome length.
+    # Catches a shift applied in the wrong direction or past the shortened end.
+    # A half-null pair counts as a violation: the transform's own guard requires
+    # both coordinates null (tombstone) or both present.
+    bounds_checked = 0
+    bound_violations: list[str] = []
+    for cls, rows in (("genes", ko.genes),
+                      ("transcription_units", ko.transcription_units),
+                      ("dna_sites", ko.dna_sites)):
+        for row in rows:
+            try:
+                left = _coord(row.get("left_end_pos"))
+                right = _coord(row.get("right_end_pos"))
+            except (TypeError, ValueError):
+                bounds_checked += 1
+                bound_violations.append(f"{cls}:{row.get('id')}")
+                continue
+            if left is None and right is None:
+                continue
+            bounds_checked += 1
+            if left is None or right is None or not (1 <= left <= right <= ko_len):
+                bound_violations.append(f"{cls}:{row.get('id')}")
 
     # -- feature-inventory -------------------------------------------------
     inventory = {
@@ -207,9 +287,20 @@ def measure_structure(wt: Any, ko: Any, gene_ids: Iterable[str],
             "observed_delta": observed_delta, "expected_delta": deleted_bp,
         },
         "round_trip": {
-            "ok": differing == 0,
-            "identical": identical, "differing": differing,
-            "tombstoned": tombstoned, "examples": mismatches,
+            "ok": all(c["differing"] == 0 for c in rt_classes.values()),
+            "identical": sum(c["identical"] for c in rt_classes.values()),
+            "shrunk_excised_ok": sum(c["shrunk_excised_ok"]
+                                     for c in rt_classes.values()),
+            "differing": sum(c["differing"] for c in rt_classes.values()),
+            "tombstoned": rt_classes["genes"]["no_coords"],
+            "by_class": rt_classes,
+            "examples": [e for c in rt_classes.values() for e in c["examples"]][:10],
+        },
+        "coordinate_bounds": {
+            "ok": not bound_violations,
+            "checked": bounds_checked,
+            "violations": len(bound_violations),
+            "examples": bound_violations[:10],
         },
         "tombstone": {
             "ok": newly_tombstoned == sorted(gene_ids) and not resurrected,
@@ -313,7 +404,15 @@ def _reference(gene_ids: list[str], mode: "str | None", deleted_bp: int) -> dict
                 "detail": {"expected_delta_bp": deleted_bp},
             },
             "round_trip.ok": {
-                "group": "Genome", "label": "Every surviving feature's sequence is preserved",
+                "group": "Genome",
+                "label": "Two-branch round trip over genes, TUs and DNA sites: "
+                         "unchanged features byte-identical, straddling features "
+                         "exactly excised",
+                "criterion": {"type": "boolean"},
+            },
+            "coordinate_bounds.ok": {
+                "group": "Genome",
+                "label": "Every coordinate lies within 1..genome_length",
                 "criterion": {"type": "boolean"},
             },
             "coordinate_shift.ok": {
@@ -361,8 +460,12 @@ def build(gene_ids: Iterable[str], *, workdir: "str | Path",
     card = measure_structure(wt, ko, gene_ids, spans)
     fit = measure_fit(load_state(parca_state) if parca_state else None)
     card["fit"] = fit
+    # The manifest is recorded relative to the (untracked, machine-local) workdir:
+    # an absolute path would leak the local filesystem layout into a committed
+    # verdict and break byte-identical re-rendering across machines. The
+    # content-addressed genotype_id is the durable identity; the path is a hint.
     card["genotype"] = {"gene_ids": gene_ids, "genotype_id": gid,
-                        "manifest": str(manifest)}
+                        "manifest": str(Path(manifest).relative_to(Path(workdir)))}
 
     deleted_bp = sum(r - l + 1 for l, r in spans.values())
     return card, _reference(gene_ids, mode, deleted_bp)

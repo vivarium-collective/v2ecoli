@@ -50,7 +50,18 @@ def test_generator_records_the_deleted_span(arms):
 def test_all_structural_axes_pass_on_a_real_knockout(measured):
     flags = {k: v["ok"] for k, v in measured.items() if isinstance(v, dict) and "ok" in v}
     assert flags == {"chromosome_length": True, "round_trip": True, "tombstone": True,
-                     "coordinate_shift": True, "functional_absence": True}
+                     "coordinate_shift": True, "coordinate_bounds": True,
+                     "functional_absence": True}
+
+
+def test_shrunk_branch_is_exercised_on_the_real_knockout(measured):
+    """lacY sits inside the lac operon, so transcription units straddle the deletion
+    and must land in the SHRUNK branch. Zero shrunk features would mean the second
+    branch of the round trip was never exercised — the study's own vacuity flag."""
+    rt = measured["round_trip"]
+    assert rt["ok"] is True
+    assert rt["shrunk_excised_ok"] >= 1
+    assert rt["by_class"]["transcription_units"]["shrunk_excised_ok"] >= 1
 
 
 def test_chromosome_shortens_by_exactly_the_span(measured):
@@ -86,9 +97,37 @@ def test_round_trip_catches_a_LENGTH_PRESERVING_corruption(arms):
 
     out = gb.measure_structure(wt, broken, [LACY], spans)
     assert out["round_trip"]["ok"] is False
-    assert out["round_trip"]["differing"] == 1
+    # >= 1, not == 1: the corrupted base may sit inside a gene AND a transcription
+    # unit / DNA site, so more than one feature class can report it.
+    assert out["round_trip"]["differing"] >= 1
     # ...and the length axis is unmoved, proving it could not have caught this.
     assert out["chromosome_length"]["ok"] is True
+
+
+def test_off_by_one_span_is_caught_by_the_round_trip(arms):
+    """Shift the recorded span by one base: the deleted LENGTH is unchanged, so the
+    chromosome-length axis passes — only the excision comparison can object. This is
+    the defect class (#455 defect 4, the off-by-one splice) the two-branch form
+    exists to catch at genome scale."""
+    wt, ko, _spans = arms
+    out = gb.measure_structure(
+        wt, ko, [LACY], {LACY: (LACY_SPAN[0] + 1, LACY_SPAN[1] + 1)})
+    assert out["chromosome_length"]["ok"] is True
+    assert out["round_trip"]["ok"] is False
+
+
+def test_out_of_range_coordinate_fails_bounds(arms):
+    """Push one surviving gene past the shortened chromosome end: only the bounds
+    axis is positioned to object."""
+    wt, ko, spans = arms
+    broken = copy.copy(ko)
+    rows = [dict(g) for g in ko.genes]
+    victim = next(r for r in rows if r["left_end_pos"] is not None)
+    victim["right_end_pos"] = len(ko.genome_sequence) + 50
+    broken.genes = rows
+    out = gb.measure_structure(wt, broken, [LACY], spans)
+    assert out["coordinate_bounds"]["ok"] is False
+    assert out["coordinate_bounds"]["violations"] == 1
 
 
 def test_wrong_expected_span_fails_length_and_shift(arms):

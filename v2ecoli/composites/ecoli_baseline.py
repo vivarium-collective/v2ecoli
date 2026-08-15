@@ -80,14 +80,14 @@ def _is_plain_numeric_leaf(v: Any) -> bool:
     straight into a fixed-dtype DataArray slot: python/numpy int/float/bool
     scalars, or numeric ``numpy.ndarray``s with more than one element.
 
-    False for ``pint.Quantity`` (no unit-stripping hook in pbg_emitters'
+    False for ``pint.Quantity`` (no unit-stripping hook in viva_emitters'
     view/transducer), ``str``/``bytes``/``list``/``tuple`` (the transducer
     only walks plain dicts, not these), and — critically — length-0 or
     length-1 numeric arrays.
 
     The size<=1 exclusion mirrors ``extract_output_metadata_from_state``'s own
     "scalar, no coord needed" threshold (``arr.ndim==0 or arr.size<=1``) and
-    guards against a real pbg_emitters promotion-trap bug (Task 1 spike,
+    guards against a real viva_emitters promotion-trap bug (Task 1 spike,
     gotcha #5b): a leaf with no declared output_metadata coord starts with
     ``spec.coord is None`` and goes through the *dynamic* promote-or-drop
     write path on its first ``update()``. If that first write is itself a
@@ -276,7 +276,7 @@ class SingleCellXArrayEmitter(Emitter):
     Swapped into the single ``agents/0/emitter`` key in place (never as an extra
     document Step: adding sibling Steps perturbs process_bigraph's scheduling and
     trips a pre-existing metabolism fragility — Task 1 gotcha #4). It wraps a real
-    ``pbg_emitters.XArrayEmitter`` but defers its construction to the FIRST
+    ``viva_emitters.XArrayEmitter`` but defers its construction to the FIRST
     ``update()`` so the view/output_metadata are discovered from the fully
     REALIZED composite state, resolving the two Task-4 blockers:
 
@@ -316,7 +316,7 @@ class SingleCellXArrayEmitter(Emitter):
 
     def _lazy_init(self):
         from process_bigraph.composite import get_current_composite
-        from pbg_emitters import XArrayEmitter
+        from viva_emitters import XArrayEmitter
         from v2ecoli.library.xarray_run import (
             view_from_emit_paths, extract_output_metadata_from_state)
         from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
@@ -390,7 +390,7 @@ class SingleCellXArrayEmitter(Emitter):
     def close_emitter(self):
         """Flush the trailing partial buffer and finalize the zarr store.
 
-        Idempotent. Swallows the known pbg_emitters ``flush(final=True)`` assert
+        Idempotent. Swallows the known viva_emitters ``flush(final=True)`` assert
         (buffer exactly full at close) ONLY when at least one buffer already
         reached disk mid-run — those rows are safe and only the just-flushed
         trailing buffer tripped the boundary assert. If NOTHING was ever written
@@ -1622,7 +1622,7 @@ def baseline(
             "streams bulk + listeners to zarr with bounded memory and is "
             "validated for short/moderate runs. Its per-leaf view is discovered "
             "from the first tick's realized shapes, so a VERY long run may hit an "
-            "upstream pbg_emitters ragged-vector limitation (a listener leaf that "
+            "upstream viva_emitters ragged-vector limitation (a listener leaf that "
             "later changes length or disappears). For long single-cell runs "
             "prefer emitter='parquet' (the robust default).",
             stacklevel=2,

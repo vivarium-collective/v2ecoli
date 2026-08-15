@@ -183,6 +183,12 @@ class Division(V2Step):
         # (e.g. metabolism-redux) survives division. None for the normal baseline
         # -> daughters rebuild the plain FBA baseline exactly as before.
         self._injected_processes = self.parameters.get('injected_processes')
+        # Caller's config_overrides (variant / sweep patches), threaded from
+        # baseline() via _helpers' division config. Re-applied to each daughter's
+        # baseline() rebuild so a perturbation survives division; without it,
+        # daughters revert to the plain cached configs and generation ≥2 runs
+        # UNPERTURBED. None for the plain baseline -> daughters unchanged.
+        self._config_overrides = self.parameters.get('config_overrides')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -373,7 +379,8 @@ class Division(V2Step):
                     doc = baseline(
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
-                        injected_processes=self._injected_processes)
+                        injected_processes=self._injected_processes,
+                        config_overrides=self._config_overrides)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

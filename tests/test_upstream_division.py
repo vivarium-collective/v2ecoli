@@ -112,3 +112,28 @@ def test_binomial_bulk_split_conserves_and_halves():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_division_step_threads_config_overrides_to_daughters():
+    """config_overrides passed to baseline() must reach the Division step so it
+    re-applies them to each daughter's rebuild — otherwise a perturbation
+    (variant / sweep) silently confines itself to generation 1.
+    Regression guard for the daughters-revert-at-division bug."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites._helpers import CachedConfigLoader, _get_special_step
+
+    core = build_core()
+    overrides = {"ecoli-polypeptide-elongation.basal_elongation_rate": 19.5}
+
+    # Perturbed: loader carries config_overrides -> Division instance stores them.
+    loader = CachedConfigLoader(configs={"division": {}}, unique_names=[],
+                                dry_mass_inc_dict={})
+    loader._config_overrides = overrides
+    instance, _topo, _kind = _get_special_step(loader, "division", core)
+    assert getattr(instance, "_config_overrides", None) == overrides
+
+    # Regression: plain baseline (no overrides) -> daughters rebuild unchanged.
+    plain = CachedConfigLoader(configs={"division": {}}, unique_names=[],
+                               dry_mass_inc_dict={})
+    plain_inst, _t, _k = _get_special_step(plain, "division", core)
+    assert getattr(plain_inst, "_config_overrides", None) is None

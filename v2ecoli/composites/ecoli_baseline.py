@@ -1552,6 +1552,14 @@ def baseline(
     # injected_processes=None -> daughters rebuild plain baseline unchanged.
     loader._injected_processes = injected_processes
 
+    # Stash the caller's config_overrides on the loader too, so the Division
+    # step can re-supply them to each daughter's baseline() rebuild. Without
+    # this, daughters rebuild from the plain cache and REVERT to unperturbed
+    # configs at division — a perturbation (variant / config_overrides sweep)
+    # would silently only apply to generation 1. Normal baseline has
+    # config_overrides=None -> daughters rebuild unchanged.
+    loader._config_overrides = config_overrides
+
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]

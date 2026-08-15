@@ -1521,6 +1521,15 @@ def _get_special_step(loader, step_name, core):
         _injected = getattr(loader, '_injected_processes', None)
         if _injected:
             div_config['injected_processes'] = _injected
+        # Thread the caller's config_overrides (variant / sweep patches) so the
+        # DivisionStep re-applies them to each daughter's baseline() rebuild —
+        # otherwise daughters rebuild from the plain cache and REVERT to
+        # unperturbed configs at division, silently confining a perturbation to
+        # generation 1. Only set when non-empty so the plain baseline (None)
+        # leaves daughters unchanged.
+        _config_overrides = getattr(loader, '_config_overrides', None)
+        if _config_overrides:
+            div_config['config_overrides'] = _config_overrides
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

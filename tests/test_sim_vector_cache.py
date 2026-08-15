@@ -85,15 +85,42 @@ def test_envelope_records_run_identity_and_two_commits(sweep, counting_extract):
 
 def test_run_commit_is_null_when_the_sweep_recorded_none(sweep, counting_extract):
     """Honest null beats a plausible-looking substitute: stamping the extracting
-    tree's HEAD as the run's commit would assert something false."""
+    tree's HEAD as the run's commit would assert something false. Covers a
+    sweep with neither a run_identity.json sidecar (v2ecoli#472/#473) nor a
+    legacy flat-key run_config.json/summary.json."""
     env = svc.load_or_extract(str(sweep), generation_lower_bound=3)
     assert env["provenance"]["run_commit"] is None
 
 
-def test_run_commit_is_read_when_the_sweep_recorded_one(sweep, counting_extract):
+def test_run_commit_is_read_from_run_identity_json(sweep, counting_extract):
+    """The canonical path (v2ecoli#472/#473): every run_* entrypoint writes
+    run_identity.json; _run_commit reads its nested code.commit."""
+    from v2ecoli.library.run_provenance import write_run_identity_record
+    write_run_identity_record(str(sweep), {
+        "code": {"commit": "canonical123"}, "cache_version": {}, "design": {}})
+    env = svc.load_or_extract(str(sweep), generation_lower_bound=3)
+    assert env["provenance"]["run_commit"] == "canonical123"
+
+
+def test_run_commit_falls_back_to_legacy_flat_keys(sweep, counting_extract):
+    """Sweeps produced before this brief never get a run_identity.json —
+    _run_commit still honors the flat top-level commit/git_commit/code_commit
+    keys the reader was speculatively written for."""
     (sweep / "run_config.json").write_text(json.dumps({"commit": "abc123def"}))
     env = svc.load_or_extract(str(sweep), generation_lower_bound=3)
     assert env["provenance"]["run_commit"] == "abc123def"
+
+
+def test_run_commit_prefers_run_identity_json_over_legacy(sweep, counting_extract):
+    """When both exist, the canonical sidecar wins — it's the mechanism every
+    current writer actually produces; the legacy flat-key scan is a
+    speculative fallback, not a competing source of truth."""
+    from v2ecoli.library.run_provenance import write_run_identity_record
+    (sweep / "run_config.json").write_text(json.dumps({"commit": "legacy-should-lose"}))
+    write_run_identity_record(str(sweep), {
+        "code": {"commit": "canonical-should-win"}, "cache_version": {}, "design": {}})
+    env = svc.load_or_extract(str(sweep), generation_lower_bound=3)
+    assert env["provenance"]["run_commit"] == "canonical-should-win"
 
 
 def test_out_dir_redirects_the_cache(sweep, counting_extract, tmp_path):
@@ -101,6 +128,26 @@ def test_out_dir_redirects_the_cache(sweep, counting_extract, tmp_path):
     svc.load_or_extract(str(sweep), 3, out_dir=str(out))
     assert (out / "sim_vectors").is_dir()
     assert not (sweep / "sim_vectors").exists()
+
+
+def test_run_commit_s3_dispatches_to_the_s3_reader(monkeypatch):
+    """v2ecoli#472 §3.4: the S3 short-circuit is relaxed to an actual read —
+    verifies the dispatch, not DuckDB/httpfs internals (those are exercised
+    live, not unit-mockable without a real bucket)."""
+    calls = []
+
+    def _fake_s3_read(sweep_dir):
+        calls.append(sweep_dir)
+        return {"code": {"commit": "s3-commit"}}
+
+    monkeypatch.setattr(svc, "_read_run_identity_s3", _fake_s3_read)
+    assert svc._run_commit("s3://bucket/some-sweep") == "s3-commit"
+    assert calls == ["s3://bucket/some-sweep"]
+
+
+def test_run_commit_s3_null_when_s3_read_finds_nothing(monkeypatch):
+    monkeypatch.setattr(svc, "_read_run_identity_s3", lambda sweep_dir: None)
+    assert svc._run_commit("s3://bucket/no-sidecar") is None
 
 
 def test_s3_sweep_requires_an_out_dir():

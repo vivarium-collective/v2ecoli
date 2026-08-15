@@ -81,6 +81,7 @@ def applicable(ctx: StudyContext, core, only: "str | None" = None) -> list:
 # Register built-in cards (import for side effect). These modules all exist, so
 # import unconditionally — a real import error must surface, not be masked.
 from . import acetate_overflow_card  # noqa: E402,F401
+from . import genotype_build_integrity_card  # noqa: E402,F401
 from . import tests_card  # noqa: E402,F401
 from . import vs_literature_card  # noqa: E402,F401
 from . import vs_vecoli_card  # noqa: E402,F401

@@ -79,3 +79,30 @@ python -m pbg_superpowers.provenance studies/dnaa-1-expression/charts/dnaa1_deci
 For a registered run, `provenance` prints the applied perturbation, the seed,
 generations, cache fingerprint, and the ParCa synth prob it overrode — so the
 *"was V=1.7e-3 applied?"* question is answerable straight from the figure.
+
+## `run_identity.json` — the code-identity sidecar (v2ecoli#472/#473)
+
+Everything above answers *"what config produced this run?"*. It doesn't answer
+*"what commit ran it?"* — no runner recorded that anywhere until now.
+
+Every `run_*` entrypoint that produces sweep output writes
+`<out_dir>/run_identity.json` via
+`v2ecoli.library.run_provenance.write_run_identity`, combining:
+
+- **code** — `code_provenance()`'s `{commit, dirty, diff_sha256, untracked}`
+- **cache_version** — the sweep's `cache_version.json` content fingerprint
+  (`inputs_hash`), read fresh at write time and copied in (never a pointer —
+  `cache_version.json` is mutable and gets silently regenerated later)
+- **design** — whatever grid/config metadata (`experiment_id`, seed,
+  generations, perturbations, ...) is already available at the call site;
+  the write-side half of #473's seed×generation design record
+
+`v2ecoli.library.sim_vector_cache._run_commit` reads this file (local or
+`s3://`) to answer `run_commit` in a cached vector's provenance block, with a
+legacy flat-key fallback for sweeps produced before this convention existed.
+A dedicated file rather than a key added to each runner's own
+`summary.json`/`run_config.json` — see `RUN_IDENTITY_FILENAME`'s docstring in
+`run_provenance.py` for why (`v2ecoli/workflow/run.py`'s `summary.json` shape
+in particular can't take a sibling key without becoming ambiguous to its
+existing readers). Those files still carry their own `run_identity` copy for
+anyone reading them directly.

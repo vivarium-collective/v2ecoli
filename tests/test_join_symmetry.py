@@ -39,7 +39,9 @@ from v2ecoli.library import operands as ops   # noqa: E402
 #: renderer by string key — a missing key does not raise, it renders as an absent
 #: row. A silent rename is exactly the failure this set exists to make loud.
 _COUNT_KEYS = {
-    "n_shared", "n_measured", "n_detected",
+    "n_shared",
+    "n_a_rows", "n_a_detected", "n_b_rows", "n_b_detected",
+    "n_measured", "n_detected",          # deprecated aliases for the side-A pair
     "n_a_outside_b_idspace", "n_b_outside_a_idspace",
     "n_declared_absent_by_a", "n_declared_absent_by_b",
     "n_nonpositive_a", "n_nonpositive_b",
@@ -218,3 +220,64 @@ class NonPositiveAccounting(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SymmetricKeyNames(unittest.TestCase):
+    """The join's OUTPUT names must not encode a measurement-vs-model split the
+    join itself does not make.
+
+    These pin a real defect, not a style preference: the first operand used to be
+    returned under the key ``exp`` regardless of its kind, so a sim<->sim
+    comparison labelled a simulation ``exp`` and reported ``n_measured`` about it.
+    R^2 is symmetric, so nothing was ever mis-SCORED — but anything reading the
+    dict by key to draw or narrate was mislabelled.
+    """
+
+    def _sim_vs_sim(self, td):
+        return _operands(Path(td),
+                         [("p1", 5.0, "detected"), ("p2", 6.0, "detected")],
+                         [("p1", 1.0, "detected"), ("p2", 2.0, "detected")],
+                         a_kind="model_predicted", b_kind="model_predicted")
+
+    def test_vectors_follow_the_ARGUMENT_not_the_kind(self):
+        """``a`` is whatever was passed first, even when neither side is measured."""
+        with TemporaryDirectory() as td:
+            a, b = self._sim_vs_sim(td)
+            j = ops._join_vectors(a, b)
+        self.assertEqual(j["kind_a"], "model_predicted")
+        self.assertEqual(j["kind_b"], "model_predicted")
+        # a's raw values are 5,6 and b's are 1,2; after ppm both sum to 1e6, so
+        # compare the SHAPE, which the renormalization preserves.
+        self.assertLess(j["a"][0], j["a"][1])
+        self.assertLess(j["b"][0], j["b"][1])
+        self.assertAlmostEqual(sum(j["a"]), 1e6, places=3)
+        self.assertAlmostEqual(sum(j["b"]), 1e6, places=3)
+
+    def test_deprecated_aliases_are_identical_to_the_symmetric_names(self):
+        """Kept only for downstream migration; they must never drift."""
+        with TemporaryDirectory() as td:
+            a, b = self._sim_vs_sim(td)
+            j = ops._join_vectors(a, b)
+        self.assertEqual(j["exp"], j["a"])
+        self.assertEqual(j["sim"], j["b"])
+        self.assertEqual(j["n_measured"], j["n_a_rows"])
+        self.assertEqual(j["n_detected"], j["n_a_detected"])
+
+    def test_both_sides_report_their_panel_sizes(self):
+        """Side B's panel counts existed nowhere before, which is the asymmetry.
+
+        B is ``measured`` here on purpose: a ``model_predicted`` operand's
+        ``detection`` column is deliberately non-informative (D5), so its
+        ``n_b_detected`` would equal ``n_b_rows`` and the assertion would pass
+        without demonstrating that side B is filtered by its own rule at all."""
+        with TemporaryDirectory() as td:
+            a, b = _operands(Path(td),
+                             [("p1", 5.0, "detected"), ("p2", 6.0, "detected"),
+                              ("p3", 7.0, "detected")],
+                             [("p1", 1.0, "detected"), ("p2", 2.0, "below_limit")],
+                             b_kind="measured")
+            j = ops._join_vectors(a, b)
+        self.assertEqual(j["n_a_rows"], 3)
+        self.assertEqual(j["n_a_detected"], 3)
+        self.assertEqual(j["n_b_rows"], 2)
+        self.assertEqual(j["n_b_detected"], 1)

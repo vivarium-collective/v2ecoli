@@ -55,6 +55,45 @@ def set_ecolisim_config_file(path: str | None) -> None:
     _ECOLISIM_CONFIG_FILE = path
 
 
+def _select_variant_params(variants_config: dict, variant_index: int):
+    """Resolve a 1-based ``variant_index`` against a config ``variants`` block.
+
+    Mirrors the fork's ``runscripts.create_variants`` convention: ``parse_variants``
+    returns ``param_dicts`` and the fork maps ``param_dicts[i]`` to variant ``i+1``,
+    reserving index 0 for the unperturbed baseline. Returns ``(None, None)`` for the
+    baseline, else ``(variant_name, params_dict)``. Delegates the grid expansion
+    (op prod/zip/add, value/linspace/arange) entirely to the fork.
+    """
+    if not variants_config or variant_index <= 0:
+        return None, None
+    if len(variants_config) != 1:
+        raise ValueError(
+            f"expected exactly one variant in config, got {sorted(variants_config)}")
+    (name, cfg), = variants_config.items()
+    from runscripts.create_variants import parse_variants  # fork-bound
+    param_dicts = parse_variants(cfg)
+    idx = variant_index - 1
+    if idx >= len(param_dicts):
+        raise IndexError(
+            f"variant index {variant_index} out of range: {len(param_dicts)} "
+            f"grid point(s) (valid 1..{len(param_dicts)})")
+    return name, param_dicts[idx]
+
+
+def _apply_config_variant(sim_data, variants_config: dict, variant_index: int):
+    """Apply the selected config variant to ``sim_data`` via the fork's own
+    ``ecoli.variants.<name>.apply_variant``. Returns ``(sim_data, meta|None)``.
+    ``sim_data`` must already be a fresh (non-shared) object."""
+    name, params = _select_variant_params(variants_config, variant_index)
+    if name is None:
+        return sim_data, None
+    import importlib
+    mod = importlib.import_module(f"ecoli.variants.{name}")  # fork-bound
+    sim_data = mod.apply_variant(sim_data, params)
+    return sim_data, {"variant_name": name, "variant_index": int(variant_index),
+                      "params": params}
+
+
 # ---------------------------------------------------------------------------
 # Build a genuine vEcoli vivarium Engine (fork-parameterized)
 # ---------------------------------------------------------------------------
@@ -81,13 +120,16 @@ def build_vivarium_ecoli(
     flow: dict | None = None,
     fork_dir: str | None = None,
     initial_overlay: dict | None = None,
+    variant: int = 0,
 ) -> EngineHandle:
     """Build the genuine upstream vEcoli composite and wrap its vivarium Engine.
 
     ``fork_dir`` (or ``$V2E_VECOLI_DIR``) selects the vEcoli checkout; ``sim_data_path``
     is its matching upstream ParCa ``simData.cPickle``. ``initial_overlay`` (a daughter's
     divided ``bulk``/``unique``/``environment``/``boundary``) seeds a non-founder
-    generation; ``None`` builds a fresh founder.
+    generation; ``None`` builds a fresh founder. ``variant`` selects a 1-based grid
+    point from the loaded config's ``variants`` block (0 = baseline, no-op); only
+    applies when a full config file (``set_ecolisim_config_file``) is in effect.
     """
     if fork_dir:
         os.environ["V2E_VECOLI_DIR"] = fork_dir
@@ -152,6 +194,12 @@ def build_vivarium_ecoli(
         import pickle as _pickle
         with open(sim_data_path, "rb") as _sdf:
             _sd_obj = _pickle.load(_sdf)
+        if _cfgfile and int(variant):
+            _variants_cfg = sim.config.get("variants") or {}
+            _sd_obj, _vmeta = _apply_config_variant(_sd_obj, _variants_cfg, int(variant))
+            if _vmeta:
+                print(f"[build_vivarium_ecoli] applied config variant "
+                      f"'{_vmeta['variant_name']}' #{variant}: {_vmeta['params']}")
         _nutrients = (_sd_obj.conditions.get(condition, {}) or {}).get("nutrients")
         if _nutrients:
             sim.config["fixed_media"] = _nutrients

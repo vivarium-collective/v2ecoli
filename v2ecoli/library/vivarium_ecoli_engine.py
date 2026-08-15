@@ -331,6 +331,15 @@ def cell_observables(engine) -> dict:
     return obs
 
 
+def _select_bulk_observables(obs_bulk: dict, ids: list) -> dict:
+    """Pick ``ids`` out of the inner cell's bulk name->count map as floats.
+    A missing id yields 0.0 (a species absent this tick), never a KeyError."""
+    if not ids:
+        return {}
+    src = obs_bulk or {}
+    return {i: float(src.get(i, 0.0)) for i in ids}
+
+
 # ---------------------------------------------------------------------------
 # pbg Process: genuine vEcoli as ONE process-bigraph node (vivarium Engine inside)
 # ---------------------------------------------------------------------------
@@ -362,6 +371,7 @@ class VivariumEcoliProcess(Process):
         "time_step": {"_type": "float", "_default": 1.0},
         "exclude_processes": {"_type": "list[string]", "_default": []},
         "fork_dir": {"_type": "string", "_default": ""},
+        "observable_bulk_ids": {"_type": "list[string]", "_default": []},
     }
 
     # Set by build_vivarium_ecoli_composite to inject a pre-built (possibly daughter-
@@ -374,6 +384,7 @@ class VivariumEcoliProcess(Process):
         if VivariumEcoliProcess._PENDING_HANDLE is not None:
             self._handle = VivariumEcoliProcess._PENDING_HANDLE
             VivariumEcoliProcess._PENDING_HANDLE = None
+            self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
         else:
             self._handle = build_vivarium_ecoli(
                 sim_data_path=self.config["sim_data_path"],
@@ -383,6 +394,7 @@ class VivariumEcoliProcess(Process):
                 exclude_processes=list(self.config.get("exclude_processes") or []) or None,
                 fork_dir=(self.config.get("fork_dir") or None),
             )
+            self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
 
     def inputs(self):
         return {}
@@ -390,18 +402,24 @@ class VivariumEcoliProcess(Process):
     def outputs(self):
         # Recomputed-absolute each tick → 'set' semantics (overwrite), matching
         # vivarium's listener _updater='set'.
-        return {"listeners": {
+        out = {"listeners": {
             "mass": {k: "overwrite[float]" for k in MASS_OBS},
             "unique_molecule_counts": {k: "overwrite[float]" for k in COUNT_OBS},
         }}
+        if self._obs_bulk_ids:
+            out["bulk"] = {i: "overwrite[float]" for i in self._obs_bulk_ids}
+        return out
 
     def update(self, state, interval):
         self._handle.engine.run_for(float(interval))
         obs = cell_observables(self._handle.engine)
-        return {"listeners": {
+        upd = {"listeners": {
             "mass": {k: obs[k] for k in MASS_OBS},
             "unique_molecule_counts": {k: obs[k] for k in COUNT_OBS},
         }}
+        if self._obs_bulk_ids:
+            upd["bulk"] = _select_bulk_observables(obs.get("bulk", {}), self._obs_bulk_ids)
+        return upd
 
     def divide(self) -> dict:
         """Split the inner cell with vEcoli's faithful ``divide_cell``; return

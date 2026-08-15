@@ -36,12 +36,21 @@ executive:
     PR #197), and gtpPerElongation / ribosomeElongationRate turned out to be inert.
   verdict_status: passed
   decisions_needed:
-  - question: Run the strain-design GFP-ParCa build + pbg-uq ensemble (param-uq-05) on the mini?
+  - question: Accept the param-uq-05 strain-design SMOKE result, or gate on the production ensemble first?
     context: |
-      param-uq-05-strain-design is DESIGNED and wired but not yet run. It needs a
-      dedicated ParCa build with new_genes: gfp (no existing cache carries a new
-      gene) plus the pbg-uq new-gene driver + aggregation strategies 1–3. This is
-      the concrete M8/08.4.2 milestone demonstration; compute is queued for the mini.
+      The GFP-ParCa build + pbg-uq new-gene pipeline now run end-to-end (smoke:
+      n=12, 3 seeds, 1 gen). Preliminary: exp & trl_eff co-dominant for product
+      (refutes "exp dominates"), trl_eff dominates growth. But the product
+      surrogate is under-resolved (51% test error), argmax is not seed-robust, and
+      strategy-2 (by-generation) is missing. A converged production ensemble is
+      running on the mini to resolve these before the milestone claim is firm.
+  - question: Fix the by-generation (strategy 2) daughter-cache blocker in the UQ harness?
+    context: |
+      run_multigen_xarray reads out/cache/initial_state.json for daughters, but each
+      variant sample builds a per-sample TEMP cache → division FileNotFoundError, so
+      runs stay single-generation regardless of step budget. Strategy 2 (the
+      induction-timing decomposition) needs the daughter-cache path threaded through
+      — a harness fix, not more compute. Follow-up for full milestone coverage.
   decisions_resolved:
   - question: Expand to the DEEP sim_data physiological parameters (ParCa-level injection)?
     decision: YES — built and ran (param-uq-04-deep-params).
@@ -78,6 +87,30 @@ scientific_argument:
   - "This corrects an earlier artifact; the original demo's 'GTP-dominant 0.88' was a carryover bug (v2ecoli PR #197), and 2 of its 3 params were inert."
   - "The proven core (main_claim) is the elongation/deep-param DIAGNOSIS on the baseline. The strain-design generalization (param-uq-05: design knobs + aggregation strategies 1–3) is DESIGNED and wired but NOT yet run — it carries no result and does not back any claim here until the GFP-ParCa build + ensemble complete."
 
+competing_frameworks:
+- name: Local one-at-a-time (OAT) sensitivity
+  relation: superseded-by
+  note: |
+    OAT perturbs one parameter around a nominal point and reads the local slope.
+    It misses interactions and is nominal-point-dependent; this investigation uses
+    variance-based global Sobol (total-order captures interactions) over a sampled
+    prior instead. OAT is the implicit baseline most modelers reach for first.
+- name: Morris elementary-effects screening
+  relation: complementary
+  note: |
+    Morris is a cheap global SCREEN (which params matter at all) but gives only a
+    rank, not a variance fraction. It is the right tool for param-uq-00's screen
+    step; the PCE+Sobol here is the quantitative attribution that follows it.
+- name: Monte Carlo / Saltelli Sobol estimation
+  relation: alternative
+  note: |
+    Sobol indices can be estimated by brute-force Monte Carlo (Saltelli sampling)
+    without a surrogate. This investigation instead fits an order-2 PCE and reads
+    Sobol analytically from its coefficients — far fewer whole-cell sims for the
+    same attribution, at the cost of assuming the surrogate fits (tracked via test
+    error). For strain design (param-uq-05) this efficiency is what makes a
+    3-strategy decomposition over multi-generation runs affordable.
+
 at_a_glance:
 - study: param-uq-00-screen
   role: "Screens 7 config-reachable knobs to the 3 that move growth rate (>2% response), excluding 4 inert ones, defining the effective UQ surface for studies 01–03."
@@ -90,7 +123,7 @@ at_a_glance:
 - study: param-uq-04-deep-params
   role: "RAN: extends UQ to deep SimulationDataEcoli physiological params via a sim_data injection adapter. Finds the dry-mass fraction dominates mass variance (Sobol ≈ 1.0) and co-dominates growth (≈0.5, with RNAP elongation rate); FBA kinetic weight inert. Establishes a cheap (~2 s/sample) deep-param injection path — the pivot's ~2.5-min-ParCa premise was wrong."
 - study: param-uq-05-strain-design
-  role: "DESIGNED (compute pending): turns the pbg-uq machinery on a STRAIN-DESIGN use case — a GFP new-gene insert swept via expression + translation-efficiency knobs — and delivers the M8/08.4.2 milestone's required aggregation-strategy-1–3 decomposition (population / by-generation / by-seed). The parameter-uq deliverable that absorbs the standalone uqEcoli demo."
+  role: "SMOKE result (production ensemble running): turns the pbg-uq machinery on a STRAIN-DESIGN use case — a GFP new-gene insert swept via expression + translation-efficiency knobs. Pipeline runs end-to-end on the GFP strain; preliminary reading (n=12, 3 seeds) — exp & trl_eff CO-DOMINANT for product level (refutes 'exp dominates'), trl_eff dominates growth cost; product surrogate under-resolved (51% err) and argmax not yet seed-robust; strategy-2 (by-generation) pending division. Delivers strategies 1 & 3; the parameter-uq deliverable absorbing the standalone uqEcoli demo."
 
 biological_story: |
   Translation is one of the cell's largest energy sinks, so which elongation dial
@@ -104,6 +137,35 @@ biological_story: |
   growth. The first result (GTP cost dominates) was an artifact; the finding held
   up only after independent samples, effective parameters, a responsive observable,
   and an adequate budget were in place.
+
+  The investigation then widens the parameter surface. Going deeper than the
+  config-reachable knobs, a sim_data injection adapter reaches the calibrated
+  physiological parameters and finds the dry-mass fraction dominates MASS variance
+  almost entirely, co-dominating growth with the RNAP elongation rate — so the
+  dominant lever depends on both the observable and how deep into sim_data you
+  reach. Two lessons carry forward: sensitivity is a property of an
+  (observable, parameter-surface, time-window) triple, not of a parameter alone;
+  and the pbg-uq machinery is cheap enough (~seconds per deep-param sample) to
+  sweep that surface systematically.
+
+  Finally the same method turns from diagnosis to design. A heterologous GFP gene
+  is inserted and induced, and its two engineering dials — how strongly it is
+  transcribed (expression) and how efficiently its message is translated
+  (translation efficiency) — are swept to ask which one a strain engineer should
+  turn to move product yield, and at what cost to growth. Because the gene is
+  induced at a chosen generation, the answer is examined three ways from a single
+  ensemble — averaged over the whole population, split by generation across the
+  induction, and split by stochastic seed — so the aggregation choice becomes part
+  of the finding rather than a hidden assumption. This is the strain-design study
+  (param-uq-05). A first SMOKE ensemble (n=12, 3 seeds, 1 generation) already runs
+  the pipeline end-to-end on the GFP strain and gives a preliminary reading:
+  expression and translation efficiency are CO-DOMINANT for product level
+  (refuting the pre-registered "expression dominates" guess), while translation
+  efficiency dominates the small growth-rate cost. Two honesty flags temper it —
+  the product-level surrogate is under-resolved at this budget (51% held-out
+  error) and the dominant knob is not yet robust across seeds — and one strategy
+  is still missing: by-generation needs cell division, which the short smoke
+  window didn't reach. A converged production ensemble is running to resolve both.
 
 acceptance_criteria:
 - study: param-uq-00-screen
@@ -139,3 +201,9 @@ glossary:
 - term: sim_data
   definition: |-
     The large calibrated parameter object produced by the ParCa that configures the whole-cell model; its many fields are the parameter space this investigation screens.
+- term: Aggregation strategy (1-3)
+  definition: |-
+    How a multi-cell, multi-generation ensemble is pooled before its output variance is attributed. Strategy 1 (population) bulk-averages all cells and timepoints; strategy 2 (by-generation) stratifies by cell generation; strategy 3 (by-seed) stratifies by stochastic lineage seed. The same ensemble can yield different Sobol rankings under each, so the choice is reported, not assumed.
+- term: New-gene / strain design
+  definition: |-
+    A heterologous gene (here GFP) inserted at ParCa build time (new_genes: gfp) and induced via the new_gene_internal_shift variant. Its expression and translation-efficiency factors are the "design knobs" param-uq-05 sweeps — turning the sensitivity method into a strain-engineering tool.

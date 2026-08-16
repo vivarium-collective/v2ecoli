@@ -1,6 +1,6 @@
 schema_version: 4
 name: variant-sweep-phenotype-demo
-investigation: framework
+investigation: variant-sweep-phenotype
 title: Variant-sweep phenotype demo (generic template)
 description: >
   Template for a variant-sweep phenotype study. Runs the whole-config vEcoli

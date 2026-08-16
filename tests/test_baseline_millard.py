@@ -101,3 +101,23 @@ def test_baseline_millard_has_no_unbound_core_instances():
         "AttributeError: 'NoneType' object has no attribute 'access' "
         "(bigraph_schema/methods/serialize.py, Link.serialize) the moment "
         "a real run reaches its final state write.")
+
+
+@pytest.mark.sim
+def test_baseline_millard_serializes_final_state():
+    """Regression guard for item 58: ``_millard_helpers.py``'s own copy of
+    the ``counts_deriver``/``rnap_data_listener`` wiring has the identical
+    ``register_labeled_array()`` string-``_data`` defect as
+    ``ecoli_baseline.py``'s (see
+    ``test_composites_baseline.py::test_baseline_composite_serializes_final_state``
+    for the full mechanism) -- same disease, same shared
+    ``v2ecoli/types/labeled_array.py`` helper, copy-pasted deriver wiring
+    into a second composite. Calls the exact real ``serialize_state()``
+    entry point ``run_pbg.py`` calls at the end of every real run."""
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
+    from v2ecoli import build_composite
+    c = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
+    serialized = c.serialize_state()
+    assert isinstance(serialized, dict)

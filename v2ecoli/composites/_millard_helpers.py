@@ -336,7 +336,7 @@ def _get_step_config(
             instance = Requester({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
@@ -357,7 +357,7 @@ def _get_step_config(
             instance = Evolver({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['allocate'] = ('allocate', base_name)
             in_topo['global_time'] = ('global_time',)

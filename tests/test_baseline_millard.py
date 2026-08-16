@@ -1,3 +1,4 @@
+import os
 import warnings; warnings.filterwarnings("ignore")
 import pytest
 
@@ -67,3 +68,36 @@ def test_baseline_millard_runs_and_grows():
     ag = (c.state.get("agents") or {}).get("0") or {}
     assert (ag.get("listeners", {}).get("mass", {}).get("cell_mass", 0.0)) > 0.0
     assert ag.get("central_fluxes")
+
+
+@pytest.mark.sim
+def test_baseline_millard_has_no_unbound_core_instances():
+    """Regression guard for item 57: ``_millard_helpers.py``'s own copy of
+    ``_get_step_config``'s Requester/Evolver wrapping had the identical
+    missing-``core=`` defect as ``ecoli_baseline.py``'s (see
+    ``test_composites_baseline.py::test_baseline_composite_has_no_unbound_core_instances``
+    for the full mechanism) -- same disease, copy-pasted into a second
+    composite. Walks the entire real composite state so any other
+    construction site with the same disease is caught here too."""
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
+    from v2ecoli import build_composite
+    from _core_binding_check import unbound_core_instances
+
+    c = build_composite("ecoli_millard", seed=0, cache_dir="out/cache")
+
+    agent = c.state["agents"]["0"]
+    partitioned_steps = [k for k in agent if k.endswith("_requester") or k.endswith("_evolver")]
+    assert partitioned_steps, (
+        "expected at least one Requester/Evolver step under agents.0 -- "
+        "PARTITIONED_PROCESSES wiring may have changed; update this test's "
+        "assumptions rather than silently passing on zero coverage")
+
+    unbound = unbound_core_instances(c.state)
+    assert not unbound, (
+        f"instance(s) with core=None found in the real composite state: {unbound} -- "
+        "Composite.serialize_state() will crash on these with "
+        "AttributeError: 'NoneType' object has no attribute 'access' "
+        "(bigraph_schema/methods/serialize.py, Link.serialize) the moment "
+        "a real run reaches its final state write.")

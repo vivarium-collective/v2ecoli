@@ -2,7 +2,9 @@ schema_version: 2
 name: parameter-uq
 title: "Parameter UQ — global sensitivity of v2ecoli"
 created: '2026-06-12'
-status: running
+status: closed
+closed_at: '2026-08-16T05:36:57Z'
+report_url: https://vivarium-collective.github.io/v2ecoli/
 
 question: |
   Which sim_data parameters drive variance in v2ecoli single-cell observables?

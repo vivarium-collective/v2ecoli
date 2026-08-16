@@ -155,7 +155,7 @@ def run_multigen_parquet(
     """
     # Imported directly from pbg-emitters (the upstream library);
     # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
-    from pbg_emitters import ParquetEmitter
+    from viva_emitters import ParquetEmitter
 
     if division_detector is None:
         def division_detector(prev: set[str], curr: set[str]) -> tuple[bool, str | None]:

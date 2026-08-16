@@ -6,7 +6,7 @@ from pathlib import Path
 import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from v2ecoli.steps.base import V2Step
+from process_bigraph import Step
 from v2ecoli.workflow.report_cards import (
     REPORT_CARD_REGISTRY, ReportCardStep, StudyContext, applicable, narrows_by_name, prune,
     write_card)
@@ -24,6 +24,8 @@ class _DemoCard(ReportCardStep):
 
 
 def _ctx(tmp_path, spec=None):
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}}))
     sd = tmp_path / "workspace" / "studies" / "demo"
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(spec or {"name": "demo"}))
@@ -32,9 +34,9 @@ def _ctx(tmp_path, spec=None):
 
 def test_reportcardstep_is_v2step_with_view_data_ports(core):
     step = _DemoCard({}, core=core)
-    assert isinstance(step, V2Step)
-    assert step.outputs() == {"view": "string", "data": "map"}
-    assert step.inputs() == {"study": "any"}
+    assert isinstance(step, Step)
+    assert step.outputs() == {"view": "string", "data": "tree"}
+    assert step.inputs() == {"study": "tree"}
 
 
 def test_subclass_auto_registers():

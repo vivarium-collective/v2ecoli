@@ -23,7 +23,6 @@ This wrapper keeps all pipeline orchestration and dispatches to the Step for HTM
 """
 
 import os
-import re
 import sys
 import json
 import time
@@ -38,7 +37,7 @@ from contextlib import chdir
 try:
     from wholecell.utils.filepath import ROOT_PATH as V1_ROOT_PATH
     from ecoli.experiments.ecoli_master_sim import EcoliSim
-    from ecoli.library.schema import not_a_process
+    from ecoli.library.schema import not_a_process  # noqa: F401  # V1-availability probe
     V1_AVAILABLE = True
 except ImportError:
     V1_ROOT_PATH = os.getcwd()
@@ -53,7 +52,6 @@ from v2ecoli.composites.ecoli_baseline import (
     DEFAULT_FEATURES,
     FLOW_ORDER,
 )
-from v2ecoli.library.schema import attrs as ecoli_attrs
 from process_bigraph import Composite
 from v2ecoli.visualizations._helpers import build_graph, write_outputs
 from v2ecoli.cache import NumpyJSONEncoder, load_initial_state
@@ -171,11 +169,9 @@ def load_state_data(step_name):
 def bench_step_diagnostics(composite):
     """Per-step analysis of composite structure."""
     cell = composite.state['agents']['0']
-    core = composite.core
 
     diagnostics = []
     for step_name in FLOW_ORDER:
-        path = ('agents', '0', step_name)
         edge = cell.get(step_name)
         if not isinstance(edge, dict) or 'instance' not in edge:
             continue
@@ -338,10 +334,10 @@ def step_biocyc():
     step_name = 'biocyc'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 0: EcoCyc API (cached)")
+        print("  Step 0: EcoCyc API (cached)")
         return meta
 
-    print(f"  Step 0: EcoCyc API")
+    print("  Step 0: EcoCyc API")
     import requests
     base_url = "https://websvc.biocyc.org/wc-get?type="
     results = {}
@@ -378,10 +374,10 @@ def step_raw_data():
     step_name = 'raw_data'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 1: Raw Data (cached)")
+        print("  Step 1: Raw Data (cached)")
         return meta
 
-    print(f"  Step 1: Raw Data")
+    print("  Step 1: Raw Data")
     t0 = time.time()
 
     try:
@@ -459,10 +455,10 @@ def step_parca():
     step_name = 'parca'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 2: ParCa (cached)")
+        print("  Step 2: ParCa (cached)")
         return meta
 
-    print(f"  Step 2: ParCa")
+    print("  Step 2: ParCa")
 
     sim_data_cache = os.path.join(CACHE_DIR, 'sim_data_cache.dill')
     sim_data_path = SIM_DATA_PATH
@@ -585,7 +581,7 @@ def step_load_model():
     step_name = 'load_model'
     meta = load_meta(step_name)
 
-    print(f"  Step 3: Load Model", end='')
+    print("  Step 3: Load Model", end='')
     t0 = time.time()
     composite = _OPTIONS['composite_factory'](cache_dir=CACHE_DIR)
     build_time = time.time() - t0
@@ -634,7 +630,7 @@ def step_single_cell():
     step_name = 'single_cell'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 2: Single Cell Simulation (cached)")
+        print("  Step 2: Single Cell Simulation (cached)")
         return meta
 
     max_dur = _OPTIONS['max_duration']
@@ -672,7 +668,6 @@ def step_single_cell():
               f"oriV={plasmid_snaps[0]['n_oriV']}")
 
     em_edge = cell.get('emitter', {})
-    emitter_instance = em_edge.get('instance') if isinstance(em_edge, dict) else None
 
     t0 = time.time()
     divided = False
@@ -975,7 +970,7 @@ def step_v1_comparison():
 
     single_cell_meta = load_meta('single_cell')
     if single_cell_meta is None:
-        print(f"  Step 4b: v1 Comparison (skipped, no long sim data)")
+        print("  Step 4b: v1 Comparison (skipped, no long sim data)")
         meta = {'skipped': True, 'reason': 'no long sim data', 'v1_snapshots': []}
         save_meta(step_name, meta)
         return meta
@@ -1011,7 +1006,7 @@ def step_v1_comparison():
         except Exception as e:
             print(f"    v1 failed: {e}")
     else:
-        print(f"  Step 4b: v1 Comparison (v1 not available)")
+        print("  Step 4b: v1 Comparison (v1 not available)")
 
     meta = {
         'duration': duration,
@@ -1029,10 +1024,10 @@ def step_division():
     step_name = 'division'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 3: Division (cached)")
+        print("  Step 3: Division (cached)")
         return meta
 
-    print(f"  Step 3: Division")
+    print("  Step 3: Division")
 
     prediv_state = None
     prediv_time = 0.0
@@ -1106,8 +1101,6 @@ def step_division():
             with open(cache_path, 'rb') as f:
                 cache = dill.load(f)
             configs = cache.get('configs', {})
-            unique_names = cache.get('unique_names', [])
-            dry_mass_inc = cache.get('dry_mass_inc_dict', {})
 
     can_build_daughters = configs is not None and bool(configs)
     daughter_build_time = 0
@@ -1242,7 +1235,7 @@ def step_daughters():
     step_name = 'daughters'
     meta = load_meta(step_name)
     if meta is not None:
-        print(f"  Step 4: Daughter Simulations (cached)")
+        print("  Step 4: Daughter Simulations (cached)")
         return meta
 
     single_cell_meta = load_meta('single_cell') or {}
@@ -1294,7 +1287,7 @@ def step_daughters():
         try:
             comp.run(daughter_dur)
             run_ok = True
-        except Exception as e:
+        except Exception:
             run_ok = False
         wall_time = time.time() - t0
 
@@ -1411,7 +1404,7 @@ def run_workflow(out_path=None, viz_config=None):
         biocyc_meta = step_biocyc()
     else:
         biocyc_meta = load_meta('biocyc') or {'skipped': True, 'files': {}}
-        print(f"  Step 0: EcoCyc API (skipped, use --fetch-biocyc to refresh)")
+        print("  Step 0: EcoCyc API (skipped, use --fetch-biocyc to refresh)")
     step_results['biocyc'] = biocyc_meta
 
     # Step 1: Raw Data
@@ -1437,7 +1430,7 @@ def run_workflow(out_path=None, viz_config=None):
     # Step 4: Daughter Simulations (skip with --no-daughters)
     if _OPTIONS.get('skip_daughters'):
         daughters_meta = load_meta('daughters') or {'skipped': True, 'reason': '--no-daughters'}
-        print(f"  Step 4: Daughter Simulations (skipped)")
+        print("  Step 4: Daughter Simulations (skipped)")
     else:
         daughters_meta = step_daughters()
     step_results['daughters'] = daughters_meta
@@ -1454,9 +1447,9 @@ def run_workflow(out_path=None, viz_config=None):
     from v2ecoli.processes.parca.composite import build_parca_document
     os.makedirs('models', exist_ok=True)
     save_pbg(diag_composite, 'models/partitioned.pbg')
-    print(f"    models/partitioned.pbg updated")
+    print("    models/partitioned.pbg updated")
     save_pbg_doc(build_parca_document(), 'models/parca.pbg')
-    print(f"    models/parca.pbg updated")
+    print("    models/parca.pbg updated")
 
     # Network Visualization (Cytoscape.js interactive viewer)
     print("  Generating interactive network visualization...")

@@ -10,7 +10,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.run_standalone_analysis import build_multiseed_rows, run
+from scripts.run_standalone_analysis import build_multiseed_rows, resolve_modules, run
 
 
 def _fake_aws_cp(monkeypatch, seed_summaries: dict[int, dict], written: dict[str, str]):
@@ -167,6 +167,78 @@ def test_run_splits_mixed_scale_between_both_families(tmp_path, monkeypatch):
     assert manifest["status"] == "done"
     assert duckdb_calls == [{"multiseed": {"cd1_metabolomics": {}}}]  # DuckDB name only
     assert "s3://bucket/exp/analyses/test-analysis/doubling_time_distribution.json" in written  # AnalysisStep name
+
+
+def test_resolve_modules_passes_explicit_dict_through_verbatim():
+    explicit = {"multiseed": {"doubling_time_distribution": {}}}
+    assert resolve_modules(explicit, n_seeds=2, n_generations=2) is explicit
+
+
+def test_resolve_modules_parses_explicit_json_string():
+    assert resolve_modules(
+        '{"multiseed": {"doubling_time_distribution": {}}}', n_seeds=1, n_generations=1,
+    ) == {"multiseed": {"doubling_time_distribution": {}}}
+
+
+def test_resolve_modules_applicable_keyword_delegates_to_build_analysis_options():
+    """This is the exact real bug (item 60): viva-api's chain-dispatch analysis
+    auto-trigger sends --modules applicable --n-generations <N>, and this
+    entrypoint had no support for the keyword at all -- json.loads("applicable")
+    would itself raise before generation count ever mattered. Delegates to
+    v2ecoli's own build_analysis_options (the same resolution the composite's
+    inline flush already uses) rather than re-deriving scale selection here."""
+    single_gen = resolve_modules("applicable", n_seeds=1, n_generations=1)
+    multi_gen = resolve_modules("applicable", n_seeds=2, n_generations=3)
+
+    # single-generation, single-seed: only the "single" scale applies
+    assert "multigeneration" not in single_gen
+    assert "multiseed" not in single_gen
+    # multi-generation, multi-seed: both scales must now be present and real
+    assert "multigeneration" in multi_gen
+    assert "multiseed" in multi_gen
+    assert multi_gen["multigeneration"]  # non-empty -- real registered analyses, not a stub
+    # keyword is case/whitespace-insensitive, matching build_analysis_options's own contract
+    assert resolve_modules("  Applicable  ", n_seeds=2, n_generations=3) == multi_gen
+
+
+def test_main_accepts_n_generations_and_applicable_end_to_end(tmp_path, monkeypatch):
+    """Full reproduction of item 60's real failure: the actual CLI invocation
+    viva-api's simulation_service_ray.py emits
+    (--out-uri ... --n-seeds N --n-generations N --modules applicable
+    --analysis-name ...) must parse and resolve to a real, non-empty analysis
+    run, not die on 'unrecognized arguments: --n-generations'."""
+    import scripts.run_standalone_analysis as mod
+
+    written: dict[str, str] = {}
+    _fake_aws_cp(monkeypatch, {
+        0: {"seed": 0, "dry_mass_fg": 200.0},
+        1: {"seed": 1, "dry_mass_fg": 240.0},
+    }, written)
+
+    duckdb_calls: list[dict] = []
+
+    def fake_run_analyses(*, sweep_dir, analysis_options, out_dir):
+        duckdb_calls.append(analysis_options)
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        (Path(out_dir) / "analysis.json").write_text("{}")
+
+    monkeypatch.setattr(mod, "_aws_sync", lambda src, dst: None)
+    import v2ecoli.workflow.analysis_runner as analysis_runner_mod
+    monkeypatch.setattr(analysis_runner_mod, "run_analyses", fake_run_analyses)
+
+    monkeypatch.setattr(sys, "argv", [
+        "run_standalone_analysis.py",
+        "--out-uri", "s3://bucket/exp",
+        "--n-seeds", "2",
+        "--n-generations", "2",
+        "--modules", "applicable",
+        "--analysis-name", "test-analysis",
+    ])
+
+    mod.main()  # must not raise SystemExit from argparse or json.loads("applicable")
+
+    assert len(duckdb_calls) >= 1  # at least one real DuckDB-family analysis actually ran
+    assert any("multigeneration" in opts for opts in duckdb_calls)
 
 
 def test_main_reads_config_file(tmp_path, monkeypatch, capsys):

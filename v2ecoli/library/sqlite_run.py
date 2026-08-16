@@ -317,7 +317,7 @@ def run_multigen_sqlite(
         Caller should query the db directly.
     """
     from process_bigraph.emitter import SQLiteEmitter
-    from pbg_emitters.sqlite_emitter import save_simulation_metadata
+    from viva_emitters.sqlite_emitter import save_simulation_metadata
     from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata
 
     if division_detector is None:

@@ -9,10 +9,7 @@ itself appends its own ``shape_step`` final layer (see baseline.py:895-919).
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import Any
-
-import yaml
 
 from viva_superpowers.composite_generator import _REGISTRY, composite_generator
 
@@ -57,33 +54,24 @@ _LAYER_IN_RE = re.compile(r"^_layer_in_(\d+)$")
 _LAYER_OUT_RE = re.compile(r"^_layer_out_(\d+)$")
 
 
-def _studies_root() -> str:
-    """Resolve the workspace's studies root from ``./workspace.yaml``'s
-    ``layout.studies`` (read relative to the run's CWD — the workspace root
-    where the composite is launched), falling back to the workbench's own
-    default ``"workspace/studies"`` when no workspace.yaml is present (or it
-    doesn't set the override)."""
-    ws_yaml = Path("workspace.yaml")
-    if ws_yaml.is_file():
-        try:
-            ws = yaml.safe_load(ws_yaml.read_text(encoding="utf-8")) or {}
-            studies = (ws.get("layout") or {}).get("studies")
-            if studies:
-                return str(studies)
-        except Exception:
-            pass
-    return "workspace/studies"
-
-
 def _resolve_pack_out_dir(out_dir: str | None, study: str) -> str:
     """The pack step's out_dir: an explicit override wins verbatim (a caller
-    that passes ``out_dir`` knows what it wants); otherwise derive the
-    default from the workspace's studies root, relative to the run's CWD, so
-    packs land where the workbench's 3D-pack viewer scans:
-    ``<studies_root>/<study>/viz/3d``."""
+    that passes ``out_dir`` knows what it wants); otherwise derive the default
+    from the workspace's studies root (via the shared ``viva_workspace``
+    layout-aware resolver, honouring ``layout.studies``), so packs land where
+    the workbench's 3D-pack viewer scans: ``<studies_root>/<study>/viz/3d``.
+
+    The workspace root is discovered by walking up from the run's CWD; if no
+    ``workspace.yaml`` is found we fall back to the conventional CWD-relative
+    ``workspace/studies/<study>/viz/3d`` default (unchanged behaviour)."""
     if out_dir:
         return out_dir
-    return f"{_studies_root()}/{study}/viz/3d"
+    from viva_workspace import find_workspace_root, study_dir
+    try:
+        root = find_workspace_root()
+    except FileNotFoundError:
+        return f"workspace/studies/{study}/viz/3d"
+    return str(study_dir(root, study) / "viz" / "3d")
 
 
 def _reconstruct_execution_layers(cell_state: dict, flow_order: list[str]) -> list[list[str]]:

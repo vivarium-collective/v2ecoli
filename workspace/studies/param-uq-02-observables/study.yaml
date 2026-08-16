@@ -90,6 +90,24 @@ report:
     reported with its window. This motivates param-uq-03 (growth-stratified /
     cell-cycle-resolved sensitivity) to map how the ranking evolves over time.
 
+# Run environment / budget (narrative-spine runtime section). Real values from
+# this study's methodology + simulation_set — NOT a new run.
+runtime:
+  tool: pbg-uq · examples/v2ecoli_uq_observables.py
+  composite: v2ecoli.composites.ecoli_baseline
+  window_steps: 360
+  seeds: [0, 1]
+  samples: "24 train + 8 test PCRV per seed (2 seeds)"
+  surrogate: per-observable order-2 Polynomial Chaos Expansion
+  sensitivity: analytic Sobol indices per observable
+  dispatch: serial
+  emitter: xarray
+  observables: [dry_mass, cell_mass, instantaneous_growth_rate]
+  environment: |
+    Run in the v2ecoli .venv; fresh initial_state per sample (v2ecoli PR #197).
+    A minor ill-conditioning warning appeared for the weak kS/DNA-pol basis
+    columns; it does not affect the dominant mass result (fit err ~0%).
+
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -183,6 +201,20 @@ tests:
   # Threshold is an analyst-chosen detection convention (a window pair counts as
   # window-dependent if its dominant driver differs); not literature-derived.
     cites_note: "Window-dependence detection threshold is methodological; not literature-derived."
+
+# Narrative-spine behavior_tests — one entry per tests[] entry, restating the
+# real pass condition and its actual evaluated outcome (this study is evaluated).
+behavior_tests:
+  - name: basal-dominates-mass-observables
+    expectation: |
+      basal_elongation_rate dominates (total-order Sobol > 0.5) the mass
+      observables (dry_mass, cell_mass) over the 360-step window.
+    status: passed  # Sobol 0.863 (dry_mass) / 0.867 (cell_mass); surrogate rel-err ~0%.
+  - name: growth-rate-ranking-is-window-dependent
+    expectation: |
+      The dominant driver of instantaneous-growth-rate variance changes between
+      the 120- and 360-step windows (the growth-rate ranking is window-dependent).
+    status: passed  # igr dominant flips basal (0.97 @120) → kS (0.615 @360).
 
 runs:
   - name: uq-observables-w360-n24x2seeds

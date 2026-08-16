@@ -7,9 +7,16 @@ from typing import Any
 from process_bigraph import Composite
 from viva_superpowers.composite_generator import _REGISTRY, build_generator
 
+from v2ecoli import core
 from v2ecoli.core import build_core
 from v2ecoli import composites  # noqa: F401 — forces @composite_generator decorators to fire
 from v2ecoli import visualizations  # noqa: F401 — forces Visualization Steps into link_registry
+
+# Convention hook: a generic runner (e.g. process_bigraph.workflow.provision)
+# discovers a package's core-registration function by this name. Points at
+# the same function ecoli_baseline's core_extensions declares, so a bare
+# core provisioned via either path ends up identically configured.
+register_types = core.register_ecoli_core
 
 
 def build_composite(
@@ -60,7 +67,56 @@ def build_composite(
                 f"{[e.id for e in matches]}"
             )
     doc = build_generator(matches[0], overrides=kwargs, core=core)
-    return Composite(doc, core=core)
+    composite = Composite(doc, core=core)
+    _install_xarray_flush_hook(composite)
+    return composite
 
 
-__all__ = ["build_composite", "build_core"]
+def _find_lazy_xarray_emitters(state: Any) -> list:
+    """Collect any in-document ``SingleCellXArrayEmitter`` instances in ``state``.
+
+    The single-cell ``emitter="xarray"`` path wires one such step inside
+    ``agents/<id>/emitter``; a run may hold several (one per agent). Returns the
+    live step instances so their trailing buffers can be flushed after ``run()``.
+    """
+    from v2ecoli.composites.ecoli_baseline import SingleCellXArrayEmitter
+    found: list = []
+
+    def _walk(node: Any) -> None:
+        if isinstance(node, dict):
+            inst = node.get("instance")
+            if isinstance(inst, SingleCellXArrayEmitter):
+                found.append(inst)
+            for v in node.values():
+                _walk(v)
+
+    _walk(state)
+    return found
+
+
+def _install_xarray_flush_hook(composite: Composite) -> None:
+    """Flush in-document XArray emitters after each ``run()``.
+
+    ``XArrayEmitter`` only auto-flushes a FULL buffer mid-run, and
+    ``flush(final=False)`` asserts a full buffer — so the trailing partial buffer
+    (and the zarr store finalization) can only be written via ``close()``. There
+    is no process_bigraph lifecycle hook that fires at run completion, so we wrap
+    ``run`` to close the emitters after the requested interval completes. Only
+    installed when a ``SingleCellXArrayEmitter`` is present — the parquet/sqlite/
+    default paths are left byte-identical.
+    """
+    emitters = _find_lazy_xarray_emitters(composite.state)
+    if not emitters:
+        return
+    _orig_run = composite.run
+
+    def _run_and_flush(interval, *args, **kwargs):
+        result = _orig_run(interval, *args, **kwargs)
+        for em in _find_lazy_xarray_emitters(composite.state):
+            em.close_emitter()
+        return result
+
+    composite.run = _run_and_flush  # type: ignore[method-assign]
+
+
+__all__ = ["build_composite", "build_core", "register_types"]

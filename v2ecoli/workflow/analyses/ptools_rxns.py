@@ -15,7 +15,7 @@ import numpy as np
 import pandas as pd
 from duckdb import DuckDBPyConnection
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
 from v2ecoli.workflow.analyses.ptools_rna import consolidate_timepoints
 

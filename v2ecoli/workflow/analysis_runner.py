@@ -24,65 +24,15 @@ import re
 import warnings
 from typing import Any
 
-_S3_PREFIX = "s3://"
-
-
-def is_s3_uri(path: str) -> bool:
-    return str(path).startswith(_S3_PREFIX)
-
-
-def history_files(sweep_dir: str) -> list[str]:
-    """The sweep's history parquet, as local paths or ``s3://`` URIs.
-
-    Mirrors the local glob for S3 so every caller (FROM-clause builder, cell-key
-    enumeration, per-cell record builder) sees one file list regardless of where
-    the sweep lives.
-    """
-    if not is_s3_uri(sweep_dir):
-        return sorted(glob.glob(
-            os.path.join(sweep_dir, "**", "history", "**", "*.pq"), recursive=True))
-    # DuckDB's glob() lists object storage through the same httpfs extension the
-    # read needs — so listing costs no extra dependency and no parquet read.
-    import duckdb
-
-    conn = duckdb.connect()
-    configure_duckdb_s3(conn)
-    pattern = sweep_dir.rstrip("/") + "/**/history/**/*.pq"
-    try:
-        rows = conn.sql(
-            f"SELECT file FROM glob('{pattern}')").fetchall()
-    finally:
-        conn.close()
-    return sorted(r[0] for r in rows)
-
-
-def configure_duckdb_s3(conn, region: str | None = None) -> None:
-    """Give a DuckDB connection S3 read access via httpfs.
-
-    Credentials come from the standard AWS chain. SSO callers should export them
-    first (``eval "$(aws configure export-credentials --format env)"``); on an
-    EC2/Batch node the instance role resolves through boto3 the same way.
-    """
-    conn.execute("INSTALL httpfs; LOAD httpfs;")
-    region = region or os.environ.get("AWS_DEFAULT_REGION") or os.environ.get(
-        "AWS_REGION") or "us-gov-west-1"
-    key = os.environ.get("AWS_ACCESS_KEY_ID")
-    secret = os.environ.get("AWS_SECRET_ACCESS_KEY")
-    token = os.environ.get("AWS_SESSION_TOKEN")
-    if not (key and secret):
-        import boto3
-
-        creds = boto3.Session().get_credentials()
-        if creds is None:
-            raise RuntimeError(
-                "no AWS credentials for the S3 sweep — export them with "
-                '`eval "$(aws configure export-credentials --format env)"`')
-        frozen = creds.get_frozen_credentials()
-        key, secret, token = frozen.access_key, frozen.secret_key, frozen.token
-    parts = [f"KEY_ID '{key}'", f"SECRET '{secret}'", f"REGION '{region}'"]
-    if token:
-        parts.append(f"SESSION_TOKEN '{token}'")
-    conn.execute(f"CREATE OR REPLACE SECRET v2e_sweep_s3 (TYPE s3, {', '.join(parts)});")
+# Sweep location/access lives in the library layer so the report-card vector
+# extraction can share it (library must not import from workflow). Re-exported
+# here because these names are part of this module's existing surface.
+from v2ecoli.library.sweep_io import (
+    _S3_PREFIX,
+    configure_duckdb_s3,
+    history_files,
+    is_s3_uri,
+)
 
 
 def localize(uri: str, cache_dir: str | None = None) -> str:
@@ -302,7 +252,9 @@ def resolve_validation_data(sim_data):
 
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
-    import duckdb
+    import tempfile
+
+    from viva_emitters import create_duckdb_conn
 
     div_by_cell: dict[tuple, dict] = {}
     spath = os.path.join(sweep_dir, "summary.json")
@@ -327,7 +279,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
-    conn = duckdb.connect()
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -485,8 +437,10 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
     def _analysis_ctx() -> tuple:
         if not _ctx:
-            import duckdb
-            _ctx["conn"] = duckdb.connect()
+            import tempfile
+
+            from viva_emitters import create_duckdb_conn
+            _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
             if is_s3_uri(sweep_dir):
                 configure_duckdb_s3(_ctx["conn"])
             _ctx["from_clause"] = _history_from_clause(sweep_dir)

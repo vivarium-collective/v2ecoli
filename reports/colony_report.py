@@ -19,7 +19,6 @@ Usage:
 import os
 import sys
 import time
-import json
 import argparse
 import warnings
 
@@ -34,10 +33,9 @@ from process_bigraph.emitter import emitter_from_wires
 
 from viva_munk import core_import
 from viva_munk.processes.multibody import (
-    make_initial_state, make_rng, build_microbe)
+    make_rng, build_microbe)
 from viva_munk.processes.grow_divide import (
-    add_adder_grow_divide_to_agents, make_adder_grow_divide_process,
-    make_grow_divide_process)
+    make_adder_grow_divide_process)
 from viva_munk.plots.multibody_plots import simulation_to_gif
 
 from v2ecoli.bridge import EcoliWCM
@@ -210,7 +208,6 @@ def _generate_chromosome_gif_from_history(history, out_path, frame_duration_ms=1
     import matplotlib
     matplotlib.use('Agg')
     import matplotlib.pyplot as plt
-    from matplotlib.patches import FancyBboxPatch
     from PIL import Image
     import io
 
@@ -596,7 +593,6 @@ def run_colony(duration_min=60, n_adder=9, env_size=40, seed=0,
         from colorsys import hsv_to_rgb, rgb_to_hsv
         import random as _random
         ecoli_base_rgb = (0.2, 0.75, 0.3)  # green
-        ecoli_base_hsv = rgb_to_hsv(*ecoli_base_rgb)
         _color_rng = _random.Random(42)
 
         # Build daughter color map with mutations from the ecoli base

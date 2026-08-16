@@ -119,6 +119,28 @@ def test_emitter_config_threads_writer_predicate_and_codecs():
     assert cfg["metadata"]["generation"] == 2 and cfg["metadata"]["agent_id"] == "00"
 
 
+def test_emitter_config_default_batches_writes_per_chunk():
+    """item 52: the default writer config must batch multiple transducer
+    flushes into each real zarr chunk write (``buffers_per_chunk`` > 1), not
+    write one real chunk per flush. A real in-region measurement (2026-08-15)
+    found each S3 chunk write blocks the sim thread for ~1.16s average; at the
+    default buffer_size=4 / time_step=1.0, an unbatched writer issues one real
+    write every 4 simulated seconds, which alone accounts for most of the real
+    ~15-17min/gen wall-time gap against the ~8.7min v1 baseline. Batching 10
+    flushes per chunk cuts real write volume (and therefore blocking time)
+    ~10x with no code change elsewhere -- ``buffers_per_chunk`` was already a
+    supported, user-overridable knob (see the test above), just never turned
+    on by default."""
+    from v2ecoli.library.xarray_run import build_emitter_config
+    view = [{"root": ("listeners", "mass"),
+             "variables": {"dry_mass": [{"path": "dry_mass", "dtype": "<f4"}]}}]
+    cfg = build_emitter_config(
+        store_path="/tmp/x.zarr", view=view, metadata_base={"experiment_id": "t"},
+        generation=1, agent_id="0")  # no writer override -> exercises the real default
+    assert cfg["writer"]["buffers_per_chunk"] > 1
+    assert cfg["writer"]["buffers_per_chunk"] == 10
+
+
 @pytest.mark.skipif(not os.path.isdir(CACHE), reason=f"ParCa cache {CACHE} not present")
 def test_null_emitter_captures_only_global_time():
     """Follow-up: on xarray runs the internal emitter is minimised so it

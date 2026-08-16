@@ -5,7 +5,6 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import numpy as np
 
 OUT = Path("reports/meeting_20260526/acetate_multigen_cycle.png")
 DATA = Path("out/acetate_multigen/acetate_multigen_timeseries.json")
@@ -18,7 +17,7 @@ def main():
     cycle_min = [g["duration"] / 60.0 for g in gens]
 
     fig, ax = plt.subplots(figsize=(7, 3.6))
-    bars = ax.bar(indices, cycle_min, width=0.6, color="#2470d6", alpha=0.9,
+    ax.bar(indices, cycle_min, width=0.6, color="#2470d6", alpha=0.9,
                   label="observed cell cycle (v2ecoli)")
     for x, v in zip(indices, cycle_min):
         ax.text(x, v + 2, f"{v:.0f}", ha="center", fontsize=9, color="#1f2328")

@@ -24,7 +24,7 @@ from typing import Any
 
 from duckdb import DuckDBPyConnection
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import read_stacked_columns, cast_decimals
 
 # E. coli MG1655 genome length (bp); oriC is bp 0 by convention, ter ~ bp

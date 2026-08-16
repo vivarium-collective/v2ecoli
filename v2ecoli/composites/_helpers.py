@@ -24,16 +24,15 @@ from __future__ import annotations
 import copy
 import warnings
 
-import numpy as np
 
 # Framework-generic per-agent emitter-lifecycle registry (register / get /
 # unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
 # parquet-named wrappers below so existing call sites keep working.
-from pbg_emitters.lifecycle import (
+from viva_emitters.lifecycle import (
     register_emitter as register_parquet_emitter,
-    get_emitter as get_parquet_emitter,
+    get_emitter as get_parquet_emitter,  # noqa: F401 — re-exported for external call sites
     unregister_emitter as _unregister_emitter,
-    finalize_emitter_for_agent,
+    finalize_emitter_for_agent,  # noqa: F401 — re-exported for external call sites
 )
 
 # ---------------------------------------------------------------------------
@@ -330,7 +329,7 @@ _NULL_EMITTER_OVERRIDE: bool = False
 _DEFAULT_EMITTER_DECL: dict | None = None
 
 # Per-agent registry of live ParquetEmitter step instances (framework-generic
-# registry imported at module top from ``pbg_emitters.lifecycle``). Populated
+# registry imported at module top from ``viva_emitters.lifecycle``). Populated
 # when ``_get_special_step('emitter')`` constructs an emitter under a parquet
 # override; consulted by ``Division.next_update`` so the parent's trailing
 # partial batch can be ``close(success=True)``-d before the agent is
@@ -396,7 +395,7 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
 
     if address == "ParquetEmitter":
         try:
-            from pbg_emitters import ParquetEmitter
+            from viva_emitters import ParquetEmitter
         except ImportError:
             # A generator-declared *default* must not hard-fail the build when
             # the optional [parquet] extra is absent (e.g. CI behavior-tests
@@ -449,24 +448,23 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
         return ParquetEmitter(cfg, core), topo
 
     if address == "XArrayEmitter":
-        from pbg_emitters import XArrayEmitter
-        # Mirror the ParquetEmitter wiring (global_time + bulk + listeners).
-        # The xarray_vecoli preset's ``transducer`` / ``view`` are
-        # per-composite (not preset-able), so a generator declaring an
-        # XArrayEmitter default supplies them via ``decl['config']``; those
-        # flow through ``cfg_in`` here.
-        emit_schema = {
-            "global_time": "float",
-            "bulk": "array[integer]",
-            "listeners": listeners_schema,
-        }
+        # Single-cell, in-document XArray capture. NOT a raw XArrayEmitter:
+        # ``SingleCellXArrayEmitter`` wraps one and defers its construction to the
+        # first ``update()`` so the view/output_metadata are discovered from the
+        # REALIZED composite state (the pre-realize listener tree only carries a
+        # handful of leaves — Task 4 / C2) and the structured ``bulk`` record
+        # array is projected to plain counts before emitting (Task 4 / C1). The
+        # ``decl['config']`` skeleton (out_uri/metadata/transducer/writer/
+        # strategy) flows through ``cfg_in``; the step completes it lazily.
+        # Imported here (function-level) to avoid an import cycle with
+        # ``ecoli_baseline`` (which imports this module at top level).
+        from v2ecoli.composites.ecoli_baseline import SingleCellXArrayEmitter
         topo = {
             "global_time": ("global_time",),
             "bulk": ("bulk",),
             "listeners": ("listeners",),
         }
-        cfg = {"emit": emit_schema, **cfg_in}
-        return XArrayEmitter(cfg, core), topo
+        return SingleCellXArrayEmitter(cfg_in, core), topo
 
     if address == "SQLiteEmitter":
         emit_schema = {"global_time": "float", "listeners": listeners_schema}
@@ -828,7 +826,7 @@ def flush_parquet(composite, *, success: bool = True) -> int:
     emitter step).
     """
     try:
-        from pbg_emitters import ParquetEmitter
+        from viva_emitters import ParquetEmitter
     except ImportError:
         return 0
     return ParquetEmitter.flush_all_in_composite(composite, success=success)
@@ -1190,7 +1188,7 @@ def _get_special_step(loader, step_name, core):
         # Imported directly from pbg-emitters (the upstream library);
         # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
         try:
-            from pbg_emitters import ParquetEmitter
+            from viva_emitters import ParquetEmitter
         except ImportError:
             ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.

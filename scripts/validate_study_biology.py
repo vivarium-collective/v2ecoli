@@ -357,7 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(out, indent=2, sort_keys=True))
     else:
         print(f"validate_study_biology: scanned {n_studies} studies")
-        print(f"  enum-tagged fields: " + ", ".join(
+        print("  enum-tagged fields: " + ", ".join(
             f"{k}={v}" for k, v in sorted(per_study_field_counts.items())
         ) if per_study_field_counts else
             "  (no enum-tagged fields found)")

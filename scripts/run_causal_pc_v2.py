@@ -246,7 +246,7 @@ def main():
     edges_und, sepset = pc_skeleton(X, alpha=args.alpha, max_cond_size=args.max_cond_size)
     print(f"   skeleton has {len(edges_und)} undirected edges")
 
-    print(f"\n4. Orienting v-structures...")
+    print("\n4. Orienting v-structures...")
     directed = orient_v_structures(edges_und, sepset, len(NODES))
     directed_named = {(NODES[i], NODES[j]) for (i, j) in directed}
     print(f"   {len(directed_named)} edges oriented")

@@ -21,8 +21,80 @@ def test_multivariant_sql_is_unfiltered():
     assert _FROM in sql
 
 
+def test_all_connection_sites_use_configured_factory_not_bare_connect():
+    """Item 38 regression guard: sim 214's real analysis job OOM-killed
+    (exitCode 137) after every ``duckdb.connect()`` call site in this module
+    went unconfigured — no ``temp_directory``, so DuckDB couldn't spill large
+    intermediate query state to disk before the container's memory ceiling hit.
+
+    The fix ports vEcoli-private's own real pattern (``create_duckdb_conn`` in
+    ``ecoli/library/parquet_emitter.py``, already re-exported and installed via
+    ``v2ecoli.library.parquet_emitter`` / ``viva_emitters`` — no new dependency)
+    instead of a bare, unconfigured connection. This is a real source-content
+    assertion, not a mock of DuckDB's own behavior (which ``viva_emitters``
+    already owns and tests) — it only guards that the analysis DuckDB path keeps
+    calling the configured factory at every site, so a future edit can't silently
+    reintroduce a bare ``duckdb.connect()``.
+
+    v2ecoli splits the connection sites across two modules (upstream vEcoli-private
+    kept them in one): ``sweep_io`` owns the S3/glob helpers (``history_files``,
+    ``connect_for``) and ``analysis_runner`` owns the record builders
+    (``build_cell_records``, ``run_analyses._analysis_ctx``). Both are scanned.
+    """
+    import inspect
+
+    import v2ecoli.library.sweep_io as sio
+    import v2ecoli.workflow.analysis_runner as ar
+
+    for mod in (ar, sio):
+        source = inspect.getsource(mod)
+        assert "duckdb.connect()" not in source, (
+            f"found a bare duckdb.connect() in {mod.__name__} — every connection "
+            "site must go through create_duckdb_conn(temp_dir=...) so DuckDB can "
+            "spill to disk instead of OOM-killing the container (item 38)"
+        )
+    connect_call_count = sum(
+        inspect.getsource(mod).count("create_duckdb_conn(temp_dir=")
+        for mod in (ar, sio)
+    )
+    assert connect_call_count == 4, (
+        "expected all 4 known connection sites (sweep_io.history_files, "
+        "sweep_io.connect_for, analysis_runner.build_cell_records, "
+        "analysis_runner.run_analyses._analysis_ctx) to use "
+        f"create_duckdb_conn(temp_dir=...), found {connect_call_count}"
+    )
+
+
+def test_create_duckdb_conn_actually_configures_spill_and_memory_pragmas(tmp_path):
+    """Real behavioral check (no mocking) that the factory this module now
+    calls genuinely sets the memory-safety pragmas — not just that the right
+    function name is called, but that it does what item 38's fix needs.
+    """
+    from v2ecoli.library.parquet_emitter import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=str(tmp_path))
+    try:
+        row = conn.sql(
+            "SELECT current_setting('temp_directory') AS td, "
+            "current_setting('preserve_insertion_order') AS pio, "
+            "current_setting('parquet_metadata_cache') AS pmc, "
+            "current_setting('enable_external_file_cache') AS efc"
+        ).fetchone()
+        (
+            temp_directory,
+            preserve_insertion_order,
+            parquet_metadata_cache,
+            enable_external_file_cache,
+        ) = row
+        assert temp_directory == str(tmp_path)
+        assert preserve_insertion_order is False
+        assert parquet_metadata_cache is False
+        assert enable_external_file_cache is False
+    finally:
+        conn.close()
+
+
 import glob as _glob
-import json as _json
 import os as _os
 import pytest as _pytest
 

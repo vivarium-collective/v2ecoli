@@ -9,7 +9,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from v2ecoli.workflow.flush import RunExtract, place_output
 
 
+def _mk_workspace(tmp_path):
+    # v2ecoli's real workspace.yaml nests studies under workspace/ via the
+    # layout map; the shared viva_workspace resolver reads it (defaults to a
+    # flat studies/ when absent), so the fixture must declare it.
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}})
+    )
+
+
 def _extract(tmp_path, slug="demo", with_study=True, out=None):
+    _mk_workspace(tmp_path)
     if with_study:
         sd = tmp_path / "workspace" / "studies" / slug
         sd.mkdir(parents=True)

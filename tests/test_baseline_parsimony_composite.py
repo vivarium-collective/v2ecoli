@@ -14,37 +14,45 @@ def test_baseline_parsimony_function_is_registered():
 
 
 @pytest.mark.fast
-def test_studies_root_reads_workspace_yaml_layout(tmp_path, monkeypatch):
-    """_studies_root() honours workspace.yaml's layout.studies, resolved
-    relative to the run's CWD."""
-    from v2ecoli.composites.ecoli_structural import _studies_root
+def test_pack_out_dir_reads_workspace_yaml_layout(tmp_path, monkeypatch):
+    """_resolve_pack_out_dir honours workspace.yaml's layout.studies via the
+    shared viva_workspace resolver, returning the absolute
+    ``<root>/<layout.studies>/<study>/viz/3d`` path (a custom studies dir here
+    proves the layout map is genuinely read)."""
+    from v2ecoli.composites.ecoli_structural import _resolve_pack_out_dir
 
     (tmp_path / "workspace.yaml").write_text(
-        "layout:\n  studies: workspace/studies\n")
+        "layout:\n  studies: custom/studies\n")
     monkeypatch.chdir(tmp_path)
 
-    assert _studies_root() == "workspace/studies"
+    assert _resolve_pack_out_dir(None, "itest") == str(
+        tmp_path / "custom" / "studies" / "itest" / "viz" / "3d")
 
 
 @pytest.mark.fast
-def test_studies_root_falls_back_without_workspace_yaml(tmp_path, monkeypatch):
-    """No workspace.yaml in CWD -> the workbench's own default layout."""
-    from v2ecoli.composites.ecoli_structural import _studies_root
+def test_pack_out_dir_falls_back_without_workspace_yaml(tmp_path, monkeypatch):
+    """No workspace.yaml on the CWD ancestry -> the conventional CWD-relative
+    ``workspace/studies/<study>/viz/3d`` default (unchanged legacy fallback)."""
+    from v2ecoli.composites.ecoli_structural import _resolve_pack_out_dir
 
-    monkeypatch.chdir(tmp_path)  # empty dir, no workspace.yaml
+    monkeypatch.chdir(tmp_path)  # empty dir, no workspace.yaml above
 
-    assert _studies_root() == "workspace/studies"
+    assert _resolve_pack_out_dir(None, "itest") == "workspace/studies/itest/viz/3d"
 
 
 @pytest.mark.fast
-def test_studies_root_falls_back_when_layout_studies_unset(tmp_path, monkeypatch):
-    """workspace.yaml present but with no layout.studies key -> fallback."""
-    from v2ecoli.composites.ecoli_structural import _studies_root
+def test_pack_out_dir_flat_default_when_layout_studies_unset(tmp_path, monkeypatch):
+    """workspace.yaml present but with no layout.studies key -> the shared
+    resolver's conventional FLAT ``studies/`` layout (absolute). (v2ecoli's real
+    workspace.yaml always sets layout.studies, so this only affects bare
+    workspaces.)"""
+    from v2ecoli.composites.ecoli_structural import _resolve_pack_out_dir
 
     (tmp_path / "workspace.yaml").write_text("name: v2ecoli\n")
     monkeypatch.chdir(tmp_path)
 
-    assert _studies_root() == "workspace/studies"
+    assert _resolve_pack_out_dir(None, "itest") == str(
+        tmp_path / "studies" / "itest" / "viz" / "3d")
 
 
 @pytest.mark.fast
@@ -63,14 +71,16 @@ def test_resolve_pack_out_dir_explicit_override_wins(tmp_path, monkeypatch):
 
 @pytest.mark.fast
 def test_resolve_pack_out_dir_derives_default_from_layout(tmp_path, monkeypatch):
-    """No override -> derives '<layout.studies>/<study>/viz/3d'."""
+    """No override -> derives the absolute '<root>/<layout.studies>/<study>/viz/3d'
+    from the shared resolver."""
     from v2ecoli.composites.ecoli_structural import _resolve_pack_out_dir
 
     (tmp_path / "workspace.yaml").write_text(
         "layout:\n  studies: workspace/studies\n")
     monkeypatch.chdir(tmp_path)
 
-    assert _resolve_pack_out_dir(None, "itest") == "workspace/studies/itest/viz/3d"
+    assert _resolve_pack_out_dir(None, "itest") == str(
+        tmp_path / "workspace" / "studies" / "itest" / "viz" / "3d")
 
 
 @pytest.mark.sim

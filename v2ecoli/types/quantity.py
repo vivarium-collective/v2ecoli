@@ -55,7 +55,7 @@ class Quantity(_BaseQuantity):
     def _serialize_state(self, state):
         if isinstance(state, dict):
             return state
-        if isinstance(state, int):
+        if isinstance(state, (int, float)):
             return {
                 'units': self.units,
                 'magnitude': serialize(self.magnitude, state),

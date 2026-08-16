@@ -78,7 +78,7 @@ import os
 import pickle
 import shutil
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable
 
 import numpy as np

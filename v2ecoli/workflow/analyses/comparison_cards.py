@@ -70,7 +70,6 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import Any
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY  # noqa: F401
 
@@ -87,7 +86,7 @@ from scripts._compare.report_cards.metabolism import update_metabolism_report_ca
 from scripts._compare.report_cards.composition import update_composition_report_card
 from scripts._compare.report_cards.trajectory import _gen_bounds
 from scripts._compare.verdict import (
-    build_condition_verdict, worst, write_study_verdict)
+    build_condition_verdict, write_study_verdict)
 from scripts.compare_matched_trajectories import OBSERVABLES, _gen1_window, matched_stats
 
 # {card name -> its as_step-wrapped update function}. Called via

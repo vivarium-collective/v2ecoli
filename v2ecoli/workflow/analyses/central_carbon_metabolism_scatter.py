@@ -34,7 +34,7 @@ from duckdb import DuckDBPyConnection
 from scipy.stats import pearsonr
 
 from wholecell.utils import units
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.render import fig_to_html
 
 # cell_density is a unum quantity [g/L]; asNumber requires a unum unit

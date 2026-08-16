@@ -193,13 +193,14 @@ reference's `ref_values` change ("does v2 still behave like v1?").
   per-cell distributions. It carries a **self-contained cross-implementation
   reader** for the two v1↔v2 schema differences (vEcoli emits `time`, cumulative
   across the lineage, not `global_time`; and positional bulk, not
-  `bulk__id`/`bulk__count`) so the **shared `analysis_runner` stays untouched**.
+  `bulk__id`/`bulk__count`) so **no shared analysis logic is involved**.
 - **Scope**: all 21 axes (Physiology · Composition · Ribosomes · Exchange fluxes ·
   Gene expression), graded at matched **8×16**. Ribosomes read v1's positional
   bulk via an index adapter (IDs identical, only the access pattern differs);
   fluxes/omics align positionally (shared reconstruction → same cistron/monomer/
-  flux ordering). All adapters live in the pin script, so the shared
-  `analysis_runner` stays untouched.
+  flux ordering). All adapters live in the pin script; the only thing it shares
+  with the runner is *where the sweep lives*
+  (`v2ecoli.library.sweep_io` — local path or `s3://`), not how it is analysed.
 - **Headline result**: Physiology / Composition / Ribosomes equivalent within
   tolerance; **metabolism (exchange fluxes) is the divergence** (O₂/CO₂
   respiration deficit; near-floor exchanges that flip on/off are shown but held
@@ -219,6 +220,101 @@ reference's `ref_values` change ("does v2 still behave like v1?").
 - **Legacy**: the single-trajectory visual comparison `reports/v1_v2_report.py` →
   `docs/v1_v2_comparison.html` predates this; the card lifts it to an
   ensemble/typed-criteria/graded instrument.
+
+### v1↔v2 equivalence across nutrient conditions (wired, NOT yet running)
+
+The equivalence mode above grades one **stimulus** (basal). Extending it to the
+comparison investigation's other conditions — `acetate`, `succinate`,
+`no_oxygen`, `with_aa` — moves along the *stimulus* axis only: same kind, same
+reference mode, same 21 axes, same grader. Concretely that is
+`pin_vecoli_equivalence_reference.py --condition <c>`, five invocations, no new
+card and no new criterion. The measurement never branches on condition, so a
+cross-condition read compares like-measured ensembles.
+
+**Why this needs its own card and not a wider `standard`.** The comparison
+harness's `standard` card pools raw timepoints (correct for trajectory matching)
+and its `statistical` card t-tests **per-seed means** (n=4). Population phenotype
+aggregates **per cell** (time-average within a cell, then across cells; n=20 at
+4×8 with `gen_lb 3`) — at n=4 the p-value guard is nearly inert. Different
+aggregation unit, so a different card.
+
+#### Run size is a dial, not a property of the study
+
+A study is **one** study per condition, and its run size is a parameter chosen
+**for purpose**: a quick local run to check that the plumbing and the gross
+behaviour are sane, or a large run for rigorous population statistics. There is
+deliberately no `acetate-small` / `acetate-large` pair — the same scientific
+question should not be split across two artifacts that can drift apart.
+
+What makes that collapse safe is that **the card must decline to conclude when
+the evidence is too thin**, rather than grading whatever happens to be there:
+
+- Each per-cell axis declares the **minimum n** it needs. The count is already
+  carried next to the values (`_stat_node` → `{values, mean, std, cv, n}`), so
+  the threshold is a declaration, not new measurement.
+- Below it, the axis reads **insufficient** — visually distinct from a failure
+  (a thin run is not a wrong model), and it must not be maskable by a passing
+  axis in the card-level roll-up.
+- A run that clears the threshold everywhere grades normally.
+
+Read a card's verdict as a statement about *the evidence supplied*, not about
+the study: `insufficient` means "run it deeper", a mismatch means "look at the
+model". The rigorous setting for this card is **4 seeds × 8 generations with
+`gen_lb 3`** (20 post-burn-in cells) — that is the depth the n=20 argument above
+assumes, and shallower runs should be expected to come back partly inconclusive.
+
+> **Status:** the *thresholds* are declared with this card; the *verdict state
+> and its roll-up semantics* are shared grading machinery and are tracked
+> separately. Until that lands, a thin run can still report a pass — so treat
+> small-run cards as provisional.
+
+#### Visualizations alongside the card
+
+The card is the graded instrument; it is not the place to explore. Every study
+should also carry **visualizations** — the readable surface for looking at what
+happened — and only a subset of what is plotted needs to be scored. The useful
+rule of thumb: **wherever the card collapses something rich into one number,
+that is a visualization worth having.** For this card that means the exchange
+scatter behind the flux R², the log-log expression scatter and its outlier genes
+behind the transcriptome/proteome R², per-lineage traces behind the per-cell
+scalars, a run-health view (did every seed and generation actually divide?), and
+— once more than one condition is graded — a condition × axis overview.
+
+⚠️ **Current state: declared, inert.** Each of the five studies declares
+
+```yaml
+report_card_refs:
+  vs_vecoli: docs/report_cards/population_phenotype_<condition>/vs_vecoli/report_card_verdict.json
+```
+
+which `VsVecoliCard.applies()` reads — but the card **does not run yet**, for a
+reason that is not about the refs:
+
+1. In the comparison studies `report_cards:` is **machine-generated** from
+   `comparison.cards` (`scripts/_compare/materialize.py`), rewritten on every
+   `v2e-compare` run. `report_card_refs` survives that round-trip (it is
+   preserved with every other authored key); a hand-edit to `report_cards:` would
+   not.
+2. The Gen-2 flush **gates on `report_cards:`** — a step whose name is not in the
+   declared list is skipped. The declared list holds Gen-1 *paths*, so
+   `vs_vecoli` is never selected. Emptying the field does not help: materialize
+   regenerates it.
+
+Making it run therefore needs a decision on the comparison harness — either teach
+`comparison.cards` to carry a name the Gen-1 `@as_step` registry cannot execute, or
+have `materialize.py` preserve non-Gen-1 entries — plus a call on whether the card
+**gates** or only renders (materialize writes one `report_card_axis` behavior test
+per *graded* card). That is deliberately left open here.
+
+Note also that `population_phenotype_basal/vs_vecoli/report_card_verdict.json`
+**already exists** and is a stale proof-of-concept ensemble, so basal's ref
+resolves today while the other four do not. If the declaration question is
+resolved before basal is re-pinned, basal will render that stale verdict.
+
+**Storage.** A full parquet sweep is ~12 GB (v2) + ~9 GB (v1) per condition, so
+five conditions do not comfortably fit on a workstation. Both the pin script and
+the vector extraction accept an `s3://` sweep, so the sweeps can stay in object
+storage and be graded in place — see `v2ecoli.library.sweep_io`.
 
 ## Adding a station
 

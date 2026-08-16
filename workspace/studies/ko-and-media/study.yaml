@@ -63,7 +63,7 @@ tests:
     measure:
       kind: composite_state
       path: agents.0.ecoli-polypeptide-initiation
-    expect:
+    pass_if:
       op: eq
       note: translation_efficiencies[lacY monomer] == 0 (unit-asserted in tests/test_ko_composites.py)
   - name: rich-media-grows-faster
@@ -72,7 +72,7 @@ tests:
     measure:
       kind: readout
       observable: listeners.mass.dry_mass
-    expect:
+    pass_if:
       op: gt
       note: dry-mass increment on rich media > minimal (directional; demonstration only)
 inputs:

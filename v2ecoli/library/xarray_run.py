@@ -405,7 +405,7 @@ def build_emitter_config(
     writer_cfg = {
         "backend": "zarr",
         "store": str(store_path),
-        "buffers_per_chunk": 1,
+        "buffers_per_chunk": 10,
         "backend_config": {"format": 3},
     }
     if writer:

@@ -2949,7 +2949,7 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#cf6a45164cc786506512c8617119d3fbad031a22" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#1b3fbff6d5c558769b1d315ec4da595574bb8032" }
 dependencies = [
     { name = "viva-superpowers" },
 ]
@@ -4724,7 +4724,7 @@ dependencies = [
 [[package]]
 name = "viva-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#cf6a45164cc786506512c8617119d3fbad031a22" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#1b3fbff6d5c558769b1d315ec4da595574bb8032" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },

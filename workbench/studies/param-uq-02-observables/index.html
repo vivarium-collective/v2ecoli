@@ -1057,20 +1057,18 @@ v2ecoli baseline elongation parameterization derives from the wcEcoli model.
         data-test-kind="behavioral"
         
         data-pytest-node="basal-dominates-mass-observables"
-        data-classification="primary"
+        data-classification="unclassified"
         data-result="PASS"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
-        <span class="classification-pill classification-primary">primary</span>
+        <span class="classification-pill classification-unclassified">unclassified</span>
         <strong style="font-size: 0.9em;">basal-dominates-mass-observables</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does basal_elongation_rate dominate (total-order Sobol &gt; 0.5) the mass
-observables (dry_mass, cell_mass) over the 360-step window?
-</div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
       
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
@@ -1079,13 +1077,6 @@ observables (dry_mass, cell_mass) over the 360-step window?
         
       </div>
       
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "basal_elongation_rate total-order Sobol = 0.863 (dry_mass) and 0.867\n(cell_mass), dominant for both; surrogate test rel-err ~0%.\n", "kind": "authored", "measured_value": 0.865}
-expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
-      </details>
       
       
       
@@ -1103,21 +1094,18 @@ expect:  {"high": 1.0, "low": 0.5, "op": "in_range"}</pre>
         data-test-kind="behavioral"
         
         data-pytest-node="growth-rate-ranking-is-window-dependent"
-        data-classification="primary"
+        data-classification="unclassified"
         data-result="PASS"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
-        <span class="classification-pill classification-primary">primary</span>
+        <span class="classification-pill classification-unclassified">unclassified</span>
         <strong style="font-size: 0.9em;">growth-rate-ranking-is-window-dependent</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does the dominant driver of instantaneous-growth-rate variance change between
-the 120-step and 360-step windows — i.e. is the growth-rate ranking
-window-dependent, as this study claims?
-</div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
       
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
@@ -1126,13 +1114,6 @@ window-dependent, as this study claims?
         
       </div>
       
-      
-      <details style="margin-top: 6px; font-size: 0.82em;">
-        <summary class="muted" style="cursor: pointer;">Assertion</summary>
-        
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "CONFIRMED window-dependence \u2014 the igr dominant knob flips: basal_elongation_rate\n(Sobol 0.97 @ 120 steps) \u2192 kS (0.615, edging basal\u0027s 0.511) @ 360 steps.\nmeasured_value = fraction of the compared window pairs that show a DIFFERENT igr\ndominant driver = 1.0 (the single 120\u2194360 pair differs). This is the study\u0027s\nheadline discovery, framed affirmatively (the window-independence hypothesis is\nrefuted; see assumptions).\n", "kind": "authored", "measured_value": 1.0}
-expect:  {"high": 1.0, "low": 0.8, "op": "in_range"}</pre>
-      </details>
       
       
       
@@ -1375,7 +1356,7 @@ dominant knob flips from basal_elongation_rate (120 steps) to kS (360 steps).
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "52949bee8fdafc6343f07f5ba33a01040647cef4", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/52949bee8fdafc6343f07f5ba33a01040647cef4", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 03:05 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "6321ca89a66bfd1ab9f273c168c2a5c29f4f327e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/6321ca89a66bfd1ab9f273c168c2a5c29f4f327e", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 05:43 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "param-uq-02-observables";

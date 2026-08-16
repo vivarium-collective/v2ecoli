@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "n_records": 60,
+    "seeds_present": [
+      0,
+      1
+    ],
+    "n_bins": 10,
+    "n_divided": 60,
+    "observable": "instantaneous_growth_rate"
+  },
+  "strategy_1_population": {
+    "total_order": {
+      "basal_elongation_rate": 0.4882953206552714,
+      "kS": 0.36869826814051904,
+      "chrom_basal_elongation_rate": 0.09591386740852711,
+      "inert_decoy": 0.18585975542310038
+    },
+    "first_order": {
+      "basal_elongation_rate": 0.41307446242976875,
+      "kS": 0.2762204963563039,
+      "chrom_basal_elongation_rate": 0.018594035469315307,
+      "inert_decoy": 0.153343794117194
+    },
+    "rel_test_error": 0.02782959960938223
+  },
+  "strategy_4_theta_binned": {
+    "theta_bin_0": {
+      "total_order": {
+        "basal_elongation_rate": 0.5984204051084518,
+        "kS": 0.4696069607772279,
+        "chrom_basal_elongation_rate": 0.21965998225443265,
+        "inert_decoy": 0.314793852076996
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.3140393588896609,
+        "kS": 0.007756109334097935,
+        "chrom_basal_elongation_rate": 0.021154314103284454,
+        "inert_decoy": 0.05456901745584822
+      },
+      "rel_test_error": 0.0697340832247649
+    },
+    "theta_bin_1": {
+      "total_order": {
+        "basal_elongation_rate": 0.782325638208928,
+        "kS": 0.15158783557000666,
+        "chrom_basal_elongation_rate": 0.05169004802479807,
+        "inert_decoy": 0.05714467600967686
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.7587065131051319,
+        "kS": 0.13243368880952733,
+        "chrom_basal_elongation_rate": 0.03748633996157596,
+        "inert_decoy": 0.02862526031035504
+      },
+      "rel_test_error": 0.091302416222526
+    },
+    "theta_bin_2": {
+      "total_order": {
+        "basal_elongation_rate": 0.7255416968381969,
+        "kS": 0.17223325045843804,
+        "chrom_basal_elongation_rate": 0.08626995908319751,
+        "inert_decoy": 0.2494137800510388
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.5943817357042782,
+        "kS": 0.09159562948665277,
+        "chrom_basal_elongation_rate": 0.012192902575501168,
+        "inert_decoy": 0.06837104580269614
+      },
+      "rel_test_error": 0.06624566347022676
+    },
+    "theta_bin_3": {
+      "total_order": {
+        "basal_elongation_rate": 0.5496442626826092,
+        "kS": 0.15156867653712683,
+        "chrom_basal_elongation_rate": 0.12671217095400025,
+        "inert_decoy": 0.3205102238149338
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.4975092156162164,
+        "kS": 0.08744170286192926,
+        "chrom_basal_elongation_rate": 0.03918760066722477,
+        "inert_decoy": 0.22742614686595933
+      },
+      "rel_test_error": 0.06998810480150607
+    },
+    "theta_bin_4": {
+      "total_order": {
+        "basal_elongation_rate": 0.6466349628125969,
+        "kS": 0.1843166874042999,
+        "chrom_basal_elongation_rate": 0.23712959685360913,
+        "inert_decoy": 0.2482364939541193
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.5105371306045758,
+        "kS": 0.038764490839698455,
+        "chrom_basal_elongation_rate": 0.05687068813634642,
+        "inert_decoy": 0.07750994939475431
+      },
+      "rel_test_error": 0.06411219924454703
+    },
+    "theta_bin_5": {
+      "total_order": {
+        "basal_elongation_rate": 0.37078219035430793,
+        "kS": 0.5217601026500244,
+        "chrom_basal_elongation_rate": 0.23857471430665084,
+        "inert_decoy": 0.14556671640489727
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.1242510978659192,
+        "kS": 0.42684185510408673,
+        "chrom_basal_elongation_rate": 0.03673786623030052,
+        "inert_decoy": 0.1354854570838131
+      },
+      "rel_test_error": 0.027274631736836894
+    },
+    "theta_bin_6": {
+      "total_order": {
+        "basal_elongation_rate": 0.32632684517097066,
+        "kS": 0.5826766460307812,
+        "chrom_basal_elongation_rate": 0.13804847337881684,
+        "inert_decoy": 0.1390905024989312
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.1687088392452807,
+        "kS": 0.4888403053915758,
+        "chrom_basal_elongation_rate": 0.07062592415766766,
+        "inert_decoy": 0.08568246412597559
+      },
+      "rel_test_error": 0.04084511798008443
+    },
+    "theta_bin_7": {
+      "total_order": {
+        "basal_elongation_rate": 0.31256813709001785,
+        "kS": 0.5387184793904383,
+        "chrom_basal_elongation_rate": 0.05801722768371799,
+        "inert_decoy": 0.271069604834604
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.18090036224222802,
+        "kS": 0.38744709597196286,
+        "chrom_basal_elongation_rate": 0.006938409558794814,
+        "inert_decoy": 0.24434068322823638
+      },
+      "rel_test_error": 0.03184469302367461
+    },
+    "theta_bin_8": {
+      "total_order": {
+        "basal_elongation_rate": 0.49690071241758677,
+        "kS": 0.502245368652378,
+        "chrom_basal_elongation_rate": 0.1326525265504307,
+        "inert_decoy": 0.15954138637663604
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.23794540048801288,
+        "kS": 0.2961424291118319,
+        "chrom_basal_elongation_rate": 0.028274259835527043,
+        "inert_decoy": 0.14629791656759683
+      },
+      "rel_test_error": 0.054286097787581845
+    },
+    "theta_bin_9": {
+      "total_order": {
+        "basal_elongation_rate": 0.42715609282337286,
+        "kS": 0.3971579013820721,
+        "chrom_basal_elongation_rate": 0.14360215818570432,
+        "inert_decoy": 0.2940463685978861
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.23712915876225085,
+        "kS": 0.25409316487554423,
+        "chrom_basal_elongation_rate": 0.0036440168161077473,
+        "inert_decoy": 0.24317113855706182
+      },
+      "rel_test_error": 0.0788115908507973
+    }
+  },
+  "strategy_3_by_seed": {
+    "seed_0": {
+      "total_order": {
+        "basal_elongation_rate": 0.28548026091039275,
+        "kS": 0.38436301210066826,
+        "chrom_basal_elongation_rate": 0.2232705066905981,
+        "inert_decoy": 0.2847413781097265
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.25739012499144237,
+        "kS": 0.2563795051863623,
+        "chrom_basal_elongation_rate": 0.08320743825678133,
+        "inert_decoy": 0.22516777375402847
+      }
+    },
+    "seed_1": {
+      "total_order": {
+        "basal_elongation_rate": 0.6404980661723415,
+        "kS": 0.39748828965921956,
+        "chrom_basal_elongation_rate": 0.1231413357559824,
+        "inert_decoy": 0.06063017443804355
+      },
+      "first_order": {
+        "basal_elongation_rate": 0.4271398474725082,
+        "kS": 0.26505052297863996,
+        "chrom_basal_elongation_rate": 0.04338295039815709,
+        "inert_decoy": 0.042668813125108104
+      }
+    }
+  },
+  "run_config": {
+    "n_train": 24,
+    "n_test": 6,
+    "seeds": 2,
+    "gens": 2,
+    "steps": 4000,
+    "n_bins": 10,
+    "param_names": [
+      "basal_elongation_rate",
+      "kS",
+      "chrom_basal_elongation_rate",
+      "inert_decoy"
+    ],
+    "bounds": [
+      [
+        15.0,
+        28.0
+      ],
+      [
+        60.0,
+        140.0
+      ],
+      [
+        700.0,
+        1200.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "observable": "instantaneous_growth_rate",
+    "override_keys": {
+      "basal_elongation_rate": "ecoli-polypeptide-elongation.basal_elongation_rate",
+      "kS": "ecoli-polypeptide-elongation.kS",
+      "chrom_basal_elongation_rate": "ecoli-chromosome-replication.basal_elongation_rate"
+    }
+  }
+}

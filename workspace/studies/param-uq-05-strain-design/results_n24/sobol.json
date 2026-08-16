@@ -1,0 +1,230 @@
+{
+  "meta": {
+    "generations_present": [
+      1,
+      2
+    ],
+    "seeds_present": [
+      0,
+      1,
+      2
+    ],
+    "n_records": 168
+  },
+  "strategy_1_population": {
+    "total_order": {
+      "gfp_product_level": {
+        "exp": 0.7331188655369533,
+        "trl_eff": 0.3743491552394667,
+        "inert_decoy": 0.02400611210348762
+      },
+      "instantaneous_growth_rate": {
+        "exp": 0.5963956582889683,
+        "trl_eff": 0.23512855462530438,
+        "inert_decoy": 0.42798452430459344
+      }
+    },
+    "first_order": {
+      "gfp_product_level": {
+        "exp": 0.6040401822867228,
+        "trl_eff": 0.24386016007021932,
+        "inert_decoy": 0.020625524763150424
+      },
+      "instantaneous_growth_rate": {
+        "exp": 0.5281949328936429,
+        "trl_eff": 0.008192947819033094,
+        "inert_decoy": 0.20410338206845763
+      }
+    },
+    "rel_test_error": {
+      "gfp_product_level": 0.2324110006427509,
+      "instantaneous_growth_rate": 0.025885068443067
+    }
+  },
+  "strategy_2_by_generation": {
+    "generation_1": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.7175414666141142,
+          "trl_eff": 0.38519833694184274,
+          "inert_decoy": 0.024135549729784395
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.6639907540174937,
+          "trl_eff": 0.2060147474054293,
+          "inert_decoy": 0.39775004985876866
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.5914767217269276,
+          "trl_eff": 0.26051286389001715,
+          "inert_decoy": 0.02113506109731404
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5791932195585764,
+          "trl_eff": 0.01006415819345035,
+          "inert_decoy": 0.14298707096628122
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.20349231287393782,
+        "instantaneous_growth_rate": 0.030553238771462786
+      }
+    },
+    "generation_2": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.7540492173765758,
+          "trl_eff": 0.3581690560475899,
+          "inert_decoy": 0.025826109802712046
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.51636557694084,
+          "trl_eff": 0.25094132333485114,
+          "inert_decoy": 0.4836923786397163
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.6217392836725905,
+          "trl_eff": 0.2202415761400377,
+          "inert_decoy": 0.019974756960494097
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.4477231834525231,
+          "trl_eff": 0.010486156242416684,
+          "inert_decoy": 0.29079138138965255
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.30882511757238856,
+        "instantaneous_growth_rate": 0.023061988639825278
+      }
+    }
+  },
+  "strategy_3_by_seed": {
+    "seed_0": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.7426468409948855,
+          "trl_eff": 0.4040228855843966,
+          "inert_decoy": 0.02861711974368065
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.574986603024084,
+          "trl_eff": 0.4420868534840714,
+          "inert_decoy": 0.2814464750392386
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.5872211742199225,
+          "trl_eff": 0.23132962904829094,
+          "inert_decoy": 0.006162350408823921
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.32888708590206756,
+          "trl_eff": 0.3261537947998694,
+          "inert_decoy": 0.04643918775066928
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.3100173428847366,
+        "instantaneous_growth_rate": 0.06288408290746181
+      }
+    },
+    "seed_1": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.7704857051671665,
+          "trl_eff": 0.29093280905896135,
+          "inert_decoy": 0.042286956805494054
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5801111193649553,
+          "trl_eff": 0.35742873555880444,
+          "inert_decoy": 0.17627404464186436
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.6670962878259945,
+          "trl_eff": 0.2005291145359293,
+          "inert_decoy": 0.028669126606454293
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5403690708516055,
+          "trl_eff": 0.26708482214720447,
+          "inert_decoy": 0.07873220743556576
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.2130054336147821,
+        "instantaneous_growth_rate": 0.05949716954429146
+      }
+    },
+    "seed_2": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.6028865748164152,
+          "trl_eff": 0.4085527793133097,
+          "inert_decoy": 0.12220385960192959
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.684678131437981,
+          "trl_eff": 0.15202105460992052,
+          "inert_decoy": 0.39510311212547566
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.4700531296545937,
+          "trl_eff": 0.27512875577762913,
+          "inert_decoy": 0.12117490083612266
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5195530473213279,
+          "trl_eff": 0.04511671563585799,
+          "inert_decoy": 0.20352793886943701
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.398040396305306,
+        "instantaneous_growth_rate": 0.050529054016639194
+      }
+    }
+  },
+  "run_config": {
+    "mode": "custom",
+    "n_train": 24,
+    "n_test": 4,
+    "seeds": 3,
+    "gens": 2,
+    "steps": 4000,
+    "param_names": [
+      "exp",
+      "trl_eff",
+      "inert_decoy"
+    ],
+    "bounds": [
+      [
+        1000.0,
+        10000.0
+      ],
+      [
+        0.5,
+        2.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "obs_names": [
+      "gfp_product_level",
+      "instantaneous_growth_rate"
+    ],
+    "gfp_monomer_id": "NG-GFP-MONOMER[c]"
+  }
+}

@@ -169,6 +169,35 @@ def test_run_splits_mixed_scale_between_both_families(tmp_path, monkeypatch):
     assert "s3://bucket/exp/analyses/test-analysis/doubling_time_distribution.json" in written  # AnalysisStep name
 
 
+def test_full_script_subprocess_reaches_final_manifest_write_not_import_crash(tmp_path):
+    """The real, load-bearing regression test: run the actual script as a
+    subprocess (not an in-process import, which can mask sys.path[0] behavior)
+    with the exact CLI shape viva-api's chain-dispatch analysis auto-trigger
+    sends. Pre-fix, this dies inside comparison_summary.py's import with
+    ModuleNotFoundError. Post-fix, it must run the ENTIRE analysis pipeline
+    (proving the "applicable" resolution + full ANALYSIS_REGISTRY import both
+    genuinely work end-to-end) and only fail at the very last step -- the
+    deliberately-fake S3 upload this test gives it, not the import."""
+    import subprocess
+
+    repo_root = Path(__file__).resolve().parent.parent
+    result = subprocess.run(
+        [
+            sys.executable, "scripts/run_standalone_analysis.py",
+            "--out-uri", f"s3://fake-bucket-does-not-exist-{tmp_path.name}/x",
+            "--n-seeds", "2", "--n-generations", "2",
+            "--modules", "applicable", "--analysis-name", "test-repro",
+        ],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+    )
+    assert "ModuleNotFoundError" not in result.stderr, result.stderr
+    # Must reach the real final step (uploading the manifest) -- proof the
+    # entire pipeline, including the previously-crashing import chain, ran.
+    assert "_run_aws" in result.stderr and "_manifest.json" in result.stderr
+
+
 def test_resolve_modules_passes_explicit_dict_through_verbatim():
     explicit = {"multiseed": {"doubling_time_distribution": {}}}
     assert resolve_modules(explicit, n_seeds=2, n_generations=2) is explicit

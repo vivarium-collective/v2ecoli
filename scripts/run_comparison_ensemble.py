@@ -538,6 +538,16 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         # own first-update logic builds the rest).
         "initial_state": resolved.get("initial_state") or {},
         "initial_state_overrides": resolved.get("initial_state_overrides") or [],
+        # Fork-declared candidate-side ParCa-cache gaps: bulk molecules the
+        # fork's sim_data flags add at runtime that the candidate's own ParCa
+        # cache never applies, and initial values a config-declared process
+        # needs but the single-cell candidate has no upstream process to fill
+        # (e.g. a spatial shape process). See resolve_injections for how
+        # these three are consumed; a config declares them directly (no
+        # per-fork-flag translation lives here or in resolve_injections).
+        "extra_bulk_species": resolved.get("extra_bulk_species") or [],
+        "shape_seed_param_store": resolved.get("shape_seed_param_store") or {},
+        "shape_seed_literal": resolved.get("shape_seed_literal") or {},
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data

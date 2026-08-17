@@ -152,5 +152,156 @@ class OperandValues(unittest.TestCase):
         self.assertEqual(set(op.values), {"A", "B"})
 
 
+def _run_cache(sweep: Path, vector, *, observable="transcriptome",
+               n_cells=20, gen_lb=0, run_commit=None) -> Path:
+    """Write a synthetic run-vector cache so no parquet sweep is needed.
+
+    ``load_or_extract`` returns a cached envelope verbatim when the schema
+    matches, so the resolver can be exercised in public CI with no run data.
+    """
+    from v2ecoli.library import sim_vector_cache as svc
+
+    path = svc.cache_path(str(sweep), gen_lb)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "schema": svc.CACHE_SCHEMA,
+        "run": {"experiment_id": "exp_live_1", "sweep_dir": str(sweep),
+                "generation_lower_bound": gen_lb},
+        "extractor": {"version": svc.EXTRACTOR_VERSION},
+        "provenance": {"run_commit": run_commit,
+                       "extracted_at_commit": "cafe1234"},
+        "vectors": {"omics": {observable: {"vector": list(vector),
+                                           "n_cells": n_cells}}},
+    }), encoding="utf-8")
+    return path
+
+
+class RunOperand(unittest.TestCase):
+    """The third path — a LIVE run inside the investigation.
+
+    ``test_a_live_run_resolves_exactly_like_a_promoted_one`` is the load-bearing
+    one: it is the direct test of `comparison-operands-plan` §10.1, which asks
+    whether a live run collapses into the operand contract or needs its own
+    resolution semantics. Until this path existed the question could not be
+    asked, because every operand in play was read from a committed artifact.
+    """
+
+    def test_a_live_run_resolves_exactly_like_a_promoted_one(self):
+        with TemporaryDirectory() as d:
+            root = Path(d)
+            sweep = root / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0], observable="proteome")
+            bundle = _payload(root, ("g1", "measured", "TPM",
+                                     [("A", 5.0, "detected"),
+                                      ("B", 7.0, "detected")]))
+
+            live = ops.run_operand(sweep, ["A", "B", "C"], observable="proteome")
+            promoted = ops.promoted_operand("g1", bundle, "proteome", "TPM")
+
+            # Same contract, same in-memory type, same accessor — the claim.
+            # `at least OPERAND_COLUMNS`, exactly as the other two paths: a
+            # promoted operand keeps the payload's full schema, a synthesised
+            # one carries the guaranteed subset, and no caller may depend on
+            # more than the subset.
+            for op in (live, promoted):
+                self.assertIsInstance(op, ops.Operand)
+                for col in ops.OPERAND_COLUMNS:
+                    self.assertIn(col, op.frame.columns, f"{op.path}: missing {col}")
+                self.assertIsInstance(op.values, dict)
+            # ...and they differ ONLY in how they were resolved.
+            self.assertEqual({live.path, promoted.path},
+                             {"in-investigation", "promoted"})
+
+    def test_the_positional_vector_is_keyed_by_the_ids_it_is_given(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [10.0, 20.0, 30.0])
+            op = ops.run_operand(sweep, ["EG10001", "EG10002", "EG10003"])
+            self.assertEqual(op.values,
+                             {"EG10001": 10.0, "EG10002": 20.0, "EG10003": 30.0})
+
+    def test_labels_from_the_wrong_sim_data_RAISE_rather_than_truncate(self):
+        """The knockout trap, and the reason ``entity_ids`` is a parameter.
+
+        A ParCa-level KO splices the genome, so the KO arm's cistron set is not
+        the wild type's. Keying a KO sweep with WT labels would attribute every
+        value past the deleted locus to the wrong gene — silently, and most
+        damagingly on exactly the genes the knockout study is about.
+        """
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0])
+            with self.assertRaises(ValueError) as caught:
+                ops.run_operand(sweep, ["A", "B"])          # WT labels, KO sweep
+            self.assertIn("width mismatch", str(caught.exception))
+
+    def test_an_observable_the_sweep_did_not_record_is_None_not_a_raise(self):
+        """Absent is a legitimate outcome; mis-keyed is not. Keep them distinct."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0], observable="transcriptome")
+            self.assertIsNone(ops.run_operand(sweep, ["A", "B"],
+                                              observable="proteome"))
+
+    def test_collisions_are_summed_exactly_as_the_bake_path_sums_them(self):
+        """Several mRNA cistrons legitimately map to one EcoCyc gene id.
+
+        The live path and ``scripts/bake_model_omics.py`` must agree, or
+        "we re-ran it live" quietly also means "we changed the aggregation".
+        """
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 4.0])
+            op = ops.run_operand(sweep, ["EG1", "EG1", "EG2"])
+            self.assertEqual(op.values, {"EG1": 3.0, "EG2": 4.0})
+            self.assertEqual(op.meta["n_collisions"], 1)
+
+    def test_unmapped_ids_are_dropped_and_counted(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0])
+            op = ops.run_operand(sweep, ["EG1", "", None])
+            self.assertEqual(op.values, {"EG1": 1.0})
+            self.assertEqual(op.meta["n_unmapped"], 2)
+
+    def test_run_commit_stays_None_when_the_sweep_recorded_nothing(self):
+        """Never substituted with the extracting tree's HEAD — that would look
+        authoritative and mean something else (`comparison-operands-plan` §5)."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0], run_commit=None)
+            op = ops.run_operand(sweep, ["EG1"])
+            self.assertIsNone(op.meta["run_commit"])
+            self.assertEqual(op.meta["experiment_id"], "exp_live_1")
+
+    def test_provenance_records_what_identifies_the_run(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0], gen_lb=3, run_commit="abc123")
+            op = ops.run_operand(sweep, ["EG1", "EG2"],
+                                 generation_lower_bound=3)
+            self.assertEqual(op.meta["run_commit"], "abc123")
+            self.assertEqual(op.meta["gen_lb"], 3)
+            self.assertEqual(op.meta["n_cells"], 20)
+            self.assertEqual(op.kind, "model_predicted")
+
+    def test_an_unknown_observable_names_the_ones_that_exist(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0])
+            with self.assertRaises(KeyError) as caught:
+                ops.run_operand(sweep, ["EG1"], observable="metabolome")
+            self.assertIn("transcriptome", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

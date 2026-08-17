@@ -18,8 +18,18 @@ stops being invisible the moment a comparison is exp<->exp (MS#8 #2) or
 sim<->sim (MS#8 #8), which is two of the six comparisons the CD1 evaluation asks
 for.
 
-Both resolvers return the SAME shape, so a caller cannot tell them apart without
-reading ``path`` — which is the property worth having (Layer 1).
+All three resolvers return the SAME shape, so a caller cannot tell them apart
+without reading ``path`` — which is the property worth having (Layer 1)::
+
+    promoted_operand   promoted        a curated payload slot
+    fixture_operand    fixture         a baked model fixture
+    run_operand        in-investigation a live run, via the run-keyed cache
+
+``run_operand`` is the path this module's opening sentence always described and
+no code implemented. Adding it is what makes "does a live run collapse into the
+operand contract?" a question with an answer rather than an assertion: the
+resolver is ~40 lines, it adds no schema, and Layer 2 below did not change at
+all to accept it.
 
 **Layer 2 — the join below is symmetric.** Nothing in ``_join_vectors``
 distinguishes "the model side" from "the reference side": both operands are
@@ -56,7 +66,7 @@ class Operand:
     never be branched on to decide how to LOAD.
     """
     frame: pd.DataFrame
-    path: str                       # promoted | fixture
+    path: str                       # promoted | fixture | in-investigation
     kind: str                       # measured | model_predicted | theoretical_max
     label: str                      # human-facing, for provenance panels
     meta: dict = field(default_factory=dict)
@@ -213,6 +223,146 @@ def fixture_operand(fixtures_dir: Path, fixture: str, map_key: str,
         meta={"id_key": blob.get("id_key"), "n_cells": blob.get("n_cells"),
               "gen_lb": blob.get("gen_lb"), "fixture": fixture,
               "map_key": map_key, "source": "baked model fixture"},
+    )
+
+
+#: Observable name -> the ``(group, name)`` node ``card_vectors.extract_vectors``
+#: files it under. Named here rather than taken from the caller so that a study
+#: declares an OBSERVABLE ("transcriptome"), the same word the promoted tier uses,
+#: and does not have to know the extractor's internal grouping.
+_RUN_VECTOR_NODES = {
+    "transcriptome": ("omics", "transcriptome"),
+    "proteome": ("omics", "proteome"),
+}
+
+
+def _keyed(vector, entity_ids) -> tuple[dict, int, int]:
+    """``({entity_id: value}, n_unmapped, n_collisions)``; collisions are SUMMED.
+
+    Deliberately identical to ``scripts/bake_model_omics.py::_keyed``. The live
+    path and the bake path must produce the same numbers from the same sweep, or
+    "we re-ran it live" silently becomes "we re-ran it live AND changed the
+    aggregation". Summing is right for the cistron -> gene case, where several
+    mRNA cistrons legitimately map to one EcoCyc gene id and the gene's abundance
+    is their total.
+    """
+    out: dict[str, float] = {}
+    n_unmapped = n_collisions = 0
+    for k, v in zip(entity_ids, vector):
+        k = "" if k is None else str(k)
+        if not k or k == "None":
+            n_unmapped += 1
+            continue
+        if k in out:
+            n_collisions += 1
+        out[k] = out.get(k, 0.0) + float(v)
+    return out, n_unmapped, n_collisions
+
+
+def run_operand(sweep_dir: str | Path, entity_ids,
+                *, observable: str = "transcriptome",
+                generation_lower_bound: int = 0,
+                out_dir: str | None = None,
+                kind: str = "model_predicted",
+                declared_in: str = "the caller's axis table") -> Operand | None:
+    """Resolve an operand from a LIVE run inside the investigation, or None.
+
+    The third path, and the one the module docstring already described ("or
+    materialised from an artifact inside the investigation") while no code
+    implemented it. A sweep is read through the run-keyed cache
+    (``sim_vector_cache.load_or_extract``), so the expensive parquet scan happens
+    once per run and every later render is a cache read.
+
+    **``entity_ids`` is passed in, never inferred — and this is the whole
+    correctness story, not an ergonomic choice.** The cache stores a POSITIONAL
+    vector (``card_vectors`` files ``{"vector": [...], "n_cells": N}``); the ids
+    live in the ``sim_data`` that produced the run. For a wild-type arm any
+    current ``sim_data`` would do, which is exactly what makes the trap invisible:
+    **a ParCa-level knockout splices the genome, so the KO arm's mRNA cistron set
+    is NOT the wild type's.** Keying a KO sweep with WT labels silently attributes
+    every value past the deleted locus to the wrong gene. The caller holds the
+    ``sim_data`` that produced this sweep and is the only party that can be right
+    about this, so it supplies the labels — the same reasoning that makes
+    ``fixture_operand`` take ``map_key`` rather than guess it.
+
+    Three outcomes, kept distinct because collapsing them is how a comparison
+    silently grades nothing:
+
+    * observable not recorded by this sweep -> ``None``. Legitimate; the caller
+      declines to render that axis rather than half-rendering it.
+    * width mismatch between ``entity_ids`` and the vector -> **raise**. That is
+      the KO trap above, and returning ``None`` would present a label/data
+      disagreement as an absent measurement.
+    * resolved -> an ``Operand`` shaped exactly like the other two paths.
+
+    ⚠ **Provenance is honest about what it cannot know.** ``run_commit`` is
+    whatever the sweep actually recorded and is ``None`` when it recorded
+    nothing — never the extracting tree's HEAD, which would look authoritative
+    and mean something else (``comparison-operands-plan`` §5).
+
+    ⚠ **A run operand is invisible to CI by design.** The cache is machine-local
+    (``sim_vector_cache``' own contract), so a card grading this path renders
+    where the sweep lives, and its verdict is committed rather than recomputed in
+    CI. That is a different integrity story from a promoted or fixture operand
+    and belongs in the consuming study's ``assumptions:``.
+    """
+    from v2ecoli.library.sim_vector_cache import load_or_extract
+
+    node_at = _RUN_VECTOR_NODES.get(observable)
+    if node_at is None:
+        raise KeyError(
+            f"unknown observable {observable!r} for a run operand — known: "
+            f"{sorted(_RUN_VECTOR_NODES)}. Declared in {declared_in}.")
+    group, name = node_at
+
+    env = load_or_extract(str(sweep_dir), generation_lower_bound, out_dir)
+    node = (env.get("vectors", {}).get(group) or {}).get(name)
+    if not node:
+        return None
+    vector = node.get("vector") or []
+    if not vector:
+        return None
+
+    ids = list(entity_ids)
+    if len(ids) != len(vector):
+        raise ValueError(
+            f"entity_ids/vector width mismatch for {observable!r}: "
+            f"{len(ids)} ids vs {len(vector)} values from {sweep_dir}. These "
+            f"labels did not come from the sim_data that produced this sweep — "
+            f"a ParCa-level knockout changes the cistron set, so a KO arm must "
+            f"be keyed with ITS OWN sim_data. Fix the label source declared in "
+            f"{declared_in}; do not truncate to the shorter of the two.")
+
+    values, n_unmapped, n_collisions = _keyed(vector, ids)
+    if not values:
+        return None
+
+    run = env.get("run", {})
+    prov = env.get("provenance", {})
+    experiment_id = run.get("experiment_id")
+    frame = pd.DataFrame({
+        "entity_id": list(values),
+        "symbol": ["" for _ in values],
+        "mean_geometric": [float(v) for v in values.values()],
+        # A run has no limit of detection, so every row is `detected` and this
+        # column carries no information on this side — the same asymmetry the
+        # fixture path has, made explicit rather than inherited.
+        "detection": ["detected"] * len(values),
+        "kind": [kind] * len(values),
+    })
+    return Operand(
+        frame=frame, path="in-investigation", kind=kind,
+        label=f"{experiment_id or Path(sweep_dir).name}:{observable}",
+        meta={"source": "live run (run-keyed sim-vector cache)",
+              "observable": observable,
+              "experiment_id": experiment_id,
+              "sweep_dir": str(sweep_dir),
+              "gen_lb": int(generation_lower_bound),
+              "n_cells": node.get("n_cells"),
+              "run_commit": prov.get("run_commit"),
+              "extracted_at_commit": prov.get("extracted_at_commit"),
+              "extractor_version": (env.get("extractor") or {}).get("version"),
+              "n_unmapped": n_unmapped, "n_collisions": n_collisions},
     )
 
 

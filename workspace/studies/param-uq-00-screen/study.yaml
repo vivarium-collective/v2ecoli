@@ -74,6 +74,23 @@ report:
     and are included in the UQ. The inert knobs are excluded from the UQ budget.
     See param-uq-04-deep-params for the path to deeper sim_data parameters.
 
+# Run environment / budget (narrative-spine runtime section). Real values
+# pulled from this study's runs/simulation_set/methodology — NOT a new run.
+runtime:
+  tool: pbg-uq (parameter screen)
+  composite: v2ecoli.composites.ecoli_baseline
+  window_steps: 120
+  seeds: [0]
+  samples: "7 config-reachable knobs, low/high swing each (fresh initial_state per perturbation)"
+  dispatch: serial
+  emitter: xarray
+  observable: listeners.mass.instantaneous_growth_rate
+  environment: |
+    Run in the v2ecoli .venv; each low/high perturbation deep-copies a fresh
+    initial_state (v2ecoli PR #197) so samples are independent. One-at-a-time
+    screen, single PCRV seed — a parameter sweep, not multi-seed replication
+    (the downstream PCE studies add seed replication).
+
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -151,6 +168,16 @@ tests:
   # analyst-chosen methodological thresholds for screening, not values sourced from
   # a publication. Documented here as a citation GAP (no fabricated cite added).
     cites_note: "Methodological screening threshold (>2% growth-rate response); not literature-derived."
+
+# Narrative-spine behavior_tests — one entry per tests[] entry, restating the
+# real pass condition and its actual evaluated outcome (this study is evaluated).
+behavior_tests:
+  - name: screen-identifies-effective-knobs
+    expectation: |
+      At least 1 of the 7 config-reachable knobs moves instantaneous_growth_rate
+      >2% on a low→high swing (fresh initial_state), so the config_overrides path
+      exposes a non-trivial UQ surface.
+    status: passed  # 3 of 7 knobs cleared >2% (basal 13.8%, kS 5.5%, chrom 2.8%).
 
 runs:
   - name: screen-7-knobs

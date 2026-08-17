@@ -67,9 +67,23 @@ def register_labeled_array(core, name, *, shape, data='int64', labels):
     ``_labels`` is recovered through the ``overwrite[...]`` wrapper by
     ``output_metadata._extract_labels_recursive`` (it unwraps the parametric
     type and re-resolves the inner name).
+
+    ``_data`` is registered as a real ``np.dtype`` instance, not a string.
+    ``Core.access()`` on a dict with ``_inherit`` (rather than ``_type``)
+    resolves the ancestor schema and then ``dataclasses.replace()``s each
+    remaining key directly onto it, WITHOUT running underscore-prefixed keys
+    (including ``_data``) through ``core.access()``/``reify_schema`` — that
+    normalization (string dtype name -> ``np.dtype``, e.g. via
+    ``schema_dtype()``) only happens on the ``_type``-keyed / type-expression
+    parsing path. A string here lands verbatim in the registered ``Array``
+    schema's ``_data`` field, which ``bigraph_schema``'s own ``Array``
+    dataclass declares as ``np.dtype`` — so any later serialize/render of a
+    port using this type (e.g. ``overwrite[monomer_counts_vec]``) crashes in
+    numpy's ``dtype_to_descr``/``drop_metadata`` with
+    ``AttributeError: 'str' object has no attribute 'fields'`` (item 58).
     """
     import numpy as _np
-    data_str = data.name if isinstance(data, _np.dtype) else str(data)
+    data_dtype = data if isinstance(data, _np.dtype) else _np.dtype(data)
     # register_type is first-wins; build_core() pre-registers a bare placeholder
     # of this name (so serialized composites resolve overwrite[<name>] before
     # the deriver runs). Evict it so this labeled definition takes effect.
@@ -79,7 +93,7 @@ def register_labeled_array(core, name, *, shape, data='int64', labels):
         pass
     core.register_type(name, {
         '_inherit': 'array',
-        '_data': data_str,
+        '_data': data_dtype,
         '_shape': tuple(shape),
         '_labels': tuple(labels),
     })

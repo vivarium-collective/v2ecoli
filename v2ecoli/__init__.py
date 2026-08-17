@@ -7,9 +7,16 @@ from typing import Any
 from process_bigraph import Composite
 from viva_superpowers.composite_generator import _REGISTRY, build_generator
 
+from v2ecoli import core
 from v2ecoli.core import build_core
 from v2ecoli import composites  # noqa: F401 — forces @composite_generator decorators to fire
 from v2ecoli import visualizations  # noqa: F401 — forces Visualization Steps into link_registry
+
+# Convention hook: a generic runner (e.g. process_bigraph.workflow.provision)
+# discovers a package's core-registration function by this name. Points at
+# the same function ecoli_baseline's core_extensions declares, so a bare
+# core provisioned via either path ends up identically configured.
+register_types = core.register_ecoli_core
 
 
 def build_composite(
@@ -112,4 +119,4 @@ def _install_xarray_flush_hook(composite: Composite) -> None:
     composite.run = _run_and_flush  # type: ignore[method-assign]
 
 
-__all__ = ["build_composite", "build_core"]
+__all__ = ["build_composite", "build_core", "register_types"]

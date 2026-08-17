@@ -37,7 +37,7 @@ def history_files(sweep_dir: str) -> list[str]:
     # read needs — so listing costs no extra dependency and no parquet read.
     import tempfile
 
-    from pbg_emitters import create_duckdb_conn
+    from viva_emitters import create_duckdb_conn
 
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     configure_duckdb_s3(conn)
@@ -87,7 +87,7 @@ def connect_for(sweep_dir: str):
     """
     import tempfile
 
-    from pbg_emitters import create_duckdb_conn
+    from viva_emitters import create_duckdb_conn
 
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):

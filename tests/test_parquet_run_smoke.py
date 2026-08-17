@@ -19,15 +19,14 @@ Verifies that:
 
 from __future__ import annotations
 
-import os
 
 import pytest
 
 # Skip the whole module if the [parquet] extra isn't installed —
-# v2ecoli.library.parquet_run imports from pbg_emitters via the shim.
+# v2ecoli.library.parquet_run imports from viva_emitters via the shim.
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 import duckdb  # noqa: E402
 import polars as pl  # noqa: E402

@@ -80,14 +80,14 @@ def _is_plain_numeric_leaf(v: Any) -> bool:
     straight into a fixed-dtype DataArray slot: python/numpy int/float/bool
     scalars, or numeric ``numpy.ndarray``s with more than one element.
 
-    False for ``pint.Quantity`` (no unit-stripping hook in pbg_emitters'
+    False for ``pint.Quantity`` (no unit-stripping hook in viva_emitters'
     view/transducer), ``str``/``bytes``/``list``/``tuple`` (the transducer
     only walks plain dicts, not these), and — critically — length-0 or
     length-1 numeric arrays.
 
     The size<=1 exclusion mirrors ``extract_output_metadata_from_state``'s own
     "scalar, no coord needed" threshold (``arr.ndim==0 or arr.size<=1``) and
-    guards against a real pbg_emitters promotion-trap bug (Task 1 spike,
+    guards against a real viva_emitters promotion-trap bug (Task 1 spike,
     gotcha #5b): a leaf with no declared output_metadata coord starts with
     ``spec.coord is None`` and goes through the *dynamic* promote-or-drop
     write path on its first ``update()``. If that first write is itself a
@@ -227,7 +227,7 @@ def _resolve_xarray_out_uri(experiment_id: str, out_dir: str = "") -> str:
 
 from viva_superpowers.composite_generator import composite_generator, emitter_defaults
 
-from v2ecoli.core import build_core, load_cache_bundle
+from v2ecoli.core import build_core, load_cache_bundle, register_ecoli_core
 
 # ---------------------------------------------------------------------------
 # Shared helpers and constants
@@ -276,7 +276,7 @@ class SingleCellXArrayEmitter(Emitter):
     Swapped into the single ``agents/0/emitter`` key in place (never as an extra
     document Step: adding sibling Steps perturbs process_bigraph's scheduling and
     trips a pre-existing metabolism fragility — Task 1 gotcha #4). It wraps a real
-    ``pbg_emitters.XArrayEmitter`` but defers its construction to the FIRST
+    ``viva_emitters.XArrayEmitter`` but defers its construction to the FIRST
     ``update()`` so the view/output_metadata are discovered from the fully
     REALIZED composite state, resolving the two Task-4 blockers:
 
@@ -316,7 +316,7 @@ class SingleCellXArrayEmitter(Emitter):
 
     def _lazy_init(self):
         from process_bigraph.composite import get_current_composite
-        from pbg_emitters import XArrayEmitter
+        from viva_emitters import XArrayEmitter
         from v2ecoli.library.xarray_run import (
             view_from_emit_paths, extract_output_metadata_from_state)
         from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
@@ -390,7 +390,7 @@ class SingleCellXArrayEmitter(Emitter):
     def close_emitter(self):
         """Flush the trailing partial buffer and finalize the zarr store.
 
-        Idempotent. Swallows the known pbg_emitters ``flush(final=True)`` assert
+        Idempotent. Swallows the known viva_emitters ``flush(final=True)`` assert
         (buffer exactly full at close) ONLY when at least one buffer already
         reached disk mid-run — those rows are safe and only the just-flushed
         trailing buffer tripped the boundary assert. If NOTHING was ever written
@@ -803,7 +803,7 @@ def _get_step_config(
             instance = Requester({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
@@ -824,7 +824,7 @@ def _get_step_config(
             instance = Evolver({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['allocate'] = ('allocate', base_name)
             in_topo['global_time'] = ('global_time',)
@@ -1110,6 +1110,22 @@ def _build_batch_document(
                            "the dashboard per-run charts read). 'both' is batch "
                            "only; 'sqlite'/'null' are single-cell only.",
         },
+        "emitter_out_dir": {
+            "type": "string",
+            "default": "",
+            "description": "Single-cell observation-sink output directory "
+                           "override. Empty (default) = unchanged behavior: "
+                           "each emitter resolves its own default location "
+                           "(parquet -> workspace .pbg/parquet-runs, sqlite -> "
+                           "workspace .pbg or out/, xarray -> workspace "
+                           ".pbg/xarray-runs or out/xarray). Set this to pin "
+                           "the sink to an explicit directory instead — e.g. "
+                           "a standalone/provisioned run with no workspace on "
+                           "disk (a generic runner building this composite via "
+                           "core_extensions alone, with no dashboard around "
+                           "it). Ignored for emitter='null'. Batch runs use "
+                           "the separate out_dir param instead.",
+        },
         "injected_processes": {
             "type": "map",
             "default": {},
@@ -1220,6 +1236,12 @@ def _build_batch_document(
     },
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
+    # Lets a generic runner (e.g. process_bigraph.workflow.provision) provision
+    # a BARE core with exactly this composite's required types/links, without
+    # needing to import v2ecoli.core.build_core directly. See
+    # v2ecoli.core.register_ecoli_core + v2ecoli/__init__.py's register_types
+    # convention hook (same function, two discovery paths).
+    core_extensions=[register_ecoli_core],
     emitters=[
         {
             # Default observation sink for standalone builds: a vEcoli-shaped
@@ -1252,6 +1274,7 @@ def baseline(
     supercoiling: bool = False,
     mass_conservation: bool = False,
     emitter: str = "parquet",
+    emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
     n_seeds: int = 1,
@@ -1336,6 +1359,10 @@ def baseline(
         mass_conservation: insert the mass-conservation check (default off).
         emitter: observation sink for the internal 'emitter' step — one of
             ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
+        emitter_out_dir: explicit output-directory override for the chosen
+            single-cell emitter. Empty (default) = unchanged behavior (each
+            sink resolves its own workspace-relative default). Ignored for
+            ``emitter="null"``.
         bundle: optional pre-loaded cache bundle (as returned by
             ``load_cache_bundle``). When given, the cache is not re-read from
             ``cache_dir`` — lets callers building many composites from the same
@@ -1547,6 +1574,13 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
+    if _default_decl is not None and emitter_out_dir:
+        # parquet default decl: pin its out_dir instead of letting the step
+        # resolve the workspace-relative default (see emitter_out_dir param).
+        _default_decl = {
+            **_default_decl,
+            "config": {**_default_decl.get("config", {}), "out_dir": emitter_out_dir},
+        }
 
     # Snapshot external overrides so we can detect 'caller already pinned one'
     # and restore them exactly on exit.
@@ -1588,12 +1622,12 @@ def baseline(
             "streams bulk + listeners to zarr with bounded memory and is "
             "validated for short/moderate runs. Its per-leaf view is discovered "
             "from the first tick's realized shapes, so a VERY long run may hit an "
-            "upstream pbg_emitters ragged-vector limitation (a listener leaf that "
+            "upstream viva_emitters ragged-vector limitation (a listener leaf that "
             "later changes length or disappears). For long single-cell runs "
             "prefer emitter='parquet' (the robust default).",
             stacklevel=2,
         )
-        _xr_out = _resolve_xarray_out_uri(experiment_id, out_dir)
+        _xr_out = _resolve_xarray_out_uri(experiment_id, emitter_out_dir or out_dir)
         # Static config skeleton only — view/output_metadata are discovered
         # lazily from the REALIZED state by SingleCellXArrayEmitter at run time
         # (Task 4 / C2). The real run-identity metadata is baked in here.
@@ -1613,9 +1647,13 @@ def baseline(
     elif emitter == "sqlite" and not _any_external:
         # Minimal persistent SQLite sink. Resolve the workspace-shared DB (the
         # dashboard's Simulations-DB tab aggregates from it); fall back to out/.
-        _ws_root = _find_workspace_root()
-        _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
-                       else "out")
+        # emitter_out_dir, when set, pins this instead of the workspace lookup.
+        if emitter_out_dir:
+            _sqlite_dir = emitter_out_dir
+        else:
+            _ws_root = _find_workspace_root()
+            _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
+                           else "out")
         set_emitter_override({
             "file_path": _sqlite_dir,
             "db_file": "composite-runs.db",

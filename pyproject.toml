@@ -16,7 +16,10 @@ dependencies = [
     # find_workspace_root, study_dir, package_slug). Replaces v2ecoli's own
     # divergent study-dir resolvers + root-walkers. Git source pinned below.
     "viva-workspace",
-    "pbg-copasi",
+    "viva-copasi",
+    # These repos are renamed to viva-* (URLs below) but their PACKAGE metadata
+    # is still pbg-* upstream, so the dependency name must stay pbg-* until the
+    # package rename lands. (uv rejects a name that mismatches package metadata.)
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
@@ -65,13 +68,13 @@ dependencies = [
     # default (workspace.yaml runtime.default_emitter = parquet); XArray is
     # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
     # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
-    # pbg-emitters; v2ecoli.library.{parquet,xarray}_emitter are shims. PEP 508
-    # direct-URL since pbg-emitters is not yet on PyPI — works with both pip
-    # (CI) and uv; pip/uv union the two extras of the same package. Mirrored in
-    # [tool.uv.sources] for uv-native resolution.
-    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-    # S3 backend for fsspec (a pbg-emitters[parquet] dep). Both ParquetEmitter
+    # viva-emitters (the renamed pbg-emitters); v2ecoli.library.{parquet,xarray}_emitter
+    # are shims. viva-emitters ships on PyPI (0.2.3+), so a plain PEP 508 dep — no
+    # git source, no `pbg-emitters` name-check trap (the renamed repo builds as
+    # viva-emitters). [parquet] pulls duckdb/polars/pyarrow/fsspec/tqdm; [xarray]
+    # pulls xarray/zarr/zarrs.
+    "viva-emitters[parquet,xarray]>=0.2.3",
+    # S3 backend for fsspec (a viva-emitters[parquet] dep). Both ParquetEmitter
     # (url_to_fs) and the XArray/zarr store (zarr.open_group) already accept an
     # s3:// out_uri/store natively — s3fs is the one missing piece that lets an
     # s3:// URI actually resolve instead of failing with "unknown protocol"
@@ -82,7 +85,7 @@ dependencies = [
     # NeuralProcess surrogate of the baseline (investigations/surrogate-modeling).
     # Pulls torch; surfaced in the dashboard Registry via build_core() + the
     # dashboard.registry.include allow-list in workspace.yaml.
-    "pbg-torch @ git+https://github.com/vivarium-collective/pbg-torch.git@main",
+    "pbg-torch @ git+https://github.com/vivarium-collective/viva-torch.git@main",
 ]
 
 [project.optional-dependencies]
@@ -108,6 +111,7 @@ relax = ["pbg-openmm"]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
 v2ecoli-colony = "v2ecoli.cli.colony:main"
 v2ecoli-workflow = "v2ecoli.workflow.run:main"
+v2ecoli-workflow-run = "v2ecoli.workflow.build:main"
 v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
 v2e-compare = "scripts.compare_cli:main"
 
@@ -116,7 +120,7 @@ v2e-compare = "scripts.compare_cli:main"
 "v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "v2ecoli/tests"]
 markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
     "slow: runs full simulations (60s+)",
@@ -164,17 +168,18 @@ process-bigraph = { git = "https://github.com/vivarium-collective/process-bigrap
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
 viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }
-# Transitive consumers (pbg-bioreactordesign, viva-munk, spatio-flux) still
-# require the "pbg-superpowers" name; resolve it to the deprecation shim that
-# lives in the viva-superpowers repo's shim/ subdir (re-exports viva_superpowers).
+# Some transitive consumers (viva-munk, spatio-flux) may still require the legacy
+# "pbg-superpowers" name; resolve it to the deprecation shim in the viva-superpowers
+# repo's shim/ subdir (re-exports viva_superpowers). Kept for safety during the rename.
 pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main", subdirectory = "shim" }
-pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
-pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
-pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }
-pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
-pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
-pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
-pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
+viva-copasi = { git = "https://github.com/vivarium-collective/viva-copasi.git", branch = "main" }
+# Repos renamed to viva-* (canonical URLs) but packages still build as pbg-* —
+# key must match the pbg-* package name until upstream renames the package.
+pbg-parsimony = { git = "https://github.com/vivarium-collective/viva-parsimony.git", branch = "main" }
+pbg-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
+pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git", branch = "main" }
+pbg-ketchup = { git = "https://github.com/vivarium-collective/viva-ketchup.git", branch = "main" }
+pbg-torch = { git = "https://github.com/vivarium-collective/viva-torch.git", branch = "main" }
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

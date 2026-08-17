@@ -82,6 +82,40 @@ def test_render_roundtrips_parameterized_form(core):
     assert render(schema2) == 'quantity[integer,count]'
 
 
+def test_serialize_state_handles_raw_float(core):
+    """A real state value can arrive as a bare Python float rather than a
+    pint Quantity (e.g. a scalar that was never wrapped) -- _serialize_state
+    must treat it the same as its existing raw-int branch, not fall through
+    to the Quantity-assumed branch and crash on `.magnitude`.
+
+    Regression test for backlog item 56: a real chain-dispatch generation job
+    crashed at the very last step (writing final_state.json, after
+    composite.run() had already completed) with `AttributeError: 'float'
+    object has no attribute 'magnitude'` -- confirmed via real CloudWatch
+    logs against the deployed commit, not a synthetic scenario.
+    """
+    schema = core.access('quantity[fg]')
+    result = schema._serialize_state(1234.5)
+    assert result == {'units': schema.units, 'magnitude': 1234.5}
+
+
+def test_serialize_state_still_handles_raw_int(core):
+    """The pre-existing raw-int branch must keep working unchanged."""
+    schema = core.access('quantity[count]')
+    result = schema._serialize_state(7)
+    assert result == {'units': schema.units, 'magnitude': 7}
+
+
+def test_serialize_state_handles_real_quantity(core):
+    """The Quantity branch (a real pint value with .magnitude) must keep
+    working unchanged -- this is the common real case."""
+    from v2ecoli.types.quantity import ureg as units
+
+    schema = core.access('quantity[fg]')
+    result = schema._serialize_state(3.0 * units.fg)
+    assert result == {'units': schema.units, 'magnitude': 3.0}
+
+
 def test_reify_populates_units_dict(core):
     """`reify_schema` must populate both `_units` (string) and `units`
     (dict form derived from pint) so downstream `realize` can wrap bare

@@ -29,9 +29,9 @@ def test_all_connection_sites_use_configured_factory_not_bare_connect():
 
     The fix ports vEcoli-private's own real pattern (``create_duckdb_conn`` in
     ``ecoli/library/parquet_emitter.py``, already re-exported and installed via
-    ``v2ecoli.library.parquet_emitter`` / ``pbg_emitters`` — no new dependency)
+    ``v2ecoli.library.parquet_emitter`` / ``viva_emitters`` — no new dependency)
     instead of a bare, unconfigured connection. This is a real source-content
-    assertion, not a mock of DuckDB's own behavior (which ``pbg_emitters``
+    assertion, not a mock of DuckDB's own behavior (which ``viva_emitters``
     already owns and tests) — it only guards that the analysis DuckDB path keeps
     calling the configured factory at every site, so a future edit can't silently
     reintroduce a bare ``duckdb.connect()``.
@@ -95,7 +95,6 @@ def test_create_duckdb_conn_actually_configures_spill_and_memory_pragmas(tmp_pat
 
 
 import glob as _glob
-import json as _json
 import os as _os
 import pytest as _pytest
 

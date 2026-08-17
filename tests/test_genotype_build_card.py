@@ -170,3 +170,14 @@ def test_failed_mechanistic_fit_is_recorded_not_passed():
     fit = gb.measure_fit({"cell_specs": {}, "conditions": [],
                           "mechanistic_fit_status": {"mechanistic_supply": "error"}})
     assert fit["completed"] is False
+
+
+def test_manifest_path_is_workdir_relative_even_for_relative_workdir(tmp_path, monkeypatch):
+    """The recorded manifest path must be workdir-relative regardless of whether the
+    caller passed workdir as absolute or relative (the card step passes absolute; the
+    panel runner passed relative and hit a ValueError from an unresolved relative_to)."""
+    import os
+    monkeypatch.chdir(tmp_path.parent)
+    rel = tmp_path.name
+    card, _ref = gb.build([LACY], workdir=rel)
+    assert card["genotype"]["manifest"] == "bundle/reference_bundle.tsv"

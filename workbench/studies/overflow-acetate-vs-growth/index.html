@@ -183,6 +183,8 @@ v2ecoli+Millard FBA-bridge arms compare?
     <div class="act-tabs">
       <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
       <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
     </div>
   </div>
   <div class="act-cluster" data-act="evidence">
@@ -191,7 +193,9 @@ v2ecoli+Millard FBA-bridge arms compare?
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
-      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
       <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     </div>
   </div>
@@ -202,6 +206,9 @@ v2ecoli+Millard FBA-bridge arms compare?
     </div>
     <div class="act-tabs">
       <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
     </div>
   </div>
   <div class="act-cluster" data-act="decision">
@@ -443,29 +450,43 @@ v2ecoli+Millard FBA-bridge arms compare?
 
     
     
-    <h2 class="overview-label">Question &amp; approach</h2>
     
-    <div class="overview-section">
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Across a glucose-uptake-rate titration, does v2ecoli reproduce the aerobic
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">Across a glucose-uptake-rate titration, does v2ecoli reproduce the aerobic
 acetate-overflow response — the acetate-carbon yield rising ~linearly with
 growth rate above a critical threshold (Vemuri 2006 primary, Basan 2015
 context) — and how do the FBA baseline, the Millard kinetic ODE, and the
 v2ecoli+Millard FBA-bridge arms compare?
-
-      </div>
-      
-      
+</p>
       
     </div>
-    
 
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text"></p>
+      
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>overflow-acetate-vs-growth</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">v2ecoli-reproduces-acetate-overflow-onset</span><span class="ctr-dot">·</span><span class="ctr-meta-item">carbon-balance-closes-under-titration</span><span class="ctr-dot">·</span><span class="ctr-meta-item">biomass-yield-within-stoichiometric-ceiling</span></div>
+      </div>
+      
+    </div>
 
-    
-    
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text">The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
+glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
+caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
+reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
+pre-registered prediction (and the ketchup-baseline-comparison prior that
+v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
+~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
+respires fully rather than spilling carbon.
+</p>
+      
+      
     <div class="overview-section findings-section">
       <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
       
@@ -745,136 +766,11 @@ a mis-parameterised biomass composition.
       
     </div>
     
-
-    
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(what this study has not yet established)</span>
-      </h2>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-
-    
-    
-    <div class="overview-section conclusion-block">
-      <h2 class="overview-label">Conclusion</h2>
-      
-      <p class="conclusion-insight">The v2ecoli baseline FBA exhibits NO aerobic acetate overflow anywhere in a
-glucose-uptake titration: acetate is identically 0.0 mmol/gDCW/h at all six
-caps, so the acetate-carbon yield stays flat at 0 while the Vemuri 2006
-reference rises to ~0.25 above an onset of 0.408 /h. This confirms the
-pre-registered prediction (and the ketchup-baseline-comparison prior that
-v2ecoli secretes 0.0 acetate per 100 glucose where the KETCHUP cores secrete
-~+71): overflow is a constraint phenomenon, and unconstrained growth-max FBA
-respires fully rather than spilling carbon.
-<span class="computed-tag">computed from findings</span></p>
       
       
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
-        <span class="narrative-label">Conclusion</span>
-        <textarea class="narrative-input narrative-textarea" rows="3"
-                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
-      </label>
-    </div>
-    
       
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn is-hidden" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide" data-field-editor="report.caveat">
-        <span class="narrative-label">Caveat</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know.">Two findings from the 2026-07-22 run limit how much this verdict carries
-(recorded as findings[] `gur-knob-does-not-titrate-growth` and
-`carbon-created-under-binding-uptake-cap`).
-
-1. THE TITRATION DOES NOT TITRATE GROWTH. Across a 5.6x glucose-uptake range
-   (caps 1-6; the cap binds exactly at 1-4, goes slack above ~5.6) the emergent
-   growth rate moves only 0.954 -&gt; 0.925 /h, non-monotonically. Division runs on
-   the D-period replication clock (`d_period=True`, the vEcoli default), where the
-   dry-mass threshold is deliberately ignored (v2ecoli/steps/division.py:181-190),
-   so mean division time — and hence the mu this study reads out — is set by
-   replication timing, not carbon supply. The acetate-vs-growth-rate framing
-   assumes carbon uptake drives mu; in this model it does not. The graded x-range
-   is therefore ~0.03 /h wide, all of it above the reference onset (mu 0.408).
-
-2. CARBON BALANCE FAILS UNDER A BINDING CAP. At cap=1 the model takes up
-   6.0 mmolC/gDCW/h as glucose and secretes 11.6 mmolC/gDCW/h as CO2 — about 2x
-   the carbon in, while still growing — tripping the assumption-free
-   `violation_C_created` flag. CO2 output RISES as glucose is restricted
-   (11.62 / 5.00 / 1.82 at caps 1 / 2 / 6). Biomass yield tracks the same
-   non-physicality: 5.30 / 2.59 / 0.92 gDW/g glucose at caps 1 / 2 / 6, against a
-   measured literature band of 0.355-0.444 and a stoichiometric ceiling of 0.538.
-   DIAGNOSIS IS OUT OF SCOPE HERE — it belongs to the sibling investigation
-   `metabolism-biomass-yield` (v2ecoli#421), which has since resolved it to two
-   distinct defects. This study records the observation and points there.
-
-The verdict below (acetate = 0.0 at every cap, so &#34;no overflow&#34;) is the PREDICTED
-baseline-FBA outcome and is consistent with the basal card, but it is graded on a
-degenerate sweep. Read it as &#34;overflow physiology is absent&#34;, not as a quantitative
-curve comparison.
-</textarea>
-      </label>
-    </div>
-    
-      <div class="conclusion-tags">
-        <label class="tag-control"><span class="tag-k">confidence</span>
-          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
-            <option value="">—</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" selected>low</option>
-          </select></label>
-        <label class="tag-control"><span class="tag-k">evidence</span>
-          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="preliminary" placeholder="calibrated | literature-matched | …"></label>
-      </div>
     </div>
 
-    
-
-    
     <div id="feedback-tracked-panel"></div>
 
   </div>
@@ -888,6 +784,12 @@ curve comparison.
     
     <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'overflow-acetate-vs-growth', 'metabolism-overflow')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="overflow-acetate-vs-growth">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
   
   
   
@@ -962,14 +864,16 @@ curve comparison.
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness" data-model-overrides='{"cache_dir": "out/cache", "seed": 0}'>
             <td><code>fba-bridge</code></td>
             <td>
               <code>v2ecoli.composites.millard_fba_bridge_harness.millard_fba_bridge_harness</code>
               
             </td>
             <td>
-              
               
                 
                 <div><span class="cond-pill-k">cache_dir</span>=<code>out/cache</code></div>
@@ -1139,13 +1043,6 @@ curve comparison.
   
   
 
-  
-  <div class="overview-section" id="analyses-section" style="margin-top:22px">
-    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
-    <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
-    <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
-  </div>
 
 </section>
 
@@ -1159,21 +1056,22 @@ curve comparison.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+</section>
 
-<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
-  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
 
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
-    <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=overflow-acetate-vs-growth">Download all (.zip)</a>
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="overflow-acetate-vs-growth">
+    <p class="empty-message">Loading results preview…</p>
   </div>
-  <div id="data-files" data-study="overflow-acetate-vs-growth">
-    <p class="empty-message">Loading result files…</p>
-  </div>
 
-  
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
     <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
     <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
             onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
@@ -1183,18 +1081,61 @@ curve comparison.
 
 </section>
 
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=overflow-acetate-vs-growth">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="overflow-acetate-vs-growth">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
 <section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Readouts</h3>
     </div>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="overflow-acetate-vs-growth">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
 
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
     <div id="readouts-table" data-study="overflow-acetate-vs-growth">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="overflow-acetate-vs-growth">
+      <p class="empty-message">Loading output shapes…</p>
     </div>
 
     
@@ -1235,19 +1176,461 @@ curve comparison.
   <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
 
   
-  <div class="checks-band" style="margin-top:22px">
-    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
 
-    
-    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
-      <p class="empty-message">Loading quality checks…</p>
-    </div>
-
-    
-    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
-      <p class="empty-message">Loading reproducibility checks…</p>
-    </div>
+  
+  
+  <div class="report-cards-full-section" id="report-cards-full-section" style="margin-top:22px">
+    <section id="report-cards"><h2>Report cards</h2><p style="color:#475569;font-size:0.92em;margin:0 0 8px">The compiled output of this study’s Tests — per-test verdict and the change since the previous run.</p><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">acetate_overflow &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#dc2626;color:#fff;font-size:0.8em;white-space:nowrap">✗ mismatch</span></div><table style="width:100%;border-collapse:collapse;font-size:0.9em"><thead><tr style="text-align:left;color:#94a3b8;font-size:0.72em;text-transform:uppercase;letter-spacing:.04em"><th style="padding:5px 8px">Test</th><th style="padding:5px 8px">Verdict</th><th style="padding:5px 8px">Meter</th><th style="padding:5px 8px">Since last run</th></tr></thead><tbody><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">overflow &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#dc2626;color:#fff;font-size:0.8em;white-space:nowrap">✗ mismatch</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Acetate overflow (carbon yield vs growth rate)</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#dc2626;color:#fff;font-size:0.8em;white-space:nowrap">✗ mismatch</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">no threshold-linear rise (y ≤ 0.005 through x=0.954; reference rises)</td><td style="padding:6px 8px"></td></tr></tbody></table><iframe scrolling="no" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Aerobic acetate overflow — acetate-carbon yield vs growth rate — report card&lt;/title&gt;&lt;style&gt;
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}
+*{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+header.top{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}
+header.top h1{margin:0;font-size:20px;font-weight:650} header.top .sub{margin-top:4px;color:#cbd5e1;font-size:13px}
+.obadge{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:999px;font-weight:700;background:#c62828;color:#fff}
+nav.sticky{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid var(--line);padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}
+nav.sticky a{text-decoration:none;color:var(--ink);font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+nav.sticky a:hover{background:var(--bg)}
+main{padding:24px 28px 64px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card&gt;.head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card&gt;.head h2{margin:0;font-size:16px;font-weight:620}
+.chips{display:flex;gap:7px;flex-wrap:wrap} .chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;color:#fff}
+table{border-collapse:collapse;width:100%} thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:9px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+tbody td{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;font-size:13px}
+.axhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .metric{font-weight:600}
+.badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}
+.how{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px} .crit{font-size:12px;margin-top:4px;color:#374151}
+.val{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%} .spread{color:var(--muted);font-size:11px;margin-top:2px}
+.meter{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}
+tbody td:first-child{min-width:420px}
+.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 #1a7f37} .verdict-drift td:first-child{box-shadow:inset 3px 0 0 #ef6c00}
+.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 #c62828} .verdict-ungraded td:first-child{box-shadow:inset 3px 0 0 #757575}
+details{margin-top:8px} summary{cursor:pointer;font-size:12px;color:#1f6feb} .plotwrap{margin-top:8px} .plotwrap svg{max-width:100%;height:auto}
+.fluxwrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap} .fluxwrap svg{flex:0 0 auto;max-width:420px}
+.ftbl{flex:1 1 100%;overflow-x:auto} .ftbl table{width:auto} .ftbl thead th{padding:5px 10px;font-size:10px}
+.ftbl tbody td{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px} .ftbl .fid{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.ftbl .fnum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}
+.ftbl tr.flux-appeared{background:#fdecea} .ftbl tr.flux-appeared .fid{color:#c62828;font-weight:600}
+.ftbl tr.flux-lost{background:#fff3e0} .ftbl tr.flux-lost .fid{color:#ef6c00;font-weight:600}
+.ftbl tr.flux-subfloor .fid{color:#9aa3af;font-style:italic}
+.ftnote{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}
+.omicswrap{display:flex;flex-direction:column;gap:14px} .omicswrap svg{max-width:400px}
+.otbl{width:100%}
+.otgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.otcol{min-width:0}
+.oth{font-size:11.5px;font-weight:600;margin-bottom:3px} .otn{color:var(--muted);font-weight:400}
+.otbl table{width:100%;table-layout:fixed} .otbl thead th{padding:4px 8px;font-size:9.5px}
+.otbl tbody td{padding:3px 8px;border-bottom:1px solid #f4f5f7;font-size:11px}
+.otbl th.ohgene,.ogene{width:auto} .otbl th.ohnum,.onum,.ofc{width:62px}
+.ogene{overflow:hidden} .ogene b{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.odesc{display:block;color:var(--muted);font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;color:#374151}
+.ofc{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;font-weight:600}
+.otmore,.otnone{color:var(--muted);font-size:10px;margin-top:3px} .otnone{font-style:italic}
+.ploterr{color:var(--muted);font-size:11px} dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0} dt{color:#cbd5e1}
+.var{font-size:11px;color:var(--muted);margin-top:4px} .var.varflag{color:#ef6c00;font-weight:600}
+.simhealth .shbody{padding:12px 18px;font-size:13.5px}
+.simhealth.ok{border-left:4px solid #1a7f37} .simhealth.ok .shbody{color:#14532d}
+.simhealth.warn{border-left:4px solid #ef6c00;background:#fff8f0} .simhealth.warn .shbody{color:#7c4a03}
+.stat-callout{border-left:4px solid #ef6c00} .stat-callout .statbody{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}
+.statbody code{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}
+.findings{margin:0;padding:14px 34px;color:#374151;font-size:13px} footer{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}
+.coverage{border-left:4px solid #6b7280} .covbody{padding:14px 18px}
+.cov-lede{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}
+.covlist{list-style:none;margin:0;padding:0} .covlist li{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}
+.cov-mark{font-weight:700;text-align:center} .cov-yes .cov-mark{color:#1a7f37} .cov-no .cov-mark{color:#b0b6bd}
+.cov-cat{font-weight:600;color:#1a1d21} .cov-no .cov-cat{color:#6b7280} .cov-detail{color:var(--muted)}
+.cov-tag{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}
+.cov-fit{color:#7c5a00;background:#fdf3da}
+.cov-invite{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;header class=&quot;top&quot;&gt;&lt;h1&gt;Aerobic acetate overflow — acetate-carbon yield vs growth rate — report card&lt;/h1&gt;
+&lt;div class=&quot;sub&quot;&gt;model &lt;b&gt;v2ecoli baseline FBA · GUR titration (exchange_data.glc_uptake_cap_aerobic)&lt;/b&gt; · 1×2 per cap · reference populated&lt;/div&gt;
+&lt;div class=&quot;obadge&quot;&gt;MISMATCH &amp;nbsp;·&amp;nbsp; 0 ✓ &amp;nbsp; 0 ≈ &amp;nbsp; 1 ✗ &amp;nbsp; 0 –&lt;/div&gt;&lt;/header&gt;
+&lt;nav class=&quot;sticky&quot;&gt;&lt;a href=&#x27;#overflow&#x27;&gt;Overflow&lt;/a&gt;&lt;/nav&gt;
+&lt;main&gt;&lt;section class=&#x27;card&#x27; id=&#x27;overflow&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Overflow&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 0 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 1 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 0 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-mismatch&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Acetate overflow (carbon yield vs growth rate)&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ mismatch&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;Model: acetate-carbon yield Y_ac = (2·acetate)/(6·glucose) at the emergent growth rate of each glucose-uptake-cap setting (GUR titration). Graded vs Vemuri 2006 (MG1655 glucose-limited chemostat; Y_ac raw from co-measured glucose uptake) by the threshold_linear criterion: the response shape (Y_ac rising ~0 → linear above a threshold) and the yield slope; the threshold is reported but secondary (it shifts strain-to-strain). Basan 2015 (NCM3722 batch, SI-derived yield) and an independent MG1655 ¹³C yield point are overlaid as context.&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; shape-first: linear-rise R² ≥ 0.9 (drift ≥ 0.7); slope within 30% (drift 60%); threshold reported (secondary)&lt;/div&gt;&lt;details&gt;&lt;summary&gt;plot + detail&lt;/summary&gt;&lt;div class=&#x27;plotwrap&#x27;&gt;&lt;svg xmlns:xlink=&quot;http://www.w3.org/1999/xlink&quot; width=&quot;294.935215pt&quot; height=&quot;229.850277pt&quot; viewBox=&quot;0 0 294.935215 229.850277&quot; xmlns=&quot;http://www.w3.org/2000/svg&quot; version=&quot;1.1&quot;&gt;
+ &lt;metadata&gt;
+  &lt;rdf:RDF xmlns:dc=&quot;http://purl.org/dc/elements/1.1/&quot; xmlns:cc=&quot;http://creativecommons.org/ns#&quot; xmlns:rdf=&quot;http://www.w3.org/1999/02/22-rdf-syntax-ns#&quot;&gt;
+   &lt;cc:Work&gt;
+    &lt;dc:type rdf:resource=&quot;http://purl.org/dc/dcmitype/StillImage&quot;/&gt;
+    &lt;dc:date&gt;2026-07-29T15:20:22.053205&lt;/dc:date&gt;
+    &lt;dc:format&gt;image/svg+xml&lt;/dc:format&gt;
+    &lt;dc:creator&gt;
+     &lt;cc:Agent&gt;
+      &lt;dc:title&gt;Matplotlib v3.11.1, https://matplotlib.org/&lt;/dc:title&gt;
+     &lt;/cc:Agent&gt;
+    &lt;/dc:creator&gt;
+   &lt;/cc:Work&gt;
+  &lt;/rdf:RDF&gt;
+ &lt;/metadata&gt;
+ &lt;defs&gt;
+  &lt;style type=&quot;text/css&quot;&gt;*{stroke-linejoin: round; stroke-linecap: butt}&lt;/style&gt;
+ &lt;/defs&gt;
+ &lt;g id=&quot;figure_1&quot;&gt;
+  &lt;g id=&quot;patch_1&quot;&gt;
+   &lt;path d=&quot;M 0 229.850277 
+L 294.935215 229.850277 
+L 294.935215 0 
+L 0 0 
+z
+&quot; style=&quot;fill: #ffffff&quot;/&gt;
+  &lt;/g&gt;
+  &lt;g id=&quot;axes_1&quot;&gt;
+   &lt;g id=&quot;patch_2&quot;&gt;
+    &lt;path d=&quot;M 42.215215 195.696 
+L 287.735215 195.696 
+L 287.735215 7.2 
+L 42.215215 7.2 
+z
+&quot; style=&quot;fill: #ffffff&quot;/&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_1&quot;&gt;
+    &lt;path d=&quot;M 42.215215 179.988 
+L 287.735215 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #d0d4d9; stroke-width: 0.6; stroke-linecap: square&quot;/&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;matplotlib.axis_1&quot;&gt;
+    &lt;g id=&quot;xtick_1&quot;&gt;
+     &lt;g id=&quot;line2d_2&quot;&gt;
+      &lt;defs&gt;
+       &lt;path id=&quot;m49f116d02d&quot; d=&quot;M 0 0 
+L 0 3.5 
+&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/defs&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#m49f116d02d&quot; x=&quot;90.05643&quot; y=&quot;195.696&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_1&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;90.05643&quot; y=&quot;208.520219&quot; transform=&quot;rotate(-0 90.05643 208.520219)&quot;&gt;0.2&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;xtick_2&quot;&gt;
+     &lt;g id=&quot;line2d_3&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#m49f116d02d&quot; x=&quot;139.515361&quot; y=&quot;195.696&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_2&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;139.515361&quot; y=&quot;208.520219&quot; transform=&quot;rotate(-0 139.515361 208.520219)&quot;&gt;0.4&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;xtick_3&quot;&gt;
+     &lt;g id=&quot;line2d_4&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#m49f116d02d&quot; x=&quot;188.974291&quot; y=&quot;195.696&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_3&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;188.974291&quot; y=&quot;208.520219&quot; transform=&quot;rotate(-0 188.974291 208.520219)&quot;&gt;0.6&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;xtick_4&quot;&gt;
+     &lt;g id=&quot;line2d_5&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#m49f116d02d&quot; x=&quot;238.433221&quot; y=&quot;195.696&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_4&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;238.433221&quot; y=&quot;208.520219&quot; transform=&quot;rotate(-0 238.433221 208.520219)&quot;&gt;0.8&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_5&quot;&gt;
+     &lt;text style=&quot;font-size: 9px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;164.975215&quot; y=&quot;220.756059&quot; transform=&quot;rotate(-0 164.975215 220.756059)&quot;&gt;growth rate (1/h)&lt;/text&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;matplotlib.axis_2&quot;&gt;
+    &lt;g id=&quot;ytick_1&quot;&gt;
+     &lt;g id=&quot;line2d_6&quot;&gt;
+      &lt;defs&gt;
+       &lt;path id=&quot;mb2dfbaba20&quot; d=&quot;M 0 0 
+L -3.5 0 
+&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/defs&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;179.988&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_6&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;182.900109&quot; transform=&quot;rotate(-0 35.215215 182.900109)&quot;&gt;0.00&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;ytick_2&quot;&gt;
+     &lt;g id=&quot;line2d_7&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;149.112036&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_7&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;152.024145&quot; transform=&quot;rotate(-0 35.215215 152.024145)&quot;&gt;0.05&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;ytick_3&quot;&gt;
+     &lt;g id=&quot;line2d_8&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;118.236072&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_8&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;121.148181&quot; transform=&quot;rotate(-0 35.215215 121.148181)&quot;&gt;0.10&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;ytick_4&quot;&gt;
+     &lt;g id=&quot;line2d_9&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;87.360108&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_9&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;90.272217&quot; transform=&quot;rotate(-0 35.215215 90.272217)&quot;&gt;0.15&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;ytick_5&quot;&gt;
+     &lt;g id=&quot;line2d_10&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;56.484143&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_10&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;59.396253&quot; transform=&quot;rotate(-0 35.215215 59.396253)&quot;&gt;0.20&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;ytick_6&quot;&gt;
+     &lt;g id=&quot;line2d_11&quot;&gt;
+      &lt;g&gt;
+       &lt;use xlink:href=&quot;#mb2dfbaba20&quot; x=&quot;42.215215&quot; y=&quot;25.608179&quot; style=&quot;stroke: #000000; stroke-width: 0.8&quot;/&gt;
+      &lt;/g&gt;
+     &lt;/g&gt;
+     &lt;g id=&quot;text_11&quot;&gt;
+      &lt;text style=&quot;font-size: 8px; font-family: &#x27;Arial&#x27;; text-anchor: end&quot; x=&quot;35.215215&quot; y=&quot;28.520289&quot; transform=&quot;rotate(-0 35.215215 28.520289)&quot;&gt;0.25&lt;/text&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_12&quot;&gt;
+     &lt;text style=&quot;font-size: 9px; font-family: &#x27;Arial&#x27;; text-anchor: middle&quot; x=&quot;13.752246&quot; y=&quot;101.448&quot; transform=&quot;rotate(-90 13.752246 101.448)&quot;&gt;acetate-carbon yield&lt;/text&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_12&quot;&gt;
+    &lt;path d=&quot;M 184.028398 179.988 
+L 198.866077 178.996797 
+L 243.379114 156.714682 
+L 275.527418 116.877284 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #9aa3af; stroke-opacity: 0.7; stroke-width: 0.8; stroke-linecap: square&quot;/&gt;
+    &lt;defs&gt;
+     &lt;path id=&quot;m9272ef153f&quot; d=&quot;M 0 1.5 
+C 0.397805 1.5 0.77937 1.341951 1.06066 1.06066 
+C 1.341951 0.77937 1.5 0.397805 1.5 0 
+C 1.5 -0.397805 1.341951 -0.77937 1.06066 -1.06066 
+C 0.77937 -1.341951 0.397805 -1.5 0 -1.5 
+C -0.397805 -1.5 -0.77937 -1.341951 -1.06066 -1.06066 
+C -1.341951 -0.77937 -1.5 -0.397805 -1.5 0 
+C -1.5 0.397805 -1.341951 0.77937 -1.06066 1.06066 
+C -0.77937 1.341951 -0.397805 1.5 0 1.5 
+z
+&quot; style=&quot;stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+    &lt;/defs&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#m9272ef153f&quot; x=&quot;184.028398&quot; y=&quot;179.988&quot; style=&quot;fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m9272ef153f&quot; x=&quot;198.866077&quot; y=&quot;178.996797&quot; style=&quot;fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m9272ef153f&quot; x=&quot;243.379114&quot; y=&quot;156.714682&quot; style=&quot;fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m9272ef153f&quot; x=&quot;275.527418&quot; y=&quot;116.877284&quot; style=&quot;fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;patch_3&quot;&gt;
+    &lt;path d=&quot;M 42.215215 195.696 
+L 42.215215 7.2 
+&quot; style=&quot;fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square&quot;/&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;patch_4&quot;&gt;
+    &lt;path d=&quot;M 42.215215 195.696 
+L 287.735215 195.696 
+&quot; style=&quot;fill: none; stroke: #000000; stroke-width: 0.8; stroke-linejoin: miter; stroke-linecap: square&quot;/&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;PathCollection_1&quot;&gt;
+    &lt;defs&gt;
+     &lt;path id=&quot;m459bb8e063&quot; d=&quot;M -0 4.582576 
+L 4.582576 0 
+L 0 -4.582576 
+L -4.582576 -0 
+z
+&quot; style=&quot;stroke: #ffffff; stroke-width: 0.6&quot;/&gt;
+    &lt;/defs&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#m459bb8e063&quot; x=&quot;208.015979&quot; y=&quot;44.561982&quot; style=&quot;fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6&quot;/&gt;
+     &lt;use xlink:href=&quot;#m459bb8e063&quot; x=&quot;211.230809&quot; y=&quot;86.293767&quot; style=&quot;fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;LineCollection_1&quot;&gt;
+    &lt;path d=&quot;M 53.375215 179.988 
+L 53.375215 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 65.648448 179.988 
+L 65.648448 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 88.003885 179.988 
+L 88.003885 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 114.044012 179.988 
+L 114.044012 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 142.161413 174.597375 
+L 142.161413 173.409166 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 162.686869 117.683482 
+L 162.686869 116.647376 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+    &lt;path d=&quot;M 188.479701 23.377596 
+L 188.479701 22.908 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-opacity: 0.7; stroke-width: 0.7&quot;/&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_13&quot;&gt;
+    &lt;defs&gt;
+     &lt;path id=&quot;m15e4a32222&quot; d=&quot;M 2 0 
+L -2 -0 
+&quot; style=&quot;stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+    &lt;/defs&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;53.375215&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;65.648448&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;88.003885&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;114.044012&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;142.161413&quot; y=&quot;174.597375&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;162.686869&quot; y=&quot;117.683482&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;188.479701&quot; y=&quot;23.377596&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_14&quot;&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;53.375215&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;65.648448&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;88.003885&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;114.044012&quot; y=&quot;179.988&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;142.161413&quot; y=&quot;173.409166&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;162.686869&quot; y=&quot;116.647376&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+     &lt;use xlink:href=&quot;#m15e4a32222&quot; x=&quot;188.479701&quot; y=&quot;22.908&quot; style=&quot;fill: #1f77b4; fill-opacity: 0.7; stroke: #111827; stroke-opacity: 0.7&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_15&quot;&gt;
+    &lt;path d=&quot;M 53.375215 179.988 
+L 65.648448 179.988 
+L 88.003885 179.988 
+L 114.044012 179.988 
+L 142.161413 174.00327 
+L 162.686869 117.165429 
+L 188.479701 23.142798 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #111827; stroke-linecap: square&quot;/&gt;
+    &lt;defs&gt;
+     &lt;path id=&quot;me649176fdb&quot; d=&quot;M 0 2 
+C 0.530406 2 1.03916 1.789267 1.414214 1.414214 
+C 1.789267 1.03916 2 0.530406 2 0 
+C 2 -0.530406 1.789267 -1.03916 1.414214 -1.414214 
+C 1.03916 -1.789267 0.530406 -2 0 -2 
+C -0.530406 -2 -1.03916 -1.789267 -1.414214 -1.414214 
+C -1.789267 -1.03916 -2 -0.530406 -2 0 
+C -2 0.530406 -1.789267 1.03916 -1.414214 1.414214 
+C -1.03916 1.789267 -0.530406 2 0 2 
+z
+&quot; style=&quot;stroke: #111827&quot;/&gt;
+    &lt;/defs&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;53.375215&quot; y=&quot;179.988&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;65.648448&quot; y=&quot;179.988&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;88.003885&quot; y=&quot;179.988&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;114.044012&quot; y=&quot;179.988&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;142.161413&quot; y=&quot;174.00327&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;162.686869&quot; y=&quot;117.165429&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;188.479701&quot; y=&quot;23.142798&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;legend_1&quot;&gt;
+    &lt;g id=&quot;line2d_16&quot;&gt;
+     &lt;path d=&quot;M 48.515215 16.146191 
+L 55.515215 16.146191 
+L 62.515215 16.146191 
+&quot; style=&quot;fill: none; stroke: #9aa3af; stroke-opacity: 0.7; stroke-width: 0.8; stroke-linecap: square&quot;/&gt;
+     &lt;g&gt;
+      &lt;use xlink:href=&quot;#m9272ef153f&quot; x=&quot;55.515215&quot; y=&quot;16.146191&quot; style=&quot;fill: #ffffff; fill-opacity: 0.7; stroke: #9aa3af; stroke-opacity: 0.7&quot;/&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_13&quot;&gt;
+     &lt;text style=&quot;font-size: 7px; font-family: &#x27;Arial&#x27;; text-anchor: start&quot; x=&quot;68.115215&quot; y=&quot;18.596191&quot; transform=&quot;rotate(-0 68.115215 18.596191)&quot;&gt;Basan 2015 (NCM3722 batch, SI-derived)&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;PathCollection_2&quot;&gt;
+     &lt;g&gt;
+      &lt;use xlink:href=&quot;#m459bb8e063&quot; x=&quot;55.515215&quot; y=&quot;26.828164&quot; style=&quot;fill: #1a7f37; stroke: #ffffff; stroke-width: 0.6&quot;/&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_14&quot;&gt;
+     &lt;text style=&quot;font-size: 7px; font-family: &#x27;Arial&#x27;; text-anchor: start&quot; x=&quot;68.115215&quot; y=&quot;28.665664&quot; transform=&quot;rotate(-0 68.115215 28.665664)&quot;&gt;MG1655 ¹³C anchor&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;line2d_17&quot;&gt;
+     &lt;path d=&quot;M 48.515215 36.285 
+L 55.515215 36.285 
+L 62.515215 36.285 
+&quot; style=&quot;fill: none; stroke: #111827; stroke-linecap: square&quot;/&gt;
+     &lt;g&gt;
+      &lt;use xlink:href=&quot;#me649176fdb&quot; x=&quot;55.515215&quot; y=&quot;36.285&quot; style=&quot;fill: #111827; stroke: #111827&quot;/&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_15&quot;&gt;
+     &lt;text style=&quot;font-size: 7px; font-family: &#x27;Arial&#x27;; text-anchor: start&quot; x=&quot;68.115215&quot; y=&quot;38.735&quot; transform=&quot;rotate(-0 68.115215 38.735)&quot;&gt;Vemuri 2006 (MG1655 chemostat)&lt;/text&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;line2d_18&quot;&gt;
+     &lt;path d=&quot;M 48.515215 46.354473 
+L 55.515215 46.354473 
+L 62.515215 46.354473 
+&quot; style=&quot;fill: none; stroke: #1f6feb; stroke-width: 1.4; stroke-linecap: square&quot;/&gt;
+     &lt;defs&gt;
+      &lt;path id=&quot;mb71f82654c&quot; d=&quot;M 0 2.25 
+C 0.596707 2.25 1.169055 2.012926 1.59099 1.59099 
+C 2.012926 1.169055 2.25 0.596707 2.25 0 
+C 2.25 -0.596707 2.012926 -1.169055 1.59099 -1.59099 
+C 1.169055 -2.012926 0.596707 -2.25 0 -2.25 
+C -0.596707 -2.25 -1.169055 -2.012926 -1.59099 -1.59099 
+C -2.012926 -1.169055 -2.25 -0.596707 -2.25 0 
+C -2.25 0.596707 -2.012926 1.169055 -1.59099 1.59099 
+C -1.169055 2.012926 -0.596707 2.25 0 2.25 
+z
+&quot; style=&quot;stroke: #1f6feb&quot;/&gt;
+     &lt;/defs&gt;
+     &lt;g&gt;
+      &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;55.515215&quot; y=&quot;46.354473&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;/g&gt;
+    &lt;/g&gt;
+    &lt;g id=&quot;text_16&quot;&gt;
+     &lt;text style=&quot;font-size: 7px; font-family: &#x27;Arial&#x27;; text-anchor: start&quot; x=&quot;68.115215&quot; y=&quot;48.804473&quot; transform=&quot;rotate(-0 68.115215 48.804473)&quot;&gt;v2ecoli (model)&lt;/text&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+   &lt;g id=&quot;line2d_19&quot;&gt;
+    &lt;path d=&quot;M 269.188618 179.988 
+L 269.358102 179.988 
+L 269.782913 179.988 
+L 270.765991 179.988 
+L 271.411685 179.988 
+L 276.575215 179.988 
+&quot; clip-path=&quot;url(#pafdedd9139)&quot; style=&quot;fill: none; stroke: #1f6feb; stroke-width: 1.4; stroke-linecap: square&quot;/&gt;
+    &lt;g clip-path=&quot;url(#pafdedd9139)&quot;&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;269.188618&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;269.358102&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;269.782913&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;270.765991&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;271.411685&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+     &lt;use xlink:href=&quot;#mb71f82654c&quot; x=&quot;276.575215&quot; y=&quot;179.988&quot; style=&quot;fill: #1f6feb; stroke: #1f6feb&quot;/&gt;
+    &lt;/g&gt;
+   &lt;/g&gt;
+  &lt;/g&gt;
+ &lt;/g&gt;
+ &lt;defs&gt;
+  &lt;clipPath id=&quot;pafdedd9139&quot;&gt;
+   &lt;rect x=&quot;42.215215&quot; y=&quot;7.2&quot; width=&quot;245.52&quot; height=&quot;188.496&quot;/&gt;
+  &lt;/clipPath&gt;
+ &lt;/defs&gt;
+&lt;/svg&gt;
+&lt;/div&gt;&lt;/details&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;{&#x27;slope&#x27;: 0.0, &#x27;slope_ref&#x27;: 1.3108651183481144, &#x27;onset_ref&#x27;: 0.40787974992700016}&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;no threshold-linear rise (y ≤ 0.005 through x=0.954; reference rises)&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;section class=&#x27;card&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Findings&lt;/h2&gt;&lt;/div&gt;&lt;ul class=&#x27;findings&#x27;&gt;&lt;li&gt;The model&#x27;s acetate-overflow response is graded as a dimensionless acetate-carbon yield vs growth rate (per-OD vs per-gDW cancels), shape-first — the 0→linear rise and its slope, threshold secondary.&lt;/li&gt;&lt;li&gt;Primary reference: Vemuri 2006 MG1655 glucose-limited chemostat (Y_ac raw from co-measured glucose uptake). Basan 2015 + an MG1655 ¹³C point are context.&lt;/li&gt;&lt;/ul&gt;&lt;/section&gt;&lt;/main&gt;
+&lt;footer&gt;Behavioral report card (threshold_linear grader) · aerobic acetate overflow.&lt;/footer&gt;
+&lt;/body&gt;&lt;/html&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><script>(function(){function fit(f){try{var d=f.contentDocument;if(!d)return;var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);if(h>0)f.style.height=h+"px";}catch(e){}}document.querySelectorAll(".rc-iframe").forEach(function(f){f.addEventListener("load",function(){fit(f);[300,1200,2500].forEach(function(t){setTimeout(function(){fit(f);},t);});});});})();</script></section>
   </div>
+  
 
   
   
@@ -1385,6 +1768,34 @@ expect:  {"op": "\u003c=", "value": 0.538}</pre>
   </ul>
   
   </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1547,7 +1958,7 @@ by converting the model side. See inputs/notes/basan2015.md.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "f513929c1479d4e3fe2a4f5f59850df8f0273d17", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/f513929c1479d4e3fe2a4f5f59850df8f0273d17", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 06:10 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "overflow-acetate-vs-growth";
@@ -1663,6 +2074,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

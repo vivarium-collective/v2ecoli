@@ -149,6 +149,18 @@
 
 
 
+<div class="composite-lint-banner" role="alert"
+     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
+  
+  <div>⚠ composite not found in registry: <code>pbg_copasi.composites.utc-process</code></div>
+  
+  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
+    This study references a composite that doesn't resolve — it may not declare a
+    real, registered composite. Add a <code>.composite.yaml</code> and register it
+    in <code>core.py</code>, or fix the ref.
+  </div>
+</div>
+
 
 
 
@@ -183,6 +195,8 @@ across ≥3 environmental conditions?
     <div class="act-tabs">
       <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
       <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
     </div>
   </div>
   <div class="act-cluster" data-act="evidence">
@@ -191,7 +205,9 @@ across ≥3 environmental conditions?
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
-      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
       <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     </div>
   </div>
@@ -202,6 +218,9 @@ across ≥3 environmental conditions?
     </div>
     <div class="act-tabs">
       <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
     </div>
   </div>
   <div class="act-cluster" data-act="decision">
@@ -443,37 +462,55 @@ across ≥3 environmental conditions?
 
     
     
-    <h2 class="overview-label">Question &amp; approach</h2>
     
-    <div class="overview-section">
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Can the Millard et al. 2017 kinetic ODE of E. coli central carbon
-and energy metabolism, wrapped in a linear-quadratic regulator
-(LQR) outer control layer for growth-rate regulation, replace
-v2ecoli&#39;s multi-objective FBA metabolism (biomass + homeostatic +
-kinetic-constraint, via `wholecell.utils.modular_fba`) while
-reproducing the Phase 0 interface statistics within tolerance
-across ≥3 environmental conditions?
 
-      </div>
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">On M9-glucose the PDMP metabolism (Millard 2017 kinetic ODE via pbg-copasi + consumption_matched driver with
+the closed-loop WATER[c] fix, commit 6a764fc) meets the ±σ W₂ acceptance gate against the N=32 Phase-0
+ensemble: cell_mass W₂/σ = 1.00, dry_mass W₂/σ = 1.09 (N=12 replicates, seeds 1000–1011). The FBA-bridge
+flux-pin integrates the kinetic ODE into the WCM FBA (24 active pins) so glycolysis + pentose-phosphate hold
+exactly while the TCA relaxes (growth-coupled); the multi-condition (acetate / +aa) W₂ and the LQR Sobol/FIM
+audit remain pending.
+</p>
       
-      
+      <div class="ctr-context">Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift (fraction had climbed to 0.7045), not the kinetics or control, and the fix regulates WATER[c] closed-loop to hold the birth water fraction (target_water_mass = dry*f/(1-f)). The FBA-bridge flux-pin keeps the WCM viable (dry_mass 379.8 -&gt; 389.8 fg over 120 s).</div>
       
     </div>
-    
 
-    
-    <div class="overview-section">
-      <div class="purpose-callout" style="background:#f8fafc;border-left:4px solid #94a3b8">
-        <strong>Summary.</strong> Replaces v2ecoli&#39;s multi-objective FBA central-carbon metabolism with the Millard 2017 mechanistic kinetic ODE (glycolysis, PPP, TCA, oxidative phosphorylation), coupled to the WCM either via a consumption_matched growth driver or by pinning the ODE-predicted central fluxes into the WCM FBA LP. On M9-glucose the closed-loop cell_mass distribution matches the Phase-0 ensemble within ±σ; the ~20 fg offset was traced to open-loop water drift (fraction had climbed to 0.7045), not the kinetics or control, and the fix regulates WATER[c] closed-loop to hold the birth water fraction (target_water_mass = dry*f/(1-f)). The FBA-bridge flux-pin keeps the WCM viable (dry_mass 379.8 -&gt; 389.8 fg over 120 s).
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text">Run the Millard 2017 ODE as a standalone Process Bigraph process
+by wrapping the published SBML (BioModels MODEL1505110000) with
+pbg-copasi&#39;s CopasiUTCProcess (basico / COPASI backend). Build
+an FBA-bridge composite that couples the COPASI-driven kinetic
+ODE to v2ecoli&#39;s existing multi-objective FBA solver
+(`wholecell.utils.modular_fba`) so the ODE can take over central-
+carbon flux predictions incrementally while the FBA covers the
+rest of the network (homeostatic targets for non-central
+metabolites, kinetic-constraint coupling to enzyme abundances,
+NGAM maintenance). Wrap with an LQR controller that replaces the
+FBA&#39;s biomass-production objective for growth-rate regulation.
+Validate against the Phase 0 Xarray interface datasets across
+≥3 conditions. Partition every introduced parameter as causal or
+teleonomic, with written justification per parameter. A
+high-performance backend (DifferentialEquations.jl / Diffrax)
+is deferred to Phase 4 compilation; Phase 1 establishes
+correctness through pbg-copasi, Phase 4 takes over performance.
+</p>
+      
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>pdmp-01-metabolism-ode</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">millard-published-ref-state-reproduced</span><span class="ctr-dot">·</span><span class="ctr-meta-item">fba-bridge-round-trip-residual</span><span class="ctr-dot">·</span><span class="ctr-meta-item">fba-bridge-coupled-pilot-runs</span><span class="ctr-dot">·</span><span class="ctr-meta-item">lqr-growth-rate-tracking</span><span class="ctr-dot">·</span><span class="ctr-meta-item">interface-statistics-match-phase0-W2</span></div>
       </div>
+      
     </div>
-    
 
-    
-    
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text">pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws. Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.</p>
+      
+      
     <div class="overview-section findings-section">
       <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
       
@@ -624,171 +661,22 @@ across ≥3 environmental conditions?
       
     </div>
     
-
-    
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(what this study has not yet established)</span>
-      </h2>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+      
+      
+      
+      <div class="ctr-meta ctr-assess">
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Confidence</span>
+          <span class="ctr-badge ctr-badge-investigating">Investigating</span>
+          
+          
         </div>
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">1 alternative(s) listed but none excluded yet</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The +/-sigma cell_mass + dry_mass acceptance gate is now met on M9-glucose (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc). The ~20 fg cell_mass offset was entirely open-loop water drift; the fix regulates WATER[c] closed-loop to hold the birth water fraction (verified flat at 0.70000 over 600 s). Re-run of scripts/compare_pdmp_ensemble_vs_phase0.py (N=12 PDMP reps, consumption_matched, 600 s, seeds 1000-1011, vs the N=32 Phase-0 M9-glucose reference; 12/12 usable, 0 errors, 0 degeneracy) gives endpoint W2: cell_mass = 6.93 fg (W2/sigma = 1.00, 95% CI [5.16, 9.00]); dry_mass = 2.27 fg (W2/sigma = 1.09, 95% CI [1.70, 2.90]). Both &lt;= 2 sigma, so the gate is met (was cell_mass W2/sigma = 3.0 under open-loop water). Notes: closing the loop slightly overshot (PDMP cell_mass 1481.0 -&gt; 1456.8 fg, now ~4.4 fg below Phase-0 1461.1 rather than ~20 fg above) and nudged dry_mass W2/sigma up from 0.86 to 1.09 (still within +/-sigma); the PDMP ensemble remains much tighter than Phase-0 (per-rep sigma ~1.2 fg cell vs 6.9 fg), so the pass rests on a mean offset that now sits within sigma, not on matched variance. This is M9-glucose only; the acetate / +aa PDMP-vs-Phase-0 W2 remains pending and is the gating step before any acceptance. See reports/figures/pdmp-01/RUN_REPORT_2026-06-11.md.</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Reproducibility caveats surfaced in the just-attempted re-run: (a) the baseline_millard (lqr=True) composite had a pre-existing broken import (LikelihoodCollector imported from the nonexistent v2ecoli.steps.listeners.* instead of v2ecoli.steps.derivers.*); its likelihood path was unbuildable until fixed in this refresh; (b) in the default &#39;proportional&#39; ref-growth mode the composite crashes mid-run with &#34;ValueError: Negative values at equilibrium steady state&#34; (v2ecoli/processes/equilibrium.py) and runs only in the &#39;consumption_matched&#39; mode; (c) the LQR zero-gain Riccati bug (an A = I + J finite-difference artifact) was root-caused and fixed (commit cc6a72d; true Jacobian + conserved-moiety CARE shift giving ||K|| ≈ 4.39, regression-tested in tests/test_lqr_riccati_stabilizable.py), so the outer controller is no longer degenerate (gain_degenerate=False across 12/12 replicates).</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The FBA-bridge composite has not been shown to hold interface statistics across ANY Phase-0 condition; the M9-glucose, M9-acetate and M9-glucose+aa W2 audits are all pending (no condition is closed).</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">The LQR outer-control weights have not passed a Sobol-sensitivity / FIM-conditioning (kappa &lt; 1e8) audit, so the causal/teleonomic parameter partition is asserted but not yet proven free of disguised free parameters.</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#f1f5f9;color:#475569;font-weight:600;font-size:0.72em;white-space:nowrap">low</span>
-          <div>
-            <strong style="color:#1e293b">region-unexplored</strong>
-            <code style="font-size:0.82em">remaining_uncertainties</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">Task #20 — the JAX/Diffrax backend works standalone but fails inside the WCM composite; the in-WCM path is unresolved.</div>
-          </div>
-        </div>
         
       </div>
-    </div>
-    
-
-    
-    
-    <div class="overview-section conclusion-block">
-      <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">pbg-copasi gives us the published Millard model as a first-class PB process without re-deriving rate laws. Phase 1 effort goes to the LQR + FBA-bridge, not to ODE re-implementation.<span class="computed-tag">computed from findings</span></p>
-      
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn is-hidden" data-reveal-field="report.conclusion">+ Add conclusion</button>
-      <label class="narrative-row narrative-row-wide" data-field-editor="report.conclusion">
-        <span class="narrative-label">Conclusion</span>
-        <textarea class="narrative-input narrative-textarea" rows="3"
-                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated.">First run confirmed (2026-05-24): Millard 2017 SBML loads + simulates via pbg-copasi and recovers the published reference steady state for central carbon + energy metabolites (G6P, F6P, FDP, PEP, PYR, ATP/ADP, NADH/NADPH, MAL, AKG all match BioModels MODEL1505110000 initial values to solver tolerance). The FBA-bridge flux-pin now integrates the Millard ODE into the WCM FBA (24 active pins) and the LQR was fixed to a real stabilizing gain (||K|| ≈ 4.39, commit cc6a72d); the PDMP-vs-Phase-0 endpoint W₂ comparison is done on M9-glucose (±σ gate met; cell_mass W₂/σ = 1.00, dry_mass 1.09, commit 6a764fc), with acetate / +aa multi-condition still pending.</textarea>
-      </label>
-    </div>
-    
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn is-hidden" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide" data-field-editor="report.caveat">
-        <span class="narrative-label">Caveat</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know.">LQR reference trajectory must not reintroduce a teleonomic parameter in disguise; the causal/teleonomic partition is enforced per-parameter and audited via FIM conditioning (κ &lt; 10⁸) before the model is declared inference-ready. Report figures are limited to the artifacts committed in this checkout (Millard ATP-drain / multi-perturbation, the FBA-bridge flux-pin, PDMP-vs-Phase-0 W₂); the broader perturbation-matrix / LQR-tuning figure set regenerates from a re-run of the standalone-Millard and LQR sweeps.</textarea>
-      </label>
-    </div>
-    
-      <div class="conclusion-tags">
-        <label class="tag-control"><span class="tag-k">confidence</span>
-          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
-            <option value="">—</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select></label>
-        <label class="tag-control"><span class="tag-k">evidence</span>
-          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="first-run-confirmed" placeholder="calibrated | literature-matched | …"></label>
-      </div>
     </div>
 
-    
-
-    
     <div id="feedback-tracked-panel"></div>
 
   </div>
@@ -802,6 +690,12 @@ across ≥3 environmental conditions?
     
     <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'pdmp-01-metabolism-ode', 'v2ecoli-pdmp')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-01-metabolism-ode">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
   
   
   
@@ -886,14 +780,16 @@ across ≥3 environmental conditions?
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="pbg_copasi.composites.utc-process" data-model-overrides='{}'>
             <td><code>millard-with-lqr</code></td>
             <td>
               <code>pbg_copasi.composites.utc-process</code>
               
             </td>
             <td>
-              
               
                 <em class="muted">(no overrides)</em>
               
@@ -904,14 +800,16 @@ trajectory. Replaces v2ecoli&#39;s FBA biomass-production objective.
 </td>
           </tr>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="pbg_copasi.composites.utc-process" data-model-overrides='{}'>
             <td><code>millard-fba-bridge</code></td>
             <td>
               <code>pbg_copasi.composites.utc-process</code>
               
             </td>
             <td>
-              
               
                 <em class="muted">(no overrides)</em>
               
@@ -924,14 +822,16 @@ handover.
 </td>
           </tr>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="pbg_copasi.composites.utc-process" data-model-overrides='{"intervals": 10, "model_source": "v2ecoli/models/sbml/millard2017_central_metabolism.xml", "time": 100.0}'>
             <td><code>millard-standalone</code></td>
             <td>
               <code>pbg_copasi.composites.utc-process</code>
               
             </td>
             <td>
-              
               
                 
                 <div><span class="cond-pill-k">model_source</span>=<code>v2ecoli/models/sbml/millard2017_central_metabolism.xml</code></div>
@@ -945,14 +845,16 @@ handover.
             <td>Standalone Millard 2017 ODE via pbg-copasi CopasiUTCProcess on the published SBML, no coupling, no LQR. Steady-state recovery confirmed 2026-05-24.</td>
           </tr>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="pbg_copasi.composites.utc-process" data-model-overrides='{"duration": 3000, "perturbation": "ATP\u21920.3\u00d7SS at t=500s"}'>
             <td><code>millard-atp-drain-perturbation</code></td>
             <td>
               <code>pbg_copasi.composites.utc-process</code>
               
             </td>
             <td>
-              
               
                 
                 <div><span class="cond-pill-k">perturbation</span>=<code>ATP→0.3×SS at t=500s</code></div>
@@ -964,14 +866,16 @@ handover.
             <td>ATP drained to 30% of steady state at t=500s (ADP gains the difference, mass-balanced). Tests transient response across all coupled subsystems; ran 2026-05-24.</td>
           </tr>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="pbg_copasi.composites.utc-process" data-model-overrides='{"conditions": ["M9-glucose", "M9-acetate", "M9-glucose+aa"]}'>
             <td><code>millard-fba-bridge-3-conditions</code></td>
             <td>
               <code>pbg_copasi.composites.utc-process</code>
               
             </td>
             <td>
-              
               
                 
                 <div><span class="cond-pill-k">conditions</span>=<code>[&#39;M9-glucose&#39;, &#39;M9-acetate&#39;, &#39;M9-glucose+aa&#39;]</code></div>
@@ -1034,13 +938,6 @@ handover.
   
   
 
-  
-  <div class="overview-section" id="analyses-section" style="margin-top:22px">
-    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
-    <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
-    <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
-  </div>
 
 </section>
 
@@ -1054,21 +951,22 @@ handover.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+</section>
 
-<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
-  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
 
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
-    <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=pdmp-01-metabolism-ode">Download all (.zip)</a>
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="pdmp-01-metabolism-ode">
+    <p class="empty-message">Loading results preview…</p>
   </div>
-  <div id="data-files" data-study="pdmp-01-metabolism-ode">
-    <p class="empty-message">Loading result files…</p>
-  </div>
 
-  
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
     <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
     <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
             onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
@@ -1078,18 +976,61 @@ handover.
 
 </section>
 
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=pdmp-01-metabolism-ode">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="pdmp-01-metabolism-ode">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
 <section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Readouts</h3>
     </div>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="pdmp-01-metabolism-ode">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
 
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
     <div id="readouts-table" data-study="pdmp-01-metabolism-ode">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="pdmp-01-metabolism-ode">
+      <p class="empty-message">Loading output shapes…</p>
     </div>
 
     
@@ -1296,19 +1237,9 @@ handover.
   <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
 
   
-  <div class="checks-band" style="margin-top:22px">
-    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
 
-    
-    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
-      <p class="empty-message">Loading quality checks…</p>
-    </div>
-
-    
-    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
-      <p class="empty-message">Loading reproducibility checks…</p>
-    </div>
-  </div>
+  
+  
 
   
   
@@ -1555,6 +1486,34 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
   </ul>
   
   </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1831,7 +1790,7 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "f513929c1479d4e3fe2a4f5f59850df8f0273d17", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/f513929c1479d4e3fe2a4f5f59850df8f0273d17", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 06:10 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "pdmp-01-metabolism-ode";
@@ -1947,6 +1906,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

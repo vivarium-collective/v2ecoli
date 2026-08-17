@@ -194,6 +194,8 @@ iteration (mbp-* round 2, or a sibling investigation)?
     <div class="act-tabs">
       <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
       <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
     </div>
   </div>
   <div class="act-cluster" data-act="evidence">
@@ -202,7 +204,9 @@ iteration (mbp-* round 2, or a sibling investigation)?
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
-      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
       <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     </div>
   </div>
@@ -213,6 +217,9 @@ iteration (mbp-* round 2, or a sibling investigation)?
     </div>
     <div class="act-tabs">
       <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
     </div>
   </div>
   <div class="act-cluster" data-act="decision">
@@ -454,89 +461,45 @@ iteration (mbp-* round 2, or a sibling investigation)?
 
     
     
-    <h2 class="overview-label">Question &amp; approach</h2>
     
-    <div class="overview-section">
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> After mbp-01..05 have produced their per-study findings, what are the
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">After mbp-01..05 have produced their per-study findings, what are the
 remaining gaps (in v2ecoli&#39;s biology coverage, the coupling layer, the
 pbg-bioreactordesign physics, and the Beulig benchmark scope) that
 prevent the investigation from answering its overarching question, and
 how should those gaps be prioritized as the next investigation
 iteration (mbp-* round 2, or a sibling investigation)?
-
-      </div>
+</p>
       
+      <div class="ctr-context">Not a biological-mechanism study. It catalogs where the investigation&#39;s biology coverage is incomplete: e.g. v2ecoli PTS transport functional form (axis A), low-GUR mass balance during substrate depletion (axis A), cells_per_agent stochastic-floor at high density vs Beulig&#39;s bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the triage, not new findings.</div>
       
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Hypothesis / Expected outcome.</strong> A structured findings document (findings.md + this study&#39;s
-`findings.entries[]`, populated post-impl) that enumerates ≥ 8 named
-gaps across the five axes (with per-axis floors: ≥ 3 on axes A and D
-based on prior known limitations), each with a concrete
-candidate_resolution AND with the extended schema fields below
-(chris_feedback_2026_05_26 §11 concern 2):
+    </div>
 
-  - resolution_type:      model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation
-  - resolution_venue:     &lt;repo / sibling investigation / program-level decision&gt;
-  - decision_authority:   &lt;who decides — especially for scope_decision&gt;
-  - provenance:           this_investigation | carried_prior | external_input | expert_elicitation
-  - priority:             1 (top) | 2 | 3
-  - evidence:             [list of upstream test results / limitations / open_questions / mandatory_findings_to_consider entries]
-
-Priorities are assigned INDEPENDENTLY of provenance — a carried prior
-can be priority 1 even if mbp-05 didn&#39;t surface it fresh.
-
-The document feeds the next investigation cycle: roadmap-revision PR
-on references/expert/multiscale_bioprocess_roadmap.md (if upstream) +
-new study scaffolds for the prioritized gaps.
-
-      </div>
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text"></p>
       
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> No new simulation. The study WALKS the prior-study artifacts: every
-behavior_test&#39;s outcome, every recorded finding, every limitation /
-open_question / candidate-future-study pointer. It synthesizes these
-into a structured gap-analysis covering five named axes:
-
-  A. **v2ecoli biology coverage** — places where v2ecoli&#39;s metabolism /
-     regulation / mass machinery is insufficient for the reactor regime
-     (e.g. low-DO acetate overflow strength, high-density maintenance
-     re-allocation per Beulig 2025).
-  B. **Coupling layer** — limitations of the v2ecoli ↔ pbg-bioreactor-
-     design adapter (biomass-ownership disable, timestep mismatch,
-     single-cell-with-Division ceiling).
-  C. **pbg-bioreactordesign physics** — what BiRD doesn&#39;t yet model
-     (fed-batch operations, multi-stream feeds, pH-CO2 coupling).
-  D. **Beulig benchmark scope** — what was deferred from mbp-05 (SGKO /
-     TRP / MEL strain extension, transcriptional-state matching against
-     &gt;470 transcriptomes, fed-batch phases I–IV).
-  E. **Methodology** — places where the biological-BDD discipline (claims
-     → tests → triage) didn&#39;t catch a gap soon enough, or where the
-     cell-side interface contract needs revision based on what was learned.
-
-For each gap, the study records: signature, evidence (which test(s) /
-finding(s) surfaced it), severity (blocks-next-step | reduces-coverage |
-open-question), candidate-resolution (a new study slug, an upstream PR
-to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
-
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>mbp-06-gap-analysis</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">Each of the five gap axes (v2ecoli biology / coupling / BiRD physics / Beulig scope / methodology) has at least one named gap entry. Per-axis floors (chris_feedback_2026_05_26 §11 tactical): axes A and D ≥ 3 each (based on prior known limitations); axes B, C, E ≥ 1 each.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Every gap entry carries a non-empty `candidate_resolution.target_slug`
+OR `candidate_resolution.venue` (for resolution_types where no follow-up
+slug applies: scope_decision, expert_elicitation). Placeholder / unresolved
+values are banned (case-insensitive): the canonical placeholder tokens
+flagged by the workspace report-linter, plus the study-specific phrases
+enumerated in `measure.banned_strings` below (e.g. &#34;to be determined&#34;,
+&#34;figure out later&#34;, &#34;unclear&#34;, &#34;n/a&#34;).
+</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Every gap entry carries a `resolution_type` from the enum (model_improvement | scope_decision | upstream_PR | expert_elicitation | further_investigation) and a `resolution_venue` string. For scope_decision entries, `decision_authority` is also required (chris_feedback_2026_05_26 §11 concern 2).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Every gap entry carries a `provenance` from the enum (this_investigation | carried_prior | external_input | expert_elicitation). Required so the synthesis distinguishes new discovery from carried-forward priors (chris_feedback_2026_05_26 §11 concern 1).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Every entry in `mandatory_findings_to_consider` (above) is either incorporated as a findings.entries[] entry with provenance=carried_prior, OR explicitly justified as dropped via a scope_decision entry. No silent omissions.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Each gap entry has an assigned priority (1=highest, 3=lowest) AND a review-by entry recording who approved the prioritization.</span></div>
       </div>
       
     </div>
-    
 
-    
-    <div class="overview-section">
-      <div class="purpose-callout" style="background:#f8fafc;border-left:4px solid #94a3b8">
-        <strong>Summary.</strong> Not a biological-mechanism study. It catalogs where the investigation&#39;s biology coverage is incomplete: e.g. v2ecoli PTS transport functional form (axis A), low-GUR mass balance during substrate depletion (axis A), cells_per_agent stochastic-floor at high density vs Beulig&#39;s bistable expression states (axis A), and the v2ecoli-vs-Beulig batch-density gap surfaced by mbp-05 (architectural, not tuning). These are inputs to the triage, not new findings.
-      </div>
-    </div>
-    
-
-    
-    
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text"></p>
+      
+      
     <div class="overview-section findings-section">
       <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
       
@@ -594,109 +557,24 @@ to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
       
     </div>
     
-
-    
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(what this study has not yet established)</span>
-      </h2>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+      
+      
+      
+      <div class="ctr-meta ctr-assess">
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Confidence</span>
+          
+          
+          
         </div>
         
         
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
-          </div>
-        </div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Caveat</span> <span class="ctr-meta-item">Snapshot synthesis; not a continuous-monitoring artifact. Re-run as a new mbp-06 study at the next iteration milestone.</span></div>
         
       </div>
-    </div>
-    
-
-    
-    
-    <div class="overview-section conclusion-block">
-      <h2 class="overview-label">Conclusion</h2>
       
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
-        <span class="narrative-label">Conclusion</span>
-        <textarea class="narrative-input narrative-textarea" rows="3"
-                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
-      </label>
-    </div>
-    
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
-        <span class="narrative-label">Caveat</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
-      </label>
-    </div>
-    
-      <div class="conclusion-tags">
-        <label class="tag-control"><span class="tag-k">confidence</span>
-          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
-            <option value="">—</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select></label>
-        <label class="tag-control"><span class="tag-k">evidence</span>
-          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="" placeholder="calibrated | literature-matched | …"></label>
-      </div>
     </div>
 
-    
-
-    
     <div id="feedback-tracked-panel"></div>
 
   </div>
@@ -710,6 +588,12 @@ to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
     
     <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'mbp-06-gap-analysis', '')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-06-gap-analysis">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
   
   
   
@@ -786,14 +670,16 @@ to pbg-bioreactordesign, an expert elicitation), and priority (1–3).
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
           
-          <tr>
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.reactor_bird_coupled" data-model-overrides='{}'>
             <td><code>gap-synthesis-pass</code></td>
             <td>
               <code>v2ecoli.composites.reactor_bird_coupled</code>
               
             </td>
             <td>
-              
               
                 <em class="muted">(no overrides)</em>
               
@@ -880,13 +766,6 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
   
   
 
-  
-  <div class="overview-section" id="analyses-section" style="margin-top:22px">
-    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
-    <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
-    <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
-  </div>
 
 </section>
 
@@ -900,21 +779,22 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+</section>
 
-<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
-  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
 
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
-    <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=mbp-06-gap-analysis">Download all (.zip)</a>
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="mbp-06-gap-analysis">
+    <p class="empty-message">Loading results preview…</p>
   </div>
-  <div id="data-files" data-study="mbp-06-gap-analysis">
-    <p class="empty-message">Loading result files…</p>
-  </div>
 
-  
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
     <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
     <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
             onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
@@ -924,18 +804,61 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
 
 </section>
 
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=mbp-06-gap-analysis">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="mbp-06-gap-analysis">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
 <section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Readouts</h3>
     </div>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="mbp-06-gap-analysis">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
 
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
     <div id="readouts-table" data-study="mbp-06-gap-analysis">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="mbp-06-gap-analysis">
+      <p class="empty-message">Loading output shapes…</p>
     </div>
 
     
@@ -1045,19 +968,13 @@ methodology&#39;s &#34;test-revision ritual&#34; — distinct from feature work.
   <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
 
   
-  <div class="checks-band" style="margin-top:22px">
-    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
 
-    
-    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
-      <p class="empty-message">Loading quality checks…</p>
-    </div>
-
-    
-    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
-      <p class="empty-message">Loading reproducibility checks…</p>
-    </div>
+  
+  
+  <div class="report-cards-full-section" id="report-cards-full-section" style="margin-top:22px">
+    <section id="report-cards"><h2>Report cards</h2><p style="color:#475569;font-size:0.92em;margin:0 0 8px">The compiled output of this study’s Tests — per-test verdict and the change since the previous run.</p><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">tests &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></div><table style="width:100%;border-collapse:collapse;font-size:0.9em"><thead><tr style="text-align:left;color:#94a3b8;font-size:0.72em;text-transform:uppercase;letter-spacing:.04em"><th style="padding:5px 8px">Test</th><th style="padding:5px 8px">Verdict</th><th style="padding:5px 8px">Meter</th><th style="padding:5px 8px">Since last run</th></tr></thead><tbody><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">pytest &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">pytest auto-discover</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">0 pytest target(s); no results recorded yet</td><td style="padding:6px 8px"></td></tr></tbody></table><iframe scrolling="no" srcdoc="&lt;div style=&#x27;font-family:system-ui,sans-serif;max-width:900px&#x27;&gt;&lt;h2 style=&#x27;margin:0 0 2px&#x27;&gt;mbp-06-gap-analysis — default tests &lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#757575;color:#fff;font-size:12px&#x27;&gt;– overall: ungraded&lt;/span&gt;&lt;/h2&gt;&lt;div style=&#x27;color:#888;font-size:12px;margin-bottom:8px&#x27;&gt;reference: behavioral spec · measured: v2ecoli&lt;/div&gt;&lt;h3 style=&#x27;margin:14px 0 4px&#x27;&gt;Pytest &lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#757575;color:#fff;font-size:12px&#x27;&gt;– ungraded&lt;/span&gt;&lt;/h3&gt;&lt;table style=&#x27;border-collapse:collapse;width:100%;font-size:13px&#x27;&gt;&lt;thead&gt;&lt;tr style=&#x27;text-align:left;color:#888&#x27;&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;axis&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;verdict&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;value&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;meter&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;pytest auto-discover&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;&lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#757575;color:#fff;font-size:12px&#x27;&gt;– ungraded&lt;/span&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;font-variant-numeric:tabular-nums&#x27;&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;color:#555&#x27;&gt;0 pytest target(s); no results recorded yet&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><script>(function(){function fit(f){try{var d=f.contentDocument;if(!d)return;var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);if(h>0)f.style.height=h+"px";}catch(e){}}document.querySelectorAll(".rc-iframe").forEach(function(f){f.addEventListener("load",function(){fit(f);[300,1200,2500].forEach(function(t){setTimeout(function(){fit(f);},t);});});});})();</script></section>
   </div>
+  
 
   
   
@@ -1315,6 +1232,34 @@ pass_if: {"op": "all_pass"}</pre>
   </div>
 </section>
 
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
+</section>
+
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
 
   
@@ -1504,7 +1449,7 @@ OR explicit &#34;deferred&#34; entries in the next roadmap revision.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "f513929c1479d4e3fe2a4f5f59850df8f0273d17", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/f513929c1479d4e3fe2a4f5f59850df8f0273d17", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 06:10 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-06-gap-analysis";
@@ -1620,6 +1565,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

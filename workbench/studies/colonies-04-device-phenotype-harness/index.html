@@ -183,6 +183,8 @@ first with cheap simple viva-munk agents before spending WCM compute?
     <div class="act-tabs">
       <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
       <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
     </div>
   </div>
   <div class="act-cluster" data-act="evidence">
@@ -191,7 +193,9 @@ first with cheap simple viva-munk agents before spending WCM compute?
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
-      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
       <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     </div>
   </div>
@@ -202,6 +206,9 @@ first with cheap simple viva-munk agents before spending WCM compute?
     </div>
     <div class="act-tabs">
       <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
     </div>
   </div>
   <div class="act-cluster" data-act="decision">
@@ -443,150 +450,40 @@ first with cheap simple viva-munk agents before spending WCM compute?
 
     
     
-    <h2 class="overview-label">Question &amp; approach</h2>
     
-    <div class="overview-section">
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Does the shared harness — cell-tier factory, geometry builders, and
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">Does the shared harness — cell-tier factory, geometry builders, and
 tier-agnostic phenotype extractor — recover a correct, uniform single-cell
 phenotype panel (growth rate, size-at-division, added length, inter-division
 time, adder size-homeostasis) across the three device geometries, validated
 first with cheap simple viva-munk agents before spending WCM compute?
+</p>
+      
+    </div>
 
-      </div>
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text"></p>
       
-      
-      <div class="purpose-callout" style="background:#f0fdf4;border-left:4px solid #10b981">
-        <strong>Hypothesis / Expected outcome.</strong> The factory yields a runnable cell per tier, the geometry builders run
-simple agents in all three devices, the extractor recovers known division
-statistics, and the harness emits the common phenotype panel — the shared
-measurement substrate the WCM-tier device studies (colonies-08/09) reuse.
-No biological conclusion is drawn at this enabling tier.
-
-      </div>
-      
-      
-      <div class="purpose-callout" style="background:#fefce8;border-left:4px solid #facc15">
-        <strong>Mechanism / Model change.</strong> The factory instantiates any cell tier (simple / surrogate / wcm) into a
-device built by the geometry builders; the tier-agnostic extractor reads the
-same phenotype panel regardless of tier, and the ColonyPhenotypeRecorder
-process streams that panel per cell to zarr as a bounded stream (a cheap
-view of the cells map rather than an emitter deep-copy).
-
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>colonies-04-device-phenotype-harness</code></div>
+        
       </div>
       
     </div>
-    
 
-    
-
-    
-    
-    
-
-    
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(what this study has not yet established)</span>
-      </h2>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">single run — no replication across seeds declared (add robustness.seeds or simulation_set.seeds)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-      </div>
-    </div>
-    
-
-    
-    
-    <div class="overview-section conclusion-block">
-      <h2 class="overview-label">Conclusion</h2>
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text"></p>
       
       
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
-        <span class="narrative-label">Conclusion</span>
-        <textarea class="narrative-input narrative-textarea" rows="3"
-                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
-      </label>
-    </div>
-    
       
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
-        <span class="narrative-label">Caveat</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
-      </label>
-    </div>
-    
-      <div class="conclusion-tags">
-        <label class="tag-control"><span class="tag-k">confidence</span>
-          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
-            <option value="">—</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select></label>
-        <label class="tag-control"><span class="tag-k">evidence</span>
-          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="" placeholder="calibrated | literature-matched | …"></label>
-      </div>
+      
+      
     </div>
 
-    
-
-    
     <div id="feedback-tracked-panel"></div>
 
   </div>
@@ -600,6 +497,12 @@ view of the cells map rather than an emitter deep-copy).
     
     <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'colonies-04-device-phenotype-harness', 'colonies')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="colonies-04-device-phenotype-harness">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
   
   
   
@@ -668,13 +571,6 @@ view of the cells map rather than an emitter deep-copy).
   
   
 
-  
-  <div class="overview-section" id="analyses-section" style="margin-top:22px">
-    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
-    <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
-    <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
-  </div>
 
 </section>
 
@@ -688,21 +584,22 @@ view of the cells map rather than an emitter deep-copy).
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+</section>
 
-<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
-  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
 
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
-    <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=colonies-04-device-phenotype-harness">Download all (.zip)</a>
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="colonies-04-device-phenotype-harness">
+    <p class="empty-message">Loading results preview…</p>
   </div>
-  <div id="data-files" data-study="colonies-04-device-phenotype-harness">
-    <p class="empty-message">Loading result files…</p>
-  </div>
 
-  
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
     <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
     <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
             onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
@@ -712,18 +609,61 @@ view of the cells map rather than an emitter deep-copy).
 
 </section>
 
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=colonies-04-device-phenotype-harness">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="colonies-04-device-phenotype-harness">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
 <section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Readouts</h3>
     </div>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="colonies-04-device-phenotype-harness">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
 
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
     <div id="readouts-table" data-study="colonies-04-device-phenotype-harness">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="colonies-04-device-phenotype-harness">
+      <p class="empty-message">Loading output shapes…</p>
     </div>
 
     
@@ -764,19 +704,9 @@ view of the cells map rather than an emitter deep-copy).
   <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
 
   
-  <div class="checks-band" style="margin-top:22px">
-    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
 
-    
-    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
-      <p class="empty-message">Loading quality checks…</p>
-    </div>
-
-    
-    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
-      <p class="empty-message">Loading reproducibility checks…</p>
-    </div>
-  </div>
+  
+  
 
   
   
@@ -806,6 +736,34 @@ view of the cells map rather than an emitter deep-copy).
   </ul>
   
   </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -951,7 +909,7 @@ runs freely.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "f513929c1479d4e3fe2a4f5f59850df8f0273d17", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/f513929c1479d4e3fe2a4f5f59850df8f0273d17", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 06:10 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "colonies-04-device-phenotype-harness";
@@ -1067,6 +1025,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

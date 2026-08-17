@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Study: showcase-4-variant-comparison</title>
+<title>Study: genotype-00-build-integrity</title>
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
 <link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
 <!-- Inherit the workbench light/dark theme (this page loads in an iframe;
@@ -14,7 +14,7 @@
 <header class="study-header">
   <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
   <h1 class="study-title">
-    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">showcase-4</span><span class="study-name" id="study-name" data-slug="showcase-4-variant-comparison" title="showcase-4-variant-comparison">Five-variant perturbation sweep — which perturbation most clearly moves v2ecoli off baseline</span>
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">genotype-00</span><span class="study-name" id="study-name" data-slug="genotype-00-build-integrity" title="genotype-00-build-integrity">Does a ParCa-level knockout reconstruct into a self-consistent sim_data?</span>
     
     <span class="study-kind-tag study-kind-computational" data-study-kind="computational" title="Study kind">computational</span>
     
@@ -28,11 +28,11 @@
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
     
     
-    <span class="status-pill gate-status gate-status-passed" title="Pipeline gate verdict (Pass A multi-axis status). Drives downstream unblocking.">gate: passed</span>
+    <span class="status-pill status-complete" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">complete</span>
     
 
     
-    <div id="readiness-panel" data-slug="showcase-4-variant-comparison"></div>
+    <div id="readiness-panel" data-slug="genotype-00-build-integrity"></div>
 
     
     
@@ -51,23 +51,23 @@
           </span>
           
           <span class="status-step gate-step axis-simulation_status gate-state-passed set" title="Gate 2 · Execution">
-            <span class="dot"></span>2&nbsp;·&nbsp;Execution<span class="step-val">complete</span>
+            <span class="dot"></span>2&nbsp;·&nbsp;Execution
           </span>
           
-          <span class="status-step gate-step axis-evaluation_status gate-state-passed set" title="Gate 3 · Evidence">
-            <span class="dot"></span>3&nbsp;·&nbsp;Evidence<span class="step-val">evaluated</span>
+          <span class="status-step gate-step axis-evaluation_status gate-state-passed-with-conditions set" title="Gate 3 · Evidence">
+            <span class="dot"></span>3&nbsp;·&nbsp;Evidence
           </span>
           
           <span class="status-step gate-step axis-evaluation_status gate-state-passed set" title="Gate 4 · Quality">
-            <span class="dot"></span>4&nbsp;·&nbsp;Quality<span class="step-val">evaluated</span>
+            <span class="dot"></span>4&nbsp;·&nbsp;Quality
           </span>
           
-          <span class="status-step gate-step axis-gate_status gate-state-passed-with-conditions set" title="Gate 5 · Decision">
-            <span class="dot"></span>5&nbsp;·&nbsp;Decision<span class="step-val">passed</span>
+          <span class="status-step gate-step axis-gate_status gate-state-blocked set" title="Gate 5 · Decision">
+            <span class="dot"></span>5&nbsp;·&nbsp;Decision
           </span>
           
           <span class="status-step gate-step axis-expert_review_status gate-state-not-assessed set" title="Gate 6 · Release">
-            <span class="dot"></span>6&nbsp;·&nbsp;Release<span class="step-val">pending</span>
+            <span class="dot"></span>6&nbsp;·&nbsp;Release<span class="step-val">not_requested</span>
           </span>
           
           
@@ -88,39 +88,41 @@
         
         <div class="status-detail-row gate-row gate-state-passed">
           <span class="status-detail-axis">2 · Execution</span>
-          <span class="status-chip gate-state-passed">complete</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
           
-          <span class="gate-computed-chip gate-state-passed" title="2 completed run(s)">◆ computed: ran</span>
-          
-          
-          
-        </div>
-        
-        <div class="status-detail-row gate-row gate-state-passed">
-          <span class="status-detail-axis">3 · Evidence</span>
-          <span class="status-chip gate-state-passed">evaluated</span>
-          
-          <span class="gate-computed-chip gate-state-passed" title="completed run + recorded verdicts">◆ computed: evaluated</span>
-          
-          
-          
-        </div>
-        
-        <div class="status-detail-row gate-row gate-state-passed">
-          <span class="status-detail-axis">4 · Quality</span>
-          <span class="status-chip gate-state-passed">evaluated</span>
-          
-          <span class="gate-computed-chip gate-state-passed" title="completed run + recorded verdicts">◆ computed: evaluated</span>
+          <span class="gate-computed-chip gate-state-passed" title="4 completed run(s)">◆ computed: ran</span>
           
           
           
         </div>
         
         <div class="status-detail-row gate-row gate-state-passed-with-conditions">
-          <span class="status-detail-axis">5 · Decision</span>
-          <span class="status-chip gate-state-passed">passed</span>
+          <span class="status-detail-axis">3 · Evidence</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
           
-          <span class="gate-computed-chip gate-state-passed-with-conditions" title="spine gate evaluator (study_verdict.roll_up_verdict / pipeline_gate.gate_evaluator)">◆ computed: needs_calibration</span>
+          <span class="gate-computed-chip gate-state-passed-with-conditions" title="completed run + recorded verdicts + visualization readiness gate (V4)">◆ computed: evaluated</span>
+          
+          
+          
+          <span class="gate-viz-gap-note" style="font-size:0.86em;color:#92400e">visualization gap: no figures</span>
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">4 · Quality</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-passed" title="completed run + recorded verdicts">◆ computed: evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-blocked">
+          <span class="status-detail-axis">5 · Decision</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-blocked" title="spine gate evaluator (study_verdict.roll_up_verdict / pipeline_gate.gate_evaluator)">◆ computed: blocked</span>
           
           
           
@@ -128,7 +130,7 @@
         
         <div class="status-detail-row gate-row gate-state-not-assessed">
           <span class="status-detail-axis">6 · Release</span>
-          <span class="status-chip gate-state-not-assessed">pending</span>
+          <span class="status-chip gate-state-not-assessed">not_requested</span>
           
           
         </div>
@@ -147,38 +149,19 @@
 
 
 
-<div class="composite-lint-banner" role="alert"
-     style="margin:8px 0 14px 0;padding:10px 14px;background:#fffbeb;border:1px solid #f59e0b;border-left-width:5px;border-radius:6px;color:#92400e;font-size:0.9em">
-  
-  <div>⚠ composite not found in registry: <code>baseline</code></div>
-  
-  <div style="margin-top:4px;font-size:0.86em;color:#a16207">
-    This study references a composite that doesn't resolve — it may not declare a
-    real, registered composite. Add a <code>.composite.yaml</code> and register it
-    in <code>core.py</code>, or fix the ref.
-  </div>
-</div>
 
 
 
 
 
 
-
-<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> Of the four perturbations proposed in showcase-3 (ppGpp regulation OFF, a
-dnaA 2x expression knob, a slower ribosome elongation rate, and a media /
-condition change to succinate), which one most clearly and interpretably
-moves the v2ecoli whole cell off its wild-type baseline? Run all four as a
-single multivariant sweep against the showcase-2 baseline and quantify each
-variant&#39;s delta across growth, replication, regulation, central-carbon flux,
-and proteome.
-</p>
+<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> When a gene is deleted from the chromosome and the ParCa is rebuilt on the perturbed genome, does the resulting sim_data stay self-consistent? Concretely: is every retained feature&#39;s sequence exactly what it should be, does the feature inventory change by exactly the expected amount, does every coordinate still lie inside the shortened chromosome, and does the fit converge with its parameters in range - before any physiological reading is attempted.</p>
 
 <nav class="study-tabs" aria-label="Study sections">
   
   <div class="act-cluster" data-act="study">
     <div class="act-header">
-      <span class="act-gate-dot" data-gate="study" data-gate-state="passed-with-conditions"></span>
+      <span class="act-gate-dot" data-gate="study" data-gate-state="blocked"></span>
       <span class="act-label">The Study</span>
     </div>
     <div class="act-tabs">
@@ -199,7 +182,7 @@ and proteome.
   </div>
   <div class="act-cluster" data-act="evidence">
     <div class="act-header">
-      <span class="act-gate-dot" data-gate="evidence" data-gate-state="passed"></span>
+      <span class="act-gate-dot" data-gate="evidence" data-gate-state="passed-with-conditions"></span>
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
@@ -223,7 +206,7 @@ and proteome.
   </div>
   <div class="act-cluster" data-act="decision">
     <div class="act-header">
-      <span class="act-gate-dot" data-gate="decision" data-gate-state="passed-with-conditions"></span>
+      <span class="act-gate-dot" data-gate="decision" data-gate-state="blocked"></span>
       <span class="act-label">Decision</span>
     </div>
     <div class="act-tabs">
@@ -464,23 +447,7 @@ and proteome.
 
     <div class="ctr-block">
       <h2 class="overview-label ctr-h">Claim</h2>
-      <p class="ctr-text">Of the four perturbations proposed in showcase-3 (ppGpp regulation OFF, a
-dnaA 2x expression knob, a slower ribosome elongation rate, and a media /
-condition change to succinate), which one most clearly and interpretably
-moves the v2ecoli whole cell off its wild-type baseline? Run all four as a
-single multivariant sweep against the showcase-2 baseline and quantify each
-variant&#39;s delta across growth, replication, regulation, central-carbon flux,
-and proteome.
-</p>
-      
-      <div class="ctr-context">A perturbation-response demonstration: each variant is a single mechanistic
-lever (a regulatory toggle, a gene-expression knob, a translation-rate cut, or
-a carbon-source change) applied to the validated wild-type baseline. Measuring
-the delta across five readout classes (growth / replication / regulation /
-central-carbon flux / proteome) shows which perturbation most clearly and
-interpretably moves the whole cell off baseline — converting the showcase-3
-reviewer decision into a measured ranking.
-</div>
+      <p class="ctr-text">When a gene is deleted from the chromosome and the ParCa is rebuilt on the perturbed genome, does the resulting sim_data stay self-consistent? Concretely: is every retained feature&#39;s sequence exactly what it should be, does the feature inventory change by exactly the expected amount, does every coordinate still lie inside the shortened chromosome, and does the fit converge with its parameters in range - before any physiological reading is attempted.</p>
       
     </div>
 
@@ -489,15 +456,15 @@ reviewer decision into a measured ranking.
       <p class="ctr-text"></p>
       
       <div class="ctr-meta">
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>showcase-4-variant-comparison</code></div>
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">ppgpp-off-perturbs-ppgpp-and-growth</span><span class="ctr-dot">·</span><span class="ctr-meta-item">dnaa-2x-shifts-replication-and-flux</span><span class="ctr-dot">·</span><span class="ctr-meta-item">elong-down-is-near-null-negative-control</span><span class="ctr-dot">·</span><span class="ctr-meta-item">media-shifts-central-carbon-flux</span></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>genotype-00-build-integrity</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption</span><span class="ctr-dot">·</span><span class="ctr-meta-item">chromosome-length-changes-by-exactly-the-deleted-span</span><span class="ctr-dot">·</span><span class="ctr-meta-item">all-coordinates-stay-within-the-shortened-chromosome</span><span class="ctr-dot">·</span><span class="ctr-meta-item">deleted-gene-is-functionally-absent-from-sim_data</span><span class="ctr-dot">·</span><span class="ctr-meta-item">parca-fit-completes-and-fitted-parameters-stay-in-range</span></div>
       </div>
       
     </div>
 
     <div class="ctr-block">
       <h2 class="overview-label ctr-h">Result</h2>
-      <p class="ctr-text">tests: within tolerance</p>
+      <p class="ctr-text">A ParCa-level lacY knockout builds end to end through the supplier-side generator path - bundle generation (&lt;1 s, content-addressed), all 9 ParCa steps (78 s fast regime), mechanistic fits ok - and the reconstructed knowledge base passes every structural integrity axis: two-branch sequence round trip (0 corrupted features across genes, TUs and DNA sites), exact 1254 bp chromosome shortening, all coordinates in bounds, and functional absence of the deleted gene via the tombstone mechanism.</p>
       
       
     <div class="overview-section findings-section">
@@ -507,26 +474,28 @@ reviewer decision into a measured ranking.
       
       
       
-      <div class="finding-card finding-kind-computational finding-status-confirms">
+      <div class="finding-card finding-kind-other finding-status-confirms">
         <details class="finding-details">
           <summary class="finding-row">
             <span class="finding-status-glyph">✓</span>
-            <span class="finding-claim finding-statement">tests: within tolerance</span>
+            <span class="finding-claim finding-statement">A ParCa-level lacY knockout builds end to end through the supplier-side generator path - bundle generation (&lt;1 s, content-addressed), all 9 ParCa steps (78 s fast regime), mechanistic fits ok - and the reconstructed knowledge base passes every structural integrity axis: two-branch sequence round trip (0 corrupted features across genes, TUs and DNA sites), exact 1254 bp chromosome shortening, all coordinates in bounds, and functional absence of the deleted gene via the tombstone mechanism.</span>
+            
+            <span class="finding-chip">via <code>perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption</code></span>
             
           </summary>
           <div class="finding-drawer">
             <div class="finding-header">
-              <span class="finding-id">report-card-tests</span>
-              <span class="finding-kind">computational</span>
+              <span class="finding-id">F-01</span>
+              <span class="finding-kind">other</span>
               <span class="finding-status-text">confirms literature</span>
             </div>
             
             
             <div class="finding-evidence">
+              <strong>observed:</strong> Card verdict within_tol (5/5 graded structural axes); WT and KO arms built 2026-08-14, runtimes.json 78 s each. · 
               
-              
-              
-              
+              via test <a href="#bt-perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption" onclick="_gotoStudyTab('tests','bt-perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption');return false;"><code>perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption</code></a> · 
+              in run <a href="#run-ko-fast-2026-08-14"><code>ko-fast-2026-08-14</code></a>
               
               
             </div>
@@ -534,11 +503,13 @@ reviewer decision into a measured ranking.
             
             
             
+            <div class="pass_if-band muted small" style="font-size:0.82em;padding:2px 10px">judged against <code>pass_if: = 0</code></div>
             
             
             
             
             
+            <div class="finding-next"><strong>→ Next:</strong> Grade the two ParCa-fit axes against a full-mode build when one is warranted; until then they stay ungraded/PARTIAL by design. The descriptive studies (01-06) now have a working build path to run against.</div>
           </div>
         </details>
       </div>
@@ -550,12 +521,8 @@ reviewer decision into a measured ranking.
       
       <div class="ctr-meta ctr-assess">
         
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Confidence</span>
-          
-          
-          
-        </div>
         
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Caveat</span> <span class="ctr-meta-item">Establishes that the build is internally consistent, NOT that the resulting physiology is sensible. Everything about how the cell behaves is downstream and belongs to studies 01-06.</span></div>
         
       </div>
       
@@ -572,11 +539,11 @@ reviewer decision into a measured ranking.
   <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
     <h2 class="overview-label" style="margin:0">Model composition</h2>
     
-    <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'showcase-4-variant-comparison', 'v2ecoli-baseline-showcase')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
+    <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'genotype-00-build-integrity', 'genotype-perturbation-response')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="showcase-4-variant-comparison">
+  <div id="model-composite-cards" class="model-composite-cards" data-study="genotype-00-build-integrity">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -594,29 +561,33 @@ reviewer decision into a measured ranking.
   <div class="overview-section" id="model-section">
     <h3>Runnable models <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
     
-    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"cache_dir": "out/cache-showcase", "seed": 0}'>
+    <div class="cond-block" data-model-composite="v2ecoli.composites.parca.parca" data-model-overrides='{"bundle_manifest": "", "cache_dir": "out/cache-genotype-00-wt", "cpus": 8, "debug": true}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>showcase-4-variant-comparison</strong>
+        <strong>genotype-00-build-integrity</strong>
         
-        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.parca.parca</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
-                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
+                onclick="_openCompositeLoom('v2ecoli.composites.parca.parca')">🧬 explore &amp; run ↗</button>
         
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="showcase-4-variant-comparison"
-               value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
+        <input type="text" class="baseline-composite-input" data-baseline-name="genotype-00-build-integrity"
+               value="v2ecoli.composites.parca.parca" placeholder="pkg.composites.name"
                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
-                data-baseline-name="showcase-4-variant-comparison">Set composite</button>
+                data-baseline-name="genotype-00-build-integrity">Set composite</button>
       </div>
-      <div class="baseline-composite-status muted" data-baseline-name="showcase-4-variant-comparison" style="font-size:0.8em;margin-top:2px"></div>
+      <div class="baseline-composite-status muted" data-baseline-name="genotype-00-build-integrity" style="font-size:0.8em;margin-top:2px"></div>
       
       
       
       
       
+      
+        
+      
+        
       
         
       
@@ -651,7 +622,7 @@ reviewer decision into a measured ranking.
 
     
     <div class="cond-block">
-      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></div>
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span></div>
       <table class="cond-table">
         <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
         <tbody>
@@ -659,66 +630,23 @@ reviewer decision into a measured ranking.
           
           
           
-          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
-            <td><code>ppgpp-off</code></td>
+          <tr data-model-composite="v2ecoli.composites.parca.parca" data-model-overrides='{"bundle_manifest": "out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv", "cache_dir": "out/cache-genotype-00-ko", "cpus": 8, "debug": true}'>
+            <td><code>single-gene-knockout</code></td>
             <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+              <code>v2ecoli.composites.parca.parca</code>
               
             </td>
             <td>
               
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          
-          
-          
-          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
-            <td><code>dnaA-2x</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          
-          
-          
-          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
-            <td><code>elong-down</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-                <em class="muted">(no overrides)</em>
-              
-            </td>
-            <td></td>
-          </tr>
-          
-          
-          
-          
-          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
-            <td><code>media-succinate</code></td>
-            <td>
-              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
-              
-            </td>
-            <td>
-              
-                <em class="muted">(no overrides)</em>
+                
+                <div><span class="cond-pill-k">debug</span>=<code>True</code></div>
+                
+                <div><span class="cond-pill-k">cpus</span>=<code>8</code></div>
+                
+                <div><span class="cond-pill-k">cache_dir</span>=<code>out/cache-genotype-00-ko</code></div>
+                
+                <div><span class="cond-pill-k">bundle_manifest</span>=<code>out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv</code></div>
+                
               
             </td>
             <td></td>
@@ -737,15 +665,15 @@ reviewer decision into a measured ranking.
         
       </div>
       <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
-      <table class="cond-table cond-expert-table" data-study="showcase-4-variant-comparison">
+      <table class="cond-table cond-expert-table" data-study="genotype-00-build-integrity">
         <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
         <tbody>
           
           
           
           
-          <tr data-ei-name="multivariant-multiseed-sweep">
-            <td title=""><code>multivariant-multiseed-sweep</code></td>
+          <tr data-ei-name="target-gene">
+            <td title=""><code>target-gene</code></td>
             <td></td>
             <td><code></code></td>
             <td>
@@ -767,7 +695,7 @@ reviewer decision into a measured ranking.
             </td>
             <td>
               <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('showcase-4-variant-comparison', 'multivariant-multiseed-sweep', this)">Save</button>
+                      onclick="_saveExpertInput('genotype-00-build-integrity', 'target-gene', this)">Save</button>
               <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
             </td>
           </tr>
@@ -775,8 +703,8 @@ reviewer decision into a measured ranking.
           
           
           
-          <tr data-ei-name="generations-vary-by-phenotype">
-            <td title=""><code>generations-vary-by-phenotype</code></td>
+          <tr data-ei-name="effective-build-from-the-declared-manifest">
+            <td title=""><code>effective-build-from-the-declared-manifest</code></td>
             <td></td>
             <td><code></code></td>
             <td>
@@ -798,7 +726,7 @@ reviewer decision into a measured ranking.
             </td>
             <td>
               <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('showcase-4-variant-comparison', 'generations-vary-by-phenotype', this)">Save</button>
+                      onclick="_saveExpertInput('genotype-00-build-integrity', 'effective-build-from-the-declared-manifest', this)">Save</button>
               <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
             </td>
           </tr>
@@ -806,8 +734,8 @@ reviewer decision into a measured ranking.
           
           
           
-          <tr data-ei-name="cross-variant-comparison-analyses">
-            <td title=""><code>cross-variant-comparison-analyses</code></td>
+          <tr data-ei-name="ko-generator">
+            <td title=""><code>ko-generator</code></td>
             <td></td>
             <td><code></code></td>
             <td>
@@ -829,7 +757,7 @@ reviewer decision into a measured ranking.
             </td>
             <td>
               <button class="action-btn cond-ei-save" type="button"
-                      onclick="_saveExpertInput('showcase-4-variant-comparison', 'cross-variant-comparison-analyses', this)">Save</button>
+                      onclick="_saveExpertInput('genotype-00-build-integrity', 'ko-generator', this)">Save</button>
               <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
             </td>
           </tr>
@@ -856,18 +784,63 @@ reviewer decision into a measured ranking.
 
   
   <div class="overview-section">
-    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(1 items)</span></h3>
+    <h3>Implementation requirements <span class="muted" style="font-size:0.85em;font-weight:normal">(4 items)</span></h3>
     <p class="muted" style="font-size:0.88em">Concrete pieces of work that gate this study from Design → Build. Each generates a task.</p>
     
     
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong></strong> — 
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        
+      </summary>
+      
+      
+      
+      
+    </details>
     
-    <div style="margin:8px 0;padding:10px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #94a3b8;white-space:pre-wrap;line-height:1.5">A 5-variant × 2-seed multigen sweep resumed from the showcase-1 full ParCa
-caches (out/cache-showcase for glucose variants; out/cache-succinate for
-media-succinate); config_overrides on the runner for the three process levers;
-the 8 cross-variant comparison analyses (v2ecoli/workflow/analyses/) reading
-the hive-partitioned parquet with a real variant_metadata int-&gt;name map; sim_data
-hydrated from out/sim_data-showcase/parca_state.pkl.gz; figures via
-scripts/render_variant_comparison.py.</div>
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #dc2626">
+      <summary style="cursor:pointer">
+        <strong></strong> — 
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">L</span>
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #f59e0b">
+      <summary style="cursor:pointer">
+        <strong></strong> — 
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">M</span>
+        
+      </summary>
+      
+      
+      
+      
+    </details>
+    
+    
+    
+    <details style="margin:8px 0;padding:8px 12px;background:#fff;border:1px solid #e5e7eb;border-radius:6px;border-left:3px solid #3b82f6">
+      <summary style="cursor:pointer">
+        <strong></strong> — 
+        <span style="font-size:0.75em;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:9999px;margin-left:6px">S</span>
+        
+      </summary>
+      
+      
+      
+      
+    </details>
     
     
   </div>
@@ -900,7 +873,7 @@ scripts/render_variant_comparison.py.</div>
 
   <h4>Latest run preview</h4>
   <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
-  <div id="results-preview" data-study="showcase-4-variant-comparison">
+  <div id="results-preview" data-study="genotype-00-build-integrity">
     <p class="empty-message">Loading results preview…</p>
   </div>
 
@@ -924,9 +897,9 @@ scripts/render_variant_comparison.py.</div>
   <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
     <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
     <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=showcase-4-variant-comparison">Download all (.zip)</a>
+       href="/api/study-analysis-zip?study=genotype-00-build-integrity">Download all (.zip)</a>
   </div>
-  <div id="data-files" data-study="showcase-4-variant-comparison">
+  <div id="data-files" data-study="genotype-00-build-integrity">
     <p class="empty-message">Loading result files…</p>
   </div>
 </div>
@@ -947,7 +920,7 @@ scripts/render_variant_comparison.py.</div>
     interval/buffer, output location, and emit scope — from
     <code>lib/emitters.py</code> and this study's (or the workspace's)
     <code>runtime.default_emitter</code>.</p>
-    <div id="readouts-emitter" data-study="showcase-4-variant-comparison">
+    <div id="readouts-emitter" data-study="genotype-00-build-integrity">
       <p class="empty-message">Loading emitter configuration…</p>
     </div>
 
@@ -959,7 +932,7 @@ scripts/render_variant_comparison.py.</div>
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
-    <div id="readouts-table" data-study="showcase-4-variant-comparison">
+    <div id="readouts-table" data-study="genotype-00-build-integrity">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
     </div>
 
@@ -967,7 +940,7 @@ scripts/render_variant_comparison.py.</div>
     <p class="muted" style="font-size:0.9em">Store path, dtype, shape
     <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
     leaf.</p>
-    <div id="readouts-shapes" data-study="showcase-4-variant-comparison">
+    <div id="readouts-shapes" data-study="genotype-00-build-integrity">
       <p class="empty-message">Loading output shapes…</p>
     </div>
 
@@ -981,32 +954,9 @@ scripts/render_variant_comparison.py.</div>
 
     
     
-    <div class="viz-actions-row" style="display:flex; justify-content:flex-end; margin-bottom:10px;">
-      <button type="button" class="btn-mini" onclick="window._vivStudyFiguresFromCard(event, 'showcase-4-variant-comparison')" title="Download this study's visualizations (figure panels + its composite) as a zip">↓ visualizations</button>
-    </div>
-    
 
     <div id="native-gallery-panel" class="figure-mount"><p class="empty-message">Loading figures…</p></div>
 
-    
-    
-    
-    <div class="figure-card embed-viz-card">
-      <iframe src="/v2ecoli/workbench/reports/figures/showcase-4-variant-comparison/units_atlas.html"
-              class="figure-media-frame figure-media-frame--embed"
-              loading="lazy" title="Units Atlas (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
-              ></iframe>
-      
-      <p class="figure-desc muted">Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range.</p>
-      
-      <div class="figure-caption-row">
-        <span class="figure-source-chip">embed</span>
-        <span class="figure-title">Units Atlas (interactive)</span>
-        
-        <a href="/v2ecoli/workbench/reports/figures/showcase-4-variant-comparison/units_atlas.html" target="_blank" class="figure-open-link">Open in new tab ↗</a>
-      </div>
-    </div>
     
     
 
@@ -1023,28 +973,6 @@ scripts/render_variant_comparison.py.</div>
 
   
   
-  
-  <div class="overview-section expectations-band" id="expectations-band">
-    <h3 class="section-title">Expectations
-      <span class="muted" style="font-size:0.85em;font-weight:normal">— from literature, mapped to the model observable that measures each</span>
-    </h3>
-    <ul class="literature-anchor-list" style="list-style:none;padding-left:0">
-    
-      
-      <li class="literature-anchor-card expectation-item">
-        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <span></span>
-          
-        </div>
-        <div class="anchor-observable">
-          <em>Model observable:</em> <code></code>
-        </div>
-        
-      </li>
-    
-    </ul>
-  </div>
-  
 
   
   
@@ -1058,7 +986,78 @@ scripts/render_variant_comparison.py.</div>
   
   
   <div class="report-cards-full-section" id="report-cards-full-section" style="margin-top:22px">
-    <section id="report-cards"><h2>Report cards</h2><p style="color:#475569;font-size:0.92em;margin:0 0 8px">The compiled output of this study’s Tests — per-test verdict and the change since the previous run.</p><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">tests &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></div><table style="width:100%;border-collapse:collapse;font-size:0.9em"><thead><tr style="text-align:left;color:#94a3b8;font-size:0.72em;text-transform:uppercase;letter-spacing:.04em"><th style="padding:5px 8px">Test</th><th style="padding:5px 8px">Verdict</th><th style="padding:5px 8px">Meter</th><th style="padding:5px 8px">Since last run</th></tr></thead><tbody><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">primary &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">ppgpp-off-perturbs-ppgpp-and-growth</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">in [1.5, 3.0]</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">dnaa-2x-shifts-replication-and-flux</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">in [0.15, 0.5]</td><td style="padding:6px 8px"></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">media-shifts-central-carbon-flux</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">in [0.4, 1.5]</td><td style="padding:6px 8px"></td></tr><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">negative control &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">elong-down-is-near-null-negative-control</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">in [-3.0, 3.0]</td><td style="padding:6px 8px"></td></tr></tbody></table><iframe scrolling="no" srcdoc="&lt;div style=&#x27;font-family:system-ui,sans-serif;max-width:900px&#x27;&gt;&lt;h2 style=&#x27;margin:0 0 2px&#x27;&gt;showcase-4-variant-comparison — default tests &lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ overall: within tol&lt;/span&gt;&lt;/h2&gt;&lt;div style=&#x27;color:#888;font-size:12px;margin-bottom:8px&#x27;&gt;reference: behavioral spec · measured: v2ecoli&lt;/div&gt;&lt;h3 style=&#x27;margin:14px 0 4px&#x27;&gt;Primary &lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/h3&gt;&lt;table style=&#x27;border-collapse:collapse;width:100%;font-size:13px&#x27;&gt;&lt;thead&gt;&lt;tr style=&#x27;text-align:left;color:#888&#x27;&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;axis&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;verdict&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;value&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;meter&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;ppgpp-off-perturbs-ppgpp-and-growth&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;&lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;font-variant-numeric:tabular-nums&#x27;&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;color:#555&#x27;&gt;in [1.5, 3.0]&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;dnaa-2x-shifts-replication-and-flux&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;&lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#757575;color:#fff;font-size:12px&#x27;&gt;– ungraded&lt;/span&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;font-variant-numeric:tabular-nums&#x27;&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;color:#555&#x27;&gt;in [0.15, 0.5]&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;media-shifts-central-carbon-flux&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;&lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;font-variant-numeric:tabular-nums&#x27;&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;color:#555&#x27;&gt;in [0.4, 1.5]&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;h3 style=&#x27;margin:14px 0 4px&#x27;&gt;Negative Control &lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/h3&gt;&lt;table style=&#x27;border-collapse:collapse;width:100%;font-size:13px&#x27;&gt;&lt;thead&gt;&lt;tr style=&#x27;text-align:left;color:#888&#x27;&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;axis&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;verdict&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;value&lt;/th&gt;&lt;th style=&#x27;padding:4px 10px&#x27;&gt;meter&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;elong-down-is-near-null-negative-control&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px&#x27;&gt;&lt;span style=&#x27;display:inline-block;padding:2px 8px;border-radius:10px;background:#1a7f37;color:#fff;font-size:12px&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;font-variant-numeric:tabular-nums&#x27;&gt;&lt;/td&gt;&lt;td style=&#x27;padding:4px 10px;color:#555&#x27;&gt;in [-3.0, 3.0]&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><script>(function(){function fit(f){try{var d=f.contentDocument;if(!d)return;var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);if(h>0)f.style.height=h+"px";}catch(e){}}document.querySelectorAll(".rc-iframe").forEach(function(f){f.addEventListener("load",function(){fit(f);[300,1200,2500].forEach(function(t){setTimeout(function(){fit(f);},t);});});});})();</script></section>
+    <section id="report-cards"><h2>Report cards</h2><p style="color:#475569;font-size:0.92em;margin:0 0 8px">The compiled output of this study’s Tests — per-test verdict and the change since the previous run.</p><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">genotype_build_integrity &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></div><table style="width:100%;border-collapse:collapse;font-size:0.9em"><thead><tr style="text-align:left;color:#94a3b8;font-size:0.72em;text-transform:uppercase;letter-spacing:.04em"><th style="padding:5px 8px">Test</th><th style="padding:5px 8px">Verdict</th><th style="padding:5px 8px">Meter</th><th style="padding:5px 8px">Since last run</th></tr></thead><tbody><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">genome &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Chromosome length matches the deleted span</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Two-branch round trip over genes, TUs and DNA sites: unchanged features byte-identical, straddling features exactly excised</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Every coordinate lies within 1..genome_length</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Downstream features shift exactly; upstream unmoved</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">knowledge base &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Exactly the deleted genes are tombstoned</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Deleted genes leave valid_gene_ids and all_mRNA_cistrons</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">pass</td><td style="padding:6px 8px"></td></tr><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">parca fit &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Fit completes on the perturbed genome</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">—</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Conditions fitted (len(cell_specs))</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">—</td><td style="padding:6px 8px"></td></tr></tbody></table><iframe scrolling="no" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;Genotype build integrity — knockout of EG10526 — report card&lt;/title&gt;&lt;style&gt;
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}
+*{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+header.top{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}
+header.top h1{margin:0;font-size:20px;font-weight:650} header.top .sub{margin-top:4px;color:#cbd5e1;font-size:13px}
+.obadge{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:999px;font-weight:700;background:#1a7f37;color:#fff}
+nav.sticky{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid var(--line);padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}
+nav.sticky a{text-decoration:none;color:var(--ink);font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+nav.sticky a:hover{background:var(--bg)}
+main{padding:24px 28px 64px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card&gt;.head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card&gt;.head h2{margin:0;font-size:16px;font-weight:620}
+.chips{display:flex;gap:7px;flex-wrap:wrap} .chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;color:#fff}
+table{border-collapse:collapse;width:100%} thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:9px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+tbody td{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;font-size:13px}
+.axhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .metric{font-weight:600}
+.badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}
+.how{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px} .crit{font-size:12px;margin-top:4px;color:#374151}
+.val{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%} .spread{color:var(--muted);font-size:11px;margin-top:2px}
+.meter{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}
+tbody td:first-child{min-width:420px}
+.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 #1a7f37} .verdict-drift td:first-child{box-shadow:inset 3px 0 0 #ef6c00}
+.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 #c62828} .verdict-ungraded td:first-child{box-shadow:inset 3px 0 0 #757575}
+details{margin-top:8px} summary{cursor:pointer;font-size:12px;color:#1f6feb} .plotwrap{margin-top:8px} .plotwrap svg{max-width:100%;height:auto}
+.fluxwrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap} .fluxwrap svg{flex:0 0 auto;max-width:420px}
+.ftbl{flex:1 1 100%;overflow-x:auto} .ftbl table{width:auto} .ftbl thead th{padding:5px 10px;font-size:10px}
+.ftbl tbody td{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px} .ftbl .fid{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.ftbl .fnum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}
+.ftbl tr.flux-appeared{background:#fdecea} .ftbl tr.flux-appeared .fid{color:#c62828;font-weight:600}
+.ftbl tr.flux-lost{background:#fff3e0} .ftbl tr.flux-lost .fid{color:#ef6c00;font-weight:600}
+.ftbl tr.flux-subfloor .fid{color:#9aa3af;font-style:italic}
+.ftnote{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}
+.omicswrap{display:flex;flex-direction:column;gap:14px} .omicswrap svg{max-width:400px}
+.otbl{width:100%}
+.otgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.otcol{min-width:0}
+.oth{font-size:11.5px;font-weight:600;margin-bottom:3px} .otn{color:var(--muted);font-weight:400}
+.otbl table{width:100%;table-layout:fixed} .otbl thead th{padding:4px 8px;font-size:9.5px}
+.otbl tbody td{padding:3px 8px;border-bottom:1px solid #f4f5f7;font-size:11px}
+.otbl th.ohgene,.ogene{width:auto} .otbl th.ohnum,.onum,.ofc{width:62px}
+.ogene{overflow:hidden} .ogene b{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.odesc{display:block;color:var(--muted);font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;color:#374151}
+.ofc{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;font-weight:600}
+.otmore,.otnone{color:var(--muted);font-size:10px;margin-top:3px} .otnone{font-style:italic}
+.ploterr{color:var(--muted);font-size:11px} dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0} dt{color:#cbd5e1}
+.var{font-size:11px;color:var(--muted);margin-top:4px} .var.varflag{color:#ef6c00;font-weight:600}
+.simhealth .shbody{padding:12px 18px;font-size:13.5px}
+.simhealth.ok{border-left:4px solid #1a7f37} .simhealth.ok .shbody{color:#14532d}
+.simhealth.warn{border-left:4px solid #ef6c00;background:#fff8f0} .simhealth.warn .shbody{color:#7c4a03}
+.stat-callout{border-left:4px solid #ef6c00} .stat-callout .statbody{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}
+.statbody code{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}
+.findings{margin:0;padding:14px 34px;color:#374151;font-size:13px} footer{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}
+.coverage{border-left:4px solid #6b7280} .covbody{padding:14px 18px}
+.cov-lede{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}
+.covlist{list-style:none;margin:0;padding:0} .covlist li{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}
+.cov-mark{font-weight:700;text-align:center} .cov-yes .cov-mark{color:#1a7f37} .cov-no .cov-mark{color:#b0b6bd}
+.cov-cat{font-weight:600;color:#1a1d21} .cov-no .cov-cat{color:#6b7280} .cov-detail{color:var(--muted)}
+.cov-tag{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}
+.cov-fit{color:#7c5a00;background:#fdf3da}
+.cov-invite{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;header class=&quot;top&quot;&gt;&lt;h1&gt;Genotype build integrity — knockout of EG10526 — report card&lt;/h1&gt;
+&lt;div class=&quot;sub&quot;&gt;model &lt;b&gt;v2ecoli ParCa (no fit)&lt;/b&gt; · reference ?&lt;/div&gt;
+&lt;div class=&quot;obadge&quot;&gt;PASS (partial) &amp;nbsp;·&amp;nbsp; 6 ✓ &amp;nbsp; 0 ≈ &amp;nbsp; 0 ✗ &amp;nbsp; 2 –&lt;/div&gt;&lt;/header&gt;
+&lt;nav class=&quot;sticky&quot;&gt;&lt;a href=&#x27;#genome&#x27;&gt;Genome&lt;/a&gt;&lt;a href=&#x27;#knowledge-base&#x27;&gt;Knowledge base&lt;/a&gt;&lt;a href=&#x27;#parca-fit&#x27;&gt;ParCa fit&lt;/a&gt;&lt;/nav&gt;
+&lt;main&gt;&lt;section class=&#x27;card&#x27; id=&#x27;genome&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Genome&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 4 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 0 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Chromosome length matches the deleted span&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Two-branch round trip over genes, TUs and DNA sites: unchanged features byte-identical, straddling features exactly excised&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Every coordinate lies within 1..genome_length&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Downstream features shift exactly; upstream unmoved&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;section class=&#x27;card&#x27; id=&#x27;knowledge-base&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Knowledge base&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 2 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 0 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Exactly the deleted genes are tombstoned&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Deleted genes leave valid_gene_ids and all_mRNA_cistrons&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; assertion holds&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;pass&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;section class=&#x27;card&#x27; id=&#x27;parca-fit&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;ParCa fit&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 0 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 2 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-ungraded&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Fit completes on the perturbed genome&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#757575&#x27;&gt;– ungraded&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; &lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;—&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;—&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-ungraded&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Conditions fitted (len(cell_specs))&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#757575&#x27;&gt;– ungraded&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; &lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;—&lt;div class=&#x27;spread&#x27;&gt;&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;—&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;/main&gt;
+&lt;footer&gt;Behavioral report card — see docs/report_cards/README.md for the index and how the cards compose.&lt;/footer&gt;
+&lt;/body&gt;&lt;/html&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><script>(function(){function fit(f){try{var d=f.contentDocument;if(!d)return;var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);if(h>0)f.style.height=h+"px";}catch(e){}}document.querySelectorAll(".rc-iframe").forEach(function(f){f.addEventListener("load",function(){fit(f);[300,1200,2500].forEach(function(t){setTimeout(function(){fit(f);},t);});});});})();</script></section>
   </div>
   
 
@@ -1091,36 +1090,29 @@ scripts/render_variant_comparison.py.</div>
     
     
     
-    <li class="expected-behavior-item" id="bt-ppgpp-off-perturbs-ppgpp-and-growth"
+    <li class="expected-behavior-item" id="bt-perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption"
         data-test-kind="behavioral"
         
-        data-pytest-node="ppgpp-off-perturbs-ppgpp-and-growth"
+        data-pytest-node="perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">ppgpp-off-perturbs-ppgpp-and-growth</strong>
+        <strong style="font-size: 0.9em;">perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does disabling ppGpp regulation measurably perturb the ppGpp pool and slow growth vs baseline?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: ppGpp-off mean ppGpp 120.6 vs baseline 64.8 = 1.86x (in [1.5, 3.0]); doubling time 61.6 vs 51.1 min (+10.5, slowest of all variants; only 2 generations reached). NOTE: the pool RISES (de-repression), it does not collapse — the trace climbs to ~230 by end-of-run.</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">After the deletion, is every retained coordinate-bearing feature&#39;s sequence exactly what it should be?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Ratio of the ppgpp-off mean ppGpp pool to baseline; pass if it moves substantially off 1.0 (direction-agnostic). Cross-checked against doubling time (expect slower).", "kind": "scorecard_delta", "metric": "mean ppGpp (ppgpp-off) / mean ppGpp (baseline)"}
-expect:  {"high": 3.0, "low": 1.5, "op": "in_range"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Two-branch round-trip over all coordinate-bearing features (genes, transcription units, DNA sites; ~12.8k on the real KB). Unchanged length \u21d2 sequence must be byte-identical to the wild-type read. Shrunk \u21d2 sequence must equal the wild-type read with exactly the deleted span excised. Report the count in each branch as well as the corruption count, so a pass cannot be vacuous - zero shrunk features means the second branch was never exercised and the target gene was a poor choice.", "kind": "derived"}
+expect:  {"op": "==", "value": 0}</pre>
       </details>
       
       
@@ -1135,36 +1127,29 @@ expect:  {"high": 3.0, "low": 1.5, "op": "in_range"}</pre>
     
     
     
-    <li class="expected-behavior-item" id="bt-dnaa-2x-shifts-replication-and-flux"
+    <li class="expected-behavior-item" id="bt-chromosome-length-changes-by-exactly-the-deleted-span"
         data-test-kind="behavioral"
         
-        data-pytest-node="dnaa-2x-shifts-replication-and-flux"
-        data-classification="primary"
-        data-result="PARTIAL"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+        data-pytest-node="chromosome-length-changes-by-exactly-the-deleted-span"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fde68a; color: #92400e">◐ partial</span>
-        <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">dnaa-2x-shifts-replication-and-flux</strong>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">chromosome-length-changes-by-exactly-the-deleted-span</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does the dnaA-2x knob shift replication initiation and/or the central-carbon flux match vs baseline?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Toya r drop 0.727 - 0.457 = 0.270 (in [0.15, 0.50]); re-initiation timing advances (oriC reaches 4 earlier, earlier 2nd-cycle re-init). BUT max oriC does NOT increase (both peak at 4), so the naive &#39;raises oriC count&#39; expectation fails — the contrast is in timing + flux, hence PARTIAL.</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does the genome shorten by exactly the gene&#39;s length, no more and no less?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Drop in the Toya-2010 central-carbon flux correlation under dnaA-2x (proxy for the metabolic shift), plus a qualitative check that oriC re-initiation timing advances. NOTE: max oriC does NOT increase (both peak at 4) so the naive \u0027raises oriC count\u0027 expectation FAILS; the contrast is in timing + flux.", "kind": "scorecard_delta", "metric": "Toya r (baseline) - Toya r (dnaA-2x)"}
-expect:  {"high": 0.5, "low": 0.15, "op": "in_range"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "len(wild_type.genome_sequence) - len(knockout.genome_sequence), against right_end_pos - left_end_pos + 1 for the target gene. Note this check is NOT sufficient on its own: an off-by-one splice preserves length exactly, which is why the round-trip test above is the primary and this is supporting.", "kind": "derived"}
+expect:  {"op": "==", "value": 0}</pre>
       </details>
       
       
@@ -1179,36 +1164,29 @@ expect:  {"high": 0.5, "low": 0.15, "op": "in_range"}</pre>
     
     
     
-    <li class="expected-behavior-item" id="bt-elong-down-is-near-null-negative-control"
+    <li class="expected-behavior-item" id="bt-all-coordinates-stay-within-the-shortened-chromosome"
         data-test-kind="behavioral"
         
-        data-pytest-node="elong-down-is-near-null-negative-control"
-        data-classification="negative_control"
-        data-result="PASS"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #cbd5e1; background: #f8fafc; border-radius: 4px;">
+        data-pytest-node="all-coordinates-stay-within-the-shortened-chromosome"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
-        <span class="classification-pill classification-negative_control">negative_control</span>
-        <strong style="font-size: 0.9em;">elong-down-is-near-null-negative-control</strong>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">all-coordinates-stay-within-the-shortened-chromosome</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Is the 0.7x ribosome elongation-rate cut a near-null on growth (doubling time within ±3 min of baseline), i.e. a clean negative control rather than a contrast?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: NEGATIVE CONTROL passes: doubling-time delta 49.3 - 51.1 = -1.8 min, within ±3 min of baseline = near-null. The pre-run slowdown hypothesis (expected +3..+30 min) was DISPROVEN — the 22-&gt;15.4 aa/s cut does NOT slow growth; mass / proteome / replication stay ~baseline. Steady-state charging + variable elongation compensate at 0.7x. The informative null seeds showcase-5 candidate D (a wider translation-rate sweep to find where compensation breaks).</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does every surviving feature satisfy 1 &lt;= left &lt;= right &lt;= genome_length after the shift?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Cap-immune doubling-time delta under elong-down. The pre-run hypothesis (slower translation -\u003e +3..+30 min) did NOT hold; measured -1.8 min (49.3 - 51.1), within \u00b13 min of baseline = near-null. Compensated by steady-state charging + variable elongation.", "kind": "scorecard_delta", "metric": "doubling time (elong-down) - doubling time (baseline)"}
-expect:  {"high": 3.0, "low": -3.0, "op": "in_range"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Count features violating the bound, across genes, transcription units and DNA sites. Catches a shift applied in the wrong direction or to the wrong side of the cut.", "kind": "derived"}
+expect:  {"op": "==", "value": 0}</pre>
       </details>
       
       
@@ -1223,36 +1201,66 @@ expect:  {"high": 3.0, "low": -3.0, "op": "in_range"}</pre>
     
     
     
-    <li class="expected-behavior-item" id="bt-media-shifts-central-carbon-flux"
+    <li class="expected-behavior-item" id="bt-deleted-gene-is-functionally-absent-from-sim_data"
         data-test-kind="behavioral"
         
-        data-pytest-node="media-shifts-central-carbon-flux"
+        data-pytest-node="deleted-gene-is-functionally-absent-from-sim_data"
         data-classification="primary"
-        data-result="PASS"
+        data-result="pending"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #d1fae5; color: #065f46">✓ PASS</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
         <span class="classification-pill classification-primary">primary</span>
-        <strong style="font-size: 0.9em;">media-shifts-central-carbon-flux</strong>
+        <strong style="font-size: 0.9em;">deleted-gene-is-functionally-absent-from-sim_data</strong>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Does the succinate media change shift the central-carbon flux distribution (decorrelate from glucose-grown Toya-2010) and slow growth?</div>
-      
-      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
-        <strong>Latest result:</strong>
-        
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Toya r drop 0.727 - (-0.058) = 0.785 (in [0.40, 1.50]) — the central-carbon flux decorrelates from glucose-grown Toya-2010; largest shifts on TCA / succinate-entry reactions. Cross-checks: dry mass halved (271 vs 492 fg), never multiforks (max oriC 2 vs 4), protein fraction up to 0.532. Strongest contrast of the sweep.</code>
-        
-      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Is the gene excluded from the transcribed and translated sets, rather than still being expressed at some level?</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Drop in the Toya-2010 central-carbon flux correlation under succinate (0.727 -\u003e -0.058 = 0.785 drop). Cross-checked against dry mass (halved) and max oriC (2 vs 4).", "kind": "scorecard_delta", "metric": "Toya r (baseline) - Toya r (media-succinate)"}
-expect:  {"high": 1.5, "low": 0.4, "op": "in_range"}</pre>
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Membership of the deleted gene in the two sets the knowledge base uses to mean \"on the chromosome\": valid_gene_ids (getter_functions.py, genes with positions that are not pseudogenes/phantom genes) and all_mRNA_cistrons (translation.py). Expect exclusion from both.\n\u2605 NOT id-absence. The knockout TOMBSTONES the deleted gene - it nulls the coordinates and keeps the row - so the gene id legitimately persists in `genes` and in sim_data.process.replication.gene_data. An axis asserting the id appears nowhere would FAIL ON CORRECT BEHAVIOUR, which is the mirror image of a vacuous test and just as useless.\nThe tombstone is the KB\u0027s existing vocabulary for \"not on the chromosome\" - 21 of 4,747 shipped genes are permanently in that state - and both sets above already filter on exactly that null-coordinate check. Removing the row instead would leave a dangling cistron, since the deletion does not touch rnas/proteins.\nFunctional absence is also the claim that actually distinguishes this from a translation-level knockout, which leaves the gene transcribed and consuming RNAP capacity. So this axis now tests the mechanism rather than a proxy for it.", "kind": "derived"}
+expect:  {"op": "==", "value": 0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-parca-fit-completes-and-fitted-parameters-stay-in-range"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="parca-fit-completes-and-fitted-parameters-stay-in-range"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">parca-fit-completes-and-fitted-parameters-stay-in-range</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Does the fit converge on the perturbed genome, and do its fitted parameters - the mechanistic amino-acid supply kcats in particular - stay in a plausible range?</div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"detail": "Condition count fitted, cache-bundle artifact presence, and the fitted AA-supply kcats against their wild-type values. RFC-007 flags ParCa-level changes as interacting with mechanistic amino-acid supply parameter fitting, and Riley identified this as the specific un-stress-tested area; genotype-03 probes it with AA-pathway genes, and this axis is the general build-time detector. A non-converging fit is RECORDED as the outcome, not treated as a broken study - for an essential gene it may be the correct answer.\nCount fitted conditions as len(cell_specs), NOT len(conditions). Measured 2026-08-13 on main @ 60f3e4b8: a fast-mode build has conditions = 51 but cell_specs = 7 (basal, with_aa, acetate, succinate, no_oxygen, and the two CPLX-125 arms). `conditions` is the full condition LIST and reads 51 in both modes, so an axis implemented against it would pass at 51 on a fast build and never discriminate. cell_specs holds the conditions actually fitted, which is the quantity this axis means.\nMode is therefore load-bearing and must be recorded with any result from this axis. See the run-mode limitation below.", "kind": "derived"}
+expect:  {"op": "in_range"}</pre>
       </details>
       
       
@@ -1362,38 +1370,6 @@ expect:  {"high": 1.5, "low": 0.4, "op": "in_range"}</pre>
     
     
     
-    
-    <div class="decide-section" style="margin-top:18px">
-      <h3 class="overview-label">Conclusion logic — gate decision</h3>
-      
-      <div style="padding:10px 14px;background:#f0fdf4;border-left:4px solid #10b981;border-radius:4px;margin-bottom:8px">
-        <strong>✓ If primary tests pass:</strong>
-        
-        
-        <div style="margin-top:4px"><em>Empirical validation:</em> Three of four levers move the cell off baseline in mechanistically-interpretable ways; the fourth is a clean, informative negative control. The ppGpp-off de-repression is the most scientifically informative surprise.</div>
-        
-        
-        <div style="margin-top:4px"><em>Pipeline unblocks:</em>
-          <ul style="margin:4px 0 0 18px"><li>showcase-5-next-direction-decide</li></ul>
-        </div>
-        
-      </div>
-      
-      
-      <div style="padding:10px 14px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">
-        <strong>✗ If primary tests fail:</strong>
-        
-        <div style="margin-top:4px"><em>Diagnose:</em>
-          <ul style="margin:4px 0 0 18px"><li>no ppGpp perturbation under ppgpp-off</li><li>no Toya-r shift under dnaA-2x or media</li><li>baseline reference off-band</li></ul>
-        </div>
-        
-        
-        <div style="margin-top:4px"><em>Block downstream:</em> True</div>
-        
-      </div>
-      
-    </div>
-    
 
     
     
@@ -1406,36 +1382,25 @@ expect:  {"high": 1.5, "low": 0.4, "op": "in_range"}</pre>
   <div class="overview-section"><h2 class="overview-label">Plan &amp; assumptions</h2>
 
     
-    <div class="overview-section">
-      <h3 class="overview-label">Pipeline gate</h3>
-      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
-        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
-      </p>
-      
-      <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
-      
-      
-      
-    </div>
-    
 
     
     <div class="overview-section">
       <h3 class="overview-label">Key assumptions</h3>
       <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
-        <li style="margin:2px 0">The showcase-2 wild-type baseline (variant 0) is validated, so each
-variant&#39;s delta is a clean contrast against a trusted reference.
-</li><li style="margin:2px 0">The four perturbations are the four candidates proposed in showcase-3
-(ppGpp-off, dnaA knob, elongation-rate sweep point, media change); running
-all four resolves the showcase-3 reviewer decision empirically.
-</li><li style="margin:2px 0">monomer_counts is the corrected SET listener (#185, overwrite[monomer_counts_vec])
-so each row carries the instantaneous proteome (not an accumulating sum);
-the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
-</li>
+        <li style="margin:2px 0">A ParCa build is deterministic given its inputs, so the same genotype bundle reconstructs to the same sim_data. This is what lets a manifest hash serve as the genotype identity and lets builds be cached rather than repeated.</li><li style="margin:2px 0">★ The round-trip invariant must be TWO-BRANCH, and the obvious one-branch form is vacuous for the defect it most needs to catch. &#34;Every retained feature&#39;s sequence is unchanged&#34; is wrong twice: features straddling the deletion are SUPPOSED to lose those bases, and once that is relaxed the check still cannot see an off-by-one splice, because an off-by-one preserves every length. The working form asserts byte-identity only for features whose length is unchanged, and for shrunk features asserts the sequence equals the original with exactly the deleted span excised.</li><li style="margin:2px 0">Coordinates in the EcoCyc-derived flat files are 1-based INCLUSIVE - a feature spanning [L, R] occupies genome_sequence[L-1:R]. Verified two ways: getter_functions.py:194 slices exactly that way, and of 174 &#39;+&#39;-strand genes 157 start with ATG under that reading versus 0 under the 0-based one. Load-bearing, because feature LENGTHS stay correct under an off-by-one while the sequence silently shifts.</li><li style="margin:2px 0">A knockout that fails to build is a RESULT, not a failed study. For an essential gene the ParCa fit may not converge at all, which is a legitimate and informative outcome qualitatively unlike the translation-level knockout&#39;s. The tests below are written so that a non-converging fit is recorded rather than treated as infrastructure failure.</li>
       </ul>
     </div>
     
 
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Limitations</h3>
+      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">Establishes that the build is internally consistent, NOT that the resulting physiology is sensible. Everything about how the cell behaves is downstream and belongs to studies 01-06.</li><li style="margin:2px 0">A single-genotype build integrity check does not establish the transform is correct in general. Genome-wide confidence needs the panel, and ultimately the tranche-B runner.</li><li style="margin:2px 0">The AA-kcat axis has no band yet, so it is a recorded observation rather than a graded criterion on the first pass.</li><li style="margin:2px 0">Run mode is load-bearing and the two tiers answer different questions. A fast-mode build (~104 s measured) fits 7 of 51 conditions and is sufficient for the structural readouts - sequence round-trip, chromosome length, feature inventory, and deleted-gene set membership were all measured on one. A full-mode build (several hours, per docs/generate_full_parca.md) fits all conditions and is required before any claim about FITTED PARAMETER VALUES, because the CLI&#39;s own --allow-partial-fit help flags step 9&#39;s mechanistic fits as failing on &#34;numerically-marginal kinetics (e.g. debug mode&#39;s truncated TF set)&#34; - the exact regime a fast build is in. So fast-mode kcat magnitudes are not trustworthy and must not be graded.
+The practical consequence is that this study can screen a genotype panel cheaply in fast mode and reserve full-mode builds for genotypes advancing to physiology. That is what makes a panel or a genome-wide screen tractable at all: the alternative prices every genotype at hours.</li>
+      </ul>
+    </div>
     
 
   </div>
@@ -1459,14 +1424,6 @@ the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
       
       
       
-      <p class="muted" style="margin:0;font-size:0.9em">
-        <strong>4</strong> test outcomes
-        — <span style="color:#065f46;font-weight:600">3 PASS</span> ·
-        <span style="color:#991b1b;font-weight:600">0 FAIL</span> · <span style="color:#92400e;font-weight:600">1 partial</span>.
-        Per-test outcomes (measured value · evaluator · band) are canonical on the
-        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
-      </p>
-      
     </div>
     
     
@@ -1480,90 +1437,6 @@ the proteome_delta / scorecard Schmidt/Wisniewski correlations rely on this.
     
 
     
-    
-    
-    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
-      <h3 class="overview-label">Discovery implications</h3>
-      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
-
-      
-      <div class="di-uncertainties">
-        
-        <div class="di-unc di-unc-resolved">
-          <h4>✓ Resolved uncertainties</h4>
-          <ul><li>showcase-3&#39;s open reviewer decision is resolved empirically: all four candidate perturbations were run as a 5-variant sweep, and the media / condition change is the most demonstrative single perturbation (moves the cell off baseline on mass, replication, composition, and central-carbon flux simultaneously).</li><li>ppGpp-off does NOT collapse the ppGpp pool — it de-represses it (mean ppGpp 64.8 -&gt; 120.6, 1.86x; trace climbs to ~230). Disabling ppGpp *regulation* removes the feedback the allocation reads but not ppGpp *synthesis*. Growth slows the most (doubling +10.5 min, only 2 gens).</li><li>dnaA-2x advances replication re-initiation TIMING and degrades the central-carbon flux match (Toya r 0.727 -&gt; 0.457) but does NOT raise the discrete max oriC ceiling (both peak at 4).</li><li>media-succinate&#39;s central-carbon FBA flux decorrelates from the glucose-grown Toya-2010 measurements (Toya r collapses to -0.058), with the largest flux shifts on the TCA / succinate-entry reactions — a clean carbon-source signature.</li></ul>
-        </div>
-        
-        
-        <div class="di-unc di-unc-remaining">
-          <h4>● Remaining uncertainties</h4>
-          <ul><li>elong-down is a near-null at the 0.7x magnitude (doubling 49.3 vs 51.1 min) — the steady-state charging + variable-elongation machinery appears to compensate. Whether a larger cut (e.g. 0.4-0.5x) or a different translation knob produces a graded slowdown is open.</li><li>The proteome is the least discriminating axis: all variants stay at Schmidt r 0.70-0.74 / Wisniewski ~0.61. Whether a coarser-grained or pathway-resolved proteome readout would separate the variants is open.</li><li>tRNA charged fraction is pinned at ~0.97 across every variant including ppgpp-off and elong-down — the charging model may be insensitive to these levers, or the readout saturates.</li></ul>
-        </div>
-        
-      </div>
-      
-
-      
-
-      
-
-      
-      
-      
-      <div class="di-group">
-        <h3>Follow-up study proposals
-          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
-          <span class="muted" style="font-weight:normal;font-size:0.85em">(2)</span></h3>
-        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
-        <div class="followup-list">
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">Deepen the strongest contrast — media / growth-condition response (dose of carbon sources)</strong>
-              <span class="di-chip">condition-sweep</span>
-              <span class="di-chip">showcase-4-strongest-contrast</span>
-              <span class="di-chip di-gain-high">gain: high</span>
-              
-            </div>
-            <div class="di-card-why">Run a small panel of growth conditions (e.g. glucose, succinate, acetate,
-glycerol, +amino-acids), each with its own full ParCa cache, and chart the
-growth rate / central-carbon flux (Toya-r) / mass-composition response as a
-function of carbon source. Builds directly on media-succinate, the
-strongest showcase-4 contrast.
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-4-variant-comparison', "deepen-media-growth-condition-response")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-          
-          <div class="di-card di-fup-card">
-            <div class="followup-header">
-              <strong class="followup-title">Chase the ppGpp-off surprise — why does the pool rise, not collapse?</strong>
-              <span class="di-chip">mechanism-probe</span>
-              <span class="di-chip">showcase-4-counterintuitive-result</span>
-              <span class="di-chip di-gain-high">gain: high</span>
-              
-            </div>
-            <div class="di-card-why">Decompose the ppGpp-off result: separate ppGpp *synthesis* (RelA/SpoT)
-from the *regulatory* coupling, and test whether toggling synthesis vs
-regulation independently reproduces the rise. Adds a synthesis-off /
-regulation-off 2x2 to confirm the de-repression mechanism.
-</div>
-            
-            <div class="followup-actions" style="margin-top:8px">
-              <button class="btn-seed-followup"
-                      onclick="_seedFollowupProposal('showcase-4-variant-comparison', "chase-ppgpp-off-de-repression")">➕ Add to investigation</button>
-            </div>
-          </div>
-          
-        </div>
-      </div>
-      
-    </div>
     
 
     
@@ -1582,7 +1455,7 @@ regulation-off 2x2 to confirm the de-repression mechanism.
 <script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
-window._studyName = "showcase-4-variant-comparison";
+window._studyName = "genotype-00-build-integrity";
 window._study = null;  // populated by _bootstrapStudy() in study-detail.js
 
 // Save handler for the Conditions → Model settings editable rows.

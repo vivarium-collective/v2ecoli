@@ -167,6 +167,8 @@
     <div class="act-tabs">
       <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
       <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
     </div>
   </div>
   <div class="act-cluster" data-act="evidence">
@@ -175,7 +177,9 @@
       <span class="act-label">Evidence</span>
     </div>
     <div class="act-tabs">
-      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
       <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
     </div>
   </div>
@@ -186,6 +190,9 @@
     </div>
     <div class="act-tabs">
       <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
     </div>
   </div>
   <div class="act-cluster" data-act="decision">
@@ -427,24 +434,30 @@
 
     
     
-    <h2 class="overview-label">Question &amp; approach</h2>
     
-    <div class="overview-section">
-      
-      <div class="purpose-callout" style="background:#eff6ff;border-left:4px solid #3b82f6">
-        <strong>Question.</strong> Is v2ecoli statistically equivalent to vEcoli on basal across 4 seeds?
-      </div>
-      
-      
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">Is v2ecoli statistically equivalent to vEcoli on basal across 4 seeds?</p>
       
     </div>
-    
 
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text"></p>
+      
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>statistical</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">config-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">statistical-vs-vecoli</span></div>
+      </div>
+      
+    </div>
 
-    
-    
-    
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text">v2ecoli is statistically equivalent to vEcoli on basal across 4 seeds: all 5 observables within tolerance.</p>
+      
+      
     <div class="overview-section findings-section">
       <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
       
@@ -490,111 +503,22 @@
       
     </div>
     
-
-    
-    
-    <div class="overview-section" id="epistemic-debts-panel">
-      <h2 class="overview-label">🧾 Open epistemic debts
-        <span class="narrative-card-hint">(what this study has not yet established)</span>
-      </h2>
-      <div style="border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+      
+      
+      
+      <div class="ctr-meta ctr-assess">
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">alternative-not-excluded</strong>
-            <code style="font-size:0.82em">alternatives</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no alternative hypotheses declared</div>
-          </div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Confidence</span>
+          <span class="ctr-badge ctr-badge-accepted">Accepted</span>
+          
+          
         </div>
         
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">falsifiability</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">criteria read as tailored-to-succeed — add a falsifiability note (study.falsifiability)</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fee2e2;color:#991b1b;font-weight:600;font-size:0.72em;white-space:nowrap">high</span>
-          <div>
-            <strong style="color:#1e293b">control-absent</strong>
-            <code style="font-size:0.82em">negative_control</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">no controls — declare a system that SHOULD fail the criteria (externally-maintained / -supplied) plus a clearly-passing / borderline case so the metric is calibrated, not just asserted</div>
-          </div>
-        </div>
-        
-        
-        
-        
-        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 12px;border-top:1px solid #f1f5f9">
-          <span style="padding:1px 8px;border-radius:9999px;background:#fef9c3;color:#854d0e;font-weight:600;font-size:0.72em;white-space:nowrap">medium</span>
-          <div>
-            <strong style="color:#1e293b">claim-untested</strong>
-            <code style="font-size:0.82em">replication</code>
-            <div style="color:#475569;font-size:0.9em;margin-top:1px">only 2 replicates — add seeds for a robustness claim</div>
-          </div>
-        </div>
         
       </div>
-    </div>
-    
-
-    
-    
-    <div class="overview-section conclusion-block">
-      <h2 class="overview-label">Conclusion</h2>
       
-      <p class="conclusion-insight">v2ecoli is statistically equivalent to vEcoli on basal across 4 seeds: all 5 observables within tolerance.<span class="computed-tag">computed from findings</span></p>
-      
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.conclusion">+ Add conclusion</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.conclusion">
-        <span class="narrative-label">Conclusion</span>
-        <textarea class="narrative-input narrative-textarea" rows="3"
-                  data-narrative-path="report.conclusion" placeholder="What the runs + tests demonstrated."></textarea>
-      </label>
-    </div>
-    
-      
-    <div class="narrative-field">
-      <button type="button" class="add-field-btn" data-reveal-field="report.caveat">+ Add caveat</button>
-      <label class="narrative-row narrative-row-wide is-hidden" data-field-editor="report.caveat">
-        <span class="narrative-label">Caveat</span>
-        <textarea class="narrative-input narrative-textarea" rows="2"
-                  data-narrative-path="report.caveat" placeholder="The headline limitation a reviewer needs to know."></textarea>
-      </label>
-    </div>
-    
-      <div class="conclusion-tags">
-        <label class="tag-control"><span class="tag-k">confidence</span>
-          <select class="narrative-input tag-select" data-narrative-path="report.confidence">
-            <option value="">—</option>
-            <option value="high" >high</option>
-            <option value="medium" >medium</option>
-            <option value="low" >low</option>
-          </select></label>
-        <label class="tag-control"><span class="tag-k">evidence</span>
-          <input type="text" class="narrative-input tag-input" data-narrative-path="report.evidence_quality"
-                 value="" placeholder="calibrated | literature-matched | …"></label>
-      </div>
     </div>
 
-    
-
-    
     <div id="feedback-tracked-panel"></div>
 
   </div>
@@ -608,6 +532,12 @@
     
     <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'statistical', 'whole-cell-model-comparison')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
   </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="statistical">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
   
   
   
@@ -677,13 +607,6 @@
   
   
 
-  
-  <div class="overview-section" id="analyses-section" style="margin-top:22px">
-    <h3 class="section-title">Analyses <span class="muted" style="font-size:0.85em;font-weight:normal">— post-run analysis modules to compute on dispatch</span></h3>
-    <textarea id="study-analyses-list" rows="3" style="width:100%;font-family:monospace;font-size:0.88em" placeholder="doubling_time_distribution"></textarea>
-    <button type="button" class="action-btn" style="margin-top:6px" onclick="_saveStudyAnalyses()">Save analyses</button>
-    <div id="study-analyses-status" class="muted" style="font-size:0.85em;margin-top:4px"></div>
-  </div>
 
 </section>
 
@@ -697,21 +620,22 @@
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
+</section>
 
-<div class="overview-section" id="study-artifacts-section" style="margin-top:18px">
-  <h3 class="section-title" style="margin:0 0 10px 0">Study artifacts</h3>
 
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
-    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
-    <a id="data-download-all" class="btn-mini" style="display:none"
-       href="/api/study-analysis-zip?study=statistical">Download all (.zip)</a>
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="statistical">
+    <p class="empty-message">Loading results preview…</p>
   </div>
-  <div id="data-files" data-study="statistical">
-    <p class="empty-message">Loading result files…</p>
-  </div>
 
-  
-  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:18px">
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
     <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
     <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
             onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
@@ -721,18 +645,61 @@
 
 </section>
 
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=statistical">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="statistical">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
 <section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
   <div class="observables-section">
     <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
       <h3 class="section-title" style="margin-right:auto">Readouts</h3>
     </div>
-    <p class="muted">Quantities collected from each simulation run. Each row is an emitter <code>store_path</code> the composite will save; authored entries in <code>study.yaml</code> add names, descriptions, and units on top.</p>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="statistical">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
 
     
     <div id="readouts-download" style="margin:0 0 16px 0"></div>
 
     <div id="readouts-table" data-study="statistical">
       <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="statistical">
+      <p class="empty-message">Loading output shapes…</p>
     </div>
 
     
@@ -773,19 +740,92 @@
   <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
 
   
-  <div class="checks-band" style="margin-top:22px">
-    <h3 class="section-title" style="margin-bottom:8px">Checks</h3>
 
-    
-    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality">
-      <p class="empty-message">Loading quality checks…</p>
-    </div>
-
-    
-    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
-      <p class="empty-message">Loading reproducibility checks…</p>
-    </div>
+  
+  
+  <div class="report-cards-full-section" id="report-cards-full-section" style="margin-top:22px">
+    <section id="report-cards"><h2>Report cards</h2><p style="color:#475569;font-size:0.92em;margin:0 0 8px">The compiled output of this study’s Tests — per-test verdict and the change since the previous run.</p><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">config &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></div><iframe scrolling="no" srcdoc="&lt;p&gt;vEcoli config driving the &lt;b&gt;statistical&lt;/b&gt; run (config = source of truth for the run shape).&lt;/p&gt;&lt;table style=&quot;border-collapse:collapse;font-size:13px&quot;&gt;&lt;tr&gt;&lt;td style=&quot;padding:2px 12px 2px 0;color:#6b7280&quot;&gt;condition&lt;/td&gt;&lt;td style=&quot;font-family:monospace&quot;&gt;basal&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&quot;padding:2px 12px 2px 0;color:#6b7280&quot;&gt;seeds (n_init_sims)&lt;/td&gt;&lt;td style=&quot;font-family:monospace&quot;&gt;4&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&quot;padding:2px 12px 2px 0;color:#6b7280&quot;&gt;generations&lt;/td&gt;&lt;td style=&quot;font-family:monospace&quot;&gt;4&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&quot;padding:2px 12px 2px 0;color:#6b7280&quot;&gt;cards&lt;/td&gt;&lt;td style=&quot;font-family:monospace&quot;&gt;config, statistical&lt;/td&gt;&lt;/tr&gt;&lt;tr&gt;&lt;td style=&quot;padding:2px 12px 2px 0;color:#6b7280&quot;&gt;seeds&lt;/td&gt;&lt;td style=&quot;font-family:monospace&quot;&gt;4&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;details open style=&quot;margin-top:8px&quot;&gt;&lt;summary style=&quot;cursor:pointer;color:#374151;font-weight:600&quot;&gt;full JSON config&lt;/summary&gt;&lt;pre style=&quot;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:10px;font-size:12px;line-height:1.4;max-height:380px;overflow:auto;white-space:pre&quot;&gt;{
+  &amp;quot;cards&amp;quot;: [
+    &amp;quot;config&amp;quot;,
+    &amp;quot;statistical&amp;quot;
+  ],
+  &amp;quot;condition&amp;quot;: &amp;quot;basal&amp;quot;,
+  &amp;quot;generations&amp;quot;: 4,
+  &amp;quot;seeds&amp;quot;: 4
+}&lt;/pre&gt;&lt;/details&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><div style="border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;margin:0 0 12px"><div style="padding:7px 10px;background:#f1f5f9;border-bottom:1px solid #e2e8f0;font-weight:600;color:#0f172a">statistical &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></div><table style="width:100%;border-collapse:collapse;font-size:0.9em"><thead><tr style="text-align:left;color:#94a3b8;font-size:0.72em;text-transform:uppercase;letter-spacing:.04em"><th style="padding:5px 8px">Test</th><th style="padding:5px 8px">Verdict</th><th style="padding:5px 8px">Meter</th><th style="padding:5px 8px">Since last run</th></tr></thead><tbody><tr><td colspan="4" style="padding:7px 8px 3px;font-size:0.76em;text-transform:uppercase;letter-spacing:.04em;color:#64748b">statistical &nbsp; <span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Cell mass</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">Δ = -0.4% · p = 0.921 · d = -0.07</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Growth rate</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">Δ = -0.3% · p = 0.931 · d = -0.06</td><td style="padding:6px 8px"></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Dry mass</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">Δ = -0.4% · p = 0.921 · d = -0.07</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Protein mass</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">Δ = -0.1% · p = 0.987 · d = -0.01</td><td style="padding:6px 8px"></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">RNA mass</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#16a34a;color:#fff;font-size:0.8em;white-space:nowrap">✓ within tol</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">Δ = -0.7% · p = 0.871 · d = -0.12</td><td style="padding:6px 8px"></td></tr><tr style="background:#f8fafc;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Active ribosome</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">—</td><td style="padding:6px 8px"></td></tr><tr style="background:#ffffff;border-top:1px solid #eef2f7"><td style="padding:6px 8px">Active RNAP</td><td style="padding:6px 8px"><span style="display:inline-block;padding:1px 7px;border-radius:9px;background:#6b7280;color:#fff;font-size:0.8em;white-space:nowrap">– ungraded</span></td><td style="padding:6px 8px;color:#475569;font-size:0.85em">—</td><td style="padding:6px 8px"></td></tr></tbody></table><iframe scrolling="no" srcdoc="&lt;!doctype html&gt;&lt;html lang=&quot;en&quot;&gt;&lt;head&gt;&lt;meta charset=&quot;utf-8&quot;&gt;
+&lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1&quot;&gt;
+&lt;title&gt;vEcoli ↔ v2ecoli statistical equivalence — report card&lt;/title&gt;&lt;style&gt;
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1a1d21;--muted:#6b7280;--line:#e5e7eb;}
+*{box-sizing:border-box} body{font-family:-apple-system,BlinkMacSystemFont,&quot;Segoe UI&quot;,sans-serif;margin:0;background:var(--bg);color:var(--ink);line-height:1.45}
+header.top{background:linear-gradient(135deg,#1f2937,#111827);color:#fff;padding:22px 28px}
+header.top h1{margin:0;font-size:20px;font-weight:650} header.top .sub{margin-top:4px;color:#cbd5e1;font-size:13px}
+.obadge{display:inline-block;margin-top:12px;padding:4px 12px;border-radius:999px;font-weight:700;background:#1a7f37;color:#fff}
+nav.sticky{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.95);backdrop-filter:saturate(1.4) blur(6px);border-bottom:1px solid var(--line);padding:10px 28px;display:flex;gap:8px;flex-wrap:wrap}
+nav.sticky a{text-decoration:none;color:var(--ink);font-size:13px;padding:5px 10px;border-radius:999px;border:1px solid var(--line)}
+nav.sticky a:hover{background:var(--bg)}
+main{padding:24px 28px 64px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin:0 0 22px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.card&gt;.head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.card&gt;.head h2{margin:0;font-size:16px;font-weight:620}
+.chips{display:flex;gap:7px;flex-wrap:wrap} .chip{font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;color:#fff}
+table{border-collapse:collapse;width:100%} thead th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:9px 18px;border-bottom:1px solid var(--line);background:#fafbfc}
+tbody td{padding:11px 18px;border-bottom:1px solid #f1f3f5;vertical-align:top;font-size:13px}
+.axhd{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .metric{font-weight:600}
+.badge{font-size:10.5px;font-weight:700;padding:2px 7px;border-radius:6px;color:#fff;white-space:nowrap}
+.how{color:var(--muted);font-size:11.5px;margin-top:4px;max-width:560px} .crit{font-size:12px;margin-top:4px;color:#374151}
+.val{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:13px;color:#374151;white-space:nowrap;width:1%} .spread{color:var(--muted);font-size:11px;margin-top:2px}
+.meter{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted);white-space:nowrap;width:1%}
+tbody td:first-child{min-width:420px}
+.verdict-within_tol td:first-child{box-shadow:inset 3px 0 0 #1a7f37} .verdict-drift td:first-child{box-shadow:inset 3px 0 0 #ef6c00}
+.verdict-mismatch td:first-child{box-shadow:inset 3px 0 0 #c62828} .verdict-ungraded td:first-child{box-shadow:inset 3px 0 0 #757575}
+details{margin-top:8px} summary{cursor:pointer;font-size:12px;color:#1f6feb} .plotwrap{margin-top:8px} .plotwrap svg{max-width:100%;height:auto}
+.fluxwrap{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap} .fluxwrap svg{flex:0 0 auto;max-width:420px}
+.ftbl{flex:1 1 100%;overflow-x:auto} .ftbl table{width:auto} .ftbl thead th{padding:5px 10px;font-size:10px}
+.ftbl tbody td{padding:4px 10px;border-bottom:1px solid #f1f3f5;font-size:11.5px} .ftbl .fid{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.ftbl .fnum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap}
+.ftbl tr.flux-appeared{background:#fdecea} .ftbl tr.flux-appeared .fid{color:#c62828;font-weight:600}
+.ftbl tr.flux-lost{background:#fff3e0} .ftbl tr.flux-lost .fid{color:#ef6c00;font-weight:600}
+.ftbl tr.flux-subfloor .fid{color:#9aa3af;font-style:italic}
+.ftnote{color:var(--muted);font-size:10.5px;margin-top:6px;max-width:340px;line-height:1.35}
+.omicswrap{display:flex;flex-direction:column;gap:14px} .omicswrap svg{max-width:400px}
+.otbl{width:100%}
+.otgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.otcol{min-width:0}
+.oth{font-size:11.5px;font-weight:600;margin-bottom:3px} .otn{color:var(--muted);font-weight:400}
+.otbl table{width:100%;table-layout:fixed} .otbl thead th{padding:4px 8px;font-size:9.5px}
+.otbl tbody td{padding:3px 8px;border-bottom:1px solid #f4f5f7;font-size:11px}
+.otbl th.ohgene,.ogene{width:auto} .otbl th.ohnum,.onum,.ofc{width:62px}
+.ogene{overflow:hidden} .ogene b{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;font-size:11px}
+.odesc{display:block;color:var(--muted);font-size:9.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.onum{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;color:#374151}
+.ofc{font-family:&quot;SF Mono&quot;,ui-monospace,Menlo,monospace;text-align:right;white-space:nowrap;font-weight:600}
+.otmore,.otnone{color:var(--muted);font-size:10px;margin-top:3px} .otnone{font-style:italic}
+.ploterr{color:var(--muted);font-size:11px} dl{display:grid;grid-template-columns:max-content 1fr;gap:.2rem 1rem;margin:0} dt{color:#cbd5e1}
+.var{font-size:11px;color:var(--muted);margin-top:4px} .var.varflag{color:#ef6c00;font-weight:600}
+.simhealth .shbody{padding:12px 18px;font-size:13.5px}
+.simhealth.ok{border-left:4px solid #1a7f37} .simhealth.ok .shbody{color:#14532d}
+.simhealth.warn{border-left:4px solid #ef6c00;background:#fff8f0} .simhealth.warn .shbody{color:#7c4a03}
+.stat-callout{border-left:4px solid #ef6c00} .stat-callout .statbody{padding:12px 18px;font-size:13px;color:#374151;line-height:1.5}
+.statbody code{background:#fff3e0;padding:1px 5px;border-radius:4px;font-size:12px}
+.findings{margin:0;padding:14px 34px;color:#374151;font-size:13px} footer{color:var(--muted);font-size:12px;padding:0 28px 40px;max-width:1100px;margin:0 auto}
+.coverage{border-left:4px solid #6b7280} .covbody{padding:14px 18px}
+.cov-lede{margin:0 0 12px;font-size:13px;color:#374151;line-height:1.5}
+.covlist{list-style:none;margin:0;padding:0} .covlist li{display:grid;grid-template-columns:20px 220px 1fr;gap:8px;align-items:baseline;padding:6px 0;border-bottom:1px solid #f1f3f5;font-size:12.5px}
+.cov-mark{font-weight:700;text-align:center} .cov-yes .cov-mark{color:#1a7f37} .cov-no .cov-mark{color:#b0b6bd}
+.cov-cat{font-weight:600;color:#1a1d21} .cov-no .cov-cat{color:#6b7280} .cov-detail{color:var(--muted)}
+.cov-tag{margin-left:7px;font-size:10px;font-weight:600;color:#8a93a0;background:#eef0f2;padding:1px 6px;border-radius:999px;vertical-align:middle}
+.cov-fit{color:#7c5a00;background:#fdf3da}
+.cov-invite{margin:12px 0 0;font-size:12.5px;color:#374151;background:#f6f8fa;border:1px dashed var(--line);border-radius:8px;padding:10px 12px;line-height:1.5}
+&lt;/style&gt;&lt;/head&gt;&lt;body&gt;
+&lt;header class=&quot;top&quot;&gt;&lt;h1&gt;vEcoli ↔ v2ecoli statistical equivalence — report card&lt;/h1&gt;
+&lt;div class=&quot;sub&quot;&gt;model &lt;b&gt;v2ecoli @ statistical variant 0&lt;/b&gt; · reference ?&lt;/div&gt;
+&lt;div class=&quot;obadge&quot;&gt;PASS (partial) &amp;nbsp;·&amp;nbsp; 5 ✓ &amp;nbsp; 0 ≈ &amp;nbsp; 0 ✗ &amp;nbsp; 2 –&lt;/div&gt;&lt;/header&gt;
+&lt;nav class=&quot;sticky&quot;&gt;&lt;a href=&#x27;#physiology&#x27;&gt;Physiology&lt;/a&gt;&lt;a href=&#x27;#ribosomes&#x27;&gt;Ribosomes&lt;/a&gt;&lt;a href=&#x27;#transcription&#x27;&gt;Transcription&lt;/a&gt;&lt;/nav&gt;
+&lt;main&gt;&lt;section class=&#x27;card&#x27; id=&#x27;physiology&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Physiology&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 5 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 0 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Cell mass&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5% (drift 5%–10%; mismatch &gt;10% &amp; p&lt;0.05)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;1729&lt;div class=&#x27;spread&#x27;&gt;±80.1 (CV 4.6%, n=4)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;Δ = -0.4% · p = 0.921 · d = -0.07&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Growth rate&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5% (drift 5%–10%; mismatch &gt;10% &amp; p&lt;0.05)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;0.000253&lt;div class=&#x27;spread&#x27;&gt;±1.08e-05 (CV 4.3%, n=4)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;Δ = -0.3% · p = 0.931 · d = -0.06&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Dry mass&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5% (drift 5%–10%; mismatch &gt;10% &amp; p&lt;0.05)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;519&lt;div class=&#x27;spread&#x27;&gt;±24.1 (CV 4.6%, n=4)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;Δ = -0.4% · p = 0.921 · d = -0.07&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Protein mass&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5% (drift 5%–10%; mismatch &gt;10% &amp; p&lt;0.05)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;244.2&lt;div class=&#x27;spread&#x27;&gt;±11.8 (CV 4.8%, n=4)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;Δ = -0.1% · p = 0.987 · d = -0.01&lt;/td&gt;&lt;/tr&gt;&lt;tr class=&#x27;verdict-within_tol&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;RNA mass&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ within tol&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5% (drift 5%–10%; mismatch &gt;10% &amp; p&lt;0.05)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;69.3&lt;div class=&#x27;spread&#x27;&gt;±3.54 (CV 5.1%, n=4)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;Δ = -0.7% · p = 0.871 · d = -0.12&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;section class=&#x27;card&#x27; id=&#x27;ribosomes&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Ribosomes&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 0 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 1 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-ungraded&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Active ribosome&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#757575&#x27;&gt;– ungraded&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5%&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;—&lt;div class=&#x27;spread&#x27;&gt;±0 (CV 0.0%, n=0)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;—&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;section class=&#x27;card&#x27; id=&#x27;transcription&#x27;&gt;&lt;div class=&#x27;head&#x27;&gt;&lt;h2&gt;Transcription&lt;/h2&gt;&lt;div class=&#x27;chips&#x27;&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#1a7f37&#x27;&gt;✓ 0 within tol&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#ef6c00&#x27;&gt;≈ 0 drift&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#c62828&#x27;&gt;✗ 0 mismatch&lt;/span&gt;&lt;span class=&#x27;chip&#x27; style=&#x27;background:#757575&#x27;&gt;– 1 ungraded&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;axis&lt;/th&gt;&lt;th&gt;value&lt;/th&gt;&lt;th&gt;summary&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;&lt;tr class=&#x27;verdict-ungraded&#x27;&gt;&lt;td&gt;&lt;div class=&#x27;axhd&#x27;&gt;&lt;span class=&#x27;metric&#x27;&gt;Active RNAP&lt;/span&gt;&lt;span class=&#x27;badge&#x27; style=&#x27;background:#757575&#x27;&gt;– ungraded&lt;/span&gt;&lt;/div&gt;&lt;div class=&#x27;how&#x27;&gt;&lt;/div&gt;&lt;div class=&#x27;crit&#x27;&gt;&lt;b&gt;criterion:&lt;/b&gt; |Δ| &lt; 5%&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;val&#x27;&gt;—&lt;div class=&#x27;spread&#x27;&gt;±0 (CV 0.0%, n=0)&lt;/div&gt;&lt;/td&gt;&lt;td class=&#x27;meter&#x27;&gt;—&lt;/td&gt;&lt;/tr&gt;&lt;/tbody&gt;&lt;/table&gt;&lt;/section&gt;&lt;/main&gt;
+&lt;footer&gt;Behavioral report card — see docs/report_cards/README.md for the index and how the cards compose.&lt;/footer&gt;
+&lt;/body&gt;&lt;/html&gt;" class="rc-iframe" style="width:100%;min-height:420px;border:0;display:block;overflow:hidden" loading="lazy"></iframe></div><script>(function(){function fit(f){try{var d=f.contentDocument;if(!d)return;var h=Math.max(d.documentElement?d.documentElement.scrollHeight:0,d.body?d.body.scrollHeight:0);if(h>0)f.style.height=h+"px";}catch(e){}}document.querySelectorAll(".rc-iframe").forEach(function(f){f.addEventListener("load",function(){fit(f);[300,1200,2500].forEach(function(t){setTimeout(function(){fit(f);},t);});});});})();</script></section>
   </div>
+  
 
   
   
@@ -893,6 +933,34 @@ expect:  null</pre>
   </ul>
   
   </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
 </section>
 
 <section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
@@ -1028,7 +1096,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "f513929c1479d4e3fe2a4f5f59850df8f0273d17", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/f513929c1479d4e3fe2a4f5f59850df8f0273d17", "branch": "main", "lockfile": "uv.lock@6bd0a95dca3e", "generated_at": "2026-08-16 06:10 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "statistical";
@@ -1144,6 +1212,12 @@ window._seedFollowupProposal = _seedFollowupProposal;
 </script>
 <script src="/v2ecoli/workbench/assets/configure-run.js"></script>
 <script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

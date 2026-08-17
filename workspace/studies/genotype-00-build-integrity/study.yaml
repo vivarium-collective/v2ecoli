@@ -14,6 +14,26 @@ design_status: complete
 implementation_status: complete
 expert_review_status: not_requested
 
+# Bespoke runners. The ParCa is a 9-step DAG with its own driver; the workbench's
+# generic composite runner constructs the composite but fires ZERO pipeline steps
+# (verified 2026-08-14: a dispatched run recorded `completed` with 0 history rows,
+# no cache dir, no state written). Runs therefore go through this canonical_runs
+# path — that mechanism's stated purpose. The conditions params below remain the
+# declarative genotype record. Each arm is a full 9-step fast-mode ParCa (~2 min);
+# outputs land under out/genotype-00/<arm>/ (untracked).
+canonical_runs:
+- name: wt-fast
+  default: true
+  label: WT arm - fast-mode ParCa, all 9 steps, default bundle
+  script: v2ecoli/cli/parca.py
+  args: ["--mode", "fast", "--cpus", "8", "-o", "out/genotype-00/wt"]
+- name: ko-fast
+  label: lacY KO arm - fast-mode ParCa on the generated variant bundle
+  script: v2ecoli/cli/parca.py
+  args: ["--mode", "fast", "--cpus", "8", "-o", "out/genotype-00/ko",
+         "--bundle-manifest-path",
+         "out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv"]
+
 question: >-
   When a gene is deleted from the chromosome and the ParCa is rebuilt on the perturbed
   genome, does the resulting sim_data stay self-consistent? Concretely: is every retained
@@ -80,6 +100,11 @@ conditions:
     # one by default.
     composite: v2ecoli.composites.parca.parca
     params:
+      # debug=true is the fast-fit regime (7 of 51 conditions, ~2 min) — sufficient
+      # for every structural readout this study grades. Fitted-parameter VALUES are
+      # not graded in this regime (see limitations); a full-mode build drops this
+      # flag deliberately, it is never the default.
+      debug: true
       cpus: 8
       cache_dir: out/cache-genotype-00-wt
       bundle_manifest: ''
@@ -88,15 +113,17 @@ conditions:
       role: perturbation
       composite: v2ecoli.composites.parca.parca
       params:
+        debug: true
         cpus: 8
         cache_dir: out/cache-genotype-00-ko
-        # The knockout's own manifest, left empty here deliberately. The generator
-        # exists (ecoli-sources#12, pinned via #471) and ParCa builds from a declared
-        # manifest (#482), so this is no longer a gap: the genotype_build_integrity
-        # card GENERATES the bundle itself from `report_card_refs.gene_ids` rather than
-        # pinning a path that would go stale. Set it only to drive a standalone ParCa
-        # run outside the card.
-        bundle_manifest: ''
+        # The knockout's manifest, at the same machine-local out/ path the
+        # genotype_build_integrity card generates into (content-addressed:
+        # genotype_id 2e013536817c75d2 for lacY/EG10526). The bundle is a
+        # reproducible derivative, regenerable in <1 s via
+        # v2ecoli.library.genotype_build.make_knockout_bundle(['EG10526'], ...);
+        # the card continues to generate its own copy from report_card_refs, so
+        # card grading never depends on this path existing.
+        bundle_manifest: out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv
       perturbation: >-
         ParCa-level knockout - the gene is spliced out of the chromosome before
         reconstruction, so downstream coordinates shift and the fit sees a genome without it.
@@ -120,7 +147,7 @@ conditions:
     # from the declared bundle_manifest when none is injected, so a declared genotype is
     # now the genotype that gets built. All three gates below are consequently satisfied.
     - name: target-gene
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED - first target is EG10526 (lacY), and it builds: a fast-mode ParCa on the
         lacY knockout bundle completed all 9 steps in 104 s, exit 0, with
@@ -136,7 +163,7 @@ conditions:
         unit and shortens four others. A non-operonic gene would leave the second branch of
         the invariant untested.
     - name: effective-build-from-the-declared-manifest
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED by v2ecoli#482, verified 2026-08-13 on main @ 60f3e4b8. Declaring a
         genotype is not the same as building from it, and until #482 it was not:
@@ -165,7 +192,7 @@ conditions:
         Recorded as its own gate because a reader scanning this list would otherwise
         conclude the KO generator is the last blocker on the build path, and it is not.
     - name: ko-generator
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED. The ecoli-sources KO generator that emits the perturbed bundle +
         manifest landed as ecoli-sources#12 and is reachable from v2ecoli: the pin in
@@ -176,6 +203,104 @@ conditions:
         This study was its acceptance target, and the generator passes it: knockout()
         writes the six coupled canonical keys and compose_variant_bundle() produces a
         manifest that ParCa builds from (see the effective-build gate above).
+
+# Runs are recorded YAML-direct, not through the workbench run endpoints, for two
+# verified reasons (2026-08-14, framework log): the generic composite runner cannot
+# drive this 9-step DAG (it records `completed` having fired zero steps), and the
+# runs-family write endpoints rewrite this file stripping every comment. Authored
+# runs + outcomes are the sanctioned pattern (code computes, humans author).
+runs:
+- name: wt-fast-2026-08-14
+  canonical_run: wt-fast
+  status: completed
+  completed_at: '2026-08-14T23:03-07:00'
+  duration_s: 78
+  command: python v2ecoli/cli/parca.py --mode fast --cpus 8 -o out/genotype-00/wt
+  artifacts:
+    parca_state: out/genotype-00/wt/parca_state.pkl   # 166 MB, machine-local
+    runtimes: out/genotype-00/wt/runtimes.json
+  note: >-
+    Reference arm - wild type on the installed default bundle, fast regime
+    (7 cell_specs). All 9 steps exit 0; mechanistic_fit_status ok x3.
+- name: ko-fast-2026-08-14
+  canonical_run: ko-fast
+  status: completed
+  completed_at: '2026-08-14T23:05-07:00'
+  duration_s: 78
+  command: >-
+    python v2ecoli/cli/parca.py --mode fast --cpus 8 -o out/genotype-00/ko
+    --bundle-manifest-path out/genotype_build/genotype-00-build-integrity/bundle/reference_bundle.tsv
+  genotype_id: 2e013536817c75d2   # content-addressed; lacY (EG10526) knockout
+  artifacts:
+    parca_state: out/genotype-00/ko/parca_state.pkl   # 166 MB, machine-local
+    runtimes: out/genotype-00/ko/runtimes.json
+  note: >-
+    Perturbation arm - the lacY knockout bundle, fast regime (7 cell_specs).
+    All 9 steps exit 0 in 78 s; mechanistic_fit_status ok x3 on the perturbed
+    genome. D17's dangling references did not break the build.
+  outcomes:
+    perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption:
+      result: PASS
+      detail: >-
+        genotype_build_integrity card grades within_tol on the identical
+        content-addressed bundle (genotype_id 2e013536817c75d2): two-branch
+        round trip over genes, transcription units and DNA sites reports 0
+        differing features, with the shrunk branch non-vacuously exercised by
+        the lac-operon TUs. Discrimination proven by fault injection
+        (tests/test_genotype_build_card.py, 14/14): a 1 bp length-preserving
+        corruption and an off-by-one span both fail this check while the
+        length axis passes.
+    chromosome-length-changes-by-exactly-the-deleted-span:
+      result: PASS
+      detail: >-
+        Delta is exactly 1254 bp (span 361926-363179): 4641652 -> 4640398.
+        Card axis chromosome_length passes.
+    all-coordinates-stay-within-the-shortened-chromosome:
+      result: PASS
+      detail: >-
+        coordinate_bounds axis: 0 violations across genes, transcription units
+        and DNA sites (1 <= left <= right <= genome_length).
+    deleted-gene-is-functionally-absent-from-sim_data:
+      result: PASS
+      detail: >-
+        EG10526's row survives in `genes` with coordinates nulled (the
+        tombstone), and the gene is excluded from both valid_gene_ids and
+        all_mRNA_cistrons - functional absence, not id absence (D16). Card
+        axes tombstone + functional_absence pass; the no-op control (WT graded
+        against itself) fails both, so a pass is discriminating.
+    parca-fit-completes-and-fitted-parameters-stay-in-range:
+      result: PARTIAL
+      detail: >-
+        The fit COMPLETES on the perturbed genome: all 9 steps exit 0,
+        mechanistic_fit_status {supply: ok, export: ok, uptake: ok}
+        (out/genotype-00/ko/parca_state.pkl). Parameter-RANGE grading is
+        deliberately not performed: this is a fast-regime build (7 of 51
+        cell_specs) and the study's run-mode limitation forbids grading
+        fast-mode fitted parameters. PARTIAL, not PASS, until a full-mode
+        build exists - recorded honestly rather than upgraded.
+
+findings:
+- id: F-01
+  tier: observation
+  status: confirms
+  statement: >-
+    A ParCa-level lacY knockout builds end to end through the supplier-side
+    generator path - bundle generation (<1 s, content-addressed), all 9 ParCa
+    steps (78 s fast regime), mechanistic fits ok - and the reconstructed
+    knowledge base passes every structural integrity axis: two-branch sequence
+    round trip (0 corrupted features across genes, TUs and DNA sites), exact
+    1254 bp chromosome shortening, all coordinates in bounds, and functional
+    absence of the deleted gene via the tombstone mechanism.
+  evidence:
+    from_run: ko-fast-2026-08-14
+    from_test: perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption
+    observed: >-
+      Card verdict within_tol (5/5 graded structural axes); WT and KO arms
+      built 2026-08-14, runtimes.json 78 s each.
+  next_action: >-
+    Grade the two ParCa-fit axes against a full-mode build when one is
+    warranted; until then they stay ungraded/PARTIAL by design. The
+    descriptive studies (01-06) now have a working build path to run against.
 
 report_cards:
   - genotype_build_integrity

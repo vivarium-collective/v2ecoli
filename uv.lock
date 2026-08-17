@@ -341,15 +341,13 @@ wheels = [
 [[package]]
 name = "bigraph-schema"
 version = "1.6.0"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#3322e39ada8c781ead50b7879ace829f353b8a50" }
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#c19194a0f9b005b1ec9de5fa661271279746a861" }
 dependencies = [
-    { name = "fire" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "parsimonious" },
     { name = "pint" },
     { name = "plum-dispatch" },
-    { name = "requests" },
 ]
 
 [[package]]
@@ -2888,7 +2886,7 @@ wheels = [
 [[package]]
 name = "pbg-bioreactordesign"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main#aeb59b3bfb4b690dbeec8eb2829ce1cd7bd8c492" }
+source = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main#aeb59b3bfb4b690dbeec8eb2829ce1cd7bd8c492" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -2899,22 +2897,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbg-copasi"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main#840fc8aaf60bd3c486db091341ddd987e03a728b" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "copasi-basico" },
-    { name = "process-bigraph" },
-    { name = "python-copasi" },
-    { name = "pyyaml" },
-    { name = "viva-superpowers" },
-]
-
-[[package]]
 name = "pbg-ketchup"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main#c023e55902e8fa72754118f951bbfde5e2a4deaa" }
+source = { git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main#c023e55902e8fa72754118f951bbfde5e2a4deaa" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "cobra" },
@@ -2929,7 +2914,7 @@ dependencies = [
 [[package]]
 name = "pbg-openmm"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
+source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "openmm" },
@@ -2940,7 +2925,7 @@ dependencies = [
 [[package]]
 name = "pbg-parsimony"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main#d03264acb77d8ff318570835555db13e281b2b61" }
+source = { git = "https://github.com/vivarium-collective/viva-parsimony.git?branch=main#d03264acb77d8ff318570835555db13e281b2b61" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "process-bigraph" },
@@ -2949,7 +2934,7 @@ dependencies = [
 [[package]]
 name = "pbg-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#1b3fbff6d5c558769b1d315ec4da595574bb8032" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
 dependencies = [
     { name = "viva-superpowers" },
 ]
@@ -2957,7 +2942,7 @@ dependencies = [
 [[package]]
 name = "pbg-torch"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/pbg-torch.git?branch=main#cfee4f06b8fe1ee7575e141150b197ccad0a0908" }
+source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#cfee4f06b8fe1ee7575e141150b197ccad0a0908" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
@@ -3126,7 +3111,7 @@ wheels = [
 [[package]]
 name = "process-bigraph"
 version = "1.8.3"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#d8c8c641a38e1f62dca1c9392f757bc5f6dba855" }
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#8f49d80fd36d3ca3960638877656770b202b099a" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -4527,7 +4512,6 @@ dependencies = [
     { name = "numpy" },
     { name = "pandas" },
     { name = "pbg-bioreactordesign" },
-    { name = "pbg-copasi" },
     { name = "pbg-ketchup" },
     { name = "pbg-parsimony" },
     { name = "pbg-torch" },
@@ -4542,6 +4526,7 @@ dependencies = [
     { name = "sympy" },
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
+    { name = "viva-copasi" },
     { name = "viva-emitters", extra = ["parquet", "xarray"] },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
@@ -4571,12 +4556,11 @@ requires-dist = [
     { name = "numba", specifier = ">=0.59" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git?branch=main" },
-    { name = "pbg-copasi", git = "https://github.com/vivarium-collective/pbg-copasi.git?branch=main" },
-    { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/pbg-ketchup.git?branch=main" },
-    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/pbg-openmm.git?branch=main" },
-    { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/pbg-parsimony.git?branch=main" },
-    { name = "pbg-torch", git = "https://github.com/vivarium-collective/pbg-torch.git?branch=main" },
+    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main" },
+    { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
+    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
+    { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/viva-parsimony.git?branch=main" },
+    { name = "pbg-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
@@ -4592,6 +4576,7 @@ requires-dist = [
     { name = "unum" },
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
+    { name = "viva-copasi", git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main" },
     { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.2.3" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
@@ -4676,6 +4661,19 @@ wheels = [
 ]
 
 [[package]]
+name = "viva-copasi"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main#c136e37777cdf48d46054cad2911402d4f4cd373" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "copasi-basico" },
+    { name = "process-bigraph" },
+    { name = "python-copasi" },
+    { name = "pyyaml" },
+    { name = "viva-superpowers" },
+]
+
+[[package]]
 name = "viva-emitters"
 version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -4724,7 +4722,7 @@ dependencies = [
 [[package]]
 name = "viva-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#1b3fbff6d5c558769b1d315ec4da595574bb8032" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -4741,7 +4739,7 @@ dependencies = [
 [[package]]
 name = "viva-workspace"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main#1375b01910eb29aef3ab95f18a67d09d037276f3" }
+source = { git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main#c927f36aaf7b6927930762295325c0f89b5867cd" }
 dependencies = [
     { name = "pyyaml" },
 ]

@@ -38,6 +38,16 @@ Usage:
         --n-seeds 2 \
         --modules '{"multiseed": {"doubling_time_distribution": {}}}' \
         --analysis-name my-analysis
+
+    # Or let v2ecoli pick every applicable analysis for this run's shape
+    # (delegates to batch_baseline_runner.build_analysis_options -- the same
+    # resolution the composite's own inline flush uses); --n-generations only
+    # matters in this form, to decide whether multigeneration analyses apply:
+    python scripts/run_standalone_analysis.py \
+        --out-uri s3://bucket/vecoli-output/<experiment_id> \
+        --n-seeds 2 --n-generations 2 \
+        --modules applicable \
+        --analysis-name my-analysis
 """
 
 from __future__ import annotations
@@ -51,6 +61,22 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
+
+# ``python scripts/run_standalone_analysis.py`` puts this file's own directory
+# (scripts/) on sys.path[0], not the repo root -- `scripts` (no __init__.py,
+# an implicit namespace package) is then unresolvable as a top-level import
+# unless the repo root is ALSO on the path. v2ecoli.* already resolves
+# regardless of invocation (installed into the container's venv); `scripts.*`
+# never was, it only ever worked when a caller happened to also set
+# PYTHONPATH/cwd to the repo root. Real repro: v2ecoli.workflow.analyses'
+# comparison_summary module (imported transitively by
+# batch_baseline_runner.build_analysis_options, reachable via "applicable" --
+# item 60) does `from scripts._compare... import ...` and raised
+# ModuleNotFoundError: No module named 'scripts' from inside the real Ray
+# Batch container. Self-contained fix: ensure the repo root is importable
+# regardless of how this script gets invoked, rather than pushing a
+# PYTHONPATH requirement onto every caller.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 
 def _run_aws(args: list[str], tries: int = 3, backoff_s: float = 5.0) -> None:
@@ -223,27 +249,51 @@ def run(out_uri: str, n_seeds: int, modules: dict[str, dict[str, Any]],
     return manifest
 
 
+def resolve_modules(modules: "str | dict[str, dict[str, Any]]", *, n_seeds: int,
+                     n_generations: int) -> dict[str, dict[str, Any]]:
+    """Resolve the ``modules`` argument into a concrete ``{scale: {name: params}}`` mapping.
+
+    Accepts an explicit mapping (used verbatim), the ``"applicable"`` keyword (every
+    registered analysis at the scales this run covers), or a JSON string encoding
+    either. ``"applicable"`` delegates to v2ecoli's own
+    ``batch_baseline_runner.build_analysis_options`` -- the SAME resolution the
+    composite's own inline flush already uses -- rather than re-deriving scale
+    selection here.
+    """
+    if isinstance(modules, dict):
+        return modules
+    if modules.strip().lower() == "applicable":
+        from v2ecoli.steps.batch_baseline_runner import build_analysis_options
+        return build_analysis_options("applicable", n_seeds=n_seeds, n_generations=n_generations)
+    return json.loads(modules)
+
+
 def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--config-file", help="JSON file with out_uri/n_seeds/modules/analysis_name "
                                           "-- avoids shell-quoting the modules JSON on the CLI")
     p.add_argument("--out-uri", help="s3:// experiment output prefix")
     p.add_argument("--n-seeds", type=int)
-    p.add_argument("--modules", help='JSON: {"scale": {"name": {}}}')
+    p.add_argument("--n-generations", type=int, default=1,
+                    help="lineage depth; only consulted when --modules is 'applicable'")
+    p.add_argument("--modules", help='JSON: {"scale": {"name": {}}}, or the keyword "applicable"')
     p.add_argument("--analysis-name")
     args = p.parse_args()
 
     if args.config_file:
         cfg = json.loads(Path(args.config_file).read_text())
         out_uri, n_seeds = cfg["out_uri"], int(cfg["n_seeds"])
-        modules, analysis_name = cfg["modules"], cfg["analysis_name"]
+        n_generations = int(cfg.get("n_generations", 1))
+        modules = resolve_modules(cfg["modules"], n_seeds=n_seeds, n_generations=n_generations)
+        analysis_name = cfg["analysis_name"]
     else:
         missing = [f for f in ("out_uri", "n_seeds", "modules", "analysis_name")
                    if getattr(args, f) is None]
         if missing:
             p.error(f"missing required arguments (or use --config-file): {missing}")
         out_uri, n_seeds = args.out_uri, args.n_seeds
-        modules, analysis_name = json.loads(args.modules), args.analysis_name
+        modules = resolve_modules(args.modules, n_seeds=n_seeds, n_generations=args.n_generations)
+        analysis_name = args.analysis_name
 
     with tempfile.TemporaryDirectory() as td:
         manifest = run(out_uri, n_seeds, modules, analysis_name, Path(td))

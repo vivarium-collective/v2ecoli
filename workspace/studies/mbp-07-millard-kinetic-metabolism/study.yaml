@@ -206,9 +206,8 @@ open_questions:
     cell still grows far slower than FBA and will not divide, but the boundary
     mass balance itself is closed.
 
-# Conformed 2026-08-17: `tests:` is canonically a LIST (the dict shape broke
-# collect_emit_paths_from_spec in the study-run path); the pytest wiring moves
-# to the pytest_tests: block, mirroring mbp-03.
+# `tests:` must be a list — a dict here breaks collect_emit_paths_from_spec
+# in the study-run path. Pytest wiring lives in pytest_tests:, as in mbp-03.
 tests: []
 pytest_tests:
   auto_discover: true
@@ -435,15 +434,15 @@ runs:
   canonical: true
   n_steps: 60
   note: |
-    0b canonical run of the baseline-millard arm, recorded through the study
-    spine (run_study_baseline -> launch_into_study -> post-run flush), 60 steps
-    matching the smoke-run length in planned_runs. The card-based outcomes below
-    were auto-evaluated by the flush against the beulig_batch cards regenerated
-    2026-08-17 by tests/test_beulig_comparison_harness.py (13 passed); the four
-    run-data outcomes were authored from direct measurement on this tree
-    2026-08-17 (values in each detail) because the zarr store resolves only
-    cell_mass + instantaneous_growth_rate for the evaluator. Supporting suites
-    run 2026-08-17: test_baseline_millard.py 6 passed;
+    Canonical run of the baseline-millard arm, 60 steps (the smoke-run length
+    in planned_runs), launched through the workbench study runner, which also
+    ran the post-run evaluation. The eight card-based outcomes below were
+    auto-evaluated against the beulig_batch cards regenerated on this tree
+    2026-08-17 by tests/test_beulig_comparison_harness.py (13 passed). The
+    four run-data outcomes were authored from direct measurement the same day
+    (values in each detail), because the run's zarr store exposes only
+    cell_mass and instantaneous_growth_rate to the automatic evaluator.
+    Supporting suites, run the same day: test_baseline_millard.py 6 passed;
     test_millard_flux_export.py + test_millard_exchange.py 4 passed.
   emitter:
     kind: xarray
@@ -532,24 +531,25 @@ runs:
       result: pass
       detail: |
         instantaneous_growth_rate = 4.5e-06 at the end of the canonical run
-        (zarr store), inside the declared band [0.0, 0.04]. Caveat carried
-        honestly: growth is far slower than the FBA baseline — the known
-        millard-growth-too-slow-to-divide gap (mbp-06) — and the declared band
-        includes near-zero, so this criterion as specified cannot distinguish
-        recovered growth from stalled growth. Band-tightening flagged for the
-        Phase-3 spec reconciliation.
+        (read from its zarr store), inside the declared band [0.0, 0.04].
+        Caveat: growth is far slower than the FBA baseline — the known
+        millard-growth-too-slow-to-divide gap recorded in mbp-06 — and because
+        the declared band includes near-zero, this criterion as specified
+        cannot distinguish recovered growth from stalled growth. The band
+        should be tightened when the behavior specs are next revised.
     wcm-mass-conservation-closes-millard:
       result: fail
       detail: |
-        conservation_relative_cumulative measured 2026-08-17 with
-        features=[mass_conservation] (req-1): 0.92 at 14 steps, 2.43 at 60
-        steps, vs the declared band [0.0, 0.05]. The gate is now EVALUABLE
-        (was None before req-1 landed; test_baseline_millard_mass_conservation_
-        evaluable passes) and it fails: the violation accumulates with run
-        length. Informative negative feeding mbp-06's Millard mass-accounting
-        gap; note the canonical run itself does not enable the
-        mass_conservation feature, so the values come from a matched direct
-        build on the same tree.
+        conservation_relative_cumulative, measured 2026-08-17 with
+        features=[mass_conservation] (the req-1 exchange accounting): 0.92 at
+        14 steps, 2.43 at 60 steps, against the declared band [0.0, 0.05].
+        req-1 made this gate evaluable (the listener returned None before;
+        test_baseline_millard_mass_conservation_evaluable passes) — and
+        evaluated, it fails, with the violation growing over the run. An
+        informative negative feeding mbp-06's Millard mass-accounting gap.
+        The canonical run itself does not enable the mass_conservation
+        feature, so these values come from a matched direct build on the same
+        tree.
     millard-growth-axes-graded-vs-beulig:
       result: FAIL
       detail: 'group growth: mismatch axis present'

@@ -745,11 +745,11 @@ runs:
       priorities-reviewed:
         result: pass
         detail: |-
-          Every entry has priority (1-3) and a review_by recording who approved the
-          prioritization (Eran, 2026-06-14/15, as synthesis author). Caveat noted in
-          the review_by values themselves: Chris expert review is pending on all
-          entries — the predicate (priority_and_review_set) is satisfied; the expert
-          pass is tracked by expert_review_status.
+          Every entry carries a priority (1-3) and a review_by recording who approved
+          the prioritization (Eran, 2026-06-14/15, as synthesis author) — which is
+          what this check requires. The review_by values also note that a second,
+          expert review by Chris is still pending; that is tracked separately by
+          expert_review_status.
 tests: []
 findings:
   entries:

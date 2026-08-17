@@ -710,13 +710,14 @@ runs:
   canonical: true
   n_steps: 200
   note: |
-    0b baseline run recorded through the generic spine (investigation_run_one on
-    workbench main + #817, the E2BIG fix), 200 steps, baseline params
-    {seed: 0, cache_dir: out/cache} (run-one records request overrides in params,
-    hence '{}'). Evidence for the outcomes below: the Beulig 3-arm comparison cards
-    at docs/report_cards/beulig_batch/, regenerated 2026-08-17 12:59Z on this tree
-    by tests/test_beulig_comparison_harness.py (13 passed), resolved through
-    viva_superpowers.study_evaluator.evaluate_test.
+    Baseline coupled run, 200 steps (matching the behavior-test fixtures),
+    recorded through the workbench's generic run endpoint
+    (POST /api/investigation-run-one). The endpoint stores only request
+    overrides in `params`, so '{}' here means the baseline's own params
+    ({seed: 0, cache_dir: out/cache}) ran unmodified. Evidence for the
+    outcomes below is the 3-arm Beulig comparison cards at
+    docs/report_cards/beulig_batch/, regenerated on this tree 2026-08-17 by
+    tests/test_beulig_comparison_harness.py (13 passed).
   outcomes:
     growth-axes-graded-vs-beulig:
       result: fail
@@ -745,8 +746,9 @@ runs:
       detail: |
         Group gas_transfer grades mismatch (OTR, CTR; dissolved_o2 ungraded) on the
         vs_beulig card regenerated 2026-08-17. The respiration divergence is
-        independently corroborated by ketchup-baseline-comparison (O2 ~9 vs ~135 per
-        100 glucose).
+        independently corroborated by the ketchup-baseline-comparison investigation,
+        where v2ecoli consumes ~9 O2 per 100 glucose vs ~135 in the kinetic
+        references.
     ph_control-axes-graded-vs-beulig:
       result: skipped
       detail: |
@@ -757,11 +759,12 @@ runs:
       result: partial
       detail: |
         Comparison executed and rendered: overlay_growth.png at the vs_beulig card path
-        overlays sim biomass vs the Beulig OD600 trace digitized to gDW/L (the
-        harness's od_peak_to_gdw conversion, tested), and the growth axis carries the
-        end-of-run values. The spec-named report/overlay_population.OD600.png and
-        end_of_run_OD_* metric names are not emitted as such — spec/harness naming
-        drift, flagged for the Phase-3 spec reconciliation.
+        overlays sim biomass against the Beulig OD600 trace converted to gDW/L (the
+        harness's tested od_peak_to_gdw conversion), and the growth axis carries the
+        end-of-run values. What the spec names — report/overlay_population.OD600.png
+        and end_of_run_OD_* metrics — is not emitted under those names. The substance
+        exists; the spec and the harness drifted apart, to be reconciled when the
+        behavior specs are next revised.
     acetate-profile-comparison-rendered:
       result: skipped
       detail: |
@@ -772,9 +775,10 @@ runs:
     otr-ctr-comparison-rendered:
       result: pass
       detail: |
-        overlay_OTR.png and overlay_CTR.png exist and the OTR/CTR axes are graded with
-        values on the vs_beulig card (spec'd report/ prefix realized at the card path
-        docs/report_cards/beulig_batch/vs_beulig/).
+        overlay_OTR.png and overlay_CTR.png exist and the OTR/CTR axes are graded
+        with values on the vs_beulig card. The spec places these under report/; the
+        harness writes them at the card path
+        (docs/report_cards/beulig_batch/vs_beulig/) — same files, different home.
     gur-comparison-rendered:
       result: partial
       detail: |

@@ -87,6 +87,51 @@ class Operand:
                 for r in self.frame.itertuples()
                 if r.mean_geometric is not None and pd.notna(r.mean_geometric)}
 
+    @property
+    def declared_zeros(self) -> set:
+        """Entities this operand recorded as a MEASURED ZERO — *"we looked and
+        counted none"* — as distinct from ones it says nothing about.
+
+        **Why this is not reachable through ``values``, and must not be made
+        so.** A true zero has no geometric mean (the geometric mean of all-zero
+        replicates is undefined), so the promoted tier records it as a NULL
+        centre with the fact itself carried in ``mean_arithmetic`` (0.0) and
+        ``n_pos`` (0). ``values`` drops nulls — correctly, since a null cannot
+        enter a map keyed for arithmetic — and in doing so drops the recorded
+        zero along with genuinely absent rows. So the payload honours the
+        true-zero-vs-missing distinction (`comparison-operands-plan` D5) and the
+        consumer cannot see it, and the loss is invisible because it presents as
+        a null rather than as a deletion.
+
+        The fix is a sibling view, deliberately **not** a wider ``values``:
+        emitting zeros from ``values`` would change what ``n_shared`` means under
+        every card already rendered, which is the exact hazard ``values``' own
+        docstring exists to prevent. So:
+
+        * ``values`` and ``declared_zeros`` are **disjoint by construction** —
+          this returns only rows ``values`` excluded.
+        * a consumer that wants the distinction opts in; one that does not is
+          bit-for-bit unaffected.
+
+        Empty for a synthesised operand (``fixture``/``in-investigation``): a
+        model has no limit of detection, so its zeros arrive as a real ``0.0``
+        centre and ``values`` already keeps them. The asymmetry is real and
+        belongs to the measured tier alone.
+
+        Why it matters, concretely: in a ΔtrpR ΔtnaA cultivation the measured
+        ``trpR`` is 0.0 TPM across every replicate. It is the single most
+        informative row in the comparison — the knockout, visible in the data —
+        and today it is the one row that reaches no grader at all.
+        """
+        cols = self.frame.columns
+        if "n_pos" not in cols:
+            return set()
+        centre_is_null = self.frame["mean_geometric"].isna()
+        none_positive = pd.to_numeric(
+            self.frame["n_pos"], errors="coerce").fillna(-1) == 0
+        return {str(e) for e in
+                self.frame.loc[centre_is_null & none_positive, "entity_id"]}
+
     def __len__(self) -> int:
         return len(self.frame)
 

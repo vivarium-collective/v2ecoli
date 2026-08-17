@@ -303,5 +303,89 @@ class RunOperand(unittest.TestCase):
             self.assertIn("transcriptome", str(caught.exception))
 
 
+class DeclaredZeros(unittest.TestCase):
+    """A measured TRUE ZERO is recorded by the payload and, until now, reached
+    no grader.
+
+    It has no geometric mean (undefined for all-zero replicates), so it is
+    stored as a NULL centre with the fact in ``mean_arithmetic``/``n_pos``.
+    ``values`` drops nulls -- correctly -- and drops the recorded zero with
+    them. `comparison-operands-plan` D5 is therefore honoured by the payload and
+    invisible to the consumer, and the loss looks like a null rather than like a
+    deletion, which is why nobody saw it.
+
+    The invariant these tests protect: ``declared_zeros`` is **additive**.
+    ``values`` is untouched, so ``n_shared`` cannot move under any card already
+    rendered.
+    """
+
+    def _measured(self, rows):
+        """rows: (entity_id, mean_arithmetic, mean_geometric, n_pos)."""
+        frame = pd.DataFrame([{
+            "cultivation_group_id": "g", "observable": "transcriptome",
+            "entity_id": eid, "symbol": "", "units": "TPM", "kind": "measured",
+            "detection": "detected", "mean_arithmetic": arith,
+            "mean_geometric": geom, "sd_log10": None, "n": 6, "n_pos": npos,
+            "n_total": 6,
+        } for eid, arith, geom, npos in rows], columns=_VECTOR_COLS)
+        return ops.Operand(frame=frame, path="promoted", kind="measured",
+                           label="g transcriptome (TPM)")
+
+    def test_a_measured_true_zero_is_visible_where_values_cannot_see_it(self):
+        """The trpR case: 0.0 TPM on every replicate, in a dKO cultivation.
+
+        The single most informative row in the comparison -- the knockout,
+        visible in the data -- and the one row that reached no grader.
+        """
+        op = self._measured([("EG10001", 71.7, 71.4, 6),
+                             ("EG11029", 0.0, None, 0)])      # trpR, knocked out
+        self.assertEqual(set(op.values), {"EG10001"})
+        self.assertEqual(op.declared_zeros, {"EG11029"})
+
+    def test_values_and_declared_zeros_are_disjoint_by_construction(self):
+        op = self._measured([("A", 5.0, 4.8, 6), ("B", 0.0, None, 0),
+                             ("C", 1.0, 0.9, 3)])
+        self.assertEqual(set(op.values) & op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"A", "C"})
+        self.assertEqual(op.declared_zeros, {"B"})
+
+    def test_a_null_centre_with_positive_replicates_is_NOT_a_declared_zero(self):
+        """Absence of information is not a measurement of absence.
+
+        A null centre with n_pos > 0 is malformed or censored -- either way the
+        payload is not asserting a zero, so neither do we.
+        """
+        op = self._measured([("A", 5.0, None, 4)])
+        self.assertEqual(op.declared_zeros, set())
+
+    def test_adding_the_view_did_not_change_what_values_returns(self):
+        """The regression guard. If this ever fails, `n_shared` has moved under
+        every card already rendered -- including ones out for external review."""
+        op = self._measured([("A", 5.0, 4.8, 6), ("B", 0.0, 0.0, 6),
+                             ("C", -1.0, -1.0, 6), ("D", 0.0, None, 0)])
+        # zeros and negatives KEPT, nulls dropped -- exactly as before.
+        self.assertEqual(set(op.values), {"A", "B", "C"})
+
+    def test_a_baked_fixture_declares_no_zeros(self):
+        """A model has no limit of detection, so its zeros arrive as a real 0.0
+        centre and `values` already keeps them. The asymmetry is real and
+        belongs to the measured tier alone."""
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _fixture(root, "f.json", "by_id", {"EG10001": 0.0, "EG10002": 7.0})
+            op = ops.fixture_operand(root, "f.json", "by_id")
+        self.assertEqual(op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"EG10001", "EG10002"})
+
+    def test_a_live_run_declares_no_zeros(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [0.0, 3.0])
+            op = ops.run_operand(sweep, ["EG1", "EG2"])
+        self.assertEqual(op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"EG1", "EG2"})
+
+
 if __name__ == "__main__":
     unittest.main()

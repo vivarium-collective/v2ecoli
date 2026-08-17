@@ -62,6 +62,22 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+# ``python scripts/run_standalone_analysis.py`` puts this file's own directory
+# (scripts/) on sys.path[0], not the repo root -- `scripts` (no __init__.py,
+# an implicit namespace package) is then unresolvable as a top-level import
+# unless the repo root is ALSO on the path. v2ecoli.* already resolves
+# regardless of invocation (installed into the container's venv); `scripts.*`
+# never was, it only ever worked when a caller happened to also set
+# PYTHONPATH/cwd to the repo root. Real repro: v2ecoli.workflow.analyses'
+# comparison_summary module (imported transitively by
+# batch_baseline_runner.build_analysis_options, reachable via "applicable" --
+# item 60) does `from scripts._compare... import ...` and raised
+# ModuleNotFoundError: No module named 'scripts' from inside the real Ray
+# Batch container. Self-contained fix: ensure the repo root is importable
+# regardless of how this script gets invoked, rather than pushing a
+# PYTHONPATH requirement onto every caller.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
 
 def _run_aws(args: list[str], tries: int = 3, backoff_s: float = 5.0) -> None:
     """Run an ``aws`` CLI subprocess, retrying transient failures.

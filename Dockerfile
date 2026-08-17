@@ -103,3 +103,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl unzip ca-c
 
 COPY docker/ray-batch-entrypoint.sh /opt/ray-batch-entrypoint.sh
 RUN chmod +x /opt/ray-batch-entrypoint.sh
+
+COPY docker/batch-array-entrypoint.sh /opt/batch-array-entrypoint.sh
+RUN chmod +x /opt/batch-array-entrypoint.sh

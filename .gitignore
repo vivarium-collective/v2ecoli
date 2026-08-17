@@ -32,6 +32,9 @@ workspace/investigations/*/runs.db
 # per-run zarr stores written next to a study's runs.db by XArrayEmitter runs
 # (runs.<run_id>.zarr/) — regenerable run data, same class as runs.db
 workspace/studies/*/runs.*.zarr/
+# scripts/run_mbp_tracked.py writes hive-partitioned parquet run artifacts
+# under REPO_ROOT/studies/<slug>/parquet-runs/ — regenerable run data
+/studies/*/parquet-runs/
 workspace/investigations/*/.run.lock
 workspace/studies/*/sims/*.subprocess.py
 workspace/studies/*/sims/parquet-rerun-*/

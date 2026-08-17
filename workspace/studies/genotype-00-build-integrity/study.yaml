@@ -147,7 +147,7 @@ conditions:
     # from the declared bundle_manifest when none is injected, so a declared genotype is
     # now the genotype that gets built. All three gates below are consequently satisfied.
     - name: target-gene
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED - first target is EG10526 (lacY), and it builds: a fast-mode ParCa on the
         lacY knockout bundle completed all 9 steps in 104 s, exit 0, with
@@ -163,7 +163,7 @@ conditions:
         unit and shortens four others. A non-operonic gene would leave the second branch of
         the invariant untested.
     - name: effective-build-from-the-declared-manifest
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED by v2ecoli#482, verified 2026-08-13 on main @ 60f3e4b8. Declaring a
         genotype is not the same as building from it, and until #482 it was not:
@@ -192,7 +192,7 @@ conditions:
         Recorded as its own gate because a reader scanning this list would otherwise
         conclude the KO generator is the last blocker on the build path, and it is not.
     - name: ko-generator
-      gate: satisfied
+      gate: optional   # SATISFIED - see detail; enum accepts only optional | required-before-run
       detail: >-
         SATISFIED. The ecoli-sources KO generator that emits the perturbed bundle +
         manifest landed as ecoli-sources#12 and is reachable from v2ecoli: the pin in

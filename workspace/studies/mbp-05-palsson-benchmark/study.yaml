@@ -914,7 +914,7 @@ report:
   summary: 'EVALUATION phase (no new model capability): success = the comparison was EXECUTED AND REPORTED COHERENTLY, not that biology matched. Preliminary diagnostic finding (refined 2026-05-29): the Beulig BATCH PHASE peaks at ~9.6 g/L (max OD ~28 x 0.34); the 50-80 gDW/L abstract figure is the FED-BATCH endpoint. v2ecoli at cpa=1e9 plateaus ~4.3 mg/L per division cycle (single_daughters cap) — a ~3.3-order gap that is architectural, not a tuning gap. Full ~13-surface comparison overlays + four-category divergence triage pending the harness.'
 study_card:
   one_liner: Beulig 2025 high-cell-density benchmark — structured comparison + divergence triage.
-  phase: Design
+  phase: Evaluate
   kind: evaluation / diagnostic
   depends_on:
   - mbp-04

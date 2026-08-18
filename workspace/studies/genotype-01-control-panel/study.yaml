@@ -156,14 +156,24 @@ conditions:
     detail: >-
       The parca composite is a 9-step DAG driven by its own CLI; runs go through
       canonical_runs (established on genotype-00, which also documents why the
-      generic composite runner cannot drive this pipeline). All arms fast mode.
-      NOTE on fast-vs-full: an earlier comparison against the shipped full-mode
-      fixture is INVALID as a mode measurement - the fixture predates the #275
-      balance_translation_efficiencies fix (fingerprint reproduced: 27 r-protein
-      monomers, max delta 0.24), so that delta is code drift, not mode. A
-      same-commit full-mode control is pending; until it exists, fast-vs-full
-      equivalence for expression readouts is an expectation, not a measurement.
-      Panel contrasts here are all fast-vs-fast on one commit and unaffected.
+      generic composite runner cannot drive this pipeline). All arms fast mode,
+      and for these readouts that is provably lossless: a same-commit full-mode
+      control (2026-08-18) found basal fit_cistron_expression BIT-IDENTICAL
+      between --mode fast and --mode full (max relative difference 0.000 over
+      4,289 cistrons), and the KO refit artifact identical in both modes to
+      four significant figures. Mechanistically expected - debug mode prunes
+      the TF condition set (7 vs 51 cell_specs), which does not enter the basal
+      expression fit. NOTE the same comparison run against the SHIPPED fixture
+      shows ~3.6% differences; that fixture predates the #275
+      balance_translation_efficiencies fix, so those are code drift, not mode
+      (fingerprint: 27 r-protein monomers, max delta 0.24). The control is
+      therefore also a sensitivity check: the comparison detects real
+      differences when they exist, and finds none between modes.
+      ⚠ Scope: basal expression readouts. Fitted values that DO depend on the
+      TF condition set are out of scope and unmeasured here.
+      Measured cost, same hardware, cpus=8: full-mode WT 288 s, full-mode KO
+      183 s - not the "4-8 hours" the repo docs claim (docs are stale; see the
+      lane notebook).
 
 # One bespoke runner drives the whole panel: per gene it generates the bundle,
 # grades the build-integrity card structurally (no fit needed), runs the fast
@@ -363,11 +373,10 @@ findings:
     target's operon neighbors and near-zero cistrons, and treat the per-mille
     bulk as the artifact floor. Growth-rate-level under-reaction (pgi/tpiA) is
     a simulation-layer question, out of scope for a ParCa-only panel.
-    ⚠ Scope of this finding, stated precisely: the STRUCTURE (concentration in
-    the deleted gene's transcription-unit neighbors, via TU-share
-    reattribution) is mechanism-derived and regime-independent; the MAGNITUDES
-    (per-mille bulk, ~10-12% neighbors) are fast-regime measurements from
-    same-commit fast-vs-fast contrasts. Whether the magnitudes hold at 51
-    conditions is being measured by a same-commit full-mode WT/KO control
-    (in flight 2026-08-18); mask on the structure, treat the numbers as
-    fast-regime until that lands.
+    Scope, now measured rather than argued (2026-08-18): the magnitudes are
+    MODE-INDEPENDENT. A same-commit full-mode WT/ygiB-KO control reproduces
+    this contrast identically to four significant figures (median 2.103e-04,
+    >5% tail 0.210% in both fast and full), and full-vs-fast basal expression
+    is bit-identical for the wild type. So both the structure (TU-neighbor
+    concentration, mechanism-derived) and the numbers carry over; consumers
+    may use them directly.

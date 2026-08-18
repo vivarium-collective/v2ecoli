@@ -218,7 +218,7 @@ def _code_block_html(rel_path: str | None, blocks: list[tuple], block_id_prefix:
     out = []
     for i, (lo, hi, code) in enumerate(blocks):
         block_id = f"{block_id_prefix}-{i}"
-        range_txt = f"lines {lo}–{hi}" if lo is not None else "unresolved"
+        range_txt = f"lines {lo}&ndash;{hi}" if lo is not None else "unresolved"
         path_txt = html.escape(rel_path) if rel_path else "?"
         out.append(f'''<div class="codewrap">
   <button class="codetoggle" onclick="toggleCode('{block_id}')" aria-expanded="false">
@@ -273,7 +273,8 @@ def build_report(fork: str, additions: list[dict], cand_prov: dict | None,
                          f"@ <code>{html.escape(ref_prov.get('commit') or '?')}</code>")
     provenance = " &middot; ".join(prov_bits)
 
-    return f'''<title>Private Repo Code Audit</title>
+    return f'''<meta charset="utf-8">
+<title>Private Repo Code Audit</title>
 <style>{_STYLE}</style>
 <div class="page">
   <p class="eyebrow">Code audit</p>

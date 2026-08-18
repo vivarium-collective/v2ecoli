@@ -69,6 +69,14 @@ def _write_overlay(root: Path, subdir: str, extra: dict[str, str] | None = None)
     return manifest
 
 
+# A synthetic product metabolite. Column set must match the base metabolites
+# table exactly or ``_join_data`` refuses the join.
+PRODUCT_METABOLITE = (
+    '"id"\t"common_name"\t"synonyms"\t"chemical_formula"\t"mw"'
+    '\t"molecular_charge"\t"_smiles"\n'
+    '"NG-TEST-PRODUCT"\t"test product"\t[]\t"C10H10N2O2"\t190.2\t0\t""\n'
+)
+
 # A homodimer of the public insertion's monomer. Column set must match the base
 # complexation_reactions table exactly or ``_join_data`` refuses the join.
 HOMODIMER = (
@@ -163,6 +171,39 @@ def test_new_gene_complexation_absent_still_builds(tmp_path):
 
     assert _new_gene_complexes(kb) == []
     assert any(str(p["id"]).startswith("NG-") for p in kb.proteins)
+
+
+def test_new_gene_metabolites_are_joined_and_reach_the_bulk_store(tmp_path):
+    """A heterologous pathway's product needs a bulk entry to accumulate into.
+
+    Without this the pathway can be fully built -- genes expressed, enzymes
+    synthesised and complexed -- and still have nowhere to put what it makes,
+    so no product count and no product KPI. Measured on a violacein insertion
+    2026-08-18: with the file joined, ``VIOLACEIN[c]`` and its intermediates
+    appear in the bulk store; without it they are absent entirely.
+    """
+    from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import (
+        SimulationDataEcoli,
+    )
+
+    manifest = _write_overlay(
+        tmp_path, "gfp_product", extra={"metabolites.tsv": PRODUCT_METABOLITE}
+    )
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_product")
+    assert "NG-TEST-PRODUCT" in [m["id"] for m in kb.metabolites]
+
+    sim_data = SimulationDataEcoli()
+    sim_data.initialize(raw_data=kb)
+    bulk_ids = set(sim_data.internal_state.bulk_molecules.bulk_data["id"])
+    assert "NG-TEST-PRODUCT[c]" in bulk_ids
+
+
+def test_new_gene_metabolites_absent_still_builds(tmp_path):
+    """Optional, exactly like complexation: neither public insertion ships one."""
+    manifest = _write_overlay(tmp_path, "gfp_no_product")
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_no_product")
+
+    assert not [m for m in kb.metabolites if str(m["id"]).startswith("NG-")]
 
 
 def test_public_gfp_insertion_is_unaffected():

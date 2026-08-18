@@ -338,6 +338,19 @@ class KnowledgeBaseEcoli(object):
             # looking up the catalyst id fails. Joining this file lets a
             # new-gene insertion declare its own complexes, exactly as it
             # already declares its own genes, RNAs and proteins.
+            # Same optional treatment for the insertion's own metabolites: a
+            # heterologous pathway's product and intermediates are molecules the
+            # base flat files know nothing about, and without them the product
+            # has no entry in the bulk store to accumulate into.
+            met_path = os.path.join(new_gene_path, "metabolites.tsv")
+            if (self._bundle.has_key(relpath_to_key(met_path))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, met_path))):
+                self.list_of_dict_filenames.append(met_path)
+                self.new_gene_added_data.update(
+                    {"metabolites": nested_attr + "metabolites"}
+                )
+
             cplx_path = os.path.join(new_gene_path, "complexation_reactions.tsv")
             if (self._bundle.has_key(relpath_to_key(cplx_path))
                     if self._bundle is not None

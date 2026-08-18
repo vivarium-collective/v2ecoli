@@ -216,6 +216,15 @@ class InitializeStep(Step):
         # Unlike the two above this is NOT provenance-only — it changes the
         # genome the fit is built from.
         'new_genes':        {'_type': 'string', '_default': ''},
+        # Which transcriptome tier basal expression is fitted from, and whether
+        # unmeasured genes are cross-filled. Also NOT declarative — but unlike
+        # ``new_genes`` these reach ``sim_data.initialize`` below rather than
+        # the KnowledgeBase, so they are effective on the CLI path too (the CLI
+        # injects a KB but does not build sim_data). That is deliberate: a
+        # selector that only bit on one entry point would be the same
+        # silently-inert parameter this change exists to remove.
+        'rnaseq_source':    {'_type': 'string', '_default': 'reference'},
+        'rnaseq_cross_fill': {'_type': 'boolean', '_default': True},
     }
 
     def _check_declared_genotype(self):
@@ -277,6 +286,8 @@ class InitializeStep(Step):
             raw_data=raw_data,
             basal_expression_condition=self.config.get(
                 'basal_expression_condition', 'M9 Glucose minus AAs'),
+            rnaseq_source=self.config.get('rnaseq_source') or 'reference',
+            rnaseq_cross_fill=self.config.get('rnaseq_cross_fill', True),
         )
 
         # Scatter subsystems as live object references (no copies) so

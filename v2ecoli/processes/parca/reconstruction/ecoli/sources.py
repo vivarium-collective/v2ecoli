@@ -82,6 +82,12 @@ class SourceBundle:
         # build time (#466). So a key the variant generated is protected from the
         # override; every other key is overridden exactly as before.
         variant_keys = self._variant_generated_keys(base_manifest)
+        #: Public, because it is not only an override-precedence detail: a
+        #: consumer needs to know whether a variant GENERATED a key in order to
+        #: notice that it generated one the build is about to ignore (a
+        #: ``knockdown()`` bundle fitted with ``rnaseq_source: reference``).
+        #: Empty set for a plain base bundle.
+        self.variant_generated_keys = variant_keys
 
         # Overrides are a CHAIN, applied in order, and v2ecoli's own defaults
         # are always the first link.

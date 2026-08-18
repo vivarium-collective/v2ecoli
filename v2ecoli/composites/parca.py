@@ -55,6 +55,13 @@ What declaring them buys today:
 Making them *effective* — i.e. having a study run construct the KB from the
 declared manifest without going through the CLI — needs the study runner to
 drive ParCa, and is deliberately out of scope here.
+
+**Caveat, and it is why ``new_genes`` sits beside them:** the declarative story
+above holds only while a real ``raw_data`` is injected. When it is not (the
+workbench path), ``InitializeStep`` builds the KB itself from these fields — so
+on that path they ARE effective. ``new_genes`` is effective on that path too and
+is not declarative in any case: it changes the genome the fit is built from,
+which is not a claim about identity but a change of input.
 """
 
 from typing import Any
@@ -125,7 +132,22 @@ def register_parca_core(core: Any) -> Any:
             "default": "",
             "description": (
                 "Optional overrides manifest layered on top of "
-                "bundle_manifest, matching SourceBundle(overrides=...)."
+                "bundle_manifest, matching SourceBundle(overrides=...). "
+                "Applied AFTER v2ecoli's own overrides, never instead of "
+                "them, so naming one cannot silently revert v2ecoli's "
+                "diverged flat files. This is how a private payload adds "
+                "keys (e.g. a strain's new-gene inputs) to the baseline."
+            ),
+        },
+        "new_genes": {
+            "type": "string",
+            "default": "",
+            "description": (
+                "Name of a new_gene_data subdirectory to insert into the "
+                "genome (e.g. a heterologous pathway supplied by "
+                "bundle_overrides); empty means none. Unlike the two bundle "
+                "fields this is NOT declarative — it changes the genome the "
+                "fit is built from."
             ),
         },
     },
@@ -134,7 +156,7 @@ def register_parca_core(core: Any) -> Any:
 )
 def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
           cache_dir: str = "", bundle_manifest: str = "",
-          bundle_overrides: str = "") -> dict:
+          bundle_overrides: str = "", new_genes: str = "") -> dict:
     """Build the ParCa pipeline document (structure only — does not run).
 
     Args:
@@ -147,6 +169,9 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
         bundle_manifest, bundle_overrides: the genotype this build is for,
             recorded on InitializeStep's config. Declarative — see the
             module docstring's "Genotype identity" note.
+        new_genes: name of a new_gene_data subdirectory to insert (its flat
+            inputs typically arriving via bundle_overrides). Not declarative —
+            it changes the genome the fit is built from.
 
     Returns:
         A process-bigraph document dict (the 9-step pipeline state). No
@@ -162,4 +187,5 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
     return {"state": build_parca_document(
         debug=debug, cpus=cpus, cache_dir=cache_dir,
         bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
+        new_genes=new_genes,
         include_store_skeleton=True)}

@@ -79,18 +79,32 @@ def _resolve_raw_data(config: dict):
         return raw_data
 
     manifest = config.get("bundle_manifest", "") or None
+    # ``bundle_overrides`` was declared alongside ``bundle_manifest`` but never
+    # read, so a study could name a private overlay and be silently ignored.
+    # It is applied ON TOP of v2ecoli's own overrides, not instead of them
+    # (SourceBundle chains them) — so naming one cannot revert v2ecoli's
+    # diverged flat files.
+    overrides = config.get("bundle_overrides", "") or None
+    # Likewise ``new_genes``: KnowledgeBaseEcoli has supported new-gene
+    # insertion all along, but no entry point passed the option, so it was
+    # unreachable and every build was "off". A private strain's new-gene flat
+    # inputs arrive through the overlay above; this is what asks for them.
+    new_genes = config.get("new_genes", "") or "off"
     print(
         "  Step 1: no KnowledgeBaseEcoli was injected (raw_data="
         f"{type(raw_data).__name__}); loading it now "
-        f"(bundle_manifest={manifest or 'default'}). This runs the FULL ParCa "
+        f"(bundle_manifest={manifest or 'default'}, "
+        f"bundle_overrides={overrides or 'none'}, new_genes={new_genes}). "
+        "This runs the FULL ParCa "
         "fit — expect minutes to hours; cancel from the Runs tab if unintended."
     )
-    bundle = SourceBundle(base_manifest=manifest) if manifest else SourceBundle()
+    bundle = SourceBundle(base_manifest=manifest, overrides=overrides)
     return KnowledgeBaseEcoli(
         operons_on=True,
         remove_rrna_operons=False,
         remove_rrff=False,
         stable_rrna=False,
+        new_genes_option=new_genes,
         bundle=bundle,
     )
 
@@ -187,6 +201,11 @@ class InitializeStep(Step):
         # and the injected one is caught rather than silently fitted.
         'bundle_manifest':  {'_type': 'string', '_default': ''},
         'bundle_overrides': {'_type': 'string', '_default': ''},
+        # Name of a new_gene_data subdirectory to insert (e.g. a heterologous
+        # pathway shipped by a private overlay bundle); '' / 'off' = none.
+        # Unlike the two above this is NOT provenance-only — it changes the
+        # genome the fit is built from.
+        'new_genes':        {'_type': 'string', '_default': ''},
     }
 
     def _check_declared_genotype(self):

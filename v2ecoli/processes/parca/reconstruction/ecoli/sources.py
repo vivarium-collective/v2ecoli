@@ -7,6 +7,12 @@ source file. The default reference bundle ships with ``ecoli-sources``
 top so its locally-diverged flat files (equilibrium / metabolism biology) win
 over the upstream defaults without copying the whole 135-key manifest.
 
+Overrides form a **chain**: v2ecoli's own defaults first, then any manifests the
+caller supplies, each applied over the last. That is what lets a private payload
+(e.g. a strain's new-gene flat inputs, keyed ``new_gene_data__<strain>__*``)
+ADD keys to the public baseline without displacing either the baseline or
+v2ecoli's own divergences.
+
 Ported and adapted from CovertLab/vEcoli's ``wholecell/io/sources.py``
 (PR #426); the override-merge is a v2ecoli addition.
 """
@@ -49,9 +55,11 @@ class SourceBundle:
     def __init__(
         self,
         base_manifest: Optional[PathLike] = None,
-        overrides: Optional[PathLike] = None,
+        overrides: Optional[Union[PathLike, list]] = None,
         validate: bool = True,
     ):
+        """``overrides`` is one manifest path or a list of them, applied in
+        order ON TOP of v2ecoli's own defaults — never instead of them."""
         if base_manifest is None:
             from ecoli_sources import BUNDLE_PATH
             base_manifest = BUNDLE_PATH
@@ -75,11 +83,31 @@ class SourceBundle:
         # override; every other key is overridden exactly as before.
         variant_keys = self._variant_generated_keys(base_manifest)
 
-        if overrides is None and _DEFAULT_OVERRIDES.is_file():
-            overrides = _DEFAULT_OVERRIDES
+        # Overrides are a CHAIN, applied in order, and v2ecoli's own defaults
+        # are always the first link.
+        #
+        # This used to be a single file where a caller-supplied ``overrides``
+        # REPLACED ``_DEFAULT_OVERRIDES``. That is a silent-wrong-answer bug the
+        # moment anyone passes one: v2ecoli's four locally-diverged flat files
+        # (dna_sites, equilibrium_reactions, equilibrium_reaction_rates,
+        # metabolic_reactions_added) would revert to their upstream ecoli-sources
+        # versions with no warning, validation still passing, and the ParCa
+        # quietly fitting different biology. Nothing passed ``overrides`` yet, so
+        # the defect was latent — which is exactly when it is free to fix.
+        #
+        # A private overlay (e.g. a strain's new-gene flat inputs) is therefore
+        # ADDITIVE to the defaults rather than a replacement for them. Later
+        # links win over earlier ones on a key collision.
+        chain: list[Path] = []
+        if _DEFAULT_OVERRIDES.is_file():
+            chain.append(_DEFAULT_OVERRIDES)
         if overrides is not None:
-            overrides = Path(overrides).resolve()
-            for key, path in self._read_manifest(overrides, overrides.parent).items():
+            extra = ([overrides] if isinstance(overrides, (str, os.PathLike))
+                     else list(overrides))
+            chain.extend(Path(p).resolve() for p in extra)
+
+        for override in chain:
+            for key, path in self._read_manifest(override, override.parent).items():
                 if key in variant_keys:
                     # The variant explicitly generated this key; its file wins.
                     # Surface the suppressed collision rather than hiding it — the
@@ -98,9 +126,14 @@ class SourceBundle:
         # bundle manifest, so downstream steps need to be able to name it
         # rather than only read through it.
         self.base_manifest = base_manifest
-        self.overrides = overrides
+        # The full chain, in application order — provenance has to name every
+        # manifest that contributed, not just the last one.
+        self.override_chain = list(chain)
+        # Back-compat: the single-file attribute callers previously read, now
+        # the LAST link (the one that wins). ``override_chain`` is the record.
+        self.overrides = chain[-1] if chain else None
         if validate:
-            self._validate(base_manifest, overrides)
+            self._validate(base_manifest, self.overrides)
 
     @staticmethod
     def _variant_generated_keys(manifest: Path) -> set[str]:

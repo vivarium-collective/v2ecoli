@@ -66,6 +66,20 @@ def main():
         "--bundle-manifest-path", type=str, default=None,
         help="Path to an ecoli-sources bundle manifest (default: the installed "
              "ecoli-sources reference bundle + v2ecoli overrides).")
+    parser.add_argument(
+        "--bundle-overrides", type=str, action="append", default=None,
+        metavar="MANIFEST",
+        help="Additional overrides manifest layered on the bundle; repeatable, "
+             "applied in the order given. Always applied AFTER v2ecoli's own "
+             "overrides, so naming one cannot revert v2ecoli's diverged flat "
+             "files. This is how a private payload contributes extra canonical "
+             "keys (e.g. a strain's new-gene inputs).")
+    parser.add_argument(
+        "--new-genes", type=str, default="off", metavar="SUBDIR",
+        help="Insert a new_gene_data subdirectory into the genome (e.g. a "
+             "heterologous pathway); 'off' (default) inserts none. The named "
+             "subdirectory's flat inputs must be resolvable through the "
+             "bundle — typically supplied by --bundle-overrides.")
     parser.add_argument("--resume-from-step", type=int, default=1,
                         help="Skip steps 1..N-1; load --resume-pickle as the "
                              "initial composite state.  Use to debug late steps "
@@ -99,12 +113,16 @@ def main():
             resume_state = pickle.load(f)
 
     t0 = time.time()
-    print(f"[{time.strftime('%H:%M:%S')}] Loading raw_data (operons={not args.no_operons})")
+    print(f"[{time.strftime('%H:%M:%S')}] Loading raw_data "
+          f"(operons={not args.no_operons}, new_genes={args.new_genes}, "
+          f"overrides={args.bundle_overrides or 'defaults only'})")
     from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
-    bundle = SourceBundle(base_manifest=args.bundle_manifest_path)
+    bundle = SourceBundle(base_manifest=args.bundle_manifest_path,
+                          overrides=args.bundle_overrides)
     raw = KnowledgeBaseEcoli(
         operons_on=not args.no_operons,
         remove_rrna_operons=False, remove_rrff=False, stable_rrna=False,
+        new_genes_option=args.new_genes,
         bundle=bundle,
     )
     print(f"    raw_data loaded in {time.time() - t0:.1f}s")

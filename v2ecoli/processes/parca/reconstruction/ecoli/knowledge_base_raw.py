@@ -326,6 +326,28 @@ class KnowledgeBaseEcoli(object):
                 self.list_of_dict_filenames.append(file_path)
                 self.new_gene_added_data.update({f: nested_attr + f})
 
+            # OPTIONAL, and deliberately not in new_gene_shared_files above:
+            # that list is asserted present, and neither ``gfp`` nor
+            # ``template`` ships this file, so requiring it would break every
+            # existing new-gene build.
+            #
+            # Why it is needed at all: a new gene set whose enzymes act as
+            # protein COMPLEXES (e.g. a homodimer) names the complex as the
+            # catalyst, and without complexation the complex is never formed —
+            # the monomers accumulate with nothing to do and any consumer
+            # looking up the catalyst id fails. Joining this file lets a
+            # new-gene insertion declare its own complexes, exactly as it
+            # already declares its own genes, RNAs and proteins.
+            cplx_path = os.path.join(new_gene_path, "complexation_reactions.tsv")
+            if (self._bundle.has_key(relpath_to_key(cplx_path))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, cplx_path))):
+                self.list_of_dict_filenames.append(cplx_path)
+                self.new_gene_added_data.update(
+                    {"complexation_reactions": nested_attr
+                     + "complexation_reactions"}
+                )
+
             rnaseq_path = os.path.join(new_gene_path, "rnaseq_rsem_tpm_mean.tsv")
             if (self._bundle.has_key(relpath_to_key(rnaseq_path))
                     if self._bundle is not None

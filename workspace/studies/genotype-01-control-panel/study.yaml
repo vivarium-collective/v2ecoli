@@ -363,3 +363,11 @@ findings:
     target's operon neighbors and near-zero cistrons, and treat the per-mille
     bulk as the artifact floor. Growth-rate-level under-reaction (pgi/tpiA) is
     a simulation-layer question, out of scope for a ParCa-only panel.
+    ⚠ Scope of this finding, stated precisely: the STRUCTURE (concentration in
+    the deleted gene's transcription-unit neighbors, via TU-share
+    reattribution) is mechanism-derived and regime-independent; the MAGNITUDES
+    (per-mille bulk, ~10-12% neighbors) are fast-regime measurements from
+    same-commit fast-vs-fast contrasts. Whether the magnitudes hold at 51
+    conditions is being measured by a same-commit full-mode WT/KO control
+    (in flight 2026-08-18); mask on the structure, treat the numbers as
+    fast-regime until that lands.

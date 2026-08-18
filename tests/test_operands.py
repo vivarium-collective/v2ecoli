@@ -18,6 +18,7 @@ skipping behind the `private-data` extra.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import unittest
 from pathlib import Path
@@ -341,6 +342,45 @@ class DeclaredZeros(unittest.TestCase):
                              ("EG11029", 0.0, None, 0)])      # trpR, knocked out
         self.assertEqual(set(op.values), {"EG10001"})
         self.assertEqual(op.declared_zeros, {"EG11029"})
+
+    def test_declared_zeros_survives_a_consumer_substituting_the_centre(self):
+        """★ The regression this exists for: keying on a NULL centre is wrong.
+
+        Which statistic sits in `mean_geometric` is a property of the
+        PRESENTATION, not of the record. `vs_experiment` grades the ARITHMETIC
+        centre (matching the prior CD1 notebooks) and substitutes it into that
+        column before grading -- after which no row is null, and a null-keyed
+        implementation returns EMPTY on exactly the operand that needs it.
+
+        Measured against the real payload when this was caught: on
+        `cd1_ginkgo_viom5_dko_m9` the raw frame yields 145 declared zeros
+        including trpR (EG11029); the substituted frame yielded 0.
+        """
+        op = self._measured([("EG10001", 71.7, 71.4, 6),
+                             ("EG11029", 0.0, None, 0)])      # trpR, knocked out
+        self.assertEqual(op.declared_zeros, {"EG11029"})
+
+        # exactly what `vs_experiment._with_graded_centre` does
+        frame = op.frame.copy()
+        frame["mean_geometric"] = frame["mean_arithmetic"]
+        substituted = dataclasses.replace(op, frame=frame)
+
+        self.assertFalse(substituted.frame["mean_geometric"].isna().any(),
+                         "precondition: the substitution leaves no nulls")
+        self.assertEqual(
+            substituted.declared_zeros, {"EG11029"},
+            "declared_zeros must key on the COUNTS, which are invariant to a "
+            "centre substitution, not on a null centre which is not")
+
+    def test_a_row_nobody_measured_is_not_a_declared_zero(self):
+        """`n_pos == 0` alone is not the fact -- `n > 0` is what makes it one.
+
+        A row with no measurements has no positives either; that is the absence
+        of a measurement, not a measurement of absence.
+        """
+        op = self._measured([("A", None, None, 0)])
+        op.frame.loc[0, "n"] = 0
+        self.assertEqual(op.declared_zeros, set())
 
     def test_values_and_declared_zeros_are_disjoint_by_construction(self):
         op = self._measured([("A", 5.0, 4.8, 6), ("B", 0.0, None, 0),

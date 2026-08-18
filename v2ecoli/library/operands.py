@@ -93,15 +93,24 @@ class Operand:
         counted none"* — as distinct from ones it says nothing about.
 
         **Why this is not reachable through ``values``, and must not be made
-        so.** A true zero has no geometric mean (the geometric mean of all-zero
-        replicates is undefined), so the promoted tier records it as a NULL
-        centre with the fact itself carried in ``mean_arithmetic`` (0.0) and
-        ``n_pos`` (0). ``values`` drops nulls — correctly, since a null cannot
-        enter a map keyed for arithmetic — and in doing so drops the recorded
-        zero along with genuinely absent rows. So the payload honours the
-        true-zero-vs-missing distinction (`comparison-operands-plan` D5) and the
-        consumer cannot see it, and the loss is invisible because it presents as
-        a null rather than as a deletion.
+        so.** A true zero cannot be represented as a centre on the log scale:
+        the geometric mean of all-zero replicates is undefined, so the promoted
+        tier records it as a NULL geometric centre, with the fact itself carried
+        in the counts — ``n_pos`` (0) and ``n`` (> 0) — and in
+        ``mean_arithmetic`` (0.0). ``values`` drops nulls, correctly, and in
+        doing so drops the recorded zero along with genuinely absent rows. So
+        the payload honours the true-zero-vs-missing distinction
+        (`comparison-operands-plan` D5) and the consumer cannot see it — and the
+        loss is invisible, because it presents as a null rather than a deletion.
+
+        ⚠ **That is a statement about ``values``, not a licence to key on the
+        null.** Which statistic sits in ``mean_geometric`` is a property of the
+        *presentation*, not of the record: a card may substitute a different
+        centre before grading, and `vs_experiment` does — it grades the
+        ARITHMETIC centre (matching the prior CD1 notebooks), swapping it into
+        that column. Under that substitution nothing is null. The counts are
+        invariant to it, which is why this keys on them; see the implementation
+        note below.
 
         The fix is a sibling view, deliberately **not** a wider ``values``:
         emitting zeros from ``values`` would change what ``n_shared`` means under
@@ -124,13 +133,27 @@ class Operand:
         and today it is the one row that reaches no grader at all.
         """
         cols = self.frame.columns
-        if "n_pos" not in cols:
+        if "n_pos" not in cols or "n" not in cols:
             return set()
-        centre_is_null = self.frame["mean_geometric"].isna()
+        # The record of a true zero lives in the COUNTS, not in the centre:
+        # `n_pos == 0` (no positive replicate) with `n > 0` (something was
+        # actually measured) is the fact. `n > 0` is what separates a measured
+        # zero from a row nobody measured.
+        #
+        # ⚠ Do NOT also test `mean_geometric.isna()`. On the promoted tier the
+        # two coincide exactly — measured on a ΔtrpR ΔtnaA transcriptome, both
+        # select the same 145 of 4252 rows — so the null test looks free. It is
+        # not: a CONSUMER may legitimately present this operand with a different
+        # statistic in the `mean_geometric` column (`vs_experiment` does exactly
+        # that, substituting the arithmetic centre the cards grade), and then no
+        # row is null and this returns EMPTY. Keying on the counts is invariant
+        # to that substitution; keying on the centre is not.
         none_positive = pd.to_numeric(
             self.frame["n_pos"], errors="coerce").fillna(-1) == 0
+        some_measured = pd.to_numeric(
+            self.frame["n"], errors="coerce").fillna(0) > 0
         return {str(e) for e in
-                self.frame.loc[centre_is_null & none_positive, "entity_id"]}
+                self.frame.loc[none_positive & some_measured, "entity_id"]}
 
     def __len__(self) -> int:
         return len(self.frame)

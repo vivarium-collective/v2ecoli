@@ -111,6 +111,55 @@ def test_wrap_vivarium_process_output_ports_restricts_writes():
     assert "flag" in inst.inputs()
 
 
+class FakeSharedVolumeProcess:
+    """A process declaring a nested, bare-numeric ``_updater: set`` port —
+    mirrors gillespie's ``volumes: {<reaction>: {"_default": 1.0, "_updater":
+    "set"}}``, which infers as ``overwrite[float]`` and can't subtype-resolve
+    against a store another process has already declared ``quantity``-typed
+    at the same shared path (surfaces at cell division)."""
+
+    name = "fake-shared-volume"
+    defaults = {}
+
+    def __init__(self, parameters=None):
+        self.parameters = {**self.defaults, **(parameters or {})}
+
+    def ports_schema(self):
+        return {
+            "volumes": {
+                "rxn_a": {"_default": 1.0, "_updater": "set"},
+                "rxn_b": {"_default": 1.0, "_updater": "set"},
+            },
+        }
+
+    def next_update(self, timestep, states):
+        return {}
+
+
+def test_attach_pint_ports_leaves_schema_untouched_by_default():
+    core = build_core()
+    Wrapped = wrap_vivarium_process(FakeSharedVolumeProcess)
+    inst = Wrapped({}, core=core)
+    assert inst.inputs()["volumes"]["rxn_a"]["_type"] == "overwrite[float]"
+
+
+def test_attach_pint_ports_declares_quantity_typed_schema():
+    """The fix: attach_pint_ports must ALSO govern the declared schema, not
+    just runtime values — else a bare-numeric port can't subtype-resolve
+    against a Quantity-typed store another injected process shares it with."""
+    core = build_core()
+    Wrapped = wrap_vivarium_process(
+        FakeSharedVolumeProcess, attach_pint_ports={"volumes": "fL"})
+    inst = Wrapped({}, core=core)
+    for rxn in ("rxn_a", "rxn_b"):
+        typed = inst.inputs()["volumes"][rxn]
+        assert typed["_type"]["_type"] == "overwrite"
+        assert typed["_type"]["_value"]["_type"] == "quantity"
+        assert typed["_type"]["_value"]["units"] == {"femtoliter": 1}
+        assert typed["_default"].magnitude == 1.0
+        assert str(typed["_default"].units) == "femtoliter"
+
+
 def test_real_vivarium_process_runs_in_composite():
     """Worked example: a real ``vivarium-core`` Process, wrapped and run on the
     process-bigraph runtime end-to-end (mirrors docs/converting_vivarium_processes.md).

@@ -1584,6 +1584,70 @@
   }
   window._dispatchCurrentSpecBaseline = _dispatchCurrentSpecBaseline;
 
+  // ─── item 6: real dispatch progress, polling not SSE ───────────────────
+  // Alex, 2026-08-17: dispatch a sim, get a toast, then total silence -- the
+  // only way to know a campaign is alive was querying AWS Batch directly.
+  // Polls GET /api/remote-run-chain-progress (viva-api PR #257's real
+  // per-seed counts) on a session-status.js-style interval -- SSE was
+  // considered and rejected: the Stanford ALB already flakes to
+  // Target.Timeout on long-lived connections (viva-api/CLAUDE.md Pitfall 4),
+  // and a campaign runs minutes-to-hours, so nobody needs sub-second push.
+  var CHAIN_PROGRESS_POLL_MS = 8000;
+  var _chainProgressTimer = null;
+
+  function _chainProgressEl() {
+    var el = document.getElementById('study-chain-progress');
+    if (!el) {
+      var btn = document.getElementById('study-run-current-spec');
+      var host = btn && btn.parentNode;
+      if (!host) return null;
+      el = document.createElement('div');
+      el.id = 'study-chain-progress';
+      el.style.cssText = 'margin-top:8px; font:12px/1.5 system-ui,-apple-system,sans-serif; color:var(--muted,#8a8fa3)';
+      host.insertBefore(el, btn.nextSibling);
+    }
+    return el;
+  }
+
+  function _renderChainProgress(d) {
+    var el = _chainProgressEl();
+    if (!el) return;
+    if (!d || d.phase === 'not_a_campaign' || d.phase === 'not_found') {
+      el.textContent = '';
+      return;
+    }
+    if (d.phase === 'unreachable') {
+      el.textContent = '⚠ progress unavailable (sms-api unreachable)';
+      return;
+    }
+    var total = d.seeds_total, done = d.seeds_succeeded, failed = d.seeds_failed,
+        inProgress = d.seeds_in_progress;
+    if (total == null) { el.textContent = 'run ' + d.simulation_id + ': ' + d.phase; return; }
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    var bar = '';
+    var filled = Math.round((pct / 100) * 20);
+    for (var i = 0; i < 20; i++) bar += (i < filled ? '█' : '░');
+    var failedTxt = failed ? (', ' + failed + ' failed') : '';
+    el.textContent = '[' + bar + '] ' + pct + '%  ' + done + '/' + total + ' seeds' + failedTxt +
+      (d.terminal ? ' — done' : ' — ' + inProgress + ' in progress');
+  }
+
+  function _pollChainProgress(runId) {
+    if (_chainProgressTimer) { clearTimeout(_chainProgressTimer); _chainProgressTimer = null; }
+    api('GET', '/api/remote-run-chain-progress?simulation_id=' + encodeURIComponent(runId))
+      .then(function (res) {
+        var d = res.body || {};
+        _renderChainProgress(d);
+        if (!d.terminal && d.phase !== 'not_a_campaign' && d.phase !== 'not_found') {
+          _chainProgressTimer = setTimeout(function () { _pollChainProgress(runId); }, CHAIN_PROGRESS_POLL_MS);
+        }
+      })
+      .catch(function () {
+        // Transient network hiccup -- keep polling, don't give up on one miss.
+        _chainProgressTimer = setTimeout(function () { _pollChainProgress(runId); }, CHAIN_PROGRESS_POLL_MS);
+      });
+  }
+
   bindAll('#study-run-current-spec', function(btn) {
     var orig = btn.textContent;
     btn.disabled = true;
@@ -1598,6 +1662,7 @@
           var msg = 'Run launched' + (runId ? ' — new run ' + runId : '');
           if (typeof _showToast === 'function') _showToast(msg); else alert(msg);
           if (typeof _loadStudySims === 'function') _loadStudySims(true);
+          if (runId) _pollChainProgress(runId);
         } else {
           alert('Run failed: ' + (res.body && res.body.error || res.status));
         }
@@ -2305,7 +2370,16 @@
     if (detail && typeof detail === 'object') {
       Object.keys(detail).forEach(function(k) {
         var v = detail[k];
-        if (Array.isArray(v) && v.length) bits.push(k + ': ' + v.length);
+        if (!Array.isArray(v) || !v.length) return;
+        // Surface WHICH items, not just how many — an audit that says "1
+        // uncovered card" isn't actionable; "uncovered_cards: metabolism" is.
+        var names = v.map(function(item) {
+          if (item && typeof item === 'object') return item.name || item.path || item.id || JSON.stringify(item);
+          return String(item);
+        });
+        var shown = names.slice(0, 4).join(', ');
+        if (names.length > 4) shown += ' (+' + (names.length - 4) + ' more)';
+        bits.push(k + ': ' + shown);
       });
     }
     return '<li class="audit-axis-item outcome-' + cls + '" data-axis="' + e((ax && ax.id) || '') + '" '
@@ -2396,14 +2470,106 @@
   }
   window._loadAuditSufficiency = _loadAuditSufficiency;
 
+  // ── Sourcing sub-panel (Slice 3) ─────────────────────────────────────────
+  // viva_superpowers.module_sourcing.build_sourcing_report + sourcing_gate.
+  // "Where did this model come from — reuse / compose / build-new — and was
+  // that choice sound?" Reads the study spec's own `sourcing:`/`requires:`
+  // blocks straight off window._study (a pass-through spec via
+  // /api/study/{slug}, StudyDetail extra="allow") — NO server fetch, unlike
+  // Sufficiency. Reuses _renderAuditSufficiencyAxis + the gate-chip pattern,
+  // so the source_fit/reinvention/novelty_justified/survey_recorded axes
+  // render in the same within_tol/drift/mismatch visual language. The mount
+  // hides itself for the common case of a study with no sourcing decision.
+  var _SOURCING_AXIS_ORDER = ['source_fit', 'reinvention', 'novelty_justified', 'survey_recorded'];
+  var _SOURCING_AXIS_LABELS = {
+    source_fit: 'Source fit', reinvention: 'Reinvention',
+    novelty_justified: 'Novelty justified', survey_recorded: 'Survey recorded'
+  };
+  var _SOURCING_AXIS_KIND = {
+    source_fit: 'hard', reinvention: 'hard',
+    novelty_justified: 'soft', survey_recorded: 'soft'
+  };
+
+  // Returns {state, html} — state 'absent' (no sourcing block) → mount hidden.
+  function _sourcingCheckGroupHtml(sourcing, requires) {
+    var e = escapeHtmlForTests;
+    if (!sourcing || typeof sourcing !== 'object') return { state: 'absent', html: '' };
+    var audit = sourcing.audit || {};
+    var header = '<div class="check-group-header" style="display:flex;align-items:center;'
+      + 'gap:8px;flex-wrap:wrap"><strong>Sourcing</strong> '
+      + '<span class="muted" style="font-size:0.85em">where the model came from &mdash; '
+      + '<code>viva_superpowers.module_sourcing</code></span>';
+    var gate = String(audit.gate || 'pass').toLowerCase();
+    var gc = _AUDIT_GATE_COLORS[gate] || _AUDIT_GATE_COLORS.pass;
+    header += ' <span class="outcome-chip" style="margin-left:auto;font-size:0.78em;font-weight:600;'
+      + 'padding:2px 9px;border-radius:9999px;background:' + gc.bg + ';color:' + gc.fg + '">gate: '
+      + e(gate) + '</span></div>';
+    var decision = sourcing.decision || '—';
+    var modules = Array.isArray(sourcing.modules) ? sourcing.modules : [];
+    var reqs = Array.isArray(requires) ? requires : [];
+    var summary = '<div class="sourcing-decision muted" style="font-size:0.9em;margin:6px 0 2px 0">'
+      + '<strong style="color:#334155">' + e(decision) + '</strong>'
+      + (modules.length ? ' &middot; ' + e(modules.join(', ')) : '')
+      + (reqs.length ? ' &nbsp;<span title="required capabilities">requires: ' + e(reqs.join(', ')) + '</span>' : '')
+      + '</div>';
+    if (sourcing.rationale) {
+      summary += '<div class="muted" style="font-size:0.85em;font-style:italic;margin-bottom:4px">&ldquo;'
+        + e(sourcing.rationale) + '&rdquo;</div>';
+    }
+    var axesDict = audit.axes || {};
+    var keys = _SOURCING_AXIS_ORDER.filter(function(k) { return k in axesDict; });
+    Object.keys(axesDict).forEach(function(k) { if (keys.indexOf(k) < 0) keys.push(k); });
+    if (!keys.length) {
+      return { state: 'empty', html: header + summary
+        + '<p class="empty-message">No sourcing axes computed for this study.</p>' };
+    }
+    var axes = keys.map(function(k) {
+      var kind = _SOURCING_AXIS_KIND[k];
+      return {
+        id: k, verdict: axesDict[k],
+        label: (_SOURCING_AXIS_LABELS[k] || k.replace(/_/g, ' ')) + (kind ? ' · ' + kind : '')
+      };
+    });
+    var footer = '';
+    if (audit.catches_if_wrong) {
+      footer = '<p class="muted" style="font-size:0.82em;margin:8px 0 0 0">Catches if wrong: '
+        + e(audit.catches_if_wrong) + '</p>';
+    }
+    return {
+      state: 'ready',
+      html: header + summary
+        + '<ul class="audit-axis-list" style="list-style:none;padding-left:0;margin:8px 0 0 0">'
+        + axes.map(_renderAuditSufficiencyAxis).join('') + '</ul>' + footer
+    };
+  }
+
+  function _loadAuditSourcing(spec) {
+    var host = document.getElementById('audit-sourcing');
+    if (!host) return;
+    var src = (spec && spec.sourcing) || (window._study && window._study.sourcing) || null;
+    var reqs = (spec && spec.requires) || (window._study && window._study.requires) || [];
+    var built = _sourcingCheckGroupHtml(src, reqs);
+    if (built.state === 'absent') {
+      host.style.display = 'none';
+      host.dataset.state = 'absent';
+      host.innerHTML = '';
+      return;
+    }
+    host.style.display = '';
+    host.dataset.state = built.state;
+    host.innerHTML = built.html;
+  }
+  window._loadAuditSourcing = _loadAuditSourcing;
+
   // Audit tab entry point — fills all three Checks-band groups (Sufficiency,
-  // Quality, Reproducibility). Quality/Reproducibility MOVED here from the
-  // Tests panel's old _loadTestsPanel (spec §3.6/§3.7); their loaders are
-  // unchanged, just dispatched from here instead.
+  // Quality, Reproducibility) plus the Sourcing sub-panel. Quality/
+  // Reproducibility MOVED here from the Tests panel's old _loadTestsPanel
+  // (spec §3.6/§3.7); their loaders are unchanged, just dispatched from here.
   function _loadAudit(spec) {
     _loadAuditSufficiency(spec);
     _loadQualityChecks(spec);
     _loadReproducibilityChecks(spec);
+    _loadAuditSourcing(spec);
   }
   window._loadAudit = _loadAudit;
 
@@ -2419,16 +2585,87 @@
     GIVE_UP: { bg: '#fee2e2', fg: '#991b1b' }
   };
 
-  function _renderLoopHistoryRow(h) {
+  // verdict → colors for per-test margin cells (matches the audit-panel vocabulary)
+  var _LOOP_VERDICT_COLORS = {
+    within_tol: { bg: '#d1fae5', fg: '#065f46' },
+    drift: { bg: '#fef3c7', fg: '#92400e' },
+    mismatch: { bg: '#fee2e2', fg: '#991b1b' }
+  };
+
+  // The integrity ribbon — the honesty guarantees at a glance.
+  function _buildIntegrityRibbon(state) {
     var e = escapeHtmlForTests;
-    var md = (h && h.margin_deltas) || {};
-    var mdKeys = Object.keys(md);
-    return '<li style="padding:5px 0;border-top:1px solid #f8fafc;font-size:0.85em">'
-      + '<strong>#' + e((h && h.iteration) != null ? h.iteration : '') + '</strong> '
-      + e((h && h.edit) || '') + ' &rarr; <code>' + e((h && h.target) || '') + '</code>'
-      + ' <span class="muted">gate: ' + e((h && h.gate) || '') + '</span>'
-      + (mdKeys.length ? ' <span class="muted">(' + mdKeys.length + ' margin delta' + (mdKeys.length === 1 ? '' : 's') + ')</span>' : '')
-      + '</li>';
+    var budget = state.budget || {};
+    var prereg = state.prereg_record || {};
+    var priorHashes = prereg.prior_hashes || [];
+    var rb = function (label, val, ok) {
+      return '<span style="font-family:ui-monospace,Menlo,monospace;font-size:0.72rem;padding:3px 9px;'
+        + 'border-radius:8px;border:1px solid #e2e8f0;background:#fff;color:#64748b">' + e(label)
+        + ' <strong style="color:' + (ok ? '#059669' : '#0f172a') + '">' + e(val) + '</strong></span>';
+    };
+    var reopens = state.reopen_count != null ? state.reopen_count : 0;
+    return '<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:10px">'
+      + rb('state', state.state || '?', state.state === 'DONE')
+      + rb('edits', (budget.spent != null ? budget.spent : 0) + ' / ' + (budget.max_iterations != null ? budget.max_iterations : '—'), false)
+      + rb('reopens', reopens, reopens === 0)
+      + (priorHashes.length ? rb('prior hashes', priorHashes.length, false) : '')
+      + '<span style="font-family:ui-monospace,Menlo,monospace;font-size:0.72rem;padding:3px 9px;border-radius:8px;'
+      + 'border:1px solid #e2e8f0;background:#fff;color:#64748b" title="locked-tests hash">'
+      + e((state.locked_tests_hash || 'not locked').slice(0, 20)) + '…</span></div>';
+  }
+
+  // Signed-margin matrix (rows = tests, cols = iterations) — rendered only when
+  // the loop_state history carries per-test verdicts (h.tests: [{name, verdict,
+  // margin}]). Older/aggregate history without that falls back to the ladder.
+  function _renderMarginMatrix(history) {
+    var e = escapeHtmlForTests;
+    var withTests = history.filter(function (h) { return h && h.tests && h.tests.length; });
+    if (!withTests.length) return null;
+    var names = [];
+    history.forEach(function (h) {
+      (h.tests || []).forEach(function (t) { if (names.indexOf(t.name) < 0) names.push(t.name); });
+    });
+    var head = '<th style="text-align:left">signed margin</th>' + history.map(function (h) {
+      return '<th>iter ' + e(h.iteration != null ? h.iteration : '') + '</th>';
+    }).join('');
+    var rows = names.map(function (nm) {
+      var cells = history.map(function (h) {
+        var t = (h.tests || []).filter(function (x) { return x.name === nm; })[0];
+        if (!t) return '<td style="color:#cbd5e1">—</td>';
+        var c = _LOOP_VERDICT_COLORS[t.verdict] || { bg: '#f8fafc', fg: '#64748b' };
+        var m = (t.margin == null) ? '—' : (t.margin >= 0 ? '+' : '') + Number(t.margin).toFixed(2);
+        return '<td style="background:' + c.bg + ';color:' + c.fg + ';font-family:ui-monospace,Menlo,monospace">' + e(m) + '</td>';
+      }).join('');
+      return '<tr><td style="text-align:left;font-weight:600">' + e(nm) + '</td>' + cells + '</tr>';
+    }).join('');
+    return '<div style="margin-top:12px"><strong style="font-size:0.9em">Iteration trajectory</strong>'
+      + '<div style="overflow-x:auto;border:1px solid #e2e8f0;border-radius:10px;margin-top:6px">'
+      + '<table style="border-collapse:collapse;width:100%;font-size:0.78rem;text-align:center">'
+      + '<thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + '<p class="muted" style="font-size:0.78rem;margin:6px 0 0">Each cell is the real signed margin to the band edge; green→met, red→missed. Read a row to watch one test converge.</p></div>';
+  }
+
+  // Fallback ladder — one row per iteration with the edit, gate, and the actual
+  // margin-delta values (not just a count).
+  function _renderIterationLadder(history) {
+    var e = escapeHtmlForTests;
+    var rows = history.map(function (h) {
+      var md = (h && h.margin_deltas) || {};
+      var deltas = Object.keys(md).map(function (k) {
+        var v = md[k]; var s = (typeof v === 'number') ? (v >= 0 ? '+' : '') + v.toFixed(2) : v;
+        return '<code style="font-size:0.75rem;background:#f1f5f9;padding:1px 5px;border-radius:4px;margin-right:4px">' + e(k) + ' ' + e(s) + '</code>';
+      }).join('');
+      var g = _LOOP_VERDICT_COLORS[(h && h.gate) === 'pass' ? 'within_tol' : (h && h.gate) === 'warn' ? 'drift' : 'mismatch'] || { bg: '#f1f5f9', fg: '#475569' };
+      return '<li style="padding:8px 0;border-top:1px solid #f1f5f9;font-size:0.86em">'
+        + '<span style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+        + '<strong>iter ' + e((h && h.iteration) != null ? h.iteration : '') + '</strong>'
+        + '<span>' + e((h && h.edit) || '') + (h && h.target ? ' &rarr; <code>' + e(h.target) + '</code>' : '') + '</span>'
+        + '<span class="outcome-chip" style="margin-left:auto;font-size:0.72rem;font-weight:600;padding:2px 8px;border-radius:9999px;background:' + g.bg + ';color:' + g.fg + '">gate: ' + e((h && h.gate) || '?') + '</span></span>'
+        + (deltas ? '<div style="margin-top:5px">' + deltas + '</div>' : '')
+        + '</li>';
+    }).join('');
+    return '<div style="margin-top:12px"><strong style="font-size:0.9em">Iteration trajectory</strong>'
+      + '<ul style="list-style:none;padding-left:0;margin:6px 0 0 0">' + rows + '</ul></div>';
   }
 
   function _buildPanelHtml(state) {
@@ -2438,37 +2675,33 @@
         || 'This study was not built via the agentic model-building loop (/viva-model-build).';
       return '<p class="empty-message">' + e(reason) + '</p>';
     }
-    var budget = state.budget || {};
-    var prereg = state.prereg_record || {};
-    var priorHashes = prereg.prior_hashes || [];
     var history = state.history || [];
     var sc = _BUILD_STATE_COLORS[state.state] || { bg: '#f1f5f9', fg: '#475569' };
+    // header + state chip
     var html = '<div class="check-group-header" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
-      + '<strong>Loop provenance</strong> <span class="muted" style="font-size:0.85em">'
+      + '<strong>Was it earned?</strong> <span class="muted" style="font-size:0.85em">the model-building loop &mdash; '
       + '<code>viva_superpowers.loop_state</code></span>'
       + '<span class="outcome-chip" style="margin-left:auto;font-size:0.78em;font-weight:600;padding:2px 9px;'
       + 'border-radius:9999px;background:' + sc.bg + ';color:' + sc.fg + '">' + e(state.state || '?') + '</span></div>';
-    html += '<div style="margin-top:8px;font-size:0.9em">'
-      + '<div><strong>Question:</strong> ' + e(state.question || '—') + '</div>'
-      + '<div><strong>Iteration:</strong> ' + e(state.iteration != null ? state.iteration : '—')
-      + ' / ' + e(budget.max_iterations != null ? budget.max_iterations : '—')
-      + ' <span class="muted">(' + e(budget.spent != null ? budget.spent : 0) + ' spent)</span></div>'
-      + '<div><strong>Locked tests hash:</strong> <code style="font-size:0.85em">'
-      + e(state.locked_tests_hash || 'not locked') + '</code></div>'
-      + '<div><strong>Reopen count:</strong> ' + e(state.reopen_count != null ? state.reopen_count : 0)
-      + (priorHashes.length
-          ? ' <span class="muted">(' + priorHashes.length + ' prior hash' + (priorHashes.length === 1 ? '' : 'es') + ' retained)</span>'
-          : '')
-      + '</div></div>';
-    if (state.state === 'GIVE_UP' && state.give_up_reason) {
+    // the contract line
+    html += '<div style="margin-top:8px;font-size:0.9em"><strong>Question:</strong> ' + e(state.question || '—') + '</div>';
+    // the integrity ribbon
+    html += _buildIntegrityRibbon(state);
+    // result / honest give-up
+    if (state.state === 'GIVE_UP') {
       html += '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:' + sc.bg
         + ';color:' + sc.fg + ';border:1px solid rgba(153,27,27,0.25);font-size:0.9em">'
-        + '<strong>Why the loop gave up:</strong> ' + e(state.give_up_reason) + '</div>';
+        + '<strong>Honest give-up:</strong> ' + e(state.give_up_reason || 'the loop stopped without a pass rather than fake one')
+        + '</div>';
+    } else if (state.state === 'DONE') {
+      html += '<div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:' + sc.bg
+        + ';color:' + sc.fg + ';border:1px solid rgba(6,95,70,0.2);font-size:0.9em">'
+        + '<strong>Done &mdash; the tests passed, honestly:</strong> the locked tests were never weakened '
+        + '(' + e(state.reopen_count != null ? state.reopen_count : 0) + ' reopens), and the pass was earned by editing the model.</div>';
     }
+    // the iteration trajectory — matrix when per-test verdicts are present, else ladder
     if (history.length) {
-      html += '<div style="margin-top:12px"><strong style="font-size:0.9em">Iteration history</strong>'
-        + '<ul style="list-style:none;padding-left:0;margin:6px 0 0 0">'
-        + history.map(_renderLoopHistoryRow).join('') + '</ul></div>';
+      html += _renderMarginMatrix(history) || _renderIterationLadder(history);
     }
     return html;
   }

@@ -807,7 +807,7 @@ express each as a one-line variant of the baseline composite?
 
 <section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
   <h2>Tests</h2>
-  <p class="muted" style="margin:0 0 12px 0">Audit — does this study pass its own bar (report cards + behavioral gates).</p>
+  <p class="muted" style="margin:0 0 12px 0"><strong>The bar.</strong> What must be true for this model to count as correct — the acceptance criteria, their bands, and the report cards that grade them.</p>
 
   
   
@@ -928,7 +928,7 @@ expect:  {"note": "dry-mass increment on rich media \u003e minimal (directional;
 
 <section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
   <h2>Audit</h2>
-  <p class="muted" style="margin:0 0 12px 0">Is the bar high enough to trust? Sufficiency of the Test set, plus the rigor and reproducibility scorecards.</p>
+  <p class="muted" style="margin:0 0 12px 0"><strong>Is the bar sound?</strong> Whether the tests themselves are rigorous and matched to the problem — sufficiency, where the model was sourced, and the rigor + reproducibility scorecards.</p>
 
   <div class="checks-band">
     <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
@@ -942,13 +942,18 @@ expect:  {"note": "dry-mass increment on rich media \u003e minimal (directional;
     <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
       <p class="empty-message">Loading reproducibility checks…</p>
     </div>
+
+    
+    <div class="check-group check-group-sourcing" id="audit-sourcing" data-check-group="sourcing" style="margin-top:16px">
+      <p class="empty-message">Loading sourcing…</p>
+    </div>
   </div>
 </section>
 
 
 <section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
   <h2>Build</h2>
-  <p class="muted" style="margin:0 0 12px 0">Was the pass earned honestly? Provenance from the agentic model-building loop, if this study was built through it.</p>
+  <p class="muted" style="margin:0 0 12px 0"><strong>Was it earned?</strong> The agentic model-building loop that iterated the model to clear the bar — the draft, the frozen tests, the iteration-by-iteration trajectory, and the result (or an honest give-up).</p>
 
   <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
 </section>
@@ -1065,7 +1070,7 @@ expect:  {"note": "dry-mass increment on rich media \u003e minimal (directional;
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/4ba5dee2ed9cd3e21daef8ddb997c457058d5858", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-17 13:25 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "56589f5d1bcbf8a63c1444a4c8a0f5438ab27f57", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/56589f5d1bcbf8a63c1444a4c8a0f5438ab27f57", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-18 02:07 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "ko-and-media";
@@ -1186,6 +1191,11 @@ window._seedFollowupProposal = _seedFollowupProposal;
      _renderCompositeCardFull to show the SAME rich card the Modules/
      Composites view uses, with full semantic detail (config schema +
      declared observables). Loaded before study-detail.js, which calls it. -->
+<!-- loom-embed.js: _openCompositeLoomInline + helpers (from walkthrough.js,
+     which this iframe does NOT load). composite-card.js's _pcardToggleSec needs
+     it to MOUNT a composite's loom — without it, opening a composite from a
+     Model card stays stuck on "Resolving composite…". -->
+<script src="/v2ecoli/workbench/assets/loom-embed.js"></script>
 <script src="/v2ecoli/workbench/assets/composite-card.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>

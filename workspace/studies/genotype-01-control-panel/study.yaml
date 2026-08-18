@@ -156,9 +156,14 @@ conditions:
     detail: >-
       The parca composite is a 9-step DAG driven by its own CLI; runs go through
       canonical_runs (established on genotype-00, which also documents why the
-      generic composite runner cannot drive this pipeline). All arms fast mode;
-      the fast<->full expression delta is a measured uniform ~3.63% renormalization
-      that cancels in contrasts (2026-08-17).
+      generic composite runner cannot drive this pipeline). All arms fast mode.
+      NOTE on fast-vs-full: an earlier comparison against the shipped full-mode
+      fixture is INVALID as a mode measurement - the fixture predates the #275
+      balance_translation_efficiencies fix (fingerprint reproduced: 27 r-protein
+      monomers, max delta 0.24), so that delta is code drift, not mode. A
+      same-commit full-mode control is pending; until it exists, fast-vs-full
+      equivalence for expression readouts is an expectation, not a measurement.
+      Panel contrasts here are all fast-vs-fast on one commit and unaffected.
 
 # One bespoke runner drives the whole panel: per gene it generates the bundle,
 # grades the build-integrity card structurally (no fit needed), runs the fast
@@ -227,9 +232,10 @@ visualizations:
 limitations:
 - >-
   Fast regime throughout (7 of 51 conditions). Structural readouts are
-  regime-independent; expression deltas are contrasts within one regime (the
-  fast<->full delta is a measured uniform renormalization); fitted-parameter
-  VALUES are not read at all.
+  regime-independent; expression deltas are contrasts within one regime on one
+  commit, so no fast-vs-full claim is needed or made here (a prior fast-vs-full
+  comparison was confounded by fixture vintage - see the run-mechanics note);
+  fitted-parameter VALUES are not read at all.
 - >-
   No graded biology bands, by design - this is mechanical characterization
   feeding the sms-ecoli investigations, not a phenotype claim. Findings name

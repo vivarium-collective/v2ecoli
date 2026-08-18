@@ -70,9 +70,11 @@ def _resolve_raw_data(config: dict):
     so the composite is self-sufficient. A declared ``bundle_manifest`` selects
     the ecoli-sources bundle; otherwise the default flat-file bundle is used.
 
-    NOTE: loading the KB and running the full fit is a minutes-to-hours job. The
-    log line below makes that explicit so a workbench run does not look hung; use
-    the Runs-tab stop control to cancel.
+    NOTE: this loads the KB and runs the FULL ParCa fit. Measured 2026-08-18 on a
+    14-core laptop: ~4.6 min end to end (51 TF conditions). The log line below makes
+    it explicit so a workbench run does not look hung; use the Runs-tab stop control
+    to cancel. (Several repo docs still quote 4-8 h / ~300 conditions -- an inherited
+    wcEcoli figure that does not describe this pipeline.)
     """
     raw_data = config.get("raw_data")
     if _is_valid_raw_data(raw_data):
@@ -96,7 +98,7 @@ def _resolve_raw_data(config: dict):
         f"(bundle_manifest={manifest or 'default'}, "
         f"bundle_overrides={overrides or 'none'}, new_genes={new_genes}). "
         "This runs the FULL ParCa "
-        "fit — expect minutes to hours; cancel from the Runs tab if unintended."
+        "fit — a few minutes; cancel from the Runs tab if unintended."
     )
     bundle = SourceBundle(base_manifest=manifest, overrides=overrides)
     return KnowledgeBaseEcoli(

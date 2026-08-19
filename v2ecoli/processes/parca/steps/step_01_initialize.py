@@ -217,10 +217,30 @@ class InitializeStep(Step):
         the resulting sim_data is attributed to a genotype it was not built
         from, which is exactly the provenance claim downstream studies rest on.
         """
+        raw_data = self.config.get('raw_data')
+
+        # new_genes is checked FIRST and separately: unlike the bundle fields it
+        # is not merely provenance -- it changes the genome the fit is built
+        # from. On the injected-raw_data path (the CLI, and any
+        # build_parca_composite(raw_data=...) caller) this step never builds the
+        # KB, so a config declaring an insertion against a wild-type KB would
+        # otherwise fit WT, warn nothing, and record a genotype it does not have.
+        declared_genes = self.config.get('new_genes', '') or 'off'
+        actual_genes = getattr(raw_data, 'new_genes_option', None)
+        if actual_genes is not None and declared_genes != actual_genes:
+            warnings.warn(
+                "ParCa genotype mismatch: step config declares new_genes "
+                f"{declared_genes!r} but raw_data was built with "
+                f"{actual_genes!r}. The fit proceeds against the INJECTED "
+                "raw_data, so the resulting sim_data has the latter genome "
+                "while its recorded config claims the former.",
+                stacklevel=2,
+            )
+
         declared = self.config.get('bundle_manifest', '')
         if not declared:
             return
-        bundle = getattr(self.config.get('raw_data'), '_bundle', None)
+        bundle = getattr(raw_data, '_bundle', None)
         actual = getattr(bundle, 'base_manifest', None)
         if actual is None:
             return

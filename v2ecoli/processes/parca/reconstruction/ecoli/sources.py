@@ -126,8 +126,15 @@ class SourceBundle:
         # bundle manifest, so downstream steps need to be able to name it
         # rather than only read through it.
         self.base_manifest = base_manifest
-        # The full chain, in application order — provenance has to name every
-        # manifest that contributed, not just the last one.
+        # The full chain, in application order. Provenance has to name every
+        # manifest that contributed, not just the last one -- a build resolved
+        # through two overrides is a different genotype from one resolved
+        # through either alone.
+        # ⚠ Nothing in this repo reads it yet: it is recorded for consumers that
+        # need the whole chain rather than its last link (a genotype cross-check
+        # over the overrides, or a variant-generated-key guard that must see
+        # keys contributed by an override rather than only by the base
+        # manifest's sidecar). Forward-looking, deliberately, not dead.
         self.override_chain = list(chain)
         # Back-compat: the single-file attribute callers previously read, now
         # the LAST link (the one that wins). ``override_chain`` is the record.

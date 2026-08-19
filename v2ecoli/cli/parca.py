@@ -198,6 +198,15 @@ def main():
             resume_from_step=args.resume_from_step,
             resume_state=resume_state,
             allow_partial_fit=args.allow_partial_fit,
+            # Record WHICH genotype this state was fit from. Without these the
+            # emitted parca_state.pkl reads '' for all three and a new-gene
+            # build is indistinguishable from a wild-type one by its own
+            # recorded config -- so a cache's provenance has to be reconstructed
+            # from outside it, which is exactly the ambiguity these fields exist
+            # to remove.
+            bundle_manifest=args.bundle_manifest_path or "",
+            bundle_overrides=";".join(args.bundle_overrides or ()),
+            new_genes=args.new_genes,
         )
     print(f"\n[{time.strftime('%H:%M:%S')}] Pipeline completed in "
           f"{time.time() - t1:.1f}s")

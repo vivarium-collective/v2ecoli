@@ -523,6 +523,31 @@ class KnowledgeBaseEcoli(object):
                         f"because columns do not match (different columns: {col_diff})."
                     )
 
+                # An added row whose id already exists in the base table does
+                # not merge -- both rows are kept and every downstream consumer
+                # that builds an id-keyed dict silently takes the LAST one
+                # (e.g. molecular weights and charges in getter_functions /
+                # metabolism). For a new-gene insertion that means a payload
+                # re-declaring a HOST molecule would quietly redefine the
+                # host's chemistry: a heterologous pathway consumes host
+                # metabolites, so its own tables can plausibly name one.
+                # Fail loudly instead -- a redefinition may well be intended,
+                # but it must be deliberate rather than a silent last-write.
+                if "id" in data[0]:
+                    base_ids = {row["id"] for row in data}
+                    clashes = sorted(
+                        {row["id"] for row in added_data if row["id"] in base_ids}
+                    )
+                    if clashes:
+                        raise ValueError(
+                            f"Cannot join {attr_to_add} into {data_attr}: "
+                            f"{len(clashes)} id(s) already exist in the base "
+                            f"table and would silently redefine it "
+                            f"{clashes[:5]}. Rename the added rows, or remove "
+                            f"the colliding rows from the base table via the "
+                            f"corresponding *_removed.tsv."
+                        )
+
             # Join datasets
             for row in added_data:
                 data.append(row)

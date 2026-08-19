@@ -178,9 +178,10 @@ def test_new_gene_metabolites_are_joined_and_reach_the_bulk_store(tmp_path):
 
     Without this the pathway can be fully built -- genes expressed, enzymes
     synthesised and complexed -- and still have nowhere to put what it makes,
-    so no product count and no product KPI. Measured on a violacein insertion
-    2026-08-18: with the file joined, ``VIOLACEIN[c]`` and its intermediates
-    appear in the bulk store; without it they are absent entirely.
+    so no product count and no product KPI. Measured on a real heterologous
+    pathway insertion: with the file joined, the pathway's product and its
+    intermediates appear in the bulk store; without it they are absent
+    entirely, while every other part of the strain builds correctly.
     """
     from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import (
         SimulationDataEcoli,
@@ -196,6 +197,29 @@ def test_new_gene_metabolites_are_joined_and_reach_the_bulk_store(tmp_path):
     sim_data.initialize(raw_data=kb)
     bulk_ids = set(sim_data.internal_state.bulk_molecules.bulk_data["id"])
     assert "NG-TEST-PRODUCT[c]" in bulk_ids
+
+
+def test_new_gene_metabolites_colliding_with_the_host_are_refused(tmp_path):
+    """A payload re-declaring a HOST molecule must fail loudly, not silently win.
+
+    Joined rows do not merge: both survive, and every consumer that builds an
+    id-keyed dict (molecular weights, charges) takes the last one. A
+    heterologous pathway consumes host metabolites, so its own tables can
+    plausibly name one -- ``TRP`` is the worked example, being both a base-table
+    metabolite and the substrate of a real pathway we build. Silently rewriting
+    tryptophan's mass and charge would corrupt the host's chemistry with no
+    error anywhere.
+    """
+    collide = (
+        '"id"\t"common_name"\t"synonyms"\t"chemical_formula"\t"mw"'
+        '\t"molecular_charge"\t"_smiles"\n'
+        '"TRP"\t"not really tryptophan"\t[]\t"C1H1"\t1.0\t0\t""\n'
+    )
+    manifest = _write_overlay(
+        tmp_path, "gfp_collide", extra={"metabolites.tsv": collide}
+    )
+    with pytest.raises(ValueError, match="already exist in the base table"):
+        _kb(SourceBundle(overrides=manifest), "gfp_collide")
 
 
 def test_new_gene_metabolites_absent_still_builds(tmp_path):
@@ -225,7 +249,7 @@ def test_initialize_step_forwards_new_genes_and_bundle_overrides():
     config = {
         "raw_data": None,
         "bundle_overrides": "/somewhere/overlay.tsv",
-        "new_genes": "violacein_MG1655_M5",
+        "new_genes": "some_pathway_MG1655_v2",
     }
     with patch.object(s1, "KnowledgeBaseEcoli") as mock_kb, \
             patch.object(s1, "SourceBundle") as mock_bundle:
@@ -233,7 +257,38 @@ def test_initialize_step_forwards_new_genes_and_bundle_overrides():
         s1._resolve_raw_data(config)
 
     assert mock_bundle.call_args.kwargs["overrides"] == "/somewhere/overlay.tsv"
-    assert mock_kb.call_args.kwargs["new_genes_option"] == "violacein_MG1655_M5"
+    assert mock_kb.call_args.kwargs["new_genes_option"] == "some_pathway_MG1655_v2"
+
+
+def _check_genotype(declared_new_genes, raw_new_genes):
+    """Drive ``_check_declared_genotype`` the way tests/test_parca_genotype_declaration
+    does -- the check is a Step method, and ``_resolve_raw_data`` returns early
+    for an injected KB so it never reaches it."""
+    kb = MagicMock()
+    kb.new_genes_option = raw_new_genes
+    kb._bundle = None
+    step = object.__new__(s1.InitializeStep)
+    step.config = {"bundle_manifest": "", "new_genes": declared_new_genes,
+                   "raw_data": kb}
+    step._check_declared_genotype()
+
+
+def test_declared_new_genes_disagreeing_with_raw_data_warns():
+    """new_genes changes the GENOME, so a mismatch is not a provenance nit.
+
+    On the injected-raw_data path this step never builds the KB, so without
+    this check a config declaring an insertion against a wild-type KB fits WT,
+    warns nothing, and records a genotype it does not have.
+    """
+    with pytest.warns(UserWarning, match="new_genes"):
+        _check_genotype("some_pathway_MG1655_v2", "off")
+
+
+def test_declared_new_genes_agreeing_is_silent():
+    import warnings as _w
+    with _w.catch_warnings():
+        _w.simplefilter("error")
+        _check_genotype("some_pathway_MG1655_v2", "some_pathway_MG1655_v2")
 
 
 def test_initialize_step_defaults_new_genes_off():

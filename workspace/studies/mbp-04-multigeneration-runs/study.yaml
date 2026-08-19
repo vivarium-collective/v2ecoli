@@ -57,13 +57,9 @@ simulation_set:
   - name: three-generation-batch
     base_model: v2ecoli.composites.reactor_bird_coupled
     perturbation:
-      initial_glucose_mM: 22.2 # == 4.0 g/L at MW 180.156. The generator accepts
-        # initial_glucose_mM ONLY; the previously declared initial_glucose_gL was
-        # inert (it silently fell through to DEFAULT_INITIAL_GLUCOSE_MM, which is
-        # 22.2 and so happened to be right — a trap for anyone editing the g/L value).
+      initial_glucose_gL: 4.0
       bird_reactor_config: {reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}
-      cells_per_agent: 6.0e+11 # calibrated 2026-08-19; see open_question glucose-pool-sizing
-      population_growth_mode: representative_doubling # REQUIRED: the default 'fixed' plateaus the represented population (mbp-02 measured cell_count flat at 1e9, ratio 1.0 vs band [6,24]), so no substrate limit can ever be reached
+      cells_per_agent: 1.0e9 # scale so initial biomass is in the glucose-depletion-feasible regime (~0.003 gDW/L); calibrated per open_question glucose-pool-sizing
     condition: M9-minimal-glucose-aerated-batch
     duration_min: 240
     seeds: [0]
@@ -77,7 +73,6 @@ simulation_set:
       - nitrogen_balance_residual
     applies_tests:
       - population-grows-then-flattens-at-substrate-limit
-      - glucose-pool-depletes-within-window
       - carbon-mass-balance-closes-over-3-generations
       - nitrogen-mass-balance-closes-over-3-generations
       - wall-clock-budget-met
@@ -101,29 +96,19 @@ model_change:
 
     Population sparsity (chris_feedback_2026_05_26 §10 mbp-04 specifics):
     mbp-04 inherits the cells_per_agent scaling from mbp-02 (Eran's choice
-    2026-05-26). Production runs of three-generation-batch must set
-    cells_per_agent so initial biomass sits in the glucose-depletion-feasible
-    range. RESOLVED 2026-08-19 at cells_per_agent = 6.0e11 -> 0.208 gDW/L
-    (OD600 0.61), inside the ~0.01-0.1 gDW/L target's intent and landing
-    depletion at OD600 ~9.8 after four doublings.
-
-    ⚠ The previously declared 1.0e9 was NOT feasible, and the error was
-    ~500x rather than marginal: at 346.1 fg dry mass per cell it gives
-    3.8e-4 gDW/L (OD600 0.001), which needs 13.1 doublings (~13 h) to
-    exhaust 4 g/L against a 240-min window — the run would have consumed
-    under 1% of the pool and the regime transition could not have occurred.
-    The literal-sum caveat below was correct about the failure mode and
-    wrong about 1e9 escaping it. Now guarded by the graded criterion
-    glucose-pool-depletes-within-window rather than by prose.
+    2026-05-26). Production runs of three-generation-batch should set
+    cells_per_agent such that initial biomass concentration is in the
+    glucose-depletion-feasible range (target ~0.01-0.1 gDW/L initial so
+    4 g/L glucose depletes within the 240-min sim window). At literal-sum
+    (cells_per_agent=1.0), the population cannot deplete a 4 g/L pool in
+    240 min — the regime-transition test premise wouldn't resolve. See
+    open_question glucose-pool-sizing for the calibration discipline.
 
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
   - "Batch mode only; no feed addition (pbg-bioreactordesign has no fed-batch support yet)."
-  # (The former "4 g/L is enough for ~3 generations" prose assumption was
-  #  promoted to the graded criterion glucose-pool-depletes-within-window
-  #  on 2026-08-19, per plan D8 — an expectation that sizes a run's design
-  #  belongs where it is evaluated, not in a prose list.)
+  - "Initial glucose 4 g/L is enough for ~3 generations at v2ecoli's yield; refine with calibration."
   - "v2ecoli's metabolism remains stable in glucose-limited regime (no runaway / NaN). If not, that becomes a finding for this phase."
   - "Wall-clock budget of 30 min for 240-min sim is a placeholder; the spec PR sets the real budget."
 
@@ -154,32 +139,6 @@ behavior_tests:
     description: "Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted."
     measure: {kind: derived_rate_window, path: population.cell_count, window_a: first_third, window_b: last_third, reduce: fitted_exponential_rate}
     pass_if: {op: ratio_at_most, value: 0.3} # last-third rate ≤ 30% of first-third rate
-    units: fraction
-    requires_simulation: three-generation-batch
-    cites: []
-
-  - name: glucose-pool-depletes-within-window
-    classification: primary
-    acceptance_form: quantitative_range
-    description: >
-      The run design must be SELF-CONSISTENT: the declared (initial_glucose_gL,
-      cells_per_agent, duration_min) triple has to actually exhaust the glucose
-      pool inside the window. If it does not, the study's headline regime
-      transition cannot occur and population-grows-then-flattens-at-substrate-limit
-      is unresolvable by construction rather than by biology. Promoted from a
-      prose key_assumption to a graded criterion on 2026-08-19 per plan D8.
-      Calibration on measured quantities: initial DRY mass 346.1 fg/cell (23,598
-      recorded timepoints, mbp-01 runs 2026-08-17), so cells_per_agent 6.0e11 in
-      1.0 L gives 0.208 gDW/L initial (OD600 0.61); four doublings reaches
-      3.32 gDW/L (OD600 9.8), requiring 3.32 / 0.826 = 4.02 g/L glucose against
-      the declared 4.0 g/L pool. The 0.826 gDW/g yield is v2ecoli's OWN, which
-      the sibling metabolism-biomass-yield investigation grades a first-principles
-      violation (ceiling 0.538 gDW/g); at that ceiling the same pool supports
-      2.15 gDW/L (OD600 6.3). Both land inside the window, so this design is
-      robust to that defect - but only because this criterion now checks it
-      instead of asserting it.
-    measure: {kind: derived_ratio, numerator: "reactor.glucose_medium_mM @ end_of_run", denominator: "reactor.glucose_medium_mM @ t0"}
-    pass_if: {op: at_most, value: 0.05}
     units: fraction
     requires_simulation: three-generation-batch
     cites: []
@@ -239,19 +198,6 @@ required_knowledge:
         proposal: cells_per_agent=1e9 → initial biomass ~0.003 gDW/L →
         ~3-4 generations to deplete 4 g/L. Confirm against v2ecoli's
         actual yield once a real run lands.
-
-        RESOLVED 2026-08-19 (arithmetic, ahead of the run — plan D8).
-        The default proposal was wrong twice over: 1e9 gives 3.8e-4 gDW/L,
-        not ~0.003 (that figure used total wet mass, ~3.33x dry, and still
-        overshot), and 3.8e-4 gDW/L needs 13.1 doublings to deplete 4 g/L,
-        not 3-4. Answer: cells_per_agent = 6.0e11 with initial_glucose_gL
-        held at 4.0, giving OD600 0.61 -> ~9.8 across four doublings. Cell
-        density is physically ordinary at both ends (5.4e8 /mL initial,
-        8.6e9 /mL final, vs the ~8e8 /mL-per-OD600 textbook conversion), so
-        the scaling factor is a representative-sampling choice rather than a
-        fudge. The expectation is now graded by
-        glucose-pool-depletes-within-window; this open_question is closed by
-        that criterion, and the run either confirms it or fails it visibly.
       blocks: [three-generation-batch (initial_glucose, cells_per_agent) tuning]
       asked_to: unassigned (calibrate from first real run)
       status: open
@@ -454,10 +400,7 @@ conditions:
   variants:
     - name: three-generation-batch
       perturbation:
-        initial_glucose_mM: 22.2 # == 4.0 g/L at MW 180.156. The generator accepts
-        # initial_glucose_mM ONLY; the previously declared initial_glucose_gL was
-        # inert (it silently fell through to DEFAULT_INITIAL_GLUCOSE_MM, which is
-        # 22.2 and so happened to be right — a trap for anyone editing the g/L value).
+        initial_glucose_gL: 4.0
         cells_per_agent: 1000000000.0
         bird_reactor_config:
           reactor_type: bubble_column

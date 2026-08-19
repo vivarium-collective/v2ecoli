@@ -10,7 +10,7 @@ MetabolismRedux) is just a config path that drives both engines identically.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 
 import yaml
@@ -52,6 +52,15 @@ class StudySpec:
     max_steps_per_gen: int = 15000  # per-generation tick budget; lower it for a
                                     # short-horizon run of an expensive swap (e.g.
                                     # MetabolismRedux solves an LP per tick)
+    inject_processes: list = dc_field(default_factory=list)
+    # Extra FORK processes to inject alongside the ones `config` declares. A
+    # swapped fork process can depend on a companion fork process — usually a
+    # listener it reads a store from — that arrives on the fork via the config's
+    # standard `processes` list, which injection does not carry. Naming it here
+    # keeps the declaration with the study that needs it, rather than requiring
+    # an edit to a shared fork config. Explicit by design: inferring which ports
+    # lack a writer from a vivarium-1.0 ports_schema means guessing at port
+    # direction.
 
     @property
     def graded_cards(self) -> list:
@@ -134,6 +143,8 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          f"(got seeds={seeds}, generations={gens})")
     # `config` is the new name; `from_vecoli_config` is read for backward
     # compat with study.yaml content not yet migrated (see task-2 report).
+    inject_processes = list(data.get("inject_processes")
+                            or comp.get("inject_processes") or [])
     config = (data.get("config") or comp.get("config")
               or data.get("from_vecoli_config") or comp.get("from_vecoli_config")
               or name)
@@ -147,6 +158,7 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
         v2_cache=ctx["v2_cache"],
         ve_cache=ctx["ve_cache"],
         config=config,
+        inject_processes=inject_processes,
         reference=ctx["reference"],
         study_path=str(study_path),
         max_steps_per_gen=int(comp.get("max_steps_per_gen") or 15000),

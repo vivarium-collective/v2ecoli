@@ -275,3 +275,60 @@ def test_fork_config_still_falls_back_when_the_fork_lacks_a_getter():
         assert specs[0]["config"] is None      # default, and no exception
     finally:
         inject.build_fork_config = orig
+
+
+# ---------------------------------------------------------------------------
+# Explicitly-named companion fork processes (--inject-process / inject_processes)
+#
+# A swapped fork process can read a store written by a COMPANION fork process
+# that v2ecoli has no equivalent of. On the fork the companion arrives via the
+# config's standard `processes` list, which injection does not carry, so the
+# store is created from schema defaults and the swapped process later fails
+# INSIDE the fork on a lookup against empty contents. Naming the companion is
+# explicit by design: inferring "this port has no writer" from a vivarium-1.0
+# ports_schema means guessing at port direction.
+# ---------------------------------------------------------------------------
+from scripts.run_comparison_ensemble import _injected_from_resolved
+
+
+def test_extra_processes_are_added_to_the_declared_ones():
+    inj = _injected_from_resolved(
+        {"add_processes": ["example-secretion"], "swap_processes": {}},
+        FORK, None, extra_processes=["companion-listener"])
+    assert inj["add_processes"] == ["example-secretion", "companion-listener"]
+
+
+def test_extra_processes_do_not_duplicate_an_already_declared_one():
+    inj = _injected_from_resolved(
+        {"add_processes": ["example-secretion"], "swap_processes": {}},
+        FORK, None, extra_processes=["example-secretion"])
+    assert inj["add_processes"] == ["example-secretion"]
+
+
+def test_extra_processes_alone_still_produce_an_injection_block():
+    # A config that only SWAPS declares no add_processes; the companion must
+    # still get through, so the "nothing to inject" early return has to account
+    # for it.
+    inj = _injected_from_resolved(
+        {"swap_processes": {"a": "b"}}, FORK, None,
+        extra_processes=["companion-listener"])
+    assert inj["add_processes"] == ["companion-listener"]
+    inj2 = _injected_from_resolved({}, FORK, None, extra_processes=["companion"])
+    assert inj2 is not None and inj2["add_processes"] == ["companion"]
+
+
+def test_no_extra_processes_leaves_the_declaration_untouched():
+    inj = _injected_from_resolved(
+        {"add_processes": ["example-secretion"], "swap_processes": {}}, FORK, None)
+    assert inj["add_processes"] == ["example-secretion"]
+    assert _injected_from_resolved({}, FORK, None) is None       # still nothing to do
+
+
+def test_an_unknown_companion_fails_loud_rather_than_being_ignored():
+    # The whole point is that a typo must not silently produce a run missing the
+    # companion — which is the failure this feature exists to prevent.
+    cfg = {"add_processes": ["example-secretion", "no-such-process"],
+           "swap_processes": {}, "process_configs": {}, "topology": {},
+           "time_step": 1.0, "output_ports": {"_k": "unknown-companion"}}
+    with pytest.raises(inject.InjectionError):
+        inject.resolve_injections(FORK, cfg)

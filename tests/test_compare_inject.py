@@ -361,6 +361,13 @@ def _apply(cell_state, names):
     out = []
     for n in names:                       # one spec per requested name
         s = dict(spec); s["name"] = n
+        # Inject as a STEP. make_edge writes `priority` for steps and `interval`
+        # for processes, and the scheduler orders steps by priority -- so a
+        # process-edge fixture would assert on a field nothing reads, and would
+        # fail against the pre-fix code with a KeyError (absence) rather than
+        # with the 1.0-vs-1.0 tie these tests exist to pin. The real injected
+        # pair here (a listener and MetabolismRedux) are both steps.
+        s["as_step"] = True
         out.append(s)
     flow_order = list(cell_state)
     from v2ecoli.core import build_core

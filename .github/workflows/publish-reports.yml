@@ -1,15 +1,19 @@
 name: Publish investigation reports
 
 # Regenerate every investigation's self-contained HTML report and publish it to
-# the gh-pages branch at investigations/<slug>.html. The report is built by the
-# vivarium-workbench SPA client-side, so we serve the dashboard headlessly and
-# drive its "Generate report" button via Playwright
-# (scripts/publish_investigation_reports.py).
+# the gh-pages branch at investigations/<slug>.html. The report is rendered
+# IN-PROCESS by vivarium-workbench's deterministic server-side generator
+# (vivarium_workbench.lib.investigation_report), called directly by
+# scripts/publish_investigation_reports.py. No browser, no dashboard server.
 #
 # This is a DEPLOY job (post-merge to main), not a PR gate — a failure here
-# never blocks a merge. It only ever writes investigations/*.html on gh-pages;
-# the hand-maintained viewers, comparison reports, and gallery index there are
-# left untouched.
+# never blocks a merge. Its write set on gh-pages is investigations/*.html PLUS
+# index.html, which the copy step below rewrites via inject_index_fragment.py;
+# the hand-maintained viewers and comparison reports are left untouched.
+#
+# ⚠ No PR check exercises this job — the only trigger is push-to-main (plus
+# workflow_dispatch). A green PR says nothing about whether this deploy works;
+# use workflow_dispatch to rehearse a change here before relying on it.
 
 on:
   push:
@@ -24,6 +28,15 @@ on:
       - 'scripts/publish_investigation_reports.py'
       - '.github/workflows/publish-reports.yml'
   workflow_dispatch:
+    inputs:
+      force_republish:
+        description: >-
+          Republish even when a report shrinks or inlines no figures. Both
+          guards exist to stop a degraded render overwriting a good page, but a
+          LEGITIMATE shrink (studies removed, figures deliberately trimmed) is
+          otherwise unpublishable with no override. Use knowingly.
+        type: boolean
+        default: false
 
 concurrency:
   group: publish-reports
@@ -36,8 +49,16 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Investigation reports embed the loom Explorer — require the bundle so a
-    # missing/broken build fails loudly rather than publishing without it.
+    # NOTE: the original rationale here ("reports embed the loom Explorer, so
+    # require the bundle") no longer holds — in the current template the loom
+    # iframe is opt-in behind a <details> and renders as a blank box in a
+    # standalone file, and no report in this workspace carries a loom image.
+    # Retained anyway, deliberately, through the #878 migration, and it must stay
+    # at JOB level. This is read by workbench's hatch_build.py build hook (not at
+    # render time), so it takes effect when the "Ensure the publish CLI is
+    # current" step BUILDS workbench from git: a missing loom bundle becomes a
+    # hard build failure instead of a silent skip that would ship reports with
+    # no Explorer.
     env:
       VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
@@ -54,29 +75,31 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev || uv sync
 
-      - name: Install Playwright + Chromium
-        # Playwright is only needed by this deploy job, so install it into the
-        # project env here rather than carrying it as a project dependency.
-        run: |
-          uv pip install playwright
-          uv run playwright install --with-deps chromium
-
       - name: Ensure the publish CLI is current (latest main)
-        # This DEPLOY job renders the workbench SPA headlessly, so it needs
+        # This DEPLOY job renders reports with workbench's server-side
+        # generator (vivarium_workbench.lib.investigation_report), so it needs
         # vivarium-workbench even though v2ecoli's RUNTIME dropped it as a
         # dependency (viewer moved to pbg-ptools). Mirror the green
         # publish-dashboard.yml exactly: ad-hoc install workbench@main, and run
         # the generator inside the activated venv (below) rather than via `uv
-        # run`, which would re-sync to uv.lock and undo this install. Installed
-        # AFTER the Playwright step's `uv run`, which itself re-syncs. The runtime
+        # run`, which would re-sync to uv.lock and undo this install. The runtime
         # stays decoupled — only this deploy job pulls workbench.
+        #
+        # No browser is involved any more: the Playwright + Chromium install was
+        # dropped when the report stopped being built client-side (workbench
+        # #878). That also removes the `uv run` re-sync this step used to have
+        # to be ordered after.
         run: |
           uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
 
       - name: Generate investigation reports
         id: gen
-        # Spawns `vivarium-workbench serve`, drives each investigation's report
-        # export headlessly, writes reports/published/investigations/<slug>.html.
+        env:
+          FORCE_REPUBLISH: ${{ inputs.force_republish && '1' || '' }}
+        # Renders each investigation in-process and writes
+        # reports/published/investigations/<slug>.html. A report whose figures
+        # failed to inline is deliberately NOT written, so the copy step leaves
+        # that investigation's last-good gh-pages page in place.
         # Keep going on a per-report failure so good reports still publish; the
         # script's exit code is recorded for the final status gate.
         run: |
@@ -89,6 +112,8 @@ jobs:
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Publish generated reports to gh-pages
+        env:
+          FORCE_REPUBLISH: ${{ inputs.force_republish && '1' || '' }}
         # Surgical: copy ONLY the freshly-generated investigations/*.html onto
         # gh-pages via a worktree. Never deletes — a report that failed to
         # regenerate keeps its previous published copy. Commits only on a diff.
@@ -105,7 +130,50 @@ jobs:
           git fetch origin gh-pages
           git worktree add /tmp/ghp gh-pages
           mkdir -p /tmp/ghp/investigations
-          cp reports/published/investigations/*.html /tmp/ghp/investigations/
+          # Size-ratio gate against the artifact actually being replaced.
+          #
+          # The in-process generator sources figures from a study's own
+          # viz/ + charts/ (non-recursive) plus `image:` data-URIs. It does NOT
+          # read reports/figures/<study>/, so a report can render "successfully"
+          # while carrying a fraction of the figures the live page has. The
+          # script's own guard uses committed figure files as its denominator,
+          # which is a PROXY for the wrong population — it catches total loss
+          # (zero inlined) but not partial. Measured against gh-pages today:
+          # colonies 7%, whole-cell-model-comparison 12%, baseline-showcase 41%
+          # would all have overwritten materially better pages.
+          #
+          # ⚠ This is a SIZE PROXY, not a correctness gate. It catches THIS
+          # failure class decisively because figure loss is enormous in bytes; it
+          # would not catch a content regression that preserved byte count. Do
+          # not extend it into a general "is the report right" check.
+          #
+          # Comparing bytes against the published file is mechanism-agnostic and
+          # separates the cases with room to spare: everything healthy sits at
+          # 79-199%, everything degraded at 7-41%. Never deletes; a blocked
+          # report simply keeps its previous published copy.
+          MIN_RATIO_PCT=60
+          if [ -n "${FORCE_REPUBLISH:-}" ]; then
+            echo "::warning::force_republish set — the size-ratio gate is BYPASSED for this run"
+            MIN_RATIO_PCT=0
+          fi
+          blocked=0
+          for f in reports/published/investigations/*.html; do
+            base=$(basename "$f")
+            cur="/tmp/ghp/investigations/$base"
+            if [ -f "$cur" ]; then
+              new_sz=$(wc -c < "$f")
+              old_sz=$(wc -c < "$cur")
+              if [ "$old_sz" -gt 0 ] && [ $(( new_sz * 100 / old_sz )) -lt "$MIN_RATIO_PCT" ]; then
+                echo "::warning::${base%.html}: regenerated report is $(( new_sz * 100 / old_sz ))% of the published one (${new_sz} B vs ${old_sz} B) — NOT republished, keeping the last-good page"
+                blocked=$((blocked + 1))
+                continue
+              fi
+            fi
+            cp "$f" "/tmp/ghp/investigations/$base"
+          done
+          if [ "$blocked" -gt 0 ]; then
+            echo "$blocked report(s) withheld by the size-ratio gate"
+          fi
           # Regenerate the landing-page investigation list (between the
           # auto-investigations markers in index.html) so the root gallery lists
           # every investigation with a published report — no hand-curation.
@@ -123,7 +191,7 @@ jobs:
 
       - name: Fail only if NO reports were published
         # Run AFTER publishing. The generator exits non-zero only when NOTHING
-        # published (total breakage / server never came up); a partial run exits
+        # published (total breakage); a partial run exits
         # 0 and ships every report that rendered. So one stubborn investigation
         # (e.g. a heavy report whose client-side generation hangs on the current
         # workbench) no longer reds the whole deploy — the good reports still go

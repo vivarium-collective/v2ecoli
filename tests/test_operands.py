@@ -18,6 +18,7 @@ skipping behind the `private-data` extra.
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import unittest
 from pathlib import Path
@@ -150,6 +151,373 @@ class OperandValues(unittest.TestCase):
         doing it here would bake a measurement assumption into the resolver."""
         op = self._op([("A", 5.0, "detected"), ("B", 2.0, "below_limit")])
         self.assertEqual(set(op.values), {"A", "B"})
+
+
+def _run_cache(sweep: Path, vector, *, observable="transcriptome",
+               n_cells=20, gen_lb=0, run_commit=None) -> Path:
+    """Write a synthetic run-vector cache so no parquet sweep is needed.
+
+    ``load_or_extract`` returns a cached envelope verbatim when the schema
+    matches, so the resolver can be exercised in public CI with no run data.
+    """
+    from v2ecoli.library import sim_vector_cache as svc
+
+    path = svc.cache_path(str(sweep), gen_lb)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({
+        "schema": svc.CACHE_SCHEMA,
+        "run": {"experiment_id": "exp_live_1", "sweep_dir": str(sweep),
+                "generation_lower_bound": gen_lb},
+        "extractor": {"version": svc.EXTRACTOR_VERSION},
+        "provenance": {"run_commit": run_commit,
+                       "extracted_at_commit": "cafe1234"},
+        "vectors": {"omics": {observable: {"vector": list(vector),
+                                           "n_cells": n_cells}}},
+    }), encoding="utf-8")
+    return path
+
+
+class RunOperand(unittest.TestCase):
+    """The third path — a LIVE run inside the investigation.
+
+    ``test_a_live_run_resolves_exactly_like_a_promoted_one`` is the load-bearing
+    one: it is the direct test of `comparison-operands-plan` §10.1, which asks
+    whether a live run collapses into the operand contract or needs its own
+    resolution semantics. Until this path existed the question could not be
+    asked, because every operand in play was read from a committed artifact.
+    """
+
+    def test_a_live_run_resolves_exactly_like_a_promoted_one(self):
+        with TemporaryDirectory() as d:
+            root = Path(d)
+            sweep = root / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0], observable="proteome")
+            bundle = _payload(root, ("g1", "measured", "TPM",
+                                     [("A", 5.0, "detected"),
+                                      ("B", 7.0, "detected")]))
+
+            live = ops.run_operand(sweep, ["A", "B", "C"], observable="proteome")
+            promoted = ops.promoted_operand("g1", bundle, "proteome", "TPM")
+
+            # Same contract, same in-memory type, same accessor — the claim.
+            # `at least OPERAND_COLUMNS`, exactly as the other two paths: a
+            # promoted operand keeps the payload's full schema, a synthesised
+            # one carries the guaranteed subset, and no caller may depend on
+            # more than the subset.
+            for op in (live, promoted):
+                self.assertIsInstance(op, ops.Operand)
+                for col in ops.OPERAND_COLUMNS:
+                    self.assertIn(col, op.frame.columns, f"{op.path}: missing {col}")
+                self.assertIsInstance(op.values, dict)
+            # ...and they differ ONLY in how they were resolved.
+            self.assertEqual({live.path, promoted.path},
+                             {"in-investigation", "promoted"})
+
+    def test_the_positional_vector_is_keyed_by_the_ids_it_is_given(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [10.0, 20.0, 30.0])
+            op = ops.run_operand(sweep, ["EG10001", "EG10002", "EG10003"])
+            self.assertEqual(op.values,
+                             {"EG10001": 10.0, "EG10002": 20.0, "EG10003": 30.0})
+
+    def test_labels_from_the_wrong_sim_data_RAISE_rather_than_truncate(self):
+        """The knockout trap, and the reason ``entity_ids`` is a parameter.
+
+        A ParCa-level KO splices the genome, so the KO arm's cistron set is not
+        the wild type's. Keying a KO sweep with WT labels would attribute every
+        value past the deleted locus to the wrong gene — silently, and most
+        damagingly on exactly the genes the knockout study is about.
+        """
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0])
+            with self.assertRaises(ValueError) as caught:
+                ops.run_operand(sweep, ["A", "B"])          # WT labels, KO sweep
+            self.assertIn("width mismatch", str(caught.exception))
+
+    def test_an_observable_the_sweep_did_not_record_is_None_not_a_raise(self):
+        """Absent is a legitimate outcome; mis-keyed is not. Keep them distinct."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0], observable="transcriptome")
+            self.assertIsNone(ops.run_operand(sweep, ["A", "B"],
+                                              observable="proteome"))
+
+    @staticmethod
+    def _bake_keyed():
+        """The REAL ``scripts/bake_model_omics.py::_keyed``, imported by path.
+
+        Imported rather than restated: a copy asserts what we believe bake does,
+        which is precisely the thing that can silently stop being true.
+        """
+        import importlib.util
+        p = Path(__file__).resolve().parents[1] / "scripts" / "bake_model_omics.py"
+        spec = importlib.util.spec_from_file_location("_bake_for_parity", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod._keyed
+
+    def test_collisions_are_summed_exactly_as_the_bake_path_sums_them(self):
+        """Several mRNA cistrons legitimately map to one EcoCyc gene id.
+
+        The live path and ``scripts/bake_model_omics.py`` must agree, or
+        "we re-ran it live" quietly also means "we changed the aggregation".
+
+        ★ This asserts against the IMPORTED bake implementation, not an inline
+        expectation. An inline dict cannot fail when bake changes, which is the
+        entire risk the parity claim is about.
+        """
+        vector, ids = [1.0, 2.0, 4.0], ["EG1", "EG1", "EG2"]
+        bake_out, bake_unmapped, bake_collisions = self._bake_keyed()(vector, ids)
+
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, vector)
+            op = ops.run_operand(sweep, ids)
+
+            self.assertEqual(op.values, bake_out)
+            self.assertEqual(op.meta["n_collisions"], bake_collisions)
+            self.assertEqual(op.meta["n_unmapped"], bake_unmapped)
+            # pinned so a silent change on EITHER side is visible in the diff
+            self.assertEqual(bake_out, {"EG1": 3.0, "EG2": 4.0})
+
+    def test_the_one_way_the_two_keyed_implementations_deliberately_differ(self):
+        """★ They are NOT byte-identical, and the difference is a hardening.
+
+        ``operands._keyed`` normalises with ``k = "" if k is None else str(k)``;
+        bake's copy does not. Consequences, which are the whole reason this is
+        pinned rather than described:
+
+        * ``None``   — identical (both fall to the unmapped branch);
+        * ``"EG1"``  — identical (the real domain: entity ids are strings);
+        * ``5``      — DIVERGENT. operands keys ``"5"``, bake keys ``5``.
+
+        So "deliberately identical" is true on the domain either is used with,
+        and false in general. Asserting equality unconditionally would fail here
+        — which is how this divergence was found rather than assumed.
+        """
+        bake_keyed = self._bake_keyed()
+        vector = [1.0, 2.0]
+
+        for ids in (["EG1", "EG2"], [None, "EG2"], ["None", "EG2"]):
+            with self.subTest(ids=ids):
+                self.assertEqual(ops._keyed(vector, ids), bake_keyed(vector, ids))
+
+        ours, _, _ = ops._keyed(vector, [5, "EG2"])
+        theirs, _, _ = bake_keyed(vector, [5, "EG2"])
+        self.assertEqual(set(ours), {"5", "EG2"})
+        self.assertEqual(set(theirs), {5, "EG2"})
+        self.assertNotEqual(ours, theirs)
+
+    def test_unmapped_ids_are_dropped_and_counted(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0, 3.0])
+            op = ops.run_operand(sweep, ["EG1", "", None])
+            self.assertEqual(op.values, {"EG1": 1.0})
+            self.assertEqual(op.meta["n_unmapped"], 2)
+
+    def test_run_commit_stays_None_when_the_sweep_recorded_nothing(self):
+        """Never substituted with the extracting tree's HEAD — that would look
+        authoritative and mean something else (`comparison-operands-plan` §5)."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0], run_commit=None)
+            op = ops.run_operand(sweep, ["EG1"])
+            self.assertIsNone(op.meta["run_commit"])
+            self.assertEqual(op.meta["experiment_id"], "exp_live_1")
+
+    def test_provenance_records_what_identifies_the_run(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0], gen_lb=3, run_commit="abc123")
+            op = ops.run_operand(sweep, ["EG1", "EG2"],
+                                 generation_lower_bound=3)
+            self.assertEqual(op.meta["run_commit"], "abc123")
+            self.assertEqual(op.meta["gen_lb"], 3)
+            self.assertEqual(op.meta["n_cells"], 20)
+            self.assertEqual(op.kind, "model_predicted")
+
+    def test_an_unknown_observable_names_the_ones_that_exist(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0])
+            with self.assertRaises(KeyError) as caught:
+                ops.run_operand(sweep, ["EG1"], observable="metabolome")
+            self.assertIn("transcriptome", str(caught.exception))
+
+
+class DeclaredZeros(unittest.TestCase):
+    """A measured TRUE ZERO is recorded by the payload and, until now, reached
+    no grader.
+
+    It has no geometric mean (undefined for all-zero replicates), so it is
+    stored as a NULL centre with the fact in ``mean_arithmetic``/``n_pos``.
+    ``values`` drops nulls -- correctly -- and drops the recorded zero with
+    them. `comparison-operands-plan` D5 is therefore honoured by the payload and
+    invisible to the consumer, and the loss looks like a null rather than like a
+    deletion, which is why nobody saw it.
+
+    The invariant these tests protect: ``declared_zeros`` is **additive**.
+    ``values`` is untouched, so ``n_shared`` cannot move under any card already
+    rendered.
+    """
+
+    def _measured(self, rows):
+        """rows: (entity_id, mean_arithmetic, mean_geometric, n_pos)."""
+        frame = pd.DataFrame([{
+            "cultivation_group_id": "g", "observable": "transcriptome",
+            "entity_id": eid, "symbol": "", "units": "TPM", "kind": "measured",
+            "detection": "detected", "mean_arithmetic": arith,
+            "mean_geometric": geom, "sd_log10": None, "n": 6, "n_pos": npos,
+            "n_total": 6,
+        } for eid, arith, geom, npos in rows], columns=_VECTOR_COLS)
+        return ops.Operand(frame=frame, path="promoted", kind="measured",
+                           label="g transcriptome (TPM)")
+
+    def test_a_measured_true_zero_is_visible_where_values_cannot_see_it(self):
+        """The trpR case: 0.0 TPM on every replicate, in a dKO cultivation.
+
+        The single most informative row in the comparison -- the knockout,
+        visible in the data -- and the one row that reached no grader.
+        """
+        op = self._measured([("EG10001", 71.7, 71.4, 6),
+                             ("EG11029", 0.0, None, 0)])      # trpR, knocked out
+        self.assertEqual(set(op.values), {"EG10001"})
+        self.assertEqual(op.declared_zeros, {"EG11029"})
+
+    def test_declared_zeros_survives_a_consumer_substituting_the_centre(self):
+        """★ The regression this exists for: keying on a NULL centre is wrong.
+
+        Which statistic sits in `mean_geometric` is a property of the
+        PRESENTATION, not of the record. `vs_experiment` grades the ARITHMETIC
+        centre (matching the prior CD1 notebooks) and substitutes it into that
+        column before grading -- after which no row is null, and a null-keyed
+        implementation returns EMPTY on exactly the operand that needs it.
+
+        Measured against the real payload when this was caught: on
+        `cd1_ginkgo_viom5_dko_m9` the raw frame yields 145 declared zeros
+        including trpR (EG11029); the substituted frame yielded 0.
+        """
+        op = self._measured([("EG10001", 71.7, 71.4, 6),
+                             ("EG11029", 0.0, None, 0)])      # trpR, knocked out
+        self.assertEqual(op.declared_zeros, {"EG11029"})
+
+        # exactly what `vs_experiment._with_graded_centre` does
+        frame = op.frame.copy()
+        frame["mean_geometric"] = frame["mean_arithmetic"]
+        substituted = dataclasses.replace(op, frame=frame)
+
+        self.assertFalse(substituted.frame["mean_geometric"].isna().any(),
+                         "precondition: the substitution leaves no nulls")
+        self.assertEqual(
+            substituted.declared_zeros, {"EG11029"},
+            "declared_zeros must key on the COUNTS, which are invariant to a "
+            "centre substitution, not on a null centre which is not")
+
+    def test_a_promoted_operand_without_counts_RAISES_rather_than_reporting_none(self):
+        """★ "I have no counts" is not "I have no zeros".
+
+        `VectorObservationSchema` requires `n` and `n_pos`, so a promoted frame
+        lacking them is a malformed payload. Returning an empty set would be
+        indistinguishable from a payload that genuinely has no zeros — the exact
+        silent inertness this accessor was fixed for.
+        """
+        op = self._measured([("A", 5.0, 4.8, 6)])
+        stripped = dataclasses.replace(op, frame=op.frame.drop(columns=["n_pos"]))
+        with self.assertRaises(KeyError) as ctx:
+            stripped.declared_zeros
+        self.assertIn("n_pos", str(ctx.exception))
+
+    def test_a_synthesised_operand_without_counts_is_legitimately_empty(self):
+        """The other side of the same rule — and why it is not symmetric.
+
+        A fixture/run frame carries no replicate counts by construction, so
+        empty is the honest answer rather than a swallowed error. This is a PATH
+        distinction, not measured-vs-simulated: a promoted SIMULATION has counts
+        and does report declared zeros.
+        """
+        op = self._measured([("A", 5.0, 4.8, 6)])
+        for path in ("fixture", "in-investigation"):
+            with self.subTest(path=path):
+                synth = dataclasses.replace(
+                    op, path=path, frame=op.frame.drop(columns=["n", "n_pos"]))
+                self.assertEqual(synth.declared_zeros, set())
+
+    def test_below_limit_is_not_a_declared_zero(self):
+        """`below_limit` is a statement about the LIMIT, not a count of zero.
+
+        Latent against today's payload (no row combines it with `n_pos == 0` and
+        `n > 0`), but the payload carries 5,213 `below_limit` rows, so the rule
+        is stated rather than left to the emitter.
+        """
+        op = self._measured([("A", 0.0, None, 0)])
+        op.frame.loc[0, "detection"] = "below_limit"
+        self.assertEqual(op.declared_zeros, set())
+
+    def test_a_row_nobody_measured_is_not_a_declared_zero(self):
+        """`n_pos == 0` alone is not the fact -- `n > 0` is what makes it one.
+
+        A row with no measurements has no positives either; that is the absence
+        of a measurement, not a measurement of absence.
+        """
+        op = self._measured([("A", None, None, 0)])
+        op.frame.loc[0, "n"] = 0
+        self.assertEqual(op.declared_zeros, set())
+
+    def test_values_and_declared_zeros_are_disjoint_by_construction(self):
+        op = self._measured([("A", 5.0, 4.8, 6), ("B", 0.0, None, 0),
+                             ("C", 1.0, 0.9, 3)])
+        self.assertEqual(set(op.values) & op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"A", "C"})
+        self.assertEqual(op.declared_zeros, {"B"})
+
+    def test_a_null_centre_with_positive_replicates_is_NOT_a_declared_zero(self):
+        """Absence of information is not a measurement of absence.
+
+        A null centre with n_pos > 0 is malformed or censored -- either way the
+        payload is not asserting a zero, so neither do we.
+        """
+        op = self._measured([("A", 5.0, None, 4)])
+        self.assertEqual(op.declared_zeros, set())
+
+    def test_adding_the_view_did_not_change_what_values_returns(self):
+        """The regression guard. If this ever fails, `n_shared` has moved under
+        every card already rendered -- including ones out for external review."""
+        op = self._measured([("A", 5.0, 4.8, 6), ("B", 0.0, 0.0, 6),
+                             ("C", -1.0, -1.0, 6), ("D", 0.0, None, 0)])
+        # zeros and negatives KEPT, nulls dropped -- exactly as before.
+        self.assertEqual(set(op.values), {"A", "B", "C"})
+
+    def test_a_baked_fixture_declares_no_zeros(self):
+        """A model has no limit of detection, so its zeros arrive as a real 0.0
+        centre and `values` already keeps them. The asymmetry is real and
+        belongs to the measured tier alone."""
+        with TemporaryDirectory() as td:
+            root = Path(td)
+            _fixture(root, "f.json", "by_id", {"EG10001": 0.0, "EG10002": 7.0})
+            op = ops.fixture_operand(root, "f.json", "by_id")
+        self.assertEqual(op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"EG10001", "EG10002"})
+
+    def test_a_live_run_declares_no_zeros(self):
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [0.0, 3.0])
+            op = ops.run_operand(sweep, ["EG1", "EG2"])
+        self.assertEqual(op.declared_zeros, set())
+        self.assertEqual(set(op.values), {"EG1", "EG2"})
 
 
 if __name__ == "__main__":

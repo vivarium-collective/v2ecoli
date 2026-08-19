@@ -119,7 +119,6 @@ def main():
         KnowledgeBaseEcoli,
     )
 
-
     parser = _build_arg_parser()
     args = parser.parse_args()
 

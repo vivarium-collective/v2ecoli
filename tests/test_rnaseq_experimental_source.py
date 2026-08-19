@@ -604,3 +604,24 @@ def test_the_real_call_site_stamps_where_it_chooses():
     assert "sim_data.rnaseq_provenance" in src, (
         "the stamp is no longer written where the source is chosen — the "
         "stamp-is-the-record property depends on these being one step")
+
+
+def test_v2ecoli_own_default_overrides_are_not_read_as_caller_supplied():
+    """Review follow-up — ``override_supplied_keys`` must mean "a caller supplied
+    this", not "this key was overridden at all".
+
+    v2ecoli's ``_DEFAULT_OVERRIDES`` link is applied to every build: it is this
+    repo's standing divergence from upstream ecoli-sources. Counting it would
+    make Guard 2 fire on a plain stock build the moment v2ecoli moved a watched
+    key into its own overrides — and a guard that fires every time is a guard
+    people learn to ignore.
+    """
+    from ecoli_sources import BUNDLE_PATH
+
+    bundle = SourceBundle(base_manifest=Path(BUNDLE_PATH), validate=False)
+
+    # the default link IS applied (it is why these keys resolve at all)...
+    assert bundle.has_key("dna_sites")
+    # ...and it is NOT reported as caller-supplied
+    assert bundle.override_supplied_keys == set()
+    assert bundle.externally_supplied_keys == set()

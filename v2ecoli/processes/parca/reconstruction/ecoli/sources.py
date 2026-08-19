@@ -88,7 +88,15 @@ class SourceBundle:
         #: ``knockdown()`` bundle fitted with ``rnaseq_source: reference``).
         #: Empty set for a plain base bundle.
         self.variant_generated_keys = variant_keys
-        #: Keys contributed by the OVERRIDE CHAIN, populated below.
+        #: Keys a CALLER contributed through the override chain, populated below.
+        #:
+        #: Deliberately EXCLUDES v2ecoli's own ``_DEFAULT_OVERRIDES`` link, which
+        #: is applied to every build: those four keys are this repo's standing
+        #: divergence from upstream ecoli-sources, not something a caller
+        #: supplied for this run. Conflating them would make a consumer's
+        #: "did someone deliberately supply this?" check answer yes on a stock
+        #: build the moment v2ecoli moved a watched key into its own overrides —
+        #: a guard that fires on every build teaches people to ignore it.
         #:
         #: The sidecar covers only what a *generator* wrote next to the base
         #: manifest. An override manifest carries no ``genotype.json``, so a
@@ -123,6 +131,7 @@ class SourceBundle:
             chain.extend(Path(p).resolve() for p in extra)
 
         for override in chain:
+            caller_supplied = override != _DEFAULT_OVERRIDES
             for key, path in self._read_manifest(override, override.parent).items():
                 if key in variant_keys:
                     # The variant explicitly generated this key; its file wins.
@@ -136,7 +145,8 @@ class SourceBundle:
                     )
                     continue
                 index[key] = path
-                self.override_supplied_keys.add(key)
+                if caller_supplied:
+                    self.override_supplied_keys.add(key)
 
         self._index = index
         # Kept as provenance: the genotype a ParCa build was made from IS its

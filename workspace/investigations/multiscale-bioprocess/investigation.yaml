@@ -570,20 +570,24 @@ executive:
       against pbg-bioreactordesign origin/main (a360f92). The critical
       path no longer sits on the upstream side.
   - id: add-bioreactor-dep-to-env
-    status: open
+    status: resolved
     text: |
       ENVIRONMENT GAP surfaced during the 2026-07-27 mbp-03 hardening.
-      `pbg_bioreactordesign` is NOT installed in the shared v2ecoli venv
-      (~/code/v2ecoli/.venv), so mbp-03 (and mbp-04's coupled arms)
-      cannot be reproduced there out of the box — they were run by
-      shadowing pbg-bioreactordesign origin/main on PYTHONPATH. The
-      shared venv also ships a bigraph_schema older than the worktree's
-      origin/main code requires (no `bigraph_schema.contract` module),
-      needing a bigraph_schema>=1.4.3 shadow to `import v2ecoli` at all.
-      DECISION NEEDED: add pbg-bioreactordesign (pinned to a commit ≥ #3)
-      and bump bigraph_schema in the canonical v2ecoli environment so the
-      reactor-coupled studies are reproducible without a PYTHONPATH shadow.
-      Owner: environment/CI maintainer.
+      `pbg_bioreactordesign` was not installed in the shared v2ecoli venv,
+      so mbp-03 (and mbp-04's coupled arms) could only be reproduced by
+      shadowing it on PYTHONPATH, alongside a bigraph_schema>=1.4.3 shadow.
+      DECISION NEEDED (at the time): add pbg-bioreactordesign (pinned to a
+      commit >= #3) and bump bigraph_schema in the canonical environment so
+      the reactor-coupled studies are reproducible without a shadow.
+    resolution: |
+      RESOLVED (verified 2026-08-17): pbg-bioreactordesign is a first-class
+      dependency (pyproject.toml, pinned in uv.lock at aeb59b3, now sourced
+      from the renamed viva-bioreactordesign repo) and imports from
+      site-packages with no PYTHONPATH shadow; bigraph_schema in the locked
+      environment satisfies the >=1.4.3 requirement. The reactor-coupled
+      studies run out of the box — the 2026-08-06 mbp-03 recording and the
+      2026-08-17 mbp-05/07 recordings all executed against the plain locked
+      venv.
 
   # 2026-05-29 new empirical evidence — landed AFTER the 2026-05-28
   # changeset above and shipped in commits a1b3f25..07e57f4. Surfaced
@@ -694,31 +698,31 @@ executive:
       result: passing-with-caveats
     - study: mbp-01-time-varying-environment
       behavior: external_glucose_updates_propagate_within_one_step
-      result: in-progress
+      result: passing
     - study: mbp-01-time-varying-environment
       behavior: cumulative-mass-balance-closes
-      result: in-progress
+      result: passing
     - study: mbp-01-time-varying-environment
       behavior: zero-substrate-blocks-uptake
-      result: in-progress
+      result: failing
     - study: mbp-01-time-varying-environment
       behavior: saturating-substrate-respects-vmax
-      result: in-progress
+      result: passing
     - study: mbp-01-time-varying-environment
       behavior: plateau-across-saturating-range
-      result: in-progress
+      result: passing
     - study: mbp-02-population-aggregation
       behavior: cell-count-doubles-per-generation
-      result: in-progress
+      result: failing
     - study: mbp-02-population-aggregation
       behavior: per-cell-observables-unchanged-vs-baseline
-      result: in-progress
+      result: passing
     - study: mbp-02-population-aggregation
       behavior: population_count_equals_len_agents
-      result: in-progress
+      result: passing
     - study: mbp-02-population-aggregation
       behavior: total_biomass_equals_sum_cell_mass_times_scale
-      result: in-progress
+      result: passing
     - study: mbp-03-bird-reactor-coupling
       behavior: one-generation-completes-without-divergence
       result: passing
@@ -793,32 +797,11 @@ executive:
       behavior: divergences-categorized-in-report-card
       result: passing-with-caveats
     - study: mbp-01-time-varying-environment
-      behavior: external_glucose_updates_propagate_within_one_step
-      result: in-progress
-    - study: mbp-01-time-varying-environment
-      behavior: cumulative-mass-balance-closes
-      result: in-progress
-    - study: mbp-01-time-varying-environment
       behavior: zero-substrate-blocks-uptake
-      result: in-progress
-    - study: mbp-01-time-varying-environment
-      behavior: saturating-substrate-respects-vmax
-      result: in-progress
-    - study: mbp-01-time-varying-environment
-      behavior: plateau-across-saturating-range
-      result: in-progress
+      result: failing
     - study: mbp-02-population-aggregation
       behavior: cell-count-doubles-per-generation
-      result: in-progress
-    - study: mbp-02-population-aggregation
-      behavior: per-cell-observables-unchanged-vs-baseline
-      result: in-progress
-    - study: mbp-02-population-aggregation
-      behavior: population_count_equals_len_agents
-      result: in-progress
-    - study: mbp-02-population-aggregation
-      behavior: total_biomass_equals_sum_cell_mass_times_scale
-      result: in-progress
+      result: failing
     - study: mbp-03-bird-reactor-coupling
       behavior: cells-raise-dissolved-co2-above-saturation
       result: passing-with-caveats

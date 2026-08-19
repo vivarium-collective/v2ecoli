@@ -357,7 +357,7 @@ report:
   summary: 'Batch-mode multi-generation extension of mbp-03 (no new physics): as the population grows it depletes glucose (mbp-01 env hook) and DO (mbp-03 coupler), driving a growth -> substrate-limited-slowdown transition. A MassBalanceAuditor closes C/N (incl. CO2-C and acetate/organic-acid-C) to within 2%. Fed-batch is OUT of scope.'
 study_card:
   one_liner: Multi-generation batch stability + C/N mass-balance audit of the coupled model.
-  phase: Design
+  phase: Simulate
   kind: construction (multi-gen validation)
   depends_on:
     - mbp-03

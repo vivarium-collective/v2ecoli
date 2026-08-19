@@ -118,28 +118,61 @@ def test_a_companion_on_a_bare_condition_config_is_rejected_not_dropped(tmp_path
 
 
 # --- the investigation route must carry companions too ----------------------
-# run_investigation builds specs ONLY through specs_from_configs, so a key read
-# in _spec_from_study alone evaporates there — with the declaration still in the
-# study.yaml, looking correct. That is worse than absent: the failure becomes
-# route-dependent and the declaration lies.
+# run_investigation builds specs ONLY through specs_from_configs, from
+# investigation.yaml's configs[] entries — which do NOT carry this key. The
+# declaration lives in the study.yaml, which that route names but never read.
+# So it evaporated on one of two first-class routes while still sitting in the
+# file, looking correct.
+#
+# These drive a REAL study.yaml on disk through the investigation route. The
+# earlier version of these tests declared the key on the investigation entry
+# instead, which fenced a surface that should not have existed and let the
+# documented one stay broken.
 
-def test_investigation_route_carries_declared_companions():
-    specs = specs_from_configs(_ctx([
-        {"name": "s", "config": "configs/redux.json",
-         "inject_processes": ["companion-listener"]}]))
+def _study_on_disk(tmp_path, monkeypatch, name, body):
+    import scripts._compare.study_spec as ss
+    d = tmp_path / "workspace" / "studies" / name
+    d.mkdir(parents=True)
+    import yaml as _y
+    (d / "study.yaml").write_text(_y.safe_dump(body))
+    monkeypatch.setattr(ss, "REPO", tmp_path)
+    return d / "study.yaml"
+
+
+def test_investigation_route_reads_companions_from_the_study_yaml(tmp_path, monkeypatch):
+    _study_on_disk(tmp_path, monkeypatch, "s", {
+        "name": "s", "condition": "basal", "from_vecoli_config": "configs/redux.json",
+        "inject_processes": ["companion-listener"]})
+    specs = specs_from_configs(_ctx([{"name": "s", "config": "configs/redux.json"}]))
     assert specs[0].inject_processes == ["companion-listener"]
 
 
-def test_investigation_route_defaults_to_an_empty_list():
+def test_investigation_route_also_reads_the_comparison_block(tmp_path, monkeypatch):
+    _study_on_disk(tmp_path, monkeypatch, "s", {
+        "name": "s", "condition": "basal",
+        "comparison": {"inject_processes": ["companion-listener"]}})
+    specs = specs_from_configs(_ctx([{"name": "s", "config": "configs/redux.json"}]))
+    assert specs[0].inject_processes == ["companion-listener"]
+
+
+def test_investigation_route_defaults_to_an_empty_list(tmp_path, monkeypatch):
+    _study_on_disk(tmp_path, monkeypatch, "s", {"name": "s", "condition": "basal"})
     specs = specs_from_configs(_ctx([{"name": "s", "config": "configs/redux.json"}]))
     assert specs[0].inject_processes == []
 
 
-def test_investigation_route_rejects_companions_it_cannot_inject():
-    # Same guard as the study route. Covering one route only is how the
-    # declaration ends up looking correct while doing nothing.
+def test_investigation_route_rejects_companions_it_cannot_inject(tmp_path, monkeypatch):
     import pytest
+    _study_on_disk(tmp_path, monkeypatch, "basal", {
+        "name": "basal", "condition": "basal",
+        "inject_processes": ["companion-listener"]})
     with pytest.raises(ValueError, match="silently discarded"):
-        specs_from_configs(_ctx([
-            {"name": "basal", "config": "basal",
-             "inject_processes": ["companion-listener"]}]))
+        specs_from_configs(_ctx([{"name": "basal", "config": "basal"}]))
+
+
+def test_a_missing_study_yaml_is_not_an_error(tmp_path, monkeypatch):
+    # Not every configs[] entry has a study dir on disk.
+    import scripts._compare.study_spec as ss
+    monkeypatch.setattr(ss, "REPO", tmp_path)
+    specs = specs_from_configs(_ctx([{"name": "absent", "config": "configs/redux.json"}]))
+    assert specs[0].inject_processes == []

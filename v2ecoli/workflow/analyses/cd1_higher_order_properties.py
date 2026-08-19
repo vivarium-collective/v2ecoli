@@ -31,7 +31,7 @@ from wholecell.utils import units
 
 from v2ecoli.workflow.analyses._helpers import (
     bulk_field_ids,
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     with_cross_cell_stats,
 )
@@ -59,7 +59,7 @@ class Cd1HigherOrderProperties(Analysis):
         **ctx,
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         # Shim A: parquet bulk ordering, the equivalent of field_metadata("bulk")
         bulk_ids = bulk_field_ids(conn, history_sql)

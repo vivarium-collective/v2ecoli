@@ -31,7 +31,7 @@ from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
     bulk_field_ids,
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     run_chunked,
     with_cross_cell_stats,
@@ -59,7 +59,7 @@ class Cd1Metabolomics(Analysis):
         **ctx,
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         mtb_ids = [str(k) for k in sim_data.process.metabolism.conc_dict.keys()]
         # Shim A: parquet bulk ordering, the equivalent of field_metadata("bulk")

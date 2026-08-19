@@ -379,19 +379,26 @@ def run_chunked(
     return pl.concat(parts, how="vertical")
 
 
-def cd1_filter_clause(params: Optional[dict] = None) -> str:
-    """The ``WHERE`` clause the cd1 omics ports share, or ``""`` when unfiltered.
+def generation_time_filter_clause(params: Optional[dict] = None) -> str:
+    """The shared burn-in ``WHERE`` clause, or ``""`` when unfiltered.
 
-    All six vEcoli ``cd1_*`` analyses gate their aggregate on the same two
-    optional params — ``generation_lower_bound`` (drop early generations as
-    inoculation burn-in) and ``time_lower_bound`` (drop the start of each cell
-    cycle).  ``time`` is available because :func:`read_stacked_columns` aliases
-    v2ecoli's ``global_time`` to it.
+    Two optional params, common to any analysis aggregating over a cell's (or
+    a sweep's) timeseries — ``generation_lower_bound`` (drop early generations
+    as inoculation burn-in) and ``time_lower_bound`` (drop the start of each
+    cell cycle). Requires a ``generation`` column and a ``time`` column (or
+    alias) in scope wherever this is applied; :func:`read_stacked_columns`
+    aliases v2ecoli's ``global_time`` to ``time`` for the ``cd1_*`` family, and
+    the ``ptools_*`` family's ``build_query`` does the same.
 
-    Deviation from the originals: ``cd1_fluxomics`` tested
-    ``generation_lower_bound`` for *truthiness* while the other five tested
-    ``is not None``, so a bound of ``0`` was silently ignored there.  This
-    normalizes on ``is not None``.  The two agree in effect (``generation >= 0``
+    Shared by all six ``cd1_*`` omics ports and the ``ptools_*`` single/multi-
+    scale exports — this is pure row-admission logic (which rows reach an
+    analysis' own aggregation), not itself part of either family's
+    aggregation or biological transformation.
+
+    Historical deviation now normalized: ``cd1_fluxomics`` used to test
+    ``generation_lower_bound`` for *truthiness* while the rest tested
+    ``is not None``, so a bound of ``0`` was silently ignored there. This
+    normalizes on ``is not None``. The two agree in effect (``generation >= 0``
     matches every row), so no output changes — the ports just stop disagreeing.
     """
     params = params or {}

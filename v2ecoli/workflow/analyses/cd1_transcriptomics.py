@@ -23,7 +23,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     run_chunked,
     with_cross_cell_stats,
@@ -51,7 +51,7 @@ class Cd1Transcriptomics(Analysis):
         **ctx,
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         cistron_data = sim_data.process.transcription.cistron_data
         mrna_ids = [

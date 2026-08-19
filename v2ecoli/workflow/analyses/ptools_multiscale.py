@@ -107,6 +107,7 @@ class _MultiseedMixin:
         history_sql: str,
         conn: DuckDBPyConnection,
         columns=None,
+        filter_clause="",
     ):
         """Fetch raw per-seed rows and collapse to one row per time."""
         if columns is None:
@@ -116,11 +117,17 @@ class _MultiseedMixin:
 
         # Build the same SQL used by the single-scale read_outputs — but do NOT
         # apply groupby.sum() here; collapse_cross_seed handles aggregation.
-        query_sql = (
-            f"SELECT {','.join(columns)}, global_time AS time"
-            f" FROM ({history_sql})"
-            f" ORDER BY time"
-        )
+        # ``filter_clause`` only restricts which rows reach that aggregation
+        # (see ptools_rna.build_query's docstring); it adds no aggregation of
+        # its own, so collapse_cross_seed's own cross-seed math is untouched.
+        query_sql = f"""
+            SELECT * EXCLUDE (generation) FROM (
+                SELECT {",".join(columns)}, generation, global_time AS time
+                FROM ({history_sql})
+            )
+            {filter_clause}
+            ORDER BY time
+        """
         raw_df = conn.sql(query_sql).df()
         return collapse_cross_seed(raw_df, id_cols=frozenset({"bulk__id"}))
 

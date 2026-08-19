@@ -32,7 +32,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     with_cross_cell_stats,
 )
@@ -61,7 +61,7 @@ class Cd1ExchangeFluxes(Analysis):
         **ctx,
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         # Shim E: name each element of the flux list by its sorted molecule id,
         # then strip the compartment suffix the way the original's column-name

@@ -40,9 +40,11 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    # Investigation reports embed the loom Explorer — require the bundle so a
-    # missing/broken build fails loudly rather than publishing without it.
-    # NOTE: retained deliberately through the #878 migration, and it must stay
+    # NOTE: the original rationale here ("reports embed the loom Explorer, so
+    # require the bundle") no longer holds — in the current template the loom
+    # iframe is opt-in behind a <details> and renders as a blank box in a
+    # standalone file, and no report in this workspace carries a loom image.
+    # Retained anyway, deliberately, through the #878 migration, and it must stay
     # at JOB level. This is read by workbench's hatch_build.py build hook (not at
     # render time), so it takes effect when the "Ensure the publish CLI is
     # current" step BUILDS workbench from git: a missing loom bundle becomes a
@@ -115,7 +117,41 @@ jobs:
           git fetch origin gh-pages
           git worktree add /tmp/ghp gh-pages
           mkdir -p /tmp/ghp/investigations
-          cp reports/published/investigations/*.html /tmp/ghp/investigations/
+          # Size-ratio gate against the artifact actually being replaced.
+          #
+          # The in-process generator sources figures from a study's own
+          # viz/ + charts/ (non-recursive) plus `image:` data-URIs. It does NOT
+          # read reports/figures/<study>/, so a report can render "successfully"
+          # while carrying a fraction of the figures the live page has. The
+          # script's own guard uses committed figure files as its denominator,
+          # which is a PROXY for the wrong population — it catches total loss
+          # (zero inlined) but not partial. Measured against gh-pages today:
+          # colonies 7%, whole-cell-model-comparison 12%, baseline-showcase 41%
+          # would all have overwritten materially better pages.
+          #
+          # Comparing bytes against the published file is mechanism-agnostic and
+          # separates the cases with room to spare: everything healthy sits at
+          # 79-199%, everything degraded at 7-41%. Never deletes; a blocked
+          # report simply keeps its previous published copy.
+          MIN_RATIO_PCT=60
+          blocked=0
+          for f in reports/published/investigations/*.html; do
+            base=$(basename "$f")
+            cur="/tmp/ghp/investigations/$base"
+            if [ -f "$cur" ]; then
+              new_sz=$(wc -c < "$f")
+              old_sz=$(wc -c < "$cur")
+              if [ "$old_sz" -gt 0 ] && [ $(( new_sz * 100 / old_sz )) -lt "$MIN_RATIO_PCT" ]; then
+                echo "::warning::${base%.html}: regenerated report is $(( new_sz * 100 / old_sz ))% of the published one (${new_sz} B vs ${old_sz} B) — NOT republished, keeping the last-good page"
+                blocked=$((blocked + 1))
+                continue
+              fi
+            fi
+            cp "$f" "/tmp/ghp/investigations/$base"
+          done
+          if [ "$blocked" -gt 0 ]; then
+            echo "$blocked report(s) withheld by the size-ratio gate"
+          fi
           # Regenerate the landing-page investigation list (between the
           # auto-investigations markers in index.html) so the root gallery lists
           # every investigation with a published report — no hand-curation.

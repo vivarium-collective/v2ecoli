@@ -716,14 +716,17 @@ runs:
     overrides in `params`, so '{}' here means the baseline's own params
     ({seed: 0, cache_dir: out/cache}) ran unmodified. Evidence for the
     outcomes below is the 3-arm Beulig comparison cards at
-    docs/report_cards/beulig_batch/, regenerated on this tree 2026-08-17 by
-    tests/test_beulig_comparison_harness.py (13 passed).
+    docs/report_cards/beulig_batch/, regenerated on this tree 2026-08-19 by a
+    direct production-scale harness invocation with rendering on (charts and
+    verdict JSON from the same run; the test suite writes only to tmp paths
+    since the card_root fix and cannot produce these). Suite state the same
+    day: 13 passed.
   outcomes:
     growth-axes-graded-vs-beulig:
       result: fail
       detail: |
         Group growth grades mismatch (growth.biomass_gDW_per_L) on the vs_beulig card
-        regenerated 2026-08-17 by the harness suite (13 passed). Informative negative:
+        regenerated 2026-08-19 by direct production-scale harness invocation. Informative negative:
         the single-lineage architecture cannot accumulate population biomass (~3 orders
         low); resolution is the population runner (mbp-02/mbp-04), not tuning — see
         mbp-06 axis A.
@@ -731,21 +734,21 @@ runs:
       result: fail
       detail: |
         Group substrate grades mismatch (substrate.GUR, substrate.glucose_conc) on the
-        vs_beulig card regenerated 2026-08-17. Same architectural cap: population-scale
+        vs_beulig card regenerated 2026-08-19. Same architectural cap: population-scale
         uptake cannot be reproduced by one lineage.
     byproducts-axes-graded-vs-beulig:
       result: fail
       detail: |
         Group byproducts grades mismatch (lactate, formate, ethanol, pyruvate,
         succinate — sim emits no overflow byproducts); byproducts.acetate is ungraded
-        (no acetate column in the Beulig batch reference). Card regenerated 2026-08-17.
+        (no acetate column in the Beulig batch reference). Card regenerated 2026-08-19.
         Overflow is bounded here, not explained — the metabolism-overflow sibling
         investigation anchors on Vemuri 2006 / Basan 2015.
     gas_transfer-axes-graded-vs-beulig:
       result: fail
       detail: |
         Group gas_transfer grades mismatch (OTR, CTR; dissolved_o2 ungraded) on the
-        vs_beulig card regenerated 2026-08-17. The respiration divergence is
+        vs_beulig card regenerated 2026-08-19. The respiration divergence is
         independently corroborated by the ketchup-baseline-comparison investigation,
         where v2ecoli consumes ~9 O2 per 100 glucose vs ~135 in the kinetic
         references.

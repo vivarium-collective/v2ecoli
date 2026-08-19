@@ -437,9 +437,12 @@ runs:
     Canonical run of the baseline-millard arm, 60 steps (the smoke-run length
     in planned_runs), launched through the workbench study runner, which also
     ran the post-run evaluation. The eight card-based outcomes below were
-    auto-evaluated against the beulig_batch cards regenerated on this tree
-    2026-08-17 by tests/test_beulig_comparison_harness.py (13 passed). The
-    four run-data outcomes were authored from direct measurement the same day
+    auto-evaluated against the beulig_batch cards; the committed cards were
+    subsequently regenerated 2026-08-19 by direct production-scale harness
+    invocation with rendering on (verdicts unchanged in every group, so these
+    outcomes stand; the test suite writes only to tmp paths since the
+    card_root fix). The four run-data outcomes were authored from direct
+    measurement 2026-08-17
     (values in each detail), because the run's zarr store exposes only
     cell_mass and instantaneous_growth_rate to the automatic evaluator.
     Supporting suites, run the same day: test_baseline_millard.py 6 passed;

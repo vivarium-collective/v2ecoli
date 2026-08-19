@@ -256,7 +256,10 @@ def test_initialize_step_forwards_new_genes_and_bundle_overrides():
         mock_kb.return_value = MagicMock()
         s1._resolve_raw_data(config)
 
-    assert mock_bundle.call_args.kwargs["overrides"] == "/somewhere/overlay.tsv"
+    # A list, not the bare string: the CLI records repeatable overrides
+    # ';'-joined, so this field is always split into a chain (see
+    # test_bundle_overrides_round_trips_multiple_manifests).
+    assert mock_bundle.call_args.kwargs["overrides"] == ["/somewhere/overlay.tsv"]
     assert mock_kb.call_args.kwargs["new_genes_option"] == "some_pathway_MG1655_v2"
 
 
@@ -289,6 +292,30 @@ def test_declared_new_genes_agreeing_is_silent():
     with _w.catch_warnings():
         _w.simplefilter("error")
         _check_genotype("some_pathway_MG1655_v2", "some_pathway_MG1655_v2")
+
+
+def test_bundle_overrides_round_trips_multiple_manifests(tmp_path):
+    """The CLI records repeatable --bundle-overrides as a ';'-joined string.
+
+    Handing that value straight to SourceBundle treats it as ONE path, so it
+    round-trips for a single override and fails on two -- and the CLI field is
+    provenance-only, so the breakage surfaces only where the value is resolved,
+    far from where it was recorded.
+    """
+    one = _write_overlay(tmp_path / "a", "probe_a")
+    two = _write_overlay(tmp_path / "b", "probe_b")
+    captured = {}
+
+    def _capture(**kwargs):
+        captured.update(kwargs)
+        return MagicMock()
+
+    with patch.object(s1, "KnowledgeBaseEcoli", return_value=MagicMock()), \
+            patch.object(s1, "SourceBundle", side_effect=_capture):
+        s1._resolve_raw_data({"raw_data": None,
+                              "bundle_overrides": f"{one};{two}"})
+
+    assert captured["overrides"] == [str(one), str(two)]
 
 
 def test_initialize_step_defaults_new_genes_off():

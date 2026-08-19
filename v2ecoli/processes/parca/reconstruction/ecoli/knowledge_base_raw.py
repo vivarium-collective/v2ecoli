@@ -533,6 +533,21 @@ class KnowledgeBaseEcoli(object):
                 # metabolites, so its own tables can plausibly name one.
                 # Fail loudly instead -- a redefinition may well be intended,
                 # but it must be deliberate rather than a silent last-write.
+                #
+                # Guarding the GENERIC join rather than only the two new
+                # optional tables was checked by enumerating every shipped
+                # (base <- added) pair and comparing raw id sets: the six live
+                # joins (complexation_reactions, equilibrium_reactions,
+                # metabolic_reactions, metabolites, trna_charging_reactions,
+                # transcription_units) all carry ZERO collisions, and
+                # ppgpp_regulation has no id column so the guard skips it.
+                # ⚠ The test suite alone does NOT establish this: the 81-row
+                # transcription_units join comes from the remove_rrna_operons
+                # option, which nothing sets True (every call site hardcodes
+                # False), so no test exercises that path.
+                # ⚠ Nor does the NG- naming convention: a payload is not bound
+                # by it. That is an argument FOR guarding generically rather
+                # than trusting the prefix.
                 if "id" in data[0]:
                     base_ids = {row["id"] for row in data}
                     clashes = sorted(

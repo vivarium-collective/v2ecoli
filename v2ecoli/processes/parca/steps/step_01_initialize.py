@@ -86,7 +86,15 @@ def _resolve_raw_data(config: dict):
     # It is applied ON TOP of v2ecoli's own overrides, not instead of them
     # (SourceBundle chains them) — so naming one cannot revert v2ecoli's
     # diverged flat files.
-    overrides = config.get("bundle_overrides", "") or None
+    # Split on ';' -- symmetric with the CLI, which records its repeatable
+    # --bundle-overrides as a ';'-joined string. Without this the whole joined
+    # value is handed to SourceBundle as ONE path, which round-trips for a
+    # single override and fails on two ("a.tsv;b.tsv" is not a file). The field
+    # is provenance-only on the CLI path, so the breakage only appears where the
+    # value is actually resolved -- which is exactly where it is hardest to
+    # attribute back to how it was recorded.
+    _raw_overrides = config.get("bundle_overrides", "") or ""
+    overrides = [p for p in _raw_overrides.split(";") if p] or None
     # Likewise ``new_genes``: KnowledgeBaseEcoli has supported new-gene
     # insertion all along, but no entry point passed the option, so it was
     # unreachable and every build was "off". A private strain's new-gene flat

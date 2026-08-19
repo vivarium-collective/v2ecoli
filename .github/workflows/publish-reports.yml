@@ -28,6 +28,15 @@ on:
       - 'scripts/publish_investigation_reports.py'
       - '.github/workflows/publish-reports.yml'
   workflow_dispatch:
+    inputs:
+      force_republish:
+        description: >-
+          Republish even when a report shrinks or inlines no figures. Both
+          guards exist to stop a degraded render overwriting a good page, but a
+          LEGITIMATE shrink (studies removed, figures deliberately trimmed) is
+          otherwise unpublishable with no override. Use knowingly.
+        type: boolean
+        default: false
 
 concurrency:
   group: publish-reports
@@ -85,6 +94,8 @@ jobs:
 
       - name: Generate investigation reports
         id: gen
+        env:
+          FORCE_REPUBLISH: ${{ inputs.force_republish && '1' || '' }}
         # Renders each investigation in-process and writes
         # reports/published/investigations/<slug>.html. A report whose figures
         # failed to inline is deliberately NOT written, so the copy step leaves
@@ -101,6 +112,8 @@ jobs:
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
 
       - name: Publish generated reports to gh-pages
+        env:
+          FORCE_REPUBLISH: ${{ inputs.force_republish && '1' || '' }}
         # Surgical: copy ONLY the freshly-generated investigations/*.html onto
         # gh-pages via a worktree. Never deletes — a report that failed to
         # regenerate keeps its previous published copy. Commits only on a diff.
@@ -134,6 +147,10 @@ jobs:
           # 79-199%, everything degraded at 7-41%. Never deletes; a blocked
           # report simply keeps its previous published copy.
           MIN_RATIO_PCT=60
+          if [ -n "${FORCE_REPUBLISH:-}" ]; then
+            echo "::warning::force_republish set — the size-ratio gate is BYPASSED for this run"
+            MIN_RATIO_PCT=0
+          fi
           blocked=0
           for f in reports/published/investigations/*.html; do
             base=$(basename "$f")

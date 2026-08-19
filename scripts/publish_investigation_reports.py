@@ -32,6 +32,7 @@ investigation cannot red the whole deploy.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -90,8 +91,12 @@ def build_index_fragment(ws_root: Path, slugs: list[str]) -> str:
         if len(desc) > 300:
             desc = desc[:297].rstrip() + "…"
 
-        studies = [s.get("name") if isinstance(s, dict) else s
-                   for s in (spec.get("studies") or [])]
+        # Same members-vs-studies union as study_figure_count() — this is the
+        # gallery's enforcement point of it. Reading `studies` alone made every
+        # card on the landing page render "0 studies"; measured on the live
+        # gh-pages index.html, so it is pre-existing rather than a regression.
+        raw_members = list(spec.get("members") or []) + list(spec.get("studies") or [])
+        studies = [s.get("name") if isinstance(s, dict) else s for s in raw_members]
         studies = [str(s) for s in studies if s]
         meta = f"{len(studies)} stud{'y' if len(studies) == 1 else 'ies'}"
         if 0 < len(studies) <= 4:
@@ -205,6 +210,15 @@ def main() -> int:
         print("note: --url/--port are obsolete (reports render in-process, "
               "no dashboard server involved) — ignoring", file=sys.stderr)
 
+    # Escape hatch, set by the workflow's force_republish dispatch input. A
+    # LEGITIMATE shrink (studies removed, figures deliberately trimmed) is
+    # otherwise unpublishable, because the stripped-report guard here and the
+    # size-ratio gate in the workflow's copy step would both refuse it forever.
+    force = bool(os.environ.get("FORCE_REPUBLISH"))
+    if force:
+        print("FORCE_REPUBLISH set — the stripped-report guard is BYPASSED",
+              file=sys.stderr)
+
     ws_root = Path(args.workspace).resolve()
     out_dir = Path(args.out).resolve()
     slugs = discover_investigations(ws_root)
@@ -219,7 +233,7 @@ def main() -> int:
     results: dict[str, tuple[bool, str]] = {}
     for slug in slugs:
         out_path = out_dir / "investigations" / f"{slug}.html"
-        expect_figures = study_figure_count(ws_root, slug)
+        expect_figures = 0 if force else study_figure_count(ws_root, slug)
         try:
             ok, msg = render_report(ws_root, slug, out_path, expect_figures)
         except Exception as e:  # noqa: BLE001 — report per-slug, keep going

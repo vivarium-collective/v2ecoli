@@ -125,7 +125,8 @@ class Cd1Metabolomics(Analysis):
 
         tidy = metabolite_data.join(mtb_lookup, on="idx", how="left").with_columns(
             pl.format(
-                "Cell: {}_{}", pl.col("lineage_seed"), pl.col("agent_id")
+                "Cell: {}_{}_{}", pl.col("lineage_seed"), pl.col("generation"),
+                pl.col("agent_id")
             ).alias("cell_id")
         )
         output_final = (

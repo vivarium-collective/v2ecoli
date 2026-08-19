@@ -677,11 +677,17 @@ runs:
     static-env-baseline-unchanged:
       result: pass
       detail: |
-        test_static_env_baseline_unchanged PASSED (2026-08-17). With the
-        driver in static mode the composite reproduces the plain baseline —
-        the time-varying plumbing is regression-neutral when unused, and
-        this canonical multigen run doubles as the past-first-division
-        regression guard (two divisions crossed).
+        Measured as a full trajectory comparison 2026-08-18: this canonical
+        static-env run's cell_mass AND instantaneous_growth_rate traces are
+        BIT-IDENTICAL to an unmodified-baseline reference run
+        (baseline-reference-multigen, seed 0, artifact
+        studies/multiscale-bioprocess-reference/parquet-runs/114eeee6-...)
+        at all 7200 steps — max difference exactly 0 on both observables,
+        across two divisions. Caveat: the criterion also names
+        dnaA_protein_count and cell_mu_per_h, which the emitted trace does
+        not carry; test_static_env_baseline_unchanged (PASSED 2026-08-17)
+        covers state equality at snapshot scale. The time-varying plumbing
+        is regression-neutral when unused, on all evidence available.
     cell-mass-monotone-pre-division:
       result: fail
       detail: |

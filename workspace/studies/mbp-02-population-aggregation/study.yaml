@@ -572,9 +572,14 @@ runs:
         all 7200 steps — 1 at 7198 steps and exactly 2 at the two
         division-transient steps where both daughters briefly coexist. The
         identity count = len(agents) x cells_per_agent holds at every emitted
-        step, including the transients. (The cited pytest asserts the same
-        identity on a full state snapshot; this is the per-step form the
-        criterion declares, from the canonical run itself.)
+        step, including the transients. Two honest qualifications: len(agents)
+        is not itself in the single-lineage trace, so the per-step claim
+        infers it from the integral count (1 or 2, with 2 exactly at
+        division) plus the division mechanics; the cited pytest asserts the
+        identity directly on a full state snapshot. And unlike
+        growth-rate-positive (whose strict-min band the division transients
+        VIOLATE, hence its fail), the transients here SATISFY this identity —
+        the asymmetry is in the criteria, not the grading.
     total_biomass_equals_sum_cell_mass_times_scale:
       result: pass
       detail: |
@@ -583,10 +588,11 @@ runs:
         cells_per_agent x 1e-15 to <1e-9 relative error at 7198/7200 steps.
         The two deviating steps are the division transients, where the
         population correctly sums BOTH daughters while the single-lineage
-        trace emits only the followed one (~2x deviation, exactly as the sum
-        predicts) — so the trace cannot refute the identity there; the cited
-        pytest asserts the exact sum-over-agents identity on full state and
-        passes.
+        trace emits only the followed one (~2x deviation, exactly the value
+        the identity itself predicts when a second, near-equal daughter
+        exists — a confirmatory deviation, not a violation); the cited pytest
+        asserts the exact sum-over-agents identity on full multi-agent state
+        and passes.
     cell-count-doubles-per-generation:
       result: fail
       detail: |

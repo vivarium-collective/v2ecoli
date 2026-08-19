@@ -142,6 +142,11 @@ jobs:
           # colonies 7%, whole-cell-model-comparison 12%, baseline-showcase 41%
           # would all have overwritten materially better pages.
           #
+          # ⚠ This is a SIZE PROXY, not a correctness gate. It catches THIS
+          # failure class decisively because figure loss is enormous in bytes; it
+          # would not catch a content regression that preserved byte count. Do
+          # not extend it into a general "is the report right" check.
+          #
           # Comparing bytes against the published file is mechanism-agnostic and
           # separates the cases with room to spare: everything healthy sits at
           # 79-199%, everything degraded at 7-41%. Never deletes; a blocked

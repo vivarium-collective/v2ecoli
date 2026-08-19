@@ -342,14 +342,15 @@ def _run_one_variant(
     # experiment_id=default and crashes the run with a missing-partition
     # FileNotFoundError. Recording here is the external lineage-following
     # emitter's job (run_multigen_parquet / run_multigen_sqlite).
-    from v2ecoli.composites._helpers import set_null_emitter_override
-    set_null_emitter_override(True)
+    from v2ecoli.composites import _helpers as _emit_h
+    _prev_null_override = _emit_h._NULL_EMITTER_OVERRIDE
+    _emit_h.set_null_emitter_override(True)
     try:
         doc = builder_fn(core, cache_dir, **builder_kwargs)
         from process_bigraph import Composite
         composite = Composite(doc, core=core)
     finally:
-        set_null_emitter_override(False)
+        _emit_h.set_null_emitter_override(_prev_null_override)
     build_time = time.time() - t_build
 
     t_start = time.time()

@@ -704,7 +704,7 @@ executive:
       result: passing
     - study: mbp-01-time-varying-environment
       behavior: zero-substrate-blocks-uptake
-      result: passing
+      result: failing
     - study: mbp-01-time-varying-environment
       behavior: saturating-substrate-respects-vmax
       result: passing
@@ -796,6 +796,9 @@ executive:
     - study: mbp-05-palsson-benchmark
       behavior: divergences-categorized-in-report-card
       result: passing-with-caveats
+    - study: mbp-01-time-varying-environment
+      behavior: zero-substrate-blocks-uptake
+      result: failing
     - study: mbp-02-population-aggregation
       behavior: cell-count-doubles-per-generation
       result: failing

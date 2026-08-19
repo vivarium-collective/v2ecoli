@@ -555,28 +555,46 @@ runs:
     per-cell-observables-unchanged-vs-baseline:
       result: pass
       detail: |
-        test_per_cell_observables_unchanged_vs_baseline PASSED (2026-08-17).
-        The aggregator is read-only at the cell scale: per-cell trajectories
-        match the plain baseline under aggregation.
+        Measured as a full trajectory comparison 2026-08-18: the cpa=1 run's
+        per-cell cell_mass trace is BIT-IDENTICAL to an unmodified-baseline
+        reference run (baseline-reference-multigen, seed 0, artifact
+        studies/multiscale-bioprocess-reference/parquet-runs/114eeee6-...) at
+        all 7200 steps — max relative difference 0, identical generation
+        boundaries. Caveat: the criterion also names dnaA_protein_count,
+        which the emitted trace does not carry; the cited pytest covers the
+        remaining ground at snapshot scale (agents/0 state equality). The
+        aggregator is read-only at the cell scale on all evidence available.
     population_count_equals_len_agents:
       result: pass
       detail: |
-        test_population_count_equals_len_agents PASSED (2026-08-17). The
-        per-step identity holds: population.cell_count equals
-        len(agents) x cells_per_agent at every emitted step.
+        Measured per-step on this run's full parquet trace 2026-08-18:
+        population.cell_count / cells_per_agent is an integer agent count at
+        all 7200 steps — 1 at 7198 steps and exactly 2 at the two
+        division-transient steps where both daughters briefly coexist. The
+        identity count = len(agents) x cells_per_agent holds at every emitted
+        step, including the transients. (The cited pytest asserts the same
+        identity on a full state snapshot; this is the per-step form the
+        criterion declares, from the canonical run itself.)
     total_biomass_equals_sum_cell_mass_times_scale:
       result: pass
       detail: |
-        test_total_biomass_equals_sum_cell_mass_times_scale PASSED
-        (2026-08-17). The per-step identity holds: population biomass equals
-        the sum of per-cell mass times the sampling scale.
+        Measured per-step on this run's full parquet trace 2026-08-18:
+        population.total_biomass_gDW equals the emitted cell_mass x
+        cells_per_agent x 1e-15 to <1e-9 relative error at 7198/7200 steps.
+        The two deviating steps are the division transients, where the
+        population correctly sums BOTH daughters while the single-lineage
+        trace emits only the followed one (~2x deviation, exactly as the sum
+        predicts) — so the trace cannot refute the identity there; the cited
+        pytest asserts the exact sum-over-agents identity on full state and
+        passes.
     cell-count-doubles-per-generation:
       result: fail
       detail: |
         Measured directly on this run's parquet trace: population.cell_count
-        is 1.0e9 at every step of all three generations — final/initial
-        ratio 1.0, against the declared band [6, 24] (and against ~4
-        expected for this 120-min duration). This is the fixed
+        is 1.0e9 at 7198 of 7200 steps (with two division-transient reads of
+        2e9 that immediately revert on single-daughter pruning) —
+        final/initial ratio 1.0, against the declared band [6, 24] (and
+        against ~4 expected for this 120-min duration). This is the fixed
         population-growth mode doing what it is configured to do: the
         composite defaults to population_growth_mode "fixed", the tracked
         single-daughter lineage halves at division, and although the runner

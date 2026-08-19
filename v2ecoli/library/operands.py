@@ -87,6 +87,117 @@ class Operand:
                 for r in self.frame.itertuples()
                 if r.mean_geometric is not None and pd.notna(r.mean_geometric)}
 
+    @property
+    def declared_zeros(self) -> set:
+        """Entities this operand recorded as a MEASURED ZERO — *"we looked and
+        counted none"* — as distinct from ones it says nothing about.
+
+        **Why this is not reachable through ``values``, and must not be made
+        so.** A true zero cannot be represented as a centre on the log scale:
+        the geometric mean of all-zero replicates is undefined, so the promoted
+        tier records it as a NULL geometric centre, with the fact itself carried
+        in the counts — ``n_pos`` (0) and ``n`` (> 0) — and in
+        ``mean_arithmetic`` (0.0). ``values`` drops nulls, correctly, and in
+        doing so drops the recorded zero along with genuinely absent rows. So
+        the payload honours the true-zero-vs-missing distinction
+        (`comparison-operands-plan` D5) and the consumer cannot see it — and the
+        loss is invisible, because it presents as a null rather than a deletion.
+
+        ⚠ **That is a statement about ``values``, not a licence to key on the
+        null.** Which statistic sits in ``mean_geometric`` is a property of the
+        *presentation*, not of the record: a card may substitute a different
+        centre before grading, and `vs_experiment` does — it grades the
+        ARITHMETIC centre (matching the prior CD1 notebooks), swapping it into
+        that column. Under that substitution nothing is null. The counts are
+        invariant to it, which is why this keys on them; see the implementation
+        note below.
+
+        The fix is a sibling view, deliberately **not** a wider ``values``:
+        emitting zeros from ``values`` would change what ``n_shared`` means under
+        every card already rendered, which is the exact hazard ``values``' own
+        docstring exists to prevent. So a consumer that wants the distinction
+        opts in, and one that does not is bit-for-bit unaffected.
+
+        ⚠ **The two are NOT disjoint in general, and must not be made so.** On a
+        raw promoted frame they happen to be — a true zero is null there, so
+        ``values`` drops it — but that is a property of the *presentation*, not a
+        guarantee. Measured on a ΔtrpR ΔtnaA transcriptome: **overlap 0 on the
+        raw frame, 145 after ``vs_experiment`` substitutes the arithmetic
+        centre**, because a ``0.0`` centre is kept by ``values`` (which drops
+        only nulls, deliberately). Restoring disjointness would mean excluding
+        rows whose centre reads ``0.0`` — i.e. keying on the centre again, which
+        is exactly the defect this accessor was fixed for. **Do not "fix" the
+        code to match a disjointness claim.**
+
+        Empty for ``fixture`` and ``in-investigation`` operands, and that is
+        structural rather than incidental: those frames carry no ``n``/``n_pos``
+        at all, because a synthesised vector has no replicate counts — a model
+        has no limit of detection, so its zeros arrive as a real ``0.0`` centre
+        and ``values`` already keeps them.
+
+        ⚠ **This is a PATH distinction, not a measured-vs-simulated one.** A
+        PROMOTED SIMULATION carries the same counts as a promoted measurement and
+        therefore reports declared zeros too — measured across the promoted-sim
+        payload: **1,845 rows over 12 files** (171 on one transcriptome, 135 on
+        one proteome). That matters because promoted↔promoted is a live shape
+        (MS#8 comparisons #1 and #8), so both sides of a comparison can report
+        them. Do not describe this as belonging to the measured tier alone.
+
+        Why it matters, concretely: in a ΔtrpR ΔtnaA cultivation the measured
+        ``trpR`` is 0.0 TPM across every replicate. It is the single most
+        informative row in the comparison — the knockout, visible in the data —
+        and today it is the one row that reaches no grader at all.
+        """
+        cols = self.frame.columns
+        if "n_pos" not in cols or "n" not in cols:
+            # ⚠ "I have no counts" and "I have no zeros" are different facts and
+            # must not collapse into the same empty set — that is the silent
+            # inertness this accessor exists to remove, and it would be
+            # self-defeating to reintroduce it here.
+            #
+            # For a synthesised operand the columns are legitimately absent, so
+            # empty is the honest answer. For a PROMOTED one they are required by
+            # `VectorObservationSchema`, so their absence is a malformed payload
+            # — a contract violation between this consumer and whatever emitted
+            # it. Same reasoning as `fixture_operand` raising on a missing
+            # `map_key` rather than returning nothing.
+            if self.path == "promoted":
+                missing = [c for c in ("n", "n_pos") if c not in cols]
+                raise KeyError(
+                    f"promoted operand {self.label!r} is missing {missing} — "
+                    "VectorObservationSchema requires both, so this payload is "
+                    "malformed. Returning no declared zeros would be "
+                    "indistinguishable from a payload that genuinely has none.")
+            return set()
+        # The record of a true zero lives in the COUNTS, not in the centre:
+        # `n_pos == 0` (no positive replicate) with `n > 0` (something was
+        # actually measured) is the fact. `n > 0` is what separates a measured
+        # zero from a row nobody measured.
+        #
+        # ⚠ Do NOT also test `mean_geometric.isna()`. On the promoted tier the
+        # two coincide exactly — measured on a ΔtrpR ΔtnaA transcriptome, both
+        # select the same 145 of 4252 rows — so the null test looks free. It is
+        # not: a CONSUMER may legitimately present this operand with a different
+        # statistic in the `mean_geometric` column (`vs_experiment` does exactly
+        # that, substituting the arithmetic centre the cards grade), and then no
+        # row is null and this returns EMPTY. Keying on the counts is invariant
+        # to that substitution; keying on the centre is not.
+        none_positive = pd.to_numeric(
+            self.frame["n_pos"], errors="coerce").fillna(-1) == 0
+        some_measured = pd.to_numeric(
+            self.frame["n"], errors="coerce").fillna(0) > 0
+        # `detection` must say we COUNTED none, not that we could not see any.
+        # `below_limit` is a statement about the limit of detection, and
+        # `not_detected` about the panel — neither asserts a zero, so neither
+        # belongs here. Latent as of 2026-08-18 (0 rows across all 41 vector
+        # tables would change), but the payload does carry 5,213 `below_limit`
+        # and 17,978 `not_detected` rows, so the guard is stating the intent
+        # rather than relying on the emitter never producing the combination.
+        if "detection" in cols:
+            some_measured &= self.frame["detection"].astype(str) == "detected"
+        return {str(e) for e in
+                self.frame.loc[none_positive & some_measured, "entity_id"]}
+
     def __len__(self) -> int:
         return len(self.frame)
 
@@ -269,7 +380,15 @@ def run_operand(sweep_dir: str | Path, entity_ids,
 
     The third path, and the one the module docstring already described ("or
     materialised from an artifact inside the investigation") while no code
-    implemented it. A sweep is read through the run-keyed cache
+    implemented it.
+
+    ⚠ **No non-test caller yet, deliberately.** `vs_experiment.py` resolves side
+    A via ``promoted_operand`` and side B via ``fixture_operand``; wiring this in
+    is the private-side change that lands with the ambr250 investigation
+    (`sms-ecoli#77`), and it cannot be written here because that card is
+    private-only. Recorded rather than left to be rediscovered: a public path
+    with only test callers looks like dead code to the next reader, and the
+    honest status is "the consumer is blocked on a sync, not missing". A sweep is read through the run-keyed cache
     (``sim_vector_cache.load_or_extract``), so the expensive parquet scan happens
     once per run and every later render is a cache read.
 

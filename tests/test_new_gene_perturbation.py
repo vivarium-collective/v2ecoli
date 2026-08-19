@@ -43,10 +43,22 @@ class _FakeSimData:
         rnas += [f"{rna_prefix}-RNA{i}[c]" for i in range(n_new)]
         self.process.transcription.rna_data = {"id": np.array(rnas, dtype="U32")}
 
+        # rna_expression, and a per-gene baseline, so the fake can implement the
+        # REAL semantics rather than just recording the call. Without this the
+        # suite cannot see order-dependent renormalization at all.
+        self.process.transcription.rna_expression = {
+            "basal": np.array([0.5, 0.5] + [0.0] * n_new)}
+        self._baseline = 1e-4
         self.adjust_calls = []
 
     def adjust_new_gene_final_expression(self, indices, factors):
+        # Mirrors the reference: assign each target FROM ITS BASELINE (not from
+        # the current value), then renormalize the whole transcriptome.
         self.adjust_calls.append((list(indices), list(factors)))
+        arr = self.process.transcription.rna_expression["basal"]
+        for i, f in zip(indices, factors):
+            arr[i] = self._baseline * f
+        arr /= arr.sum()
 
 
 def test_new_gene_indices_finds_rnas_and_monomers():
@@ -80,8 +92,8 @@ def test_expression_and_efficiency_apply_the_relative_weights():
         sd, expression=1000.0, translation_efficiency=0.5,
         rel_exp_adj=[1.0, 2.0], rel_trl_eff_adj=[0.4, 1.6])
 
-    # expression: one adjust call per gene, factor = expression * weight
-    assert sd.adjust_calls == [([2], [1000.0]), ([3], [2000.0])]
+    # expression: ONE batched call carrying every target, factor = expression * weight
+    assert sd.adjust_calls == [([2, 3], [1000.0, 2000.0])]
     assert applied["expression_factors"] == [1000.0, 2000.0]
 
     # efficiency: ASSIGNED (not multiplied into the existing 1.0)
@@ -121,3 +133,34 @@ def test_returns_provenance_a_caller_can_record():
                             "monomer_ids", "monomer_indices",
                             "translation_efficiencies"}
     assert all(isinstance(m, str) for m in applied["monomer_ids"])
+
+
+def test_equal_weights_give_equal_expression_regardless_of_gene_order():
+    # adjust_new_gene_final_expression renormalizes the WHOLE transcriptome each
+    # call, so calling it once per gene renormalizes N times and each gene a
+    # different number of times: equal weights come out unequal, and the result
+    # depends on call order. Measured on a real 5-gene insertion, that is 0.0014%
+    # at expression 1e4 but 13.6% at 1e8 — i.e. it grows exactly as the construct
+    # takes a larger share of the transcriptome, which is where a design screen
+    # goes. One batched call renormalizes once and is exact at any level.
+    sd = _FakeSimData(n_new=3)
+    set_new_gene_expression(sd, expression=1e6, translation_efficiency=0.5,
+                            rel_exp_adj=[1.0, 1.0, 1.0])
+    vals = sd.process.transcription.rna_expression["basal"][2:]
+    assert len(sd.adjust_calls) == 1, "must be one batched call, not one per gene"
+    assert vals[0] == pytest.approx(vals[1]) == pytest.approx(vals[2])
+
+
+def test_mismatched_rna_and_monomer_ordering_raises():
+    # The two weight vectors are paired positionally against orderings resolved
+    # two different ways. A wrong correspondence is not a wrong count, so the
+    # length check cannot catch it.
+    # The orderings at risk are rna_data order (NG prefix match) vs cistron_data
+    # order (is_new_gene flag). Permuting the monomer->cistron map cannot break
+    # it, because monomer_ids is derived THROUGH that map; permuting rna_data
+    # against cistron_data is the real divergence.
+    sd = _FakeSimData()
+    rna = sd.process.transcription.rna_data["id"]
+    rna[2], rna[3] = rna[3], rna[2]
+    with pytest.raises(ValueError, match="do not correspond"):
+        set_new_gene_expression(sd, expression=1.0, translation_efficiency=1.0)

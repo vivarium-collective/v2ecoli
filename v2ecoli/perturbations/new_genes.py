@@ -10,20 +10,29 @@ reach — **expression** — because a new gene is inserted *silent*:
     values need to be set to small non-zero values ... as new genes are knocked
     out by default."
 
-Measured on a real heterologous insertion: its new-gene cistrons carry **exactly
-0** expression in ``cistron_expression['basal']`` (a native reference cistron
-carries 5.9e-5), so the enzymes are never synthesised, the pathway carries no
-flux, and a design screen over translation efficiency alone would rank every arm
-at zero. Turning the construct on is therefore not a convenience knob — it is the
-first half of the design axis.
+Measured on a real heterologous insertion: its new-gene entries in
+``rna_expression['basal']`` are **exactly 0**, against a median 3.1e-05 across
+native cistrons. ``rna_expression`` is the array the simulation actually consumes
+(``initial_conditions.py`` derives cistron-level counts from it); note that
+``cistron_expression`` is a reconstruction-time quantity with no runtime reader,
+and it stays 0 even after a successful induction — so it is the wrong thing to
+check when confirming this function worked.
+
+With no transcript there is nothing to translate, so the enzymes are never
+synthesised, the pathway carries no flux, and a design screen over translation
+efficiency alone would rank every arm at zero — **while appearing to work**, since
+the arms differ in their inputs and are identical in their output. Turning the
+construct on is therefore not a convenience knob; it is the first half of the
+design axis.
 
 Surface, and why it differs from the sibling module
 ---------------------------------------------------
 ``translation.py`` patches a cached process-config array and never touches
 sim_data. This module **mutates sim_data directly**, because the expression
-half spans seven fields that have no cached-config equivalent (synthesis
-probability, expression, free/ppGpp expression, attenuation adjustments, and
-basal/delta promoter probabilities). That is also the surface
+half reaches sim_data fields that have no cached-config equivalent — synthesis
+probability, expression and free/ppGpp expression are modified; attenuation
+adjustments and the basal/delta promoter probabilities are asserted empty rather
+than written. That is also the surface
 ``sim_data.internal_shift_dict`` expects: the loader
 (``v2ecoli/library/sim_data.py``) stores ``{generation: (func, params)}`` and
 applies ``func(sim_data, *params)`` once the lineage reaches that generation, so
@@ -136,19 +145,42 @@ def set_new_gene_expression(
     """
     rna_ids, rna_indices, monomer_ids, monomer_indices = new_gene_indices(sim_data)
 
+    # The two weight vectors are paired POSITIONALLY against orderings resolved two
+    # different ways: RNAs by an ``NG`` id prefix over ``rna_data``, monomers via
+    # the cistron->monomer map. If those ever diverge, ``rel_exp_adj[i]`` and
+    # ``rel_trl_eff_adj[i]`` would silently refer to different genes — a screen
+    # would then apply a design vector it never intended. The length check below
+    # catches a wrong COUNT, not a wrong correspondence, so check that too.
+    stripped_rna = [str(r) for r in rna_ids]
+    cistron_of_monomer = dict(zip(
+        sim_data.process.translation.monomer_data.struct_array["id"],
+        sim_data.process.translation.monomer_data.struct_array["cistron_id"]))
+    monomer_cistrons = [str(cistron_of_monomer[m]) for m in monomer_ids]
+    if stripped_rna != monomer_cistrons:
+        raise ValueError(
+            "new-gene RNA order and monomer order do not correspond "
+            f"({stripped_rna} vs {monomer_cistrons}); the two weight vectors are "
+            "paired positionally, so applying them would mis-assign per-gene "
+            "weights.")
+
     rel_exp_adj = _resolve_weights(rel_exp_adj, len(rna_indices), "rel_exp_adj", "RNA")
     rel_trl_eff_adj = _resolve_weights(
         rel_trl_eff_adj, len(monomer_indices), "rel_trl_eff_adj", "monomer"
     )
 
-    # Expression: one call per gene, matching the reference. adjust_new_gene_
-    # final_expression scales FROM the baseline, so this is idempotent in intent
-    # (the same call twice sets the same level, it does not compound).
-    exp_applied = []
-    for rna_idx, weight in zip(rna_indices, rel_exp_adj):
-        factor = expression * weight
-        sim_data.adjust_new_gene_final_expression([rna_idx], [factor])
-        exp_applied.append(factor)
+    # Expression: ONE batched call, not one call per gene.
+    # ``adjust_new_gene_final_expression`` sets each target from its baseline
+    # (``arr[i] = baseline_i * factor_i``) and then renormalizes the WHOLE
+    # transcriptome. Calling it once per gene therefore renormalizes N times, and
+    # each gene is renormalized a different number of times, so equal weights come
+    # out unequal and the result depends on call order. Measured on a real
+    # 5-gene insertion with five identical weights: 0.0014% spread at 1e4,
+    # 0.16% at 1e6, and 13.6% at 1e8 — negligible at low induction, material once
+    # the construct takes a non-trivial share of the transcriptome, which is
+    # exactly where a design screen goes. The batched call renormalizes once and
+    # is exact at every level; the fork's function already accepts lists.
+    exp_applied = [expression * w for w in rel_exp_adj]
+    sim_data.adjust_new_gene_final_expression(list(rna_indices), exp_applied)
 
     # Translation efficiency: assigned outright, not multiplied.
     te = sim_data.process.translation.translation_efficiencies_by_monomer

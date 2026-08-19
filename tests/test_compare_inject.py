@@ -275,3 +275,75 @@ def test_fork_config_still_falls_back_when_the_fork_lacks_a_getter():
         assert specs[0]["config"] is None      # default, and no exception
     finally:
         inject.build_fork_config = orig
+
+
+# ---------------------------------------------------------------------------
+# Execution order of injected processes
+#
+# make_edge gives every Step the DEFAULT priority 1.0, and inject_flow_
+# dependencies — which replaces that with distinct descending values — runs
+# BEFORE apply_injected_processes in the baseline generator. So injected steps
+# used to keep 1.0: tied with each other AND with the last baseline step (whose
+# priority is float(total_steps - step_idx) = 1.0 at the final index).
+#
+# The consequence is intermittent, not a clean failure: whichever tied step the
+# scheduler happens to run first decides whether a consumer reads a populated
+# store or an empty one.
+# ---------------------------------------------------------------------------
+
+def _cell_state_with_baseline():
+    # Mirrors what inject_flow_dependencies leaves behind: distinct descending
+    # priorities, the last baseline step sitting at exactly 1.0.
+    return {"base-a": {"priority": 3.0}, "base-b": {"priority": 2.0},
+            "base-last": {"priority": 1.0}}
+
+
+def _apply(cell_state, names):
+    specs = inject.resolve_injections(FORK, {
+        "add_processes": ["example-secretion"], "swap_processes": {},
+        "process_configs": {"example-secretion": {"rate": 1.0}},
+        "topology": {"example-secretion": {"counts": ["bulk"]}}, "time_step": 1.0})
+    spec = specs[0]
+    out = []
+    for n in names:                       # one spec per requested name
+        s = dict(spec); s["name"] = n
+        # Inject as a STEP. make_edge writes `priority` for steps and `interval`
+        # for processes, and the scheduler orders steps by priority -- so a
+        # process-edge fixture would assert on a field nothing reads, and would
+        # fail against the pre-fix code with a KeyError (absence) rather than
+        # with the 1.0-vs-1.0 tie these tests exist to pin. The real injected
+        # pair here (a listener and MetabolismRedux) are both steps.
+        s["as_step"] = True
+        out.append(s)
+    flow_order = list(cell_state)
+    from v2ecoli.core import build_core
+    inject.apply_injected_processes(cell_state, flow_order, build_core(), out)
+    return cell_state, flow_order
+
+
+def test_injected_processes_get_distinct_priorities_in_declaration_order():
+    cell_state, _ = _apply(_cell_state_with_baseline(),
+                           ["companion-listener", "the-consumer"])
+    p_first = cell_state["companion-listener"]["priority"]
+    p_second = cell_state["the-consumer"]["priority"]
+    # Strictly ordered: a companion declared first must run first. Higher
+    # priority runs earlier (see inject_flow_dependencies' float(n - i)).
+    assert p_first > p_second, (p_first, p_second)
+
+
+def test_injected_processes_still_run_after_every_baseline_step():
+    # Appending to flow_order already put them last; the tie-break must not
+    # promote them above baseline work.
+    cell_state, _ = _apply(_cell_state_with_baseline(),
+                           ["companion-listener", "the-consumer"])
+    lowest_baseline = min(cell_state[n]["priority"] for n in
+                          ("base-a", "base-b", "base-last"))
+    for n in ("companion-listener", "the-consumer"):
+        assert cell_state[n]["priority"] < lowest_baseline
+
+
+def test_a_single_injected_process_is_no_longer_tied_with_the_last_baseline_step():
+    # The shape every existing single-swap study uses. Before the fix this sat
+    # at 1.0, exactly equal to the final baseline step.
+    cell_state, _ = _apply(_cell_state_with_baseline(), ["the-consumer"])
+    assert cell_state["the-consumer"]["priority"] < cell_state["base-last"]["priority"]

@@ -502,6 +502,26 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     ecoli.* package is imported only ONCE per subprocess lifetime.  Callers
     receive a shallow copy of each cached spec dict; fail-fast InjectionErrors
     still raise normally on a cache miss (only successful results are cached).
+
+    EXECUTION ORDER, and its limits.
+    The returned order IS the execution order: ``apply_injected_processes``
+    assigns strictly descending priorities in this sequence, so a companion
+    process declared before the process that reads what it writes will run
+    first. Two limits a caller has to know:
+
+    * The sequence is ``add_processes`` first, then ``swap_processes`` targets —
+      built below, and NOT the caller's interleaving. A swap target therefore
+      always runs after every added process. That happens to be the order a
+      companion listener needs; it is not a general way to express "B before A".
+    * Ordering applies to STEP edges only. A process edge is scheduled by
+      ``interval``, and priority is not consulted for it, so declaration order
+      says nothing about processes.
+
+    ⚠ Neither limit is validated, and this does not restore FORK order: a fork
+    config can declare a ``flow`` block placing a swapped process mid-run (e.g.
+    metabolism-redux after chromosome-structure). That key is consumed only on
+    the vEcoli reference side and is not carried into ``injected_processes``, so
+    injected steps run at the END of the tick regardless of what the fork says.
     """
     key = json.dumps({
         "fork_repo": fork_repo,
@@ -935,6 +955,51 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             config=spec["config"] or {})
         flow_order.append(spec["name"])
         added.append(spec["name"])
+    # Break the priority tie among the processes just injected.
+    #
+    # `make_edge` gives every Step the DEFAULT priority 1.0, and
+    # `inject_flow_dependencies` — which replaces that with distinct descending
+    # values — has already run by the time we get here (it is called before
+    # injection in the baseline generator). So without this, every injected step
+    # carries priority 1.0: tied with each other, and with no way for a companion
+    # process to run before the process that reads what it writes.
+    #
+    # The consequence is INTERMITTENT rather than a clean failure: whichever of
+    # two tied steps the scheduler happens to run first decides whether a
+    # consumer sees a populated store or an empty one, so the same build can
+    # succeed and then fail on a later run. Measured on a real injected pair:
+    # the same script passed and failed across repeat runs with nothing else
+    # changed.
+    #
+    # Priorities descend in the order processes were injected, and start below
+    # the lowest baseline priority so injected steps still run after the
+    # baseline (which is where appending them to flow_order already put them).
+    # Declaration order therefore expresses the dependency — the same
+    # explicit-not-inferred contract as the `--inject-process` surface itself.
+    if added:
+        baseline_priorities = [
+            e["priority"] for name, e in cell_state.items()
+            if name not in added and isinstance(e, dict)
+            and isinstance(e.get("priority"), (int, float))
+        ]
+        base = min(baseline_priorities) if baseline_priorities else 1.0
+        # STEP edges only. `make_edge` writes `priority` for steps and `interval`
+        # for processes, and the scheduler reads `priority` only when ordering
+        # steps — so writing it onto a process edge would look like an ordering
+        # guarantee while changing nothing. Skipping them keeps the inert case
+        # visible instead of silently pretending to have ordered it.
+        offset = 0
+        for name in added:
+            edge = cell_state.get(name)
+            # Check the edge TYPE directly rather than inferring it from the
+            # presence of a `priority` key. They agree today only because
+            # `make_edge` always writes that key for a step -- so the proxy would
+            # silently skip a step edge that ever arrived without it, which is
+            # the exact failure this branch exists to prevent.
+            if not (isinstance(edge, dict) and edge.get("_type") == "step"):
+                continue                       # a process edge: ordered by interval
+            offset += 1
+            edge["priority"] = float(base) - offset
     # Overwrite the scaffolded shape stores (materialized to 0 from a
     # process's ports_schema defaults) with config-declared real initial
     # values (shape_seed_param_store / shape_seed_literal, resolved by

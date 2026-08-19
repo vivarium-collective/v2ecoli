@@ -1,0 +1,372 @@
+{
+  "panel": [
+    {
+      "gene": "ygiB",
+      "gene_id": "EG11164",
+      "class": "A",
+      "wiring": "expressed, functionally unwired (y-gene)",
+      "genotype_id": "96d4d55a0a9e2dc1",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 0,
+        "state_written": true
+      },
+      "mechanistic_fit_status": {
+        "mechanistic_supply": "ok",
+        "mechanistic_export": "ok",
+        "mechanistic_uptake": "ok"
+      },
+      "expression_delta_vs_wt": {
+        "n": 4288,
+        "median_rel": 0.00021025575134811067,
+        "max_rel": 0.9960945713115288,
+        "frac_gt_1pct": 0.0020988805970149254,
+        "frac_gt_5pct": 0.0020988805970149254
+      }
+    },
+    {
+      "gene": "cspA",
+      "gene_id": "EG10166",
+      "class": "A",
+      "wiring": "expressed, functionally unwired (cold shock)",
+      "genotype_id": "15b77f827af3283f",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "failure_tail": [
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+          "    sd.process.transcription.set_ppgpp_expression(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+          "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+          "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+          "KeyError: np.str_('EG10166_RNA')"
+        ],
+        "allow_partial_fit_retry": {
+          "exit": 1,
+          "state_written": false,
+          "tail": [
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+            "    result = self.update(state)",
+            "             ^^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+            "    out = orig(self, state)",
+            "          ^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+            "    sd.process.transcription.set_ppgpp_expression(sd)",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+            "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+            "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+            "KeyError: np.str_('EG10166_RNA')"
+          ]
+        }
+      }
+    },
+    {
+      "gene": "pgi",
+      "gene_id": "EG10702",
+      "class": "B",
+      "wiring": "metabolic catalyst via complex",
+      "genotype_id": "2ee947957efa944c",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 0,
+        "state_written": true
+      },
+      "mechanistic_fit_status": {
+        "mechanistic_supply": "ok",
+        "mechanistic_export": "ok",
+        "mechanistic_uptake": "ok"
+      },
+      "expression_delta_vs_wt": {
+        "n": 4288,
+        "median_rel": 0.000920112666023388,
+        "max_rel": 0.9687787535208132,
+        "frac_gt_1pct": 0.0013992537313432835,
+        "frac_gt_5pct": 0.0013992537313432835
+      }
+    },
+    {
+      "gene": "tpiA",
+      "gene_id": "EG11015",
+      "class": "B",
+      "wiring": "metabolic catalyst via complex",
+      "genotype_id": "57b55d2451a4e06d",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 0,
+        "state_written": true
+      },
+      "mechanistic_fit_status": {
+        "mechanistic_supply": "ok",
+        "mechanistic_export": "ok",
+        "mechanistic_uptake": "ok"
+      },
+      "expression_delta_vs_wt": {
+        "n": 4288,
+        "median_rel": 0.0015883031767444373,
+        "max_rel": 0.5007941515883723,
+        "frac_gt_1pct": 0.0013992537313432835,
+        "frac_gt_5pct": 0.0011660447761194029
+      }
+    },
+    {
+      "gene": "cheY",
+      "gene_id": "EG10150",
+      "class": "B",
+      "wiring": "biologically minor; model-unwired (chemotaxis)",
+      "genotype_id": "09e2364688f2540a",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 0,
+        "state_written": true
+      },
+      "mechanistic_fit_status": {
+        "mechanistic_supply": "ok",
+        "mechanistic_export": "ok",
+        "mechanistic_uptake": "ok"
+      },
+      "expression_delta_vs_wt": {
+        "n": 4288,
+        "median_rel": 0.0008146160265903367,
+        "max_rel": 0.9921811306236963,
+        "frac_gt_1pct": 0.002798507462686567,
+        "frac_gt_5pct": 0.0025652985074626866
+      }
+    },
+    {
+      "gene": "rpoB",
+      "gene_id": "EG10894",
+      "class": "C",
+      "wiring": "RNAP core (mg.RNAP_subunits)",
+      "genotype_id": "50161a4c3b3408ce",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "failure_tail": [
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+          "    sd.process.transcription.set_ppgpp_expression(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+          "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+          "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+          "KeyError: np.str_('EG10894_RNA')"
+        ],
+        "allow_partial_fit_retry": {
+          "exit": 1,
+          "state_written": false,
+          "tail": [
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+            "    result = self.update(state)",
+            "             ^^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+            "    out = orig(self, state)",
+            "          ^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+            "    sd.process.transcription.set_ppgpp_expression(sd)",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+            "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+            "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+            "KeyError: np.str_('EG10894_RNA')"
+          ]
+        }
+      }
+    },
+    {
+      "gene": "rplB",
+      "gene_id": "EG10865",
+      "class": "C",
+      "wiring": "50S r-protein (mg.ribosomal_proteins)",
+      "genotype_id": "f1f73004335a5e99",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "failure_tail": [
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+          "    sd.process.transcription.set_ppgpp_expression(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+          "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+          "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+          "KeyError: np.str_('EG10865_RNA')"
+        ],
+        "allow_partial_fit_retry": {
+          "exit": 1,
+          "state_written": false,
+          "tail": [
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+            "    result = self.update(state)",
+            "             ^^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+            "    out = orig(self, state)",
+            "          ^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+            "    sd.process.transcription.set_ppgpp_expression(sd)",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+            "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+            "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+            "KeyError: np.str_('EG10865_RNA')"
+          ]
+        }
+      }
+    },
+    {
+      "gene": "dnaG",
+      "gene_id": "EG10239",
+      "class": "C",
+      "wiring": "replisome monomer subunit (directly consumed)",
+      "genotype_id": "169b9b23f1ed1f8b",
+      "card": {
+        "overall_structural_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "failure_tail": [
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+          "    sd.process.transcription.set_ppgpp_expression(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+          "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+          "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+          "KeyError: np.str_('EG10239_RNA')"
+        ],
+        "allow_partial_fit_retry": {
+          "exit": 1,
+          "state_written": false,
+          "tail": [
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+            "    result = self.update(state)",
+            "             ^^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 133, in update",
+            "    out = orig(self, state)",
+            "          ^^^^^^^^^^^^^^^^^",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_03_basal_specs.py\", line 175, in update",
+            "    sd.process.transcription.set_ppgpp_expression(sd)",
+            "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/transcription.py\", line 1935, in set_ppgpp_expression",
+            "    fcs[cistron_id_to_idx[cistron_id]] = fc",
+            "        ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^",
+            "KeyError: np.str_('EG10239_RNA')"
+          ]
+        }
+      }
+    }
+  ]
+}

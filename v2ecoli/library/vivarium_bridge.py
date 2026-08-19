@@ -447,7 +447,26 @@ def wrap_vivarium_process(
             # tags (!ParameterSerializer[...] / !units[...]) into real values —
             # e.g. gillespie's rate constants — which the wrapped v1 expects.
             self._v1 = v1_cls(_deserialize_v1_params(self.parameters))
-            self._typed_ports = translate_ports(self.core, self._v1.ports_schema())
+            raw_ports = self._v1.ports_schema()
+            # attach_pint_ports also governs the DECLARED schema, not just
+            # runtime values: a bare-numeric ``_default`` (e.g. gillespie's
+            # ``volumes.<rxn>: 1.0``) infers as a plain Float/Overwrite[Float],
+            # which can't subtype-resolve against a Quantity another process
+            # already declares for the SAME shared store (surfaces at division,
+            # when process-bigraph re-realizes the daughter's structural
+            # subtree). Pre-attach the unit to the raw schema ``_default``
+            # before inference so the port is declared Quantity-typed to begin
+            # with. ``_attach_pint_units`` only touches numeric leaves and
+            # passes non-numeric schema-metadata keys (``_updater``, ``_emit``,
+            # ...) through untouched, so it's safe to run directly over a raw
+            # ports_schema() subtree, not just over runtime state.
+            if attach_pint:
+                raw_ports = dict(raw_ports)
+                for port_name, unit in attach_pint.items():
+                    if port_name in raw_ports:
+                        raw_ports[port_name] = _attach_pint_units(
+                            raw_ports[port_name], unit)
+            self._typed_ports = translate_ports(self.core, raw_ports)
             # Apply the wrapped process's own initial_state() to the port defaults
             # (faithful to how vEcoli seeds e.g. antibiotic reaction_parameters
             # from initial_reaction_parameters). Best-effort: a process without a

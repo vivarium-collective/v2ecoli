@@ -637,7 +637,7 @@ report:
   summary: 'Keystone study: v2ecoli supplies biomass + exchange-flux demand; BiRD supplies dissolved O2/CO2, kLa, and gas-phase physics. Resolution adopts Option B (fork a biomass-free BiRDTransportProcess) over a disable-flag, for substitutability symmetry and no dead-code paths. BLOCKED on the upstream fork PR; all tests are planned.'
 study_card:
   one_liner: v2ecoli <-> BiRD reactor coupling (Option-B transport-only fork).
-  phase: Design
+  phase: Evaluate
   kind: construction (coupling layer)
   depends_on:
   - mbp-01

@@ -606,3 +606,8 @@ pipeline_gate:
     - iml1515-growth-axes-graded-vs-beulig
     evaluated_by: code
     diverges_from_authored: false
+study_card:
+  one_liner: 'Millard kinetic central-carbon ODE as a drop-in cell engine: build, validate, and 3-arm reactor comparison vs WCM-FBA and iML1515.'
+  phase: Evaluate
+  kind: diagnostic (build -> validate -> head-to-head comparison)
+  depends_on: [mbp-03, mbp-05]

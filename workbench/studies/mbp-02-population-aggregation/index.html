@@ -597,7 +597,7 @@ under the 0D well-mixed assumption?
       
       <div class="ctr-meta">
         <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>mbp-02-population-aggregation</code></div>
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time). Implicitly assumes calibrated v2ecoli baseline μ as a fixed prior — drift in this test should first prompt a baseline-composite drift check, not just an aggregator check.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Fitted exponential rate of total_biomass_gDW over the run matches the per-cell μ band (no biomass loss / accounting bug).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Per-cell DnaA count distribution matches the unaggregated v2ecoli baseline — aggregation is purely additive, doesn&#39;t perturb cell state. Regression guard.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check; identity at default scale).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">At every emit step: population.cell_count == len(agents.*) × cells_per_agent. Pure aggregator-only check; independent of doubling-time calibration.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Across cells_per_agent ∈ {1, 1e6, 1e9}, population.total_biomass_gDW and population.cell_count at matched simulation time scale linearly with cells_per_agent (no off-by-k error, no clipping). Validates the representative-sampling architectural decision (chris_feedback_2026_05_26 §4).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Across cells_per_agent ∈ {1, 1e6, 1e9}, per-cell DnaA count and per-cell μ are byte-identical (cells_per_agent only affects aggregator output, never per-cell state). Regression guard against the aggregator leaking the scaling factor into per-cell processes.</span></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">cell_count doubles approximately every doubling-time (~60 min on M9-glucose); ratio (final/initial) ≈ 2^(duration/doubling_time). Implicitly assumes calibrated v2ecoli baseline μ as a fixed prior — drift in this test should first prompt a baseline-composite drift check, not just an aggregator check.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Fitted exponential rate of total_biomass_gDW over the run matches the per-cell μ band (no biomass loss / accounting bug).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Per-cell DnaA count distribution matches the unaggregated v2ecoli baseline — aggregation is purely additive, doesn&#39;t perturb cell state. Regression guard.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.dry_mass × 1e-15 every timestep (single cell sanity check; identity at default scale). NOTE the criterion NAME still says cell-mass: it is retained for spine stability (cited by mbp-03, the investigation acceptance list, and the dated chris_feedback_2026_05_26 record); the measured quantity is DRY mass, which is what gDW means.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">At every emit step: population.cell_count == len(agents.*) × cells_per_agent. Pure aggregator-only check; independent of doubling-time calibration.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.dry_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift. NOTE the criterion NAME still says cell_mass: retained for spine stability (see the sibling criterion); the measured quantity is DRY mass, which is what gDW means.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Across cells_per_agent ∈ {1, 1e6, 1e9}, population.total_biomass_gDW and population.cell_count at matched simulation time scale linearly with cells_per_agent (no off-by-k error, no clipping). Validates the representative-sampling architectural decision (chris_feedback_2026_05_26 §4).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Across cells_per_agent ∈ {1, 1e6, 1e9}, per-cell DnaA count and per-cell μ are byte-identical (cells_per_agent only affects aggregator output, never per-cell state). Regression guard against the aggregator leaking the scaling factor into per-cell processes.</span></div>
       </div>
       
     </div>
@@ -2803,13 +2803,13 @@ pass_if: {"op": "distribution_match", "tolerance": 0.05}</pre>
         <span class="muted" style="font-size:0.78em">requires: <code>single-cell-no-division</code></span>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check; identity at default scale).</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.dry_mass × 1e-15 every timestep (single cell sanity check; identity at default scale). NOTE the criterion NAME still says cell-mass: it is retained for spine stability (cited by mbp-03, the investigation acceptance list, and the dated chris_feedback_2026_05_26 record); the measured quantity is DRY mass, which is what gDW means.</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"denominator": "agents.0.listeners.mass.cell_mass * 1e-15", "kind": "derived_ratio", "numerator": "population.total_biomass_gDW"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"denominator": "agents.0.listeners.mass.dry_mass * 1e-15", "kind": "derived_ratio", "numerator": "population.total_biomass_gDW"}
 pass_if: {"high": 1.01, "low": 0.99, "op": "in_range"}
 cites:   ["agmon2022"]</pre>
       </details>
@@ -2902,14 +2902,18 @@ pass_if: {"op": "identity_at_every_step"}</pre>
         <span class="muted" style="font-size:0.78em">requires: <code>single-cell-no-division</code></span>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift.</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.dry_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift. NOTE the criterion NAME still says cell_mass: retained for spine stability (see the sibling criterion); the measured quantity is DRY mass, which is what gDW means.</div>
       
       <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
         <strong>Latest result:</strong>
         
-          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: Measured per-step on this run&#39;s full parquet trace 2026-08-18:
-population.total_biomass_gDW equals the emitted cell_mass x
+          <code style="font-family:ui-monospace,monospace;color:#475569;margin-right:8px">detail: RE-MEASURED per-step on this run&#39;s full parquet trace 2026-08-19,
+after the aggregator was repointed at the DRY-mass listener:
+population.total_biomass_gDW equals the emitted dry_mass x
 cells_per_agent x 1e-15 to &lt;1e-9 relative error at 7198/7200 steps.
+The check discriminates rather than merely passing: the superseded
+wet-mass form (cell_mass x cells_per_agent x 1e-15) is satisfied at
+0/7200 steps on this same trace.
 The two deviating steps are the division transients, where the
 population correctly sums BOTH daughters while the single-lineage
 trace emits only the followed one (~2x deviation, exactly the value
@@ -2925,7 +2929,7 @@ and passes.
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "per_step_identity", "lhs": "population.total_biomass_gDW", "rhs": "sum(agents.*.listeners.mass.cell_mass) * cells_per_agent * 1e-15"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "per_step_identity", "lhs": "population.total_biomass_gDW", "rhs": "sum(agents.*.listeners.mass.dry_mass) * cells_per_agent * 1e-15"}
 pass_if: {"op": "identity_at_every_step", "rtol": "1e-9"}</pre>
       </details>
       
@@ -3230,7 +3234,7 @@ scales linearly and per-cell observables remain unchanged.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "1d5244145c0150af2c98574d4d79eb5872cd9028", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/1d5244145c0150af2c98574d4d79eb5872cd9028", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-19 18:01 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "fdeb3243d3d9a17b8b4b1b459ec99de72c218130", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/fdeb3243d3d9a17b8b4b1b459ec99de72c218130", "branch": "main", "lockfile": "uv.lock@9e8e39a709ab", "generated_at": "2026-08-19 20:58 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-02-population-aggregation";

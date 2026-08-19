@@ -211,19 +211,57 @@ def _force_fork_class(fork_repo: str, cls: type) -> type:
         _restore_ecoli(saved_real, fork_repo)
 
 
+@contextlib.contextmanager
+def _fork_module_shadow(fork_repo: str):
+    """Import ``ecoli.*`` from the FORK for the duration of the block.
+
+    The module-level counterpart to :func:`_force_fork_class`, which defeats the
+    same installed-vEcoli shadow for a class. ``_fork_registry`` restores the
+    installed ``ecoli.*`` as soon as it has the registry handle, so by the time
+    :func:`resolve_injections` runs, a bare ``import ecoli.library.sim_data``
+    resolves to site-packages (``vecoli``), NOT to ``fork_repo``.
+    """
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    if fork_repo not in sys.path:
+        sys.path.insert(0, fork_repo)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    try:
+        with _idempotent_registration():
+            yield
+    finally:
+        _restore_ecoli(saved_real, fork_repo)
+
+
 def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     """Build a fork process's config from the FORK's own ``LoadSimData``.
 
     The faithful, complete config source for a converted/swapped vEcoli process:
     vEcoli's ``ecoli.library.sim_data.LoadSimData(sim_data_path).get_config_by_name``
     supplies every parameter the real process needs (where v2ecoli's reimplemented
-    getter can drift). Runs in the resolve subprocess, where the fork's ``ecoli``
-    package is importable. Raises if the fork has no config-getter for ``name``.
+    getter can drift). Raises if the fork has no config-getter for ``name``.
+
+    ⚠ The import MUST happen under :func:`_fork_module_shadow`. Without it the
+    name ``ecoli.library.sim_data`` resolves to the INSTALLED vEcoli, so a config
+    getter that the fork has extended silently yields the installed vEcoli's
+    smaller dict — every fork-only key is absent and the process falls back to its
+    own class default. That failure is silent: the process still builds, still
+    runs, and produces a plausible-looking result computed with the wrong config.
     """
     import importlib
-    sim_data_mod = importlib.import_module("ecoli.library.sim_data")
-    loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
-    return dict(loader.get_config_by_name(name))
+    with _fork_module_shadow(fork_repo):
+        sim_data_mod = importlib.import_module("ecoli.library.sim_data")
+        mod_file = os.path.abspath(getattr(sim_data_mod, "__file__", "") or "")
+        if not mod_file.startswith(os.path.abspath(os.path.expanduser(fork_repo))):
+            raise InjectionError(
+                f"{name!r}: ecoli.library.sim_data resolved to {mod_file!r}, "
+                f"outside fork {fork_repo!r}; the config would be built from the "
+                "installed vEcoli and silently omit fork-only keys.")
+        loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
+        return dict(loader.get_config_by_name(name))
 
 
 def _compose_store_path(base: list, rel) -> list:
@@ -510,6 +548,12 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             try:
                 config_dict = build_fork_config(
                     fork_repo, config["fork_sim_data"], name)
+            except InjectionError:
+                # The fork-resolution guard. NEVER downgrade this to the default
+                # config: a config built from the wrong vEcoli is silently wrong
+                # (fork-only keys absent -> class defaults), which is the exact
+                # failure this guard exists to make loud.
+                raise
             except Exception as e:  # noqa: BLE001 — not fork-configurable; use default
                 print(f"[inject] fork config for {name!r} unavailable "
                       f"({type(e).__name__}); using default. {e}")

@@ -178,3 +178,69 @@ def test_bridge_backfills_sentinel_none_leaf():
     assert "lattice" in state["wall_state"]
     assert state["wall_state"]["lattice"] is None     # sentinel present
     assert state["wall_state"]["rows"] == 5           # existing value untouched
+
+
+# ---------------------------------------------------------------------------
+# build_fork_config resolves the FORK, not the installed vEcoli
+#
+# A bare ``import ecoli.library.sim_data`` inside resolve_injections resolves to
+# site-packages, because _fork_registry restores the installed ecoli.* as soon as
+# it has the registry handle. Building a swapped process's config from the wrong
+# vEcoli drops every key the fork added, and the process then falls back to its
+# own class default with no error raised anywhere.
+# ---------------------------------------------------------------------------
+
+def test_build_fork_config_reads_the_fork_not_installed_vecoli():
+    cfg = inject.build_fork_config(FORK, "unused.cPickle", "example-secretion")
+    # Only the fixture fork's getter emits this key.
+    assert cfg["fork_only_key"] == "present"
+    assert cfg["rate"] == 1.0
+
+
+def test_build_fork_config_raises_when_module_resolves_outside_the_fork(tmp_path):
+    # A "fork" directory with no ecoli package: the import falls through to
+    # whatever is installed. That must RAISE rather than return a config built
+    # from the wrong source.
+    with pytest.raises(inject.InjectionError, match="outside fork"):
+        inject.build_fork_config(str(tmp_path), "unused.cPickle", "example-secretion")
+
+
+def test_fork_resolution_guard_is_not_downgraded_to_the_default_config(tmp_path):
+    # resolve_injections falls back to a default config when the fork has no
+    # getter for a process. That fallback must NOT swallow the resolution guard —
+    # otherwise the guard is decorative and the silent-wrong-config path returns.
+    cfg = {"add_processes": ["example-secretion"], "swap_processes": {},
+           "process_configs": {}, "topology": {}, "time_step": 1.0,
+           "fork_sim_data": "unused.cPickle"}
+    monkey = inject.build_fork_config
+
+    def _resolve_outside(fork_repo, sim_data_path, name):
+        return monkey(str(tmp_path), sim_data_path, name)
+
+    inject.resolve_injections.cache_clear() if hasattr(
+        inject.resolve_injections, "cache_clear") else None
+    inject.build_fork_config = _resolve_outside
+    try:
+        with pytest.raises(inject.InjectionError, match="outside fork"):
+            inject.resolve_injections(FORK, cfg)
+    finally:
+        inject.build_fork_config = monkey
+
+
+def test_fork_config_still_falls_back_when_the_fork_lacks_a_getter():
+    # The legitimate fallback must survive: a process the fork cannot configure
+    # gets the default config, not an exception.
+    cfg = {"add_processes": ["example-secretion"], "swap_processes": {},
+           "process_configs": {}, "topology": {}, "time_step": 1.0,
+           "fork_sim_data": "unused.cPickle"}
+    orig = inject.build_fork_config
+
+    def _no_getter(fork_repo, sim_data_path, name):
+        raise KeyError(f"Process of name {name} is not known")
+
+    inject.build_fork_config = _no_getter
+    try:
+        specs = inject.resolve_injections(FORK, cfg)
+        assert specs[0]["config"] is None      # default, and no exception
+    finally:
+        inject.build_fork_config = orig

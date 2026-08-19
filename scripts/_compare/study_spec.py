@@ -143,11 +143,27 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          f"(got seeds={seeds}, generations={gens})")
     # `config` is the new name; `from_vecoli_config` is read for backward
     # compat with study.yaml content not yet migrated (see task-2 report).
+    # Two declaration surfaces, top-level first — mirroring how `config` resolves
+    # just below. ⚠ Precedence is by TRUTHINESS, not presence: an empty list at
+    # top level is falsy and falls through to `comparison:`, so top-level cannot
+    # be used to override a companion declared below by clearing it.
     inject_processes = list(data.get("inject_processes")
                             or comp.get("inject_processes") or [])
     config = (data.get("config") or comp.get("config")
               or data.get("from_vecoli_config") or comp.get("from_vecoli_config")
               or name)
+    # A companion is only ever injected on the `--from-vecoli-config` path
+    # (run_comparison_ensemble.py guards the injection block on it). A study whose
+    # `config` is a bare condition name drives no injection at all, so a companion
+    # declared there would be passed to the runner and silently discarded — the
+    # fail-without-erroring shape. Say so instead.
+    if inject_processes and not str(config).endswith(".json"):
+        raise ValueError(
+            f"{study_path}: inject_processes={inject_processes} but config="
+            f"{config!r} is a bare condition name, not a reference-config path. "
+            "Companion processes are injected only on the --from-vecoli-config "
+            "path, so this declaration would be silently discarded.")
+
     return StudySpec(
         name=name,
         condition=condition,

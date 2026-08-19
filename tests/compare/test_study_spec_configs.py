@@ -84,19 +84,34 @@ def test_a_study_that_declares_none_gets_an_empty_list_not_none(tmp_path):
     assert spec.inject_processes == []
 
 
-def test_declared_companions_reach_the_runner_command():
-    # The declaration is inert unless it becomes a flag on the subprocess.
-    from scripts._compare.study_spec import StudySpec
-    from scripts._compare.reference import ReferenceEngine
-    spec = StudySpec(
-        name="s", condition="basal", seeds=1, gens=1, cards=[],
-        invest_name="i", v2_cache="c", ve_cache="v", study_path="p",
-        config="configs/redux.json",
-        reference=ReferenceEngine.from_spec({"repo": "/abs/vEcoli", "kind": "vecoli"}),
-        inject_processes=["companion-listener"])
-    is_path = str(spec.config).endswith(".json")
-    flags = ["--from-vecoli-config", spec.config] if is_path else []
-    for p in getattr(spec, "inject_processes", None) or []:
-        flags += ["--inject-process", p]
-    assert flags == ["--from-vecoli-config", "configs/redux.json",
-                     "--inject-process", "companion-listener"]
+def test_top_level_companions_win_over_the_comparison_block(tmp_path):
+    from scripts._compare.study_spec import _spec_from_study
+    path = _study_yaml(tmp_path, {
+        "name": "s", "condition": "basal", "from_vecoli_config": "configs/redux.json",
+        "inject_processes": ["top-level"],
+        "comparison": {"inject_processes": ["nested"]}})
+    assert _spec_from_study(path, _study_ctx()).inject_processes == ["top-level"]
+
+
+def test_an_empty_top_level_list_falls_through_rather_than_clearing(tmp_path):
+    # Precedence is by truthiness, not presence — so top-level cannot be used to
+    # switch off a companion declared under `comparison:`. Pinning the documented
+    # behaviour so a future reader does not assume the override works.
+    from scripts._compare.study_spec import _spec_from_study
+    path = _study_yaml(tmp_path, {
+        "name": "s", "condition": "basal",
+        "inject_processes": [],
+        "comparison": {"config": "configs/redux.json", "inject_processes": ["nested"]}})
+    assert _spec_from_study(path, _study_ctx()).inject_processes == ["nested"]
+
+
+def test_a_companion_on_a_bare_condition_config_is_rejected_not_dropped(tmp_path):
+    # Injection only happens on the --from-vecoli-config path, so this
+    # declaration would reach the runner and be discarded with no error.
+    import pytest
+    from scripts._compare.study_spec import _spec_from_study
+    path = _study_yaml(tmp_path, {
+        "name": "basal", "condition": "basal",
+        "inject_processes": ["companion-listener"]})
+    with pytest.raises(ValueError, match="silently discarded"):
+        _spec_from_study(path, _study_ctx())

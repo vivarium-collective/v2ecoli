@@ -31,9 +31,28 @@ def core():
     return build_core()
 
 
-def _agent(cell_mass_fg: float) -> dict:
-    """Build a minimal agent state dict with just the cell_mass listener."""
-    return {"listeners": {"mass": {"cell_mass": cell_mass_fg}}}
+# Measured wet/dry ratio: 3.3315 over 23,598 recorded timepoints of the
+# 2026-08-17 mbp-01 runs (cell_mass 1151.8-2319.0 fg, dry_mass 346.1-696.1 fg).
+WET_DRY_RATIO: float = 3.3315
+
+
+def _agent(dry_mass_fg: float) -> dict:
+    """Build a minimal agent state dict carrying BOTH mass listeners.
+
+    The aggregator must read ``dry_mass`` — every downstream consumer is on a
+    dry basis. ``cell_mass`` is populated too, at the measured wet/dry ratio,
+    so the fixture discriminates: a regression back to the total-mass listener
+    produces a 3.3315x-wrong number and fails loudly, rather than reading a
+    missing key and being silently skipped.
+    """
+    return {
+        "listeners": {
+            "mass": {
+                "dry_mass": dry_mass_fg,
+                "cell_mass": dry_mass_fg * WET_DRY_RATIO,
+            }
+        }
+    }
 
 
 # --- Construction / config plumbing -----------------------------------------

@@ -328,8 +328,8 @@ behavior_tests:
 - name: single-cell-aggregation-matches-cell-mass
   classification: supporting
   acceptance_form: quantitative_range
-  description: "With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.cell_mass × 1e-15 every timestep (single cell sanity check; identity at default scale)."
-  measure: {kind: derived_ratio, numerator: "population.total_biomass_gDW", denominator: "agents.0.listeners.mass.cell_mass * 1e-15"}
+  description: "With division disabled (cells_per_agent=1.0 default), population.total_biomass_gDW = agents.0.listeners.mass.dry_mass × 1e-15 every timestep (single cell sanity check; identity at default scale). NOTE the criterion NAME still says cell-mass: it is retained for spine stability (cited by mbp-03, the investigation acceptance list, and the dated chris_feedback_2026_05_26 record); the measured quantity is DRY mass, which is what gDW means."
+  measure: {kind: derived_ratio, numerator: "population.total_biomass_gDW", denominator: "agents.0.listeners.mass.dry_mass * 1e-15"}
   pass_if: {op: in_range, low: 0.99, high: 1.01}
   units: fraction
   requires_simulation: single-cell-no-division
@@ -355,8 +355,8 @@ behavior_tests:
 - name: total_biomass_equals_sum_cell_mass_times_scale
   classification: primary
   acceptance_form: qualitative_direction
-  description: "At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift."
-  measure: {kind: per_step_identity, lhs: population.total_biomass_gDW, rhs: "sum(agents.*.listeners.mass.cell_mass) * cells_per_agent * 1e-15"}
+  description: "At every emit step: population.total_biomass_gDW == sum(agents.*.listeners.mass.dry_mass) × cells_per_agent × 1e-15. Pure aggregator-only check; isolates aggregation bugs from biology drift. NOTE the criterion NAME still says cell_mass: retained for spine stability (see the sibling criterion); the measured quantity is DRY mass, which is what gDW means."
+  measure: {kind: per_step_identity, lhs: population.total_biomass_gDW, rhs: "sum(agents.*.listeners.mass.dry_mass) * cells_per_agent * 1e-15"}
   pass_if: {op: identity_at_every_step, rtol: 1e-9}
   units: "—"
   requires_simulation: single-cell-no-division   # and multi-division-population and scaling-factor-sweep
@@ -530,27 +530,42 @@ bibliography:
 # full audit trail; the entries below reflect what's actually findable
 # post-migration.
 runs:
-- name: aggregator-cpa1e9-multigen-4a7f31ab
+- name: aggregator-cpa1e9-multigen-b3f9bfba
   simulation: aggregator-cpa1e9-multigen
-  simulation_id: 4a7f31ab-20a0-4f5f-bed3-af877262f0ca
+  simulation_id: b3f9bfba-eb2b-4f10-a829-27faac6f790c
   status: completed
   canonical: true
   seed: 0
   cells_per_agent: 1.0e9
-  started_at: '2026-08-17'
+  started_at: '2026-08-19'
   sim_seconds: 7200
   n_history_rows: 7200
   generations: [1, 2, 3]
-  artifact: studies/mbp-02-population-aggregation/parquet-runs/4a7f31ab-20a0-4f5f-bed3-af877262f0ca
+  artifact: studies/mbp-02-population-aggregation/parquet-runs/b3f9bfba-eb2b-4f10-a829-27faac6f790c
   emitter: parquet
   note: |
-    Re-run of the high-density representative-sampling arm (cpa = 1e9),
-    recorded 2026-08-17 because the May runs' parquet artifacts are not part
-    of the clone. Full 120 sim-min, generations 1 -> 3. Evidence for the
-    outcomes below: the behavior suite re-run the same day
-    (tests/test_mbp_02_population_aggregation.py, 8 passed / 2 skipped)
-    plus this run's own population trace, read directly from the parquet
-    (values in the doubling outcome's detail).
+    SUPERSEDES the 2026-08-17 run 4a7f31ab, re-recorded 2026-08-19 through the
+    dry-mass fix: PopulationAggregator now reads listeners.mass.dry_mass rather
+    than listeners.mass.cell_mass (TOTAL wet mass), because every consumer of
+    its output is on a dry basis — the gDW in total_biomass_gDW, the od_to_gdw
+    conversion, and the reactor biomass input reactor_cell_coupler overwrites.
+
+    The re-run is a clean isolation of that change, measured by joining the two
+    runs on (global_time, agent_id) over all 7200 steps:
+      - listeners.mass.cell_mass       7200/7200 BIT-IDENTICAL
+      - listeners.mass.dry_mass        7200/7200 BIT-IDENTICAL
+      - instantaneous_growth_rate      7200/7200 BIT-IDENTICAL
+      - population.total_biomass_gDW   0/7200 identical, ratio old/new = 3.3315
+    i.e. the simulation is untouched and ONLY the derived population biomass
+    moved, by exactly the measured wet/dry ratio. Outcomes below that do not
+    read population biomass therefore carry forward from 4a7f31ab on identical
+    underlying data; the two that do were re-measured on this run's parquet.
+
+    Full 120 sim-min, generations 1 -> 3, 618.7 s wall. Original 8/17 note:
+    re-run of the high-density representative-sampling arm (cpa = 1e9) because
+    the May runs' parquet artifacts are not part of the clone; behavior suite
+    re-run the same day (tests/test_mbp_02_population_aggregation.py,
+    8 passed / 2 skipped).
   outcomes:
     per-cell-observables-unchanged-vs-baseline:
       result: pass
@@ -583,9 +598,13 @@ runs:
     total_biomass_equals_sum_cell_mass_times_scale:
       result: pass
       detail: |
-        Measured per-step on this run's full parquet trace 2026-08-18:
-        population.total_biomass_gDW equals the emitted cell_mass x
+        RE-MEASURED per-step on this run's full parquet trace 2026-08-19,
+        after the aggregator was repointed at the DRY-mass listener:
+        population.total_biomass_gDW equals the emitted dry_mass x
         cells_per_agent x 1e-15 to <1e-9 relative error at 7198/7200 steps.
+        The check discriminates rather than merely passing: the superseded
+        wet-mass form (cell_mass x cells_per_agent x 1e-15) is satisfied at
+        0/7200 steps on this same trace.
         The two deviating steps are the division transients, where the
         population correctly sums BOTH daughters while the single-lineage
         trace emits only the followed one (~2x deviation, exactly the value
@@ -651,22 +670,29 @@ runs:
         to adjudicate.
   computed_outcomes:
     _status: store_unresolved
-- name: aggregator-cpa1-multigen-50a69cda
+- name: aggregator-cpa1-multigen-8dbbac81
   simulation: aggregator-cpa1-multigen
-  simulation_id: 50a69cda-9294-4456-8c03-a7641c07e138
+  simulation_id: 8dbbac81-276b-47bf-9f96-1fff91521c1b
   status: completed
   seed: 0
   cells_per_agent: 1.0
-  started_at: '2026-08-17'
+  started_at: '2026-08-19'
   sim_seconds: 7200
   n_history_rows: 7200
   generations: [1, 2, 3]
-  artifact: studies/mbp-02-population-aggregation/parquet-runs/50a69cda-9294-4456-8c03-a7641c07e138
+  artifact: studies/mbp-02-population-aggregation/parquet-runs/8dbbac81-276b-47bf-9f96-1fff91521c1b
   emitter: parquet
   note: |
     cpa=1 evidence run for the three canonical gate tests whose specs source
     from aggregator-cpa1-multigen (the canonical run's outcomes above cite
-    it). Full 120 sim-min, two divisions crossed.
+    it). Full 120 sim-min, two divisions crossed, 587.7 s wall.
+
+    SUPERSEDES the 2026-08-17 run 50a69cda, re-recorded 2026-08-19 so BOTH
+    mbp-02 arms are on the dry-mass aggregator rather than one of each. At
+    cpa = 1 the identity reduces to total_biomass_gDW == dry_mass x 1e-15,
+    which holds at 7198/7200 steps on this trace (the 2 misses are the usual
+    division transients); the superseded wet-mass form holds at 0/7200. Same
+    discrimination measured on the cpa = 1e9 arm.
   computed_outcomes:
     _status: store_unresolved
 - simulation: aggregator-cpa1-multigen

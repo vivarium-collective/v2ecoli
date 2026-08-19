@@ -70,27 +70,51 @@ def _resolve_raw_data(config: dict):
     so the composite is self-sufficient. A declared ``bundle_manifest`` selects
     the ecoli-sources bundle; otherwise the default flat-file bundle is used.
 
-    NOTE: loading the KB and running the full fit is a minutes-to-hours job. The
-    log line below makes that explicit so a workbench run does not look hung; use
-    the Runs-tab stop control to cancel.
+    NOTE: this loads the KB and runs the FULL ParCa fit. Measured 2026-08-18 on a
+    14-core laptop: ~4.6 min end to end (51 TF conditions). The log line below makes
+    it explicit so a workbench run does not look hung; use the Runs-tab stop control
+    to cancel. (Several repo docs still quote 4-8 h / ~300 conditions -- an inherited
+    wcEcoli figure that does not describe this pipeline.)
     """
     raw_data = config.get("raw_data")
     if _is_valid_raw_data(raw_data):
         return raw_data
 
     manifest = config.get("bundle_manifest", "") or None
+    # ``bundle_overrides`` was declared alongside ``bundle_manifest`` but never
+    # read, so a study could name a private overlay and be silently ignored.
+    # It is applied ON TOP of v2ecoli's own overrides, not instead of them
+    # (SourceBundle chains them) — so naming one cannot revert v2ecoli's
+    # diverged flat files.
+    # Split on ';' -- symmetric with the CLI, which records its repeatable
+    # --bundle-overrides as a ';'-joined string. Without this the whole joined
+    # value is handed to SourceBundle as ONE path, which round-trips for a
+    # single override and fails on two ("a.tsv;b.tsv" is not a file). The field
+    # is provenance-only on the CLI path, so the breakage only appears where the
+    # value is actually resolved -- which is exactly where it is hardest to
+    # attribute back to how it was recorded.
+    _raw_overrides = config.get("bundle_overrides", "") or ""
+    overrides = [p for p in _raw_overrides.split(";") if p] or None
+    # Likewise ``new_genes``: KnowledgeBaseEcoli has supported new-gene
+    # insertion all along, but no entry point passed the option, so it was
+    # unreachable and every build was "off". A private strain's new-gene flat
+    # inputs arrive through the overlay above; this is what asks for them.
+    new_genes = config.get("new_genes", "") or "off"
     print(
         "  Step 1: no KnowledgeBaseEcoli was injected (raw_data="
         f"{type(raw_data).__name__}); loading it now "
-        f"(bundle_manifest={manifest or 'default'}). This runs the FULL ParCa "
-        "fit — expect minutes to hours; cancel from the Runs tab if unintended."
+        f"(bundle_manifest={manifest or 'default'}, "
+        f"bundle_overrides={overrides or 'none'}, new_genes={new_genes}). "
+        "This runs the FULL ParCa "
+        "fit — a few minutes; cancel from the Runs tab if unintended."
     )
-    bundle = SourceBundle(base_manifest=manifest) if manifest else SourceBundle()
+    bundle = SourceBundle(base_manifest=manifest, overrides=overrides)
     return KnowledgeBaseEcoli(
         operons_on=True,
         remove_rrna_operons=False,
         remove_rrff=False,
         stable_rrna=False,
+        new_genes_option=new_genes,
         bundle=bundle,
     )
 
@@ -187,6 +211,11 @@ class InitializeStep(Step):
         # and the injected one is caught rather than silently fitted.
         'bundle_manifest':  {'_type': 'string', '_default': ''},
         'bundle_overrides': {'_type': 'string', '_default': ''},
+        # Name of a new_gene_data subdirectory to insert (e.g. a heterologous
+        # pathway shipped by a private overlay bundle); '' / 'off' = none.
+        # Unlike the two above this is NOT provenance-only — it changes the
+        # genome the fit is built from.
+        'new_genes':        {'_type': 'string', '_default': ''},
     }
 
     def _check_declared_genotype(self):
@@ -196,10 +225,30 @@ class InitializeStep(Step):
         the resulting sim_data is attributed to a genotype it was not built
         from, which is exactly the provenance claim downstream studies rest on.
         """
+        raw_data = self.config.get('raw_data')
+
+        # new_genes is checked FIRST and separately: unlike the bundle fields it
+        # is not merely provenance -- it changes the genome the fit is built
+        # from. On the injected-raw_data path (the CLI, and any
+        # build_parca_composite(raw_data=...) caller) this step never builds the
+        # KB, so a config declaring an insertion against a wild-type KB would
+        # otherwise fit WT, warn nothing, and record a genotype it does not have.
+        declared_genes = self.config.get('new_genes', '') or 'off'
+        actual_genes = getattr(raw_data, 'new_genes_option', None)
+        if actual_genes is not None and declared_genes != actual_genes:
+            warnings.warn(
+                "ParCa genotype mismatch: step config declares new_genes "
+                f"{declared_genes!r} but raw_data was built with "
+                f"{actual_genes!r}. The fit proceeds against the INJECTED "
+                "raw_data, so the resulting sim_data has the latter genome "
+                "while its recorded config claims the former.",
+                stacklevel=2,
+            )
+
         declared = self.config.get('bundle_manifest', '')
         if not declared:
             return
-        bundle = getattr(self.config.get('raw_data'), '_bundle', None)
+        bundle = getattr(raw_data, '_bundle', None)
         actual = getattr(bundle, 'base_manifest', None)
         if actual is None:
             return

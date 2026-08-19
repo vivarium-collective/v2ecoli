@@ -1,0 +1,96 @@
+{
+  "generated": "",
+  "genotype": {
+    "gene_ids": [
+      "EG10702"
+    ],
+    "genotype_id": "2ee947957efa944c",
+    "manifest": "bundle/reference_bundle.tsv"
+  },
+  "groups": {
+    "genome": {
+      "axes": [
+        {
+          "detail": {},
+          "id": "chromosome_length.ok",
+          "label": "Chromosome length matches the deleted span",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        },
+        {
+          "detail": {},
+          "id": "round_trip.ok",
+          "label": "Two-branch round trip over genes, TUs and DNA sites: unchanged features byte-identical, straddling features exactly excised",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        },
+        {
+          "detail": {},
+          "id": "coordinate_bounds.ok",
+          "label": "Every coordinate lies within 1..genome_length",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        },
+        {
+          "detail": {},
+          "id": "coordinate_shift.ok",
+          "label": "Downstream features shift exactly; upstream unmoved",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        }
+      ],
+      "verdict": "within_tol"
+    },
+    "knowledge_base": {
+      "axes": [
+        {
+          "detail": {},
+          "id": "tombstone.ok",
+          "label": "Exactly the deleted genes are tombstoned",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        },
+        {
+          "detail": {},
+          "id": "functional_absence.ok",
+          "label": "Deleted genes leave valid_gene_ids and all_mRNA_cistrons",
+          "meter": "pass",
+          "value": true,
+          "verdict": "within_tol"
+        }
+      ],
+      "verdict": "within_tol"
+    },
+    "parca_fit": {
+      "axes": [
+        {
+          "detail": {},
+          "id": "fit.completed",
+          "label": "Fit completes on the perturbed genome",
+          "meter": "\u2014",
+          "value": null,
+          "verdict": "ungraded"
+        },
+        {
+          "detail": {},
+          "id": "fit.conditions_fitted",
+          "label": "Conditions fitted (len(cell_specs))",
+          "meter": "\u2014",
+          "value": null,
+          "verdict": "ungraded"
+        }
+      ],
+      "verdict": "ungraded"
+    }
+  },
+  "model_ref": "v2ecoli ParCa (no fit)",
+  "overall": "within_tol",
+  "reference_model": "v2ecoli wild-type build",
+  "schema": "report_card_verdict/v1",
+  "title": "Genotype build integrity \u2014 pgi (EG10702), class B"
+}

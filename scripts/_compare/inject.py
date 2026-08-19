@@ -991,7 +991,12 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
         offset = 0
         for name in added:
             edge = cell_state.get(name)
-            if not (isinstance(edge, dict) and "priority" in edge):
+            # Check the edge TYPE directly rather than inferring it from the
+            # presence of a `priority` key. They agree today only because
+            # `make_edge` always writes that key for a step -- so the proxy would
+            # silently skip a step edge that ever arrived without it, which is
+            # the exact failure this branch exists to prevent.
+            if not (isinstance(edge, dict) and edge.get("_type") == "step"):
                 continue                       # a process edge: ordered by interval
             offset += 1
             edge["priority"] = float(base) - offset

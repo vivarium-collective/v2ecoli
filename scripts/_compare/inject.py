@@ -502,6 +502,26 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     ecoli.* package is imported only ONCE per subprocess lifetime.  Callers
     receive a shallow copy of each cached spec dict; fail-fast InjectionErrors
     still raise normally on a cache miss (only successful results are cached).
+
+    EXECUTION ORDER, and its limits.
+    The returned order IS the execution order: ``apply_injected_processes``
+    assigns strictly descending priorities in this sequence, so a companion
+    process declared before the process that reads what it writes will run
+    first. Two limits a caller has to know:
+
+    * The sequence is ``add_processes`` first, then ``swap_processes`` targets —
+      built below, and NOT the caller's interleaving. A swap target therefore
+      always runs after every added process. That happens to be the order a
+      companion listener needs; it is not a general way to express "B before A".
+    * Ordering applies to STEP edges only. A process edge is scheduled by
+      ``interval``, and priority is not consulted for it, so declaration order
+      says nothing about processes.
+
+    ⚠ Neither limit is validated, and this does not restore FORK order: a fork
+    config can declare a ``flow`` block placing a swapped process mid-run (e.g.
+    metabolism-redux after chromosome-structure). That key is consumed only on
+    the vEcoli reference side and is not carried into ``injected_processes``, so
+    injected steps run at the END of the tick regardless of what the fork says.
     """
     key = json.dumps({
         "fork_repo": fork_repo,
@@ -963,10 +983,18 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             and isinstance(e.get("priority"), (int, float))
         ]
         base = min(baseline_priorities) if baseline_priorities else 1.0
-        for offset, name in enumerate(added, start=1):
+        # STEP edges only. `make_edge` writes `priority` for steps and `interval`
+        # for processes, and the scheduler reads `priority` only when ordering
+        # steps — so writing it onto a process edge would look like an ordering
+        # guarantee while changing nothing. Skipping them keeps the inert case
+        # visible instead of silently pretending to have ordered it.
+        offset = 0
+        for name in added:
             edge = cell_state.get(name)
-            if isinstance(edge, dict):
-                edge["priority"] = float(base) - offset
+            if not (isinstance(edge, dict) and "priority" in edge):
+                continue                       # a process edge: ordered by interval
+            offset += 1
+            edge["priority"] = float(base) - offset
     # Overwrite the scaffolded shape stores (materialized to 0 from a
     # process's ports_schema defaults) with config-declared real initial
     # values (shape_seed_param_store / shape_seed_literal, resolved by

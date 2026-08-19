@@ -29,6 +29,9 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 **/runs.db-shm
 **/runs.db-wal
 workspace/investigations/*/runs.db
+# per-run zarr stores written next to a study's runs.db by XArrayEmitter runs
+# (runs.<run_id>.zarr/) — regenerable run data, same class as runs.db
+workspace/studies/*/runs.*.zarr/
 workspace/investigations/*/.run.lock
 workspace/studies/*/sims/*.subprocess.py
 workspace/studies/*/sims/parquet-rerun-*/

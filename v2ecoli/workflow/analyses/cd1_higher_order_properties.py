@@ -133,7 +133,8 @@ class Cd1HigherOrderProperties(Analysis):
         value_labels = list(label_map.values())
         aggregated = aggregated.with_columns(
             pl.format(
-                "Cell: {}_{}", pl.col("lineage_seed"), pl.col("agent_id")
+                "Cell: {}_{}_{}", pl.col("lineage_seed"), pl.col("generation"),
+                pl.col("agent_id")
             ).alias("cell_id")
         )
         output_final = (

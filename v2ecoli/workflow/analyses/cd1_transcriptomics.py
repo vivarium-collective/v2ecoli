@@ -109,7 +109,8 @@ class Cd1Transcriptomics(Analysis):
         )
         tidy = transcriptomics.join(lookup, on="idx", how="left").with_columns(
             pl.format(
-                "Cell: {}_{}", pl.col("lineage_seed"), pl.col("agent_id")
+                "Cell: {}_{}_{}", pl.col("lineage_seed"), pl.col("generation"),
+                pl.col("agent_id")
             ).alias("cell_id")
         )
         output_final = tidy.select(

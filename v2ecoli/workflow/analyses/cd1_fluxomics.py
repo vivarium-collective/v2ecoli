@@ -133,7 +133,8 @@ class Cd1Fluxomics(Analysis):
                     (COUNTS_UNITS / MASS_UNITS / TIME_UNITS) * pl.col("flux-avg")
                 ).asNumber(units.mmol / units.g / units.h),
                 "cell_id": pl.format(
-                    "Cell: {}_{}", pl.col("lineage_seed"), pl.col("agent_id")
+                    "Cell: {}_{}_{}", pl.col("lineage_seed"), pl.col("generation"),
+                    pl.col("agent_id")
                 ),
             }
         )

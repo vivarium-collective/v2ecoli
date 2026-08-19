@@ -935,6 +935,38 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             config=spec["config"] or {})
         flow_order.append(spec["name"])
         added.append(spec["name"])
+    # Break the priority tie among the processes just injected.
+    #
+    # `make_edge` gives every Step the DEFAULT priority 1.0, and
+    # `inject_flow_dependencies` — which replaces that with distinct descending
+    # values — has already run by the time we get here (it is called before
+    # injection in the baseline generator). So without this, every injected step
+    # carries priority 1.0: tied with each other, and with no way for a companion
+    # process to run before the process that reads what it writes.
+    #
+    # The consequence is INTERMITTENT rather than a clean failure: whichever of
+    # two tied steps the scheduler happens to run first decides whether a
+    # consumer sees a populated store or an empty one, so the same build can
+    # succeed and then fail on a later run. Measured on a real injected pair:
+    # the same script passed and failed across repeat runs with nothing else
+    # changed.
+    #
+    # Priorities descend in the order processes were injected, and start below
+    # the lowest baseline priority so injected steps still run after the
+    # baseline (which is where appending them to flow_order already put them).
+    # Declaration order therefore expresses the dependency — the same
+    # explicit-not-inferred contract as the `--inject-process` surface itself.
+    if added:
+        baseline_priorities = [
+            e["priority"] for name, e in cell_state.items()
+            if name not in added and isinstance(e, dict)
+            and isinstance(e.get("priority"), (int, float))
+        ]
+        base = min(baseline_priorities) if baseline_priorities else 1.0
+        for offset, name in enumerate(added, start=1):
+            edge = cell_state.get(name)
+            if isinstance(edge, dict):
+                edge["priority"] = float(base) - offset
     # Overwrite the scaffolded shape stores (materialized to 0 from a
     # process's ports_schema defaults) with config-declared real initial
     # values (shape_seed_param_store / shape_seed_literal, resolved by

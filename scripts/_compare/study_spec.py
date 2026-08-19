@@ -67,6 +67,30 @@ class StudySpec:
         return [c for c in self.cards if c in GRADED]
 
 
+def is_reference_config(config) -> str | bool:
+    """True when `config` is a reference-config PATH rather than a bare condition
+    name. The single definition of that distinction: it decides whether a run
+    drives a process swap at all, and three copies of the predicate had already
+    started to accumulate."""
+    return str(config).endswith(".json")
+
+
+def check_companions_are_reachable(inject_processes, config, where) -> None:
+    """Raise when companions are declared on a route/config that cannot inject them.
+
+    Companions are injected only on the ``--from-vecoli-config`` path
+    (``run_comparison_ensemble`` guards the injection block on it), so a bare
+    condition name silently discards the declaration. Applied on BOTH spec
+    routes -- a guard that only covers one of them is how a declaration ends up
+    looking correct while doing nothing."""
+    if inject_processes and not is_reference_config(config):
+        raise ValueError(
+            f"{where}: inject_processes={list(inject_processes)} but config="
+            f"{config!r} is a bare condition name, not a reference-config path. "
+            "Companion processes are injected only on the --from-vecoli-config "
+            "path, so this declaration would be silently discarded.")
+
+
 def _invest_dir(ref: str) -> Path:
     """Resolve an investigation NAME or a path (to investigation.yaml or its dir)."""
     p = Path(ref)
@@ -109,6 +133,8 @@ def specs_from_configs(ctx: dict) -> list:
     for entry in ctx["configs"]:
         name = entry["name"]
         cfg = entry.get("config", name)
+        check_companions_are_reachable(
+            entry.get("inject_processes") or [], cfg, f"investigation entry {name!r}")
         out.append(StudySpec(
             name=name,
             condition=entry.get("condition", name),
@@ -122,6 +148,11 @@ def specs_from_configs(ctx: dict) -> list:
             reference=ctx["reference"],
             study_path=str(REPO / "workspace" / "studies" / name / "study.yaml"),
             max_steps_per_gen=int(entry.get("max_steps_per_gen") or 15000),
+            # Read here as well as in _spec_from_study. run_investigation builds
+            # specs ONLY through this function, so a key read on just the
+            # study route evaporates on the investigation route -- with the
+            # declaration still sitting in study.yaml, looking correct.
+            inject_processes=list(entry.get("inject_processes") or []),
         ))
     return out
 
@@ -157,12 +188,7 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
     # `config` is a bare condition name drives no injection at all, so a companion
     # declared there would be passed to the runner and silently discarded — the
     # fail-without-erroring shape. Say so instead.
-    if inject_processes and not str(config).endswith(".json"):
-        raise ValueError(
-            f"{study_path}: inject_processes={inject_processes} but config="
-            f"{config!r} is a bare condition name, not a reference-config path. "
-            "Companion processes are injected only on the --from-vecoli-config "
-            "path, so this declaration would be silently discarded.")
+    check_companions_are_reachable(inject_processes, config, study_path)
 
     return StudySpec(
         name=name,

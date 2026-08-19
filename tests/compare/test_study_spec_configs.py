@@ -115,3 +115,31 @@ def test_a_companion_on_a_bare_condition_config_is_rejected_not_dropped(tmp_path
         "inject_processes": ["companion-listener"]})
     with pytest.raises(ValueError, match="silently discarded"):
         _spec_from_study(path, _study_ctx())
+
+
+# --- the investigation route must carry companions too ----------------------
+# run_investigation builds specs ONLY through specs_from_configs, so a key read
+# in _spec_from_study alone evaporates there — with the declaration still in the
+# study.yaml, looking correct. That is worse than absent: the failure becomes
+# route-dependent and the declaration lies.
+
+def test_investigation_route_carries_declared_companions():
+    specs = specs_from_configs(_ctx([
+        {"name": "s", "config": "configs/redux.json",
+         "inject_processes": ["companion-listener"]}]))
+    assert specs[0].inject_processes == ["companion-listener"]
+
+
+def test_investigation_route_defaults_to_an_empty_list():
+    specs = specs_from_configs(_ctx([{"name": "s", "config": "configs/redux.json"}]))
+    assert specs[0].inject_processes == []
+
+
+def test_investigation_route_rejects_companions_it_cannot_inject():
+    # Same guard as the study route. Covering one route only is how the
+    # declaration ends up looking correct while doing nothing.
+    import pytest
+    with pytest.raises(ValueError, match="silently discarded"):
+        specs_from_configs(_ctx([
+            {"name": "basal", "config": "basal",
+             "inject_processes": ["companion-listener"]}]))

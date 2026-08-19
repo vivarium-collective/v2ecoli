@@ -27,7 +27,8 @@ def _run_engines(spec, out: str, mode: str) -> None:
     v2_cap = str(spec.gens * per_gen)
     # config is the unit: a path drives a process swap on BOTH engines; a bare
     # condition name is a plain baseline comparison (no swap flag).
-    is_path = str(spec.config).endswith(".json")
+    from scripts._compare.study_spec import is_reference_config
+    is_path = is_reference_config(spec.config)
     swap_flags = ["--from-vecoli-config", spec.config] if is_path else []
     # Companion fork processes the study names (see StudySpec.inject_processes).
     # Passed on BOTH engine invocations: the genuine-vEcoli side ignores the flag

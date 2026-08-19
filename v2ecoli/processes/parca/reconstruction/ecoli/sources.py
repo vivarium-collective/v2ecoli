@@ -82,6 +82,30 @@ class SourceBundle:
         # build time (#466). So a key the variant generated is protected from the
         # override; every other key is overridden exactly as before.
         variant_keys = self._variant_generated_keys(base_manifest)
+        #: Public, because it is not only an override-precedence detail: a
+        #: consumer needs to know whether a variant GENERATED a key in order to
+        #: notice that it generated one the build is about to ignore (a
+        #: ``knockdown()`` bundle fitted with ``rnaseq_source: reference``).
+        #: Empty set for a plain base bundle.
+        self.variant_generated_keys = variant_keys
+        #: Keys a CALLER contributed through the override chain, populated below.
+        #:
+        #: Deliberately EXCLUDES v2ecoli's own ``_DEFAULT_OVERRIDES`` link, which
+        #: is applied to every build: those four keys are this repo's standing
+        #: divergence from upstream ecoli-sources, not something a caller
+        #: supplied for this run. Conflating them would make a consumer's
+        #: "did someone deliberately supply this?" check answer yes on a stock
+        #: build the moment v2ecoli moved a watched key into its own overrides —
+        #: a guard that fires on every build teaches people to ignore it.
+        #:
+        #: The sidecar covers only what a *generator* wrote next to the base
+        #: manifest. An override manifest carries no ``genotype.json``, so a
+        #: payload that supplies a key through ``--bundle-overrides`` is
+        #: invisible to ``variant_generated_keys`` — and that is now a real
+        #: entry point, not a hypothetical one. Both sets together are what
+        #: "this key did not come from the stock reference bundle" means; see
+        #: :attr:`externally_supplied_keys`.
+        self.override_supplied_keys: set[str] = set()
 
         # Overrides are a CHAIN, applied in order, and v2ecoli's own defaults
         # are always the first link.
@@ -107,6 +131,7 @@ class SourceBundle:
             chain.extend(Path(p).resolve() for p in extra)
 
         for override in chain:
+            caller_supplied = override != _DEFAULT_OVERRIDES
             for key, path in self._read_manifest(override, override.parent).items():
                 if key in variant_keys:
                     # The variant explicitly generated this key; its file wins.
@@ -120,6 +145,8 @@ class SourceBundle:
                     )
                     continue
                 index[key] = path
+                if caller_supplied:
+                    self.override_supplied_keys.add(key)
 
         self._index = index
         # Kept as provenance: the genotype a ParCa build was made from IS its
@@ -141,6 +168,22 @@ class SourceBundle:
         self.overrides = chain[-1] if chain else None
         if validate:
             self._validate(base_manifest, self.overrides)
+
+    @property
+    def externally_supplied_keys(self) -> set[str]:
+        """Keys this bundle got from somewhere other than the stock base table.
+
+        The union of what a variant GENERATED (sidecar) and what the OVERRIDE
+        CHAIN contributed. A consumer asking "did someone deliberately supply
+        this key?" must ask both: the sidecar alone misses every payload
+        delivered through ``--bundle-overrides``, which is exactly the entry
+        point a guard against silently-ignored inputs needs to cover.
+
+        Note the two halves mean subtly different things — generated-by-a-
+        variant vs. supplied-by-an-overlay — and a caller that needs to tell
+        them apart should read the two attributes directly.
+        """
+        return set(self.variant_generated_keys) | set(self.override_supplied_keys)
 
     @staticmethod
     def _variant_generated_keys(manifest: Path) -> set[str]:

@@ -150,13 +150,40 @@ def register_parca_core(core: Any) -> Any:
                 "fit is built from."
             ),
         },
+        "rnaseq_source": {
+            "type": "string",
+            "default": "reference",
+            "description": (
+                "Which transcriptome tier basal cistron expression is fitted "
+                "from: 'reference' (the legacy wide rna_seq_data table at "
+                "basal_expression_condition — the historical behaviour) or "
+                "'experimental' (ecoli-sources' long-form "
+                "rnaseq_experimental_tpms key, which is what a knockdown() "
+                "variant bundle rewrites). NOT declarative, and not trusted: "
+                "the build stamps what it actually read onto "
+                "sim_data.rnaseq_provenance and cross-checks it against this."
+            ),
+        },
+        "rnaseq_cross_fill": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "On the experimental path, fill model genes the experimental "
+                "dataset does not measure from the rnaseq_basal_tpms key "
+                "(RFC-010 tier 1). Off leaves them at zero expression, which "
+                "also marks them as not RNA-seq-covered. Ignored when "
+                "rnaseq_source is 'reference'."
+            ),
+        },
     },
     default_n_steps=len(STEP_ORDER),
     core_extensions=[register_parca_core],
 )
 def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
           cache_dir: str = "", bundle_manifest: str = "",
-          bundle_overrides: str = "", new_genes: str = "") -> dict:
+          bundle_overrides: str = "", new_genes: str = "",
+          rnaseq_source: str = "reference",
+          rnaseq_cross_fill: bool = True) -> dict:
     """Build the ParCa pipeline document (structure only — does not run).
 
     Args:
@@ -172,6 +199,11 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
         new_genes: name of a new_gene_data subdirectory to insert (its flat
             inputs typically arriving via bundle_overrides). Not declarative —
             it changes the genome the fit is built from.
+        rnaseq_source, rnaseq_cross_fill: which transcriptome tier basal
+            expression is fitted from, and whether unmeasured genes are filled
+            from the basal reference tier. Not declarative — they change the
+            expression the fit is built from, and the build records what it
+            actually read on ``sim_data.rnaseq_provenance``.
 
     Returns:
         A process-bigraph document dict (the 9-step pipeline state). No
@@ -188,4 +220,5 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
         debug=debug, cpus=cpus, cache_dir=cache_dir,
         bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
         new_genes=new_genes,
+        rnaseq_source=rnaseq_source, rnaseq_cross_fill=rnaseq_cross_fill,
         include_store_skeleton=True)}

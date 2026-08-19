@@ -17,6 +17,51 @@ from v2ecoli.processes.parca.wholecell.utils import units  # used by eval()
 from v2ecoli.processes.parca.reconstruction.ecoli.sources import relpath_to_key
 
 FLAT_DIR = os.path.join(os.path.dirname(__file__), "flat")
+
+#: ecoli-sources canonical keys for the long-form TPM tier, and the ONLY way to
+#: address them. They are deliberately not reachable through
+#: ``list_of_dict_filenames``:
+#:
+#: * the key is not derived from the path — ``relpath_to_key`` maps the shipped
+#:   file to ``rnaseq_experimental__vecoli_m9_glucose_minus_aas``, not to
+#:   ``rnaseq_experimental_tpms``; and
+#: * ``_load_tsv`` names the attribute after the file's BASENAME, so a
+#:   ``knockdown()`` variant bundle (which points the key at
+#:   ``rnaseq_experimental_tpms__kd.tsv``) would land the table on a
+#:   per-variant attribute name that nothing reads — a build that validates,
+#:   hashes stably and changes nothing.
+#:
+#: So these load by canonical key onto a FIXED attribute
+#: (``rnaseq_tpm_tables``), outside the flat-file loop.
+RNASEQ_EXPERIMENTAL_KEY = "rnaseq_experimental_tpms"
+RNASEQ_BASAL_KEY = "rnaseq_basal_tpms"
+RNASEQ_TPM_KEYS = (RNASEQ_EXPERIMENTAL_KEY, RNASEQ_BASAL_KEY)
+
+
+def load_tpm_table(path):
+    """Read a long-form ``(gene_id, tpm_mean[, tpm_std])`` TPM table.
+
+    Deliberately NOT ``spreadsheets.read_tsv``. That reader is a ``JsonReader``
+    which ``json.loads`` every cell, and works only because every flat KB file
+    is JSON-quoted (``"EG10001"``). The ecoli-sources TPM tier is plain
+    unquoted TSV, so ``read_tsv`` raises
+    ``ValueError: failed to parse json string:EG10001`` on it. The two tiers
+    have different on-disk conventions and only pandas reads both.
+
+    ``RnaseqTpmTableSchema`` (ecoli-sources' own Pandera schema for this tier)
+    is applied when importable, so a malformed experimental table fails at load
+    with a column/dtype error rather than deep in expression fitting. The
+    guarded import mirrors ``sources.SourceBundle._validate``: an install
+    without the ``schemas`` package degrades to unvalidated rather than failing.
+    """
+    import pandas as pd
+
+    df = pd.read_csv(path, sep="\t")
+    try:
+        from schemas import RnaseqTpmTableSchema  # ecoli-sources package
+    except ImportError:
+        return df
+    return RnaseqTpmTableSchema.validate(df)
 LIST_OF_DICT_FILENAMES = [
     "amino_acid_export_kms.tsv",
     "amino_acid_export_kms_removed.tsv",
@@ -380,6 +425,8 @@ class KnowledgeBaseEcoli(object):
         for filename in self.list_of_parameter_filenames:
             self._load_parameters(filename, self._resolve(filename))
 
+        self._load_rnaseq_tpm_tables()
+
         self.genome_sequence = self._load_sequence(self._resolve(SEQUENCE_FILE))
 
         self._prune_data()
@@ -410,6 +457,31 @@ class KnowledgeBaseEcoli(object):
 
             self.added_data = self.new_gene_added_data
             self._join_data()
+
+    def _load_rnaseq_tpm_tables(self):
+        """Load the long-form TPM tier by CANONICAL KEY onto fixed attributes.
+
+        The KB loads these; it does not GATE on them. Which tier a build
+        actually fits against is decided once, on ``sim_data``
+        (``sim_data.rnaseq_source``), so both entry points — the ``v2ecoli-parca``
+        CLI, which injects a KB, and the composite path, which builds one — reach
+        the same decision through the same field. Loading here unconditionally is
+        what makes that possible: nothing downstream has to ask the KB to have
+        been constructed differently.
+
+        Cost is ~4.6k rows per key. Absent keys are simply absent — a hand-cut
+        bundle without them still builds, and the reference path never reads them.
+        """
+        self.rnaseq_tpm_tables: Dict[str, object] = {}
+        self.rnaseq_tpm_sources: Dict[str, str] = {}
+        if self._bundle is None:
+            return
+        for key in RNASEQ_TPM_KEYS:
+            if not self._bundle.has_key(key):
+                continue
+            path = self._bundle.path(key)
+            self.rnaseq_tpm_tables[key] = load_tpm_table(path)
+            self.rnaseq_tpm_sources[key] = str(path)
 
     def _resolve(self, rel_path):
         return self._bundle.resolve_relpath(rel_path)

@@ -93,7 +93,8 @@ STEP_ORDER = [
 
 def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong,
                       allow_partial_fit=False,
-                      bundle_manifest='', bundle_overrides='', new_genes=''):
+                      bundle_manifest='', bundle_overrides='', new_genes='',
+                      rnaseq_source='reference', rnaseq_cross_fill=True):
     """Build the 9 step entries with addresses, configs, and wiring.
 
     Shared by ``build_parca_composite`` (which fires the pipeline) and
@@ -139,6 +140,11 @@ def _build_step_slots(raw_data, debug, cpus, cache_dir, _elong,
                 'bundle_manifest': bundle_manifest,
                 'bundle_overrides': bundle_overrides,
                 'new_genes': new_genes,
+                # NOT declarative: these two select which transcriptome
+                # tier the fit is built from, and reach
+                # sim_data.initialize on BOTH entry points.
+                'rnaseq_source': rnaseq_source,
+                'rnaseq_cross_fill': rnaseq_cross_fill,
             },
             'inputs': s1i, 'outputs': s1o,
         },
@@ -211,7 +217,8 @@ def _store_skeleton():
 
 def build_parca_document(debug=False, cpus=1, cache_dir='',
                          include_store_skeleton=False,
-                         bundle_manifest='', bundle_overrides='', new_genes=''):
+                         bundle_manifest='', bundle_overrides='', new_genes='',
+                         rnaseq_source='reference', rnaseq_cross_fill=True):
     """Return the parca composite spec state dict (steps + wiring, unfired).
 
     Use with ``v2ecoli.pbg.save_pbg_doc(...)`` to serialize the parca
@@ -236,6 +243,7 @@ def build_parca_document(debug=False, cpus=1, cache_dir='',
         cache_dir=cache_dir, _elong=_elong,
         bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
         new_genes=new_genes,
+        rnaseq_source=rnaseq_source, rnaseq_cross_fill=rnaseq_cross_fill,
     )
     steps = {name: slots[name] for name in STEP_ORDER}
     if include_store_skeleton:
@@ -254,7 +262,8 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
                           disable_rnapoly_capacity_fitting=False,
                           resume_from_step=1, resume_state=None,
                           allow_partial_fit=False,
-                          bundle_manifest='', bundle_overrides='', new_genes=''):
+                          bundle_manifest='', bundle_overrides='', new_genes='',
+                          rnaseq_source='reference', rnaseq_cross_fill=True):
     """Build a Composite that runs the 9-step ParCa pipeline.
 
     Args:
@@ -303,6 +312,7 @@ def build_parca_composite(raw_data, debug=False, cpus=1,
         allow_partial_fit=allow_partial_fit,
         bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
         new_genes=new_genes,
+        rnaseq_source=rnaseq_source, rnaseq_cross_fill=rnaseq_cross_fill,
     )
 
     state = {}

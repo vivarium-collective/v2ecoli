@@ -7,9 +7,17 @@ efficiency — 0 for a knockout — applied as a process-config patch on the cac
 ``ecoli-polypeptide-initiation`` config, so it works from the existing ParCa
 cache with no re-fit.
 
+Heterologous (new-gene) insertions need a second axis that module cannot reach —
+expression — because ParCa inserts a new gene silent by design. See
+:mod:`v2ecoli.perturbations.new_genes`.
+
 See :mod:`v2ecoli.perturbations.translation`.
 """
 
+from v2ecoli.perturbations.new_genes import (
+    new_gene_indices,
+    set_new_gene_expression,
+)
 from v2ecoli.perturbations.translation import (
     UnknownPerturbationTarget,
     resolve_targets,
@@ -18,6 +26,8 @@ from v2ecoli.perturbations.translation import (
 
 __all__ = [
     "UnknownPerturbationTarget",
+    "new_gene_indices",
+    "set_new_gene_expression",
     "resolve_targets",
     "translation_efficiency_override",
 ]

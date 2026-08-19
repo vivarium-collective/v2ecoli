@@ -167,6 +167,7 @@ acceptance_criteria:
 
 members:
   - genotype-00-build-integrity
+  - genotype-01-control-panel
 
 glossary:
   - term: ParCa-level knockout

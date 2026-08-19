@@ -374,6 +374,70 @@ def resolve_config_initial_state(fork_repo: str, config: dict) -> dict:
     return merged
 
 
+def _resolve_param_store_seeds(fork_repo: str, mapping: dict) -> dict:
+    """Resolve fork ``param_store`` values into ``store_path_tuple -> pint.
+    Quantity`` seeds, for a config-declared process's initial values the
+    single-cell candidate has no upstream process to compute (e.g. a spatial
+    shape process's periplasm/cytoplasm volume — without a shape process the
+    scaffolded default reads 0 and a process dividing by it raises).
+    ``mapping`` is ``{dotted store path: dotted param_store key}`` (both
+    ``.``-joined — JSON-safe; split here). Config-driven: this function knows
+    nothing about any particular fork's molecules or processes, only how to
+    read its ``param_store`` by an arbitrary key path. Activates the fork the
+    same way :func:`_force_fork_class` does (evict installed ecoli, fork
+    first on path, idempotent registration, restore)."""
+    if not mapping:
+        return {}
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    if fork_repo not in sys.path:
+        sys.path.insert(0, fork_repo)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    seeds: dict = {}
+    try:
+        with _idempotent_registration():
+            from ecoli.library.parameters import param_store
+        for store_path, ps_key in mapping.items():
+            try:
+                seeds[tuple(store_path.split("."))] = param_store.get(
+                    tuple(ps_key.split(".")))
+            except Exception as e:  # noqa: BLE001 — skip a param the fork lacks
+                print(f"[inject] shape_seed_param_store: {store_path!r} <- "
+                      f"{ps_key!r} unavailable ({type(e).__name__}: {e})")
+    except Exception as e:  # noqa: BLE001 — never block injection on this
+        print(f"[inject] shape_seed_param_store unavailable ({type(e).__name__}: {e})")
+    finally:
+        _restore_ecoli(saved_real, fork_repo)
+    return seeds
+
+
+def _resolve_literal_seeds(mapping: dict) -> dict:
+    """Resolve ``{dotted store path: {"magnitude": num, "units": "expr"}}``
+    into ``store_path_tuple -> pint.Quantity`` seeds, for a config-declared
+    literal value (e.g. a rate constant the config's own unit tag can't
+    resolve). Uses vivarium's shared unit registry — pint expression parsing
+    is process-wide, not fork-specific, so (unlike
+    :func:`_resolve_param_store_seeds`) no fork activation is needed."""
+    if not mapping:
+        return {}
+    seeds: dict = {}
+    try:
+        from vivarium.library.units import units
+    except Exception as e:  # noqa: BLE001
+        print(f"[inject] shape_seed_literal unavailable ({type(e).__name__}: {e})")
+        return seeds
+    for store_path, spec in mapping.items():
+        try:
+            seeds[tuple(store_path.split("."))] = spec["magnitude"] * units(spec["units"])
+        except Exception as e:  # noqa: BLE001
+            print(f"[inject] shape_seed_literal: {store_path!r} unresolvable "
+                  f"({type(e).__name__}: {e})")
+    return seeds
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -493,6 +557,43 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             # (initial_state + initial_state_overrides), applied at injection.
             "initial_state": proc_initial,
         })
+    # Config-declared candidate-side ParCa-cache gaps: bulk species the
+    # candidate's ParCa cache never applies (e.g. a fork sim_data flag that
+    # adds molecules at runtime), and initial values a config-declared
+    # process needs but the single-cell candidate has no upstream process to
+    # compute (e.g. a spatial shape process's volumes/areas). Both are
+    # entirely config-driven — this function has no fork- or process-
+    # specific knowledge, only how to read the two declared mappings.
+    # Stashed on the first spec; apply gathers them across all specs.
+    if specs:
+        extra_species = config.get("extra_bulk_species") or []
+        if extra_species:
+            specs[0]["bulk_species_add"] = list(extra_species)
+        seed: dict = {}
+        seed.update(_resolve_param_store_seeds(
+            fork_repo, config.get("shape_seed_param_store") or {}))
+        seed.update(_resolve_literal_seeds(config.get("shape_seed_literal") or {}))
+        if seed:
+            specs[0]["shape_seed"] = seed
+    # Seed reaction TYPE strings into kinetic_parameters from any injected
+    # process's OWN config. The process's ports_schema computes every
+    # reaction_parameters default as ``0 * <config-value>`` — which for the
+    # STRING ``type`` yields '' — so the reaction type never reaches its
+    # store (``kinetic_parameters.<name>.<rxn>.reaction_type``) and a
+    # process reading it raises "Unknown reaction type". These are static
+    # config values; seed them explicitly, keyed by the topology store path.
+    # Generic: reads whichever injected process's own config declares
+    # ``initial_reaction_parameters``, not any particular fork or process.
+    rtype_seed: dict = {}
+    for sp in specs:
+        irp = (sp.get("config") or {}).get("initial_reaction_parameters") or {}
+        for group, reactions in irp.items():
+            for rxn, params in (reactions or {}).items():
+                t = params.get("type") if isinstance(params, dict) else None
+                if isinstance(t, str) and t:
+                    rtype_seed[("kinetic_parameters", group, rxn, "reaction_type")] = t
+    if rtype_seed and specs:
+        specs[0].setdefault("shape_seed", {}).update(rtype_seed)
     _RESOLVE_CACHE[key] = specs
     return [dict(s) for s in specs]
 
@@ -627,11 +728,49 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
               + (f"; config initial_state → {', '.join(seeded)}" if seeded else ""))
 
 
+def _augment_bulk_species(cell_state: dict, names: list[str]) -> None:
+    """Append molecule ``names`` absent from the candidate bulk store, in place.
+
+    v2ecoli's runtime ``bulk`` store is a structured array ``(id, count, *submass)``
+    that carries mass inline. A fork can add species to its own sim_data at
+    runtime (e.g. via a sim_data flag) that the candidate's ParCa cache never
+    applies, so those ids are missing and index lookups against ``bulk['id']``
+    fail. Append the missing ids with count 0 and zero submass — mass only
+    matters once the count grows (typically needs an environment exposure the
+    candidate doesn't have), and appending at the END leaves every existing
+    molecule's index unchanged, so other processes (which resolve their
+    indices against this same ``bulk['id']`` at t=0) are unaffected."""
+    import numpy as np
+    bulk = cell_state.get("bulk")
+    if bulk is None or not hasattr(bulk, "dtype"):
+        return
+    existing = set(np.asarray(bulk["id"]).tolist())
+    new = [n for n in names if n not in existing]
+    if not new:
+        return
+    rows = np.zeros(len(new), dtype=bulk.dtype)  # count + every submass = 0
+    rows["id"] = new
+    cell_state["bulk"] = np.append(bulk, rows)
+    print(f"[inject] bulk store: appended {len(new)} injected species "
+          f"(count 0): {', '.join(new)}")
+
+
 def apply_injected_processes(cell_state: dict, flow_order: list, core,
                              specs: list[dict]) -> list[str]:
     """Add each resolved spec to ``cell_state`` + ``flow_order`` (in place)."""
     from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
     from v2ecoli.composites._helpers import make_edge
+
+    # Append injected-subsystem bulk species absent from v2ecoli's ParCa bulk
+    # store (config-declared via extra_bulk_species) BEFORE materializing
+    # processes, so bulk-index lookups resolve at the first update.
+    add_species: list[str] = []
+    for spec in specs:
+        for nm in (spec.get("bulk_species_add") or []):
+            if nm not in add_species:
+                add_species.append(nm)
+    if add_species:
+        _augment_bulk_species(cell_state, add_species)
 
     # Roots v2's baseline already owns BEFORE any injection — config
     # initial_state must never clobber these (e.g. the structured bulk array).
@@ -679,15 +818,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             if spec.get("defer_ports") is not None:
                 defer_ports = list(spec["defer_ports"])
             else:
-                # Auto-defer only FLAT top-level ports whose root store exists —
-                # deferring sets a port to {_type:node}, which for a nested,
-                # *scattered* port (antibiotic's ``mecillinam``) would erase the
-                # ``bulk_array`` typing its ``species.bulk`` leaf needs. Scattered
-                # ports keep their translate_ports typing (bulk stays bulk_array);
-                # per-leaf store-type deferral, where needed, is handled by the
-                # nested wiring landing on the composite's own typed stores.
+                # Auto-defer only FLAT top-level ports whose root store existed
+                # BEFORE this apply() call — deferring sets a port to
+                # {_type:node}, which for a nested, *scattered* port would
+                # erase the ``bulk_array`` typing its ``species.bulk`` leaf
+                # needs. Scattered ports keep their translate_ports typing
+                # (bulk stays bulk_array); per-leaf store-type deferral, where
+                # needed, is handled by the nested wiring landing on the
+                # composite's own typed stores.
+                #
+                # Scoped to baseline_roots (captured pre-injection), NOT the
+                # live cell_state — a store an EARLIER spec in this same
+                # apply() call just introduced (e.g. a process's own new
+                # top-level store) must NOT be auto-deferred to a generic
+                # node just because it now exists; that erases its real
+                # overwrite[quantity] typing and a later update on it raises
+                # NotFoundLookupError (apply(None, <Quantity>, <Quantity>, ...)).
                 defer_ports = [p for p, path in spec["topology"].items()
-                               if isinstance(path, list) and path and path[0] in cell_state]
+                               if isinstance(path, list) and path and path[0] in baseline_roots]
             wrapped = wrap_vivarium_process(cls, name=spec["name"],
                                             as_step=spec["as_step"],
                                             output_ports=spec.get("output_ports"),
@@ -727,6 +875,24 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             config=spec["config"] or {})
         flow_order.append(spec["name"])
         added.append(spec["name"])
+    # Overwrite the scaffolded shape stores (materialized to 0 from a
+    # process's ports_schema defaults) with config-declared real initial
+    # values (shape_seed_param_store / shape_seed_literal, resolved by
+    # resolve_injections), AFTER every process materialized — so the
+    # non-zero value wins over the 0-default port that also wires there.
+    # Without this a process dividing by e.g. a volume store gets zero.
+    shape_seed: dict = {}
+    for spec in specs:
+        shape_seed.update(spec.get("shape_seed") or {})
+    for store_path, value in shape_seed.items():
+        node = cell_state
+        for seg in store_path[:-1]:
+            node = node.setdefault(seg, {})
+        if isinstance(node, dict):
+            node[store_path[-1]] = value
+    if shape_seed:
+        print(f"[inject] seeded {len(shape_seed)} shape store(s): "
+              f"{', '.join('.'.join(map(str, p)) for p in shape_seed)}")
     return added
 
 

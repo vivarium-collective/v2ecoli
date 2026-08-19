@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "iML1515 (Palsson genome-scale FBA, cobra)",
   "reference_model": "Beulig 2025 WT batch prefix",
-  "generated": "2026-06-15 00:44Z",
+  "generated": "2026-08-19 02:01Z",
   "overall": "mismatch",
   "groups": {
     "growth": {
@@ -77,7 +77,7 @@
   "scope": "iML1515 genome-scale FBA over 49 Beulig batch-phase samples (26 optimal solves). NOT apples-to-apples with the wcm/millard arms: iML1515's glucose + O2 uptake LOWER BOUNDS ARE SET FROM the measured Beulig rates, so the only genuine PREDICTIONS graded are growth \u03bc (predicted-vs-measured, r2 vs identity y=x). substrate/gas_transfer are INPUTS -> honestly ungraded; acetate is ungraded (no measured acetate in the Beulig batch samples). The wcm/millard arms predict the whole batch trajectory from first principles; iML1515 predicts \u03bc from MEASURED uptake (a different, arguably easier test). Order-of-magnitude parity, not calibrated overlap.",
   "n_samples": 49,
   "n_optimal": 26,
-  "wall_s": 5.32,
+  "wall_s": 5.96,
   "charts": [
     "overlay_growth.png"
   ]

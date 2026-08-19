@@ -55,6 +55,13 @@ What declaring them buys today:
 Making them *effective* — i.e. having a study run construct the KB from the
 declared manifest without going through the CLI — needs the study runner to
 drive ParCa, and is deliberately out of scope here.
+
+**Caveat, and it is why ``new_genes`` sits beside them:** the declarative story
+above holds only while a real ``raw_data`` is injected. When it is not (the
+workbench path), ``InitializeStep`` builds the KB itself from these fields — so
+on that path they ARE effective. ``new_genes`` is effective on that path too and
+is not declarative in any case: it changes the genome the fit is built from,
+which is not a claim about identity but a change of input.
 """
 
 from typing import Any
@@ -125,7 +132,47 @@ def register_parca_core(core: Any) -> Any:
             "default": "",
             "description": (
                 "Optional overrides manifest layered on top of "
-                "bundle_manifest, matching SourceBundle(overrides=...)."
+                "bundle_manifest, matching SourceBundle(overrides=...). "
+                "Applied AFTER v2ecoli's own overrides, never instead of "
+                "them, so naming one cannot silently revert v2ecoli's "
+                "diverged flat files. This is how a private payload adds "
+                "keys (e.g. a strain's new-gene inputs) to the baseline."
+            ),
+        },
+        "new_genes": {
+            "type": "string",
+            "default": "",
+            "description": (
+                "Name of a new_gene_data subdirectory to insert into the "
+                "genome (e.g. a heterologous pathway supplied by "
+                "bundle_overrides); empty means none. Unlike the two bundle "
+                "fields this is NOT declarative — it changes the genome the "
+                "fit is built from."
+            ),
+        },
+        "rnaseq_source": {
+            "type": "string",
+            "default": "reference",
+            "description": (
+                "Which transcriptome tier basal cistron expression is fitted "
+                "from: 'reference' (the legacy wide rna_seq_data table at "
+                "basal_expression_condition — the historical behaviour) or "
+                "'experimental' (ecoli-sources' long-form "
+                "rnaseq_experimental_tpms key, which is what a knockdown() "
+                "variant bundle rewrites). NOT declarative, and not trusted: "
+                "the build stamps what it actually read onto "
+                "sim_data.rnaseq_provenance and cross-checks it against this."
+            ),
+        },
+        "rnaseq_cross_fill": {
+            "type": "boolean",
+            "default": True,
+            "description": (
+                "On the experimental path, fill model genes the experimental "
+                "dataset does not measure from the rnaseq_basal_tpms key "
+                "(RFC-010 tier 1). Off leaves them at zero expression, which "
+                "also marks them as not RNA-seq-covered. Ignored when "
+                "rnaseq_source is 'reference'."
             ),
         },
     },
@@ -134,7 +181,9 @@ def register_parca_core(core: Any) -> Any:
 )
 def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
           cache_dir: str = "", bundle_manifest: str = "",
-          bundle_overrides: str = "") -> dict:
+          bundle_overrides: str = "", new_genes: str = "",
+          rnaseq_source: str = "reference",
+          rnaseq_cross_fill: bool = True) -> dict:
     """Build the ParCa pipeline document (structure only — does not run).
 
     Args:
@@ -147,6 +196,14 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
         bundle_manifest, bundle_overrides: the genotype this build is for,
             recorded on InitializeStep's config. Declarative — see the
             module docstring's "Genotype identity" note.
+        new_genes: name of a new_gene_data subdirectory to insert (its flat
+            inputs typically arriving via bundle_overrides). Not declarative —
+            it changes the genome the fit is built from.
+        rnaseq_source, rnaseq_cross_fill: which transcriptome tier basal
+            expression is fitted from, and whether unmeasured genes are filled
+            from the basal reference tier. Not declarative — they change the
+            expression the fit is built from, and the build records what it
+            actually read on ``sim_data.rnaseq_provenance``.
 
     Returns:
         A process-bigraph document dict (the 9-step pipeline state). No
@@ -162,4 +219,6 @@ def parca(core: Any = None, *, debug: bool = False, cpus: int = 1,
     return {"state": build_parca_document(
         debug=debug, cpus=cpus, cache_dir=cache_dir,
         bundle_manifest=bundle_manifest, bundle_overrides=bundle_overrides,
+        new_genes=new_genes,
+        rnaseq_source=rnaseq_source, rnaseq_cross_fill=rnaseq_cross_fill,
         include_store_skeleton=True)}

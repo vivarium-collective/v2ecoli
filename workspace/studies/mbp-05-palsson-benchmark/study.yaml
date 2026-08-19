@@ -99,45 +99,95 @@ pipeline_gate:
 
 
 # ─── 3. SIMULATION SET ─────────────────────────────────────────────────────
+  gate_evaluator:
+    result: failed
+    blocked_by:
+    - time-to-target-od-comparison-rendered
+    - growth-axes-graded-vs-beulig
+    - substrate-axes-graded-vs-beulig
+    - byproducts-axes-graded-vs-beulig
+    - gas_transfer-axes-graded-vs-beulig
+    evaluated_by: code
+    diverges_from_authored: false
 simulation_set:
 
-  - name: palsson-matched-batch
-    base_model: v2ecoli.composites.reactor_bird_coupled
-    perturbation: {operating_profile: palsson_2025_batch_only}
-    condition: palsson-2025-batch
-    duration_min: 480   # placeholder — refit to published batch duration
-    seeds: [0]
-    readouts:
+- name: palsson-matched-batch
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  perturbation: {operating_profile: palsson_2025_batch_only}
+  condition: palsson-2025-batch
+  duration_min: 480     # placeholder — refit to published batch duration
+  seeds: [0]
+  readouts:
     # Already wired from mbp-02/03/04
-      - population_OD600
-      - population_total_biomass_gDW
-      - reactor_glucose_gL
-      - reactor_acetate_gL
-      - reactor_dissolved_o2
+  - population_OD600
+  - population_total_biomass_gDW
+  - reactor_glucose_gL
+  - reactor_acetate_gL
+  - reactor_dissolved_o2
     # New surfaces per chris_feedback_2026_05_26 §10 — each tests a
     # specific biological assumption the original 4-test set didn't probe.
-      - metabolism_glucose_uptake_rate  # GUR shape ↔ transport kinetics (mbp-01 backlog)
-      - reactor_lactate_gL              # mixed-acid byproducts ↔ fermentation pathway wiring
-      - reactor_formate_gL              # ↑
-      - reactor_ethanol_gL              # ↑
-      - reactor_pyruvate_gL             # ↑
-      - reactor_succinate_gL            # ↑
-      - reactor_OTR                     # O2 transfer rate; derived from BiRD kLa × (sat - dissolved)
-      - reactor_CTR                     # CO2 transfer rate
-      - cumulative_base_addition        # high-density acid load integration
-    applies_tests:
-      - end-of-run-od-comparison-rendered
-      - time-to-target-od-comparison-rendered
-      - acetate-profile-comparison-rendered
-      - byproduct-comparison-rendered
-      - otr-ctr-comparison-rendered
-      - gur-comparison-rendered
-      - base-addition-comparison-rendered
-      - divergences-categorized-in-report-card
-    status: planned
+  - metabolism_glucose_uptake_rate      # GUR shape ↔ transport kinetics (mbp-01 backlog)
+  - reactor_lactate_gL                  # mixed-acid byproducts ↔ fermentation pathway wiring
+  - reactor_formate_gL                  # ↑
+  - reactor_ethanol_gL                  # ↑
+  - reactor_pyruvate_gL                 # ↑
+  - reactor_succinate_gL                # ↑
+  - reactor_OTR                         # O2 transfer rate; derived from BiRD kLa × (sat - dissolved)
+  - reactor_CTR                         # CO2 transfer rate
+  - cumulative_base_addition            # high-density acid load integration
+  applies_tests:
+  - end-of-run-od-comparison-rendered
+  - time-to-target-od-comparison-rendered
+  - acetate-profile-comparison-rendered
+  - byproduct-comparison-rendered
+  - otr-ctr-comparison-rendered
+  - gur-comparison-rendered
+  - base-addition-comparison-rendered
+  - divergences-categorized-in-report-card
+  status: planned
 
 
 # ─── 4. MODEL CHANGE ───────────────────────────────────────────────────────
+  metrics: &id001
+  - population_OD600
+  - population_total_biomass_gDW
+  - reactor_glucose_gL
+  - reactor_acetate_gL
+  - reactor_dissolved_o2
+  - metabolism_glucose_uptake_rate
+  - reactor_lactate_gL
+  - reactor_formate_gL
+  - reactor_ethanol_gL
+  - reactor_pyruvate_gL
+  - reactor_succinate_gL
+  - reactor_OTR
+  - reactor_CTR
+  - cumulative_base_addition
+  kind: single
+  pass_fail_tests: &id002
+  - end-of-run-od-comparison-rendered
+  - time-to-target-od-comparison-rendered
+  - acetate-profile-comparison-rendered
+  - byproduct-comparison-rendered
+  - otr-ctr-comparison-rendered
+  - gur-comparison-rendered
+  - base-addition-comparison-rendered
+  - divergences-categorized-in-report-card
+  - growth-axes-graded-vs-beulig
+  - substrate-axes-graded-vs-beulig
+  - byproducts-axes-graded-vs-beulig
+  - gas_transfer-axes-graded-vs-beulig
+  - ph_control-axes-graded-vs-beulig
+- name: mbp-05-palsson-benchmark-baseline
+  kind: single
+  base_model: v2ecoli.composites.reactor_bird_coupled
+  is_baseline: true
+  status: ran
+  params:
+    seed: 0
+    cache_dir: out/cache
+  metrics: *id001
+  pass_fail_tests: *id002
 model_change:
   base_model: v2ecoli.composites.reactor_bird_coupled
   new_state_variables: []
@@ -163,99 +213,99 @@ model_change:
 # chris_feedback_2026_05_26.md and mbp-06 axis-E gap entry).
 comparison_overlays:
 
-  - sim_path: population.OD600
-    published_csv: references/papers/palsson-2025-supp/reactor_OD_data.csv
-    published_column: OD600
-    overlay_label: "Biomass (OD600)"
-    units: OD600
-    backs_tests: [end-of-run-od-comparison-rendered, time-to-target-od-comparison-rendered]
+- sim_path: population.OD600
+  published_csv: references/papers/palsson-2025-supp/reactor_OD_data.csv
+  published_column: OD600
+  overlay_label: "Biomass (OD600)"
+  units: OD600
+  backs_tests: [end-of-run-od-comparison-rendered, time-to-target-od-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.GLC[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_glucose_data.csv
-    published_column: glucose_gL
-    overlay_label: "Glucose concentration"
-    units: g/L
-    backs_tests: []
+- sim_path: "environment.external_concentrations.GLC[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_glucose_data.csv
+  published_column: glucose_gL
+  overlay_label: "Glucose concentration"
+  units: g/L
+  backs_tests: []
 
-  - sim_path: "environment.external_concentrations.ACET[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_acetate_data.csv
-    published_column: acetate_gL
-    overlay_label: "Acetate concentration"
-    units: g/L
-    backs_tests: [acetate-profile-comparison-rendered]
+- sim_path: "environment.external_concentrations.ACET[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_acetate_data.csv
+  published_column: acetate_gL
+  overlay_label: "Acetate concentration"
+  units: g/L
+  backs_tests: [acetate-profile-comparison-rendered]
 
-  - sim_path: reactor.dissolved_o2
-    published_csv: references/papers/palsson-2025-supp/process_summary_interpol.csv
-    published_column: DO_mg_per_L
-    overlay_label: "Dissolved O2"
-    units: mg/L
-    backs_tests: []
+- sim_path: reactor.dissolved_o2
+  published_csv: references/papers/palsson-2025-supp/process_summary_interpol.csv
+  published_column: DO_mg_per_L
+  overlay_label: "Dissolved O2"
+  units: mg/L
+  backs_tests: []
 
   # Specific GUR + byproduct surfaces (chris_feedback_2026_05_26 §10).
 
-  - sim_path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_gluc_upt_data.csv
-    published_column: GUR
-    overlay_label: "Glucose uptake rate"
-    units: "mmol/(gDW·h)"
-    aggregation: per_biomass
-    backs_tests: [gur-comparison-rendered]
+- sim_path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_gluc_upt_data.csv
+  published_column: GUR
+  overlay_label: "Glucose uptake rate"
+  units: "mmol/(gDW·h)"
+  aggregation: per_biomass
+  backs_tests: [gur-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.LAC[p]"   # TODO verify v2ecoli's lactate identifier
-    published_csv: references/papers/palsson-2025-supp/reactor_lactate_data.csv
-    published_column: lactate_gL
-    overlay_label: "Lactate concentration"
-    units: g/L
-    backs_tests: [byproduct-comparison-rendered]
+- sim_path: "environment.external_concentrations.LAC[p]"     # TODO verify v2ecoli's lactate identifier
+  published_csv: references/papers/palsson-2025-supp/reactor_lactate_data.csv
+  published_column: lactate_gL
+  overlay_label: "Lactate concentration"
+  units: g/L
+  backs_tests: [byproduct-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.FOR[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_formate_data.csv
-    published_column: formate_gL
-    overlay_label: "Formate concentration"
-    units: g/L
-    backs_tests: [byproduct-comparison-rendered]
+- sim_path: "environment.external_concentrations.FOR[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_formate_data.csv
+  published_column: formate_gL
+  overlay_label: "Formate concentration"
+  units: g/L
+  backs_tests: [byproduct-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.ETOH[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_ethanol_data.csv
-    published_column: ethanol_gL
-    overlay_label: "Ethanol concentration"
-    units: g/L
-    backs_tests: [byproduct-comparison-rendered]
+- sim_path: "environment.external_concentrations.ETOH[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_ethanol_data.csv
+  published_column: ethanol_gL
+  overlay_label: "Ethanol concentration"
+  units: g/L
+  backs_tests: [byproduct-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.PYR[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_pyruvate_data.csv
-    published_column: pyruvate_gL
-    overlay_label: "Pyruvate concentration"
-    units: g/L
-    backs_tests: [byproduct-comparison-rendered]
+- sim_path: "environment.external_concentrations.PYR[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_pyruvate_data.csv
+  published_column: pyruvate_gL
+  overlay_label: "Pyruvate concentration"
+  units: g/L
+  backs_tests: [byproduct-comparison-rendered]
 
-  - sim_path: "environment.external_concentrations.SUCC[p]"
-    published_csv: references/papers/palsson-2025-supp/reactor_succinate_data.csv
-    published_column: succinate_gL
-    overlay_label: "Succinate concentration"
-    units: g/L
-    backs_tests: [byproduct-comparison-rendered]
+- sim_path: "environment.external_concentrations.SUCC[p]"
+  published_csv: references/papers/palsson-2025-supp/reactor_succinate_data.csv
+  published_column: succinate_gL
+  overlay_label: "Succinate concentration"
+  units: g/L
+  backs_tests: [byproduct-comparison-rendered]
 
-  - sim_path: reactor.diagnostics.OTR_mmol_per_L_per_h   # derived: BiRD kLa × (sat - dissolved)
-    published_csv: references/papers/palsson-2025-supp/reactor_OTR_data.csv
-    published_column: OTR
-    overlay_label: "Oxygen transfer rate (OTR)"
-    units: "mmol/(L·h)"
-    backs_tests: [otr-ctr-comparison-rendered]
+- sim_path: reactor.diagnostics.OTR_mmol_per_L_per_h     # derived: BiRD kLa × (sat - dissolved)
+  published_csv: references/papers/palsson-2025-supp/reactor_OTR_data.csv
+  published_column: OTR
+  overlay_label: "Oxygen transfer rate (OTR)"
+  units: "mmol/(L·h)"
+  backs_tests: [otr-ctr-comparison-rendered]
 
-  - sim_path: reactor.diagnostics.CTR_mmol_per_L_per_h   # derived: BiRD kLa × (dissolved - sat)
-    published_csv: references/papers/palsson-2025-supp/reactor_CTR_data.csv
-    published_column: CTR
-    overlay_label: "CO2 transfer rate (CTR)"
-    units: "mmol/(L·h)"
-    backs_tests: [otr-ctr-comparison-rendered]
+- sim_path: reactor.diagnostics.CTR_mmol_per_L_per_h     # derived: BiRD kLa × (dissolved - sat)
+  published_csv: references/papers/palsson-2025-supp/reactor_CTR_data.csv
+  published_column: CTR
+  overlay_label: "CO2 transfer rate (CTR)"
+  units: "mmol/(L·h)"
+  backs_tests: [otr-ctr-comparison-rendered]
 
-  - sim_path: reactor.diagnostics.cumulative_base_addition_mmol   # derived: cumulative net acid production integrated
-    published_csv: references/papers/palsson-2025-supp/reactor_base_data.csv
-    published_column: base_addition
-    overlay_label: "Base addition (cumulative)"
-    units: mmol
-    backs_tests: [base-addition-comparison-rendered]
+- sim_path: reactor.diagnostics.cumulative_base_addition_mmol     # derived: cumulative net acid production integrated
+  published_csv: references/papers/palsson-2025-supp/reactor_base_data.csv
+  published_column: base_addition
+  overlay_label: "Base addition (cumulative)"
+  units: mmol
+  backs_tests: [base-addition-comparison-rendered]
 
 # Out of WT scope (chris_feedback_2026_05_26 §10 — legitimately ignored):
 # - melatonin (MEL strain only; heterologous, not in WT model)
@@ -265,79 +315,79 @@ comparison_overlays:
 
 # ─── 4b. KEY ASSUMPTIONS ───────────────────────────────────────────────────
 key_assumptions:
-  - "Published trajectories are digitizable / available at sufficient resolution to overlay."
-  - "OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson's cell-density regime, or is refit from the paper."
-  - "If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement)."
-  - "0D well-mixed assumption holds at the paper's reactor scale (bench)."
+- "Published trajectories are digitizable / available at sufficient resolution to overlay."
+- "OD600 ↔ gDW conversion factor (od_to_gdw, default 0.34 — Beulig 2025 value; was textbook 0.33; matches mbp-02 default) holds at Palsson's cell-density regime, or is refit from the paper."
+- "If Palsson is fed-batch only, this study scopes to the batch-phase prefix until pbg-bioreactordesign gains fed-batch (deferred enhancement)."
+- "0D well-mixed assumption holds at the paper's reactor scale (bench)."
 
 
 # ─── 5. READOUTS + BEHAVIOR TESTS ──────────────────────────────────────────
 
 readouts:
-  - {name: population_OD600, store_path: population.OD600, units: OD600, status: planned}
-  - {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
-  - name: reactor_glucose_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: GLC[p]
-    units: g/L
-    status: planned
-  - name: reactor_acetate_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: ACET[p]
-    units: g/L
-    status: planned
-  - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
+- {name: population_OD600, store_path: population.OD600, units: OD600, status: planned}
+- {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
+- name: reactor_glucose_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: GLC[p]
+  units: g/L
+  status: planned
+- name: reactor_acetate_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: ACET[p]
+  units: g/L
+  status: planned
+- {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
 # New surfaces per chris_feedback_2026_05_26 §10
-  - name: metabolism_glucose_uptake_rate
-    store_path: agents.0.metabolism.external_exchange_fluxes
-    index_by:
-      type: bulk_id
-      value: GLC[p]
-    units: "mmol/(gDW·h)"
-    status: planned
+- name: metabolism_glucose_uptake_rate
+  store_path: agents.0.metabolism.external_exchange_fluxes
+  index_by:
+    type: bulk_id
+    value: GLC[p]
+  units: "mmol/(gDW·h)"
+  status: planned
                                                                                                                                  # TODO verify v2ecoli's lactate identifier
-  - name: reactor_lactate_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: LAC[p]
-    units: g/L
-    status: planned
-  - name: reactor_formate_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: FOR[p]
-    units: g/L
-    status: planned
-  - name: reactor_ethanol_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: ETOH[p]
-    units: g/L
-    status: planned
-  - name: reactor_pyruvate_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: PYR[p]
-    units: g/L
-    status: planned
-  - name: reactor_succinate_gL
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: SUCC[p]
-    units: g/L
-    status: planned
-  - {name: reactor_OTR, store_path: reactor.diagnostics.OTR_mmol_per_L_per_h, units: "mmol/(L·h)", status: planned}
-  - {name: reactor_CTR, store_path: reactor.diagnostics.CTR_mmol_per_L_per_h, units: "mmol/(L·h)", status: planned}
-  - {name: cumulative_base_addition, store_path: reactor.diagnostics.cumulative_base_addition_mmol, units: mmol, status: planned}
+- name: reactor_lactate_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: LAC[p]
+  units: g/L
+  status: planned
+- name: reactor_formate_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: FOR[p]
+  units: g/L
+  status: planned
+- name: reactor_ethanol_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: ETOH[p]
+  units: g/L
+  status: planned
+- name: reactor_pyruvate_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: PYR[p]
+  units: g/L
+  status: planned
+- name: reactor_succinate_gL
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: SUCC[p]
+  units: g/L
+  status: planned
+- {name: reactor_OTR, store_path: reactor.diagnostics.OTR_mmol_per_L_per_h, units: "mmol/(L·h)", status: planned}
+- {name: reactor_CTR, store_path: reactor.diagnostics.CTR_mmol_per_L_per_h, units: "mmol/(L·h)", status: planned}
+- {name: cumulative_base_addition, store_path: reactor.diagnostics.cumulative_base_addition_mmol, units: mmol, status: planned}
 
 
 behavior_tests:
@@ -346,188 +396,188 @@ behavior_tests:
 # "was the triage written?") per chris_feedback_2026_05_26 §10.
 # Biological match is NOT a pass criterion here — divergences feed mbp-06.
 
-  - name: end-of-run-od-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Overlay panel rendered for population.OD600 (sim) vs Beulig OD600 (published) at end-of-run; metric values (end_of_run_OD_sim, end_of_run_OD_published, difference) computed and emitted to the report card. NOT a tolerance check on biology — only a check that the comparison was executed."
-    measure: {kind: artifact_check, artifact: "report/overlay_population.OD600.png", required_metrics: [end_of_run_OD_sim, end_of_run_OD_published, end_of_run_OD_diff]}
-    pass_if: {op: artifact_exists_with_metrics}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: end-of-run-od-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Overlay panel rendered for population.OD600 (sim) vs Beulig OD600 (published) at end-of-run; metric values (end_of_run_OD_sim, end_of_run_OD_published, difference) computed and emitted to the report card. NOT a tolerance check on biology — only a check that the comparison was executed."
+  measure: {kind: artifact_check, artifact: "report/overlay_population.OD600.png", required_metrics: [end_of_run_OD_sim, end_of_run_OD_published, end_of_run_OD_diff]}
+  pass_if: {op: artifact_exists_with_metrics}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: time-to-target-od-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Time-to-target-OD metric computed for both sim and published trajectories; reported in the report card. Process-level only."
-    measure: {kind: artifact_check, artifact: report/divergence_triage.md, required_metrics: [time_to_target_OD_sim_min, time_to_target_OD_published_min, time_to_target_OD_diff_min]}
-    pass_if: {op: artifact_exists_with_metrics}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: time-to-target-od-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Time-to-target-OD metric computed for both sim and published trajectories; reported in the report card. Process-level only."
+  measure: {kind: artifact_check, artifact: report/divergence_triage.md, required_metrics: [time_to_target_OD_sim_min, time_to_target_OD_published_min, time_to_target_OD_diff_min]}
+  pass_if: {op: artifact_exists_with_metrics}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: acetate-profile-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Overlay panel rendered for acetate (sim ENV ACET[p] vs Beulig acetate_gL); shape-similarity metrics (peak timing, peak magnitude, decay rate) computed. Process-level."
-    measure: {kind: artifact_check, artifact: "report/overlay_acetate.png", required_metrics: [peak_time_sim, peak_time_published, peak_mag_sim, peak_mag_published]}
-    pass_if: {op: artifact_exists_with_metrics}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: acetate-profile-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Overlay panel rendered for acetate (sim ENV ACET[p] vs Beulig acetate_gL); shape-similarity metrics (peak timing, peak magnitude, decay rate) computed. Process-level."
+  measure: {kind: artifact_check, artifact: "report/overlay_acetate.png", required_metrics: [peak_time_sim, peak_time_published, peak_mag_sim, peak_mag_published]}
+  pass_if: {op: artifact_exists_with_metrics}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: byproduct-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Overlay panels rendered for all mixed-acid byproducts wired up (lactate / formate / ethanol / pyruvate / succinate); each panel checks that the simulated trajectory was extracted, the published CSV was loaded, and overlay metrics computed."
-    measure: {kind: multi_artifact_check, artifacts: ["report/overlay_lactate.png", "report/overlay_formate.png", "report/overlay_ethanol.png", "report/overlay_pyruvate.png", "report/overlay_succinate.png"]}
-    pass_if: {op: all_artifacts_exist}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: byproduct-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Overlay panels rendered for all mixed-acid byproducts wired up (lactate / formate / ethanol / pyruvate / succinate); each panel checks that the simulated trajectory was extracted, the published CSV was loaded, and overlay metrics computed."
+  measure: {kind: multi_artifact_check, artifacts: ["report/overlay_lactate.png", "report/overlay_formate.png", "report/overlay_ethanol.png", "report/overlay_pyruvate.png", "report/overlay_succinate.png"]}
+  pass_if: {op: all_artifacts_exist}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: otr-ctr-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "OTR and CTR derived from BiRD kLa × (saturation - dissolved) overlaid against Beulig published OTR/CTR. Process-level check; biological divergences (e.g. v2ecoli RQ wrong) feed mbp-06."
-    measure: {kind: multi_artifact_check, artifacts: ["report/overlay_OTR.png", "report/overlay_CTR.png"]}
-    pass_if: {op: all_artifacts_exist}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: otr-ctr-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "OTR and CTR derived from BiRD kLa × (saturation - dissolved) overlaid against Beulig published OTR/CTR. Process-level check; biological divergences (e.g. v2ecoli RQ wrong) feed mbp-06."
+  measure: {kind: multi_artifact_check, artifacts: ["report/overlay_OTR.png", "report/overlay_CTR.png"]}
+  pass_if: {op: all_artifacts_exist}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: gur-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Glucose uptake rate (mmol/(gDW·h)) overlaid against Beulig published GUR. The shape of this comparison directly stresses the transport-kinetics question deferred from mbp-01 (saturable vs constant-bound vs linear)."
-    measure: {kind: artifact_check, artifact: report/overlay_GUR.png, required_metrics: [gur_shape_class_sim, gur_shape_class_published]}
-    pass_if: {op: artifact_exists_with_metrics}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: gur-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Glucose uptake rate (mmol/(gDW·h)) overlaid against Beulig published GUR. The shape of this comparison directly stresses the transport-kinetics question deferred from mbp-01 (saturable vs constant-bound vs linear)."
+  measure: {kind: artifact_check, artifact: report/overlay_GUR.png, required_metrics: [gur_shape_class_sim, gur_shape_class_published]}
+  pass_if: {op: artifact_exists_with_metrics}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
-  - name: base-addition-comparison-rendered
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Cumulative base addition (integrated net acid production from v2ecoli's organic-acid exchange) overlaid against Beulig published base-addition trace."
-    measure: {kind: artifact_check, artifact: report/overlay_base_addition.png, required_metrics: [cumulative_base_sim_mmol, cumulative_base_published_mmol]}
-    pass_if: {op: artifact_exists_with_metrics}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
+- name: base-addition-comparison-rendered
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Cumulative base addition (integrated net acid production from v2ecoli's organic-acid exchange) overlaid against Beulig published base-addition trace."
+  measure: {kind: artifact_check, artifact: report/overlay_base_addition.png, required_metrics: [cumulative_base_sim_mmol, cumulative_base_published_mmol]}
+  pass_if: {op: artifact_exists_with_metrics}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
 
 # LOAD-BEARING (chris_feedback_2026_05_26 §10): this is the test that
 # anchors the evaluation-phase shape. The other tests above are
 # evidence-producing dependencies; this one is what mbp-06 consumes.
 
-  - name: divergences-categorized-in-report-card
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: "Divergences categorized in the report card across the four-category taxonomy (v2ecoli metabolic deficiency / coupling-adapter limitation / experimental uncertainty / placeholder-induced). Each divergence entry references the specific overlay panel + sim path + published column that drove the categorization, suitable for direct ingestion as a mbp-06 gap finding seed."
-    measure: {kind: structural_check, artifact: report/divergence_triage.md, predicate: divergence_entries_categorized_with_4axis_taxonomy_and_evidence}
-    pass_if: {op: all_pass}
-    units: "—"
-    requires_simulation: palsson-matched-batch
-    cites: [Beulig2025mSystems]
-  - name: growth-axes-graded-vs-beulig
-    classification: diagnostic
-    question: How do the growth axes (OD600 / biomass trajectory vs the Beulig WT batch prefix) grade against the Beulig WT batch prefix in the report card?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/beulig_batch/vs_beulig
-      group: growth
-      detail: growth axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
-    pass_if:
-      op: report_card_group_within_tol
-    acceptance_form: quantitative_range
-  - name: substrate-axes-graded-vs-beulig
-    classification: diagnostic
-    question: How do the substrate axes (glucose concentration + glucose-uptake-rate (GUR) vs Beulig) grade against the Beulig WT batch prefix in the report card?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/beulig_batch/vs_beulig
-      group: substrate
-      detail: substrate axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
-    pass_if:
-      op: report_card_group_within_tol
-    acceptance_form: quantitative_range
-  - name: byproducts-axes-graded-vs-beulig
-    classification: diagnostic
-    question: How do the byproducts axes (overflow metabolites (acetate, lactate, formate, ethanol, pyruvate, succinate) vs Beulig) grade against the Beulig WT batch prefix in the report card?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/beulig_batch/vs_beulig
-      group: byproducts
-      detail: byproducts axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
-    pass_if:
-      op: report_card_group_within_tol
-    acceptance_form: quantitative_range
-  - name: gas_transfer-axes-graded-vs-beulig
-    classification: diagnostic
-    question: How do the gas_transfer axes (dissolved O2 + OTR/CTR vs Beulig) grade against the Beulig WT batch prefix in the report card?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/beulig_batch/vs_beulig
-      group: gas_transfer
-      detail: gas_transfer axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
-    pass_if:
-      op: report_card_group_within_tol
-    acceptance_form: quantitative_range
-  - name: ph_control-axes-graded-vs-beulig
-    classification: diagnostic
-    question: How do the ph_control axes (base addition vs Beulig) grade against the Beulig WT batch prefix in the report card?
-    measure:
-      kind: report_card_axis
-      card: docs/report_cards/beulig_batch/vs_beulig
-      group: ph_control
-      detail: ph_control axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
-    pass_if:
-      op: report_card_group_within_tol
-    acceptance_form: quantitative_range
+- name: divergences-categorized-in-report-card
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: "Divergences categorized in the report card across the four-category taxonomy (v2ecoli metabolic deficiency / coupling-adapter limitation / experimental uncertainty / placeholder-induced). Each divergence entry references the specific overlay panel + sim path + published column that drove the categorization, suitable for direct ingestion as a mbp-06 gap finding seed."
+  measure: {kind: structural_check, artifact: report/divergence_triage.md, predicate: divergence_entries_categorized_with_4axis_taxonomy_and_evidence}
+  pass_if: {op: all_pass}
+  units: "—"
+  requires_simulation: palsson-matched-batch
+  cites: [Beulig2025mSystems]
+- name: growth-axes-graded-vs-beulig
+  classification: diagnostic
+  question: How do the growth axes (OD600 / biomass trajectory vs the Beulig WT batch prefix) grade against the Beulig WT batch prefix in the report card?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: growth
+    detail: growth axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
+  pass_if:
+    op: report_card_group_within_tol
+  acceptance_form: quantitative_range
+- name: substrate-axes-graded-vs-beulig
+  classification: diagnostic
+  question: How do the substrate axes (glucose concentration + glucose-uptake-rate (GUR) vs Beulig) grade against the Beulig WT batch prefix in the report card?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: substrate
+    detail: substrate axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
+  pass_if:
+    op: report_card_group_within_tol
+  acceptance_form: quantitative_range
+- name: byproducts-axes-graded-vs-beulig
+  classification: diagnostic
+  question: How do the byproducts axes (overflow metabolites (acetate, lactate, formate, ethanol, pyruvate, succinate) vs Beulig) grade against the Beulig WT batch prefix in the report card?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: byproducts
+    detail: byproducts axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
+  pass_if:
+    op: report_card_group_within_tol
+  acceptance_form: quantitative_range
+- name: gas_transfer-axes-graded-vs-beulig
+  classification: diagnostic
+  question: How do the gas_transfer axes (dissolved O2 + OTR/CTR vs Beulig) grade against the Beulig WT batch prefix in the report card?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: gas_transfer
+    detail: gas_transfer axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
+  pass_if:
+    op: report_card_group_within_tol
+  acceptance_form: quantitative_range
+- name: ph_control-axes-graded-vs-beulig
+  classification: diagnostic
+  question: How do the ph_control axes (base addition vs Beulig) grade against the Beulig WT batch prefix in the report card?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: ph_control
+    detail: ph_control axes graded (within_tol/drift/mismatch) vs the digitized Beulig batch reference; group verdict = worst axis. Divergences feed mbp-06 gap analysis (execute-and-report; not a biology gate).
+  pass_if:
+    op: report_card_group_within_tol
+  acceptance_form: quantitative_range
 
 
 # ─── 5b. REQUIRED KNOWLEDGE ─────────────────────────────────────────────────
 required_knowledge:
   claims:
-    - id: ecoli-high-density-ceiling
-      backs: [end-of-run-od-comparison-rendered]
-    - id: fedbatch-protocol-beulig-2025
-      backs: [end-of-run-od-comparison-rendered, time-to-target-od-comparison-rendered]
-    - id: resistance-persistence-tradeoff-high-density
-      backs: []                                # informational — flagged as candidate-future-study
+  - id: ecoli-high-density-ceiling
+    backs: [end-of-run-od-comparison-rendered]
+  - id: fedbatch-protocol-beulig-2025
+    backs: [end-of-run-od-comparison-rendered, time-to-target-od-comparison-rendered]
+  - id: resistance-persistence-tradeoff-high-density
+    backs: []                                  # informational — flagged as candidate-future-study
                                                # (transcriptional-state matching against >470 transcriptomes)
-    - id: v2ecoli-calibration-regime
-      backs: []                                # informational — sets tolerance bands
-    - id: high-density-single-cell-intractability
-      backs: []                                # informational — explains why this study is BATCH-PREFIX scope, not full Beulig
+  - id: v2ecoli-calibration-regime
+    backs: []                                  # informational — sets tolerance bands
+  - id: high-density-single-cell-intractability
+    backs: []                                  # informational — explains why this study is BATCH-PREFIX scope, not full Beulig
   open_questions:
-    - id: beulig-batch-prefix-duration
-      question: |
-        How long is the batch phase in Beulig 2025 (t < 0 h before feed
-        onset)? Need this from the methods to set duration_min correctly.
-        Currently placeholder 480 min (8 h); paper likely 4–6 h batch.
-      blocks: [palsson-matched-batch duration_min, time-to-target-od-comparison-rendered threshold]
-      asked_to: unassigned (extract from Beulig methods)
-      status: open
-    - id: od-conversion-strain-specific
-      question: |
-        Beulig measured 5 strain groups; OD600 ↔ gDW conversion may differ
-        per strain (especially MEL with growth arrest). For the WT-batch
-        comparison, is textbook 0.33 acceptable or does the paper supply a
-        WT-specific value?
-      blocks: [end-of-run-od-comparison-rendered tolerance band]
-      asked_to: unassigned (extract from Beulig methods/supp)
-      status: open
-    - id: transcriptional-matching-scope
-      question: |
-        Beulig provides >470 transcriptomes across phases I–IV — a unique
-        benchmark axis (v2ecoli outputs transcript counts; the upstream
-        multiscale-bioprocess plan's dFBA path does NOT). Should we open a
-        candidate-future-study now to scope transcriptional-state matching,
-        or defer until mbp-05 OD/biomass tests are at least drafted?
-      blocks: [mbp-06 gap-analysis prioritization]
-      asked_to: unassigned (Chris + Eran on next sync)
-      status: open
+  - id: beulig-batch-prefix-duration
+    question: |
+      How long is the batch phase in Beulig 2025 (t < 0 h before feed
+      onset)? Need this from the methods to set duration_min correctly.
+      Currently placeholder 480 min (8 h); paper likely 4–6 h batch.
+    blocks: [palsson-matched-batch duration_min, time-to-target-od-comparison-rendered threshold]
+    asked_to: unassigned (extract from Beulig methods)
+    status: open
+  - id: od-conversion-strain-specific
+    question: |
+      Beulig measured 5 strain groups; OD600 ↔ gDW conversion may differ
+      per strain (especially MEL with growth arrest). For the WT-batch
+      comparison, is textbook 0.33 acceptable or does the paper supply a
+      WT-specific value?
+    blocks: [end-of-run-od-comparison-rendered tolerance band]
+    asked_to: unassigned (extract from Beulig methods/supp)
+    status: open
+  - id: transcriptional-matching-scope
+    question: |
+      Beulig provides >470 transcriptomes across phases I–IV — a unique
+      benchmark axis (v2ecoli outputs transcript counts; the upstream
+      multiscale-bioprocess plan's dFBA path does NOT). Should we open a
+      candidate-future-study now to scope transcriptional-state matching,
+      or defer until mbp-05 OD/biomass tests are at least drafted?
+    blocks: [mbp-06 gap-analysis prioritization]
+    asked_to: unassigned (Chris + Eran on next sync)
+    status: open
 
 
 # ─── 5c. FAILURE MODES ──────────────────────────────────────────────────────
@@ -536,113 +586,113 @@ failure_modes:
   # biological match (per chris_feedback_2026_05_26 §10 reframe).
   # Biological divergences are EXPECTED OUTPUTS, not failures.
 
-  - signature: "*-comparison-rendered FAILS — overlay artifact not produced"
-    candidate_causes:
-      - "Published CSV path wrong / missing — comparison_overlays entry mis-configured"
-      - "Sim path doesn't exist in the run output (typo, removed in a refactor, identifier mismatch like LAC vs LACTATE)"
-      - "Comparison harness errored during overlay generation"
-    checks:
-      - "Run harness in dry-mode: confirm each sim_path resolves in the run + each published_csv exists"
-      - "Confirm units conversions in published_csv loader match the units declared in the overlay entry"
+- signature: "*-comparison-rendered FAILS — overlay artifact not produced"
+  candidate_causes:
+  - "Published CSV path wrong / missing — comparison_overlays entry mis-configured"
+  - "Sim path doesn't exist in the run output (typo, removed in a refactor, identifier mismatch like LAC vs LACTATE)"
+  - "Comparison harness errored during overlay generation"
+  checks:
+  - "Run harness in dry-mode: confirm each sim_path resolves in the run + each published_csv exists"
+  - "Confirm units conversions in published_csv loader match the units declared in the overlay entry"
 
-  - signature: "divergences-categorized-in-report-card FAILS — triage incomplete or unstructured"
-    candidate_causes:
-      - "Auto-comparison harness output is the only artifact; no expert triage entry recorded"
-      - "Triage entries omit the four-category taxonomy"
-      - "Triage entries omit the evidence pointer (specific sim_path + published_column)"
-    checks:
-      - "Confirm report.md contains a `## Divergence triage` section"
-      - "Confirm each entry references one of: v2ecoli_metabolic_deficiency | coupling_adapter_limitation | experimental_uncertainty | placeholder_induced"
-      - "Confirm each entry includes the evidence pointer in mbp-06-consumable form"
+- signature: "divergences-categorized-in-report-card FAILS — triage incomplete or unstructured"
+  candidate_causes:
+  - "Auto-comparison harness output is the only artifact; no expert triage entry recorded"
+  - "Triage entries omit the four-category taxonomy"
+  - "Triage entries omit the evidence pointer (specific sim_path + published_column)"
+  checks:
+  - "Confirm report.md contains a `## Divergence triage` section"
+  - "Confirm each entry references one of: v2ecoli_metabolic_deficiency | coupling_adapter_limitation | experimental_uncertainty | placeholder_induced"
+  - "Confirm each entry includes the evidence pointer in mbp-06-consumable form"
 
 
 # ─── 5d. REGRESSION ────────────────────────────────────────────────────────
 regression_tests:
   inherits_from:
-    - study: mbp-04-multigeneration-runs
-      tests:
-        - population-grows-then-flattens-at-substrate-limit
-        - carbon-mass-balance-closes-over-3-generations
-        - nitrogen-mass-balance-closes-over-3-generations
-    - study: mbp-03-bird-reactor-coupling
-      tests:
-        - one-generation-completes-without-divergence
-        - cells-drop-do-below-saturation
-        - reactor-biomass-tracks-population
-        - higher-kla-raises-steady-state-do
-        - no-cells-do-converges-to-henry-saturation
-    - study: mbp-02-population-aggregation
-      tests:
-        - cell-count-doubles-per-generation
-        - per-cell-observables-unchanged-vs-baseline
-    - study: mbp-01-time-varying-environment
-      tests:
-        - external_glucose_updates_propagate_within_one_step
-        - cumulative-mass-balance-closes
-        - zero-substrate-blocks-uptake
-        - saturating-substrate-respects-vmax
-        - plateau-across-saturating-range
-        - static-env-baseline-unchanged
+  - study: mbp-04-multigeneration-runs
+    tests:
+    - population-grows-then-flattens-at-substrate-limit
+    - carbon-mass-balance-closes-over-3-generations
+    - nitrogen-mass-balance-closes-over-3-generations
+  - study: mbp-03-bird-reactor-coupling
+    tests:
+    - one-generation-completes-without-divergence
+    - cells-drop-do-below-saturation
+    - reactor-biomass-tracks-population
+    - higher-kla-raises-steady-state-do
+    - no-cells-do-converges-to-henry-saturation
+  - study: mbp-02-population-aggregation
+    tests:
+    - cell-count-doubles-per-generation
+    - per-cell-observables-unchanged-vs-baseline
+  - study: mbp-01-time-varying-environment
+    tests:
+    - external_glucose_updates_propagate_within_one_step
+    - cumulative-mass-balance-closes
+    - zero-substrate-blocks-uptake
+    - saturating-substrate-respects-vmax
+    - plateau-across-saturating-range
+    - static-env-baseline-unchanged
 
 
 # ─── 6. LIMITATIONS ────────────────────────────────────────────────────────
 limitations:
-  - "EVALUATION PHASE (chris_feedback_2026_05_26 §10): mbp-05 deliberately does NOT make tolerance-based biology claims. The original framing (`end-of-run-od-matches-published` etc.) structurally encoded an open-ended menu of model knobs to turn — even with the 'no silent tuning' discipline, the impulse to tune to a tolerance-test was built into the test design. The reframe shifts the bound on the AI agent to 'execute and report'."
-  - "Single benchmark study; not a multi-dataset validation."
-  - "Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset."
-  - "v2ecoli's calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope. Under the new framing this is no longer a 'tolerance must reflect this' caveat — it becomes one of the divergences mbp-06's gap analysis categorizes."
-  - "Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli's variant scope."
-  - "Transcriptional-state matching against >470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-09 (pre-seeded in mbp-06)."
+- "EVALUATION PHASE (chris_feedback_2026_05_26 §10): mbp-05 deliberately does NOT make tolerance-based biology claims. The original framing (`end-of-run-od-matches-published` etc.) structurally encoded an open-ended menu of model knobs to turn — even with the 'no silent tuning' discipline, the impulse to tune to a tolerance-test was built into the test design. The reframe shifts the bound on the AI agent to 'execute and report'."
+- "Single benchmark study; not a multi-dataset validation."
+- "Fed-batch operations remain a deferred enhancement (pbg-bioreactordesign has no fed-batch yet); this study scopes to the BATCH-PHASE PREFIX of the Beulig dataset."
+- "v2ecoli's calibration is slow-growth M9-glucose (~60-min doubling, single cell); the high-density 50–80 gDW/L regime is OUTSIDE the calibration envelope. Under the new framing this is no longer a 'tolerance must reflect this' caveat — it becomes one of the divergences mbp-06's gap analysis categorizes."
+- "Strain scope: WT BW25113 only. SGKO (31 knockouts) / TRP / TRPp / MEL are deferred — natural candidate-future-studies under v2ecoli's variant scope."
+- "Transcriptional-state matching against >470 Beulig transcriptomes is a unique benchmark axis (v2ecoli has transcripts; upstream dFBA path does not) — deferred to mbp-09 (pre-seeded in mbp-06)."
 
 
 # ─── 7. IMPLEMENTATION REQUIREMENTS ────────────────────────────────────────
 implementation_requirements:
 
-  - id: req-1-palsson-ingestion
-    kind: knowledge
-    title: Beulig 2025 structured ingestion
-    effort: XS
-    description: |
-      RESOLVED 2026-05-22. All artefacts in place:
-      * PDF — references/papers/Beulig_2025_mSystems_high_cell_density.pdf
-      * Bib — references/papers.bib @Beulig2025mSystems
-      * Expert-doc — references/expert/palsson_2025_fed_batch.md
-      * Digitized trajectories — references/papers/palsson-2025-supp/
-        (mirrored from github.com/febedtu/hd_ecoli/data/fermentation_data
-        with attribution; MIT). Includes per-reactor time-series for OD600,
-        glucose, OTR, CTR, feed rate, organic-acid byproducts; plus
-        experiment_mapping.csv (reactor↔strain) and
-        process_summary_interpol.csv (time-aligned interpolated long-format).
-      REMAINING (spec-PR scope, NOT blocking impl): filter to the WT BW25113
-      batch-phase prefix (fed-batch time h < 0) and set per-metric tolerance
-      bands. Note: paper's OD-to-gDW factor is 0.34 (not 0.33).
-    unblocks: [all mbp-05 behavior_tests]
+- id: req-1-palsson-ingestion
+  kind: knowledge
+  title: Beulig 2025 structured ingestion
+  effort: XS
+  description: |
+    RESOLVED 2026-05-22. All artefacts in place:
+    * PDF — references/papers/Beulig_2025_mSystems_high_cell_density.pdf
+    * Bib — references/papers.bib @Beulig2025mSystems
+    * Expert-doc — references/expert/palsson_2025_fed_batch.md
+    * Digitized trajectories — references/papers/palsson-2025-supp/
+      (mirrored from github.com/febedtu/hd_ecoli/data/fermentation_data
+      with attribution; MIT). Includes per-reactor time-series for OD600,
+      glucose, OTR, CTR, feed rate, organic-acid byproducts; plus
+      experiment_mapping.csv (reactor↔strain) and
+      process_summary_interpol.csv (time-aligned interpolated long-format).
+    REMAINING (spec-PR scope, NOT blocking impl): filter to the WT BW25113
+    batch-phase prefix (fed-batch time h < 0) and set per-metric tolerance
+    bands. Note: paper's OD-to-gDW factor is 0.34 (not 0.33).
+  unblocks: [all mbp-05 behavior_tests]
 
-  - id: req-2-comparison-harness
-    kind: tooling
-    title: Generic sim-vs-published comparison harness
-    effort: S
-    description: |
-      Iterates over the study's `comparison_overlays` list, for each entry:
-        - Resolves `sim_path` against the run output (handles `aggregation:
-          per_biomass` and any other reductions).
-        - Loads `published_csv` and extracts `published_column`.
-        - Renders an overlay panel (sim trajectory + published trajectory,
-          time-aligned) → report/overlay_<name>.png
-        - Computes per-overlay derived metrics (end-of-run value diff,
-          shape-similarity, peak timing, etc. — keyed by the panel's
-          `backs_tests`).
-        - Categorizes any large divergences into the four-axis taxonomy in
-          report/divergence_triage.md (with evidence pointer to the panel
-          + sim_path + published_column).
-      The harness is GENERIC: adding a new comparison surface = adding one
-      `comparison_overlays` entry. No code change. Future investigations
-      reuse the harness with their own `comparison_overlays` list.
+- id: req-2-comparison-harness
+  kind: tooling
+  title: Generic sim-vs-published comparison harness
+  effort: S
+  description: |
+    Iterates over the study's `comparison_overlays` list, for each entry:
+      - Resolves `sim_path` against the run output (handles `aggregation:
+        per_biomass` and any other reductions).
+      - Loads `published_csv` and extracts `published_column`.
+      - Renders an overlay panel (sim trajectory + published trajectory,
+        time-aligned) → report/overlay_<name>.png
+      - Computes per-overlay derived metrics (end-of-run value diff,
+        shape-similarity, peak timing, etc. — keyed by the panel's
+        `backs_tests`).
+      - Categorizes any large divergences into the four-axis taxonomy in
+        report/divergence_triage.md (with evidence pointer to the panel
+        + sim_path + published_column).
+    The harness is GENERIC: adding a new comparison surface = adding one
+    `comparison_overlays` entry. No code change. Future investigations
+    reuse the harness with their own `comparison_overlays` list.
 
-      Framework-layer (chris_feedback_2026_05_26 §2): hoisting
-      `comparison_overlays` into pbg-superpowers schema is a deferred-upstream
-      candidate (tracked in mbp-06 axis-E gap entry).
-    unblocks: [all *-comparison-rendered tests, divergences-categorized-in-report-card]
+    Framework-layer (chris_feedback_2026_05_26 §2): hoisting
+    `comparison_overlays` into pbg-superpowers schema is a deferred-upstream
+    candidate (tracked in mbp-06 axis-E gap entry).
+  unblocks: [all *-comparison-rendered tests, divergences-categorized-in-report-card]
 
 
 bibliography:
@@ -650,7 +700,118 @@ bibliography:
   bib_keys: [Beulig2025mSystems]
 
 
-runs: []
+runs:
+- name: v2ecoli.composites.reactor_bird_coupled__1786971874__5e6c59
+  status: completed
+  timestamp: 1786971905.897731
+  emitter:
+    kind: unknown
+  params: '{}'
+  canonical: true
+  n_steps: 200
+  note: |
+    Baseline coupled run, 200 steps (matching the behavior-test fixtures),
+    recorded through the workbench's generic run endpoint
+    (POST /api/investigation-run-one). The endpoint stores only request
+    overrides in `params`, so '{}' here means the baseline's own params
+    ({seed: 0, cache_dir: out/cache}) ran unmodified. Evidence for the
+    outcomes below is the 3-arm Beulig comparison cards at
+    docs/report_cards/beulig_batch/, regenerated on this tree 2026-08-19 by a
+    direct production-scale harness invocation with rendering on (charts and
+    verdict JSON from the same run; the test suite writes only to tmp paths
+    since the card_root fix and cannot produce these). Suite state the same
+    day: 13 passed.
+  outcomes:
+    growth-axes-graded-vs-beulig:
+      result: fail
+      detail: |
+        Group growth grades mismatch (growth.biomass_gDW_per_L) on the vs_beulig card
+        regenerated 2026-08-19 by direct production-scale harness invocation. Informative negative:
+        the single-lineage architecture cannot accumulate population biomass (~3 orders
+        low); resolution is the population runner (mbp-02/mbp-04), not tuning — see
+        mbp-06 axis A.
+    substrate-axes-graded-vs-beulig:
+      result: fail
+      detail: |
+        Group substrate grades mismatch (substrate.GUR, substrate.glucose_conc) on the
+        vs_beulig card regenerated 2026-08-19. Same architectural cap: population-scale
+        uptake cannot be reproduced by one lineage.
+    byproducts-axes-graded-vs-beulig:
+      result: fail
+      detail: |
+        Group byproducts grades mismatch (lactate, formate, ethanol, pyruvate,
+        succinate — sim emits no overflow byproducts); byproducts.acetate is ungraded
+        (no acetate column in the Beulig batch reference). Card regenerated 2026-08-19.
+        Overflow is bounded here, not explained — the metabolism-overflow sibling
+        investigation anchors on Vemuri 2006 / Basan 2015.
+    gas_transfer-axes-graded-vs-beulig:
+      result: fail
+      detail: |
+        Group gas_transfer grades mismatch (OTR, CTR; dissolved_o2 ungraded) on the
+        vs_beulig card regenerated 2026-08-19. The respiration divergence is
+        independently corroborated by the ketchup-baseline-comparison investigation,
+        where v2ecoli consumes ~9 O2 per 100 glucose vs ~135 in the kinetic
+        references.
+    ph_control-axes-graded-vs-beulig:
+      result: skipped
+      detail: |
+        All ph_control axes ungraded: the coupled composite exposes no base-addition
+        observable, so nothing resolves against the Beulig base-rate trace. Wired into
+        the card, unexercised — same convention as mbp-03's CO2 leg.
+    end-of-run-od-comparison-rendered:
+      result: partial
+      detail: |
+        Comparison executed and rendered: overlay_growth.png at the vs_beulig card path
+        overlays sim biomass against the Beulig OD600 trace converted to gDW/L (the
+        harness's tested od_peak_to_gdw conversion), and the growth axis carries the
+        end-of-run values. What the spec names — report/overlay_population.OD600.png
+        and end_of_run_OD_* metrics — is not emitted under those names. The substance
+        exists; the spec and the harness drifted apart, to be reconciled when the
+        behavior specs are next revised.
+    acetate-profile-comparison-rendered:
+      result: skipped
+      detail: |
+        Not renderable against this reference: the Beulig batch samples carry no
+        acetate/byproduct profile columns (mbp-06 records this; no
+        reactor_acetate_data.csv in the supplement). byproducts.acetate is ungraded on
+        the card accordingly.
+    otr-ctr-comparison-rendered:
+      result: pass
+      detail: |
+        overlay_OTR.png and overlay_CTR.png exist and the OTR/CTR axes are graded
+        with values on the vs_beulig card. The spec places these under report/; the
+        harness writes them at the card path
+        (docs/report_cards/beulig_batch/vs_beulig/) — same files, different home.
+    gur-comparison-rendered:
+      result: partial
+      detail: |
+        substrate.GUR is graded with measured-vs-reference values on the card; the
+        spec'd overlay_GUR.png and gur_shape_class_* metrics are not emitted by the
+        current harness.
+    byproduct-comparison-rendered:
+      result: partial
+      detail: |
+        All five spec'd byproducts (lactate, formate, ethanol, pyruvate, succinate)
+        are graded axes with values on the card; the per-byproduct overlay PNGs are
+        not rendered (sim trajectories are identically zero — no overflow metabolism).
+    base-addition-comparison-rendered:
+      result: skipped
+      detail: |
+        ph_control.base_addition is ungraded: no base-addition observable exists on
+        the coupled composite, so the comparison cannot be exercised. See
+        ph_control-axes-graded-vs-beulig.
+    time-to-target-od-comparison-rendered:
+      result: fail
+      detail: |
+        Not executed: the current harness computes no time-to-target-OD metrics and
+        the spec'd artifact does not exist. Genuinely missing (not naming drift).
+    divergences-categorized-in-report-card:
+      result: partial
+      detail: |
+        The categorization exists and is complete — mbp-06's 15-entry gap table covers
+        all five axes with resolution_type, resolution_venue and provenance on every
+        entry — but the spec'd standalone report/divergence_triage.md artifact was
+        never produced; the taxonomy lives in mbp-06 instead.
 
 
 # Preliminary findings landed 2026-05-29 — diagnostic data computed from
@@ -659,89 +820,91 @@ runs: []
 # is built, so reviewers can calibrate expectations. Not a substitute for
 # the full comparison overlays above — these will land once req-1-palsson-
 # ingestion (digitized Beulig CSVs) + req-2-comparison-harness ship.
+  computed_outcomes:
+    _status: store_unresolved
 preliminary_findings:
-  - id: v2ecoli-vs-beulig-density-gap-refined
-    chart: studies/mbp-05-palsson-benchmark/charts/02_v2ecoli_vs_beulig_batch_actual.svg
-    companion_charts:
-      - studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
-      - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
-    summary: |
-      REFINED 2026-05-29 after pulling the Beulig batch trajectories from
-      references/papers/palsson-2025-supp/. The Beulig BATCH PHASE peaks
-      at ~9.6 g/L (max OD ~28, OD×0.34) at ~13 h batch elapsed —
-      empirically from chart 10 (5 best-sampled reactors). The 50-80
-      gDW/L figure from the paper's abstract is the FED-BATCH endpoint,
-      not the batch endpoint. Charts 00 and 01 used the fed-batch figure
-      as the target band — that was an over-statement; charts 02 + 10
-      (which use the actual sampled batch trajectories) are the load-
-      bearing comparisons from now on.
+- id: v2ecoli-vs-beulig-density-gap-refined
+  chart: studies/mbp-05-palsson-benchmark/charts/02_v2ecoli_vs_beulig_batch_actual.svg
+  companion_charts:
+  - studies/mbp-05-palsson-benchmark/charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+  - studies/mbp-05-palsson-benchmark/charts/01_preliminary_biomass_trajectories_vs_beulig.svg
+  summary: |
+    REFINED 2026-05-29 after pulling the Beulig batch trajectories from
+    references/papers/palsson-2025-supp/. The Beulig BATCH PHASE peaks
+    at ~9.6 g/L (max OD ~28, OD×0.34) at ~13 h batch elapsed —
+    empirically from chart 10 (5 best-sampled reactors). The 50-80
+    gDW/L figure from the paper's abstract is the FED-BATCH endpoint,
+    not the batch endpoint. Charts 00 and 01 used the fed-batch figure
+    as the target band — that was an over-statement; charts 02 + 10
+    (which use the actual sampled batch trajectories) are the load-
+    bearing comparisons from now on.
 
-      At the actual scope (batch-phase prefix only), v2ecoli's cpa=1e9
-      run reaches 3.26e-3 g/L after 60 sim-min — about 1.5-2 orders of
-      magnitude below Beulig's actual batch trajectory at the same real
-      time, and ~3-4 orders below Beulig's batch peak (~9.6 g/L). The
-      single_daughters lineage convention caps total biomass at
-      cell_mass × cpa for ONE lineage; to match Beulig's batch peak at
-      cpa=1e9 each agent would need to be ~10 mg dry mass (vs the ~1 fg
-      v2ecoli simulates) — an architectural cap, not a tuning gap.
+    At the actual scope (batch-phase prefix only), v2ecoli's cpa=1e9
+    run reaches 3.26e-3 g/L after 60 sim-min — about 1.5-2 orders of
+    magnitude below Beulig's actual batch trajectory at the same real
+    time, and ~3-4 orders below Beulig's batch peak (~9.6 g/L). The
+    single_daughters lineage convention caps total biomass at
+    cell_mass × cpa for ONE lineage; to match Beulig's batch peak at
+    cpa=1e9 each agent would need to be ~10 mg dry mass (vs the ~1 fg
+    v2ecoli simulates) — an architectural cap, not a tuning gap.
 
-      EMPIRICAL CONFIRMATION (2026-05-29): the
-      aggregator-cpa1e9-batch-prefix-multigen run targeted 6h but was
-      terminated at sim_min=175 (memory ceiling); the salvaged
-      trajectory shows v2ecoli's biomass OSCILLATING between ~1.2 mg/L
-      and ~4.3 mg/L across the division cycle, with NO accumulation
-      across generations. Chart 02 visualizes this plateau against
-      Beulig's batch climb to ~9.6 g/L — a 3.3-order gap that duration
-      cannot close. mbp-05 will surface this diagnostically; closing
-      it requires architectural moves (population composite with
-      counter-rather-than-single-daughters lineage tracking, or a
-      surrogate engine — both mbp-06 candidate-future-studies).
-    consequences:
-      - mbp-05 comparison harness will produce a DIAGNOSTIC report first (where v2ecoli sits relative to Beulig) BEFORE it produces an EVALUATIVE report (does v2ecoli reproduce Beulig). The diagnostic-first framing matches Chris's 2026-05-26 §10 reframe.
-      - Closing the residual gap requires (a) longer batch duration, (b) impossibly-large cpa (~1e14), OR (c) fed-batch operations (deferred upstream pbg-bioreactor-transport-fork blocker).
-      - The investigation's `cells_per_agent` representative-sampling architecture is necessary but not sufficient to reach Beulig density; the OD-only chart for low-OD runs makes that visible.
-    follow_ups:
-      - long-duration-batch-multigen (run baseline at sim_seconds=21600 / 6-h batch-phase prefix to see how far cell-mass-per-agent climbs before the single_daughters lineage chain saturates)
+    EMPIRICAL CONFIRMATION (2026-05-29): the
+    aggregator-cpa1e9-batch-prefix-multigen run targeted 6h but was
+    terminated at sim_min=175 (memory ceiling); the salvaged
+    trajectory shows v2ecoli's biomass OSCILLATING between ~1.2 mg/L
+    and ~4.3 mg/L across the division cycle, with NO accumulation
+    across generations. Chart 02 visualizes this plateau against
+    Beulig's batch climb to ~9.6 g/L — a 3.3-order gap that duration
+    cannot close. mbp-05 will surface this diagnostically; closing
+    it requires architectural moves (population composite with
+    counter-rather-than-single-daughters lineage tracking, or a
+    surrogate engine — both mbp-06 candidate-future-studies).
+  consequences:
+  - mbp-05 comparison harness will produce a DIAGNOSTIC report first (where v2ecoli sits relative to Beulig) BEFORE it produces an EVALUATIVE report (does v2ecoli reproduce Beulig). The diagnostic-first framing matches Chris's 2026-05-26 §10 reframe.
+  - Closing the residual gap requires (a) longer batch duration, (b) impossibly-large cpa (~1e14), OR (c) fed-batch operations (deferred upstream pbg-bioreactor-transport-fork blocker).
+  - The investigation's `cells_per_agent` representative-sampling architecture is necessary but not sufficient to reach Beulig density; the OD-only chart for low-OD runs makes that visible.
+  follow_ups:
+  - long-duration-batch-multigen (run baseline at sim_seconds=21600 / 6-h batch-phase prefix to see how far cell-mass-per-agent climbs before the single_daughters lineage chain saturates)
 
 
 tests: []
 study_type: diagnostic
 planned_runs:
-  - name: palsson-matched-batch
-    status: planned
-    n_steps: 480
-    details: duration 480 min; seeds [0]; tests ['end-of-run-od-comparison-rendered', 'time-to-target-od-comparison-rendered', 'acetate-profile-comparison-rendered', 'byproduct-comparison-rendered', 'otr-ctr-comparison-rendered', 'gur-comparison-rendered', 'base-addition-comparison-rendered', 'divergences-categorized-in-report-card']
+- name: palsson-matched-batch
+  status: planned
+  n_steps: 480
+  details: duration 480 min; seeds [0]; tests ['end-of-run-od-comparison-rendered', 'time-to-target-od-comparison-rendered', 'acetate-profile-comparison-rendered', 'byproduct-comparison-rendered', 'otr-ctr-comparison-rendered', 'gur-comparison-rendered', 'base-addition-comparison-rendered', 'divergences-categorized-in-report-card']
 visualizations:
-  - name: 00_preliminary_v2ecoli_vs_beulig_gap
-    address: image:charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
-    chart: charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
-    config:
-      title: v2ecoli vs Beulig 2025 batch-phase biomass-density gap (preliminary)
-    render: 'SUPERSEDED (preliminary): used Beulig 50-80 gDW/L FED-BATCH endpoint as the target band, which over-states the comparison. Load-bearing batch comparison is charts 02 + 10 (Beulig batch peak ~9.6 g/L). Original caption: Final biomass concentration (g/L) from existing mbp-02 multigen runs at cpa ∈ {1, 1e6, 1e9}, overlaid against Beulig 2025 batch-phase target band (50-80 g/L). Star marks the cpa that would close the residual gap at the current 2-gen / 60-sim-min batch duration: ~2e+13.'
-  - name: 01_preliminary_biomass_trajectories_vs_beulig
-    address: image:charts/01_preliminary_biomass_trajectories_vs_beulig.svg
-    chart: charts/01_preliminary_biomass_trajectories_vs_beulig.svg
-    config:
-      title: Biomass trajectories (cpa=1/1e6/1e9) vs Beulig 2025 batch endpoint
-    render: "SUPERSEDED (preliminary): used Beulig 50-80 gDW/L FED-BATCH endpoint as the target band, which over-states the comparison. Load-bearing batch comparison is charts 02 + 10 (Beulig batch peak ~9.6 g/L). Original caption: log-y population.biomass_concentration_gL(t) for cpa ∈ {1, 1e6, 1e9} v2ecoli runs alongside Beulig 2025's batch-phase endpoint band at t=6h. Time-series counterpart to chart 00."
-  - name: 02_v2ecoli_vs_beulig_batch_actual
-    address: image:charts/02_v2ecoli_vs_beulig_batch_actual.svg
-    chart: charts/02_v2ecoli_vs_beulig_batch_actual.svg
-    config:
-      title: v2ecoli plateau vs Beulig 2025 batch trajectories (preliminary, refined)
-    render: log-y biomass(t) — v2ecoli at cpa=1e9 at two durations (60-sim-min reference + 175-sim-min salvaged from a 6h sim killed at the memory wall) overlaid against the 5 best-sampled Beulig reactors' batch-phase trajectories. The 175-min run confirms v2ecoli's biomass plateaus around 4.3 mg/L per division cycle, NOT because duration is short but because single_daughters caps total biomass at cell_mass × cpa for one lineage.
-  - name: 03_single_vs_both_daughters_plateau
-    address: image:charts/03_single_vs_both_daughters_plateau.svg
-    chart: charts/03_single_vs_both_daughters_plateau.svg
-    config:
-      title: 'single_daughters vs --no-single-daughters: empirical plateau comparison'
-    render: "log-y biomass(t) for two cpa=1e9 runs differing only in the runner's lineage flag: single_daughters (175 sim-min, the v2ecoli default) and --no-single-daughters (90 sim-min). Both peak at ~4.4 mg/L despite the runner config difference."
-  - name: 10_beulig_reference_batch_trajectories
-    address: image:charts/10_beulig_reference_batch_trajectories.svg
-    chart: charts/10_beulig_reference_batch_trajectories.svg
-    config:
-      title: 10_beulig_reference_batch_trajectories
-    render: ''
+- name: 00_preliminary_v2ecoli_vs_beulig_gap
+  address: image:charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+  chart: charts/00_preliminary_v2ecoli_vs_beulig_gap.svg
+  config:
+    title: v2ecoli vs Beulig 2025 batch-phase biomass-density gap (preliminary)
+  render: 'SUPERSEDED (preliminary): used Beulig 50-80 gDW/L FED-BATCH endpoint as the target band, which over-states the comparison. Load-bearing batch comparison is charts 02 + 10 (Beulig batch peak ~9.6 g/L). Original caption: Final biomass concentration (g/L) from existing mbp-02 multigen runs at cpa ∈ {1, 1e6, 1e9}, overlaid against Beulig 2025 batch-phase target band (50-80 g/L). Star marks the cpa that would close the residual gap at the current 2-gen / 60-sim-min batch duration: ~2e+13.'
+- name: 01_preliminary_biomass_trajectories_vs_beulig
+  address: image:charts/01_preliminary_biomass_trajectories_vs_beulig.svg
+  chart: charts/01_preliminary_biomass_trajectories_vs_beulig.svg
+  config:
+    title: Biomass trajectories (cpa=1/1e6/1e9) vs Beulig 2025 batch endpoint
+  render: "SUPERSEDED (preliminary): used Beulig 50-80 gDW/L FED-BATCH endpoint as the target band, which over-states the comparison. Load-bearing batch comparison is charts 02 + 10 (Beulig batch peak ~9.6 g/L). Original caption: log-y population.biomass_concentration_gL(t) for cpa ∈ {1, 1e6, 1e9} v2ecoli runs alongside Beulig 2025's batch-phase endpoint band at t=6h. Time-series counterpart to chart 00."
+- name: 02_v2ecoli_vs_beulig_batch_actual
+  address: image:charts/02_v2ecoli_vs_beulig_batch_actual.svg
+  chart: charts/02_v2ecoli_vs_beulig_batch_actual.svg
+  config:
+    title: v2ecoli plateau vs Beulig 2025 batch trajectories (preliminary, refined)
+  render: log-y biomass(t) — v2ecoli at cpa=1e9 at two durations (60-sim-min reference + 175-sim-min salvaged from a 6h sim killed at the memory wall) overlaid against the 5 best-sampled Beulig reactors' batch-phase trajectories. The 175-min run confirms v2ecoli's biomass plateaus around 4.3 mg/L per division cycle, NOT because duration is short but because single_daughters caps total biomass at cell_mass × cpa for one lineage.
+- name: 03_single_vs_both_daughters_plateau
+  address: image:charts/03_single_vs_both_daughters_plateau.svg
+  chart: charts/03_single_vs_both_daughters_plateau.svg
+  config:
+    title: 'single_daughters vs --no-single-daughters: empirical plateau comparison'
+  render: "log-y biomass(t) for two cpa=1e9 runs differing only in the runner's lineage flag: single_daughters (175 sim-min, the v2ecoli default) and --no-single-daughters (90 sim-min). Both peak at ~4.4 mg/L despite the runner config difference."
+- name: 10_beulig_reference_batch_trajectories
+  address: image:charts/10_beulig_reference_batch_trajectories.svg
+  chart: charts/10_beulig_reference_batch_trajectories.svg
+  config:
+    title: 10_beulig_reference_batch_trajectories
+  render: ''
 runtime:
   status: preliminary
   note: No comparison-harness runs yet; preliminary diagnostic charts (00-03, 10) were computed from mbp-02 multigen runs + digitized Beulig batch trajectories. Full overlays pending req-1 (Beulig CSVs, DONE) + req-2 (comparison harness).
@@ -751,51 +914,51 @@ report:
   summary: 'EVALUATION phase (no new model capability): success = the comparison was EXECUTED AND REPORTED COHERENTLY, not that biology matched. Preliminary diagnostic finding (refined 2026-05-29): the Beulig BATCH PHASE peaks at ~9.6 g/L (max OD ~28 x 0.34); the 50-80 gDW/L abstract figure is the FED-BATCH endpoint. v2ecoli at cpa=1e9 plateaus ~4.3 mg/L per division cycle (single_daughters cap) — a ~3.3-order gap that is architectural, not a tuning gap. Full ~13-surface comparison overlays + four-category divergence triage pending the harness.'
 study_card:
   one_liner: Beulig 2025 high-cell-density benchmark — structured comparison + divergence triage.
-  phase: Design
+  phase: Evaluate
   kind: evaluation / diagnostic
   depends_on:
-    - mbp-04
+  - mbp-04
   deliverable: 'Comparison harness over comparison_overlays + report.md with ## Divergence triage (four-category taxonomy).'
 enforced_params:
-  - name: operating_profile
-    default: palsson_2025_batch_only
-  - name: od_to_gdw
-    default: 0.34
-    note: Beulig 2025 value
-  - name: strain_scope
-    value: WT BW25113 only
-  - name: seed
-    value: 0
+- name: operating_profile
+  default: palsson_2025_batch_only
+- name: od_to_gdw
+  default: 0.34
+  note: Beulig 2025 value
+- name: strain_scope
+  value: WT BW25113 only
+- name: seed
+  value: 0
 biological_summary: "Benchmark: Beulig et al. 2025 (mSystems, doi:10.1128/msystems.00323-25; Palsson lab), two-stage batch->fed-batch to 50-80 gDW/L. mbp-05 scopes to WT, BATCH-PHASE PREFIX (Beulig batch peak ~9.6 g/L). Compared surfaces: OD600/biomass, glucose, acetate + mixed-acid byproducts (lactate/formate/ethanol/pyruvate/succinate), GUR, OTR/CTR, base addition. v2ecoli's calibration (slow-growth M9, single cell) is OUTSIDE the high-density envelope — divergences are EXPECTED outputs categorized for mbp-06, not failures."
 literature_anchors:
   expert_docs:
-    - multiscale_bioprocess_roadmap
-    - palsson_2025_fed_batch
-    - chris_feedback_2026_05_26
+  - multiscale_bioprocess_roadmap
+  - palsson_2025_fed_batch
+  - chris_feedback_2026_05_26
   bib_keys:
-    - Beulig2025mSystems
+  - Beulig2025mSystems
   note: Beulig 2025 is the sole benchmark anchor. Batch peak ~9.6 g/L (charts 02, 10 — load-bearing); 50-80 gDW/L is the FED-BATCH endpoint (charts 00, 01 over-stated it -> marked SUPERSEDED). Behavior tests are process-level artifact_check (no numeric biology bands), so no band citations apply.
 design_pivot_required:
   required: true
   note: "REFRAMED 2026-05-26 (chris_feedback_2026_05_26 §10) from \"match within tolerance\" to \"render a structured comparison + categorize divergences\". Removed all model_change/new_parameters (evaluation phase). Also corrected the Beulig target (2026-05-29): batch ~9.6 g/L vs the abstract's 50-80 gDW/L fed-batch endpoint."
 conclusion_verdicts:
-  - verdict: PARTIAL (preliminary diagnostic only)
-    statement: 'Preliminary charts quantify the v2ecoli-vs-Beulig batch-density gap: v2ecoli plateaus ~4.3 mg/L vs Beulig batch peak ~9.6 g/L (~3.3 orders), an architectural cap from single_daughters x cell_mass x cpa, not a tuning gap.'
-    evidence: charts 02 + 10 (load-bearing), 03 (single vs both daughters); preliminary_findings v2ecoli-vs-beulig-density-gap-refined.
-  - verdict: PENDING
-    statement: Full comparison overlays (~13 surfaces) + four-category divergence triage not yet produced — awaits req-2 comparison harness; divergences will seed mbp-06 gaps.
-    evidence: 'simulation_set palsson-matched-batch (status: planned); behavior_tests *-comparison-rendered all planned.'
+- verdict: PARTIAL (preliminary diagnostic only)
+  statement: 'Preliminary charts quantify the v2ecoli-vs-Beulig batch-density gap: v2ecoli plateaus ~4.3 mg/L vs Beulig batch peak ~9.6 g/L (~3.3 orders), an architectural cap from single_daughters x cell_mass x cpa, not a tuning gap.'
+  evidence: charts 02 + 10 (load-bearing), 03 (single vs both daughters); preliminary_findings v2ecoli-vs-beulig-density-gap-refined.
+- verdict: PENDING
+  statement: Full comparison overlays (~13 surfaces) + four-category divergence triage not yet produced — awaits req-2 comparison harness; divergences will seed mbp-06 gaps.
+  evidence: 'simulation_set palsson-matched-batch (status: planned); behavior_tests *-comparison-rendered all planned.'
 # >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
 embed_visualizations:
-  - name: "3-arm Beulig overlay — WCM-FBA / Millard / iML1515 vs reference (interactive)"
-    url: "/reports/figures/mbp-05-palsson-benchmark/beulig_3arm_biomass_overlay_interactive.html"
-    description: "Sim arms vs the Beulig 2025 batch reference for biomass/growth. Each arm is a toggleable trace; the published reference is shown as markers. Makes the ~3-order batch-scale gap directly comparable."
-  - name: "Byproduct reference — secretion vs Beulig peaks (interactive)"
-    url: "/reports/figures/mbp-05-palsson-benchmark/beulig_byproduct_reference_interactive.html"
-    description: "Byproduct trajectories (acetate/lactate/formate/...) against the Beulig reference peaks. Hover for values; toggle species in the legend."
-  - name: "Report-card verdict heatmap — graded axes (interactive)"
-    url: "/reports/figures/mbp-05-palsson-benchmark/beulig_verdict_heatmap_interactive.html"
-    description: "groups x axes colored within_tol / drift / mismatch from report_card_verdict.json; hover for the per-axis sim/ref/tolerance detail. The graded summary of the 3-arm comparison."
+- name: "3-arm Beulig overlay — WCM-FBA / Millard / iML1515 vs reference (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_3arm_biomass_overlay_interactive.html"
+  description: "Sim arms vs the Beulig 2025 batch reference for biomass/growth. Each arm is a toggleable trace; the published reference is shown as markers. Makes the ~3-order batch-scale gap directly comparable."
+- name: "Byproduct reference — secretion vs Beulig peaks (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_byproduct_reference_interactive.html"
+  description: "Byproduct trajectories (acetate/lactate/formate/...) against the Beulig reference peaks. Hover for values; toggle species in the legend."
+- name: "Report-card verdict heatmap — graded axes (interactive)"
+  url: "/reports/figures/mbp-05-palsson-benchmark/beulig_verdict_heatmap_interactive.html"
+  description: "groups x axes colored within_tol / drift / mismatch from report_card_verdict.json; hover for the per-axis sim/ref/tolerance detail. The graded summary of the 3-arm comparison."
 # <<< interactive-plotly embeds <<<
 conditions:
   baseline:
@@ -803,15 +966,15 @@ conditions:
     composite: v2ecoli.composites.reactor_bird_coupled
     params: {seed: 0, cache_dir: out/cache}
   variants:
-    - name: palsson-matched-batch
-      perturbation:
-        operating_profile: palsson_2025_batch_only
-      note: WT BW25113, batch-phase prefix matched to Beulig 2025 operating profile
-      composite: v2ecoli.composites.reactor_bird_coupled
+  - name: palsson-matched-batch
+    perturbation:
+      operating_profile: palsson_2025_batch_only
+    note: WT BW25113, batch-phase prefix matched to Beulig 2025 operating profile
+    composite: v2ecoli.composites.reactor_bird_coupled
   model_settings: []
 inputs:
-  - artifact: mbp-04-multigeneration-runs
-    from: mbp-04-multigeneration-runs
+- artifact: mbp-04-multigeneration-runs
+  from: mbp-04-multigeneration-runs
 question: |
   Configured with operating conditions matched to the 2025 Palsson lab
   high-density E. coli study, does the v2ecoli ↔ pbg-bioreactordesign

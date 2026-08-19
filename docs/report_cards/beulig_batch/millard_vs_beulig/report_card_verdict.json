@@ -2,7 +2,7 @@
   "schema": "report_card_verdict/v1",
   "model_ref": "reactor_bird_coupled_millard",
   "reference_model": "Beulig 2025 WT batch prefix",
-  "generated": "2026-08-17 12:59Z",
+  "generated": "2026-08-19 02:02Z",
   "overall": "mismatch",
   "groups": {
     "growth": {
@@ -169,5 +169,10 @@
     }
   },
   "scope": "SHORT-RUN SMOKE (2 steps, cells_per_agent=1e+10); NOT the full ~33h Beulig batch production run (follow-up execution). Biological magnitudes are far below Beulig (documented architectural gap) so graded axes verdict 'mismatch' by design (execute-and-report).",
-  "wall_s": 9.37
+  "wall_s": 8.78,
+  "charts": [
+    "overlay_growth.png",
+    "overlay_OTR.png",
+    "overlay_CTR.png"
+  ]
 }

@@ -252,10 +252,26 @@ def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     runs, and produces a plausible-looking result computed with the wrong config.
     """
     import importlib
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    # Does this fork ship a config source AT ALL? Decide that from the fork's own
+    # files, BEFORE importing, so the outcome does not depend on whether an
+    # unrelated vEcoli happens to be installed in the environment. Without this
+    # check a fork with no ``sim_data`` module behaves two different ways: with a
+    # vEcoli installed the import succeeds, resolves outside the fork and the
+    # guard below kills the run; with none it raises ModuleNotFoundError and the
+    # caller falls back to the default config. Same fork, same call, opposite
+    # outcomes.
+    has_module = any(
+        os.path.exists(os.path.join(fork_abs, "ecoli", "library", leaf))
+        for leaf in ("sim_data.py", "sim_data"))
+    if not has_module:
+        raise ModuleNotFoundError(
+            f"fork {fork_repo!r} has no ecoli/library/sim_data module; it cannot "
+            "configure processes. Falling back to the default config.")
     with _fork_module_shadow(fork_repo):
         sim_data_mod = importlib.import_module("ecoli.library.sim_data")
         mod_file = os.path.abspath(getattr(sim_data_mod, "__file__", "") or "")
-        if not mod_file.startswith(os.path.abspath(os.path.expanduser(fork_repo))):
+        if not mod_file.startswith(fork_abs):
             raise InjectionError(
                 f"{name!r}: ecoli.library.sim_data resolved to {mod_file!r}, "
                 f"outside fork {fork_repo!r}; the config would be built from the "

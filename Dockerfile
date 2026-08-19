@@ -51,22 +51,34 @@ RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
 # matplotlib font resolution: the cd1_*/ptools_* analysis plotting stack requests
 # "Arial" (seaborn's default sans-serif list puts it first), which this base image
-# doesn't have. Live-confirmed impact, twice: a 10-seed x 10-generation cd1_*
+# doesn't have. Live-confirmed impact, THREE times: a 10-seed x 10-generation cd1_*
 # analysis job produced zero output after 75+ minutes, log saturated with
 # repeated "Font family 'Arial' not found" warnings.
 #
-# fonts-liberation alone (metric-compatible substitute) does NOT fix this —
-# matplotlib's font_manager matches by each font FILE's own internal name-table
-# metadata, not fontconfig aliases, and Liberation Sans's own metadata says
-# "Liberation Sans", never "Arial" — confirmed live: installing it had zero
-# effect, the exact same warning volume reproduced on a second real dispatch.
-# The actual fix: make a font file that genuinely IDENTIFIES as "Arial" to
-# matplotlib's own matcher. Take matplotlib's own bundled DejaVu Sans (always
-# present, no extra download) and rewrite its name-table records via fonttools
-# (already a locked matplotlib dependency) so it reports itself as "Arial" —
-# then findfont("Arial") succeeds on the very first call, permanently, for any
-# code path that requests it, regardless of caching or call order.
-RUN mkdir -p /usr/share/fonts/truetype/arial-alias \
+# Two prior attempts, both confirmed live to fail, root cause traced precisely
+# each time rather than guessed again:
+# 1. fonts-liberation (metric-compatible substitute) alone does NOT fix this —
+#    matplotlib's font_manager matches by each font FILE's own internal
+#    name-table metadata, not fontconfig aliases, and Liberation Sans's own
+#    metadata says "Liberation Sans", never "Arial".
+# 2. Rewriting DejaVu Sans's own name-table to say "Arial" (via fonttools) DID
+#    make matplotlib resolve "Arial" correctly -- but only at BUILD time (the
+#    build's own assert confirmed it). At RUNTIME, in the real AWS Batch
+#    container, the exact same 998/1000-Arial-warning symptom reproduced
+#    unchanged -- meaning matplotlib's font cache/config directory resolution
+#    genuinely differs between the Docker build context and the actual job
+#    execution context (default resolution depends on $HOME, which the
+#    entrypoint's own login-shell invocation -- `bash -lc`, see above -- can
+#    plausibly re-derive differently than a plain `RUN` step).
+#
+# Real fix: stop relying on default HOME-based cache-directory resolution
+# entirely. Pin MPLCONFIGDIR to one explicit, fixed, world-writable path via
+# ENV, so the exact same directory is used to build the cache now AND to read
+# it at container-run time later, regardless of shell type, login vs.
+# non-login invocation, or HOME differences.
+ENV MPLCONFIGDIR=/opt/mplconfig
+RUN mkdir -p /opt/mplconfig /usr/share/fonts/truetype/arial-alias \
+ && chmod 777 /opt/mplconfig \
  && python - <<'PYEOF'
 import os, shutil
 import matplotlib

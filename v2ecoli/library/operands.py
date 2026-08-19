@@ -380,7 +380,15 @@ def run_operand(sweep_dir: str | Path, entity_ids,
 
     The third path, and the one the module docstring already described ("or
     materialised from an artifact inside the investigation") while no code
-    implemented it. A sweep is read through the run-keyed cache
+    implemented it.
+
+    ⚠ **No non-test caller yet, deliberately.** `vs_experiment.py` resolves side
+    A via ``promoted_operand`` and side B via ``fixture_operand``; wiring this in
+    is the private-side change that lands with the ambr250 investigation
+    (`sms-ecoli#77`), and it cannot be written here because that card is
+    private-only. Recorded rather than left to be rediscovered: a public path
+    with only test callers looks like dead code to the next reader, and the
+    honest status is "the consumer is blocked on a sync, not missing". A sweep is read through the run-keyed cache
     (``sim_vector_cache.load_or_extract``), so the expensive parquet scan happens
     once per run and every later render is a cache read.
 

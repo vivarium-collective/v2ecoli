@@ -1,15 +1,19 @@
 name: Publish investigation reports
 
 # Regenerate every investigation's self-contained HTML report and publish it to
-# the gh-pages branch at investigations/<slug>.html. The report is built by the
-# vivarium-workbench SPA client-side, so we serve the dashboard headlessly and
-# drive its "Generate report" button via Playwright
-# (scripts/publish_investigation_reports.py).
+# the gh-pages branch at investigations/<slug>.html. The report is rendered
+# IN-PROCESS by vivarium-workbench's deterministic server-side generator
+# (vivarium_workbench.lib.investigation_report), called directly by
+# scripts/publish_investigation_reports.py. No browser, no dashboard server.
 #
 # This is a DEPLOY job (post-merge to main), not a PR gate — a failure here
-# never blocks a merge. It only ever writes investigations/*.html on gh-pages;
-# the hand-maintained viewers, comparison reports, and gallery index there are
-# left untouched.
+# never blocks a merge. Its write set on gh-pages is investigations/*.html PLUS
+# index.html, which the copy step below rewrites via inject_index_fragment.py;
+# the hand-maintained viewers and comparison reports are left untouched.
+#
+# ⚠ No PR check exercises this job — the only trigger is push-to-main (plus
+# workflow_dispatch). A green PR says nothing about whether this deploy works;
+# use workflow_dispatch to rehearse a change here before relying on it.
 
 on:
   push:
@@ -79,8 +83,10 @@ jobs:
 
       - name: Generate investigation reports
         id: gen
-        # Spawns `vivarium-workbench serve`, drives each investigation's report
-        # export headlessly, writes reports/published/investigations/<slug>.html.
+        # Renders each investigation in-process and writes
+        # reports/published/investigations/<slug>.html. A report whose figures
+        # failed to inline is deliberately NOT written, so the copy step leaves
+        # that investigation's last-good gh-pages page in place.
         # Keep going on a per-report failure so good reports still publish; the
         # script's exit code is recorded for the final status gate.
         run: |
@@ -127,7 +133,7 @@ jobs:
 
       - name: Fail only if NO reports were published
         # Run AFTER publishing. The generator exits non-zero only when NOTHING
-        # published (total breakage / server never came up); a partial run exits
+        # published (total breakage); a partial run exits
         # 0 and ships every report that rendered. So one stubborn investigation
         # (e.g. a heavy report whose client-side generation hangs on the current
         # workbench) no longer reds the whole deploy — the good reports still go

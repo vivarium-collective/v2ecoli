@@ -122,8 +122,12 @@ def study_figure_count(ws_root: Path, slug: str) -> int:
     else:
         return 0
     spec = yaml.safe_load(inv_yaml.read_text(encoding="utf-8")) or {}
-    studies = [s.get("name") if isinstance(s, dict) else s
-               for s in (spec.get("studies") or [])]
+    # Investigations key their members under `members` (schema_version 2 and 4);
+    # `studies` is the legacy key and is EMPTY in all 14 current investigations,
+    # so reading it alone made this return 0 everywhere and silently disabled the
+    # stripped-report guard in render_report(). Union both.
+    raw_members = list(spec.get("members") or []) + list(spec.get("studies") or [])
+    studies = [s.get("name") if isinstance(s, dict) else s for s in raw_members]
     fig_root = ws_root / "reports" / "figures"
     n = 0
     for st in filter(None, studies):
@@ -134,7 +138,7 @@ def study_figure_count(ws_root: Path, slug: str) -> int:
 
 
 def render_report(ws_root: Path, slug: str, out_path: Path,
-                  expect_figures: bool) -> tuple[bool, str]:
+                  expect_figures: int) -> tuple[bool, str]:
     """Render one investigation report to ``out_path``. Returns (ok, message).
 
     Integrity-checks BEFORE writing: a report that is implausibly small, or
@@ -145,23 +149,43 @@ def render_report(ws_root: Path, slug: str, out_path: Path,
         build_report_data,
         render_html,
     )
-    try:
-        data = build_report_data(ws_root, slug)
-    except FileNotFoundError:
+    for base in (ws_root / "workspace" / "investigations", ws_root / "investigations"):
+        if (base / slug / "investigation.yaml").is_file():
+            break
+    else:
         return False, "investigation not found"
+    data = build_report_data(ws_root, slug)
     html = render_html(data)
+
+    # Count the figures the generator ACTUALLY inlined, off the data dict — never
+    # by grepping the rendered HTML. Marker-grepping cannot work against this
+    # template: it already carries 2 `<iframe` + 1 `srcdoc` in its own renderer JS
+    # (a constant floor of 3), and render_html JSON-escapes `<` to \u003c, so
+    # figure markup inside the payload never matches a `<iframe` grep. Under that
+    # metric a figure-less report is indistinguishable from a complete one.
+    embedded = sum(len(st.get("figures_embedded") or [])
+                   for st in (data.get("studies") or []) if isinstance(st, dict))
 
     size = len(html.encode("utf-8"))
     if size < MIN_REPORT_BYTES:
         return False, f"report too small ({size} B < {MIN_REPORT_BYTES}); not published"
-    embeds = html.count("<iframe") + html.count("srcdoc") + html.count("data:image")
-    if expect_figures and embeds == 0:
-        return False, (f"{size} B but ZERO figure embeds while studies reference "
-                       "figures — report stripped; not published (kept last-good)")
+    if expect_figures and embedded == 0:
+        return False, (f"{size:,} B but ZERO figures inlined while its members carry "
+                       f"{expect_figures} committed figure file(s) — report stripped; "
+                       "not published (last-good page preserved)")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(html, encoding="utf-8")
-    return True, f"{size:,} B, {embeds} embed-markers"
+    # Always surface inlined-vs-committed. The generator sources figures from a
+    # study's own viz/ + charts/ (non-recursive) and from `image:`-addressed
+    # data-URIs; it does NOT read reports/figures/<study>/, so a report can be
+    # legitimately published while still carrying fewer figures than the
+    # workspace commits. Printing both makes a partial loss visible in the deploy
+    # log instead of hiding behind a bare ✓.
+    note = f"{size:,} B, {embedded} figures inlined"
+    if expect_figures and embedded < expect_figures:
+        note += f" (workspace commits {expect_figures} — PARTIAL)"
+    return True, note
 
 
 def main() -> int:
@@ -174,10 +198,10 @@ def main() -> int:
     # Accepted-and-ignored: the generator needs no server. Kept so existing
     # invocations and muscle memory do not hard-fail on an unknown flag.
     ap.add_argument("--url", default=None, help=argparse.SUPPRESS)
-    ap.add_argument("--port", type=int, default=0, help=argparse.SUPPRESS)
+    ap.add_argument("--port", type=int, default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    if args.url or args.port:
+    if args.url is not None or args.port is not None:
         print("note: --url/--port are obsolete (reports render in-process, "
               "no dashboard server involved) — ignoring", file=sys.stderr)
 
@@ -195,7 +219,7 @@ def main() -> int:
     results: dict[str, tuple[bool, str]] = {}
     for slug in slugs:
         out_path = out_dir / "investigations" / f"{slug}.html"
-        expect_figures = study_figure_count(ws_root, slug) > 0
+        expect_figures = study_figure_count(ws_root, slug)
         try:
             ok, msg = render_report(ws_root, slug, out_path, expect_figures)
         except Exception as e:  # noqa: BLE001 — report per-slug, keep going

@@ -49,6 +49,23 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
+# matplotlib font resolution: the cd1_*/ptools_* analysis plotting stack requests
+# "Arial" (seaborn's default sans-serif list puts it first), which this base image
+# doesn't have — matplotlib's findfont() re-scans and re-warns on EVERY unresolved
+# text element rather than failing once, and since each AWS Batch job is a fresh
+# container the font cache can never persist across runs either. At real multiseed/
+# multigeneration plot volume (many text elements per figure) this compounds into
+# minutes-to-hours of pure font-resolution overhead — confirmed live: a 10-seed x
+# 10-generation cd1_* analysis job produced zero output after 75+ minutes, log
+# saturated with repeated "Font family 'Arial' not found" warnings. Fix both
+# causes: install a real, metric-compatible Arial substitute so resolution
+# succeeds on the first try, and pre-build matplotlib's font cache into the image
+# layer so no container run ever pays the cold-cache scan cost.
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-liberation \
+ && rm -rf /var/lib/apt/lists/* \
+ && fc-cache -f \
+ && python -c "import matplotlib.font_manager as fm; fm.fontManager.__init__(); print('matplotlib font cache built:', len(fm.fontManager.ttflist), 'fonts')"
+
 # PRISTINE upstream CovertLab/vEcoli checkout as a SIBLING of /app/v2ecoli, so
 # the comparison driver (scripts/run_comparison_ensemble.py --composite vecoli)
 # runs the ORIGINAL, UNMODIFIED vEcoli model as a process-bigraph composite via
@@ -106,3 +123,6 @@ RUN chmod +x /opt/ray-batch-entrypoint.sh
 
 COPY docker/batch-array-entrypoint.sh /opt/batch-array-entrypoint.sh
 RUN chmod +x /opt/batch-array-entrypoint.sh
+
+COPY docker/batch-container-entrypoint.sh /opt/batch-container-entrypoint.sh
+RUN chmod +x /opt/batch-container-entrypoint.sh

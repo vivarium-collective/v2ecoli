@@ -51,20 +51,47 @@ RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
 # matplotlib font resolution: the cd1_*/ptools_* analysis plotting stack requests
 # "Arial" (seaborn's default sans-serif list puts it first), which this base image
-# doesn't have — matplotlib's findfont() re-scans and re-warns on EVERY unresolved
-# text element rather than failing once, and since each AWS Batch job is a fresh
-# container the font cache can never persist across runs either. At real multiseed/
-# multigeneration plot volume (many text elements per figure) this compounds into
-# minutes-to-hours of pure font-resolution overhead — confirmed live: a 10-seed x
-# 10-generation cd1_* analysis job produced zero output after 75+ minutes, log
-# saturated with repeated "Font family 'Arial' not found" warnings. Fix both
-# causes: install a real, metric-compatible Arial substitute so resolution
-# succeeds on the first try, and pre-build matplotlib's font cache into the image
-# layer so no container run ever pays the cold-cache scan cost.
-RUN apt-get update && apt-get install -y --no-install-recommends fonts-liberation \
- && rm -rf /var/lib/apt/lists/* \
- && fc-cache -f \
- && python -c "import matplotlib.font_manager as fm; fm.fontManager.__init__(); print('matplotlib font cache built:', len(fm.fontManager.ttflist), 'fonts')"
+# doesn't have. Live-confirmed impact, twice: a 10-seed x 10-generation cd1_*
+# analysis job produced zero output after 75+ minutes, log saturated with
+# repeated "Font family 'Arial' not found" warnings.
+#
+# fonts-liberation alone (metric-compatible substitute) does NOT fix this —
+# matplotlib's font_manager matches by each font FILE's own internal name-table
+# metadata, not fontconfig aliases, and Liberation Sans's own metadata says
+# "Liberation Sans", never "Arial" — confirmed live: installing it had zero
+# effect, the exact same warning volume reproduced on a second real dispatch.
+# The actual fix: make a font file that genuinely IDENTIFIES as "Arial" to
+# matplotlib's own matcher. Take matplotlib's own bundled DejaVu Sans (always
+# present, no extra download) and rewrite its name-table records via fonttools
+# (already a locked matplotlib dependency) so it reports itself as "Arial" —
+# then findfont("Arial") succeeds on the very first call, permanently, for any
+# code path that requests it, regardless of caching or call order.
+RUN mkdir -p /usr/share/fonts/truetype/arial-alias \
+ && python - <<'PYEOF'
+import os, shutil
+import matplotlib
+from fontTools.ttLib import TTFont
+
+src = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans.ttf")
+dst = "/usr/share/fonts/truetype/arial-alias/Arial.ttf"
+shutil.copy(src, dst)
+
+font = TTFont(dst)
+for record in font["name"].names:
+    if record.nameID in (1, 4, 6, 16):  # family / full / postscript / typographic-family
+        record.string = "Arial"
+    elif record.nameID in (2, 17):  # subfamily / typographic-subfamily
+        record.string = "Regular"
+font.save(dst)
+PYEOF
+RUN fc-cache -f \
+ && python -c "\
+import matplotlib.font_manager as fm; \
+fm.fontManager.addfont('/usr/share/fonts/truetype/arial-alias/Arial.ttf'); \
+fm.fontManager.__init__(); \
+names = {f.name for f in fm.fontManager.ttflist}; \
+assert 'Arial' in names, f'Arial alias failed to register: {sorted(names)}'; \
+print('Arial now resolves via matplotlib font_manager:', 'Arial' in names)"
 
 # PRISTINE upstream CovertLab/vEcoli checkout as a SIBLING of /app/v2ecoli, so
 # the comparison driver (scripts/run_comparison_ensemble.py --composite vecoli)

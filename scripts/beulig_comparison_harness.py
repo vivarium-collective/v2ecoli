@@ -857,8 +857,15 @@ def render_iml1515_scatter(pairs: list[dict], out_dir: Path) -> list[str]:
 
 
 def run_iml1515_harness(max_samples: int = DEFAULT_IML1515_SAMPLES,
-                        render: bool = True) -> dict:
-    """Run the iML1515 arm, grade vs Beulig, write report_card_verdict.json."""
+                        render: bool = True,
+                        card_root: Path | None = None) -> dict:
+    """Run the iML1515 arm, grade vs Beulig, write report_card_verdict.json.
+
+    ``card_root`` overrides the TRACKED default card root (CARD_ROOT). Tests
+    MUST pass a tmp path: the default writes the committed production card in
+    place, and a smoke-scale invocation would silently degrade it (this
+    happened — see the 2026-08-18 review of PR #519).
+    """
     t0 = time.perf_counter()
     pairs = run_iml1515_arm(max_samples=max_samples)
     reference, card = build_iml1515_axes(pairs)
@@ -886,7 +893,7 @@ def run_iml1515_harness(max_samples: int = DEFAULT_IML1515_SAMPLES,
     verdict["n_optimal"] = n_opt
     verdict["wall_s"] = round(time.perf_counter() - t0, 2)
 
-    out_dir = CARD_ROOT / ARM_CARD_DIR["iml1515"]
+    out_dir = (card_root if card_root is not None else CARD_ROOT) / ARM_CARD_DIR["iml1515"]
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "report_card_verdict.json").write_text(
         json.dumps(verdict, indent=2), encoding="utf-8")
@@ -910,7 +917,8 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
                 chunk: int = DEFAULT_MULTIGEN_CHUNK,
                 single_daughters: bool = True,
                 seed: int = 0,
-                population_growth_mode: str = "fixed") -> dict:
+                population_growth_mode: str = "fixed",
+                card_root: Path | None = None) -> dict:
     """Run one arm, grade vs Beulig, write report_card_verdict.json (+ charts).
 
     ``production=True`` uses the multi-generation lineage-following runner
@@ -918,12 +926,17 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
     the card lands at the SAME path so the studies' report_card_axis tests still
     resolve, with the verdict ``scope`` recording the N-generation run.
 
+    ``card_root`` overrides the TRACKED default card root; tests MUST pass a
+    tmp path (a smoke invocation at the default silently degrades the
+    committed production cards in place).
+
     Returns the verdict dict (also written to disk)."""
     if arm == "iml1515":
         # Genome-scale FBA arm — not a PB composite; separate path (reuses the
         # iml1515_vs_beulig FBA harness), graded by the SAME grader. Has no
         # multi-generation analogue (FBA over Beulig samples, not a sim).
-        return run_iml1515_harness(max_samples=max_samples, render=render)
+        return run_iml1515_harness(max_samples=max_samples, render=render,
+                                   card_root=card_root)
 
     if arm not in ARM_COMPOSITE:
         raise ValueError(f"unknown arm {arm!r}; expected one of {ALL_ARMS}")
@@ -983,7 +996,7 @@ def run_harness(arm: str, steps: int = DEFAULT_SMOKE_STEPS,
         )
     verdict["wall_s"] = round(time.perf_counter() - t0, 2)
 
-    out_dir = CARD_ROOT / ARM_CARD_DIR[arm]
+    out_dir = (card_root if card_root is not None else CARD_ROOT) / ARM_CARD_DIR[arm]
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "report_card_verdict.json").write_text(
         json.dumps(verdict, indent=2), encoding="utf-8")

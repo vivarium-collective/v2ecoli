@@ -11,7 +11,6 @@ gradeable groups.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -170,11 +169,16 @@ def test_iml1515_arm_grades_growth_via_r2():
 
 @pytest.mark.sim
 @pytest.mark.slow
-def test_iml1515_arm_writes_verdict_and_resolves():
+def test_iml1515_arm_writes_verdict_and_resolves(tmp_path):
     """run_harness('iml1515') writes report_card_verdict.json at the card path,
-    and the workspace evaluator resolves (PASS/FAIL, not ungraded) for growth."""
-    verdict = h.run_harness("iml1515", max_samples=8, render=False)
-    vpath = h.CARD_ROOT / "iml1515_vs_beulig" / "report_card_verdict.json"
+    and the workspace evaluator resolves (PASS/FAIL, not ungraded) for growth.
+
+    card_root is a tmp path: the default is the TRACKED production card, and a
+    max_samples=8 smoke run at the default silently degrades it in place
+    (bitten once — 2026-08-18 review of PR #519)."""
+    card_root = tmp_path / "docs" / "report_cards" / "beulig_batch"
+    h.run_harness("iml1515", max_samples=8, render=False, card_root=card_root)
+    vpath = card_root / "iml1515_vs_beulig" / "report_card_verdict.json"
     assert vpath.is_file(), f"verdict not written at {vpath}"
     on_disk = json.loads(vpath.read_text())
     assert on_disk["schema"] == "report_card_verdict/v1"
@@ -185,7 +189,7 @@ def test_iml1515_arm_writes_verdict_and_resolves():
     test = {"measure": {"kind": "report_card_axis",
                         "card": "docs/report_cards/beulig_batch/iml1515_vs_beulig",
                         "group": "growth"}}
-    res = evaluate_report_card_group(test, None, str(WS_ROOT))
+    res = evaluate_report_card_group(test, None, str(tmp_path))
     assert res["result"] in ("PASS", "FAIL"), (
         f"growth group did not resolve: {res}")
 
@@ -196,14 +200,16 @@ def test_iml1515_arm_writes_verdict_and_resolves():
 @pytest.mark.slow
 @pytest.mark.parametrize("arm,card_dir", [("wcm", "vs_beulig"),
                                           ("millard", "millard_vs_beulig")])
-def test_arm_writes_wellformed_verdict_and_resolves(arm, card_dir):
+def test_arm_writes_wellformed_verdict_and_resolves(arm, card_dir, tmp_path):
     """Running an arm for a few steps writes a well-formed report_card_verdict.json
     at the study-referenced card path, with the 5 study groups present and each
     group's axes non-empty; and the workspace evaluator returns a non-ungraded
-    result for at least one group."""
-    verdict = h.run_harness(arm, steps=2, render=False)
+    result for at least one group. Cards go to a tmp card_root, never the
+    tracked production cards."""
+    card_root = tmp_path / "docs" / "report_cards" / "beulig_batch"
+    h.run_harness(arm, steps=2, render=False, card_root=card_root)
 
-    vpath = h.CARD_ROOT / card_dir / "report_card_verdict.json"
+    vpath = card_root / card_dir / "report_card_verdict.json"
     assert vpath.is_file(), f"verdict not written at {vpath}"
     on_disk = json.loads(vpath.read_text())
     assert on_disk["schema"] == "report_card_verdict/v1"
@@ -217,26 +223,31 @@ def test_arm_writes_wellformed_verdict_and_resolves(arm, card_dir):
     test = {"measure": {"kind": "report_card_axis",
                         "card": f"docs/report_cards/beulig_batch/{card_dir}",
                         "group": "growth"}}
-    res = evaluate_report_card_group(test, None, str(WS_ROOT))
+    res = evaluate_report_card_group(test, None, str(tmp_path))
     assert res["result"] in ("PASS", "FAIL"), (
         f"growth group did not resolve: {res}")
 
 
 @pytest.mark.sim
 @pytest.mark.slow
-def test_report_card_axis_tests_resolve_via_study_evaluator():
+def test_report_card_axis_tests_resolve_via_study_evaluator(tmp_path):
     """The mbp-05 + mbp-09 report_card_axis tests now RESOLVE (not 'ungraded')
-    against the produced cards, through the public study_evaluator seam."""
-    # Ensure both cards exist (cheap re-run; smoke).
-    h.run_harness("wcm", steps=2, render=False)
-    h.run_harness("millard", steps=2, render=False)
+    against the produced cards, through the public study_evaluator seam.
+    Cards are produced into a tmp workspace, never the tracked paths."""
+    # Ensure both cards exist (cheap re-run; smoke) — in the tmp card root.
+    card_root = tmp_path / "docs" / "report_cards" / "beulig_batch"
+    h.run_harness("wcm", steps=2, render=False, card_root=card_root)
+    h.run_harness("millard", steps=2, render=False, card_root=card_root)
 
     from viva_superpowers.study_evaluator import evaluate_test
+    # ws_root stays the REAL workspace (the report_card_axis evaluator is
+    # workspace-registered, so the registry must load from it); the card
+    # paths are absolute into the tmp card root, which wins the pathlib join.
     cases = [
-        ("docs/report_cards/beulig_batch/vs_beulig", "growth"),       # mbp-05
-        ("docs/report_cards/beulig_batch/vs_beulig", "gas_transfer"),
-        ("docs/report_cards/beulig_batch/millard_vs_beulig", "growth"),  # mbp-09
-        ("docs/report_cards/beulig_batch/millard_vs_beulig", "summary"),
+        (str(card_root / "vs_beulig"), "growth"),          # mbp-05
+        (str(card_root / "vs_beulig"), "gas_transfer"),
+        (str(card_root / "millard_vs_beulig"), "growth"),  # mbp-09
+        (str(card_root / "millard_vs_beulig"), "summary"),
     ]
     for card, group in cases:
         test = {"measure": {"kind": "report_card_axis", "card": card, "group": group},

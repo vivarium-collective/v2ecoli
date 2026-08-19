@@ -248,19 +248,72 @@ class RunOperand(unittest.TestCase):
             self.assertIsNone(ops.run_operand(sweep, ["A", "B"],
                                               observable="proteome"))
 
+    @staticmethod
+    def _bake_keyed():
+        """The REAL ``scripts/bake_model_omics.py::_keyed``, imported by path.
+
+        Imported rather than restated: a copy asserts what we believe bake does,
+        which is precisely the thing that can silently stop being true.
+        """
+        import importlib.util
+        p = Path(__file__).resolve().parents[1] / "scripts" / "bake_model_omics.py"
+        spec = importlib.util.spec_from_file_location("_bake_for_parity", p)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod._keyed
+
     def test_collisions_are_summed_exactly_as_the_bake_path_sums_them(self):
         """Several mRNA cistrons legitimately map to one EcoCyc gene id.
 
         The live path and ``scripts/bake_model_omics.py`` must agree, or
         "we re-ran it live" quietly also means "we changed the aggregation".
+
+        ★ This asserts against the IMPORTED bake implementation, not an inline
+        expectation. An inline dict cannot fail when bake changes, which is the
+        entire risk the parity claim is about.
         """
+        vector, ids = [1.0, 2.0, 4.0], ["EG1", "EG1", "EG2"]
+        bake_out, bake_unmapped, bake_collisions = self._bake_keyed()(vector, ids)
+
         with TemporaryDirectory() as d:
             sweep = Path(d) / "sweep"
             sweep.mkdir()
-            _run_cache(sweep, [1.0, 2.0, 4.0])
-            op = ops.run_operand(sweep, ["EG1", "EG1", "EG2"])
-            self.assertEqual(op.values, {"EG1": 3.0, "EG2": 4.0})
-            self.assertEqual(op.meta["n_collisions"], 1)
+            _run_cache(sweep, vector)
+            op = ops.run_operand(sweep, ids)
+
+            self.assertEqual(op.values, bake_out)
+            self.assertEqual(op.meta["n_collisions"], bake_collisions)
+            self.assertEqual(op.meta["n_unmapped"], bake_unmapped)
+            # pinned so a silent change on EITHER side is visible in the diff
+            self.assertEqual(bake_out, {"EG1": 3.0, "EG2": 4.0})
+
+    def test_the_one_way_the_two_keyed_implementations_deliberately_differ(self):
+        """★ They are NOT byte-identical, and the difference is a hardening.
+
+        ``operands._keyed`` normalises with ``k = "" if k is None else str(k)``;
+        bake's copy does not. Consequences, which are the whole reason this is
+        pinned rather than described:
+
+        * ``None``   — identical (both fall to the unmapped branch);
+        * ``"EG1"``  — identical (the real domain: entity ids are strings);
+        * ``5``      — DIVERGENT. operands keys ``"5"``, bake keys ``5``.
+
+        So "deliberately identical" is true on the domain either is used with,
+        and false in general. Asserting equality unconditionally would fail here
+        — which is how this divergence was found rather than assumed.
+        """
+        bake_keyed = self._bake_keyed()
+        vector = [1.0, 2.0]
+
+        for ids in (["EG1", "EG2"], [None, "EG2"], ["None", "EG2"]):
+            with self.subTest(ids=ids):
+                self.assertEqual(ops._keyed(vector, ids), bake_keyed(vector, ids))
+
+        ours, _, _ = ops._keyed(vector, [5, "EG2"])
+        theirs, _, _ = bake_keyed(vector, [5, "EG2"])
+        self.assertEqual(set(ours), {"5", "EG2"})
+        self.assertEqual(set(theirs), {5, "EG2"})
+        self.assertNotEqual(ours, theirs)
 
     def test_unmapped_ids_are_dropped_and_counted(self):
         with TemporaryDirectory() as d:
@@ -371,6 +424,46 @@ class DeclaredZeros(unittest.TestCase):
             substituted.declared_zeros, {"EG11029"},
             "declared_zeros must key on the COUNTS, which are invariant to a "
             "centre substitution, not on a null centre which is not")
+
+    def test_a_promoted_operand_without_counts_RAISES_rather_than_reporting_none(self):
+        """★ "I have no counts" is not "I have no zeros".
+
+        `VectorObservationSchema` requires `n` and `n_pos`, so a promoted frame
+        lacking them is a malformed payload. Returning an empty set would be
+        indistinguishable from a payload that genuinely has no zeros — the exact
+        silent inertness this accessor was fixed for.
+        """
+        op = self._measured([("A", 5.0, 4.8, 6)])
+        stripped = dataclasses.replace(op, frame=op.frame.drop(columns=["n_pos"]))
+        with self.assertRaises(KeyError) as ctx:
+            stripped.declared_zeros
+        self.assertIn("n_pos", str(ctx.exception))
+
+    def test_a_synthesised_operand_without_counts_is_legitimately_empty(self):
+        """The other side of the same rule — and why it is not symmetric.
+
+        A fixture/run frame carries no replicate counts by construction, so
+        empty is the honest answer rather than a swallowed error. This is a PATH
+        distinction, not measured-vs-simulated: a promoted SIMULATION has counts
+        and does report declared zeros.
+        """
+        op = self._measured([("A", 5.0, 4.8, 6)])
+        for path in ("fixture", "in-investigation"):
+            with self.subTest(path=path):
+                synth = dataclasses.replace(
+                    op, path=path, frame=op.frame.drop(columns=["n", "n_pos"]))
+                self.assertEqual(synth.declared_zeros, set())
+
+    def test_below_limit_is_not_a_declared_zero(self):
+        """`below_limit` is a statement about the LIMIT, not a count of zero.
+
+        Latent against today's payload (no row combines it with `n_pos == 0` and
+        `n > 0`), but the payload carries 5,213 `below_limit` rows, so the rule
+        is stated rather than left to the emitter.
+        """
+        op = self._measured([("A", 0.0, None, 0)])
+        op.frame.loc[0, "detection"] = "below_limit"
+        self.assertEqual(op.declared_zeros, set())
 
     def test_a_row_nobody_measured_is_not_a_declared_zero(self):
         """`n_pos == 0` alone is not the fact -- `n > 0` is what makes it one.

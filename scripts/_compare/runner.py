@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import subprocess
 
-from scripts._compare.study_spec import REPO, load_investigation, load_study
+from scripts._compare.study_spec import (REPO, is_reference_config,
+                                         load_investigation, load_study)
 from scripts._compare.materialize import materialize_study
 
 PER_GEN_STEPS = 15000          # per-generation tick budget (non-binding cap)
@@ -27,8 +28,14 @@ def _run_engines(spec, out: str, mode: str) -> None:
     v2_cap = str(spec.gens * per_gen)
     # config is the unit: a path drives a process swap on BOTH engines; a bare
     # condition name is a plain baseline comparison (no swap flag).
-    is_path = str(spec.config).endswith(".json")
+    is_path = is_reference_config(spec.config)
     swap_flags = ["--from-vecoli-config", spec.config] if is_path else []
+    # Companion fork processes the study names (see StudySpec.inject_processes).
+    # Passed on BOTH engine invocations: the genuine-vEcoli side ignores the flag
+    # (its own config already lists the process), so a single list stays the
+    # study's one declaration rather than two that can drift apart.
+    for _p in getattr(spec, "inject_processes", None) or []:
+        swap_flags += ["--inject-process", _p]
     subprocess.run([PY, "scripts/run_comparison_ensemble.py",
                     "--composite", "v2ecoli", "--condition", spec.condition,
                     "--cache-dir", spec.v2_cache, "--n-seeds", str(spec.seeds),

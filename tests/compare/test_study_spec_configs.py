@@ -176,3 +176,24 @@ def test_a_missing_study_yaml_is_not_an_error(tmp_path, monkeypatch):
     monkeypatch.setattr(ss, "REPO", tmp_path)
     specs = specs_from_configs(_ctx([{"name": "absent", "config": "configs/redux.json"}]))
     assert specs[0].inject_processes == []
+
+
+def test_companions_resolve_within_an_alternate_workspace(tmp_path):
+    # `inv_dir` is <workspace>/investigations/<name>, so studies are its sibling.
+    # Deriving from it — as the legacy members path already did — means an
+    # investigation rooted outside REPO still finds its studies. Hardcoding REPO
+    # read no companions and did not fire the guard, silently.
+    import yaml as _y
+    ws = tmp_path / "alt_workspace"
+    inv_dir = ws / "investigations" / "inv"
+    inv_dir.mkdir(parents=True)
+    sdir = ws / "studies" / "s"
+    sdir.mkdir(parents=True)
+    (sdir / "study.yaml").write_text(_y.safe_dump({
+        "name": "s", "condition": "basal", "from_vecoli_config": "configs/redux.json",
+        "inject_processes": ["companion-listener"]}))
+    ctx = _ctx([{"name": "s", "config": "configs/redux.json"}])
+    ctx["inv_dir"] = inv_dir
+    specs = specs_from_configs(ctx)
+    assert specs[0].inject_processes == ["companion-listener"]
+    assert specs[0].study_path == str(sdir / "study.yaml")

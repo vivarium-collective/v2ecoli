@@ -67,6 +67,26 @@ class StudySpec:
         return [c for c in self.cards if c in GRADED]
 
 
+def studies_root_for(inv_dir) -> Path:
+    """Where a workspace keeps its studies.
+
+    Studies live as a SIBLING of ``investigations/`` under the same workspace
+    root (``inv_dir`` is always ``<workspace>/investigations/<name>``). Derived
+    from ``inv_dir`` rather than hardcoding ``REPO`` so a caller pointing at an
+    alternate or test workspace resolves studies within THAT workspace.
+
+    ⚠ Both the legacy members path and ``specs_from_configs`` resolve through
+    here. The hardcoded form used to appear only in a ``study_path=`` string --
+    cosmetic, since nothing read it. It is load-bearing now that companions are
+    read from that file, and an investigation rooted outside ``REPO`` would have
+    read none of them with no error.
+    """
+    # NOT the module-level STUDIES_ROOT: that is bound at import, so a test (or
+    # any caller) repointing REPO would not reach it. Looked up at call time.
+    return (Path(inv_dir).parent.parent / "studies") if inv_dir \
+        else (REPO / "workspace" / "studies")
+
+
 def companions_from_study_yaml(study_path) -> list:
     """Read `inject_processes` from a study.yaml — the ONE surface that declares it.
 
@@ -155,7 +175,7 @@ def specs_from_configs(ctx: dict) -> list:
     for entry in ctx["configs"]:
         name = entry["name"]
         cfg = entry.get("config", name)
-        study_yaml = REPO / "workspace" / "studies" / name / "study.yaml"
+        study_yaml = studies_root_for(ctx.get("inv_dir")) / name / "study.yaml"
         companions = companions_from_study_yaml(study_yaml)
         check_companions_are_reachable(companions, cfg, str(study_yaml))
         out.append(StudySpec(
@@ -169,7 +189,7 @@ def specs_from_configs(ctx: dict) -> list:
             v2_cache=ctx["v2_cache"],
             ve_cache=ctx["ve_cache"],
             reference=ctx["reference"],
-            study_path=str(REPO / "workspace" / "studies" / name / "study.yaml"),
+            study_path=str(study_yaml),
             max_steps_per_gen=int(entry.get("max_steps_per_gen") or 15000),
             inject_processes=companions,
         ))
@@ -245,7 +265,7 @@ def load_investigation(ref: str) -> tuple[dict, list]:
     # workspace root (inv_dir is always <workspace>/investigations/<name>);
     # derive it from inv_dir rather than hardcoding REPO so a caller pointing
     # at an alternate/test workspace resolves studies within that workspace.
-    studies_root = inv_dir.parent.parent / "studies"
+    studies_root = studies_root_for(inv_dir)
     specs = []
     for sname in ctx["members"]:
         sp = studies_root / sname / "study.yaml"

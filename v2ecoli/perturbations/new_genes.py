@@ -11,8 +11,8 @@ reach — **expression** — because a new gene is inserted *silent*:
     out by default."
 
 Measured on a real heterologous insertion: its new-gene entries in
-``rna_expression['basal']`` are **exactly 0**, against a median 3.1e-05 across
-native cistrons. ``rna_expression`` is the array the simulation actually consumes
+``rna_expression['basal']`` are **exactly 0**, against a median 1.06e-06 across
+native entries of that same array. ``rna_expression`` is the array the simulation actually consumes
 (``initial_conditions.py`` derives cistron-level counts from it); note that
 ``cistron_expression`` is a reconstruction-time quantity with no runtime reader,
 and it stays 0 even after a successful induction — so it is the wrong thing to
@@ -32,11 +32,15 @@ sim_data. This module **mutates sim_data directly**, because the expression
 half reaches sim_data fields that have no cached-config equivalent — synthesis
 probability, expression and free/ppGpp expression are modified; attenuation
 adjustments and the basal/delta promoter probabilities are asserted empty rather
-than written. That is also the surface
+than written. That also matches the surface
 ``sim_data.internal_shift_dict`` expects: the loader
 (``v2ecoli/library/sim_data.py``) stores ``{generation: (func, params)}`` and
-applies ``func(sim_data, *params)`` once the lineage reaches that generation, so
-a callable of this shape is what schedules an induction.
+applies ``func(sim_data, *params)`` once the lineage reaches that generation.
+⚠ **In v2ecoli that path is not wired.** Nothing here populates the dict, and the
+loader's branch is gated on ``"agent_id" in kwargs``, which no v2ecoli
+``LoadSimData`` call site passes — so a callable stored there would be kept and
+never fired. It schedules a deferred induction in vEcoli; a v2ecoli driver
+applies the modification before the cache is built instead.
 
 ⚠ **Composition with the sibling module.**
 ``translation.translation_efficiency_override`` returns a **full replacement**
@@ -109,6 +113,18 @@ def new_gene_indices(sim_data: Any) -> tuple[list[str], list[int], list[str], li
             "new-gene cistrons exist but no rna_data id starts with 'NG' — the "
             "id convention this function relies on does not hold for this build."
         )
+    # The RNA list and the monomer list are built from DIFFERENT orderings — RNAs
+    # by id prefix over ``rna_data``, monomers from ``new_cistron_ids`` in
+    # ``cistron_data`` order. Callers pair per-target weight vectors against these
+    # two lists positionally, so if the orderings ever diverge a weight meant for
+    # one gene would be applied to another — silently, and a length check cannot
+    # see it, because the counts still match.
+    if new_rna_ids != new_cistron_ids:
+        raise ValueError(
+            f"new-gene RNA order {new_rna_ids} and cistron order {new_cistron_ids} "
+            "do not correspond; per-target weight vectors are paired positionally "
+            "against these two lists, so applying them would mis-assign weights."
+        )
     return new_rna_ids, new_rna_indices, new_monomer_ids, new_monomer_indices
 
 
@@ -145,24 +161,6 @@ def set_new_gene_expression(
     """
     rna_ids, rna_indices, monomer_ids, monomer_indices = new_gene_indices(sim_data)
 
-    # The two weight vectors are paired POSITIONALLY against orderings resolved two
-    # different ways: RNAs by an ``NG`` id prefix over ``rna_data``, monomers via
-    # the cistron->monomer map. If those ever diverge, ``rel_exp_adj[i]`` and
-    # ``rel_trl_eff_adj[i]`` would silently refer to different genes — a screen
-    # would then apply a design vector it never intended. The length check below
-    # catches a wrong COUNT, not a wrong correspondence, so check that too.
-    stripped_rna = [str(r) for r in rna_ids]
-    cistron_of_monomer = dict(zip(
-        sim_data.process.translation.monomer_data.struct_array["id"],
-        sim_data.process.translation.monomer_data.struct_array["cistron_id"]))
-    monomer_cistrons = [str(cistron_of_monomer[m]) for m in monomer_ids]
-    if stripped_rna != monomer_cistrons:
-        raise ValueError(
-            "new-gene RNA order and monomer order do not correspond "
-            f"({stripped_rna} vs {monomer_cistrons}); the two weight vectors are "
-            "paired positionally, so applying them would mis-assign per-gene "
-            "weights.")
-
     rel_exp_adj = _resolve_weights(rel_exp_adj, len(rna_indices), "rel_exp_adj", "RNA")
     rel_trl_eff_adj = _resolve_weights(
         rel_trl_eff_adj, len(monomer_indices), "rel_trl_eff_adj", "monomer"
@@ -173,11 +171,14 @@ def set_new_gene_expression(
     # (``arr[i] = baseline_i * factor_i``) and then renormalizes the WHOLE
     # transcriptome. Calling it once per gene therefore renormalizes N times, and
     # each gene is renormalized a different number of times, so equal weights come
-    # out unequal and the result depends on call order. Measured on a real
-    # 5-gene insertion with five identical weights: 0.0014% spread at 1e4,
-    # 0.16% at 1e6, and 13.6% at 1e8 — negligible at low induction, material once
-    # the construct takes a non-trivial share of the transcriptome, which is
-    # exactly where a design screen goes. The batched call renormalizes once and
+    # out unequal and the result depends on call order. Measured on ONE real
+    # 5-gene insertion with five IDENTICAL weights, which should give identical
+    # results: spread 0.0014% at expression 1e4, 0.14% at 1e6, 13.6% at 1e8
+    # (new-gene share of the transcriptome 1.7e-05, 1.7e-03, 1.5e-01). Those
+    # magnitudes come from that one build and are indicative; what is exact is
+    # that the batched call gives ZERO spread at every level. Negligible at low
+    # induction, material once the construct takes a non-trivial share of the
+    # transcriptome — which is where a design screen goes. The batched call renormalizes once and
     # is exact at every level; the fork's function already accepts lists.
     exp_applied = [expression * w for w in rel_exp_adj]
     sim_data.adjust_new_gene_final_expression(list(rna_indices), exp_applied)

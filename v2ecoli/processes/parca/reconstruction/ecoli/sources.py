@@ -88,6 +88,16 @@ class SourceBundle:
         #: ``knockdown()`` bundle fitted with ``rnaseq_source: reference``).
         #: Empty set for a plain base bundle.
         self.variant_generated_keys = variant_keys
+        #: Keys contributed by the OVERRIDE CHAIN, populated below.
+        #:
+        #: The sidecar covers only what a *generator* wrote next to the base
+        #: manifest. An override manifest carries no ``genotype.json``, so a
+        #: payload that supplies a key through ``--bundle-overrides`` is
+        #: invisible to ``variant_generated_keys`` — and that is now a real
+        #: entry point, not a hypothetical one. Both sets together are what
+        #: "this key did not come from the stock reference bundle" means; see
+        #: :attr:`externally_supplied_keys`.
+        self.override_supplied_keys: set[str] = set()
 
         # Overrides are a CHAIN, applied in order, and v2ecoli's own defaults
         # are always the first link.
@@ -126,6 +136,7 @@ class SourceBundle:
                     )
                     continue
                 index[key] = path
+                self.override_supplied_keys.add(key)
 
         self._index = index
         # Kept as provenance: the genotype a ParCa build was made from IS its
@@ -147,6 +158,22 @@ class SourceBundle:
         self.overrides = chain[-1] if chain else None
         if validate:
             self._validate(base_manifest, self.overrides)
+
+    @property
+    def externally_supplied_keys(self) -> set[str]:
+        """Keys this bundle got from somewhere other than the stock base table.
+
+        The union of what a variant GENERATED (sidecar) and what the OVERRIDE
+        CHAIN contributed. A consumer asking "did someone deliberately supply
+        this key?" must ask both: the sidecar alone misses every payload
+        delivered through ``--bundle-overrides``, which is exactly the entry
+        point a guard against silently-ignored inputs needs to cover.
+
+        Note the two halves mean subtly different things — generated-by-a-
+        variant vs. supplied-by-an-overlay — and a caller that needs to tell
+        them apart should read the two attributes directly.
+        """
+        return set(self.variant_generated_keys) | set(self.override_supplied_keys)
 
     @staticmethod
     def _variant_generated_keys(manifest: Path) -> set[str]:

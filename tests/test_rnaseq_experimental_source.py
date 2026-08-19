@@ -495,13 +495,32 @@ def test_initialize_step_forwards_the_selector_to_sim_data(monkeypatch):
 
 def test_cli_exposes_the_selector():
     """Both entry points must be able to SET it, or the composite param is
-    effective on one path only — the defect class this change removes."""
+    effective on one path only — the defect class this change removes.
+
+    Asserts on the PARSER's behaviour, not on the source text: a grep for
+    ``rnaseq_source=args.rnaseq_source`` passes just as happily when the flag
+    is parsed and then dropped on the floor, which is the failure this test
+    exists to catch.
+    """
     import v2ecoli.cli.parca as cli_parca
 
-    source = Path(cli_parca.__file__).read_text()
-    assert "--rnaseq-source" in source
-    assert "--no-rnaseq-cross-fill" in source
-    assert "rnaseq_source=args.rnaseq_source" in source
+    parser = cli_parca._build_arg_parser()
+
+    # the flags exist, with the documented defaults
+    defaults = parser.parse_args([])
+    assert defaults.rnaseq_source == "reference"
+    assert defaults.rnaseq_cross_fill is True
+
+    # ...and they actually carry a non-default value through parsing
+    flipped = parser.parse_args(["--rnaseq-source", "experimental",
+                                 "--no-rnaseq-cross-fill"])
+    assert flipped.rnaseq_source == "experimental"
+    assert flipped.rnaseq_cross_fill is False
+
+    # the parser rejects a value the resolver would not understand, rather
+    # than passing it through to fail (or silently no-op) deep in the build
+    with pytest.raises(SystemExit):
+        parser.parse_args(["--rnaseq-source", "not-a-tier"])
 
 
 def test_unknown_selector_value_raises():
@@ -514,3 +533,74 @@ def test_unknown_selector_value_raises():
     sim_data = SimulationDataEcoli()
     with pytest.raises(ValueError, match="rnaseq_source must be one of"):
         sim_data.initialize(raw_data=None, rnaseq_source="expermiental")
+
+
+# --- review follow-ups: the override-chain blind spot, and the real call site --
+
+
+def _override_manifest(tmp_path: Path, overrides: dict) -> Path:
+    """An OVERRIDE manifest — a partial table with no ``genotype.json`` sidecar.
+
+    This is what ``--bundle-overrides`` delivers, and it is deliberately NOT a
+    variant bundle: nothing writes a sidecar beside it, so a guard that reads
+    only ``variant_generated_keys`` cannot see anything it supplies.
+    """
+    out = tmp_path / "overlay_manifest.tsv"
+    pd.DataFrame(
+        [{"canonical_key": k, "source_path": str(Path(v).resolve()),
+          "description": "test overlay", "schema_name": ""}
+         for k, v in overrides.items()]
+    ).to_csv(out, sep="\t", index=False)
+    return out
+
+
+def test_guard_fires_for_a_key_supplied_by_the_OVERRIDE_chain(tmp_path):
+    """Review finding G4 — the blind spot the base PR's own feature opens.
+
+    An overlay supplies the experimental table through the override chain and
+    the build fits the reference tier. The sidecar knows nothing about it, so a
+    ``variant_generated_keys``-only guard stays silent here — reproducing the
+    defect the guard exists to catch, on the newest way of supplying the key.
+    """
+    from ecoli_sources import BUNDLE_PATH
+
+    expt = _write_tpm(tmp_path / "overlay.tsv", [("EG10001", 0.1)])
+    overlay = _override_manifest(tmp_path, {RNASEQ_EXPERIMENTAL_KEY: expt})
+    bundle = SourceBundle(base_manifest=Path(BUNDLE_PATH), overrides=overlay,
+                          validate=False)
+
+    # the sidecar path is genuinely blind to it — that is the premise
+    assert bundle.variant_generated_keys == set()
+    # ...and the union is not
+    assert RNASEQ_EXPERIMENTAL_KEY in bundle.override_supplied_keys
+    assert RNASEQ_EXPERIMENTAL_KEY in bundle.externally_supplied_keys
+
+    raw = _RawData(_wide_rows([("EG10001", 5.0)]), bundle=bundle)
+    _, prov, caught = _resolve(raw, _SimData("reference"))
+
+    assert prov["source"] == "reference"
+    assert any("has no effect on the fit" in m for m in caught), (
+        "an override-supplied experimental table was ignored silently")
+
+
+def test_the_real_call_site_stamps_where_it_chooses():
+    """Review finding G6 — every other test calls ``resolve_basal_seq_data``
+    directly, so the one production call site was covered only incidentally by
+    the base PR's tests. Pin it: reorder the stack and this still holds.
+
+    The site is ``Transcription._build_cistron_data`` (verified, not assumed —
+    an earlier version of this test asserted ``__init__`` and failed, which is
+    the whole reason to pin the location rather than trust a memory of it).
+    """
+    import inspect
+
+    from v2ecoli.processes.parca.reconstruction.ecoli.dataclasses.process import (
+        transcription as tx,
+    )
+
+    src = inspect.getsource(tx.Transcription._build_cistron_data)
+    assert "resolve_basal_seq_data(" in src, (
+        "the resolver is no longer called from Transcription.__init__")
+    assert "sim_data.rnaseq_provenance" in src, (
+        "the stamp is no longer written where the source is chosen — the "
+        "stamp-is-the-record property depends on these being one step")

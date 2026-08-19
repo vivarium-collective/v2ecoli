@@ -243,12 +243,20 @@ def resolve_basal_seq_data(raw_data, sim_data, model_gene_ids):
         "bundle_genotype_id": _bundle_genotype_id(bundle),
     }
 
-    # -- Guard 1 (declared vs stamped). The one that makes an inert selector
-    #    structurally impossible: the build recorded what it did, and it does
-    #    not match what it was told to do.
+    # -- Guard 1 (declared vs stamped). The build recorded what it DID, and it
+    #    does not match what it was told to do.
+    #
+    #    ⚠ Scope of this guarantee, stated honestly: the STAMP is unconditional
+    #    (every build records its actual source), so a mismatch is always
+    #    *detectable* from the artifact. The WARNING is a plain
+    #    ``warnings.warn`` — nothing escalates it, the gate does not run
+    #    ``-W error``, and ParCa's stdout is noisy, so it can be missed by a
+    #    human watching a build scroll past. "Detectable in the artifact" is
+    #    what this buys; "impossible to miss" would need an escalation policy
+    #    this module should not set unilaterally.
     if declared != actual:
         warnings.warn(
-            "ERROR-level ParCa rnaseq source mismatch: the build declared "
+            "ParCa rnaseq source mismatch: the build declared "
             f"rnaseq_source={declared!r} but fitted against {actual!r}. "
             f"Canonical key {RNASEQ_EXPERIMENTAL_KEY!r} was not available in "
             "the bundle handed to this build, so the legacy wide reference "
@@ -257,16 +265,24 @@ def resolve_basal_seq_data(raw_data, sim_data, model_gene_ids):
             stacklevel=2,
         )
 
-    # -- Guard 2 (the motivating silent failure). A variant bundle generated an
-    #    experimental TPM table and this build is about to ignore it: exactly
-    #    the knockdown() case that validates, hashes stably and changes nothing.
-    generated = set(getattr(bundle, "variant_generated_keys", None) or ())
-    if RNASEQ_EXPERIMENTAL_KEY in generated and actual != "experimental":
+    # -- Guard 2 (the motivating silent failure). SOMEONE deliberately supplied
+    #    an experimental TPM table and this build is about to ignore it: the
+    #    knockdown() case that validates, hashes stably and changes nothing.
+    #
+    #    Reads ``externally_supplied_keys``, NOT ``variant_generated_keys``.
+    #    The sidecar only describes what a generator wrote beside the base
+    #    manifest; a payload delivered through ``--bundle-overrides`` carries no
+    #    sidecar and would sail past a sidecar-only check — on precisely the
+    #    entry point that makes overlays useful. A guard that misses the newest
+    #    way of supplying the key would reproduce the defect it exists to catch.
+    supplied = set(getattr(bundle, "externally_supplied_keys", None)
+                   or getattr(bundle, "variant_generated_keys", None) or ())
+    if RNASEQ_EXPERIMENTAL_KEY in supplied and actual != "experimental":
         warnings.warn(
-            f"variant bundle generated {RNASEQ_EXPERIMENTAL_KEY!r} but this "
-            f"build ran with rnaseq_source={declared!r}, so the generated "
-            "expression table was NOT read. The perturbation this bundle "
-            "encodes has no effect on the fit.",
+            f"{RNASEQ_EXPERIMENTAL_KEY!r} was supplied by this bundle (variant "
+            f"or override) but the build ran with rnaseq_source={declared!r}, "
+            "so the expression table was NOT read. The perturbation it encodes "
+            "has no effect on the fit.",
             stacklevel=2,
         )
 

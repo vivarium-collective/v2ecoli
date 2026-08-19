@@ -33,12 +33,14 @@ def _default_cpus() -> int:
     return os.cpu_count() or 4
 
 
-def main():
-    from v2ecoli.processes.parca.composite import build_parca_composite
-    from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
-        KnowledgeBaseEcoli,
-    )
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """The CLI's parser, extracted so its behaviour is testable.
 
+    Built here rather than inline in ``main()`` so a test can assert what the
+    flags DO — defaults, round-tripping, rejection of unknown values — instead
+    of grepping this file for a substring, which passes just as happily when a
+    flag is parsed and then dropped on the floor.
+    """
     parser = argparse.ArgumentParser(
         prog="v2ecoli-parca",
         description="ParCa Pipeline as Process-Bigraph Steps",
@@ -108,6 +110,17 @@ def main():
              "partially-fit parca_state.pkl is written (PARCA_REVIEW A3). "
              "Pass this flag to write it anyway, with a per-fit ok/error "
              "status recorded at state['mechanistic_fit_status'].")
+    return parser
+
+
+def main():
+    from v2ecoli.processes.parca.composite import build_parca_composite
+    from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+        KnowledgeBaseEcoli,
+    )
+
+
+    parser = _build_arg_parser()
     args = parser.parse_args()
 
     outdir = os.path.abspath(args.outdir)

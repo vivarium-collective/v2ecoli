@@ -465,7 +465,8 @@ def build(gene_ids: Iterable[str], *, workdir: "str | Path",
     # verdict and break byte-identical re-rendering across machines. The
     # content-addressed genotype_id is the durable identity; the path is a hint.
     card["genotype"] = {"gene_ids": gene_ids, "genotype_id": gid,
-                        "manifest": str(Path(manifest).relative_to(Path(workdir)))}
+                        "manifest": str(Path(manifest).resolve().relative_to(
+                            Path(workdir).resolve()))}
 
     deleted_bp = sum(r - l + 1 for l, r in spans.values())
     return card, _reference(gene_ids, mode, deleted_bp)

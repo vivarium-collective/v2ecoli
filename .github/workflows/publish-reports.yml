@@ -38,6 +38,12 @@ jobs:
     timeout-minutes: 25
     # Investigation reports embed the loom Explorer — require the bundle so a
     # missing/broken build fails loudly rather than publishing without it.
+    # NOTE: retained deliberately through the #878 migration, and it must stay
+    # at JOB level. This is read by workbench's hatch_build.py build hook (not at
+    # render time), so it takes effect when the "Ensure the publish CLI is
+    # current" step BUILDS workbench from git: a missing loom bundle becomes a
+    # hard build failure instead of a silent skip that would ship reports with
+    # no Explorer.
     env:
       VIVARIUM_WORKBENCH_REQUIRE_LOOM: "1"
     steps:
@@ -54,22 +60,20 @@ jobs:
       - name: Install dependencies
         run: uv sync --extra dev || uv sync
 
-      - name: Install Playwright + Chromium
-        # Playwright is only needed by this deploy job, so install it into the
-        # project env here rather than carrying it as a project dependency.
-        run: |
-          uv pip install playwright
-          uv run playwright install --with-deps chromium
-
       - name: Ensure the publish CLI is current (latest main)
-        # This DEPLOY job renders the workbench SPA headlessly, so it needs
+        # This DEPLOY job renders reports with workbench's server-side
+        # generator (vivarium_workbench.lib.investigation_report), so it needs
         # vivarium-workbench even though v2ecoli's RUNTIME dropped it as a
         # dependency (viewer moved to pbg-ptools). Mirror the green
         # publish-dashboard.yml exactly: ad-hoc install workbench@main, and run
         # the generator inside the activated venv (below) rather than via `uv
-        # run`, which would re-sync to uv.lock and undo this install. Installed
-        # AFTER the Playwright step's `uv run`, which itself re-syncs. The runtime
+        # run`, which would re-sync to uv.lock and undo this install. The runtime
         # stays decoupled — only this deploy job pulls workbench.
+        #
+        # No browser is involved any more: the Playwright + Chromium install was
+        # dropped when the report stopped being built client-side (workbench
+        # #878). That also removes the `uv run` re-sync this step used to have
+        # to be ordered after.
         run: |
           uv pip install --reinstall-package vivarium-workbench "vivarium-workbench @ git+https://github.com/vivarium-collective/vivarium-workbench.git@main"
 

@@ -30,12 +30,18 @@ This Step is the thin translator between the two halves. Each cycle it:
    metabolic exchange flux into an *additive* dissolved-gas delta (mg/L) the
    reactor accumulates this interval:
 
-       biomass_gDW_agent = cell_mass_fg * cells_per_agent * 1e-15
-       rate[mmol/h]      = sum_agents( flux[mmol/(gDW*h)] * biomass_gDW_agent )
-       delta[mg/L]       = rate[mmol/h] * interval_h * MW[mg/mmol] / volume_L
+       delta[mg/L] = counts * cells_per_agent / N_A[1/mol]
+                     * MW[g/mol] * 1000[mg/g] / volume_L
 
    MW in g/mol numerically equals mg/mmol, so the same constant serves both
    the mM conversion and this mg/L delta.
+
+   NOTE this is COUNT-based and touches no mass listener. An earlier revision
+   of this docstring described a flux x biomass form with the biomass taken as
+   ``cell_mass_fg * cells_per_agent * 1e-15`` — stale twice over: the code has
+   not worked that way for some time, and ``cell_mass`` is TOTAL (wet) mass,
+   ~3.33x dry, so using it as a gDW basis is the same error since corrected in
+   PopulationAggregator. Do not reintroduce it.
 
 Sign convention (verified against ``v2ecoli/processes/metabolism.py``
 :func:`_fba_output_to_deltas`, lines 469-492): ``external_exchange_fluxes`` is
@@ -276,25 +282,6 @@ def _as_float(value: Any) -> float:
         return float(value.magnitude)
     return float(value)
 
-
-def _extract_cell_mass_fg(agent_state: dict | Any) -> float | None:
-    """Walk agent state to ``listeners.mass.cell_mass``; return float in fg.
-
-    Defensive against missing intermediate keys (emit cadence may snapshot an
-    agent mid-init). Returns None when cell_mass is absent so the coupler skips
-    that agent rather than crashing.
-    """
-    try:
-        listeners = agent_state.get("listeners", {}) if hasattr(agent_state, "get") else {}
-        mass = listeners.get("mass", {})
-        cell_mass = mass.get("cell_mass")
-        if cell_mass is None:
-            return None
-        if hasattr(cell_mass, "to") and hasattr(cell_mass, "magnitude"):
-            return float(cell_mass.to("femtogram").magnitude)
-        return float(cell_mass)
-    except (AttributeError, KeyError, TypeError):
-        return None
 
 
 def _extract_exchange_fluxes(agent_state: dict | Any) -> dict[str, Any]:

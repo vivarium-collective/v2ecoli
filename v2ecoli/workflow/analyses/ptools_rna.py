@@ -22,6 +22,7 @@ from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import (
     generation_time_filter_clause,
     ptools_heatmap_view,
+    ptools_time_series_query,
 )
 from v2ecoli.workflow.analyses._shims import bulk_count_matrix, ACTIVE_RIBOSOME_SQL
 
@@ -41,22 +42,11 @@ def _flat_dir() -> str:
 def build_query(columns, history_sql, filter_clause=""):
     """Generate SQL query for user-specified parquet columns.
 
-    ``filter_clause`` (from ``generation_lower_bound``/``time_lower_bound`` via
-    :func:`~v2ecoli.workflow.analyses._helpers.generation_time_filter_clause`)
-    is applied against the ``generation`` and aliased ``time`` columns, on an
-    inner subquery, before the outer projection drops ``generation`` — this
-    only restricts which rows reach the caller's own aggregation; it adds no
-    aggregation of its own.
+    Thin wrapper over :func:`~v2ecoli.workflow.analyses._helpers.ptools_time_series_query`
+    (see its docstring for the ``filter_clause`` contract) — kept as a module-
+    level name so existing call sites are unaffected by the shared extraction.
     """
-    query_sql = f"""
-        SELECT * EXCLUDE (generation) FROM (
-            SELECT {",".join(columns)}, generation, global_time AS time
-            FROM ({history_sql})
-        )
-        {filter_clause}
-        ORDER BY time
-    """
-    return query_sql
+    return ptools_time_series_query(columns, history_sql, filter_clause)
 
 
 def read_outputs(

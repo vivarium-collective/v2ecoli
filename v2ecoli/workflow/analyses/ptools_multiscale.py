@@ -33,6 +33,7 @@ from duckdb import DuckDBPyConnection
 from v2ecoli.workflow.analyses._helpers import (
     cumulative_time_history,
     collapse_cross_seed,
+    ptools_time_series_query,
 )
 from v2ecoli.workflow.analyses.ptools_rna import PtoolsRna
 from v2ecoli.workflow.analyses.ptools_rxns import PtoolsRxns
@@ -118,16 +119,10 @@ class _MultiseedMixin:
         # Build the same SQL used by the single-scale read_outputs — but do NOT
         # apply groupby.sum() here; collapse_cross_seed handles aggregation.
         # ``filter_clause`` only restricts which rows reach that aggregation
-        # (see ptools_rna.build_query's docstring); it adds no aggregation of
-        # its own, so collapse_cross_seed's own cross-seed math is untouched.
-        query_sql = f"""
-            SELECT * EXCLUDE (generation) FROM (
-                SELECT {",".join(columns)}, generation, global_time AS time
-                FROM ({history_sql})
-            )
-            {filter_clause}
-            ORDER BY time
-        """
+        # (see ptools_time_series_query's docstring); it adds no aggregation
+        # of its own, so collapse_cross_seed's own cross-seed math is
+        # untouched.
+        query_sql = ptools_time_series_query(columns, history_sql, filter_clause)
         raw_df = conn.sql(query_sql).df()
         return collapse_cross_seed(raw_df, id_cols=frozenset({"bulk__id"}))
 

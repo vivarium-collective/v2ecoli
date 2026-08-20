@@ -434,6 +434,35 @@ def generation_time_filter_clause(params: Optional[dict] = None) -> str:
     return ("WHERE " + " AND ".join(filters)) if filters else ""
 
 
+def ptools_time_series_query(columns, history_sql: str, filter_clause: str = "") -> str:
+    """The ``ptools_*`` single/multiseed row-filtered time-series query.
+
+    Selects ``columns`` plus ``generation`` and ``global_time`` (aliased to
+    ``time``) from an inner subquery, applies ``filter_clause`` (from
+    :func:`generation_time_filter_clause`) against those, then drops
+    ``generation`` on the outer projection so it is filterable but never
+    leaks into the returned columns. ``filter_clause`` only restricts which
+    rows reach the caller's own aggregation (``groupby("time").sum()`` in
+    ``read_outputs``, :func:`collapse_cross_seed` in
+    ``_MultiseedMixin._do_read_outputs``) — it adds no aggregation of its own.
+
+    Was four independently-maintained copies of this identical string
+    (``ptools_rna``/``ptools_rxns``/``ptools_proteins``'s own ``build_query``,
+    plus ``_MultiseedMixin._do_read_outputs``'s inlined query) until PR #545's
+    review — consolidated here since all four had converged on byte-identical
+    SQL. ``build_query`` remains in each module as a thin wrapper so existing
+    call sites and any external references to it are unaffected.
+    """
+    return f"""
+        SELECT * EXCLUDE (generation) FROM (
+            SELECT {",".join(columns)}, generation, global_time AS time
+            FROM ({history_sql})
+        )
+        {filter_clause}
+        ORDER BY time
+    """
+
+
 def with_cross_cell_stats(wide, index_col: str):
     """Append across-cell ``mean``/``std`` to a per-cell wide table.
 

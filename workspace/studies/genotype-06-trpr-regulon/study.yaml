@@ -168,7 +168,7 @@ behavior_tests:
       B1. Does removing TrpR derepress the trp operon by more than ten fold?
     measure:
       kind: listener_median
-      path: listeners.rna_counts.mRNA_cistron_counts
+      path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
     pass_if:
       op: at_least
@@ -186,7 +186,7 @@ behavior_tests:
     question: B3. Does aroH respond to TrpR loss at roughly six fold?
     measure:
       kind: listener_median
-      path: listeners.rna_counts.mRNA_cistron_counts
+      path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
     pass_if:
       op: in_range
@@ -204,7 +204,7 @@ behavior_tests:
     question: B2. Does mtr - a documented TrpR regulon member - respond at all?
     measure:
       kind: listener_median
-      path: listeners.rna_counts.mRNA_cistron_counts
+      path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
     pass_if:
       op: at_least
@@ -222,7 +222,7 @@ behavior_tests:
     question: B4. Does aroL correctly show little or no response?
     measure:
       kind: listener_median
-      path: listeners.rna_counts.mRNA_cistron_counts
+      path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
     pass_if:
       op: at_most
@@ -241,7 +241,7 @@ behavior_tests:
       B5. Is TrpR repression the dominant control on the trp operon, exceeding attenuation?
     measure:
       kind: listener_median
-      path: listeners.rna_counts.mRNA_cistron_counts
+      path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
     pass_if:
       op: at_least
@@ -257,13 +257,32 @@ behavior_tests:
     cites: []
 
 readouts:
+  - name: trp-operon-synthesis-probability
+    store_path: listeners.rna_synth_prob.actual_rna_synth_prob
+    description: >-
+      Per-transcription-unit actual synthesis probability. This is the quantity the model's
+      TrpR fold-change terms actually modify - repression enters as a delta_prob on synthesis
+      probability - so it is the most direct readout of the mechanism under study, and it is
+      verified emittable by the baseline composite.
+    units: probability
+    status: available
+  - name: tf-binding-per-tu
+    store_path: listeners.rna_synth_prob.n_bound_TF_per_TU
+    description: >-
+      Bound transcription factors per transcription unit. Distinguishes "the repressor is
+      gone" from "the repressor is present but its term is small", which B5 needs.
+    units: count
+    status: available
   - name: trp-operon-cistron-counts
     store_path: listeners.rna_counts.mRNA_cistron_counts
     description: >-
-      Per-cistron mRNA counts; the trp operon members (trpL, trpE, trpD, trpC, trpB, trpA)
-      and the wider regulon candidates (aroH, aroL, mtr, trpR) are read out of this vector.
+      Per-cistron mRNA counts for the trp operon and the wider regulon candidates. ASPIRATIONAL:
+      the baseline composite as configured emits five listener groups (atp, mass, ribosome_data,
+      rna_synth_prob, rnap_data) and none carries per-cistron mRNA counts, so this path is NOT
+      currently emittable. Kept because it is the readout the question naturally wants; reaching
+      it requires enabling the RNA-counts listener on the composite.
     units: counts
-    status: derived-needed
+    status: aspirational
   - name: trp-intracellular-pool
     store_path: bulk
     description: >-

@@ -1,0 +1,598 @@
+# genotype-06-trpr-regulon/study.yaml — schema v4
+#
+# Knockout of a transcriptional REGULATOR rather than an enzyme. Every number
+# this study cites is re-derivable from v2ecoli's own raw_data by running
+# sims/extract_evidence.py; nothing here depends on unpublished data.
+
+schema_version: 4
+name: genotype-06-trpr-regulon
+investigation: genotype-perturbation-response
+title: "How does v2ecoli realize a transcription-factor knockout?"
+created: '2026-08-20'
+status: in-progress
+phase: Design
+study_type: exploratory
+
+design_status: complete
+implementation_status: not-started
+expert_review_status: not_requested
+
+question: >-
+  When the perturbed gene is a transcriptional regulator rather than an enzyme, how does
+  v2ecoli realize the knockout, and how much of that regulator's documented biology can the
+  model represent at all? Concretely, for trpR: by which routes can the genotype be built,
+  what does each route let us observe, and what does the model's own regulatory
+  parameterization put out of reach of every route?
+
+claim: >-
+  A regulator knockout is realizable by three distinct routes in v2ecoli, and the route
+  determines what can be observed - but no route recovers regulon members the model carries
+  no edge for. The model's mechanistic reach over transcriptional regulation is ~15% of mRNA
+  cistrons, and for trpR it is 7 edges spanning 2 of EcoCyc's 5 operator regions.
+
+experiment: >-
+  Read the model's shipped regulatory tables directly (fold_changes.tsv filtered by
+  fold_changes_removed.tsv, transcriptional_attenuation.tsv, genes.tsv, rnas.tsv) to fix what
+  the model can represent before anything is run, then realize the ΔtrpR genotype by each
+  available route and record what each route does. Route A builds the deletion at the ParCa
+  level; route B zeroes the TrpR monomer's translation efficiency on a post-ParCa run. A
+  third route - imposing a measured differential-expression table at ParCa time via the
+  rnaseq_experimental key - exists in the model and is named here for completeness, but is
+  not exercised by this study: it requires a measured DE table, which makes it an input
+  question rather than a property of the genotype machinery.
+
+result: >-
+  The static pass is complete and is the substance of this study; the run arms are declared
+  and not yet executed. Findings F-01 through F-05 are measured from the model's own tables
+  and hold independently of any simulation. The route comparison itself - what each build
+  route can and cannot represent - is the deliverable, not a preliminary to one.
+
+runtime:
+  default_emitter: sqlite
+
+# ─── Framing ─────────────────────────────────────────────────────────
+
+assumptions:
+  - text: >-
+      TrpR represses the trp operon 70-300 fold in vivo; transcriptional attenuation
+      contributes a further 8-10 fold, and repression is the dominant of the two.
+    cites: []
+    verified_in_v2ecoli: false
+  - text: >-
+      EcoCyc documents five TrpR operator-bearing regions - trpLEDCBA, aroH, aroL, mtr, and
+      trpR's own autoregulation.
+    cites: []
+    verified_in_v2ecoli: false
+  - text: >-
+      tnaA (tryptophanase) is the main catabolic sink for tryptophan, and tnaB - a second Trp
+      permease - shares its operon. A trpR-only arm is therefore not like-for-like against a
+      ΔtrpR ΔtnaA reference strain.
+    cites: []
+    verified_in_v2ecoli: false
+
+pipeline_gate:
+  prerequisites:
+    - study: genotype-00-build-integrity
+      condition: tests-passed
+      relation: leads-to
+      outputs_used: []
+    - study: genotype-01-control-panel
+      condition: ran
+      relation: leads-to
+      outputs_used: []
+  enables: []
+  proceed_condition: >-
+    The static regulatory-reach pass (F-01..F-05) is complete and re-derivable. The run arms
+    may proceed independently; nothing downstream waits on them.
+
+# ─── Model ───────────────────────────────────────────────────────────
+#
+# Declared under `conditions:` ONLY, with no top-level baseline:/variants:.
+# That is the shape genotype-00 and genotype-01 use and it is what the
+# canonicalizer accepts: the Design > Model tab renders from conditions.*,
+# and declaring the same arms in both places makes the model schema
+# non-canonical (multi_baseline_needs_human) and leaves variant composites
+# unresolved.
+
+conditions:
+  baseline:
+    # Wild type, default feature set. Note trna_attenuation is OFF here - that
+    # is the shipped default (F-04), not a choice this study makes.
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants:
+  - name: route-B-trpR-ko
+    role: perturbation
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {knockouts: [EG11029]}
+    perturbation: >-
+      Route B: translation-level knockout of trpR (EG11029). The TrpR monomer's translation
+      efficiency is zeroed, so the repressor protein is not made while transcription of the
+      gene continues. The protein is what represses, which makes this the mechanistically
+      faithful lever for a repressor.
+    expected_contrast: >-
+      Derepression of the trp operon bounded above by the model's own TrpR term (3.10-5.50x),
+      not by the 70-300x the literature reports.
+  - name: route-B-trpR-tnaA-dko
+    role: perturbation
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {knockouts: [EG11029, EG11005]}
+    perturbation: >-
+      Route B, double: trpR (EG11029) + tnaA (EG11005). Removes the repressor and the main
+      catabolic sink together, which is the genotype a dtrpR dtnaA reference strain carries.
+    expected_contrast: >-
+      Same derepression ceiling as the single knockout; tnaA loss additionally removes
+      tryptophan degradation, so intracellular Trp should not be drawn down as fast.
+  - name: route-B-trpR-ko-attenuation-on
+    role: control
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {knockouts: [EG11029], trna_attenuation: true}
+    perturbation: >-
+      The same trpR knockout with tRNA transcriptional attenuation switched ON. Attenuation
+      is OFF in a default run (F-04), so this arm is what isolates the second control
+      mechanism rather than assuming it is active.
+    expected_contrast: >-
+      If the attenuation terms behave as parameterized, this arm should show a LARGER trp
+      response than the repressor knockout alone - the inverted ordering F-03 measures in the
+      tables, made visible in a run.
+  - name: route-A-trpR-parca-ko
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8}
+    perturbation: >-
+      Route A: chromosomal deletion of trpR before reconstruction, via an ecoli-sources
+      variant bundle. A different composite from the other arms by nature - route A is a
+      BUILD, not a run. Recorded because its failure is a result, not an obstacle to route
+      around: see F-05.
+    expected_contrast: >-
+      Expected NOT to complete. The build is reported to fail at ParCa step 9 on the TRP[c]
+      amino-acid homeostasis invariant.
+  model_settings:
+    - name: trna_attenuation
+      default: false
+      current: false
+      range: [false, true]
+      units: ""
+      cites: []
+
+# ─── Validation ──────────────────────────────────────────────────────
+#
+# Bands B1-B5 are pre-registered and literature-sourced. None is set from the
+# data it grades. Four of five are PREDICTED to fail, each for a stated
+# mechanistic reason recorded before any run - see findings F-02/F-03/F-05.
+
+behavior_tests:
+  - name: trp-operon-derepresses-above-ten-fold
+    classification: primary
+    question: >-
+      B1. Does removing TrpR derepress the trp operon by more than ten fold?
+    measure:
+      kind: listener_median
+      path: listeners.rna_counts.mRNA_cistron_counts
+      window: second_half
+    pass_if:
+      op: at_least
+      value: 10.0
+      provenance:
+        kind: literature
+        note: >-
+          In vivo TrpR repression of the trp operon is reported at 70-300 fold; 10x is a
+          deliberately permissive floor so the band tests the model's order of magnitude
+          rather than a precise value.
+    status: pending
+    cites: []
+  - name: aroH-responds-to-trpR-loss
+    classification: supporting
+    question: B3. Does aroH respond to TrpR loss at roughly six fold?
+    measure:
+      kind: listener_median
+      path: listeners.rna_counts.mRNA_cistron_counts
+      window: second_half
+    pass_if:
+      op: in_range
+      low: 3.0
+      high: 12.0
+      provenance:
+        kind: literature
+        note: >-
+          EcoCyc reports aroH as a TrpR target responding ~6x; the band brackets that value
+          within a factor of two.
+    status: pending
+    cites: []
+  - name: mtr-responds-to-trpR-loss
+    classification: primary
+    question: B2. Does mtr - a documented TrpR regulon member - respond at all?
+    measure:
+      kind: listener_median
+      path: listeners.rna_counts.mRNA_cistron_counts
+      window: second_half
+    pass_if:
+      op: at_least
+      value: 1.5
+      provenance:
+        kind: literature
+        note: >-
+          mtr is an EcoCyc TrpR regulon member. The band asks only for a detectable response,
+          not a magnitude - it is a reachability test, and F-02 predicts it fails because the
+          model carries no regulatory edge onto mtr at all.
+    status: pending
+    cites: []
+  - name: aroL-does-not-respond
+    classification: supporting
+    question: B4. Does aroL correctly show little or no response?
+    measure:
+      kind: listener_median
+      path: listeners.rna_counts.mRNA_cistron_counts
+      window: second_half
+    pass_if:
+      op: at_most
+      value: 1.5
+      provenance:
+        kind: literature
+        note: >-
+          aroL carries a TrpR operator but is reported to respond weakly. The model has no
+          aroL edge, so it is expected to pass this band - for the wrong reason, which is
+          itself worth recording.
+    status: pending
+    cites: []
+  - name: repression-exceeds-attenuation
+    classification: primary
+    question: >-
+      B5. Is TrpR repression the dominant control on the trp operon, exceeding attenuation?
+    measure:
+      kind: listener_median
+      path: listeners.rna_counts.mRNA_cistron_counts
+      window: second_half
+    pass_if:
+      op: at_least
+      value: 1.0
+      provenance:
+        kind: literature
+        note: >-
+          Literature has TrpR repression (70-300x) dominating attenuation (8-10x). Graded as
+          the ratio of the repressor-knockout response to the attenuation-arm response; >1
+          means repression dominates. F-03 measures the model's TABLES as inverted on 5 of 5
+          shared targets, so this band is predicted to fail.
+    status: pending
+    cites: []
+
+readouts:
+  - name: trp-operon-cistron-counts
+    store_path: listeners.rna_counts.mRNA_cistron_counts
+    description: >-
+      Per-cistron mRNA counts; the trp operon members (trpL, trpE, trpD, trpC, trpB, trpA)
+      and the wider regulon candidates (aroH, aroL, mtr, trpR) are read out of this vector.
+    units: counts
+    status: derived-needed
+  - name: trp-intracellular-pool
+    store_path: bulk
+    description: >-
+      Intracellular TRP[c] pool. Route A's build failure is an assertion on this quantity's
+      ParCa-time counterpart, so the run-time pool is the observable that connects the two
+      routes.
+    units: counts
+    status: derived-needed
+
+biological_summary: |
+  TrpR is the tryptophan repressor. Bound to L-tryptophan it forms a holorepressor that
+  occupies operators in front of the tryptophan biosynthetic operon and several other loci,
+  shutting transcription down when tryptophan is plentiful. Removing trpR therefore
+  derepresses tryptophan biosynthesis - it is one of the cleanest and best characterised
+  regulatory knockouts in E. coli, which is why it is a good public exemplar even when the
+  motivation for studying it comes from elsewhere.
+
+  Two mechanisms control the trp operon, and their relative strength is the part that matters
+  here. TrpR repression is the coarse, dominant switch, reported at 70-300 fold. Transcriptional
+  attenuation - a translation-coupled decision made at a leader peptide - modulates on top of
+  it at roughly 8-10 fold. Repression dominates; attenuation trims.
+
+  v2ecoli represents transcriptional regulation as a table of fold-change terms keyed by
+  transcription-factor common name. That representation is what bounds this study: a
+  regulator can only act on genes it has a row for. For trpR the model carries seven rows,
+  covering the trp operon itself and aroH. The other three EcoCyc regions - aroL, mtr, and
+  trpR's own autoregulation - have no row, and in fact those three genes carry no regulatory
+  edge from any transcription factor, though all three genes exist in the model.
+
+  So a trpR knockout in v2ecoli is not a weaker version of the real perturbation; it is a
+  perturbation of a smaller object. Whichever route builds the genotype, the response is
+  confined to the seven edges the model has, and the magnitudes on those edges are an order
+  of magnitude below the literature. That is a statement about the model's regulatory
+  parameterization, and it is visible without running anything.
+
+literature_anchors:
+  - expectation: TrpR represses the trp operon 70-300 fold in vivo.
+    model_observable: fold_changes.tsv trpR rows, 2.03-5.50x
+    source: Yanofsky-lineage trp regulation literature
+    status_in_workspace: Verified (static) - measured in F-02
+  - expectation: Attenuation contributes 8-10 fold, subordinate to repression.
+    model_observable: transcriptional_attenuation.tsv tRNA-Trp rows, 5.98-7.36x
+    source: Yanofsky-lineage trp regulation literature
+    status_in_workspace: Verified (static) - measured in F-03
+  - expectation: EcoCyc documents five TrpR operator-bearing regions.
+    model_observable: two regions represented (trpLEDCBA, aroH)
+    source: EcoCyc TrpR regulon
+    status_in_workspace: Verified (static) - measured in F-02
+
+# ─── Rigor ───────────────────────────────────────────────────────────
+
+robustness:
+  n_replicates: 1
+  seeds: [0]
+  parameter_sweep: false
+
+preregistered:
+  criteria:
+    - B1 trp operon derepresses > 10x
+    - B2 mtr responds at all
+    - B3 aroH responds ~6x (bracketed 3-12x)
+    - B4 aroL does not respond (< 1.5x)
+    - B5 repression exceeds attenuation
+  thresholds:
+    trp-operon-derepresses-above-ten-fold: {op: at_least, value: 10.0}
+    aroH-responds-to-trpR-loss: {op: in_range, low: 3.0, high: 12.0}
+    mtr-responds-to-trpR-loss: {op: at_least, value: 1.5}
+    aroL-does-not-respond: {op: at_most, value: 1.5}
+    repression-exceeds-attenuation: {op: at_least, value: 1.0}
+  predictions:
+    - B1 FAIL - the model's own TrpR term caps derepression at 3.10-5.50x.
+    - B2 FAIL - no regulatory edge onto mtr exists, so no route can move it.
+    - B3 MARGINAL - the model's aroH term is 2.03x, just below the band.
+    - B4 PASS, for the wrong reason - aroL is absent from the regulon rather than weakly coupled.
+    - B5 FAIL - the tables invert the ordering on 5 of 5 shared targets.
+  controls:
+    - route-B-trpR-ko-attenuation-on
+  registered_at: '2026-08-20'
+
+controls:
+  - name: route-B-trpR-ko-attenuation-on
+    kind: positive
+    hypothesis: >-
+      Attenuation is off by default (F-04), so any trp response in the default knockout arm
+      is attributable to the TrpR term alone. Turning attenuation on should move the trp
+      operon further, and by MORE than the repressor did if the tables' inverted ordering is
+      real in a run.
+    expected: A larger trp-operon response than the repressor knockout produces alone.
+    observed: ""
+    result: PENDING
+  - name: mtr-as-negative-control
+    kind: negative
+    hypothesis: >-
+      mtr is a documented TrpR regulon member with no edge in the model. It should NOT move
+      under any route. If it does, the response is not coming from the regulatory table and
+      the study's whole read of the mechanism is wrong.
+    expected: No mtr response under any route.
+    observed: ""
+    result: PENDING
+
+alternative_hypotheses:
+  - claim: >-
+      The trp response is weak because the knockout did not take effect, not because the
+      model's regulatory terms are small.
+    discriminated_by: >-
+      The static measurement. The terms are 2.03-5.50x in the shipped table, independently of
+      whether any knockout succeeds - so the ceiling is set before the run.
+    status: excluded
+  - claim: >-
+      Attenuation compensates for the weak repression term, so the total trp control is
+      closer to the literature than the repression term alone suggests.
+    discriminated_by: >-
+      F-04 - attenuation is OFF in a default run, so it compensates for nothing unless
+      explicitly enabled. The attenuation-on control arm tests this directly.
+    status: not-excluded
+
+falsifiability: >-
+  The central claim - that the model's regulatory reach bounds what any build route can show -
+  is overturned if a trpR knockout by any route moves a gene the model has no regulatory edge
+  for (mtr is the designated test case), or if the observed trp derepression substantially
+  exceeds the 3.10-5.50x the shipped table permits. Either result would mean transcriptional
+  response is reaching the trp regulon by a path this study has not accounted for.
+
+limitations:
+  - >-
+    The static findings (F-01..F-05) measure the model's PARAMETER TABLES. They constrain what
+    a run can show but are not themselves run results; the run arms are declared and not yet
+    executed.
+  - >-
+    Route C - imposing a measured differential-expression table at ParCa time via the
+    rnaseq_experimental key - is named but not exercised. It depends on which DE table is
+    supplied, which makes it an input question rather than a property of the machinery.
+  - >-
+    The route-A failure is reported from a prior measurement, not reproduced in this study yet.
+    Reproducing it formally is exactly what F-05 exists to do.
+  - >-
+    EcoCyc region membership is entered by hand in the evidence extractor. It is literature,
+    not model data, and is the one input a reader must take on trust rather than re-derive.
+
+# ─── Findings ────────────────────────────────────────────────────────
+#
+# All five are STATIC - measured from the model's own tables by
+# sims/extract_evidence.py, which writes data/evidence.json. No simulation.
+
+findings:
+  - id: F-01
+    tier: observation
+    statement: >-
+      v2ecoli's mechanistic reach over transcriptional regulation covers 663 of 4347 mRNA
+      cistrons - 15.2%. The regulatory network is 897 edges from 47 transcription factors
+      onto 675 distinct target names, of which 670 resolve to a gene once synonyms are
+      honoured. For the other ~85% of the genome the model has no transcriptional-regulatory
+      mechanism to perturb at all.
+    claim_scope: mechanism
+    lifecycle_state: observation
+    generality:
+      axes_tested: [parameter_regime]
+      level: mechanism
+    next_action: >-
+      This is the ceiling every genotype study in this investigation operates under; it
+      belongs in the investigation's framing, not only in this study.
+    next_action_type: escalate_model
+    evidence:
+      observed: >-
+        fold_changes.tsv 907 rows, 897 after applying fold_changes_removed.tsv; 47 TFs; 675
+        distinct targets; 670 resolve via genes.tsv symbol+synonyms; 663 of those are mRNA
+        cistrons out of 4347 total. Five names resolve to nothing - efeU_2, ilvG_1, phnE_1,
+        phnE_2, rdoA - all frameshift or pseudogene fragments.
+      from_test: ""
+  - id: F-02
+    tier: observation
+    statement: >-
+      The model's trpR regulon is 7 edges covering 2 of EcoCyc's 5 TrpR operator regions
+      (trpLEDCBA and aroH). The missing three - aroL, mtr, and trpR's own autoregulation -
+      are not merely missing a TrpR edge: all three genes exist in the model and carry NO
+      incoming regulatory edge from any transcription factor.
+    claim_scope: mechanism
+    lifecycle_state: observation
+    generality:
+      axes_tested: [parameter_regime]
+      level: instance_specific
+    next_action: >-
+      Adding the TrpR->mtr edge is a one-row addition to fold_changes.tsv - the gene
+      (EG10617), the monomer (MTR-MONOMER[i]) and the transport reactions (TRANS-RXN-142,
+      TRANS-RXN-76) are all already present. Only the regulatory edge is absent.
+    next_action_type: refine_representation
+    evidence:
+      observed: >-
+        trpR rows in fold_changes.tsv: trpA -1.83, trpB -1.77, trpC -1.63, trpD -2.08,
+        trpE -2.46, trpL -2.37, aroH -1.02 (log2). aroL (EG10082), mtr (EG10617) and trpR
+        (EG11029) each appear in genes.tsv and in zero fold_changes target rows.
+      from_test: ""
+  - id: F-03
+    tier: mechanism
+    mechanism_origin: engineered
+    statement: >-
+      In the model's parameter tables the control hierarchy is INVERTED against the
+      literature. TrpR repression terms are 2.03-5.50x where the literature reports 70-300x,
+      while attenuation terms on the same operon are 5.98-7.36x against a literature 8-10x.
+      On all 5 genes where both mechanisms act, the model's attenuation term is LARGER than
+      its repression term - the opposite of the documented ordering.
+    claim_scope: mechanism
+    lifecycle_state: candidate-explanation
+    generality:
+      axes_tested: [parameter_regime]
+      level: mechanism
+    next_action: >-
+      Re-parameterizing the TrpR fold-changes toward the literature range would fix the
+      magnitude and the ordering together. Worth noting what the model gets RIGHT first:
+      operon polarity is correct - trpE (5.50x) > trpD (4.23x) > trpA (3.56x) reproduces the
+      promoter-proximal-strongest gradient. It is mis-parameterized, not structurally wrong,
+      on the genes it covers.
+    next_action_type: calibrate
+    evidence:
+      observed: >-
+        Per shared target, TrpR repression vs attenuation (fold): trpA 3.56 vs 7.36, trpB
+        3.41 vs 6.96, trpC 3.10 vs 7.16, trpD 4.23 vs 6.68, trpE 5.50 vs 5.98. Repression
+        exceeds attenuation on 0 of 5.
+      from_test: ""
+  - id: F-04
+    tier: observation
+    statement: >-
+      tRNA transcriptional attenuation is OFF in a default v2ecoli run. The attenuation terms
+      F-03 measures are present in the shipped tables but inactive unless explicitly enabled,
+      so in a default simulation trp control rests on the TrpR term alone.
+    claim_scope: local-implementation
+    lifecycle_state: observation
+    generality:
+      axes_tested: [parameter_regime]
+      level: instance_specific
+    next_action: >-
+      This is why the attenuation-on control arm exists. Without it, a run measuring "weak trp
+      control" would be read as evidence about the balance of two mechanisms when only one was
+      switched on. It also means F-03's inversion is a statement about the TABLES and must not
+      be restated as a statement about a run.
+    next_action_type: ablate
+    evidence:
+      observed: >-
+        Three independent defaults agree: v2ecoli/composites/ecoli_baseline.py:506
+        DEFAULT_FEATURES = ['ppgpp_regulation'] with the explicit comment "trna_attenuation +
+        mass_conservation off by default"; v2ecoli/processes/transcript_initiation.py:378
+        declares 'trna_attenuation' default False; v2ecoli/composites/_helpers.py:1413 reads
+        ti_config.get('trna_attenuation', False).
+      from_test: ""
+  - id: F-05
+    tier: observation
+    statement: >-
+      Route A - chromosomal deletion of trpR before reconstruction - is reported not to build,
+      failing ParCa at step 9 on the TRP[c] amino-acid homeostasis invariant. This is a third
+      knockout failure class, distinct from the fatal dangling reference of the ppGpp path and
+      from silent target-side drops: a validated invariant tripping loudly, which is arguably
+      the system working.
+    claim_scope: local-implementation
+    lifecycle_state: observation
+    generality:
+      axes_tested: [parameter_regime]
+      level: instance_specific
+    next_action: >-
+      Reproduce the failure formally in this study rather than routing around it. The route-A
+      arm is declared for exactly this purpose; recording the failure IS the result.
+    next_action_type: replicate
+    evidence:
+      observed: >-
+        NOT reproduced in this study yet - carried forward from a prior measurement and
+        recorded here as the arm's expected outcome, not as a result of this study. The
+        route-A variant exists to produce this evidence.
+      from_test: ""
+
+discovery_implications:
+  resolved_uncertainties:
+    - >-
+      Whether a ParCa-level TF knockout prunes that TF's regulon entries. It does NOT - the
+      deletion transform touches genes, transcription_units, dna_sites and the genome
+      sequence, and never fold_changes. All 7 trpR rows survive a trpR deletion, so ParCa
+      continues fitting delta_prob entries for a regulator no longer in the genome. This
+      closes an open decision on the parent investigation.
+  remaining_uncertainties:
+    - >-
+      Whether the inverted table ordering (F-03) manifests as an inverted RUN response once
+      attenuation is enabled, or whether downstream machinery re-weights the two mechanisms.
+    - >-
+      Whether ParCa's continued fitting of an absent regulator's regulon is a defect or a
+      defensible modelling choice. It needs deciding for every TF knockout, not just trpR.
+  followup_study_proposals:
+    - id: FU-01
+      title: Add the TrpR->mtr edge and measure what changes
+      motivation: >-
+        F-02 shows the gene, the monomer and the transport reactions are all present and only
+        the regulatory edge is missing, making this a one-row change to fold_changes.tsv. It
+        is the cheapest test of whether the model's regulatory representation is the binding
+        constraint on regulon coverage, and it converts B2 from unreachable into gradeable.
+    - id: FU-02
+      title: Re-parameterize the TrpR fold-changes toward the literature range
+      motivation: >-
+        F-03 shows the magnitudes are an order of magnitude low AND inverted against
+        attenuation. A re-parameterization would test both at once, and because operon
+        polarity is already correct it is a scaling question rather than a structural one.
+    - id: FU-03
+      title: Reproduce and characterize the route-A TRP[c] build failure
+      motivation: >-
+        F-05 records a real measured ParCa failure that currently has no public artifact. The
+        underlying amino-acid parameterization looks foundational and is out of scope here,
+        but the failure itself should be reproducible on demand rather than remembered.
+
+design_pivot_required:
+  - id: GENO06-EQ-01
+    status: open
+    question: >-
+      Is ParCa's continued fitting of delta_prob entries for a deleted transcription factor a
+      defect or a defensible modelling choice?
+    alternatives:
+      - Prune fold_changes rows whose TF has been deleted from the genome.
+      - Keep them, and treat the regulator's absence as acting only through the protein.
+      - Make it a declared option on the deletion transform.
+    requested_response: >-
+      A decision that applies to every TF knockout, not just trpR. Surfaced by this study but
+      owned by the parent investigation.
+
+conclusion_verdicts:
+  regression_compatibility:
+    basis: >-
+      No runs executed. The static pass reads shipped tables and changes nothing.
+  biological_validation:
+    basis: >-
+      Not asserted. The parent investigation is descriptive and asserts no verdict past build
+      integrity; this study contributes a ranked set of divergences, not a pass/fail on the
+      model.
+  explanatory_gain:
+    basis: >-
+      F-03 identifies a specific, actionable mis-parameterization - the repression/attenuation
+      ordering is inverted on every gene where both act - and F-02 identifies why three
+      documented regulon members are unreachable by any build route.

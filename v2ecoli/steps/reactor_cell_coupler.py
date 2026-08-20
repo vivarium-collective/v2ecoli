@@ -274,8 +274,16 @@ class ReactorCellCoupler(Step):
             # growth_factor, so deriving the per-agent scale from it keeps ONE
             # authoritative number rather than a second copy that can drift.
             # The aggregator runs before this Step in the flow, so the value is
-            # current for this tick. Fall back to the configured constant when
-            # no population store is wired (the aggregator is optional).
+            # current for this tick -- verified on tick 0, where the coupler
+            # already sees the aggregator's write rather than the store's 0.0
+            # seed.
+            #
+            # The fallback below is DEAD in every shipped composite: both
+            # `reactor_bird_coupled` and `reactor_bird_coupled_millard` always
+            # wire the aggregator, so only direct construction reaches it. Kept
+            # as a defensive default, and named here because it silently
+            # switches between two different scales -- unlike the mirror's
+            # skipped-id path, it keeps no record that it did.
             n_agents = len(agents)
             cell_count = _as_float(population.get("cell_count"))
             if cell_count > 0.0 and n_agents:

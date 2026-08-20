@@ -35,6 +35,28 @@ from v2ecoli.steps.millard_pdmp_metabolism import EXTERNAL_NAME_TO_SBML
 from v2ecoli.types.stores import InPlaceDict
 
 
+# Molecules the reactor must NOT drive in the Millard cell, even though the
+# alias table can resolve them.
+#
+# `ReactorCellCoupler` publishes the reactor's medium glucose into the shared
+# top-level environment store so the WCM arm's cell can finally see it. That
+# store is also this bridge's input, and `GLC[p]` is already aliased to the
+# SBML species `GLCx` — so without this guard the reactor's pool (~22.2 mM in a
+# default batch) overwrites the Millard model's own calibrated external glucose
+# (0.00633 mM) on every tick, a ~3500x step change in the driver of its glucose
+# rate law, and overrides both `GLCx`'s own dynamics and its `_GLC_FEED`
+# chemostat. Measured: it breaks the mbp-07 O2 negative-feedback behaviour
+# (CYTBO stops throttling at low DO).
+#
+# ⚠ This is a DEFERRAL, not a judgement. Whether a coupled reactor *should* set
+# the Millard cell's external glucose is a real modelling question — arguably it
+# should — but answering it means re-calibrating that model and regenerating
+# mbp-07's committed figures and the millard_vs_beulig report card. That is a
+# deliberate decision to make on its own, not a side effect of wiring the WCM
+# arm's glucose path.
+_NOT_REACTOR_DRIVEN: frozenset[str] = frozenset({"GLC[p]"})
+
+
 class ReactorMillardEnvBridge(Step):
     """Mirror top-level environment.external_concentrations into each agent's."""
 
@@ -69,6 +91,8 @@ class ReactorMillardEnvBridge(Step):
         # absolute mM (overwrite); the Millard reader clamps negatives.
         passthrough: dict[str, float] = {}
         for name, conc in external.items():
+            if name in _NOT_REACTOR_DRIVEN:
+                continue
             if name not in EXTERNAL_NAME_TO_SBML:
                 continue
             val = float(conc.magnitude) if hasattr(conc, "magnitude") else float(conc)

@@ -271,3 +271,64 @@ def test_a_resolvable_id_is_not_counted_as_skipped(core):
         },
     )
     assert mirror.skipped_unmatched == {}
+
+
+# --- the Millard arm must not be driven by the reactor's glucose -------------
+
+
+def test_reactor_glucose_does_not_reach_the_millard_cell(core):
+    """The coupler publishes glucose into the SHARED top-level environment
+    store, and `ReactorMillardEnvBridge` reads that same store.
+
+    `GLC[p]` is already aliased to the SBML species `GLCx`, so without an
+    explicit guard the reactor's pool (~22.2 mM) overwrites the Millard model's
+    calibrated external glucose (0.00633 mM) every tick -- a ~3500x step change
+    in the driver of its glucose rate law, which also overrides GLCx's own
+    dynamics and its _GLC_FEED chemostat.
+
+    discriminates: without the guard this test fails, and so does
+    `test_millard_o2_limitation.py::test_coupled_reactor_o2_feedback_closes_loop`
+    (CYTBO stops throttling at low DO) -- which is the behaviour that caught it.
+
+    This pins a DEFERRAL, not a judgement: whether a coupled reactor should set
+    the Millard cell's external glucose is a live modelling question, and
+    answering it means re-calibrating that model and regenerating mbp-07's
+    committed figures and the millard_vs_beulig report card.
+    """
+    from v2ecoli.steps.reactor_millard_env_bridge import ReactorMillardEnvBridge
+
+    bridge = ReactorMillardEnvBridge(config={}, core=core)
+    out = bridge.next_update(
+        1.0,
+        {
+            "environment": {
+                "external_concentrations": {
+                    "GLC[p]": 22.2,
+                    "OXYGEN-MOLECULE[p]": 0.25,
+                }
+            },
+            "agents": {"0": {}},
+        },
+    )
+    passed = out["agents"]["0"]["environment"]["external_concentrations"]
+    assert "GLC[p]" not in passed, (
+        "the reactor's medium glucose reached the Millard cell and would "
+        "overwrite its calibrated GLCx"
+    )
+    # The gases must still get through -- that is the whole point of the bridge.
+    assert passed["OXYGEN-MOLECULE[p]"] == pytest.approx(0.25)
+
+
+def test_the_unmatched_tally_counts_agent_ticks(core):
+    """The unit is agent-ticks, not ticks. Pinned because the obvious reading
+    of the counter is wrong for any multi-agent run."""
+    mirror = EnvironmentMirror(config={}, core=core)
+    states = {
+        "environment": {"external_concentrations": {"NOPE[p]": 1.0}},
+        "agents": {
+            str(i): {"boundary": {"external": {"GLC": 11.1}}} for i in range(3)
+        },
+    }
+    with pytest.warns(RuntimeWarning):
+        mirror.next_update(1.0, states)
+    assert mirror.skipped_unmatched == {"NOPE[p]": 3}

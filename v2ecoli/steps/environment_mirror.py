@@ -24,10 +24,18 @@ pre-seed gymnastics.
 
 Convention
 ----------
-Driver / coupler writes use BARE molecule names (`GLC`, `ACET`, `FUM`,
-...) matching `boundary.external` keys. Any unmatched name is silently
-skipped — failing closed rather than crashing if a future trajectory
-spec includes a molecule metabolism doesn't track.
+Two id conventions arrive here. `EnvironmentDriver` writes BARE molecule
+names (`GLC`, `ACET`, `FUM`, ...), matching `boundary.external` keys
+directly. `ReactorCellCoupler` writes compartment-tagged v2ecoli ids
+(`OXYGEN-MOLECULE[p]`), because the Millard arm's alias table and
+`reactor_millard_env_bridge` are built around that form. An exact match
+wins; otherwise the compartment tag is stripped and retried.
+
+An unmatched name is still skipped — failing closed rather than crashing
+on a molecule metabolism doesn't track — but it is now COUNTED and named
+once (`skipped_unmatched`). It used to be dropped with no record at all,
+which is how the coupler's entire dissolved-gas channel went missing
+without anything failing.
 
 Ordering
 --------
@@ -72,6 +80,23 @@ def _resolve_boundary_keys(external: dict, boundary_ext: dict) -> dict[str, str]
     An id that resolves to a boundary key claimed by another id is AMBIGUOUS
     (`X[p]` and `X[c]` both reducing to `X`) and both are dropped rather than
     silently letting the last one win.
+
+    ⚠ Stripping accepts ANY `[a-z]` tag, so a WRONG tag is absorbed rather than
+    rejected: `AMMONIUM[p]` would drive boundary `AMMONIUM` even though
+    `environment_molecules.tsv` gives ammonium's exchange location as `[c]`.
+    Bare ids are unique (none contains a bracket), so this can never route one
+    substance onto another — the cost is a missed error, not a mis-route, and
+    no in-repo producer emits a wrong tag today (the only two writers of the
+    top-level store are EnvironmentDriver, which emits bare ids everywhere in
+    `tests/` and `workspace/`, and ReactorCellCoupler, whose three ids are
+    correctly tagged).
+
+    The authoritative fix is `sim_data.external_state.exchange_to_env_map`,
+    which is exact in both directions and would REJECT a wrong tag. It is not
+    used here because this Step is constructed by `add_reactor_coupling`, which
+    receives an already-built document and has no sim_data handle — wiring one
+    through is real plumbing, not a swap. Left as a follow-up rather than
+    smuggled into this change.
     """
     resolved: dict[str, str] = {}
     claimed_by: dict[str, list[str]] = {}
@@ -115,6 +140,9 @@ class EnvironmentMirror(Step):
         # entire dissolved-gas channel went missing without anything failing.
         # Count what is dropped so the condition is observable to a test or a
         # caller instead of being invisible, and name the offenders once.
+        # Counts AGENT-TICKS, not ticks: one tick with three agents whose
+        # boundary lacks the id increments by three. The warning is once per
+        # molecule per Step instance.
         self.skipped_unmatched: dict[str, int] = {}
         self._warned_unmatched: set[str] = set()
 

@@ -98,7 +98,21 @@ class EnvironmentMirror(Step):
                 conc = float(conc_raw.magnitude) if hasattr(conc_raw, "magnitude") else float(conc_raw)
                 curr = float(curr_raw.magnitude) if hasattr(curr_raw, "magnitude") else float(curr_raw)
                 diff = conc - curr
-                if np.isnan(diff):
+                if not np.isfinite(diff):
+                    # A non-finite delta means the CURRENT boundary value is
+                    # non-finite: metabolism seeds an unlimited molecule (O2 is
+                    # the canonical one) at inf, and `0.0 - inf` is -inf, which
+                    # clears an isnan check and then accumulates to NaN in the
+                    # additive boundary store -- silently poisoning that
+                    # molecule for the rest of the run. A delta cannot express
+                    # a change to an unlimited boundary at all, so fail closed
+                    # and leave it untouched.
+                    #
+                    # NOTE this makes the failure safe, not fixed: inf-valued
+                    # molecules remain UNREACHABLE by the driver. Driver
+                    # control of dissolved O2 (the DO-limitation story) needs
+                    # replace semantics on boundary.external and is expressly
+                    # NOT provided here.
                     diff = 0.0
                 conc_update[mol] = diff
             if conc_update:

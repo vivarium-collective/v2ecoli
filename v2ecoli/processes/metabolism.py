@@ -290,8 +290,8 @@ class Metabolism(Step):
             'environment': {
                 'media_id': {'_type': 'string', '_default': ''},
                 'exchange_data': {
-                    'constrained': 'map[float]',
-                    'unconstrained': 'list[string]',
+                    'constrained': 'overwrite[map[float]]',
+                    'unconstrained': 'overwrite[list[string]]',
                 },
             },
             'boundary': 'node',
@@ -679,8 +679,10 @@ class Metabolism(Step):
         # concentration (M) basis
         coefficient = dry_mass / cell_mass * self.cellDensity * timestep * units.s
 
-        # Get exchange constraints. The store schema (map[float]) strips
-        # units from the producer's values, so re-attach the known
+        # Get exchange constraints. The producer writes plain float magnitudes
+        # and the store does not re-attach units (the resolved schema for this
+        # leaf is `overwrite[...]`, whose apply replaces without descending), so
+        # re-attach the known
         # mol/mass/time units (mmol/g/h) before crossing back into upstream
         # Unum-native code (exchange_constraints multiplies by an Unum
         # coefficient). Values arriving as plain floats become pint

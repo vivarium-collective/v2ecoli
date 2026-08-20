@@ -14,7 +14,7 @@ phase: Design
 study_type: exploratory
 
 design_status: complete
-implementation_status: not-started
+implementation_status: partial
 expert_review_status: not_requested
 
 question: >-
@@ -42,10 +42,25 @@ experiment: >-
   question rather than a property of the genotype machinery.
 
 result: >-
-  The static pass is complete and is the substance of this study; the run arms are declared
-  and not yet executed. Findings F-01 through F-05 are measured from the model's own tables
-  and hold independently of any simulation. The route comparison itself - what each build
-  route can and cannot represent - is the deliverable, not a preliminary to one.
+  The static pass is complete (F-01 to F-04, measured from the model's own tables and holding
+  independently of any simulation), and ROUTE A HAS RUN: both arms fail ParCa at step 9 on the
+  TRP[c] amino-acid homeostasis check, with every structural build-integrity axis passing first
+  (F-05, F-06). Route B is declared and not yet executed. The route comparison itself - what
+  each build route can and cannot represent - is the deliverable, not a preliminary to one.
+
+canonical_runs:
+  - name: route-a-parca-builds
+    entry: sims/run_route_a.py
+    description: >-
+      Regenerates the trpR and trpR+tnaA knockout bundles from ecoli-sources, grades build
+      integrity structurally, then runs ParCa on each. Records the failure as the result;
+      writes data/route_a_summary.json. Does not read any scratch directory, so it reproduces
+      on a fresh checkout.
+  - name: static-regulatory-evidence
+    entry: sims/extract_evidence.py
+    description: >-
+      Re-derives every number the study cites from v2ecoli's raw_data flat files; writes
+      data/evidence.json. No simulation.
 
 runtime:
   default_emitter: sqlite
@@ -145,8 +160,9 @@ conditions:
       BUILD, not a run. Recorded because its failure is a result, not an obstacle to route
       around: see F-05.
     expected_contrast: >-
-      Expected NOT to complete. The build is reported to fail at ParCa step 9 on the TRP[c]
-      amino-acid homeostasis invariant.
+      Expected NOT to complete - CONFIRMED 2026-08-20 (F-05). Fails at ParCa step 9 on the
+      TRP[c] amino-acid homeostasis check, both arms, with all six structural build-integrity
+      axes passing first (F-06).
   model_settings:
     - name: trna_attenuation
       default: false
@@ -530,25 +546,59 @@ findings:
   - id: F-05
     tier: observation
     statement: >-
-      Route A - chromosomal deletion of trpR before reconstruction - is reported not to build,
-      failing ParCa at step 9 on the TRP[c] amino-acid homeostasis invariant. This is a third
-      knockout failure class, distinct from the fatal dangling reference of the ppGpp path and
-      from silent target-side drops: a validated invariant tripping loudly, which is arguably
-      the system working.
+      Route A - chromosomal deletion of trpR before reconstruction - does not build. Both the
+      trpR single and the trpR+tnaA double fail ParCa at step 9 with an identical ValueError on
+      the amino-acid homeostasis check for TRP[c]. This is a third knockout failure class,
+      distinct from the fatal dangling reference of the ppGpp path and from silent target-side
+      drops: a validated invariant tripping loudly, which is arguably the system working.
     claim_scope: local-implementation
     lifecycle_state: observation
     generality:
       axes_tested: [parameter_regime]
       level: instance_specific
     next_action: >-
-      Reproduce the failure formally in this study rather than routing around it. The route-A
-      arm is declared for exactly this purpose; recording the failure IS the result.
+      The failure is now reproducible on demand via sims/run_route_a.py, which regenerates the
+      bundles rather than reading any scratch directory. The underlying amino-acid pathway
+      parameterization is out of scope here; what this study owes is the reproducible record.
     next_action_type: replicate
     evidence:
       observed: >-
-        NOT reproduced in this study yet - carried forward from a prior measurement and
-        recorded here as the arm's expected outcome, not as a result of this study. The
-        route-A variant exists to produce this evidence.
+        REPRODUCED 2026-08-20 in this study, both arms, identically. ParCa exit 1, no
+        parca_state.pkl written, checkpoints 1-8 present and step 9 absent. Assertion verbatim:
+        "ValueError: Check that amino acid concentrations should be lower in amino acid media
+        for ['TRP[c]']". Genotype ids 0adf8b53af80154d (trpR, EG11029) and 70d3080e93e991f3
+        (trpRtnaA, EG11029+EG11005). Artifact: data/route_a_summary.json.
+      from_test: ""
+  - id: F-06
+    tier: mechanism
+    mechanism_origin: engineered
+    statement: >-
+      The route-A failure cleanly separates BUILD INTEGRITY from PARAMETER FITTING. All six
+      structural axes pass within tolerance on both arms - chromosome length, round-trip,
+      coordinate bounds, coordinate shift, tombstone, and functional absence - so the genome
+      splice is sound and the genotype is well-formed. It is ParCa's fit, not the deletion
+      machinery, that rejects it.
+    claim_scope: mechanism
+    lifecycle_state: candidate-explanation
+    generality:
+      axes_tested: [parameter_regime]
+      level: mechanism
+    next_action: >-
+      Worth stating plainly because it changes what the failure means: "a trpR knockout does not
+      build" would suggest the perturbation machinery is broken for regulators. It is not. The
+      machinery produces a structurally perfect genotype that a downstream physiological
+      invariant then refuses. INTERPRETATION, offered as such and not measured here: the
+      invariant asserts intracellular amino acid concentrations should be LOWER in amino-acid
+      media, and derepressed trp biosynthesis after losing the repressor is a plausible reason
+      that relation would invert for TRP specifically. Testing that would require instrumenting
+      step 9, which this study does not do.
+    next_action_type: split_hypothesis
+    evidence:
+      observed: >-
+        Both arms: structural_axes_all_ok true, with chromosome_length.ok, round_trip.ok,
+        coordinate_bounds.ok, coordinate_shift.ok, tombstone.ok and functional_absence.ok all
+        within_tol; fit.completed and fit.conditions_fitted ungraded because no fit completed.
+        Artifact: data/route_a_summary.json.
       from_test: ""
 
 discovery_implications:

@@ -379,20 +379,49 @@ def run_chunked(
     return pl.concat(parts, how="vertical")
 
 
-def cd1_filter_clause(params: Optional[dict] = None) -> str:
-    """The ``WHERE`` clause the cd1 omics ports share, or ``""`` when unfiltered.
+def generation_time_filter_clause(params: Optional[dict] = None) -> str:
+    """The shared burn-in ``WHERE`` clause, or ``""`` when unfiltered.
 
-    All six vEcoli ``cd1_*`` analyses gate their aggregate on the same two
-    optional params — ``generation_lower_bound`` (drop early generations as
-    inoculation burn-in) and ``time_lower_bound`` (drop the start of each cell
-    cycle).  ``time`` is available because :func:`read_stacked_columns` aliases
-    v2ecoli's ``global_time`` to it.
+    Two optional params, common to any analysis aggregating over a cell's (or
+    a sweep's) timeseries — ``generation_lower_bound`` (drop early generations
+    as inoculation burn-in) and ``time_lower_bound`` (drop the start of each
+    cell cycle). Requires a ``generation`` column and a ``time`` column (or
+    alias) in scope wherever this is applied; :func:`read_stacked_columns`
+    aliases v2ecoli's ``global_time`` to ``time`` for the ``cd1_*`` family, and
+    the ``ptools_*`` family's ``build_query`` does the same.
 
-    Deviation from the originals: ``cd1_fluxomics`` tested
-    ``generation_lower_bound`` for *truthiness* while the other five tested
-    ``is not None``, so a bound of ``0`` was silently ignored there.  This
-    normalizes on ``is not None``.  The two agree in effect (``generation >= 0``
+    Shared by all six ``cd1_*`` omics ports and the ``ptools_*`` single/multi-
+    scale exports — this is pure row-admission logic (which rows reach an
+    analysis' own aggregation), not itself part of either family's
+    aggregation or biological transformation.
+
+    Historical deviation now normalized: ``cd1_fluxomics`` used to test
+    ``generation_lower_bound`` for *truthiness* while the rest tested
+    ``is not None``, so a bound of ``0`` was silently ignored there. This
+    normalizes on ``is not None``. The two agree in effect (``generation >= 0``
     matches every row), so no output changes — the ports just stop disagreeing.
+
+    ``time_lower_bound``'s meaning is emitter-path-dependent, pre-existing and
+    not addressed here: v2ecoli's ``global_time`` is absolute across
+    generations on the parquet emitter but resets per generation on the
+    xarray path (see :func:`cumulative_time_history`). Callers that first
+    normalize onto an absolute axis (e.g. ``_MultigenMixin``, via
+    :func:`cumulative_time_history`) get "after absolute time T"; callers that
+    filter the raw column (single-scale and multiseed ``ptools_*``, and every
+    ``cd1_*`` port) get "after time T of whichever axis the emitter produced"
+    — "drop the first T of each cycle" on the xarray path, but the former
+    absolute reading on the already-absolute parquet path. Bound-setters
+    should know which emitter produced their data before relying on
+    ``time_lower_bound`` to mean one or the other.
+
+    Distinct from :func:`skip_n_gens` (vEcoli-parity ``generation > n``, used
+    by ``doubling_time_hist``/``subgenerational_expression_table``): that is a
+    strict "drop the first n generations" cutoff, while this clause's
+    ``generation_lower_bound`` is an inclusive "keep generation >= bound"
+    threshold. The two read similarly but differ by one generation at the
+    boundary (``skip_n_gens(sql, 2)`` keeps generation 3+; this clause with
+    ``generation_lower_bound=2`` keeps generation 2+) because they serve
+    different call sites' own intent, not because either is wrong.
     """
     params = params or {}
     filters = []
@@ -403,6 +432,35 @@ def cd1_filter_clause(params: Optional[dict] = None) -> str:
     if time_lb is not None:
         filters.append(f"time >= {float(time_lb)}")
     return ("WHERE " + " AND ".join(filters)) if filters else ""
+
+
+def ptools_time_series_query(columns, history_sql: str, filter_clause: str = "") -> str:
+    """The ``ptools_*`` single/multiseed row-filtered time-series query.
+
+    Selects ``columns`` plus ``generation`` and ``global_time`` (aliased to
+    ``time``) from an inner subquery, applies ``filter_clause`` (from
+    :func:`generation_time_filter_clause`) against those, then drops
+    ``generation`` on the outer projection so it is filterable but never
+    leaks into the returned columns. ``filter_clause`` only restricts which
+    rows reach the caller's own aggregation (``groupby("time").sum()`` in
+    ``read_outputs``, :func:`collapse_cross_seed` in
+    ``_MultiseedMixin._do_read_outputs``) — it adds no aggregation of its own.
+
+    Was four independently-maintained copies of this identical string
+    (``ptools_rna``/``ptools_rxns``/``ptools_proteins``'s own ``build_query``,
+    plus ``_MultiseedMixin._do_read_outputs``'s inlined query) until PR #545's
+    review — consolidated here since all four had converged on byte-identical
+    SQL. ``build_query`` remains in each module as a thin wrapper so existing
+    call sites and any external references to it are unaffected.
+    """
+    return f"""
+        SELECT * EXCLUDE (generation) FROM (
+            SELECT {",".join(columns)}, generation, global_time AS time
+            FROM ({history_sql})
+        )
+        {filter_clause}
+        ORDER BY time
+    """
 
 
 def with_cross_cell_stats(wide, index_col: str):

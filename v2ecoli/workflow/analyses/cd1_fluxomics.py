@@ -32,7 +32,7 @@ from ecoli.processes.metabolism import COUNTS_UNITS, MASS_UNITS, TIME_UNITS
 from wholecell.utils import units
 
 from v2ecoli.workflow.analyses._helpers import (
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     run_chunked,
     with_cross_cell_stats,
@@ -63,7 +63,7 @@ class Cd1Fluxomics(Analysis):
         # config and as ``variant_metadata``; the flush path only sets config.
         # Read both so the params land whichever way the analysis was invoked.
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         rxn_ids = [str(r) for r in sim_data.process.metabolism.base_reaction_ids]
         cell_density = sim_data.constants.cell_density.asNumber(units.g / units.L)

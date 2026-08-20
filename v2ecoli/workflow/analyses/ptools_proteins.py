@@ -20,7 +20,11 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis
-from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
+from v2ecoli.workflow.analyses._helpers import (
+    generation_time_filter_clause,
+    ptools_heatmap_view,
+    ptools_time_series_query,
+)
 from v2ecoli.workflow.analyses._shims import (
     bulk_count_matrix,
     ACTIVE_RIBOSOME_SQL,
@@ -40,13 +44,14 @@ from v2ecoli.workflow.analyses.ptools_rna import (
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
-def build_query(columns, history_sql):
-    """Generate SQL query for user-specified parquet columns."""
-    query_sql = f"""
-        SELECT {",".join(columns)}, global_time AS time
-        FROM ({history_sql})
-        ORDER BY time
+def build_query(columns, history_sql, filter_clause=""):
+    """Generate SQL query for user-specified parquet columns.
+
+    Thin wrapper over :func:`~v2ecoli.workflow.analyses._helpers.ptools_time_series_query`
+    (see its docstring for the ``filter_clause`` contract) — kept as a module-
+    level name so existing call sites are unaffected by the shared extraction.
     """
+    query_sql = ptools_time_series_query(columns, history_sql, filter_clause)
     return query_sql
 
 
@@ -54,6 +59,7 @@ def read_outputs(
     history_sql: str,
     conn: DuckDBPyConnection,
     columns=None,
+    filter_clause="",
 ):
     """Retrieve specific columns from parquet outputs and return a DataFrame."""
     if columns is None:
@@ -64,7 +70,7 @@ def read_outputs(
             ACTIVE_RNAP_SQL,
             ACTIVE_RIBOSOME_SQL,
         ]
-    query_sql = build_query(columns, history_sql)
+    query_sql = build_query(columns, history_sql, filter_clause)
     outputs_df = conn.sql(query_sql).df()
     outputs_df = outputs_df.groupby("time", as_index=False).sum()
     return outputs_df
@@ -79,16 +85,22 @@ class PtoolsProteins(Analysis):
 
     name = "ptools_proteins"
     scale = "single"
-    config_schema = {"n_tp": "integer", "time_unit": "string"}
+    config_schema = {
+        "n_tp": "integer",
+        "time_unit": "string",
+        "generation_lower_bound": "integer",
+        "time_lower_bound": "float",
+    }
 
     def _do_read_outputs(
         self,
         history_sql: str,
         conn: DuckDBPyConnection,
         columns=None,
+        filter_clause="",
     ):
         """Delegate to module-level read_outputs (overridable by mixins)."""
-        return read_outputs(history_sql, conn, columns)
+        return read_outputs(history_sql, conn, columns, filter_clause)
 
     def analyze(
         self,
@@ -99,12 +111,14 @@ class PtoolsProteins(Analysis):
         variant_metadata: dict[str, Any] | None = None,
         **ctx,
     ) -> dict:
-        params = dict(variant_metadata or {})
+        params = {**(self.config or {}), **(variant_metadata or {})}
         params.setdefault("n_tp", 8)
         params.setdefault("time_unit", "minutes")
 
         if params["time_unit"] not in ("minutes", "seconds"):
             params["time_unit"] = "minutes"
+
+        filter_clause = generation_time_filter_clause(params)
 
         bulk_ids = get_bulk_ids(sim_data)
 
@@ -116,7 +130,9 @@ class PtoolsProteins(Analysis):
             ACTIVE_RIBOSOME_SQL, # Shim B: active ribosome (sum of per-transcript list)
         ]
 
-        output_df = self._do_read_outputs(history_sql, conn, output_columns)
+        output_df = self._do_read_outputs(
+            history_sql, conn, output_columns, filter_clause
+        )
 
         # Shim A: reorder bulk__count columns to sim_data order
         bulk_mtx = bulk_count_matrix(output_df, sim_data)

@@ -22,7 +22,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
-    cd1_filter_clause,
+    generation_time_filter_clause,
     read_stacked_columns,
     run_chunked,
     with_cross_cell_stats,
@@ -50,7 +50,7 @@ class Cd1Proteomics(Analysis):
         **ctx,
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
-        filter_clause = cd1_filter_clause(params)
+        filter_clause = generation_time_filter_clause(params)
 
         monomer_ids = [
             str(m) for m in sim_data.process.translation.monomer_data["id"]

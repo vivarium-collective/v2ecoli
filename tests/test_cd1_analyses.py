@@ -234,18 +234,24 @@ def test_cd1_id_vocabulary_matches_vecoli(filename):
     assert set(vecoli_ids) == derived
 
 
-def test_cd1_filter_clause_treats_zero_bound_as_a_filter():
+def test_generation_time_filter_clause_treats_zero_bound_as_a_filter():
     """A 0 bound is a real (if permissive) bound, not an absent one.
 
     The vEcoli ``cd1_fluxomics`` original tested truthiness here and so ignored
     ``generation_lower_bound=0`` while its five siblings honoured it; the ports
     normalize on ``is not None``.
     """
-    from v2ecoli.workflow.analyses._helpers import cd1_filter_clause
+    from v2ecoli.workflow.analyses._helpers import generation_time_filter_clause
 
-    assert cd1_filter_clause({}) == ""
-    assert cd1_filter_clause(None) == ""
-    assert cd1_filter_clause({"generation_lower_bound": 0}) == "WHERE generation >= 0"
-    assert cd1_filter_clause({"generation_lower_bound": 5}) == "WHERE generation >= 5"
-    both = cd1_filter_clause({"generation_lower_bound": 3, "time_lower_bound": 60})
+    assert generation_time_filter_clause({}) == ""
+    assert generation_time_filter_clause(None) == ""
+    assert generation_time_filter_clause(
+        {"generation_lower_bound": 0}
+    ) == "WHERE generation >= 0"
+    assert generation_time_filter_clause(
+        {"generation_lower_bound": 5}
+    ) == "WHERE generation >= 5"
+    both = generation_time_filter_clause(
+        {"generation_lower_bound": 3, "time_lower_bound": 60}
+    )
     assert both == "WHERE generation >= 3 AND time >= 60.0"

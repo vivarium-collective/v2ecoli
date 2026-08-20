@@ -441,8 +441,6 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
             from viva_emitters import create_duckdb_conn
             _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
-            if is_s3_uri(sweep_dir):
-                configure_duckdb_s3(_ctx["conn"])
             _ctx["from_clause"] = _history_from_clause(sweep_dir)
             if sim_data_path is not None:
                 from v2ecoli.library.sim_data import LoadSimData
@@ -451,6 +449,18 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
             else:
                 _ctx["sim_data"] = resolve_sim_data(sweep_dir)
             _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
+        # Re-issued on every call, not just the first: the DuckDB SECRET this
+        # creates is a static credential snapshot with no refresh of its own, so
+        # a long multi-module sweep (each module reusing this same connection)
+        # would otherwise keep using the snapshot taken at the very start until
+        # the underlying STS session expires -- every S3 read then fails
+        # identically with ExpiredToken, no matter how the failure looks at the
+        # call site. boto3 already knows how to refresh IRSA/web-identity
+        # credentials; it just needs to be asked again, which this does at
+        # negligible cost (returns the still-cached value when not yet due for
+        # refresh).
+        if is_s3_uri(sweep_dir):
+            configure_duckdb_s3(_ctx["conn"])
         return (_ctx["conn"], _ctx["from_clause"],
                 _ctx["sim_data"], _ctx["validation_data"])
 

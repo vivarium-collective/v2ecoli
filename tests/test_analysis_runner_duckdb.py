@@ -196,3 +196,54 @@ def test_explicit_sim_data_path(tmp_path):
 
     # analysis.json present
     assert _os.path.isfile(str(sweep / "analysis.json"))
+
+
+@_pytest.mark.skipif(_ref_history_dir() is None or not _os.path.isfile(_PAIRED_SIMDATA),
+                     reason="reference sweep parquet or paired sim_data absent")
+def test_s3_secret_refreshed_per_module_not_once(tmp_path, monkeypatch):
+    """The DuckDB S3 SECRET must be re-issued before every analysis module.
+
+    Regression test for item 71's b4 finding: configure_duckdb_s3() used to run
+    only on the FIRST call to the shared _analysis_ctx() (guarded by `if not
+    _ctx`), so a long multi-module sweep kept using the credential snapshot
+    taken at the very start. Any STS session that expired before the sweep
+    finished made every subsequent S3 read fail identically with ExpiredToken,
+    even though the job itself reported success. configure_duckdb_s3 must now
+    run before EVERY module (boto3 already knows how to refresh IRSA
+    credentials -- it only needs to be asked again).
+
+    Uses a real local sweep (no real AWS credentials needed): configure_duckdb_s3
+    is replaced with a counting stub, and is_s3_uri is forced True for this
+    sweep path only, so the S3-refresh branch executes without touching
+    anything DuckDB actually reads.
+    """
+    import v2ecoli.workflow.analyses  # noqa: F401  (register ports)
+    from v2ecoli.workflow import analysis_runner
+    from unittest.mock import MagicMock
+
+    sweep = tmp_path / "sweep_s3_refresh"
+    sweep.mkdir()
+    (sweep / "history").symlink_to(_os.path.abspath(_ref_history_dir()))
+    (sweep / "simData.cPickle").symlink_to(_os.path.abspath(_PAIRED_SIMDATA))
+    sweep_str = str(sweep)
+
+    real_is_s3_uri = analysis_runner.is_s3_uri
+    monkeypatch.setattr(
+        analysis_runner, "is_s3_uri",
+        lambda p: True if p == sweep_str else real_is_s3_uri(p))
+    stub = MagicMock()
+    monkeypatch.setattr(analysis_runner, "configure_duckdb_s3", stub)
+
+    opts = {
+        "single": {"ptools_rna": {"n_tp": 8}, "ptools_rxns": {"n_tp": 8}},
+        "multiseed": {"central_carbon_metabolism_scatter": {}},
+    }
+    analysis_runner.run_analyses(sweep_str, opts)
+
+    # 3 modules requested (ptools_rna, ptools_rxns, central_carbon_metabolism_scatter)
+    # -- one refresh per module, NOT one refresh total for the whole sweep.
+    assert stub.call_count == 3, (
+        f"configure_duckdb_s3 called {stub.call_count} time(s) for 3 modules -- "
+        "expected exactly 3 (once per module). A call_count of 1 means the old "
+        "one-time-provisioning bug (frozen credentials shared across the whole "
+        "sweep) has regressed.")

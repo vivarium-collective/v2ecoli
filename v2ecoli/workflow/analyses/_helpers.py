@@ -400,6 +400,28 @@ def generation_time_filter_clause(params: Optional[dict] = None) -> str:
     ``is not None``, so a bound of ``0`` was silently ignored there. This
     normalizes on ``is not None``. The two agree in effect (``generation >= 0``
     matches every row), so no output changes — the ports just stop disagreeing.
+
+    ``time_lower_bound``'s meaning is emitter-path-dependent, pre-existing and
+    not addressed here: v2ecoli's ``global_time`` is absolute across
+    generations on the parquet emitter but resets per generation on the
+    xarray path (see :func:`cumulative_time_history`). Callers that first
+    normalize onto an absolute axis (e.g. ``_MultigenMixin``, via
+    :func:`cumulative_time_history`) get "after absolute time T"; callers that
+    filter the raw column (single-scale and multiseed ``ptools_*``, and every
+    ``cd1_*`` port) get "after time T of whichever axis the emitter produced"
+    — "drop the first T of each cycle" on the xarray path, but the former
+    absolute reading on the already-absolute parquet path. Bound-setters
+    should know which emitter produced their data before relying on
+    ``time_lower_bound`` to mean one or the other.
+
+    Distinct from :func:`skip_n_gens` (vEcoli-parity ``generation > n``, used
+    by ``doubling_time_hist``/``subgenerational_expression_table``): that is a
+    strict "drop the first n generations" cutoff, while this clause's
+    ``generation_lower_bound`` is an inclusive "keep generation >= bound"
+    threshold. The two read similarly but differ by one generation at the
+    boundary (``skip_n_gens(sql, 2)`` keeps generation 3+; this clause with
+    ``generation_lower_bound=2`` keeps generation 2+) because they serve
+    different call sites' own intent, not because either is wrong.
     """
     params = params or {}
     filters = []

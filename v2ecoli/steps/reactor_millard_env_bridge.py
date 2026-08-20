@@ -14,7 +14,11 @@ respiration ran unthrottled at the model's fixed default.
 
 This Step is the Millard analogue of :class:`EnvironmentMirror`: each tick it
 copies the top-level reactor-derived boundary concentrations into every agent's
-``environment.external_concentrations`` (overwrite). The Millard step then
+``environment.external_concentrations`` (overwrite) -- **except** for the
+species listed in ``_NOT_REACTOR_DRIVEN_SPECIES`` below, which are deliberately
+withheld. Today that is glucose: the coupler publishes the reactor's medium
+glucose for the WCM arm, and letting it through here would overwrite this
+model's own calibrated ``GLCx``. See the block comment on that constant. The Millard step then
 aliases those v2ecoli names to its SBML ids (see
 ``millard_pdmp_metabolism.EXTERNAL_NAME_TO_SBML``) and overwrites the matching
 boundary species' value before integrating, so the CYTBO rate law (linear in
@@ -54,7 +58,12 @@ from v2ecoli.types.stores import InPlaceDict
 # mbp-07's committed figures and the millard_vs_beulig report card. That is a
 # deliberate decision to make on its own, not a side effect of wiring the WCM
 # arm's glucose path.
-_NOT_REACTOR_DRIVEN: frozenset[str] = frozenset({"GLC[p]"})
+# Keyed on the RESOLVED SBML species, not on the spelling. `EXTERNAL_NAME_TO_SBML`
+# maps `GLC`, `GLC[p]` AND `GLC[c]` all onto `GLCx`, so a set of v2ecoli names
+# would go silently inert the moment a producer spelled it differently --
+# including the plausible next step of the coupler emitting bare ids to match
+# the boundary convention. Resolving first makes the guard independent of that.
+_NOT_REACTOR_DRIVEN_SPECIES: frozenset[str] = frozenset({"GLCx"})
 
 
 class ReactorMillardEnvBridge(Step):
@@ -91,9 +100,10 @@ class ReactorMillardEnvBridge(Step):
         # absolute mM (overwrite); the Millard reader clamps negatives.
         passthrough: dict[str, float] = {}
         for name, conc in external.items():
-            if name in _NOT_REACTOR_DRIVEN:
+            species = EXTERNAL_NAME_TO_SBML.get(name)
+            if species is None:
                 continue
-            if name not in EXTERNAL_NAME_TO_SBML:
+            if species in _NOT_REACTOR_DRIVEN_SPECIES:
                 continue
             val = float(conc.magnitude) if hasattr(conc, "magnitude") else float(conc)
             if not math.isfinite(val):

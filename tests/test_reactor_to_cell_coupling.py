@@ -319,6 +319,47 @@ def test_reactor_glucose_does_not_reach_the_millard_cell(core):
     assert passed["OXYGEN-MOLECULE[p]"] == pytest.approx(0.25)
 
 
+@pytest.mark.parametrize("spelling", ["GLC", "GLC[p]", "GLC[c]"])
+def test_the_glucose_guard_is_keyed_on_the_species_not_the_spelling(core, spelling):
+    """`EXTERNAL_NAME_TO_SBML` resolves GLC, GLC[p] and GLC[c] all to `GLCx`.
+    A guard keyed on one spelling goes silently inert the moment a producer uses
+    another -- including the plausible next step of the coupler emitting bare
+    ids to match the boundary convention.
+
+    discriminates: keyed on the literal "GLC[p]", the bare and [c] spellings
+    both reach GLCx.
+    """
+    from v2ecoli.steps.reactor_millard_env_bridge import ReactorMillardEnvBridge
+
+    bridge = ReactorMillardEnvBridge(config={}, core=core)
+    out = bridge.next_update(
+        1.0,
+        {
+            "environment": {"external_concentrations": {spelling: 22.2}},
+            "agents": {"0": {}},
+        },
+    )
+    passed = (out.get("agents", {}).get("0", {})
+                 .get("environment", {}).get("external_concentrations", {}))
+    assert spelling not in passed, f"{spelling} resolved to GLCx and got through"
+
+
+def test_the_bridge_still_passes_what_it_should(core):
+    """Guard against the exclusion quietly widening: O2 must still arrive."""
+    from v2ecoli.steps.reactor_millard_env_bridge import ReactorMillardEnvBridge
+
+    bridge = ReactorMillardEnvBridge(config={}, core=core)
+    out = bridge.next_update(
+        1.0,
+        {
+            "environment": {"external_concentrations": {"OXYGEN-MOLECULE[p]": 0.25}},
+            "agents": {"0": {}},
+        },
+    )
+    passed = out["agents"]["0"]["environment"]["external_concentrations"]
+    assert passed == {"OXYGEN-MOLECULE[p]": pytest.approx(0.25)}
+
+
 def test_the_unmatched_tally_counts_agent_ticks(core):
     """The unit is agent-ticks, not ticks. Pinned because the obvious reading
     of the counter is wrong for any multi-agent run."""
@@ -332,3 +373,24 @@ def test_the_unmatched_tally_counts_agent_ticks(core):
     with pytest.warns(RuntimeWarning):
         mirror.next_update(1.0, states)
     assert mirror.skipped_unmatched == {"NOPE[p]": 3}
+
+
+def test_the_scale_fallback_records_that_it_fired(core):
+    """The fallback silently switches between two different population scales.
+    In `fixed` mode the two agree, so nothing shows; under
+    `representative_doubling` the fallback under-scales that tick's exchange.
+    It must leave a trace either way.
+
+    discriminates: before this, the fallback kept no record at all.
+    """
+    c = ReactorCellCoupler(config={"cells_per_agent": 4.0, "track_medium": True}, core=core)
+    assert c.scale_fallbacks == 0
+    agents = {"0": {"environment": {"exchange": {"OXYGEN-MOLECULE": -1.0e18}}}}
+    reactor = {"dissolved_o2": 1.0e9, "dissolved_co2": 0.0, "volume_L": 1.0}
+    # No population store at all -> fallback.
+    c.next_update(1.0, {"reactor": reactor, "agents": agents})
+    assert c.scale_fallbacks == 1
+    # A readable cell_count -> derived scale, no further fallback.
+    c.next_update(1.0, {"reactor": reactor, "agents": agents,
+                        "population": {"cell_count": 8.0}})
+    assert c.scale_fallbacks == 1

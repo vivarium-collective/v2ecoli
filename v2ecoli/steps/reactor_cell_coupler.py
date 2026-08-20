@@ -176,6 +176,12 @@ class ReactorCellCoupler(Step):
         # today's effective default.
         track = cfg.get("track_medium")
         self.track_medium = True if track is None else bool(track)
+        # How many invocations fell back to the configured `cells_per_agent`
+        # because no population cell_count was readable. Expected to be exactly
+        # 1 in a composite that wires the aggregator (the first pass, before
+        # its write commits); a growing count means the population scale is not
+        # reaching this Step at all.
+        self.scale_fallbacks: int = 0
 
     def inputs(self) -> dict[str, Any]:
         return {
@@ -273,23 +279,31 @@ class ReactorCellCoupler(Step):
             # `population.cell_count` already carries cells_per_agent *
             # growth_factor, so deriving the per-agent scale from it keeps ONE
             # authoritative number rather than a second copy that can drift.
-            # The aggregator runs before this Step in the flow, so the value is
-            # current for this tick -- verified on tick 0, where the coupler
-            # already sees the aggregator's write rather than the store's 0.0
-            # seed.
+            # The aggregator precedes this Step in flow_order, so from the
+            # second invocation onward the value is current for this tick.
             #
-            # The fallback below is DEAD in every shipped composite: both
-            # `reactor_bird_coupled` and `reactor_bird_coupled_millard` always
-            # wire the aggregator, so only direct construction reaches it. Kept
-            # as a defensive default, and named here because it silently
-            # switches between two different scales -- unlike the mirror's
-            # skipped-id path, it keeps no record that it did.
+            # ⚠ NOT on the first. Measured under `Composite.run()`: the
+            # aggregator's write is not committed to the store within the first
+            # pass, so the coupler's FIRST invocation reads 0.0 and takes the
+            # fallback below -- exactly once per composite. (An earlier revision
+            # of this comment claimed tick-0 propagation was verified. It is
+            # path-dependent, and on the `run()` path used by the harness and
+            # the figures script it is false. Corrected after measurement.)
+            #
+            # Consequence: in `fixed` mode the fallback is harmless, because
+            # cell_count = n_agents * cells_per_agent * 1.0 makes the two
+            # expressions identical. Under `representative_doubling` at
+            # generation g, that one tick of exchange is under-scaled by
+            # 2**(g-1). Small, but it is the very error this Step is being
+            # fixed for, so the fallback now RECORDS that it fired rather than
+            # switching scales silently.
             n_agents = len(agents)
             cell_count = _as_float(population.get("cell_count"))
             if cell_count > 0.0 and n_agents:
                 cells_per_agent_effective = cell_count / n_agents
             else:
                 cells_per_agent_effective = self.cells_per_agent
+                self.scale_fallbacks += 1
             counts_to_mgL = cells_per_agent_effective / AVOGADRO * 1000.0 / volume_L
             o2_delta = o2_counts * counts_to_mgL * MW_O2
             co2_delta = co2_counts * counts_to_mgL * MW_CO2

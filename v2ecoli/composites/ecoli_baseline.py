@@ -129,7 +129,7 @@ def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
 
 
 def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
-                                buffer_size: int = 3) -> dict:
+                                buffer_size: int = 600) -> dict:
     """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
     agent-relative, in-document capture.
 
@@ -162,7 +162,9 @@ def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
         out_uri: zarr store path/URI.
         metadata: non-empty run-identity metadata (experiment_id / variant /
             lineage_seed). Falls back to a non-empty placeholder if omitted.
-        buffer_size: transducer buffer size (streaming, bounded). Default 3.
+        buffer_size: transducer buffer size (streaming, bounded), in emit steps.
+            Default 600 — matches the viva-emitters library default; flushes a
+            handful of times per generation rather than every few steps.
 
     Returns:
         The static XArrayEmitter config skeleton (no ``view`` /
@@ -244,6 +246,7 @@ from v2ecoli.composites._helpers import (
     set_default_emitter_decl,
     set_emitter_override,
     set_null_emitter_override,
+    set_exchange_fluxes_override,
     _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
@@ -500,6 +503,14 @@ FEATURE_MODULES = {
     'mass_conservation': {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['ecoli-mass-conservation'],
+    },
+    # Opt-in: re-home named environment.exchange fluxes onto
+    # listeners.exchange_flux.<name> so the compact XArray view (listeners-only)
+    # carries them. Enabled automatically when the generator's exchange_fluxes
+    # param is non-empty; the flux map is threaded via set_exchange_fluxes_override.
+    'exchange_flux': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['exchange_flux_listener'],
     },
 }
 
@@ -1097,6 +1108,15 @@ def _build_batch_document(
                            "(ecoli-mass-conservation step). Off by default — the "
                            "residual is not yet calibrated, so it warns each tick.",
         },
+        "exchange_fluxes": {
+            "type": "map",
+            "default": {},
+            "description": "{leaf_name: exchange_key} — re-home named "
+                           "environment.exchange fluxes onto "
+                           "listeners.exchange_flux.<leaf> so the listeners-only "
+                           "XArray view carries them (e.g. "
+                           "{'glucose_exchange': 'GLC[p]'}). Empty = off.",
+        },
         # --- Observation sink selection ---
         "emitter": {
             "type": "string",
@@ -1273,6 +1293,7 @@ def baseline(
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
+    exchange_fluxes: dict | None = None,
     emitter: str = "parquet",
     emitter_out_dir: str = "",
     bundle: dict | None = None,
@@ -1455,6 +1476,11 @@ def baseline(
     }
     _requested_features = list(features or [])
     features = [name for name, on in _toggle_features.items() if on]
+    # exchange_fluxes (non-empty) auto-enables the exchange_flux feature; its map
+    # is threaded to the feature step via the external override set below.
+    _exchange_fluxes = dict(exchange_fluxes or {})
+    if _exchange_fluxes and 'exchange_flux' not in _requested_features:
+        _requested_features.append('exchange_flux')
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)
@@ -1663,6 +1689,9 @@ def baseline(
     # emitter == "parquet": the declared parquet default (set above) is used.
 
     _process_cache = {}
+    # Thread the flux map to the exchange_flux_listener feature step (built via
+    # _get_special_step) for the duration of this build; restored in finally.
+    set_exchange_fluxes_override(_exchange_fluxes)
     try:
         for step_name in flow_order:
             config = _get_step_config(
@@ -1686,6 +1715,7 @@ def baseline(
         # ever changed them when none was active, so this clears ours).
         set_emitter_override(_ext_sqlite)
         set_null_emitter_override(_ext_null)
+        set_exchange_fluxes_override({})
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():

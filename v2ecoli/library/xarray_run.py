@@ -386,7 +386,7 @@ def build_emitter_config(
     metadata_base: dict,
     generation: int,
     agent_id: str,
-    buffer_size: int = 4,
+    buffer_size: int = 600,
     output_metadata: dict | None = None,
     writer: dict | None = None,
     predicate: list | None = None,
@@ -466,7 +466,7 @@ def run_multigen_xarray(
     chunk: int = 60,
     initial_agent_id: str = "0",
     overwrite: bool = True,
-    buffer_size: int = 3,
+    buffer_size: int = 600,
     single_daughters: bool = False,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     provenance: dict | None = None,
@@ -485,12 +485,17 @@ def run_multigen_xarray(
       chunk: how many ticks between emitter updates.
       initial_agent_id: agent_id to start following.
       overwrite: if True, delete ``store_path`` before starting.
-      buffer_size: XArrayEmitter transducer buffer size. Default 3 (NOT the
-        config builder's 4): the installed pbg-emitters trips an
-        ``assert not include_static`` in its ``flush(final=True)`` path when the
-        buffer is exactly full at close (i.e. ``n_updates % buffer_size == 0``);
-        3 is the value the single-generation runner uses to dodge it. Override
-        only if you know the emit count won't land on a multiple of it.
+      buffer_size: XArrayEmitter transducer buffer size, in *emit steps*, held
+        in memory before each flush to the zarr store. Default 600, matching the
+        viva-emitters library default — sized to flush only a handful of times
+        per generation (see :py:class:`viva_emitters.xarray_emitter.transducer.
+        XarrayTransducer`). A tiny buffer (the old default of 3) forces a flush
+        every few emit steps, degrading latency and compression by ~2 orders of
+        magnitude; it was originally chosen to dodge a ``flush(final=True)``
+        assertion in an early vendored emitter, which current viva-emitters has
+        since fixed (the buffer-full/partial/aligned close paths are all
+        regression-tested). The ``except AssertionError`` guards around the
+        closes below are now belt-and-suspenders against that fixed quirk.
       division_detector: optional ``(prev_ids, curr_ids) -> (divided?, daughter_id|None)``.
         Default: detect division when ``len(curr) > len(prev)`` and pick the
         first new agent_id sorted.

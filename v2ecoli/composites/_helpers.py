@@ -361,6 +361,21 @@ def set_null_emitter_override(flag: bool) -> None:
     _NULL_EMITTER_OVERRIDE = bool(flag)
 
 
+# {leaf_name: exchange_key} for the opt-in exchange_flux_listener feature step.
+# Set by ecoli_baseline's generator (from its ``exchange_fluxes`` param) around a
+# build so _get_special_step can build the config-less feature step with the
+# caller's flux map, then restored — same external-override discipline as the
+# emitter overrides above. Empty = the listener declares/emits nothing.
+_EXCHANGE_FLUXES_OVERRIDE: dict = {}
+
+
+def set_exchange_fluxes_override(fluxes: dict | None) -> None:
+    """Set the flux map the ``exchange_flux_listener`` feature step is built with
+    (see ``_EXCHANGE_FLUXES_OVERRIDE``). Pass None/{} to clear."""
+    global _EXCHANGE_FLUXES_OVERRIDE
+    _EXCHANGE_FLUXES_OVERRIDE = dict(fluxes or {})
+
+
 def set_default_emitter_decl(decl: dict | None) -> None:
     """Set the generator-declared default emitter (see ``_DEFAULT_EMITTER_DECL``).
 
@@ -1170,6 +1185,14 @@ def _get_special_step(loader, step_name, core):
         # (5% cumulative drift, 10-tick warmup).
         config = {'exchange_masses': exchange_masses}
         instance = _make_instance(MassConservationDeriver, config, core)
+        return instance, instance.topology, 'step'
+
+    if step_name == 'exchange_flux_listener':
+        from v2ecoli.steps.derivers.exchange_flux_listener import ExchangeFluxListener
+        # Flux map comes from the external override the generator sets from its
+        # ``exchange_fluxes`` param (same discipline as the emitter overrides).
+        config = {'fluxes': dict(_EXCHANGE_FLUXES_OVERRIDE)}
+        instance = _make_instance(ExchangeFluxListener, config, core)
         return instance, instance.topology, 'step'
 
     if step_name == 'global_clock':

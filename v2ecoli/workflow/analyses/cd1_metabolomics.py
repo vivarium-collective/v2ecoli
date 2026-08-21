@@ -30,6 +30,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
+    DEFAULT_CD1_CHUNK_SIZE,
     bulk_field_ids,
     cd1_filter_clause,
     read_stacked_columns,
@@ -47,6 +48,7 @@ class Cd1Metabolomics(Analysis):
     config_schema = {
         "generation_lower_bound": "integer",
         "time_lower_bound": "float",
+        "chunk_size": {"_type": "integer", "_default": DEFAULT_CD1_CHUNK_SIZE},
     }
 
     def analyze(
@@ -60,6 +62,7 @@ class Cd1Metabolomics(Analysis):
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
         filter_clause = cd1_filter_clause(params)
+        chunk_size = int(params.get("chunk_size", DEFAULT_CD1_CHUNK_SIZE))
 
         mtb_ids = [str(k) for k in sim_data.process.metabolism.conc_dict.keys()]
         # Shim A: parquet bulk ordering, the equivalent of field_metadata("bulk")
@@ -115,7 +118,9 @@ class Cd1Metabolomics(Analysis):
         # Chunked one cell at a time (see run_chunked's docstring / item 38):
         # the full-sweep unnest of every cell's bulk-count array at once is
         # what OOM-kills this analysis. Same AVG math, just per cell.
-        metabolite_data = run_chunked(conn, filtered_sql, _batch_sql, id_cols=_ID_COLS)
+        metabolite_data = run_chunked(
+            conn, filtered_sql, _batch_sql, id_cols=_ID_COLS, chunk_size=chunk_size
+        )
 
         if metabolite_data.is_empty():
             empty = pl.DataFrame({"EcoCyc Compound ID": [], "mean": [], "std": []})

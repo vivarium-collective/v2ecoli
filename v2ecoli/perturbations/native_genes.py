@@ -17,23 +17,34 @@ cached value. Anything resident in the cache is inherited by construction.
 tool. For a **multi-generation** study — which is what a design screen is — the
 perturbation has to be in the cache, and that is this module.
 
-⚠ The two routes are NOT numerically equivalent
-------------------------------------------------
-``LoadSimData.get_polypeptide_initiation_config`` stores
-``normalize(translation_efficiencies_by_monomer)``, so the cached array is
-L1-normalised across every monomer. The two routes therefore differ in *when*
-they multiply relative to that normalisation:
+How the two routes actually differ
+-----------------------------------
+⚠ **Not by the arithmetic.** ``LoadSimData.get_polypeptide_initiation_config``
+stores ``normalize(translation_efficiencies_by_monomer)``, and it is tempting to
+conclude that patching before normalisation and patching after it produce
+different quantities. They do not. With raw array ``r``, ``S = sum(r)`` and
+perturbed ``p``, the bundle route yields ``p/S`` and this route ``p/T`` where
+``T = sum(p)`` — **exactly proportional**. The only consumer,
+``processes/polypeptide_initiation.py:381``, computes
+``normalize(cistron_counts * translation_efficiencies)``, and a positive global
+scalar cancels under ``normalize``. Measured on a perturbed array, the resulting
+``protein_init_prob`` differ by ``8.7e-19``.
 
-* **bundle route** (:mod:`~v2ecoli.perturbations.translation`) patches the
-  already-normalised array, so the result is no longer normalised;
-* **this route** patches the raw array and the cache normalises afterwards, so
-  the result stays normalised.
+The routes *are* genuinely different, for two other reasons:
 
-Both are defensible; they are simply different quantities. This one matches the
-reference implementation, which mutates
+1. **Initial state.** ``_write_sim_input_bundle`` calls
+   ``generate_initial_state()`` (``v2ecoli/core.py:294``), which reads the
+   **raw** ``translation_efficiencies_by_monomer`` off ``sim_data``
+   (``library/initial_conditions.py:285``, ``:1676``). This route perturbs the
+   array those reads see; the bundle route, patching only a process config,
+   leaves the initial state at wild type.
+2. **Division inheritance** — the reason above: a cache-resident perturbation is
+   inherited by every daughter, a build-time argument is not.
+
+This route matches the reference implementation, which mutates
 ``sim_data.process.translation.translation_efficiencies_by_monomer`` directly.
-⚠ **Do not compare an arm built through one route against an arm built through
-the other** and read the difference as biology.
+⚠ Comparing arms across the two routes is still not advisable — but because of
+(1) and (2), **not** because the efficiency arrays disagree.
 
 Multiplier convention, unchanged from the sibling: ``0`` is a knockout,
 ``0 < m < 1`` a knockdown, ``m > 1`` an overexpression.

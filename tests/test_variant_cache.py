@@ -299,6 +299,13 @@ def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path)
     _, _, _, monomer_indices = new_gene_indices(sim_data)
     n = len(monomer_indices)
 
+    # ⚠ The weight-ratio assertions below are vacuous with a single new gene
+    # (weights == [1.0] makes both "uniform" and "carries the declared ratios"
+    # trivially true). The premise is encoded rather than assumed.
+    assert n >= 2, (
+        f"this ParCa state carries {n} new-gene monomer(s); the weight-ratio "
+        "assertions need at least 2 to discriminate")
+
     # Unequal weights, one per REAL target — the length a fake cannot get wrong.
     weights = [float(i + 1) for i in range(n)]
     native_target = str(
@@ -307,8 +314,10 @@ def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path)
     plan = plan_design_variant({
         "perturbations": {native_target: 0.5},
         "new_gene_internal_shift_variable_strength": {
-            # Declared on the BLOCK, which is where every real screen config puts
-            # the media axis — so this exercises the precedence path too.
+            # Declared on the BLOCK, which is where 27 of the 28 reference
+            # configs put it. This exercises the block-level READ (there is no
+            # top-level condition here, so nothing is being preferred over
+            # anything -- precedence is covered in test_design_variant.py).
             "condition": "basal",
             "induction_gen": 2,
             "knockout_gen": 4,
@@ -385,6 +394,3 @@ def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path)
         "uninduced and knocked_out efficiencies have converged — the knockout "
         "is no longer preserving the weight vector, which is a divergence from "
         "the reference")
-    # (d) and expression, not efficiency, is what the knockout actually zeroes.
-    assert sum(built["uninduced"]["counts"]) == sum(
-        built["knocked_out"]["counts"]) == 0

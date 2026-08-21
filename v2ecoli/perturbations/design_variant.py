@@ -66,6 +66,12 @@ _NEW_GENE_KEYS = ("new_gene_shift", "new_gene_internal_shift_variable_strength")
 _BLOCK_KEYS = frozenset(
     {"condition", "induction_gen", "knockout_gen", "exp_trl_eff", "rel_adj"})
 
+#: Keys legal inside an induction block's ``rel_adj``. Checked, because the
+#: reference indexes these directly (``params["rel_adj"]["rel_exp_adj_list"]``)
+#: and so raises KeyError on a typo, while a ``.get`` here would read a
+#: misspelled vector as "absent" and silently substitute uniform weights.
+_REL_ADJ_KEYS = frozenset({"rel_exp_adj_list", "rel_trl_eff_adj_list"})
+
 #: Keys legal at the top level of a composed (``strain_design``-shaped)
 #: declaration.
 _WRAPPER_KEYS = frozenset({"condition", "perturbations"}) | frozenset(_NEW_GENE_KEYS)
@@ -198,17 +204,31 @@ def _reject_grid_spec(params: Mapping[str, Any]) -> None:
     single arm from a whole axis — silently, because the shapes are both
     mappings.
     """
+    _reject_grid_spec_at(params, "declaration")
+
+
+def _reject_grid_spec_at(params: Mapping[str, Any], where: str) -> None:
+    """One level of the grid-spec check. Recurses into nested mappings.
+
+    ⚠ Recursion is not tidiness: the composed shape nests the induction block one
+    level down, so a single-level check catches an unexpanded ``rel_adj`` in the
+    bare shape and misses the identical mistake in the composed one.
+    """
     if "op" in params:
         raise DesignVariantError(
-            "declaration carries an 'op' key, which parse_variants pops during "
+            f"{where} carries an 'op' key, which parse_variants pops during "
             "expansion; this looks like an unexpanded grid spec rather than one "
             "grid point")
     for key, value in params.items():
-        if isinstance(value, Mapping) and _GRID_SPEC_KEYS.intersection(value):
-            spec = ", ".join(sorted(_GRID_SPEC_KEYS.intersection(value)))
+        if not isinstance(value, Mapping):
+            continue
+        overlap = _GRID_SPEC_KEYS.intersection(value)
+        if overlap:
+            spec = ", ".join(sorted(overlap))
             raise DesignVariantError(
                 f"{key!r} carries grid-spec key(s) ({spec}); this looks like an "
                 "unexpanded grid spec rather than one grid point")
+        _reject_grid_spec_at(value, f"{where}.{key}")
 
 
 def _reject_unknown_keys(params: Mapping[str, Any], allowed: frozenset,
@@ -314,11 +334,13 @@ def _condition(params: Mapping[str, Any], block: Mapping[str, Any] | None,
     (``new_gene_internal_shift.py:161``). So a block-level condition is legal
     and **wins**.
 
-    ⚠ This is not a corner case: no config in the reference's own set declares
-    ``condition`` at the top level. Both CD2 screens declare it inside the
-    induction block, where it carries the media axis of the grid — so reading
-    only the top level drops that axis entirely and plans every arm in the
-    default medium.
+    ⚠ This is not a corner case, and the numbers are worth stating rather than
+    asserting an absence: across the 28 reference configs that name these variant
+    modules, ``condition`` is declared **on the block in 27 and at the top level
+    in 1**. In the screen configs it carries the media axis of the grid — so
+    reading only the top level drops that axis entirely and plans every arm in
+    the default medium. Both placements are supported; only the precedence
+    between them is a decision.
 
     The condition applies to **every** stage: the reference mutates ``sim_data``
     once at build time, not per generation.
@@ -351,6 +373,11 @@ def _induction(block: Mapping[str, Any], key: str,
     rel = block.get("rel_adj") or {}
     if not isinstance(rel, Mapping):
         raise DesignVariantError(f"{key}.rel_adj must be a mapping")
+    # ⚠ The reference indexes these directly and raises KeyError on a typo. A
+    # bare `.get` below would read a misspelled vector as "absent" and silently
+    # substitute uniform weights -- more permissive than the reference, in the
+    # direction that loses a declared axis without failing.
+    _reject_unknown_keys(rel, _REL_ADJ_KEYS, f"{key}.rel_adj")
     return NewGeneInduction(
         expression=float(levels["exp"]) if expression is None else expression,
         translation_efficiency=float(levels["trl_eff"]),
@@ -408,9 +435,17 @@ def plan_design_variant(params: Mapping[str, Any]) -> DesignPlan:
 
     induction_gen = _generation(block.get("induction_gen", 1),
                                 f"{key}.induction_gen")
-    if induction_gen < 1:
+    if induction_gen < 0:
         raise DesignVariantError(
-            f"{key}.induction_gen is 1-based; got {induction_gen}")
+            f"{key}.induction_gen cannot be negative; got {induction_gen}")
+    if induction_gen == 0:
+        # ⚠ 0 is legal upstream and means the same as 1. The reference computes
+        # `generation = len(agent_id)` -- the mother is generation 1 -- and fires
+        # the shift on `generation >= induction_gen`, so 0 and 1 both fire at the
+        # mother. Mapped rather than refused: a reference config declares it, and
+        # refusing a declaration the reference runs losslessly would be a
+        # fidelity break rather than a guard.
+        induction_gen = 1
     induced = _induction(block, key)
 
     stages: list[Stage] = []

@@ -215,12 +215,13 @@ def test_knockout_equal_to_induction_is_rejected():
         plan_design_variant({"new_gene_shift": _induction(3, knockout_gen=3)})
 
 
-def test_zero_or_negative_induction_generation_is_rejected():
-    # Catches: accepting a 0-based generation. The declaration's convention is
-    # 1-based; reading a 0 as "from the start" would silently shift the whole
-    # protocol by one generation.
-    with pytest.raises(DesignVariantError, match="1-based"):
-        plan_design_variant({"new_gene_shift": _induction(0)})
+def test_a_negative_induction_generation_is_rejected():
+    # Catches: accepting a generation index that cannot exist. Zero is legal
+    # upstream and handled in test_induction_gen_zero_is_accepted_as_generation_one;
+    # a negative one has no reading at all, and silently clamping it would put
+    # the induction at the mother without saying so.
+    with pytest.raises(DesignVariantError, match="cannot be negative"):
+        plan_design_variant({"new_gene_shift": _induction(-2)})
 
 
 def test_missing_exp_trl_eff_is_rejected():
@@ -258,7 +259,7 @@ def test_string_weight_vector_is_rejected_rather_than_iterated_as_characters():
 # Declaration SHAPE — the reader must handle both, because vEcoli dispatches on
 # the single key under `variants:` and hands apply_variant the contents beneath
 # it (runscripts/create_variants.py:398-412). The shapes below are the two the
-# reference's own CD-screen configs actually use; earlier tests here were all
+# reference's own screen configs actually use; earlier tests here were all
 # built from synthetic declarations of one shape, which is how the other one
 # went unread.
 # --------------------------------------------------------------------------
@@ -271,7 +272,7 @@ def test_a_bare_induction_declaration_is_read_as_one():
     # comes back as a single unperturbed stage that looks entirely reasonable,
     # so an expression sweep would run as N copies of the same baseline.
     plan = plan_design_variant({
-        "condition": "basal_with_trp", "induction_gen": 1,
+        "condition": "basal_alt_medium", "induction_gen": 1,
         "exp_trl_eff": {"exp": 6.07, "trl_eff": 0.285},
         "rel_adj": {"rel_exp_adj_list": [1.0],
                     "rel_trl_eff_adj_list": [0.56, 0.94, 1.0, 1.73, 1.35]}})
@@ -280,7 +281,7 @@ def test_a_bare_induction_declaration_is_read_as_one():
     assert ng is not None, "the induction was dropped entirely"
     assert ng.expression == pytest.approx(6.07)
     assert ng.rel_trl_eff_adj == (0.56, 0.94, 1.0, 1.73, 1.35)
-    assert plan.stages[0].cache.condition == "basal_with_trp"
+    assert plan.stages[0].cache.condition == "basal_alt_medium"
 
 
 def test_a_block_level_condition_wins_over_the_top_level_one():
@@ -294,8 +295,8 @@ def test_a_block_level_condition_wins_over_the_top_level_one():
     plan = plan_design_variant({
         "condition": "basal",
         "new_gene_internal_shift_variable_strength": _induction(
-            3, condition="basal_with_trp")})
-    assert {s.cache.condition for s in plan.stages} == {"basal_with_trp"}
+            3, condition="basal_alt_medium")})
+    assert {s.cache.condition for s in plan.stages} == {"basal_alt_medium"}
 
 
 def test_an_induction_without_any_condition_is_refused_not_defaulted():
@@ -324,7 +325,7 @@ def test_an_unexpanded_grid_spec_is_refused():
     # mappings, so without this the media axis would be read as the literal dict.
     with pytest.raises(DesignVariantError, match="unexpanded grid spec"):
         plan_design_variant({
-            "condition": {"value": ["basal", "basal_with_trp"]},
+            "condition": {"value": ["basal", "basal_alt_medium"]},
             "induction_gen": {"value": [1]},
             "exp_trl_eff": {"nested": {}}})
 
@@ -352,3 +353,45 @@ def test_a_fractional_generation_is_refused_rather_than_truncated(field, value):
     block[field] = value
     with pytest.raises(DesignVariantError, match="whole number"):
         plan_design_variant({"new_gene_shift": block})
+
+
+def test_a_misspelled_key_inside_rel_adj_is_refused_not_read_as_uniform():
+    # Catches: checking unknown keys only at the block's top level. The weight
+    # vectors are read with .get, so a typo there does not raise — it reads as
+    # "no vector declared" and substitutes UNIFORM weights. The reference indexes
+    # them directly and raises KeyError, so this was more permissive than the
+    # reference in the direction that silently deletes a declared axis: the arm
+    # builds, runs, and reports with its per-gene expression ratios gone.
+    with pytest.raises(DesignVariantError, match="rel_exp_adj_lst"):
+        plan_design_variant({
+            "condition": "basal", "induction_gen": 1,
+            "exp_trl_eff": {"exp": 1e6, "trl_eff": 0.285},
+            "rel_adj": {"rel_exp_adj_lst": [1.0, 2.0],          # typo
+                        "rel_trl_eff_adj_list": [1.0, 2.0]}})
+
+
+def test_an_unexpanded_grid_spec_nested_in_a_block_is_refused():
+    # Catches: checking for grid specs only one level deep. The composed shape
+    # nests the induction block, so a single-level check caught an unexpanded
+    # rel_adj in the bare shape and missed the identical mistake here.
+    with pytest.raises(DesignVariantError, match="unexpanded grid spec"):
+        plan_design_variant({
+            "condition": "basal",
+            "new_gene_internal_shift_variable_strength": {
+                "induction_gen": 1,
+                "exp_trl_eff": {"exp": 1e6, "trl_eff": 0.285},
+                "rel_adj": {"value": [[1.0, 2.0]]}}})
+
+
+def test_induction_gen_zero_is_accepted_as_generation_one():
+    # Catches: refusing a declaration the reference runs losslessly. Upstream
+    # computes `generation = len(agent_id)` — the mother is generation 1 — and
+    # fires on `generation >= induction_gen`, so 0 and 1 both fire at the mother.
+    # A reference config declares 0; rejecting it would be a fidelity break
+    # wearing a guard's clothes. Negative values are still refused.
+    plan = plan_design_variant({"new_gene_shift": _induction(0)})
+    assert [s.first_generation for s in plan.stages] == [1]
+    assert plan.stages[0].cache.label == "induced"
+    assert plan.stages[0].cache.new_gene is not None
+    with pytest.raises(DesignVariantError, match="cannot be negative"):
+        plan_design_variant({"new_gene_shift": _induction(-1)})

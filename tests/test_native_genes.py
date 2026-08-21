@@ -164,39 +164,59 @@ def test_nothing_is_mutated_when_a_target_fails_to_resolve():
 
 
 def test_the_two_routes_differ_by_a_global_scalar_that_the_consumer_cancels():
-    # Catches: the docstring claiming the bundle route and this route are
-    # different QUANTITIES because of when they multiply relative to the cache's
-    # L1 normalisation. They are not — they are exactly proportional, and the
-    # only consumer normalises the product, so the scalar cancels. This test
-    # exists because the wrong reason was stated in the module docstring and
-    # would have told a future reader not to make a comparison that is in fact
-    # sound at this layer. If someone reinstates that reasoning, this fails.
+    # Catches: the claim that this route and the BUNDLE route produce different
+    # quantities because of when they multiply relative to the cache's L1
+    # normalisation. They do not -- they are proportional, and the sole consumer
+    # normalises the product, so the scalar cancels.
+    #
+    # ⚠ This test calls the REAL bundle route (`translation_efficiency_override`)
+    # rather than reconstructing it here. An earlier version rebuilt it inline as
+    # `normalize(raw) * multipliers`, which made the assertion an algebraic
+    # identity on the test's own arithmetic: breaking the real function to ASSIGN
+    # instead of SCALE left this test passing. Proportionality between two things
+    # the test computes itself is not a fact about the code.
     from wholecell.utils.fitting import normalize
 
-    raw = np.array([0.1, 0.2, 0.3])
-    # Monomer order is MON-3, MON-1, MON-2 (see _FakeSimData), i.e. genes
-    # EG9003, EG9001, EG9002 — so the multipliers by monomer position are:
-    multipliers = np.array([0.0, 5.0, 0.25])   # knockout, OE, knockdown
+    from v2ecoli.perturbations.translation import translation_efficiency_override
 
+    raw = np.array([0.1, 0.2, 0.3])
+    perturbations = {"EG9003": 0.0, "EG9001": 5.0, "EG9002": 0.25}
+    # Monomer order is MON-3, MON-1, MON-2 (see _FakeSimData): genes EG9003,
+    # EG9001, EG9002 -- so by monomer position the multipliers are:
+    multipliers = np.array([0.0, 5.0, 0.25])
+
+    # -- route A: perturb raw sim_data, the cache normalises afterwards.
     sd = _FakeSimData(efficiencies=tuple(raw))
-    set_native_translation_efficiency(
-        sd, {"EG9003": 0.0, "EG9001": 5.0, "EG9002": 0.25})
+    set_native_translation_efficiency(sd, perturbations)
     perturbed_raw = np.asarray(
         sd.process.translation.translation_efficiencies_by_monomer)
     assert np.allclose(perturbed_raw, raw * multipliers), (
         "the multiplier-to-monomer mapping assumed by this test has drifted")
+    sim_data_route = normalize(perturbed_raw)
 
-    this_route = normalize(perturbed_raw)          # patch raw, cache normalises
-    bundle_route = normalize(raw) * multipliers    # cache normalises, then patch
+    # -- route B: the cache normalises first, then the REAL bundle route patches.
+    bundle = {"configs": {
+        "ecoli-polypeptide-initiation": {
+            "monomer_ids": ["MON-3", "MON-1", "MON-2"],
+            "translation_efficiencies": normalize(raw),
+            "monomer_index_to_cistron_index": {0: 2, 1: 0, 2: 1},
+        },
+        "rna_synth_prob_listener": {
+            "gene_ids": ["EG9001", "EG9002", "EG9003"]},
+    }}
+    override = translation_efficiency_override(bundle, perturbations)
+    bundle_route = np.asarray(
+        override["ecoli-polypeptide-initiation.translation_efficiencies"],
+        dtype=float)
 
     # Proportional, not equal: a single global scalar relates them.
-    live = this_route > 0
-    ratios = bundle_route[live] / this_route[live]
+    live = sim_data_route > 0
+    ratios = bundle_route[live] / sim_data_route[live]
     assert np.ptp(ratios) < 1e-12, "the two routes are not proportional"
-    assert not np.allclose(this_route, bundle_route), (
+    assert not np.allclose(sim_data_route, bundle_route), (
         "if these were equal there would be no scalar to cancel")
 
     # And the consumer's normalize(counts * efficiencies) removes it entirely.
     counts = np.array([1000.0, 250.0, 40.0])
-    assert np.allclose(normalize(counts * this_route),
+    assert np.allclose(normalize(counts * sim_data_route),
                        normalize(counts * bundle_route), atol=1e-15)

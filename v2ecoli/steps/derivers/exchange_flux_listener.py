@@ -16,7 +16,7 @@ path): it READS the exchange dict (which populates) and WRITES plain scalars.
 
 DELIBERATELY GENERIC. It knows nothing about any particular pathway: the caller
 supplies a ``fluxes`` map ``{leaf_name: exchange_key}`` (e.g.
-``{"violacein_exchange": "VIOLACEIN[c]", "glucose_exchange": "GLC[p]"}``). Enable
+``{"acetate_exchange": "AC[p]", "glucose_exchange": "GLC[p]"}``). Enable
 it via the ``ecoli_baseline`` generator's ``exchange_fluxes`` param. Sign is
 preserved verbatim (uptake negative, secretion positive).
 """
@@ -32,13 +32,13 @@ TOPOLOGY = {
 
 
 def _strip_compartment(mid: str) -> str:
-    """``VIOLACEIN[c]`` -> ``VIOLACEIN``; unchanged if no ``[..]`` suffix."""
+    """``AC[p]`` -> ``AC``; unchanged if no ``[..]`` suffix."""
     return mid[:-3] if len(mid) > 3 and mid.endswith("]") and mid[-3] == "[" else mid
 
 
 def resolve_exchange_key(exchange: dict, key: str):
     """Compartment-tolerant lookup: exchange stores may key by full metabolite id
-    (``VIOLACEIN[c]``, the fork convention) or compartment-stripped (``VIOLACEIN``,
+    (``AC[p]``, the fork convention) or compartment-stripped (``AC``,
     v2ecoli's convention). Try exact, then the stripped form on both sides, so one
     study config value works across both comparison arms. Returns None if absent."""
     exchange = exchange or {}

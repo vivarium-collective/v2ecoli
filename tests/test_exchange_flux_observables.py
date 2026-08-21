@@ -8,19 +8,19 @@ is config, so the shared model stays agnostic to any particular pathway.
 from v2ecoli.library.vivarium_ecoli_engine import _select_exchange_fluxes
 
 
-FLUXES = {"violacein_exchange": "VIOLACEIN[c]", "glucose_exchange": "GLC[p]"}
+FLUXES = {"acetate_exchange": "AC[p]", "glucose_exchange": "GLC[p]"}
 
 
 def test_selects_named_fluxes_preserving_sign():
-    env = {"exchange": {"VIOLACEIN[c]": 0.042, "GLC[p]": -8.5, "CO2[p]": 12.0}}
+    env = {"exchange": {"AC[p]": 0.042, "GLC[p]": -8.5, "CO2[p]": 12.0}}
     out = _select_exchange_fluxes(env, FLUXES)
-    assert out == {"violacein_exchange": 0.042, "glucose_exchange": -8.5}
+    assert out == {"acetate_exchange": 0.042, "glucose_exchange": -8.5}
 
 
 def test_missing_key_defaults_to_zero_not_crash():
     env = {"exchange": {"GLC[p]": -8.5}}
     out = _select_exchange_fluxes(env, FLUXES)
-    assert out == {"violacein_exchange": 0.0, "glucose_exchange": -8.5}
+    assert out == {"acetate_exchange": 0.0, "glucose_exchange": -8.5}
 
 
 def test_empty_fluxes_returns_empty():
@@ -31,9 +31,9 @@ def test_no_exchange_substore_yields_zeros_no_crash():
     # environment present but no exchange key yet (e.g. before metabolism's first
     # write) -> zeros, so the leaf stays a continuous trace
     assert _select_exchange_fluxes({}, FLUXES) == {
-        "violacein_exchange": 0.0, "glucose_exchange": 0.0}
+        "acetate_exchange": 0.0, "glucose_exchange": 0.0}
     assert _select_exchange_fluxes(None, FLUXES) == {
-        "violacein_exchange": 0.0, "glucose_exchange": 0.0}
+        "acetate_exchange": 0.0, "glucose_exchange": 0.0}
 
 
 def test_process_declares_exchange_flux_output_only_when_configured():
@@ -52,6 +52,6 @@ def test_process_declares_exchange_flux_output_only_when_configured():
 
     out = _make({"exchange_fluxes": FLUXES}).outputs()
     assert set(out["listeners"]["exchange_flux"]) == set(FLUXES)
-    assert out["listeners"]["exchange_flux"]["violacein_exchange"] == "overwrite[float]"
+    assert out["listeners"]["exchange_flux"]["acetate_exchange"] == "overwrite[float]"
 
     assert "exchange_flux" not in _make({}).outputs()["listeners"]

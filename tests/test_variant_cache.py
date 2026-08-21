@@ -265,11 +265,30 @@ _E2E_STATE = os.environ.get("V2ECOLI_NEW_GENE_CACHE")
 def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path):
     """Declaration -> plan -> three real caches, each differing as declared.
 
-    Catches, as one chain: a plan whose stages are not actually distinct; an
-    induction that does not reach the built cache; a knockout that does not
-    switch the construct back off; and a chassis perturbation that fails to
-    apply to every stage. None of these would raise — each produces a complete
-    cache that is wrong.
+    Catches, as one chain: an induction that does not reach the built cache; a
+    knockout that does not switch the construct back off; and a chassis
+    perturbation that fails to apply to every stage. None of these would raise —
+    each produces a complete cache that is wrong.
+
+    ⚠ **The three caches really are distinct, and the tempting shortcut is
+    wrong.** Because ParCa seeds new-gene expression at exactly zero, it looks as
+    though ``knocked_out`` (expression driven to zero) must be the same cell as
+    ``uninduced``, and therefore that a screen could build one cache and use it
+    for both. Measured here, it is not: the knockout preserves translation
+    efficiency and the weight vectors — deliberately, matching the reference,
+    which switches the construct off without disturbing the rest of the
+    declaration — so ``knocked_out``'s new-gene translation efficiencies carry
+    the declared weight ratios while ``uninduced``'s are at ParCa's uniform
+    baseline. The arrays are L1-normalised, so every *other* monomer's entry
+    shifts with them too.
+
+    ⇒ ``knocked_out`` is byte-for-byte the **induced** cache in its efficiencies
+    and the **uninduced** cache in its expression. Asserted below in both
+    directions, because the shortcut is not merely wasteful if taken — the
+    knockout stage is *resumed from the induced state*, so it starts with
+    residual construct mRNA still being translated, and swapping in the
+    uninduced cache would strip the weight vector across exactly the window
+    where it still acts.
     """
     from v2ecoli.core import load_cache_bundle
     from v2ecoli.perturbations import new_gene_indices, plan_design_variant
@@ -288,6 +307,9 @@ def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path)
     plan = plan_design_variant({
         "perturbations": {native_target: 0.5},
         "new_gene_internal_shift_variable_strength": {
+            # Declared on the BLOCK, which is where every real screen config puts
+            # the media axis — so this exercises the precedence path too.
+            "condition": "basal",
             "induction_gen": 2,
             "knockout_gen": 4,
             "exp_trl_eff": {"exp": 1e6, "trl_eff": 0.285},
@@ -339,3 +361,30 @@ def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path)
         prov = built[label]["native"]
         assert prov["gene_ids"] == [native_target]
         assert prov["multipliers"] == [0.5]
+
+    # ⚠ The three caches are distinct, and specifically NOT in the way the
+    # zero-expression baseline suggests. knocked_out keeps the induced weights
+    # and only drops expression, so:
+    un_te = built["uninduced"]["te"][monomer_indices]
+    ko_te = built["knocked_out"]["te"][monomer_indices]
+
+    # (a) uninduced sits at ParCa's UNIFORM new-gene baseline...
+    assert np.allclose(un_te, un_te[0]), (
+        "uninduced new-gene efficiencies are not uniform — ParCa's baseline has "
+        "changed and this test's premise with it")
+    # (b) ...while knocked_out carries the DECLARED weight ratios...
+    assert np.allclose(ko_te / ko_te[0], np.array(weights) / weights[0],
+                       rtol=1e-6)
+    # (c) ...which makes it identical to induced in efficiency, and different
+    #     from uninduced. Catches the tempting "reuse the uninduced cache for
+    #     the knockout stage" saving: the knockout stage resumes from the
+    #     induced state, so residual construct mRNA is still being translated
+    #     and that substitution would silently strip the weight vector.
+    assert np.allclose(ko_te, built["induced"]["te"][monomer_indices])
+    assert not np.allclose(un_te, ko_te), (
+        "uninduced and knocked_out efficiencies have converged — the knockout "
+        "is no longer preserving the weight vector, which is a divergence from "
+        "the reference")
+    # (d) and expression, not efficiency, is what the knockout actually zeroes.
+    assert sum(built["uninduced"]["counts"]) == sum(
+        built["knocked_out"]["counts"]) == 0

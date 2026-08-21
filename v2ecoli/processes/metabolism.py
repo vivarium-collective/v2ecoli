@@ -294,7 +294,21 @@ class Metabolism(Step):
                     'unconstrained': 'overwrite[list[string]]',
                 },
             },
-            'boundary': 'node',
+            # `external` leaves are declared PER-LEAF overwrite, not
+            # `overwrite[map[...]]`. The distinction is load-bearing and the
+            # opposite of the sibling `exchange_data` declaration above:
+            #   - exchange_data WANTS whole-map replace. Dropping a key is how
+            #     "max flux 0" is expressed (see exchange_constraints), so
+            #     `overwrite[map[...]]` is correct there.
+            #   - boundary.external must KEEP every molecule. Its only two
+            #     writers (EnvironmentMirror, MediaUpdate) emit PARTIAL dicts,
+            #     so a whole-map replace would delete every molecule the writer
+            #     did not mention -- the cell would silently lose its media.
+            # Per-leaf overwrite also makes an `inf` boundary WRITABLE. Bare
+            # float leaves accumulate (`state + update`), and no delta can move
+            # `inf`: `inf + -inf` is NaN, which is why driver control of
+            # dissolved O2 was unreachable (#566).
+            'boundary': {'external': 'map[overwrite[float[mM]]]'},
             'polypeptide_elongation': {
                 'gtp_to_hydrolyze': {'_type': 'float', '_default': 0.0},  # count, dimensionless
                 'aa_count_diff': {'_type': 'array[float]', '_default': []},  # count change per AA species

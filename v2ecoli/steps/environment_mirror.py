@@ -15,12 +15,20 @@ because the per-agent `environment` store has no typed slot for it and
 adding one fights PBG's schema-inference path.
 
 This Step bridges the gap by writing the driver's per-tick values directly
-into each agent's `boundary.external` store as a delta — exactly the form
-`MediaUpdate` already produces on media-ID transitions. The agent's
-`boundary.external` already has a fully-typed schema (set up by
-`sim_data` initialization with mM-quantity entries for every molecule
-metabolism imports), so the writes apply cleanly without per-agent
-pre-seed gymnastics.
+into each agent's `boundary.external` store — exactly the form `MediaUpdate`
+also produces on media-ID transitions. The agent's `boundary.external`
+already has a fully-typed schema (set up by `sim_data` initialization with
+mM-quantity entries for every molecule metabolism imports), so the writes
+apply cleanly without per-agent pre-seed gymnastics.
+
+Both writers emit an ABSOLUTE concentration, not a delta. `boundary.external`
+leaves are declared `overwrite[float[mM]]` (see `Metabolism.inputs`), so the
+apply replaces. This used to be a delta against an additive store, which could
+not express a change to an UNLIMITED boundary at all: metabolism seeds an
+unlimited molecule (O2 is the canonical one) at `inf`, and no delta can move
+`inf` — `inf + -inf` is NaN. That is why driver control of dissolved O2 was
+unreachable by any driver or reactor (#566). Writing the value directly
+removes the inf arithmetic rather than guarding it.
 
 Convention
 ----------
@@ -43,17 +51,17 @@ Wired into `baseline_time_varying_env` BEFORE the FLUSH barrier that
 precedes `media_update`'s layer, so the mirror's writes commit (via the
 FLUSH) before `exchange_data` reads `boundary.external` and re-derives
 metabolism's exchange constraints. End-to-end: driver writes top-level
-env → mirror writes per-agent boundary delta → FLUSH → exchange_data
+env → mirror writes per-agent boundary value → FLUSH → exchange_data
 reads updated boundary → metabolism sees new constraint within one tick.
 """
 from __future__ import annotations
 
 from typing import Any
 
+import math
 import re
 import warnings
 
-import numpy as np
 
 from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.types.stores import InPlaceDict
@@ -132,11 +140,12 @@ class EnvironmentMirror(Step):
     }
 
     def initialize(self, config: dict | None = None) -> None:
-        # Per-tick read + delta-write; the only persistent state is the
+        # Per-tick read + absolute write; the only persistent state is the
         # unmatched-id tally below.
         #
         # This Step drops silently in two places -- an id it cannot resolve, and
-        # a non-finite delta -- and a silent drop here is how the reactor's
+        # a driver value that is NaN or negative -- and a silent drop here is
+        # how the reactor's
         # entire dissolved-gas channel went missing without anything failing.
         # Count what is dropped so the condition is observable to a test or a
         # caller instead of being invisible, and name the offenders once.
@@ -163,8 +172,8 @@ class EnvironmentMirror(Step):
         if not agents:
             return {}
 
-        # For each agent: compute boundary.external delta (driver_conc - current).
-        # PBG strips pint units at store boundaries; both inputs arrive as bare
+        # For each agent: write the driver's concentration onto boundary.external.
+        # PBG strips pint units at store boundaries; values arrive as bare
         # floats with the same implicit mM convention. Strip residual pint
         # quantities defensively and work in raw float space.
         agent_updates: dict[str, Any] = {}
@@ -190,29 +199,42 @@ class EnvironmentMirror(Step):
                             stacklevel=2,
                         )
                     continue
-                curr_raw = boundary_ext.get(boundary_key)
-                if curr_raw is None:
+                if boundary_ext.get(boundary_key) is None:
+                    # metabolism does not carry this molecule -- fail closed
+                    # rather than inventing a boundary slot for it.
                     continue
-                conc = float(conc_raw.magnitude) if hasattr(conc_raw, "magnitude") else float(conc_raw)
-                curr = float(curr_raw.magnitude) if hasattr(curr_raw, "magnitude") else float(curr_raw)
-                diff = conc - curr
-                if not np.isfinite(diff):
-                    # A non-finite delta means the CURRENT boundary value is
-                    # non-finite: metabolism seeds an unlimited molecule (O2 is
-                    # the canonical one) at inf, and `0.0 - inf` is -inf, which
-                    # clears an isnan check and then accumulates to NaN in the
-                    # additive boundary store -- silently poisoning that
-                    # molecule for the rest of the run. A delta cannot express
-                    # a change to an unlimited boundary at all, so fail closed
-                    # and leave it untouched.
-                    #
-                    # NOTE this makes the failure safe, not fixed: inf-valued
-                    # molecules remain UNREACHABLE by the driver. Driver
-                    # control of dissolved O2 (the DO-limitation story) needs
-                    # replace semantics on boundary.external and is expressly
-                    # NOT provided here.
-                    diff = 0.0
-                conc_update[boundary_key] = diff
+                # ABSOLUTE write, not a delta. boundary.external leaves are
+                # declared `overwrite[float[mM]]` (metabolism.inputs), so the
+                # apply REPLACES.
+                #
+                # This used to compute `conc - curr` and hand the store a
+                # delta, which could not express a change to an unlimited
+                # boundary at all: metabolism seeds an unlimited molecule (O2
+                # is the canonical one) at inf, `0.0 - inf` is -inf, and the
+                # additive store landed NaN. #548 made that safe by dropping
+                # non-finite deltas, but safe is not the same as fixed -- it
+                # left inf-valued molecules UNREACHABLE, which is why driver
+                # control of dissolved O2 did not work (#566).
+                #
+                # Writing the driver's value directly removes the inf
+                # arithmetic entirely rather than guarding it.
+                conc = (
+                    float(conc_raw.magnitude) if hasattr(conc_raw, "magnitude")
+                    else float(conc_raw)
+                )
+                # The guard moves from the DELTA to the DRIVER'S VALUE, which
+                # is where it belonged. Under replace semantics a bad driver
+                # value is written verbatim rather than being neutralised by
+                # arithmetic, so it has to be refused here.
+                #
+                # +inf is ALLOWED and meaningful: it is this model's encoding
+                # of "unlimited", the state metabolism seeds unconstrained
+                # molecules in, so a driver restoring a molecule to unlimited
+                # is a legitimate write. NaN never is, and a negative
+                # concentration is not physical.
+                if math.isnan(conc) or conc < 0.0:
+                    continue
+                conc_update[boundary_key] = conc
             if conc_update:
                 agent_updates[agent_id] = {"boundary": {"external": conc_update}}
 

@@ -16,6 +16,14 @@ sim_data and saves the result as a cache a composite can be built from.
 See :mod:`v2ecoli.perturbations.translation`.
 """
 
+from v2ecoli.perturbations.design_variant import (
+    CacheSpec,
+    DesignPlan,
+    DesignVariantError,
+    NewGeneInduction,
+    Stage,
+    plan_design_variant,
+)
 from v2ecoli.perturbations.new_gene_cache import build_new_gene_cache
 from v2ecoli.perturbations.new_genes import (
     new_gene_indices,
@@ -29,7 +37,13 @@ from v2ecoli.perturbations.translation import (
 
 __all__ = [
     "UnknownPerturbationTarget",
+    "CacheSpec",
+    "DesignPlan",
+    "DesignVariantError",
+    "NewGeneInduction",
+    "Stage",
     "build_new_gene_cache",
+    "plan_design_variant",
     "new_gene_indices",
     "set_new_gene_expression",
     "resolve_targets",

@@ -1,4 +1,3 @@
-import numpy as np
 from v2ecoli.steps.base import V2Step as Step
 from v2ecoli.types.quantity import ureg as units
 from v2ecoli.types.stores import InPlaceDict
@@ -27,7 +26,6 @@ class MediaUpdate(Step):
             self.saved_media[media_id] = {}
             for env_mol in env_concs.keys():
                 self.saved_media[media_id][env_mol] = env_concs[env_mol] * units.mM
-        self.zero_diff = 0 * units.mM
         self.curr_media_id = self.parameters.get("media_id", "minimal")
 
     def inputs(self):
@@ -42,15 +40,18 @@ class MediaUpdate(Step):
 
         self.curr_media_id = states["environment"]["media_id"]
         env_concs = self.saved_media[self.curr_media_id]
-        conc_update = {}
-        # Calculate concentration delta to get from environment specified
-        # by old media ID to the one specified by the current media ID
-        for mol, conc in env_concs.items():
-            diff = conc - states["boundary"]["external"][mol]
-            # Arithmetic with np.inf gets messy
-            if np.isnan(diff):
-                diff = self.zero_diff
-            conc_update[mol] = diff
+        # ABSOLUTE write, not a delta. boundary.external leaves are declared
+        # `overwrite[float[mM]]` (metabolism.inputs), so the apply REPLACES and
+        # the new media's concentration is simply the new value.
+        #
+        # This used to compute `conc - current` and guard the result with
+        # `isnan`, which covered only the inf -> inf transition (inf - inf is
+        # NaN). The inf -> FINITE transition produced -inf, passed the guard,
+        # and then accumulated to NaN in the additive store -- the same defect
+        # #548 fixed in EnvironmentMirror, never applied here. Writing the
+        # target concentration directly removes the inf arithmetic rather than
+        # guarding it, so both transitions are now correct by construction.
+        conc_update = dict(env_concs)
         return {"boundary": {"external": conc_update}}
 
     def update(self, state, interval=None):

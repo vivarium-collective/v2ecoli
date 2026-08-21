@@ -74,15 +74,38 @@ def gene_name_index(genes: list[dict]) -> dict[str, str]:
 
 
 def kept_fold_changes(flat: Path) -> list[dict]:
-    """fold_changes.tsv minus the (TF, Target) pairs fold_changes_removed.tsv drops.
+    """The regulatory network the MODEL loads -- both fold-change tables, filtered.
 
-    knowledge_base_raw.py maps "fold_changes" -> "fold_changes_removed", so the
-    removed list is a real filter, not documentation. Skipping it inflates the
-    target count from 675 to 682.
+    ⛔ CORRECTED 2026-08-21. This function originally read `fold_changes.tsv`
+    ALONE, and every number derived from it was wrong. `simulation_data.py:191`
+    is:
+
+        for fc_file in ["fold_changes", "fold_changes_nca"]:
+
+    Both tables load unconditionally, NCA **second**, writing into the same
+    `tf_to_fold_change[tf][target]` dict -- so NCA values OVERWRITE on overlap
+    and NCA-only targets are ADDED. Reading one table measures a file; reading
+    both measures the model. For trpR that is the difference between 7 targets
+    and 12, and between "mtr has no regulatory edge" (false) and "mtr is
+    repressed 3.89x" (true).
+
+    `fold_changes_removed.tsv` is a real filter on top
+    (`knowledge_base_raw.py` maps "fold_changes" -> "fold_changes_removed"),
+    not documentation.
     """
     removed = {(r["TF"], r["Target"]) for r in read_tsv(flat / "fold_changes_removed.tsv")}
-    return [r for r in read_tsv(flat / "fold_changes.tsv")
-            if (r["TF"], r["Target"]) not in removed]
+    # Order matters: NCA last, so it wins on overlap exactly as the loader does.
+    merged: dict[tuple[str, str], dict] = {}
+    for name in ("fold_changes", "fold_changes_nca"):
+        for r in read_tsv(flat / f"{name}.tsv"):
+            key = (r["TF"], r["Target"])
+            if key in removed:
+                continue
+            # The two tables spell the magnitude column differently.
+            fc = r.get("log2 FC mean", r.get("log2 FC"))
+            merged[key] = {"TF": r["TF"], "Target": r["Target"],
+                           "log2 FC mean": fc, "source": name}
+    return list(merged.values())
 
 
 def fold(log2_fc: str) -> float:
@@ -105,6 +128,8 @@ def main() -> None:
     covered_mrna = {gid for gid in resolved.values() if gid in mrna_ids}
     e1 = {
         "fold_changes_rows_total": len(read_tsv(flat / "fold_changes.tsv")),
+        "fold_changes_nca_rows_total": len(read_tsv(flat / "fold_changes_nca.tsv")),
+        "note": "BOTH tables are loaded by simulation_data.py:191; NCA wins on overlap.",
         "fold_changes_rows_kept": len(edges),
         "distinct_tfs": len({r["TF"] for r in edges}),
         "distinct_targets": len(targets),

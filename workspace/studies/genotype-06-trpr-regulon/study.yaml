@@ -13,6 +13,17 @@ status: in-progress
 phase: Design
 study_type: exploratory
 
+# ⛔⛔ CORRECTION, 2026-08-21 — F-01, F-02, F-03 and FU-01 were WRONG and are rewritten.
+# sims/extract_evidence.py read `fold_changes.tsv` alone. The model loads BOTH that and
+# `fold_changes_nca.tsv` (simulation_data.py:191), NCA second so it overwrites on overlap
+# and adds NCA-only targets. Consequences: TRN coverage is 50.6% of mRNA cistrons, not
+# ~15%; the trpR regulon is 12 edges over ALL FIVE EcoCyc operator regions, not 7 over 2;
+# aroL, mtr and trpR-autoregulation are all present, not absent; the effective fold-change
+# range is 2.62-4.03x, not 2.03-5.50x; and the operon-polarity gradient is retracted.
+# F-05 through F-08 are unaffected - they measure runs, not tables.
+# Found by a Tier-3 delegate reading the loader rather than the file. The original error was
+# reading the table this study assumed was the regulon instead of the one the model loads.
+
 design_status: complete
 implementation_status: partial
 expert_review_status: not_requested
@@ -270,8 +281,9 @@ behavior_tests:
         kind: literature
         note: >-
           mtr is an EcoCyc TrpR regulon member. The band asks only for a detectable response,
-          not a magnitude - it is a reachability test, and F-02 predicts it fails because the
-          model carries no regulatory edge onto mtr at all.
+          not a magnitude. ⛔ This band was originally predicted to FAIL as unreachable, on the
+          retracted claim that the model carried no TrpR->mtr edge. It does carry one (3.89x),
+          so the band is gradeable and is now expected to PASS.
     status: pending
     cites: []
   - name: aroL-does-not-respond
@@ -423,7 +435,10 @@ preregistered:
     repression-exceeds-attenuation: {op: at_least, value: 1.0}
   predictions:
     - B1 FAIL - the model's own TrpR term caps derepression at 3.10-5.50x.
-    - B2 FAIL - no regulatory edge onto mtr exists, so no route can move it.
+    - B2 - ⛔ ORIGINAL PREDICTION RETRACTED. Predicted FAIL on the false premise that no
+      TrpR->mtr edge exists; the edge exists at 3.89x, so a response is expected.
+      ⚠ This band's prediction was corrected AFTER the run, so it is no longer pre-registered
+      and must not be counted as a pre-registered pass.
     - B3 MARGINAL - the model's aroH term is 2.03x, just below the band.
     - B4 PASS, for the wrong reason - aroL is absent from the regulon rather than weakly coupled.
     - B5 FAIL - the tables invert the ordering on 5 of 5 shared targets.
@@ -506,56 +521,58 @@ findings:
   - id: F-01
     tier: observation
     statement: >-
-      v2ecoli's mechanistic reach over transcriptional regulation covers 663 of 4347 mRNA
-      cistrons - 15.2%. The regulatory network is 897 edges from 47 transcription factors
-      onto 675 distinct target names, of which 670 resolve to a gene once synonyms are
-      honoured. For the other ~85% of the genome the model has no transcriptional-regulatory
-      mechanism to perturb at all.
+      v2ecoli's transcriptional-regulatory network covers 2198 of 4347 mRNA cistrons - 50.6%.
+      It is 4209 edges from 150 transcription factors onto 2231 distinct target names. ⛔ An
+      earlier version of this finding reported 663 of 4347 (15.2%) from 47 TFs; that was measured
+      from fold_changes.tsv ALONE and was wrong - see the correction note below.
     claim_scope: mechanism
     lifecycle_state: observation
     generality:
       axes_tested: [parameter_regime]
       level: mechanism
     next_action: >-
-      This is the ceiling every genotype study in this investigation operates under; it
-      belongs in the investigation's framing, not only in this study.
+      The ceiling this investigation operates under is roughly half the genome, not ~15%. That is
+      a materially different framing of the model's mechanistic reach and belongs in the
+      investigation's own framing rather than only here.
     next_action_type: escalate_model
     evidence:
       observed: >-
-        fold_changes.tsv 907 rows, 897 after applying fold_changes_removed.tsv; 47 TFs; 675
-        distinct targets; 670 resolve via genes.tsv symbol+synonyms; 663 of those are mRNA
-        cistrons out of 4347 total. Five names resolve to nothing - efeU_2, ilvG_1, phnE_1,
-        phnE_2, rdoA - all frameshift or pseudogene fragments.
+        Both fold-change tables merged as the loader merges them (simulation_data.py:191 iterates
+        ["fold_changes", "fold_changes_nca"], NCA second so it wins on overlap), minus
+        fold_changes_removed.tsv: 4209 edges, 150 TFs, 2231 distinct targets, 2198 of which
+        resolve to mRNA cistrons out of 4347. Re-derivable via sims/extract_evidence.py.
       from_test: ""
   - id: F-02
     tier: observation
     statement: >-
-      The model's trpR regulon is 7 edges covering 2 of EcoCyc's 5 TrpR operator regions
-      (trpLEDCBA and aroH). The missing three - aroL, mtr, and trpR's own autoregulation -
-      are not merely missing a TrpR edge: all three genes exist in the model and carry NO
-      incoming regulatory edge from any transcription factor.
+      The model's trpR regulon is 12 edges and covers ALL FIVE of EcoCyc's TrpR operator regions -
+      trpLEDCBA, aroH, aroL, mtr, and trpR's own negative autoregulation - plus aroM and yaiA.
+      ⛔ An earlier version of this finding claimed 7 edges over 2 of 5 regions, and that aroL, mtr
+      and trpR carried no regulatory edge from any transcription factor. That was wrong in both
+      halves; all three are repressed by trpR in the table the model actually loads.
     claim_scope: mechanism
     lifecycle_state: observation
     generality:
       axes_tested: [parameter_regime]
       level: instance_specific
     next_action: >-
-      Adding the TrpR->mtr edge is a one-row addition to fold_changes.tsv - the gene
-      (EG10617), the monomer (MTR-MONOMER[i]) and the transport reactions (TRANS-RXN-142,
-      TRANS-RXN-76) are all already present. Only the regulatory edge is absent.
+      The regulon is structurally complete against EcoCyc. Whatever divergence this study finds is
+      therefore a PARAMETERIZATION question, not a coverage one - which is a cleaner result than
+      the original claim and removes the "unreachable by any route" framing entirely.
     next_action_type: refine_representation
     evidence:
       observed: >-
-        trpR rows in fold_changes.tsv: trpA -1.83, trpB -1.77, trpC -1.63, trpD -2.08,
-        trpE -2.46, trpL -2.37, aroH -1.02 (log2). aroL (EG10082), mtr (EG10617) and trpR
-        (EG11029) each appear in genes.tsv and in zero fold_changes target rows.
+        Effective trpR targets after merging both tables and applying fold_changes_removed:
+        yaiA 4.03x, trpA 3.94x, trpC 3.89x, mtr 3.89x, trpB 3.78x, trpR 3.73x, trpD 3.71x,
+        trpL 3.68x, aroH 3.46x, trpE 3.41x, aroM 2.77x, aroL 2.62x. The NCA table supplies
+        aroL, aroM, mtr, trpR and yaiA, and overwrites all seven shared targets.
       from_test: ""
   - id: F-03
     tier: mechanism
     mechanism_origin: engineered
     statement: >-
       In the model's parameter tables the control hierarchy is INVERTED against the
-      literature. TrpR repression terms are 2.03-5.50x where the literature reports 70-300x,
+      literature. TrpR repression terms are 2.62-4.03x where the literature reports 70-300x,
       while attenuation terms on the same operon are 5.98-7.36x against a literature 8-10x.
       On all 5 genes where both mechanisms act, the model's attenuation term is LARGER than
       its repression term - the opposite of the documented ordering.
@@ -567,15 +584,16 @@ findings:
     next_action: >-
       Re-parameterizing the TrpR fold-changes toward the literature range would fix the
       magnitude and the ordering together. Worth noting what the model gets RIGHT first:
-      operon polarity is correct - trpE (5.50x) > trpD (4.23x) > trpA (3.56x) reproduces the
-      promoter-proximal-strongest gradient. It is mis-parameterized, not structurally wrong,
+      ⛔ the promoter-proximal-strongest polarity claim is RETRACTED: on the effective merged
+      table the trp operon's terms are nearly flat (3.41-3.94x) and trpE is the WEAKEST, not the
+      strongest. The gradient reported earlier was an artifact of reading fold_changes.tsv alone. It is mis-parameterized, not structurally wrong,
       on the genes it covers.
     next_action_type: calibrate
     evidence:
       observed: >-
-        Per shared target, TrpR repression vs attenuation (fold): trpA 3.56 vs 7.36, trpB
-        3.41 vs 6.96, trpC 3.10 vs 7.16, trpD 4.23 vs 6.68, trpE 5.50 vs 5.98. Repression
-        exceeds attenuation on 0 of 5.
+        Per shared target, TrpR repression vs attenuation (fold), using the effective merged
+        table: trpA 3.94 vs 7.36, trpB 3.78 vs 6.96, trpC 3.89 vs 7.16, trpD 3.71 vs 6.68,
+        trpE 3.41 vs 5.98. Repression exceeds attenuation on 0 of 5.
       from_test: ""
   - id: F-04
     tier: observation
@@ -692,8 +710,10 @@ findings:
   - id: F-08
     tier: observation
     statement: >-
-      The measured derepression (6.29x) matches the ceiling predicted statically from the model's
-      own fold_changes table (F-03: 2.03-5.50x). Two independent methods - reading the shipped
+      The measured derepression (6.29x) is the same order as the ceiling predicted statically from
+      the model's own merged fold-change table (F-02/F-03: 2.62-4.03x), though somewhat above it -
+      the readout is transcription-unit level while the terms are per-target, so they are related
+      but not the same quantity and exact agreement was not expected. Two independent methods - reading the shipped
       parameter table, and running the knockout - agree. So B1's predicted failure against the
       literature's 70-300x is a parameterization result, fully accounted for, and not a defect in
       the knockout machinery or the run.
@@ -710,8 +730,8 @@ findings:
     next_action_type: calibrate
     evidence:
       observed: >-
-        Static (F-03, from fold_changes.tsv): TrpR terms 2.03-5.50x. Dynamic (F-07, from the run):
-        6.29x. Literature: 70-300x.
+        Static (F-02/F-03, both tables merged as the loader merges them): TrpR terms 2.62-4.03x.
+        Dynamic (F-07, from the run): 6.29x. Literature: 70-300x.
       from_test: ""
 
 discovery_implications:
@@ -731,12 +751,12 @@ discovery_implications:
       defensible modelling choice. It needs deciding for every TF knockout, not just trpR.
   followup_study_proposals:
     - id: FU-01
-      title: Add the TrpR->mtr edge and measure what changes
+      title: "VOID - the TrpR->mtr edge already exists"
       motivation: >-
-        F-02 shows the gene, the monomer and the transport reactions are all present and only
-        the regulatory edge is missing, making this a one-row change to fold_changes.tsv. It
-        is the cheapest test of whether the model's regulatory representation is the binding
-        constraint on regulon coverage, and it converts B2 from unreachable into gradeable.
+        ⛔ This proposal rested on the retracted half of F-02. mtr is repressed by trpR at 3.89x
+        in the table the model loads, so there is no edge to add and B2 was never unreachable.
+        Retained rather than deleted so the reasoning error stays visible: it was derived from
+        fold_changes.tsv alone, and the model also loads fold_changes_nca.tsv.
     - id: FU-02
       title: Re-parameterize the TrpR fold-changes toward the literature range
       motivation: >-

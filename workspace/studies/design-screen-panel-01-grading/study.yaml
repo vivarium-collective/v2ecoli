@@ -1,0 +1,236 @@
+schema_version: 4
+name: design-screen-panel-01-grading
+investigation: design-screen-panel
+title: "Grading a design panel: accounting, landing, reference, resolvability"
+created: '2026-08-21'
+study_type: diagnostic
+design_status: designed
+implementation_status: in-progress
+expert_review_status: not-requested
+claim: >-
+  A design screen can be graded on its execution and readout alone — every
+  declared arm accounted for, perturbations landed within tolerance, a reference
+  arm resolved per stratum, and no ranking claim beyond what resolvability
+  supports — without any criterion requiring a design to succeed.
+question: >-
+  What must hold before a design screen's ranking may be reported as a result,
+  and can each of those conditions be checked from the artifacts the screen
+  already produces?
+assumptions:
+  - text: >-
+      The screen's per-cell table is the seam. Grading consumes one row per
+      (arm x replicate lineage x generation x cell), aggregating within cell then
+      across cells, and never over raw timepoints.
+    verified_in_v2ecoli: true
+  - text: >-
+      Arms are compared within a stratum and multiple-testing families are built
+      within stratum. Correcting across strata attributes the stratum's effect to
+      the design.
+    verified_in_v2ecoli: true
+  - text: >-
+      A declared translation-efficiency multiplier is a weight, not an achieved
+      protein ratio — the efficiency array is renormalised in-process, so landing
+      must be measured on observed protein rather than assumed from the
+      declaration.
+    verified_in_v2ecoli: true
+  - text: >-
+      An arm that terminates before the graded window is a phenotype, not a
+      missing datum. Grading must distinguish "absent" from "absent and recorded".
+    verified_in_v2ecoli: false
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+      cache_dir: out/design-screen-panel-01/reference/cache
+  variants:
+    - name: design-a-moderate
+      role: perturbation
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+      params:
+        seed: 0
+        cache_dir: out/design-screen-panel-01/design-a/cache
+      perturbation: >-
+        Representative arm: construct driven at a moderate level, native targets
+        unchanged.
+      expected_contrast: >-
+        Objective above reference; growth cost small enough to stay inside the
+        declared floor.
+    - name: design-b-strong
+      role: perturbation
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+      params:
+        seed: 0
+        cache_dir: out/design-screen-panel-01/design-b/cache
+      perturbation: >-
+        Representative arm: construct driven hard, to exercise the growth-cost
+        axis rather than the objective axis.
+      expected_contrast: >-
+        Objective higher than design-a or saturating; growth cost large enough
+        that the growth axis, not the objective axis, decides the verdict.
+    - name: design-c-nonviable
+      role: perturbation
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+      params:
+        seed: 0
+        cache_dir: out/design-screen-panel-01/design-c/cache
+      perturbation: >-
+        Representative arm: a design that does not sustain growth to the graded
+        window.
+      expected_contrast: >-
+        Contributes no cells inside the graded window. Must appear in the
+        accounting with the generation it reached — never silently absent.
+  model_settings:
+    - name: graded-generation-window
+      gate: required-before-run
+      detail: >-
+        Early generations are excluded so the graded cells are past the transient
+        that follows a cache-resident perturbation. The window must be declared
+        before the run, because it determines which arms have any gradeable cells
+        at all.
+    - name: stratum-keys
+      gate: required-before-run
+      detail: >-
+        The keys within which arms are compared and q-value families are built.
+        The panel card refuses to grade without them; that refusal is the point.
+    - name: named-reference-arm
+      gate: required-before-run
+      detail: >-
+        The arm every other arm is contrasted against. Resolved per stratum, not
+        once globally.
+enforced_params:
+  - name: replicate-count
+    detail: >-
+      Replicate lineages per arm. Fixed across arms, because an arm with fewer
+      replicates gets a wider interval and sinks in a resolvability comparison for
+      a reason that has nothing to do with its design.
+tests:
+  - name: every-declared-arm-is-accounted-for
+    classification: primary
+    question: >-
+      Is every arm named in the declaration either present in the panel, or
+      explicitly recorded as having terminated before the graded window with the
+      generation it reached?
+    measure:
+      kind: derived
+      detail: >-
+        Count of declared arms that appear in neither the panel's arm list nor the
+        accounting record in data/panel_accounting.json. An arm that died and was
+        recorded counts as accounted for; an arm that is simply missing does not.
+    pass_if:
+      op: '=='
+      value: 0
+      provenance:
+        kind: theory
+        detail: >-
+          Zero is the only defensible threshold: any unaccounted arm means the
+          panel misrepresents what was run, and a reader cannot detect it from the
+          panel alone.
+  - name: declared-perturbations-land-within-tolerance
+    classification: primary
+    question: >-
+      For every arm and every declared target, does the observed protein
+      fold-change relative to the reference fall within tolerance of the
+      configured fold-change?
+    measure:
+      kind: derived
+      detail: >-
+        Count of (arm, target) pairs whose observed/expected protein ratio falls
+        outside the declared tolerance, from data/panel_accounting.json. Measured
+        on observed protein, never inferred from the declaration, because the
+        efficiency array is renormalised in-process.
+    pass_if:
+      op: '=='
+      value: 0
+      provenance:
+        kind: expert
+        detail: >-
+          Tolerance is inherited from the screen configuration rather than chosen
+          here, so this criterion adopts a threshold the screen's authors already
+          committed to.
+  - name: reference-arm-resolves-in-every-stratum
+    classification: primary
+    question: >-
+      Does the named reference arm resolve within each stratum, so that every
+      contrast is against the right baseline?
+    measure:
+      kind: derived
+      detail: >-
+        Count of strata in viz/report_card/panel_screen.verdict.json whose
+        strata_declared axis does not name a resolved reference arm. Read as a
+        derived count rather than through report_card_axis deliberately: that
+        evaluator grades a GROUP, and this card emits every axis into a single
+        group, so it would aggregate the whole card's worst axis instead of this
+        property.
+    pass_if:
+      op: '=='
+      value: 0
+      provenance:
+        kind: theory
+        detail: >-
+          A missing per-stratum reference makes every arm in that stratum read as
+          a large effect against the wrong comparator. There is no tolerance to
+          set: the reference is present or it is not.
+  - name: ranking-claims-do-not-exceed-resolvability
+    classification: primary
+    question: >-
+      When between-arm separation does not exceed within-arm noise, does the card
+      withhold the graded ranking rather than reporting an ordering of noise?
+    measure:
+      kind: derived
+      detail: >-
+        Count of strata in viz/report_card/panel_screen.verdict.json where the
+        ranking_resolvable axis is not passing AND the objective or growth axis
+        still carries a graded verdict rather than being forced to ungraded. What
+        is measured is the COUPLING, not the resolvability: an unresolvable panel
+        that correctly withholds its ranking scores zero here and passes.
+        ⚠ Not expressible through report_card_axis — that evaluator aggregates a
+        group to its worst axis, so a failing resolvability would read as FAIL,
+        reintroducing exactly the outcome-dependence this criterion set avoids.
+    pass_if:
+      op: '=='
+      value: 0
+      provenance:
+        kind: theory
+        detail: >-
+          Zero is the only threshold that grades the discipline rather than the
+          result. A screen may legitimately find its design space unresolvable;
+          what it may not do is report a ranking the evidence does not carry.
+readouts:
+  - name: panel-per-cell
+    status: derived-needed
+    detail: >-
+      One row per (arm x replicate lineage x generation x cell), objective and
+      growth observables as columns. The engine-agnostic seam: whatever produces
+      it, everything downstream of it is written once.
+  - name: panel-accounting
+    status: derived-needed
+    detail: >-
+      data/panel_accounting.json - per arm: declared status, cells contributed vs
+      expected, generations reached, and per-target observed/expected protein
+      ratio with its within-tolerance flag. The evidence behind the first two
+      tests, and the record that turns a dead arm from a gap into a datum.
+  - name: panel-card-verdict
+    status: derived-needed
+    detail: >-
+      viz/report_card/panel_screen.verdict.json - the panel card's per-axis
+      verdicts and the resolved reference arm per stratum.
+limitations:
+  - >-
+    Execution completeness and biological non-viability are not cleanly separable
+    from the artifacts a screen currently produces: a lineage that stopped because
+    the design is lethal and one that stopped because its task failed can present
+    identically. This study therefore gates on accounting - nothing goes missing
+    silently - and reports completeness rather than gating on it. A sharper
+    discriminator that reads task exit status is future work, not a prerequisite.
+  - >-
+    The representative arms declared here are a deliberate subset. A full screen's
+    grid is expanded by the run configuration, not by this study, because one
+    subprocess per declared variant does not scale to a full panel and the grid is
+    already expanded upstream.
+  - >-
+    Resolvability is assessed at the replicate count the screen was run with. An
+    unresolvable panel is a statement about this screen, not about the design
+    space - more replicates may resolve it.
+runs: []
+findings: []

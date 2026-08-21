@@ -96,19 +96,21 @@ assumptions:
     cites: []
     verified_in_v2ecoli: false
 
+# Ordering is declared as inputs[].from, NOT pipeline_gate.prerequisites.
+# tests/test_workspace_conformance.py:81-84 rejects prerequisites, parent_studies
+# and depends_on outright. ⚠ The v4 scaffold's commented example still shows
+# `pipeline_gate.prerequisites` -- it is stale, and the study_audit gate does not
+# catch it. The pytest conformance suite is the enforcement point.
+inputs:
+  - artifact: build-integrity-baseline
+    from: genotype-00-build-integrity
+  - artifact: ko-mechanics-control-panel
+    from: genotype-01-control-panel
+
 pipeline_gate:
-  prerequisites:
-    - study: genotype-00-build-integrity
-      condition: tests-passed
-      relation: leads-to
-      outputs_used: []
-    - study: genotype-01-control-panel
-      condition: ran
-      relation: leads-to
-      outputs_used: []
   enables: []
   proceed_condition: >-
-    The static regulatory-reach pass (F-01..F-05) is complete and re-derivable. The run arms
+    The static regulatory-reach pass (F-01..F-04) is complete and re-derivable. The run arms
     may proceed independently; nothing downstream waits on them.
 
 # ─── Model ───────────────────────────────────────────────────────────

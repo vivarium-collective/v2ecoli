@@ -488,97 +488,40 @@ FEATURE_MODULES = {
         'steps': ['ppgpp-initiation'],
     },
     # flagella-cascade investigation (ported from Maya Abdalla's vEcoli `biofilm`
-    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate. An earlier
-    # hard-coded flagella-count ceiling ("ecoli-flagella-nucleation-cap") was
-    # tried first to fix the flagella-count-unbounded-runaway finding, and was
-    # removed 2026-08-06 per Maya's explicit instruction not to keep an
-    # artificial cap (see feedback_biology_first_no_quick_fixes). Its
-    # ordering-bug fix (the after_steps/before_steps split on
-    # build_execution_layers) is kept as general infrastructure even though no
-    # feature currently needs insert_after for this one.
+    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate.
     #
-    # REMOVED 2026-08-10 (Maya's explicit instruction): FlhD4C2 (ClpXP-mediated)
-    # basal degradation (ecoli-flhdc-degradation, added 2026-08-05) and the
-    # FliT-mediated negative-feedback checkpoint on FlhD4C2
-    # (ecoli-flit-flhdc-checkpoint, added 2026-08-06, Utsey & Keener 2020
-    # fast-equilibrium reduction). The checkpoint mechanism is real,
-    # literature-grounded biology (Yamamoto & Kutsukake 2006, J Bacteriol
-    # 188:5124) -- but in Salmonella. Albanna et al. (2018, Sci Rep 8:16705)
-    # directly tested a Delta-fliT mutant in E. coli MG1655 (this WCM's exact
-    # K-12 reference strain) and found NO significant phenotypic effect,
-    # vs. a clear effect in Salmonella -- so its real-world significance in
-    # K-12 specifically is doubtful. Removed in favor of a planned NFsim
-    # rule-based representation of FliT's role instead (see flagella-04-
-    # complexation-nfsim). Full code + reaction-network entries archived at
-    # archive/flit-flhdc-regulation-2026-08/ for reference. KNOWN TRADEOFF:
-    # removing the basal degradation Step too means FlhD4C2 currently has NO
-    # decay pathway at all (the standard protein_degradation process only
-    # handles monomers, never assembled complexes) -- this reopens the
-    # flagella-count-unbounded-runaway risk until the NFsim replacement is
-    # built. Accepted explicitly, not an oversight.
+    # REMOVED 2026-08-21 (Maya's explicit instruction): the deterministic
+    # flagellar assembly pipeline ('flagella_regulation' feature -- motor-
+    # switch/export-apparatus/motor-complex/filament-nucleation Steps),
+    # having committed to the NFsim rule-based replacement
+    # ('flagella_nfsim_complexation', below) as the one path forward. Full
+    # code + composite wiring archived at
+    # archive/deterministic-flagella-assembly-2026-08/ for reference.
+    # filament-elongation, flgm-secretion, and transcription-regulation
+    # (below) are UNCHANGED and still active -- they were always shared
+    # infrastructure, reused as-is by both pipelines, not deterministic-
+    # assembly-specific.
     #
-    # ALSO added 2026-08-06: ecoli-flagella-filament-nucleation and
-    # ecoli-flagella-filament-elongation REPLACE CPLX0-7452_RXN as the actual
-    # creator of complete-flagellum (CPLX0-7452) counts. CPLX0-7452_RXN's
-    # real FliC stoichiometry (~20,000 subunits, complexation_reactions_
-    # modified.tsv) made Gillespie SSA's combinatorial propensity calculation
-    # blow up numerically -- it's excluded from the runtime ecoli-complexation
-    # config (see get_complexation_config, sim_data.py) and kept only for
-    # ParCa's static mass auto-derivation. These two Steps do the real,
-    # incremental version instead -- see flagella_filament_elongation.py.
-    # Ordered first (nucleation, then elongation) so newly-created/newly-
-    # completed flagella are visible to flgm-secretion the same tick.
-    # OFF by default (opt-in via enable_features('flagella_regulation')).
-    'flagella_regulation': {
+    # NFsim-based complexation (added 2026-08-16, NFSIM_WCM_WIRING_PLAN.md
+    # step 3): replaces the deterministic assembly Steps that used to live
+    # above (motor-switch, export-apparatus, motor-complex, filament-
+    # nucleation -- archived 2026-08-21, see
+    # archive/deterministic-flagella-assembly-2026-08/) with the NFsim
+    # rule-based reaction network (flagella_nfsim_complexation.py).
+    # filament-elongation, flgm-secretion, and transcription-regulation are
+    # UNCHANGED and reused as-is -- they only read/write real bulk molecule
+    # counts and don't care which mechanism produced them (see
+    # NFSIM_WCM_WIRING_PLAN.md's "key simplifying insight").
+    #
+    # This is now the only flagellar-assembly pipeline in the repo. Not yet
+    # the default (opt-in via enable_features('flagella_nfsim_complexation'))
+    # while NFsim's own calibration (monomer coupling already real via step
+    # 2; nucleation rate scaling still a single global constant, see
+    # NFSIM_WCM_WIRING_PLAN.md step 2's "RESOLVED" note) matures.
+    'flagella_nfsim_complexation': {
         'insert_before': 'ecoli-transcript-initiation',
-        # Old list (kept per standing preserve-old-code rule):
-        # 'steps': [
-        #     'ecoli-flagella-flgm-secretion',
-        #     'ecoli-flagella-transcription-regulation',
-        # ],
-        # Previous list (also kept):
-        # 'steps': [
-        #     'ecoli-flhdc-degradation',
-        #     'ecoli-flagella-flgm-secretion',
-        #     'ecoli-flagella-transcription-regulation',
-        # ],
-        # Previous list (also kept, before filament nucleation/elongation):
-        # 'steps': [
-        #     'ecoli-flhdc-degradation',
-        #     'ecoli-flit-flhdc-checkpoint',
-        #     'ecoli-flagella-flgm-secretion',
-        #     'ecoli-flagella-transcription-regulation',
-        # ],
-        # Previous list (also kept, before FliT checkpoint removal 2026-08-10 --
-        # see archive/flit-flhdc-regulation-2026-08/ and the comment above):
-        # 'before_steps': [
-        #     'ecoli-flagella-motor-switch-assembly',
-        #     'ecoli-flagella-motor-complex-assembly',
-        #     'ecoli-flagella-filament-nucleation',
-        #     'ecoli-flagella-filament-elongation',
-        #     'ecoli-flhdc-degradation',
-        #     'ecoli-flit-flhdc-checkpoint',
-        #     'ecoli-flagella-flgm-secretion',
-        #     'ecoli-flagella-transcription-regulation',
-        # ],
-        # Previous list (also kept, before export-apparatus Step conversion
-        # 2026-08-11 -- see flagella_export_apparatus_assembly.py): CPLX0-7451
-        # still fired via ecoli-complexation (SSA), racing against the
-        # deterministic C-ring Step for the same-tick CPLX0-7450 it now
-        # depends on:
-        # 'before_steps': [
-        #     'ecoli-flagella-motor-switch-assembly',
-        #     'ecoli-flagella-motor-complex-assembly',
-        #     'ecoli-flagella-filament-nucleation',
-        #     'ecoli-flagella-filament-elongation',
-        #     'ecoli-flagella-flgm-secretion',
-        #     'ecoli-flagella-transcription-regulation',
-        # ],
         'before_steps': [
-            'ecoli-flagella-motor-switch-assembly',
-            'ecoli-flagella-export-apparatus-assembly',
-            'ecoli-flagella-motor-complex-assembly',
-            'ecoli-flagella-filament-nucleation',
+            'ecoli-flagella-nfsim-complexation',
             'ecoli-flagella-filament-elongation',
             'ecoli-flagella-flgm-secretion',
             'ecoli-flagella-transcription-regulation',
@@ -703,11 +646,8 @@ def _get_step_config(
         FlagellaTranscriptionRegulation,
     )
     from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
-    from v2ecoli.processes.flagella_filament_nucleation import FlagellaFilamentNucleation
     from v2ecoli.processes.flagella_filament_elongation import FlagellaFilamentElongation
-    from v2ecoli.processes.flagella_motor_switch_assembly import FlagellaMotorSwitchAssembly
-    from v2ecoli.processes.flagella_export_apparatus_assembly import FlagellaExportApparatusAssembly
-    from v2ecoli.processes.flagella_motor_complex_assembly import FlagellaMotorComplexAssembly
+    from v2ecoli.processes.flagella_nfsim_complexation import FlagellaNFsimComplexation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.partition import Requester, Evolver
@@ -847,11 +787,8 @@ def _get_step_config(
         'ecoli-tf-unbinding': TfUnbinding,
         'ecoli-flagella-transcription-regulation': FlagellaTranscriptionRegulation,
         'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
-        'ecoli-flagella-filament-nucleation': FlagellaFilamentNucleation,
         'ecoli-flagella-filament-elongation': FlagellaFilamentElongation,
-        'ecoli-flagella-motor-switch-assembly': FlagellaMotorSwitchAssembly,
-        'ecoli-flagella-export-apparatus-assembly': FlagellaExportApparatusAssembly,
-        'ecoli-flagella-motor-complex-assembly': FlagellaMotorComplexAssembly,
+        'ecoli-flagella-nfsim-complexation': FlagellaNFsimComplexation,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
         'ecoli-protein-degradation': ProteinDegradation,

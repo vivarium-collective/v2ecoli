@@ -230,6 +230,26 @@
 "DNAA-INTRINSIC-HYDROLYSIS-RXN"	{"MONOMER0-4565": 1, "MONOMER0-160": null, "WATER": null, "Pi": 1, "PROTON": 1}	"DnaA-ATP intrinsic hydrolysis"
 # FLGM-FLIA-CPLX_RXN (flagella-cascade investigation, ported from Maya Abdalla's vEcoli `biofilm` branch): FlgM (G369-MONOMER) sequesters free FliA/sigma28 (EG11355-MONOMER) into the FLGM-FLIA-CPLX complex. Biological Kd ~2E-10 M; relaxed to 2E-7 M (see equilibrium_reaction_rates.tsv) to avoid ODE numerical instability in ParCa equilibrium fitting. Drives the Class II -> Class III gate together with ecoli-flagella-flgm-secretion.
 "FLGM-FLIA-CPLX_RXN"	{"FLGM-FLIA-CPLX": 1, "G369-MONOMER": null, "EG11355-MONOMER": null}	"FlgM anti-sigma sequestration of FliA (sigma28)"
+# FLIS-FLIC-CPLX_RXN (flagella-cascade investigation, 2026-08-19): FliS
+# (EG11388-MONOMER, the flagellin-specific export chaperone) binds free
+# FliC (EG10321-MONOMER) into the FLIS-FLIC-CPLX complex, shielding it from
+# protein_degradation.py's fast measured turnover (Nagar et al. 2022
+# pulsed-SILAC, EG10321-MONOMER k=0.00156/s, 7.4min half-life -- ~81x
+# faster than sibling flagellar structural proteins FlgE/FliD/FlgK/FlgL,
+# all of which fall back to the generic N-end-rule default in the absence
+# of measured data). Complexes are exempt from protein_degradation.py by
+# construction (only directly-translated monomers with a cistron mapping
+# appear in its protein_ids list -- see translation.py's all_proteins
+# derivation), so this reaction protects whatever fraction of the free
+# FliC pool is FliS-bound at any moment, mirroring FliS's real role
+# (without it, flagellin's disordered C-terminal D0 domain is degraded --
+# Evdokimov et al. 2003, Muskotal et al. 2006). Real Ka = 1.9E7 /M
+# (Kd ~5.26E-8 M), 1:1 stoichiometry, isothermal titration calorimetry
+# (Muskotal et al. 2006, FEBS Lett). May need relaxation for ODE numerical
+# stability in ParCa equilibrium fitting, same as FLGM-FLIA-CPLX_RXN above
+# (see equilibrium_reaction_rates.tsv) -- untested until the cache is
+# rebuilt with this entry.
+"FLIS-FLIC-CPLX_RXN"	{"FLIS-FLIC-CPLX": 1, "EG11388-MONOMER": null, "EG10321-MONOMER": null}	"FliS export chaperone binding of FliC (flagellin)"
 # FLIT-FLID-CPLX_RXN removed 2026-08-10 (Maya's explicit instruction), along
 # with the rest of the FliT:FlhD4C2 checkpoint mechanism it fed -- see
 # archive/flit-flhdc-regulation-2026-08/ for the full removed entry and why

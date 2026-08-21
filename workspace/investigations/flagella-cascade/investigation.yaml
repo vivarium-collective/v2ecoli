@@ -281,7 +281,7 @@ open_decisions:
     status: OPEN -- migration not yet built
     question: >-
       The FliT:FlhD4C2 checkpoint (real biology: Yamamoto & Kutsukake 2006,
-      J Bacteriol 188:5124 -- FliT blocks FlhD4C2 from class-2 promoters,
+      J Bacteriol 188(18):6703-6708 -- FliT blocks FlhD4C2 from class-2 promoters,
       titrated by FliD export) was removed from the live WCM 2026-08-10
       after Albanna et al. (2018, Sci Rep 8:16705) was found to show no
       significant Delta-fliT phenotype in E. coli MG1655 (this WCM's exact

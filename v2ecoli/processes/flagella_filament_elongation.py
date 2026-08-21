@@ -43,28 +43,49 @@ through the growing channel becomes rate-limiting as the filament gets
 longer (the "injection-diffusion" model): Renault et al. 2017, eLife
 6:e23136, "Bacterial flagella grow through an injection-diffusion
 mechanism." That paper gives an explicit growth-rate formula,
-dL/dt = a / (b + L), with these reported numbers used to derive the
-subunit-count version below:
-  - initial growth rate ~83-100 nm/min
-  - ~2130 flagellin subunits per micron of filament (paper's own conversion)
-  - characteristic length b ~= 0.27 um
+dL/dt = a / (b + L). rate_a=26,450, rate_b=575 subunits are KEPT as-is
+(2026-08-21 review) -- see the CITATION AUDIT note below for why this
+was investigated but deliberately not changed.
 
-Converting to subunit counts (this Step's natural unit, since
-filament_length is tracked as an integer subunit count):
-  initial_rate = (83 to 100 nm/min) * (2130 subunits/um) / 60s
-               ~= 42-50 subunits/s at L=0
-  b_subunits = 0.27 um * 2130 subunits/um ~= 575 subunits
-  a = rate(0) * b ~= 46 (midpoint) * 575 ~= 26,450 subunit^2/s
+CITATION AUDIT (2026-08-21): the original derivation of rate_a=26,450
+contained a real arithmetic error (it claimed "83-100 nm/min *
+2130 subunits/um / 60s ~= 42-50 subunits/s at L=0", but that conversion
+actually works out to ~2.95-3.55 subunits/s -- independently confirmed via
+the paper's separate ~1,700 amino acids/s figure / ~500 aa per flagellin
+subunit ~= ~3.4 subunits/s). Investigating a fix surfaced a bigger problem:
+the paper's own reported numbers do NOT converge on one consistent "a"
+under this simple model, no matter which two you combine to solve for the
+third:
+  - initial rate (~83-100 nm/min, i.e. ~3-3.5 subunits/s, robustly
+    confirmed two independent ways) + b=575 subunits => a ~= 1,870
+    subunit^2/s. This predicts ~35 HOURS to reach the paper's own
+    ~21,300-subunit (~10 um) benchmark -- not necessarily wrong (the
+    paper's "over 180+ minutes" phrasing is an explicit LOWER BOUND from a
+    finite real-time-imaging session, not a claimed completion time, so
+    there's no actual contradiction here), but far too slow for this
+    codebase's practical simulation windows.
+  - total growth time (~180+ min to ~21,300 subunits) + b=575 subunits =>
+    a ~= 22,100 subunit^2/s -- implies an initial rate of ~1,080 nm/min,
+    over 10x faster than the paper's own directly-reported ~83-100 nm/min.
+  - a single-source "a ~= 0.2 um^2/min" figure (found once, could not be
+    independently verified past a paywall) converts to a ~= 15,100
+    subunit^2/s -- doesn't reconcile with either of the above either.
+  None of these is clearly "the" right answer; the paper reports its
+  actual fit in kon/diffusion-coefficient terms, not this a/b
+  parameterization, so any single-a,b reduction is already an
+  approximation with no unique inverse from summary statistics alone.
 
-  rate(L) = 26450 / (575 + L)  [subunits/s]
-
-Cross-checked against a SEPARATE number in the same paper (filaments
-reaching ~10 um, ~21,300 subunits, over 180+ minutes in real-time imaging):
-implies an average rate of ~2 subunits/s across the whole growth process,
-consistent with a model starting at ~46/s and decaying toward ~1/s near
-completion. This is a simplified phenomenological fit to the paper's own
-reported summary numbers, not a full re-implementation of their diffusion
-PDE -- flagged plainly, same standard as other estimates this session.
+DECISION (2026-08-21, Maya's explicit call): kept rate_a=26,450 rather
+than switching to any of the alternatives above. The literature doesn't
+resolve to a single defensible value, and the practically-relevant
+alternatives are all much SLOWER (1,870-22,100 vs 26,450) -- switching
+would reopen the exact "doesn't complete within a practical simulation
+window" problem that motivated cutting target_length from 20,000 down to
+10,000 then to 5,000 in the first place (see below). This is a documented
+open item, not a resolved citation -- a future, more careful re-derivation
+directly from the paper's kon/D fit (not from its summary-statistic
+sentences) would be the right way to actually settle this, not another
+back-of-envelope pass.
 
 When multiple nascent filaments exist simultaneously, they compete for the
 same free FliC pool: desired increments are computed per filament, then
@@ -105,6 +126,51 @@ complexation_reactions_modified.tsv (also changed to -5,000, old value kept
 as a comment there).
 
 Ordered in the composite flow: after ecoli-flagella-filament-nucleation.
+
+FliS chaperone recycling (added 2026-08-21)
+--------------------------------------------
+FliS is a real flagellin export chaperone (binds FliC 1:1, escorts it to the
+FlhA export gate) that is RELEASED and RECYCLED to bind a new FliC molecule
+once export completes. 1:1 binding affinity is Muskotal et al. 2006 (FEBS
+Lett 580:3916, isothermal titration calorimetry, Ka=1.9e7/M,
+Kd~=5.26e-8M -- the same number used in FLIS-FLIC-CPLX_RXN's rate). The
+release-and-recycling itself is directly demonstrated by the
+FliS/flagellin/FliW heterotrimer structure (Scientific Reports 8:11115,
+2018: "FliW and FliS are released during flagellin export... After
+release, FliW and FliS are recycled").
+
+CORRECTION (2026-08-21): a previous version of this docstring also cited
+Evans, Stafford, Ahmed, Fraser & Hughes 2006 (PNAS 103:17474, "An escort
+mechanism for cycling of export chaperones during flagellum assembly") as
+direct support for FliS/FliC recycling specifically. That paper is real,
+but its actual finding is FliJ-mediated escort recycling for the MINOR
+filament-class subunit chaperones -- FliT (cap/FliD) and FlgN (hook-
+filament junction/FlgK,FlgL) -- not FliS/FliC. Kept only as general
+precedent that chaperone cycling at the export gate is a real mechanism in
+this pathway, not as direct evidence for FliS itself; Sci Rep 8:11115 above
+is the actual direct citation for what this Step implements.
+
+This Step previously consumed free FliC directly and never touched
+FLIS-FLIC-CPLX at all, so the complex just sat there governed only by the
+passive Kd equilibrium -- no directed "export releases the chaperone"
+event, meaning a real, literature-confirmed catalytic cycle was entirely
+missing. Investigated 2026-08-21 after
+observing free FliS crash from its ambient ~2,000 to near-zero within
+minutes of a population run and never recover (confirmed this was NOT a
+transcription-regulation gap -- fliS already shares fliD's real Class III
+promoter/TU, see get_flagella_transcription_regulation_config's own note --
+and NOT a translation-efficiency gap either, both genes have identical
+translation_efficiencies_by_monomer).
+
+Fix: elongation now draws preferentially from FLIS-FLIC-CPLX (protected
+FliC) first, releasing one free FliS per unit consumed from it (the
+chaperone returning to the cytoplasmic pool, exactly as the real escort
+cycle does), and only falls back to free (unprotected) FliC for any
+remaining demand. Fair-share scaling (for multiple simultaneous filaments)
+is computed against the COMBINED available pool (protected + free), not
+free FliC alone. This lets a small, real-abundance FliS pool protect a much
+larger CUMULATIVE amount of FliC over time via repeated cycling, instead of
+being capped at protecting only its own ambient count at any one instant.
 """
 
 
@@ -152,9 +218,17 @@ class FlagellaFilamentElongation(Step):
         "fliD_per_completion": {"_type": "integer", "_default": 5},
         "target_length": {"_type": "integer", "_default": TARGET_LENGTH},
         # Renault et al. 2017 (eLife 6:e23136) injection-diffusion model,
-        # converted to subunit-count units -- see module docstring.
+        # converted to subunit-count units -- see module docstring's
+        # "CITATION AUDIT" / "DECISION" notes (2026-08-21): a real
+        # arithmetic error was found in the original derivation, but the
+        # paper's numbers don't converge on one clean replacement value
+        # either, and every candidate alternative is much slower -- kept
+        # at 26,450 deliberately (Maya's call), not re-derived.
         "rate_a": {"_type": "float", "_default": 26450.0},
         "rate_b": {"_type": "float", "_default": 575.0},
+        # FliS chaperone recycling (added 2026-08-21, see module docstring).
+        "fliS_id": {"_type": "string", "_default": "EG11388-MONOMER[c]"},
+        "flis_flic_cplx_id": {"_type": "string", "_default": "FLIS-FLIC-CPLX[e]"},
     }
 
     def inputs(self):
@@ -181,6 +255,8 @@ class FlagellaFilamentElongation(Step):
         self.fliC_idx = None
         self.fliD_idx = None
         self.flagellum_idx = None
+        self.fliS_idx = None
+        self.flis_flic_cplx_idx = None
 
     def update_condition(self, timestep, states):
         return states["next_update_time"] <= states["global_time"]
@@ -192,6 +268,10 @@ class FlagellaFilamentElongation(Step):
             self.fliD_idx = bulk_name_to_idx(self.parameters["fliD_id"], bulk_ids)
             self.flagellum_idx = bulk_name_to_idx(
                 self.parameters["flagellum_id"], bulk_ids
+            )
+            self.fliS_idx = bulk_name_to_idx(self.parameters["fliS_id"], bulk_ids)
+            self.flis_flic_cplx_idx = bulk_name_to_idx(
+                self.parameters["flis_flic_cplx_id"], bulk_ids
             )
 
         next_update = {"next_update_time": states["global_time"] + states["timestep"]}
@@ -206,13 +286,51 @@ class FlagellaFilamentElongation(Step):
         desired = np.round(self.rate_a / (self.rate_b + lengths) * dt).astype(np.int64)
         desired = np.maximum(desired, 0)
 
-        fliC_available = counts(states["bulk"], self.fliC_idx)
+        # Old (pre-FliS-recycling) version, free FliC only, kept per
+        # standing preserve-old-code rule:
+        # fliC_available = counts(states["bulk"], self.fliC_idx)
+        # total_desired = int(desired.sum())
+        # if total_desired > fliC_available and total_desired > 0:
+        #     # Fair-share: multiple simultaneous filaments compete for the
+        #     # same free FliC pool -- scale everyone down proportionally
+        #     # rather than letting draw order create bias.
+        #     scale = fliC_available / total_desired
+        #     desired = np.floor(desired * scale).astype(np.int64)
+
+        # FliS chaperone recycling (2026-08-21, see module docstring): the
+        # real, protected supply is FLIS-FLIC-CPLX + free FliC combined --
+        # fair-share against the COMBINED pool, not free FliC alone.
+        fliC_available_free = counts(states["bulk"], self.fliC_idx)
+        fliC_available_protected = counts(states["bulk"], self.flis_flic_cplx_idx)
+
+        # NUMERICAL-STABILITY CAP (added 2026-08-21, NOT a biological
+        # parameter): draining FLIS-FLIC-CPLX in one large single-tick jump
+        # occasionally destabilizes ecoli-equilibrium's legacy ODE solver
+        # for this reaction specifically -- FliS:FliC binding is tight
+        # (Kd=5.26e-8 M), and a large abrupt perturbation to the complex/
+        # free-FliS/free-FliC triple can push the requested forward extent
+        # past what's available, overshooting to negative counts inside the
+        # solver (confirmed directly via diagnostic instrumentation: a
+        # 12,000s test run failed with the solver requesting a forward
+        # extent of ~2,375 against only ~446 free FliS / ~1,926 free FliC
+        # available -- both hit negative by the identical delta, confirming
+        # it's this one reaction overshooting). This cap spreads the
+        # complex's release out gradually across multiple ticks instead of
+        # draining it in one shot, which is also more mechanistically
+        # honest anyway (real chaperone turnover is continuous, not an
+        # instant full-pool drain). Applied BEFORE the fair-share scaling
+        # below so total filament growth is correctly reduced when the cap
+        # binds, rather than overdrawing free FliC to compensate.
+        MAX_COMPLEX_DRAW_FRACTION = 0.3
+        complex_draw_cap = int(fliC_available_protected * MAX_COMPLEX_DRAW_FRACTION)
+
+        fliC_available_total = fliC_available_free + complex_draw_cap
         total_desired = int(desired.sum())
-        if total_desired > fliC_available and total_desired > 0:
+        if total_desired > fliC_available_total and total_desired > 0:
             # Fair-share: multiple simultaneous filaments compete for the
-            # same free FliC pool -- scale everyone down proportionally
+            # same combined FliC pool -- scale everyone down proportionally
             # rather than letting draw order create bias.
-            scale = fliC_available / total_desired
+            scale = fliC_available_total / total_desired
             desired = np.floor(desired * scale).astype(np.int64)
 
         new_lengths = lengths + desired
@@ -224,9 +342,20 @@ class FlagellaFilamentElongation(Step):
         fliC_subunit_mass = states["bulk"]["protein_submass"][self.fliC_idx]
         new_protein_mass = protein_mass + desired * fliC_subunit_mass
 
+        # Draw preferentially from the protected (FliS-escorted) pool
+        # first, up to the numerical-stability cap -- exporting/
+        # incorporating that FliC releases its chaperone back to the free
+        # FliS pool, matching the real escort-cycle mechanism. Only fall
+        # back to free (unprotected) FliC for any remaining demand.
+        from_complex = min(fliC_consumed, complex_draw_cap)
+        from_free = fliC_consumed - from_complex
+
         bulk_updates = []
-        if fliC_consumed > 0:
-            bulk_updates.append((self.fliC_idx, -fliC_consumed))
+        if from_complex > 0:
+            bulk_updates.append((self.flis_flic_cplx_idx, -from_complex))
+            bulk_updates.append((self.fliS_idx, from_complex))
+        if from_free > 0:
+            bulk_updates.append((self.fliC_idx, -from_free))
         if n_complete > 0:
             bulk_updates.append(
                 (self.fliD_idx, -n_complete * self.fliD_per_completion)

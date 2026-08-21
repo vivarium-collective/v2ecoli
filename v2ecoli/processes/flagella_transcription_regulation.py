@@ -25,7 +25,13 @@ value directly instead of the default ``basal_prob + delta_prob * bound_TF``.
 * **Class III** (fliC, fliD, flgK/L, motAB, cheAW, flgM): ``override = Y * basal_prob``,
   rising from ~0 when FliA is sequestered by FlgM to ``basal_prob`` at full FliA
   activity. The release of FliA is driven downstream by
-  :mod:`v2ecoli.processes.flagella_flgm_secretion`.
+  :mod:`v2ecoli.processes.flagella_flgm_secretion`. Note: fliS (EG11388) is
+  NOT listed here separately, but is NOT unregulated either -- it shares
+  fliD's exact transcription unit (fliD-fliS-fliT is one real operon,
+  TU0-14278) so it already rides on fliD's Class III entry above. See
+  get_flagella_transcription_regulation_config's 2026-08-21 note for the
+  investigation that confirmed this (and ruled out translation efficiency
+  as a fliD/fliS disparity too).
 
 Writing ``init_prob_override`` directly (rather than touching ``bound_TF``)
 bypasses the TF-binding pathway for flagella genes, eliminating the

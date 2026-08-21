@@ -217,6 +217,15 @@ class Division(V2Step):
             # D-period flag MarkDPeriod raises at the chromosome's division_time
             # (consulted only when self.d_period is True).
             "divide": Overwrite(),
+            # flagella_nfsim_complexation.py's own state ports (2026-08-19).
+            # Absent from most composites -- defaults to {} harmlessly when
+            # the flagella_nfsim_complexation feature isn't wired in. Declared
+            # here so divide_cell() can actually see and divide them instead
+            # of daughters silently getting baseline()'s empty-dict default
+            # (see divide_internal_observables/divide_scaffold_species in
+            # v2ecoli/library/division.py for the full rationale).
+            "nfsim_scaffold_species": InPlaceDict(),
+            "nfsim_internal_observables": InPlaceDict(),
         }
 
     def outputs(self):
@@ -306,6 +315,13 @@ class Division(V2Step):
                 'environment': states.get('environment', {}),
                 'boundary': states.get('boundary', {}),
             }
+            # flagella_nfsim_complexation.py's ports, 2026-08-19 -- only
+            # include when actually present (most composites won't have
+            # them) so divide_cell()'s presence check works correctly.
+            if states.get('nfsim_scaffold_species') is not None:
+                cell_data['nfsim_scaffold_species'] = states['nfsim_scaffold_species']
+            if states.get('nfsim_internal_observables') is not None:
+                cell_data['nfsim_internal_observables'] = states['nfsim_internal_observables']
 
             from v2ecoli.library.division import divide_cell
             d1_data, d2_data = divide_cell(cell_data)
@@ -385,7 +401,8 @@ class Division(V2Step):
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
-                for key in ('bulk', 'unique', 'environment', 'boundary'):
+                for key in ('bulk', 'unique', 'environment', 'boundary',
+                            'nfsim_scaffold_species', 'nfsim_internal_observables'):
                     if key in d_data:
                         agent[key] = d_data[key]
                 agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}

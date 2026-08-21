@@ -105,10 +105,18 @@ import os
 # (FLGI-FLAGELLAR-P-RING[j], confirmed in reconstruction/ecoli/flat/
 # proteins.tsv) -- this looks like a real, if minor, omission in the
 # currently-running Step, not a deliberate simplification (nothing in that
-# file's docstring explains dropping it). NOT fixed here -- out of scope for
-# this NFsim renaming pass, flagged for a separate decision. This NFsim
-# model INCLUDES flgI (matching the canonical/cited stoichiometry) rather
-# than silently perpetuating the apparent gap.
+# file's docstring explains dropping it). Still NOT fixed in the real WCM
+# Step -- out of scope for this investigation to fix there.
+#
+# REVISED 2026-08-17: this NFsim model no longer includes flgI either
+# (reverted from the earlier decision to include it per the canonical
+# spec). NFsim's model is meant to eventually REPLACE
+# flagella_motor_complex_assembly.py -- keeping NFsim consistent with what
+# that Step ACTUALLY does today (excludes FlgI) avoids a real mass-balance
+# mismatch between the two pipelines while this is unresolved, rather than
+# having NFsim match an aspirational spec nothing currently implements. If
+# the real Step's FlgI omission is ever fixed, this should be revisited and
+# re-added here too.
 #
 # THREE SPECIES KEPT AS DESCRIPTIVE NAMES, NOT RENAMED -- no real WCM bulk
 # molecule corresponds to them:
@@ -232,7 +240,9 @@ COMPLEXATION_STOICHIOMETRY = {
         'FLGC-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -6.0,   # was flgC
         'FLGF-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgF
         'FLGG-FLAGELLAR-MOTOR-ROD-PROTEIN[o]': -24.0,  # was flgG
-        'FLGI-FLAGELLAR-P-RING[j]': -26.0,   # was flgI -- see "REAL BUG FOUND" note above
+        # 'FLGI-FLAGELLAR-P-RING[j]': -26.0,  # REMOVED 2026-08-17 -- matches
+        # flagella_motor_complex_assembly.py's actual (real-bug) omission,
+        # see "REAL BUG FOUND" / "REVISED 2026-08-17" notes above
         'EG11346-MONOMER[p]': -6.0,          # was fliE
     },
     'flagellar hook reaction': {
@@ -244,10 +254,53 @@ COMPLEXATION_STOICHIOMETRY = {
         'FLAGELLAR-MOTOR-COMPLEX[j]': -1.0,  # was 'flagellar motor'
         'EG11545-MONOMER[e]': -11.0,   # was flgL
         'EG11967-MONOMER[e]': -11.0,   # was flgK
-        'EG10841-MONOMER[e]': -5.0,    # was fliD
+        # 'EG10841-MONOMER[e]': -5.0,    # was fliD -- REMOVED 2026-08-21, see
+        # "FLID DOUBLE-CONSUMPTION" note below. Kept per standing
+        # preserve-old-code rule.
         'flagellar hook': -1,          # no real bulk ID -- see note above
     },
 }
+
+# FLID DOUBLE-CONSUMPTION FIX (2026-08-21): the 'flagellum reaction' above
+# used to also consume 5x FliD (EG10841-MONOMER[e]) at this point (hook-
+# basal-body + cap + hook-filament-junction complete, immediately BEFORE
+# filament elongation begins). But v2ecoli's flagella_filament_elongation.py
+# -- the unchanged, shared Step this model's docstring already says should
+# own filament completion (see "'flagellum reaction' below now represents
+# assembly complete through the HOOK-BASAL-BODY stage" above) -- ALSO
+# consumes 5x FliD (fliD_per_completion=5) at its own completion event
+# (filament reaching target_length), deliberately matching CPLX0-7452_RXN's
+# real coefficient for mass conservation. That elongation-side consumption
+# is the ORIGINAL, validated design shared by BOTH the old deterministic
+# pipeline and this NFsim pipeline -- it's what still runs FliD accounting
+# for the currently-default flagella_regulation feature, so it can't be
+# removed there without breaking that pipeline's only FliD consumption
+# point. This model's own inclusion of FliD in 'flagellum reaction' was
+# added independently (cross-referencing real cryo-EM/structural
+# stoichiometry for the final assembled structure) without checking that
+# the shared downstream Step already accounts for it -- a real double-count
+# introduced specifically by enabling NFsim (5 FliD consumed twice per
+# completed flagellum instead of once).
+#
+# Real biology confirms only ONE consumption event should exist, and it
+# happens BEFORE elongation, not after: FliD assembles into a pentameric
+# cap at the hook-filament junction before flagellin polymerization begins,
+# and stays at the growing tip for the entire elongation process -- "once
+# the FliD pentamer is completed, it cannot accept another monomer" (Song
+# et al. 2017, J Mol Biol 429:847, "Self-Oligomerizing Structure of the
+# Flagellar Cap Protein FliD and Its Implication in Filament Assembly";
+# corroborated by the cryo-EM mechanism paper, Postel et al. 2020, Nat
+# Commun 11:1965). So NFsim's OWN timing (at hook-basal-body-cap
+# completion, before elongation) is actually the biologically correct
+# point -- it's flagella_filament_elongation.py's completion-time charge
+# that's mistimed (a pre-NFsim bookkeeping simplification, from when there
+# was no earlier "cap complete" event to hang the cost on). The elongation
+# Step is intentionally left as-is here (fixing timing there would need
+# re-validating the old deterministic pipeline's own mass conservation,
+# out of scope for this NFsim-side fix) -- removing FliD from THIS
+# reaction is the surgical fix: it stops the double-count for the NFsim
+# pipeline specifically, without touching the shared Step the old pipeline
+# still depends on.
 
 # ---------------------------------------------------------------------------
 # Rate constants -- UPDATED 2026-08-12. K_BIND was previously an arbitrary
@@ -343,6 +396,113 @@ K_COMPLETION = 10.0   # still an unconverted placeholder -- no literature search
 # FliF-FlgE range this was tuned against.
 NUCLEATION_SUPPRESSION_FACTOR = 35000.0
 
+# REAL NUCLEATION RATE (2026-08-17, NFSIM_WCM_WIRING_PLAN.md follow-up):
+# NUCLEATION_SUPPRESSION_FACTOR above was a reactively-tuned global constant
+# (chosen only to stop the "many parallel scaffolds, none finish" failure
+# mode at real WCM scale -- see the RESCALED comment above), never derived
+# from an actual literature rate. Replaced here, for the C-ring/MS-ring
+# nucleation reaction specifically ('flagellar motor switch reaction' --
+# the real first physical step of starting a whole new flagellum), with a
+# properly derived rate:
+#
+# Sim et al. 2017 (Sci Rep 7:41189, "Growth rate control of flagellar
+# assembly in E. coli strain RP437") measured, at fast growth (mu=0.6/hr,
+# 1.2hr doubling time), a mean of 7.8 flagella/cell (n=1,099 cells,
+# chemostat steady state). Back-calculating a per-cell nucleation rate:
+# 7.8 flagella / (1.2*3600 s) ~= 1.81e-3/s -- matching (to within 8%) the
+# SAME rate v2ecoli's OWN flagella_filament_nucleation.py already derives
+# and uses from the SAME paper (0.00167/s, that Step's own citation).
+# Using the already-established 0.00167/s value here for consistency
+# across both pipelines rather than introducing a second, slightly
+# different number from the same source.
+#
+# UNIT CONVERSION CAVEAT, stated plainly: 0.00167/s is a per-cell EVENT
+# rate (matching flagella_filament_nucleation.py's own fixed-interval,
+# concentration-INDEPENDENT trigger design -- fires once every ~600s
+# regardless of monomer supply). NFsim's nucleation is a bimolecular
+# mass-action reaction instead (FliF()+FliF()->Growing_CPLX0_7450_i(...),
+# propensity = k_nuc * [FliF]^2), which is NOT concentration-independent by
+# construction -- an inherent mismatch between "true Poisson process" (real
+# biology, and the custom Step's design) and "mass-action kinetics" (what
+# BNGL/NFsim's generator produces). Resolved by calibrating k_nuc so the
+# propensity equals the real 0.00167/s rate AT THE REAL AMBIENT FliF
+# concentration this investigation has used throughout (657, from
+# diagnostic_real_bulk_seeding.py's live-composite read):
+#   k_nuc_cring = 0.00167 / (657 * 656 / 2) ~= 7.75e-9 /molecule/s
+# Flagged explicitly: this matches the real rate only AT that reference
+# concentration -- as real FliF rises or falls (e.g. across growth
+# conditions, or over time as Class II expression changes), the mass-action
+# propensity will scale with [FliF]^2, not stay pinned to 0.00167/s the way
+# the true concentration-independent process would. A real, accepted
+# limitation of representing this specific kind of biology in NFsim's
+# reaction-rate framework, not something resolved by a bigger/smaller
+# constant.
+REAL_NUCLEATION_RATE_PER_S = 0.00167  # Sim et al. 2017, same citation as
+                                        # flagella_filament_nucleation.py
+
+# GENERALIZED 2026-08-17 (real bug found and fixed same day): initially
+# applied K_NUC_CRING only to the C-ring reaction, leaving every OTHER
+# nucleation reaction at plain k_bind on the reasoning "downstream stages
+# should be fast once a flagellum has committed." That reasoning is WRONG
+# for hook specifically -- confirmed directly, real WCM run: 1,226 parallel
+# Growing_flagellar_hook scaffolds nucleated in a single 1200s chunk, all
+# stuck at 2-6 of 120 needed subunits, reproducing the exact "many parallel
+# scaffolds, none finish" failure mode already fixed once for C-ring. Root
+# cause: hook nucleates from two free FlgE monomers directly -- a real
+# ambient pool of ~3,500 -- the SAME KIND of event as C-ring (starting a
+# brand-new scaffold from an abundant free-monomer pool), not a
+# downstream/precursor-gated step. flhDC has the identical structural risk
+# (nucleates from free FlhC, real ambient ~649) even though it doesn't
+# block the rest of the network (nothing else consumes CPLX0-3930).
+#
+# Real ambient counts below are this investigation's own
+# diagnostic_real_bulk_seeding.py live-composite reading (2026-08-12/17).
+# Any nucleation reaction whose nucleating species has a REAL bulk-ID
+# ambient count gets the SAME calibrated-real-rate treatment as C-ring
+# (rate = REAL_NUCLEATION_RATE_PER_S / (N*(N-1)/2) at that species' own
+# real count) -- NOT a single shared constant, since different monomers'
+# real counts differ by ~5x (FliF 657 vs FlgE 3508), and using one
+# reference concentration for all of them was exactly the earlier mistake.
+# Reactions nucleating from a SCARCE, dynamically-produced intermediate
+# (export apparatus subunit from CPLX0-7450, motor reaction from
+# CPLX0-7451) correctly keep plain k_bind -- those are naturally
+# self-limiting by their own low, slowly-built-up availability, and don't
+# need an artificial rate limit at all (matches the custom Steps pipeline's
+# own architecture: only whole-flagellum nucleation is rate-limited,
+# everything already gated by a scarce precursor is not).
+REAL_AMBIENT_MONOMER_COUNTS = {
+    'FLIF-FLAGELLAR-MS-RING[i]': 657,   # C-ring nucleating species
+    'G361-MONOMER[c]': 3508,            # FlgE, hook nucleating species
+    'MONOMER0-2488[c]': 649,            # FlhC, flhDC nucleating species
+}
+
+
+def _nucleating_species(consumed):
+    """Return (nuc_species_1, nuc_species_2) for a reaction's consumed dict
+    -- the exact same species-selection logic the rule-writing loop below
+    uses, factored out so the parameter-writing loop can compute a
+    per-reaction nucleation rate using the SAME nucleating pair."""
+    species_by_count = sorted(consumed.keys(), key=lambda s: consumed[s])
+    nuc_species_1 = species_by_count[0]
+    if consumed[nuc_species_1] >= 2:
+        nuc_species_2 = nuc_species_1
+    else:
+        nuc_species_2 = species_by_count[1]
+    return nuc_species_1, nuc_species_2
+
+
+def _calibrated_nucleation_rate(consumed, k_bind):
+    """Real, per-reaction nucleation rate: if the nucleating species has a
+    known real ambient count (REAL_AMBIENT_MONOMER_COUNTS), calibrate so
+    propensity matches REAL_NUCLEATION_RATE_PER_S at that real count.
+    Otherwise (nucleating from a scarce, dynamically-produced precursor),
+    plain k_bind -- no artificial suppression needed."""
+    nuc_species_1, _ = _nucleating_species(consumed)
+    real_count = REAL_AMBIENT_MONOMER_COUNTS.get(nuc_species_1)
+    if real_count is None:
+        return k_bind
+    return REAL_NUCLEATION_RATE_PER_S / (real_count * (real_count - 1) / 2)
+
 # Number of flagella worth of monomers to provide
 N_FLAGELLA = 5
 
@@ -414,30 +574,32 @@ def default_production_rates():
     return rates
 
 
-def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATION, k_completion=K_COMPLETION):
-    """Generate the complete BNGL model string."""
+# Ordered reactions (assembly hierarchy). Extracted to a module constant
+# 2026-08-12 so both generate_bngl() and bulk_id_to_observable_name() (added
+# for NFSIM_WCM_WIRING_PLAN.md step 3) share the exact same reaction/species
+# derivation instead of duplicating it.
+REACTION_ORDER = [
+    'flhDC',
+    'flagellar motor switch reaction',
+    'flagellar export apparatus reaction 1',
+    'flagellar export apparatus reaction 2',
+    'flagellar motor reaction',
+    'flagellar hook reaction',
+    'flagellum reaction',
+]
 
-    # Ordered reactions (assembly hierarchy)
-    reaction_order = [
-        'flhDC',
-        'flagellar motor switch reaction',
-        'flagellar export apparatus reaction 1',
-        'flagellar export apparatus reaction 2',
-        'flagellar motor reaction',
-        'flagellar hook reaction',
-        'flagellum reaction',
-    ]
 
-    # Parse all reactions
+def _parse_all_reactions():
+    """Parse every reaction in REACTION_ORDER; return (reactions,
+    monomer_names, complex_names_ordered, complex_names, all_consumed) --
+    the same derivation generate_bngl() needs, factored out so
+    bulk_id_to_observable_name() can reuse it exactly rather than
+    duplicating the monomer-vs-complex split."""
     reactions = {}
-    for rxn_name in reaction_order:
+    for rxn_name in REACTION_ORDER:
         consumed, product = _parse_reaction(rxn_name, COMPLEXATION_STOICHIOMETRY[rxn_name])
-        reactions[rxn_name] = {
-            'consumed': consumed,
-            'product': product,
-        }
+        reactions[rxn_name] = {'consumed': consumed, 'product': product}
 
-    # Collect all monomer species (those that are never products of a reaction)
     complex_names = set()
     for rxn in reactions.values():
         complex_names.add(rxn['product'])
@@ -447,7 +609,36 @@ def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATIO
         all_consumed.update(rxn['consumed'].keys())
 
     monomer_names = sorted(all_consumed - complex_names)
-    complex_names_ordered = [reactions[r]['product'] for r in reaction_order]
+    complex_names_ordered = [reactions[r]['product'] for r in REACTION_ORDER]
+    return reactions, monomer_names, complex_names_ordered, complex_names, all_consumed
+
+
+def bulk_id_to_observable_name():
+    """Return {real_bulk_id: NFsim_observable_name} for every real v2ecoli
+    bulk molecule ID this model uses (real_bulk_ids()) -- monomers are
+    observed as 'Free_{safe_name}', complex products as bare '{safe_name}'
+    (matches generate_bngl()'s own observables-block emission exactly, see
+    the 'begin observables' section below). Added 2026-08-12,
+    NFSIM_WCM_WIRING_PLAN.md step 3, so the wrapper Step doesn't need to
+    re-derive which real IDs are monomers vs. products -- reuses
+    _parse_all_reactions() directly rather than guessing."""
+    _, monomer_names, complex_names_ordered, _, _ = _parse_all_reactions()
+    real_ids = real_bulk_ids()
+    mapping = {}
+    for name in monomer_names:
+        if name in real_ids:
+            mapping[name] = f'Free_{_safe_name(name)}'
+    for name in complex_names_ordered:
+        if name in real_ids:
+            mapping[name] = _safe_name(name)
+    return mapping
+
+
+def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATION, k_completion=K_COMPLETION):
+    """Generate the complete BNGL model string."""
+
+    reaction_order = REACTION_ORDER
+    reactions, monomer_names, complex_names_ordered, complex_names, all_consumed = _parse_all_reactions()
 
     # Calculate initial monomer counts
     monomer_counts = {}
@@ -469,20 +660,35 @@ def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATIO
     lines.append(f'    k_nucleation {k_nucleation}')
     lines.append(f'    k_completion {k_completion}')
     lines.append('')
-    # NUCLEATION FIX (2026-08-12): nuc_rate is now a small, fixed fraction of
-    # k_bind (see NUCLEATION_SUPPRESSION_FACTOR module docstring for the full
-    # reasoning) -- the same rate for every reaction, deliberately much
-    # slower than ordinary binding, so existing scaffolds outcompete new ones
-    # for the finite monomer supply. Previous target_propensity-based formula
-    # (independent of k_bind, and per-reaction-specific) kept per standing
-    # preserve-old-code rule:
+    # NUCLEATION FIX (2026-08-12), SUPERSEDED 2026-08-17 for the C-ring
+    # reaction specifically -- see K_NUC_CRING module docstring for the full
+    # derivation (real Sim et al. 2017 rate, calibrated to real ambient
+    # FliF concentration). Old uniform-suppression version (same rate for
+    # EVERY reaction, k_bind/NUCLEATION_SUPPRESSION_FACTOR) kept per
+    # standing preserve-old-code rule:
+    #   nuc_rate = k_bind / NUCLEATION_SUPPRESSION_FACTOR
+    #   for rxn_name in reaction_order:
+    #       ...
+    #       lines.append(f'    k_nuc_{safe_product}  {nuc_rate:.6e}')
+    # Even older target_propensity-based formula (independent of k_bind,
+    # also kept per standing preserve-old-code rule):
     #   target_propensity = n_flagella / 50.0
     #   ...
     #   if combinatorial > 0:
     #       nuc_rate = target_propensity / combinatorial
     #   else:
     #       nuc_rate = k_nucleation
-    nuc_rate = k_bind / NUCLEATION_SUPPRESSION_FACTOR
+    #
+    # Current (generalized 2026-08-17, see _calibrated_nucleation_rate()
+    # docstring for the real bug this replaced): every nucleation reaction
+    # gets its OWN calibrated rate based on whether its nucleating species
+    # is a real, abundant free monomer (C-ring/FliF, hook/FlgE, flhDC/FlhC
+    # -- each calibrated to ITS OWN real ambient count) or a scarce,
+    # dynamically-produced precursor (export apparatus subunit, motor
+    # reaction -- plain k_bind, naturally self-limiting, matches the custom
+    # deterministic Steps pipeline's own architecture: only whole-flagellum
+    # nucleation is rate-limited, everything already gated by a scarce
+    # precursor is not).
     for rxn_name in reaction_order:
         rxn = reactions[rxn_name]
         consumed = rxn['consumed']
@@ -490,7 +696,8 @@ def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATIO
         total = sum(consumed.values())
         if total > 2:
             safe_product = _safe_name(product)
-            lines.append(f'    k_nuc_{safe_product}  {nuc_rate:.6e}')
+            this_rate = _calibrated_nucleation_rate(consumed, k_bind)
+            lines.append(f'    k_nuc_{safe_product}  {this_rate:.6e}')
     lines.append('')
 
     for monomer in sorted(monomer_counts.keys()):

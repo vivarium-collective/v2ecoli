@@ -165,6 +165,110 @@ full regulatory-loop rewrite — it's a swap of what feeds the loop.
    ambient bulk pool, no synthetic MonomerProduction feed at all.
    `diagnostic_real_bulk_seeding.py` is the artifact demonstrating this.
 
+3. **DONE (2026-08-16).** Built `v2ecoli/processes/flagella_nfsim_complexation.py`
+   (real `EcoliStep`, wraps the scaffold-fixed `NFSimProcess`, carries
+   `scaffold_species` + `internal_observables` across firings) and wired it
+   into `ecoli_baseline.py` as a new, independent `flagella_nfsim_complexation`
+   feature module -- mutually exclusive with `flagella_regulation` (both
+   `insert_before` the same anchor; enabling both would duplicate
+   filament-elongation/flgm-secretion/transcription-regulation).
+
+   Two real infrastructure gaps found and fixed along the way, both
+   pre-existing patterns in this codebase, not NFsim-specific:
+   - The actual runtime step-config lookup goes through `CachedConfigLoader`
+     (serves pre-baked configs from the cache bundle), NOT live calls to
+     `sim_data.py` -- adding a config-getter method there only matters when
+     *building* a cache, not loading an existing one. Fixed by adding
+     `ecoli-flagella-nfsim-complexation` to `core.py`'s `_CACHE_CONFIG_NAMES`
+     and directly patching the one new (trivially empty, `{}`) config entry
+     into the existing `sim_data_cache.dill`, rather than rebuilding.
+   - `scripts/build_cache.py`'s fast fixture-hydration path turned out to be
+     unusable here: `models/parca/parca_state.pkl.gz` (June 24) predates
+     this investigation's own `nascent_flagellum` unique-molecule-type
+     addition, so hydrating from it throws `KeyError: 'nascent_flagellum'`.
+     Confirmed via file-hash comparison first (matched exactly, ruling out
+     "wrong/swapped fixture") before concluding it's a content-vs-codebase
+     staleness issue, not a file-identity one -- exactly the scenario Maya
+     flagged from a prior bad experience with the fast ParCa path and
+     flagella timing. Cache was refreshed via `write_cache_version()`
+     (recomputes only the version-stamp hash) instead, touching neither
+     `simData.cPickle` nor `sim_data_cache.dill`'s existing (correct) fitted
+     content -- zero information lost, verified by exact hash match against
+     the error message's own "Expected inputs_hash".
+
+   Real, fully-wired A/B test (`run_nfsim_wired_test.py`, full 55-process
+   composite, division disabled, 2 simulated hours, real ambient initial
+   conditions -- no artificial seeding):
+   | | NFsim seed 0 | NFsim seed 1 | custom-Steps (flagella_regulation) |
+   |---|---|---|---|
+   | C-ring (CPLX0-7450) | 14 | 8 | 0 (converted downstream immediately) |
+   | export apparatus | 0 | 0 | 0 |
+   | motor complex | 0 | 0 | 9 |
+   | **complete flagella** | **0** | **0** | **11** |
+   | nascent_flagellum in progress | 0 | 0 | 1 |
+   | free FliA (final) | 29,562 | 28,353 | 29,048 |
+
+   Honest read: the NFsim pipeline works correctly end-to-end (real bulk
+   read/write, scaffold/internal-observable persistence, all confirmed) but
+   is currently much SLOWER to reach full completion than the deterministic
+   custom-Steps pipeline within the same 2-hour, real-ambient-supply
+   window -- stuck at the C-ring stage, hasn't progressed to export
+   apparatus/motor/complete flagella yet, while custom-Steps reached 11
+   complete flagella and started a 12th. This is consistent with the
+   nucleation-rate calibration being a known, accepted rough approximation
+   (step 2's "RESOLVED" note: a single global suppression constant, not
+   derived per-reaction) -- not a correctness bug, but a real, honest
+   finding about NFsim's current speed relative to the existing pipeline,
+   worth keeping in mind before treating NFsim's absolute timing as
+   comparable yet.
+
+## Nucleation rate recalibration (2026-08-17, real literature rate)
+
+Replaced `NUCLEATION_SUPPRESSION_FACTOR` (a reactively-tuned global
+constant, never derived from literature) with a properly derived rate:
+Sim et al. 2017 (Sci Rep 7:41189) measured 7.8 flagella/cell at fast
+growth (1.2hr doubling), back-calculating to ~1.81e-3/s -- matching (within
+8%) the SAME 0.00167/s rate `flagella_filament_nucleation.py` already uses
+from the same paper. Applied via `_calibrated_nucleation_rate()`
+(`generate_flagella_bngl.py`): any nucleation reaction whose nucleating
+species is a real, abundant free monomer gets a rate calibrated to that
+species' OWN real ambient count (`REAL_AMBIENT_MONOMER_COUNTS`: C-ring/FliF
+657, hook/FlgE 3508, flhDC/FlhC 649); reactions nucleating from a scarce,
+dynamically-produced precursor (export apparatus subunit, motor reaction)
+correctly keep plain `k_bind` -- naturally self-limiting, matching the
+custom Steps pipeline's own architecture.
+
+**Real bug found and fixed in the same pass**: the first version of this
+fix only special-cased C-ring, leaving hook at plain `k_bind` on the
+(wrong) reasoning that "downstream stages should be fast once a flagellum
+has committed." Confirmed directly (real WCM run, standard `INIT`
+conditions, no artificial forcing): **1,226 parallel `Growing_flagellar_hook`
+scaffolds nucleated in a single 1200s chunk**, all stuck at 2-6 of 120
+needed subunits -- the exact same "many parallel scaffolds, none finish"
+failure mode already fixed once for C-ring, now reproduced for hook because
+it ALSO nucleates from an abundant real free-monomer pool (FlgE, ~3,500),
+not a scarce precursor. Generalized the fix instead of hardcoding a single
+special case. Re-verified: 0 stuck scaffolds, 1 real hook completion within
+the same single chunk that previously produced 1,226 failures and 0
+completions.
+
+Also removed FlgI from NFsim's motor-complex reaction (previously included
+to match the canonical/aspirational spec) to match what
+`flagella_motor_complex_assembly.py` ACTUALLY consumes today (that Step's
+own FlgI omission remains a separate, unfixed, flagged bug in the real WCM
+-- this just keeps the two pipelines mass-balance-consistent while it's
+unresolved).
+
+Real, unforced, standard-`INIT` test after the fix (2 simulated hours):
+motor complex went 0->6 for the first time ever in a real (non-forced) run
+-- previously stuck at 0 the entire window regardless of duration. Free
+FliA climbed steeply (500->19,883) via the real Class III cascade (MotA/
+MotB are real Class III genes, directly fed by rising free FliA) -- this
+FlgM-crash/FliA-runaway pattern matches a dynamic already flagged earlier
+in this investigation (task #22), not something new or NFsim-specific.
+8-hour unforced test launched to check whether a full, natural
+`nascent_flagellum` creation now occurs within a longer window.
+
 ## Explicitly out of scope for this plan
 
 - Coupling NFsim's monomer supply timing to real transcription/translation

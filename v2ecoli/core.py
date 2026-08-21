@@ -220,15 +220,23 @@ def load_cache_bundle(cache_dir: str) -> dict[str, Any]:
 _CACHE_CONFIG_NAMES = [
     'post-division-mass-listener', 'ecoli-mass-listener', 'media_update',
     'exchange_data', 'ecoli-tf-unbinding', 'ecoli-tf-binding',
-    # flagella-cascade investigation: configs for the opt-in flagella_regulation
-    # feature. Dumped unconditionally so the cache can serve them when the feature
-    # is enabled (the runtime mock loader cannot regenerate them).
+    # flagella-cascade investigation: configs for the opt-in
+    # flagella_nfsim_complexation feature (the only flagellar-assembly
+    # pipeline in the repo as of 2026-08-21 -- see ecoli_baseline.py's
+    # FEATURE_MODULES). Dumped unconditionally so the cache can serve them
+    # when the feature is enabled (the runtime mock loader cannot
+    # regenerate them).
     'ecoli-flagella-transcription-regulation', 'ecoli-flagella-flgm-secretion',
-    # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed 2026-08-10
-    # -- see archive/flit-flhdc-regulation-2026-08/.
-    'ecoli-flagella-motor-switch-assembly', 'ecoli-flagella-export-apparatus-assembly',
-    'ecoli-flagella-motor-complex-assembly',
-    'ecoli-flagella-filament-nucleation', 'ecoli-flagella-filament-elongation',
+    'ecoli-flagella-filament-elongation',
+    # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
+    # 2026-08-10 (archive/flit-flhdc-regulation-2026-08/); motor-switch/
+    # export-apparatus/motor-complex/filament-nucleation removed 2026-08-21
+    # (archive/deterministic-flagella-assembly-2026-08/).
+    #
+    # NFsim-based complexation (added 2026-08-16). Config is always {} (no
+    # ParCa-derived values needed), dumped unconditionally for the same
+    # reason as the other flagella configs above.
+    'ecoli-flagella-nfsim-complexation',
     'ecoli-equilibrium', 'ecoli-two-component-system', 'ecoli-rna-maturation',
     'ecoli-transcript-initiation', 'ecoli-polypeptide-initiation',
     'ecoli-chromosome-replication', 'ecoli-protein-degradation',

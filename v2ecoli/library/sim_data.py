@@ -629,13 +629,14 @@ class LoadSimData:
             "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
             "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
             # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
-            # 2026-08-10 -- see archive/flit-flhdc-regulation-2026-08/ and
-            # ecoli_baseline.py's flagella_regulation feature comment.
-            "ecoli-flagella-motor-switch-assembly": self.get_flagella_motor_switch_assembly_config,
-            "ecoli-flagella-export-apparatus-assembly": self.get_flagella_export_apparatus_assembly_config,
-            "ecoli-flagella-motor-complex-assembly": self.get_flagella_motor_complex_assembly_config,
-            "ecoli-flagella-filament-nucleation": self.get_flagella_filament_nucleation_config,
+            # 2026-08-10 -- see archive/flit-flhdc-regulation-2026-08/.
+            # ecoli-flagella-motor-switch-assembly / export-apparatus-assembly /
+            # motor-complex-assembly / filament-nucleation removed 2026-08-21
+            # -- see archive/deterministic-flagella-assembly-2026-08/ and
+            # ecoli_baseline.py's flagella_nfsim_complexation feature comment.
+            # Their get_*_config methods are left in place below, now inert.
             "ecoli-flagella-filament-elongation": self.get_flagella_filament_elongation_config,
+            "ecoli-flagella-nfsim-complexation": self.get_flagella_nfsim_complexation_config,
             "ecoli-transcript-initiation": self.get_transcript_initiation_config,
             "ecoli-transcript-elongation": self.get_transcript_elongation_config,
             "ecoli-rna-degradation": self.get_rna_degradation_config,
@@ -827,6 +828,36 @@ class LoadSimData:
         #     "EG10601_RNA", "EG10602_RNA", "EG10146_RNA", "EG10149_RNA",
         #     "G369_RNA",
         # ]
+        # INVESTIGATED, NOT ADDED 2026-08-21: considered adding EG11388_RNA
+        # (fliS) here, reasoning that it's co-transcribed with fliD in the
+        # real fliDST operon (fliD-fliS-fliT, one shared transcript), whose
+        # Class 3 promoter provides the large majority of expression (Class
+        # 3 knockout: -71% transcript; Class 2 knockout: +22%, Saini et al.
+        # 2010, PMC2937404). Checked directly against this cache's own
+        # ParCa data before committing to the change:
+        # t.cistron_id_to_rna_indexes('EG10841_RNA') and
+        # t.cistron_id_to_rna_indexes('EG11388_RNA') BOTH resolve to rna
+        # index 1348 (TU0-14278[c]) -- fliD and fliS already share the exact
+        # same transcription unit/promoter in this reconstruction's own
+        # data model, and EG10841_RNA (fliD) has been in this list since
+        # the 2026-08-06 bug fix (see the comment above). So the shared
+        # promoter has ALREADY been getting the Class III Y*basal_prob
+        # treatment this whole time -- adding EG11388_RNA here would be a
+        # functional no-op (same tu_idx, same basal_prob, identical
+        # override value written to the identical promoter rows twice).
+        # fliS's mRNA was never actually unregulated; the free-FliS crash
+        # observed in the 3-generation population chart (2000->~0 within
+        # minutes, staying near-zero) is NOT a transcription-regulation gap.
+        # Real explanation, checked next: translation_efficiencies_by_monomer
+        # is IDENTICAL for fliD and fliS (1.1125, both median-percentile,
+        # likely a shared fallback value -- ruling out a translation-level
+        # disparity too). Most likely real explanation: the FliS:FliC
+        # equilibrium (Kd=5.26e-8 M, tight binding) continuously consumes
+        # any free FliS the instant it's synthesized, as long as free FliC
+        # remains in large excess of FliS's much smaller ambient supply
+        # (~2,000 FliS vs. tens of thousands of FliC even after FliC's own
+        # crash) -- consistent with real chaperones typically being
+        # sub-stoichiometric relative to their client proteins, not a bug.
         classIII_cistron_ids = [
             "EG10321_RNA", "EG10841_RNA", "EG11967_RNA", "EG11545_RNA",
             "EG10601_RNA", "EG10602_RNA", "EG10146_RNA", "EG10149_RNA",
@@ -859,6 +890,23 @@ class LoadSimData:
             "hbb_id": "CPLX0-7452[j]",
             "secretion_rate": 0.1,
         }
+
+    def get_flagella_nfsim_complexation_config(self, time_step=1):
+        """Config for the NFsim-based flagellar complexation Step.
+
+        Added 2026-08-16 -- see
+        v2ecoli/processes/flagella_nfsim_complexation.py and
+        workspace/investigations/flagella-cascade/studies/
+        flagella-04-complexation-nfsim/NFSIM_WCM_WIRING_PLAN.md step 3.
+        Replaces flagella-motor-switch/export-apparatus/motor-complex/
+        filament-nucleation assembly with the NFsim rule-based reaction
+        network, behind the flagella_nfsim_complexation feature flag
+        (mutually exclusive with flagella_regulation's own deterministic
+        Steps -- see ecoli_baseline.py's FEATURE_MODULES comment). No
+        ParCa-derived values needed here -- interval/n_steps use the
+        Step's own class defaults (config_schema).
+        """
+        return {}
 
     # get_flhdc_degradation_config / get_flit_flhdc_checkpoint_config removed
     # 2026-08-10 (Maya's explicit instruction) -- the FliT:FlhD4C2 checkpoint
@@ -972,6 +1020,15 @@ class LoadSimData:
             # "target_length": 10000,  # changed 2026-08-11, kept per standing
             #                          # preserve-old-code rule
             "target_length": 5000,
+            # rate_a reviewed 2026-08-21 -- see flagella_filament_elongation.py's
+            # module docstring ("CITATION AUDIT" / "DECISION" notes) for the
+            # full investigation: a real arithmetic error was found in how
+            # this value was originally derived, but the cited paper's own
+            # numbers don't converge on one clean replacement, and every
+            # candidate alternative is much slower (would reopen the
+            # "doesn't complete within a practical simulation window"
+            # problem that motivated cutting target_length in the first
+            # place). Kept at 26,450 deliberately (Maya's call).
             "rate_a": 26450.0,
             "rate_b": 575.0,
         }

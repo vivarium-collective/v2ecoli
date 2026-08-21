@@ -42,7 +42,36 @@ class SimulationDataEcoli(object):
         # Doubling time (used in fitting)
         self.doubling_time = None
 
-    def initialize(self, raw_data, basal_expression_condition="M9 Glucose minus AAs"):
+    def initialize(self, raw_data, basal_expression_condition="M9 Glucose minus AAs",
+                   rnaseq_source="reference", rnaseq_cross_fill=True):
+        """Build sim_data from raw_data.
+
+        ``rnaseq_source`` (``reference`` | ``experimental``) selects which
+        transcriptome tier basal cistron expression is built from, and
+        ``rnaseq_cross_fill`` says whether model genes the experimental dataset
+        does not measure are filled from the basal reference tier. Both live
+        HERE, on sim_data, rather than on the KnowledgeBase: the CLI injects a
+        KB while the composite path builds one, but both converge on this
+        method, so this is the only field both entry points can share. The
+        KnowledgeBase loads both TPM tables unconditionally and gates on
+        neither.
+
+        The selector is not trusted to have worked — ``transcription.py``
+        stamps what it actually did onto ``sim_data.rnaseq_provenance`` and
+        cross-checks it against what was declared here.
+        """
+        from v2ecoli.processes.parca.reconstruction.ecoli.dataclasses.process.transcription import (
+            RNASEQ_SOURCES,
+        )
+
+        if rnaseq_source not in RNASEQ_SOURCES:
+            # Fail early and by name. A typo'd selector silently falling back to
+            # the reference tier is the failure mode this whole path exists to
+            # remove.
+            raise ValueError(
+                f"rnaseq_source must be one of {list(RNASEQ_SOURCES)}, "
+                f"got {rnaseq_source!r}")
+
         self.operons_on = raw_data.operons_on
         self.stable_rrna = raw_data.stable_rrna
 
@@ -52,6 +81,12 @@ class SimulationDataEcoli(object):
 
         # TODO: Check that media condition is valid
         self.basal_expression_condition = basal_expression_condition
+        self.rnaseq_source = rnaseq_source
+        self.rnaseq_cross_fill = bool(rnaseq_cross_fill)
+        #: Set by Transcription at the moment the selector takes effect.
+        #: Pre-seeded so a sim_data whose transcription build was skipped never
+        #: LOOKS like a reference-tier fit.
+        self.rnaseq_provenance = None
 
         self._add_molecular_weight_keys(raw_data)
         self._add_compartment_keys(raw_data)

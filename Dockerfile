@@ -49,6 +49,62 @@ RUN printf 'export PATH="/app/v2ecoli/.venv/bin:$PATH"\n' > /etc/profile.d/10-v2
 # Sanity: the package imports and Ray is present at the locked version.
 RUN python -c "import v2ecoli, ray; print('v2ecoli ok; ray', ray.__version__)"
 
+# matplotlib font resolution: the cd1_*/ptools_* analysis plotting stack requests
+# "Arial" (seaborn's default sans-serif list puts it first), which this base image
+# doesn't have. Live-confirmed impact, THREE times: a 10-seed x 10-generation cd1_*
+# analysis job produced zero output after 75+ minutes, log saturated with
+# repeated "Font family 'Arial' not found" warnings.
+#
+# Two prior attempts, both confirmed live to fail, root cause traced precisely
+# each time rather than guessed again:
+# 1. fonts-liberation (metric-compatible substitute) alone does NOT fix this —
+#    matplotlib's font_manager matches by each font FILE's own internal
+#    name-table metadata, not fontconfig aliases, and Liberation Sans's own
+#    metadata says "Liberation Sans", never "Arial".
+# 2. Rewriting DejaVu Sans's own name-table to say "Arial" (via fonttools) DID
+#    make matplotlib resolve "Arial" correctly -- but only at BUILD time (the
+#    build's own assert confirmed it). At RUNTIME, in the real AWS Batch
+#    container, the exact same 998/1000-Arial-warning symptom reproduced
+#    unchanged -- meaning matplotlib's font cache/config directory resolution
+#    genuinely differs between the Docker build context and the actual job
+#    execution context (default resolution depends on $HOME, which the
+#    entrypoint's own login-shell invocation -- `bash -lc`, see above -- can
+#    plausibly re-derive differently than a plain `RUN` step).
+#
+# Real fix: stop relying on default HOME-based cache-directory resolution
+# entirely. Pin MPLCONFIGDIR to one explicit, fixed, world-writable path via
+# ENV, so the exact same directory is used to build the cache now AND to read
+# it at container-run time later, regardless of shell type, login vs.
+# non-login invocation, or HOME differences.
+ENV MPLCONFIGDIR=/opt/mplconfig
+RUN mkdir -p /opt/mplconfig /usr/share/fonts/truetype/arial-alias \
+ && chmod 777 /opt/mplconfig \
+ && python - <<'PYEOF'
+import os, shutil
+import matplotlib
+from fontTools.ttLib import TTFont
+
+src = os.path.join(matplotlib.get_data_path(), "fonts", "ttf", "DejaVuSans.ttf")
+dst = "/usr/share/fonts/truetype/arial-alias/Arial.ttf"
+shutil.copy(src, dst)
+
+font = TTFont(dst)
+for record in font["name"].names:
+    if record.nameID in (1, 4, 6, 16):  # family / full / postscript / typographic-family
+        record.string = "Arial"
+    elif record.nameID in (2, 17):  # subfamily / typographic-subfamily
+        record.string = "Regular"
+font.save(dst)
+PYEOF
+RUN fc-cache -f \
+ && python -c "\
+import matplotlib.font_manager as fm; \
+fm.fontManager.addfont('/usr/share/fonts/truetype/arial-alias/Arial.ttf'); \
+fm.fontManager.__init__(); \
+names = {f.name for f in fm.fontManager.ttflist}; \
+assert 'Arial' in names, f'Arial alias failed to register: {sorted(names)}'; \
+print('Arial now resolves via matplotlib font_manager:', 'Arial' in names)"
+
 # PRISTINE upstream CovertLab/vEcoli checkout as a SIBLING of /app/v2ecoli, so
 # the comparison driver (scripts/run_comparison_ensemble.py --composite vecoli)
 # runs the ORIGINAL, UNMODIFIED vEcoli model as a process-bigraph composite via
@@ -106,3 +162,6 @@ RUN chmod +x /opt/ray-batch-entrypoint.sh
 
 COPY docker/batch-array-entrypoint.sh /opt/batch-array-entrypoint.sh
 RUN chmod +x /opt/batch-array-entrypoint.sh
+
+COPY docker/batch-container-entrypoint.sh /opt/batch-container-entrypoint.sh
+RUN chmod +x /opt/batch-container-entrypoint.sh

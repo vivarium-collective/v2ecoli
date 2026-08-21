@@ -30,12 +30,18 @@ This Step is the thin translator between the two halves. Each cycle it:
    metabolic exchange flux into an *additive* dissolved-gas delta (mg/L) the
    reactor accumulates this interval:
 
-       biomass_gDW_agent = cell_mass_fg * cells_per_agent * 1e-15
-       rate[mmol/h]      = sum_agents( flux[mmol/(gDW*h)] * biomass_gDW_agent )
-       delta[mg/L]       = rate[mmol/h] * interval_h * MW[mg/mmol] / volume_L
+       delta[mg/L] = counts * cells_per_agent / N_A[1/mol]
+                     * MW[g/mol] * 1000[mg/g] / volume_L
 
    MW in g/mol numerically equals mg/mmol, so the same constant serves both
    the mM conversion and this mg/L delta.
+
+   NOTE this is COUNT-based and touches no mass listener. An earlier revision
+   of this docstring described a flux x biomass form with the biomass taken as
+   ``cell_mass_fg * cells_per_agent * 1e-15`` — stale twice over: the code has
+   not worked that way for some time, and ``cell_mass`` is TOTAL (wet) mass,
+   ~3.33x dry, so using it as a gDW basis is the same error since corrected in
+   PopulationAggregator. Do not reintroduce it.
 
 Sign convention (verified against ``v2ecoli/processes/metabolism.py``
 :func:`_fba_output_to_deltas`, lines 469-492): ``external_exchange_fluxes`` is
@@ -110,6 +116,10 @@ DEFAULT_REACTOR_VOLUME_L: float = 1.0
 # the WCM does not secrete them in this aerobic state (leaf stays ~0) — that is a
 # genuine sim prediction, not a gap.
 GLUCOSE_MEDIUM_LEAF: str = "glucose_medium_mM"
+# Environment-store id for medium glucose, in the compartment-tagged form the
+# rest of this Step's env_concs writes use (EnvironmentMirror resolves it onto
+# the bare `GLC` boundary key).
+GLUCOSE_ID: str = "GLC[p]"
 GLUCOSE_EXCHANGE_KEY: str = "GLC"
 # reactor leaf (mmol/L) -> bare environment.exchange byproduct key.
 BYPRODUCT_LEAVES: dict[str, str] = {
@@ -151,12 +161,27 @@ class ReactorCellCoupler(Step):
             cfg.get("cells_per_agent") or DEFAULT_CELLS_PER_AGENT)
         self.reactor_volume_L = float(
             cfg.get("reactor_volume_L") or DEFAULT_REACTOR_VOLUME_L)
-        # Default ON: accumulate medium glucose/byproduct concentrations into the
-        # reactor store so the substrate/byproducts axes grade (#225 req-3). Pure
-        # diagnostic stores — nothing reads them back, so existing run dynamics
-        # are unchanged. Set track_medium=False to skip (legacy behavior).
+        # Accumulate medium glucose/byproduct concentrations into the reactor
+        # store so the substrate/byproducts axes grade (#225 req-3), and publish
+        # glucose back to the cell's environment (see next_update).
+        #
+        # ⚠ The `is None` branch below reads as "default ON", and is not: the
+        # config_schema declares `track_medium: boolean`, so the framework fills
+        # it as False whenever a caller omits it, and the branch never fires.
+        # Direct construction (`ReactorCellCoupler(config={})`) therefore gets
+        # medium tracking OFF. Composites switch it on explicitly
+        # (`reactor_bird_coupled` passes track_medium=True), which is why this
+        # has never shown up in a run. Left as-is rather than changed here:
+        # flipping it would alter behaviour for any direct caller relying on
+        # today's effective default.
         track = cfg.get("track_medium")
         self.track_medium = True if track is None else bool(track)
+        # How many invocations fell back to the configured `cells_per_agent`
+        # because no population cell_count was readable. Expected to be exactly
+        # 1 in a composite that wires the aggregator (the first pass, before
+        # its write commits); a growing count means the population scale is not
+        # reaching this Step at all.
+        self.scale_fallbacks: int = 0
 
     def inputs(self) -> dict[str, Any]:
         return {
@@ -198,6 +223,18 @@ class ReactorCellCoupler(Step):
             env_concs[O2_ID] = _as_float(do2) / MW_O2
         if dco2 is not None:
             env_concs[CO2_ID] = _as_float(dco2) / MW_CO2
+        # Medium glucose (mM) -> the cell's environment, on the same footing as
+        # the dissolved gases. Before this, `glucose_medium_mM` was written by
+        # this Step and read by NOTHING: draining the pool changed nothing the
+        # cells experienced, so glucose-limited growth was unreachable however
+        # the reactor was configured. The leaf is already seeded at the medium
+        # recipe and drawn down below, and is already in mM, so no MW
+        # conversion applies. Clamp at zero: an exhausted pool is zero
+        # available, never negative.
+        if self.track_medium:
+            glc_medium = reactor.get(GLUCOSE_MEDIUM_LEAF)
+            if glc_medium is not None:
+                env_concs[GLUCOSE_ID] = max(_as_float(glc_medium), 0.0)
 
         # 3. Metabolic exchange demand -> additive dissolved-gas delta (mg/L).
         #
@@ -229,7 +266,45 @@ class ReactorCellCoupler(Step):
                     byproduct_counts[leaf] += _as_float(exch.get(key, 0.0))
 
         if agents:
-            counts_to_mgL = self.cells_per_agent / AVOGADRO * 1000.0 / volume_L
+            # Population scale. `PopulationAggregator` multiplies biomass and
+            # cell_count by 2**doublings under `representative_doubling`, so the
+            # followed lineage stands in for a growing population; this Step
+            # scaled exchange by `cells_per_agent` ALONE. The reactor therefore
+            # saw an accumulating biomass consuming a constant amount of
+            # substrate -- by generation 4, 8x the biomass eating 1x the
+            # glucose and oxygen. That is a mass-conservation violation, not an
+            # accuracy problem, and it makes any carbon/oxygen closure
+            # criterion fail by construction.
+            #
+            # `population.cell_count` already carries cells_per_agent *
+            # growth_factor, so deriving the per-agent scale from it keeps ONE
+            # authoritative number rather than a second copy that can drift.
+            # The aggregator precedes this Step in flow_order, so from the
+            # second invocation onward the value is current for this tick.
+            #
+            # ⚠ NOT on the first. Measured under `Composite.run()`: the
+            # aggregator's write is not committed to the store within the first
+            # pass, so the coupler's FIRST invocation reads 0.0 and takes the
+            # fallback below -- exactly once per composite. (An earlier revision
+            # of this comment claimed tick-0 propagation was verified. It is
+            # path-dependent, and on the `run()` path used by the harness and
+            # the figures script it is false. Corrected after measurement.)
+            #
+            # Consequence: in `fixed` mode the fallback is harmless, because
+            # cell_count = n_agents * cells_per_agent * 1.0 makes the two
+            # expressions identical. Under `representative_doubling` at
+            # generation g, that one tick of exchange is under-scaled by
+            # 2**(g-1). Small, but it is the very error this Step is being
+            # fixed for, so the fallback now RECORDS that it fired rather than
+            # switching scales silently.
+            n_agents = len(agents)
+            cell_count = _as_float(population.get("cell_count"))
+            if cell_count > 0.0 and n_agents:
+                cells_per_agent_effective = cell_count / n_agents
+            else:
+                cells_per_agent_effective = self.cells_per_agent
+                self.scale_fallbacks += 1
+            counts_to_mgL = cells_per_agent_effective / AVOGADRO * 1000.0 / volume_L
             o2_delta = o2_counts * counts_to_mgL * MW_O2
             co2_delta = co2_counts * counts_to_mgL * MW_CO2
             # Safety clamp: a single step's uptake must not drive the dissolved
@@ -251,7 +326,16 @@ class ReactorCellCoupler(Step):
             if self.track_medium:
                 counts_to_mM = counts_to_mgL  # = cells/N_A * 1000 / volume_L
                 # Glucose: uptake (negative) -> draw down the seeded medium pool.
-                reactor_out[GLUCOSE_MEDIUM_LEAF] = glc_counts * counts_to_mM
+                # Clamp the draw at what remains; unlike the dissolved gases
+                # (which are replenished by transport) an exhausted medium pool
+                # has nothing to restore it, so an unclamped delta drives the
+                # concentration negative and the cell would be told it has less
+                # than nothing.
+                glc_delta = glc_counts * counts_to_mM
+                glc_now = _as_float(reactor.get(GLUCOSE_MEDIUM_LEAF))
+                if glc_delta < 0.0 and (glc_now + glc_delta) < 0.0:
+                    glc_delta = -glc_now
+                reactor_out[GLUCOSE_MEDIUM_LEAF] = glc_delta
                 # Byproducts: secretion (positive) -> accumulate from 0.
                 for leaf in BYPRODUCT_LEAVES:
                     reactor_out[leaf] = byproduct_counts[leaf] * counts_to_mM
@@ -276,25 +360,6 @@ def _as_float(value: Any) -> float:
         return float(value.magnitude)
     return float(value)
 
-
-def _extract_cell_mass_fg(agent_state: dict | Any) -> float | None:
-    """Walk agent state to ``listeners.mass.cell_mass``; return float in fg.
-
-    Defensive against missing intermediate keys (emit cadence may snapshot an
-    agent mid-init). Returns None when cell_mass is absent so the coupler skips
-    that agent rather than crashing.
-    """
-    try:
-        listeners = agent_state.get("listeners", {}) if hasattr(agent_state, "get") else {}
-        mass = listeners.get("mass", {})
-        cell_mass = mass.get("cell_mass")
-        if cell_mass is None:
-            return None
-        if hasattr(cell_mass, "to") and hasattr(cell_mass, "magnitude"):
-            return float(cell_mass.to("femtogram").magnitude)
-        return float(cell_mass)
-    except (AttributeError, KeyError, TypeError):
-        return None
 
 
 def _extract_exchange_fluxes(agent_state: dict | Any) -> dict[str, Any]:

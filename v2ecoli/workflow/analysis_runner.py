@@ -17,12 +17,23 @@ columns it names.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import glob
 import json
 import os
 import re
 import warnings
 from typing import Any
+
+# Default concurrency ceiling for the DuckDB-backed (Analysis) family's
+# per-module fan-out in run_analyses (see _run_duckdb_names below). Each
+# named analysis is fully independent (own cursor, own query) and DuckDB
+# releases the GIL during query execution, so real threads give real
+# speedup -- empirically confirmed 2026-08-20 (~3x with 4 threads on a
+# genuine aggregation query, not just assumed from docs). Bounded by
+# cpu_count so a container's own vCPU allocation is the natural ceiling;
+# a caller can still force strict serial execution via max_workers=1.
+DEFAULT_ANALYSIS_MAX_WORKERS = os.cpu_count() or 4
 
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
@@ -376,7 +387,8 @@ def _group_key_str(scale: str, key: tuple) -> str:
 
 def run_analyses(sweep_dir: str, analysis_options: dict,
                  sim_data_path: str | None = None,
-                 out_dir: str | None = None) -> dict:
+                 out_dir: str | None = None,
+                 max_workers: int | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results.
 
@@ -396,6 +408,12 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     out_dir:
         Where ``analysis.json`` / ``viz/`` / ``ptools/`` are written.  Defaults
         to ``sweep_dir``, which is only writable when the sweep is local.
+    max_workers:
+        How many DuckDB-backed (``Analysis``-family) named analyses to run
+        concurrently within a scale (see ``_run_duckdb_name``). ``None``
+        (default) uses ``DEFAULT_ANALYSIS_MAX_WORKERS``, capped to however
+        many such analyses this scale actually names. Pass ``1`` to force
+        strict serial execution (e.g. for deterministic debugging).
     """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
@@ -434,25 +452,98 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     # large sim_data pickle is loaded only once per run (not once per analysis),
     # and a single DuckDB connection is reused.
     _ctx: dict[str, Any] = {}
+    # Named analyses now fan out across threads (see _run_duckdb_name below),
+    # and this lazy provisioning is only safe to run once — guard the
+    # check-then-populate with a lock so two threads racing on the very first
+    # call can't both see `not _ctx`, both start building it, and leave a
+    # reader mid-construction with a KeyError (or a discarded, redundantly
+    # loaded sim_data pickle).
+    import threading
+
+    _ctx_lock = threading.Lock()
 
     def _analysis_ctx() -> tuple:
-        if not _ctx:
-            import tempfile
+        with _ctx_lock:
+            if not _ctx:
+                import tempfile
 
-            from viva_emitters import create_duckdb_conn
-            _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
-            if is_s3_uri(sweep_dir):
-                configure_duckdb_s3(_ctx["conn"])
-            _ctx["from_clause"] = _history_from_clause(sweep_dir)
-            if sim_data_path is not None:
-                from v2ecoli.library.sim_data import LoadSimData
-                _ctx["sim_data"] = LoadSimData(
-                    sim_data_path=localize(sim_data_path)).sim_data
-            else:
-                _ctx["sim_data"] = resolve_sim_data(sweep_dir)
-            _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
-        return (_ctx["conn"], _ctx["from_clause"],
-                _ctx["sim_data"], _ctx["validation_data"])
+                from viva_emitters import create_duckdb_conn
+                _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+                _ctx["from_clause"] = _history_from_clause(sweep_dir)
+                if sim_data_path is not None:
+                    from v2ecoli.library.sim_data import LoadSimData
+                    _ctx["sim_data"] = LoadSimData(
+                        sim_data_path=localize(sim_data_path)).sim_data
+                else:
+                    _ctx["sim_data"] = resolve_sim_data(sweep_dir)
+                _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
+            return (_ctx["conn"], _ctx["from_clause"],
+                    _ctx["sim_data"], _ctx["validation_data"])
+
+    # (S3-secret refresh moved out of here and onto each thread's own cursor —
+    # see _run_duckdb_name's own docstring for why the refresh call itself
+    # must still be serialized via _ctx_lock even though query execution
+    # after it is not.)
+
+    def _run_duckdb_name(name: str, step_cls: type, params: dict, scale: str,
+                          groups: Any) -> dict:
+        """Run one DuckDB-backed (``Analysis``-family) named analysis over
+        every group in ``scale``, on its own cursor.
+
+        A DuckDB connection is safe to use concurrently from multiple Python
+        threads only for QUERY EXECUTION, via ``conn.cursor()`` (a lightweight,
+        independent session against the same in-memory catalog) — never the
+        base connection object itself from more than one thread at a time.
+        Cursors share the base connection's catalog (tables, secrets), which
+        is exactly why concurrent CATALOG WRITES (``INSTALL``/``LOAD`` of an
+        extension, ``CREATE OR REPLACE SECRET``) are NOT safe across threads:
+        DuckDB's transactional catalog correctly raises a write-write
+        TransactionException when two threads try to alter the same object at
+        once (confirmed live 2026-08-21 — see item 79). So the S3 credential
+        refresh below still needs to happen once per module, on each call's
+        own cursor (item 71 b4's ExpiredToken fix — a long multi-module sweep
+        can outlive one STS session), but the refresh CALL ITSELF must be
+        serialized against every other thread's refresh call; only the query
+        execution after it is safe to run concurrently.
+        """
+        conn, from_clause, sim_data, validation_data = _analysis_ctx()
+        cursor = conn.cursor()
+        if is_s3_uri(sweep_dir):
+            with _ctx_lock:
+                configure_duckdb_s3(cursor)
+        step = step_cls(params, core=core)
+        viz_dir = os.path.join(out_dir, "viz")
+        os.makedirs(viz_dir, exist_ok=True)
+        per_group: dict[str, Any] = {}
+        for gkey in groups:
+            gstr = _group_key_str(scale, gkey)
+            try:
+                history_sql = scale_history_sql(scale, from_clause, gkey)
+                out = step.update({
+                    "conn": cursor, "history_sql": history_sql,
+                    "config_sql": "", "success_sql": "",
+                    "sim_data": sim_data,
+                    "validation_data": validation_data,
+                    "variant_metadata": params,
+                })
+                if out.get("view"):
+                    vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
+                    with open(vp, "w", encoding="utf-8") as vf:
+                        vf.write(out["view"])
+                data = out.get("data")
+                if isinstance(data, dict) and data.get("tsv"):
+                    ptools_dir = os.path.join(out_dir, "ptools")
+                    os.makedirs(ptools_dir, exist_ok=True)
+                    tsv_path = os.path.join(
+                        ptools_dir,
+                        f"{name}__{gstr.replace('/', '_')}.tsv",
+                    )
+                    with open(tsv_path, "w", encoding="utf-8") as tf:
+                        tf.write(data["tsv"])
+                per_group[gstr] = out.get("data", {})
+            except Exception as e:
+                per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+        return per_group
 
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
@@ -460,6 +551,18 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
+
+        # Resolve + validate every requested name up front (unchanged
+        # semantics), splitting into the DuckDB family (run concurrently
+        # below — each is a fully independent query, and DuckDB releases the
+        # GIL during execution, see _run_duckdb_name) and the record-based
+        # family (run serially, unchanged — cheap, pure-Python, not the
+        # observed bottleneck). Results are reassembled into scale_out in the
+        # original ``analyses`` order regardless of which family or thread
+        # actually produced them, so output ordering matches strict serial
+        # execution exactly.
+        duckdb_names: list[str] = []
+        record_names: list[str] = []
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
@@ -469,63 +572,48 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
                               f"not {scale}; skipping")
                 continue
-            # Pass the per-analysis options dict (the value under the analysis
-            # name in analysis_options) as the Step's config, so analyses can
-            # be parameterized (e.g. population_phenotype_basal's generation_lower_bound).
-            # Analyses with config_schema={} simply ignore a populated config.
+            (duckdb_names if issubclass(step_cls, Analysis) else record_names).append(name)
+
+        results_by_name: dict[str, dict] = {}
+
+        for name in record_names:
+            step_cls = ANALYSIS_REGISTRY[name]
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
+            for gkey, grp in groups.items():
+                try:
+                    # single-scale Steps consume a cell's timeseries; cross-scale
+                    # Steps consume the list of per-cell summary records. (A single
+                    # group is exactly one cell by construction — group_for_scale
+                    # keys single by the full cell id — so grp[0] is that cell.)
+                    rows = grp[0].get("timeseries") if scale == "single" else grp
+                    per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
+                except Exception as e:
+                    per_group[_group_key_str(scale, gkey)] = {
+                        "error": f"{type(e).__name__}: {e}"}
+            results_by_name[name] = per_group
 
-            if issubclass(step_cls, Analysis):
-                # DuckDB-provisioning path: connection + sim_data are shared across
-                # all groups and analyses (lazily provisioned once per run).
-                conn, from_clause, sim_data, validation_data = _analysis_ctx()
-                params = (analyses or {}).get(name) or {}
-                viz_dir = os.path.join(out_dir, "viz")
-                os.makedirs(viz_dir, exist_ok=True)
-                for gkey in groups:
-                    gstr = _group_key_str(scale, gkey)
-                    try:
-                        history_sql = scale_history_sql(scale, from_clause, gkey)
-                        out = step.update({
-                            "conn": conn, "history_sql": history_sql,
-                            "config_sql": "", "success_sql": "",
-                            "sim_data": sim_data,
-                            "validation_data": validation_data,
-                            "variant_metadata": params,
-                        })
-                        if out.get("view"):
-                            vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
-                            with open(vp, "w", encoding="utf-8") as vf:
-                                vf.write(out["view"])
-                        data = out.get("data")
-                        if isinstance(data, dict) and data.get("tsv"):
-                            ptools_dir = os.path.join(out_dir, "ptools")
-                            os.makedirs(ptools_dir, exist_ok=True)
-                            tsv_path = os.path.join(
-                                ptools_dir,
-                                f"{name}__{gstr.replace('/', '_')}.tsv",
-                            )
-                            with open(tsv_path, "w", encoding="utf-8") as tf:
-                                tf.write(data["tsv"])
-                        per_group[gstr] = out.get("data", {})
-                    except Exception as e:
-                        per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+        if duckdb_names:
+            workers = max_workers or min(len(duckdb_names), DEFAULT_ANALYSIS_MAX_WORKERS)
+            if workers <= 1 or len(duckdb_names) == 1:
+                for name in duckdb_names:
+                    params = (analyses or {}).get(name) or {}
+                    results_by_name[name] = _run_duckdb_name(
+                        name, ANALYSIS_REGISTRY[name], params, scale, groups)
             else:
-                # Record-based AnalysisStep path (unchanged).
-                for gkey, grp in groups.items():
-                    try:
-                        # single-scale Steps consume a cell's timeseries; cross-scale
-                        # Steps consume the list of per-cell summary records. (A single
-                        # group is exactly one cell by construction — group_for_scale
-                        # keys single by the full cell id — so grp[0] is that cell.)
-                        rows = grp[0].get("timeseries") if scale == "single" else grp
-                        per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
-                    except Exception as e:
-                        per_group[_group_key_str(scale, gkey)] = {
-                            "error": f"{type(e).__name__}: {e}"}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+                    futures = {
+                        name: ex.submit(
+                            _run_duckdb_name, name, ANALYSIS_REGISTRY[name],
+                            (analyses or {}).get(name) or {}, scale, groups)
+                        for name in duckdb_names
+                    }
+                    for name, fut in futures.items():
+                        results_by_name[name] = fut.result()
 
-            scale_out[name] = per_group
+        for name in (analyses or {}):
+            if name in results_by_name:
+                scale_out[name] = results_by_name[name]
         results[scale] = scale_out
 
     if _ctx.get("conn") is not None:

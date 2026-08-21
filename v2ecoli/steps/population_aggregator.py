@@ -4,11 +4,11 @@ Build-phase scaffold for mbp-02-population-aggregation (see
 ``studies/mbp-02-population-aggregation/study.yaml`` req-1-population-aggregator
 + chris_feedback_2026_05_26 §4).
 
-PBG Step that, each emit cycle, walks ``agents.*.listeners.mass.cell_mass``,
+PBG Step that, each emit cycle, walks ``agents.*.listeners.mass.dry_mass``,
 sums, applies the ``cells_per_agent`` scaling factor, and writes:
 
   population.total_biomass_gDW =
-      sum(agents.*.cell_mass) × cells_per_agent × 1e-15 g/fg
+      sum(agents.*.dry_mass) × cells_per_agent × 1e-15 g/fg
   population.cell_count        = len(agents) × cells_per_agent
                                  (float — cells_per_agent may be non-integer)
   population.biomass_concentration_gL =
@@ -55,7 +55,7 @@ from v2ecoli.types.stores import InPlaceDict
 DEFAULT_CELLS_PER_AGENT: float = 1.0           # literal-sum preserves baseline
 DEFAULT_OD_TO_GDW: float = 0.34                # Beulig 2025; was textbook 0.33
 DEFAULT_REACTOR_VOLUME_L: float = 1.0
-FG_PER_GRAM: float = 1.0e-15                   # cell_mass listener is in fg
+FG_PER_GRAM: float = 1.0e-15                   # dry_mass listener is in fg
 
 # --- Representative-growing-population mode (#225 item #1) -------------------
 # The single-lineage runner (single_daughters=True) follows ONE cell, so the
@@ -146,11 +146,11 @@ class PopulationAggregator(Step):
                 od600=0.0,
             )}
 
-        sum_cell_mass_fg = 0.0
+        sum_dry_mass_fg = 0.0
         for _agent_id, agent_state in agents.items():
-            cell_mass = _extract_cell_mass_fg(agent_state)
-            if cell_mass is not None:
-                sum_cell_mass_fg += cell_mass
+            dry_mass = _extract_dry_mass_fg(agent_state)
+            if dry_mass is not None:
+                sum_dry_mass_fg += dry_mass
 
         # Representative-growing-population factor (#225 item #1). In the default
         # "fixed" mode this is 1.0 and behavior is identical to mbp-02's
@@ -164,7 +164,7 @@ class PopulationAggregator(Step):
         growth_factor = self._growth_factor(states)
 
         total_biomass_gDW = (
-            sum_cell_mass_fg * self.cells_per_agent * growth_factor * FG_PER_GRAM
+            sum_dry_mass_fg * self.cells_per_agent * growth_factor * FG_PER_GRAM
         )
         cell_count = float(n_simulated) * self.cells_per_agent * growth_factor
         biomass_concentration_gL = total_biomass_gDW / self.reactor_volume_L
@@ -207,23 +207,29 @@ class PopulationAggregator(Step):
 
 # --- helpers ----------------------------------------------------------------
 
-def _extract_cell_mass_fg(agent_state: dict | Any) -> float | None:
-    """Walk agent state to ``listeners.mass.cell_mass``; return as float in fg.
+def _extract_dry_mass_fg(agent_state: dict | Any) -> float | None:
+    """Walk agent state to ``listeners.mass.dry_mass``; return as float in fg.
+
+    DRY mass, deliberately — every downstream consumer is on a dry basis: the
+    ``gDW`` in ``total_biomass_gDW``, the ``od_to_gdw`` conversion, and the
+    reactor biomass input the coupler overwrites. Reading ``cell_mass`` (TOTAL
+    wet mass) here overstated all three by the wet/dry ratio, measured at
+    3.3315 over 23,598 recorded timepoints of the 2026-08-17 mbp-01 runs.
 
     Defensive against missing intermediate dict keys — emit cadence may
-    snapshot agents mid-init. Returns None when the cell_mass key is missing
+    snapshot agents mid-init. Returns None when the dry_mass key is missing
     so the aggregator skips that agent rather than crashing.
     """
     try:
         listeners = agent_state.get("listeners", {}) if hasattr(agent_state, "get") else {}
         mass = listeners.get("mass", {})
-        cell_mass = mass.get("cell_mass")
-        if cell_mass is None:
+        dry_mass = mass.get("dry_mass")
+        if dry_mass is None:
             return None
         # pint Quantity? strip units to fg.
-        if hasattr(cell_mass, "to") and hasattr(cell_mass, "magnitude"):
-            return float(cell_mass.to("femtogram").magnitude)
-        return float(cell_mass)
+        if hasattr(dry_mass, "to") and hasattr(dry_mass, "magnitude"):
+            return float(dry_mass.to("femtogram").magnitude)
+        return float(dry_mass)
     except (AttributeError, KeyError, TypeError):
         return None
 

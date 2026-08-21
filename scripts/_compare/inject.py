@@ -211,19 +211,73 @@ def _force_fork_class(fork_repo: str, cls: type) -> type:
         _restore_ecoli(saved_real, fork_repo)
 
 
+@contextlib.contextmanager
+def _fork_module_shadow(fork_repo: str):
+    """Import ``ecoli.*`` from the FORK for the duration of the block.
+
+    The module-level counterpart to :func:`_force_fork_class`, which defeats the
+    same installed-vEcoli shadow for a class. ``_fork_registry`` restores the
+    installed ``ecoli.*`` as soon as it has the registry handle, so by the time
+    :func:`resolve_injections` runs, a bare ``import ecoli.library.sim_data``
+    resolves to site-packages (``vecoli``), NOT to ``fork_repo``.
+    """
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    if fork_repo not in sys.path:
+        sys.path.insert(0, fork_repo)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    try:
+        with _idempotent_registration():
+            yield
+    finally:
+        _restore_ecoli(saved_real, fork_repo)
+
+
 def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
     """Build a fork process's config from the FORK's own ``LoadSimData``.
 
     The faithful, complete config source for a converted/swapped vEcoli process:
     vEcoli's ``ecoli.library.sim_data.LoadSimData(sim_data_path).get_config_by_name``
     supplies every parameter the real process needs (where v2ecoli's reimplemented
-    getter can drift). Runs in the resolve subprocess, where the fork's ``ecoli``
-    package is importable. Raises if the fork has no config-getter for ``name``.
+    getter can drift). Raises if the fork has no config-getter for ``name``.
+
+    ⚠ The import MUST happen under :func:`_fork_module_shadow`. Without it the
+    name ``ecoli.library.sim_data`` resolves to the INSTALLED vEcoli, so a config
+    getter that the fork has extended silently yields the installed vEcoli's
+    smaller dict — every fork-only key is absent and the process falls back to its
+    own class default. That failure is silent: the process still builds, still
+    runs, and produces a plausible-looking result computed with the wrong config.
     """
     import importlib
-    sim_data_mod = importlib.import_module("ecoli.library.sim_data")
-    loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
-    return dict(loader.get_config_by_name(name))
+    fork_abs = os.path.abspath(os.path.expanduser(fork_repo))
+    # Does this fork ship a config source AT ALL? Decide that from the fork's own
+    # files, BEFORE importing, so the outcome does not depend on whether an
+    # unrelated vEcoli happens to be installed in the environment. Without this
+    # check a fork with no ``sim_data`` module behaves two different ways: with a
+    # vEcoli installed the import succeeds, resolves outside the fork and the
+    # guard below kills the run; with none it raises ModuleNotFoundError and the
+    # caller falls back to the default config. Same fork, same call, opposite
+    # outcomes.
+    has_module = any(
+        os.path.exists(os.path.join(fork_abs, "ecoli", "library", leaf))
+        for leaf in ("sim_data.py", "sim_data"))
+    if not has_module:
+        raise ModuleNotFoundError(
+            f"fork {fork_repo!r} has no ecoli/library/sim_data module; it cannot "
+            "configure processes. Falling back to the default config.")
+    with _fork_module_shadow(fork_repo):
+        sim_data_mod = importlib.import_module("ecoli.library.sim_data")
+        mod_file = os.path.abspath(getattr(sim_data_mod, "__file__", "") or "")
+        if not mod_file.startswith(fork_abs):
+            raise InjectionError(
+                f"{name!r}: ecoli.library.sim_data resolved to {mod_file!r}, "
+                f"outside fork {fork_repo!r}; the config would be built from the "
+                "installed vEcoli and silently omit fork-only keys.")
+        loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
+        return dict(loader.get_config_by_name(name))
 
 
 def _compose_store_path(base: list, rel) -> list:
@@ -448,6 +502,26 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     ecoli.* package is imported only ONCE per subprocess lifetime.  Callers
     receive a shallow copy of each cached spec dict; fail-fast InjectionErrors
     still raise normally on a cache miss (only successful results are cached).
+
+    EXECUTION ORDER, and its limits.
+    The returned order IS the execution order: ``apply_injected_processes``
+    assigns strictly descending priorities in this sequence, so a companion
+    process declared before the process that reads what it writes will run
+    first. Two limits a caller has to know:
+
+    * The sequence is ``add_processes`` first, then ``swap_processes`` targets —
+      built below, and NOT the caller's interleaving. A swap target therefore
+      always runs after every added process. That happens to be the order a
+      companion listener needs; it is not a general way to express "B before A".
+    * Ordering applies to STEP edges only. A process edge is scheduled by
+      ``interval``, and priority is not consulted for it, so declaration order
+      says nothing about processes.
+
+    ⚠ Neither limit is validated, and this does not restore FORK order: a fork
+    config can declare a ``flow`` block placing a swapped process mid-run (e.g.
+    metabolism-redux after chromosome-structure). That key is consumed only on
+    the vEcoli reference side and is not carried into ``injected_processes``, so
+    injected steps run at the END of the tick regardless of what the fork says.
     """
     key = json.dumps({
         "fork_repo": fork_repo,
@@ -510,6 +584,12 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
             try:
                 config_dict = build_fork_config(
                     fork_repo, config["fork_sim_data"], name)
+            except InjectionError:
+                # The fork-resolution guard. NEVER downgrade this to the default
+                # config: a config built from the wrong vEcoli is silently wrong
+                # (fork-only keys absent -> class defaults), which is the exact
+                # failure this guard exists to make loud.
+                raise
             except Exception as e:  # noqa: BLE001 — not fork-configurable; use default
                 print(f"[inject] fork config for {name!r} unavailable "
                       f"({type(e).__name__}); using default. {e}")
@@ -875,6 +955,51 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
             config=spec["config"] or {})
         flow_order.append(spec["name"])
         added.append(spec["name"])
+    # Break the priority tie among the processes just injected.
+    #
+    # `make_edge` gives every Step the DEFAULT priority 1.0, and
+    # `inject_flow_dependencies` — which replaces that with distinct descending
+    # values — has already run by the time we get here (it is called before
+    # injection in the baseline generator). So without this, every injected step
+    # carries priority 1.0: tied with each other, and with no way for a companion
+    # process to run before the process that reads what it writes.
+    #
+    # The consequence is INTERMITTENT rather than a clean failure: whichever of
+    # two tied steps the scheduler happens to run first decides whether a
+    # consumer sees a populated store or an empty one, so the same build can
+    # succeed and then fail on a later run. Measured on a real injected pair:
+    # the same script passed and failed across repeat runs with nothing else
+    # changed.
+    #
+    # Priorities descend in the order processes were injected, and start below
+    # the lowest baseline priority so injected steps still run after the
+    # baseline (which is where appending them to flow_order already put them).
+    # Declaration order therefore expresses the dependency — the same
+    # explicit-not-inferred contract as the `--inject-process` surface itself.
+    if added:
+        baseline_priorities = [
+            e["priority"] for name, e in cell_state.items()
+            if name not in added and isinstance(e, dict)
+            and isinstance(e.get("priority"), (int, float))
+        ]
+        base = min(baseline_priorities) if baseline_priorities else 1.0
+        # STEP edges only. `make_edge` writes `priority` for steps and `interval`
+        # for processes, and the scheduler reads `priority` only when ordering
+        # steps — so writing it onto a process edge would look like an ordering
+        # guarantee while changing nothing. Skipping them keeps the inert case
+        # visible instead of silently pretending to have ordered it.
+        offset = 0
+        for name in added:
+            edge = cell_state.get(name)
+            # Check the edge TYPE directly rather than inferring it from the
+            # presence of a `priority` key. They agree today only because
+            # `make_edge` always writes that key for a step -- so the proxy would
+            # silently skip a step edge that ever arrived without it, which is
+            # the exact failure this branch exists to prevent.
+            if not (isinstance(edge, dict) and edge.get("_type") == "step"):
+                continue                       # a process edge: ordered by interval
+            offset += 1
+            edge["priority"] = float(base) - offset
     # Overwrite the scaffolded shape stores (materialized to 0 from a
     # process's ports_schema defaults) with config-declared real initial
     # values (shape_seed_param_store / shape_seed_literal, resolved by

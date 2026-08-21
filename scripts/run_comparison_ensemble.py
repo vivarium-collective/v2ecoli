@@ -509,7 +509,8 @@ def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
 
 
 def _injected_from_resolved(resolved: dict, fork_repo: str,
-                            fork_sim_data: str | None) -> dict | None:
+                            fork_sim_data: str | None,
+                            extra_processes: list | None = None) -> dict | None:
     """Assemble a baseline ``injected_processes`` block from a resolved vEcoli
     config, so the v2 side converts+injects the fork's add/swap processes.
 
@@ -518,12 +519,30 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
     config-described; ``fork_sim_data`` lets a swapped process pull its full
     config from the fork's own LoadSimData.
     """
+    # A swapped fork process can depend on a COMPANION fork process — typically a
+    # listener it reads a store from. On the fork those arrive via the config's
+    # standard ``processes`` list; injection carries only ``add_processes`` /
+    # ``swap_processes``, so the companion is absent and its store is created
+    # from schema defaults. The process then fails inside the fork on a lookup
+    # against empty contents, far from the cause.
+    #
+    # ``extra_processes`` names those companions EXPLICITLY. Deliberately not
+    # inferred: deciding "this port has no writer" from a vivarium-1.0
+    # ports_schema means guessing at port direction, and a prototype that guessed
+    # produced 90 false positives on the first real composite. An unknown name
+    # still fails loud — ``resolve_injections`` raises on a process the fork
+    # registry does not have.
+    extra = [p for p in (extra_processes or []) if p]
     if not (resolved.get("add_processes") or resolved.get("swap_processes")
-            or resolved.get("exclude_processes")):
+            or resolved.get("exclude_processes") or extra):
         return None
+    declared = list(resolved.get("add_processes") or [])
+    for name in extra:                      # union, order-stable, no duplicates
+        if name not in declared:
+            declared.append(name)
     inj = {
         "fork_repo": fork_repo,
-        "add_processes": resolved.get("add_processes") or [],
+        "add_processes": declared,
         "swap_processes": resolved.get("swap_processes") or {},
         "exclude_processes": resolved.get("exclude_processes") or [],
         "process_configs": resolved.get("process_configs") or {},
@@ -571,6 +590,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
                  from_vecoli_config: str | None = None,
+                 inject_processes: list | None = None,
                  vecoli_dir: str | None = None,
                  match_initial_state: bool = False,
                  match_unique_state: bool = False,
@@ -607,7 +627,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # passes the raw keys through but never assembles the block).
             inj = _injected_from_resolved(
                 resolved, fork_dir,
-                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None)
+                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None,
+                extra_processes=inject_processes)
             if inj:
                 v2_overrides = dict(v2_overrides or {})
                 v2_overrides["injected_processes"] = inj
@@ -836,6 +857,19 @@ def main(argv=None):
                    help="OPT-IN: configure the v2ecoli build FROM the translated "
                         "vEcoli config (default off — keeps the working runs on "
                         "baseline defaults).")
+    p.add_argument("--inject-process", action="append", default=None,
+                   dest="inject_processes", metavar="NAME",
+                   help="Also inject this fork process, in addition to whatever "
+                        "--from-vecoli-config's add_processes/swap_processes "
+                        "declare. Repeatable. Use it when a swapped fork process "
+                        "reads a store written by a COMPANION fork process that "
+                        "v2ecoli has no equivalent of: on the fork that companion "
+                        "arrives via the config's standard `processes` list, which "
+                        "injection does not carry, so its store is created from "
+                        "schema defaults and the swapped process later fails inside "
+                        "the fork on a lookup against empty contents. Named "
+                        "explicitly rather than inferred; an unknown name fails "
+                        "loud at resolve time.")
     p.add_argument("--from-vecoli-config", default=None,
                    help="Path WITHIN the vEcoli fork (under V2E_VECOLI_DIR), e.g. "
                         "configs/default.json, to drive BOTH engines from: the "
@@ -889,6 +923,7 @@ def main(argv=None):
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
+        inject_processes=args.inject_processes,
         match_initial_state=args.match_initial_state,
         match_unique_state=args.match_unique_state,
         match_vecoli_simdata=args.match_vecoli_simdata,

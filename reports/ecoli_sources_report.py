@@ -22,9 +22,9 @@ Usage::
     python reports/ecoli_sources_report.py --cpus 4 --date "2026-06-08"
 
     # Section 4 variants are config-variant tokens (default: operons_off).
-    # A bundle-override variant can still be requested as name=dataset.tsv,
-    # but note v2ecoli's ParCa ignores the experimental-tpms swap (see the
-    # NOTE box in section 4).
+    # A bundle-override variant can be requested as name=dataset.tsv; it now
+    # reaches the fit, but only when ParCa is run with
+    # --rnaseq-source experimental (see the NOTE box in section 4).
     python reports/ecoli_sources_report.py --variants operons_off
 """
 from __future__ import annotations
@@ -424,7 +424,8 @@ def section_flow() -> str:
   then layered on top as usual. This bundle-override path is kept available for
   future input-dataset variants, but section 4&#8217;s default variant is a ParCa
   <em>configuration</em> swap (operons on/off) because v2ecoli&#8217;s ParCa
-  ignores an <code>rnaseq_experimental_tpms</code> swap today (see section 4&#8217;s NOTE).
+  reads an <code>rnaseq_experimental_tpms</code> swap only when asked to, via
+  <code>--rnaseq-source experimental</code> (see section 4&#8217;s NOTE).
 </p>
 
 <h3>9 pipeline steps</h3>
@@ -658,8 +659,9 @@ def _build_variant_manifest(base_key: str, dataset_path: Path, data_dir: Path) -
 
 # Known ParCa *configuration* variants, keyed by the token accepted on
 # --variants. A config variant passes extra CLI args to v2ecoli-parca and
-# produces genuinely different sim_data (v2ecoli responds to these), unlike a
-# bundle experimental-tpms swap (a no-op — see the section-4 NOTE box).
+# produces genuinely different sim_data. A bundle experimental-tpms swap now
+# also reaches the fit, but only under --rnaseq-source experimental (see the
+# section-4 NOTE box).
 _CONFIG_VARIANTS: dict[str, dict] = {
     "operons_off": {"label": "operons off", "parca_args": ["--no-operons"]},
 }
@@ -726,14 +728,15 @@ def _run_variant(spec: dict, data_dir: Path, outdir: Path, cpus: int) -> dict:
 _SECTION4_NOTE = """
 <div class="strategy" style="color:#92400e;background:#fffbeb;border-color:#fde68a">
   <strong>NOTE.</strong> Input-dataset swaps — running ParCa over different
-  RNA-seq conditions (the issue #130 multi-ParCa vision) — require v2ecoli to
-  adopt the bundle&#8217;s <code>rnaseq_experimental_tpms</code> abstraction.
-  v2ecoli&#8217;s ParCa currently fits the legacy wide-format
-  <code>rna_seq_data__rnaseq_rsem_tpm_mean</code> input, so swapping that
-  experimental-tpms key is a no-op here (verified: identical fitted expression).
-  The variant shown below is a ParCa <em>configuration</em> variant
-  (operons on/off), which v2ecoli does respond to. Per-condition input swaps
-  land with #130.
+  RNA-seq conditions (the issue #130 multi-ParCa vision) — are reached
+  through the bundle&#8217;s <code>rnaseq_experimental_tpms</code> key, which
+  ParCa now reads when run with <code>--rnaseq-source experimental</code>
+  (composite param <code>rnaseq_source</code>). The default remains the legacy
+  wide-format <code>rna_seq_data__rnaseq_rsem_tpm_mean</code> input, so an
+  experimental-tpms swap is still a no-op for a build that does not ask for it
+  — and such a build now warns that it generated a table it ignored. The
+  variant shown below is a ParCa <em>configuration</em> variant (operons
+  on/off).
 </div>
 """
 
@@ -927,8 +930,8 @@ def main():
             f"_CONFIG_VARIANTS (known: {', '.join(sorted(_CONFIG_VARIANTS))}); "
             "v2ecoli responds to these. A name=dataset.tsv pair is a bundle "
             "experimental-tpms override (relative to DATA_DIR/rnaseq_experimental/ "
-            "unless absolute) — kept for future use, but a no-op today "
-            "(see the section-4 NOTE)."
+            "unless absolute); it reaches the fit only when ParCa runs with "
+            "--rnaseq-source experimental (see the section-4 NOTE)."
         ),
     )
     args = ap.parse_args()

@@ -155,28 +155,26 @@
 
 
 
-<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> The Millard kinetic-metabolism arc, end-to-end. Can the Millard 2017
-kinetic central-carbon ODE replace v2ecoli&#39;s constraint-based central-
-carbon FBA as a drop-in cell engine under the cell-side interface
-contract?
+<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> Can a metabolic engine other than v2ecoli&#39;s own be attached behind the same cell-side interface contract, and what does it actually take?
 
-Three linked questions:
-  1. BUILD     — does the swapped composite (baseline_millard) build and
-                 run, with non-trivial live central fluxes (kinetic ODE
-                 active, not FBA)?
-  2. VALIDATE  — does the Millard whole-cell model recover growth
-                 comparable to the FBA baseline, and (once the Millard
-                 cell exposes mass-exchange accounting) close mass
-                 conservation?
-  3. COMPARE   — coupled to the same BiRD reactor and run against the
-                 Beulig WT batch prefix, does the Millard kinetic central
-                 metabolism track the bioreactor (growth, substrate, gas
-                 transfer) BETTER than v2ecoli&#39;s WCM-FBA — and how do both
-                 compare to the iML1515 genome-scale FBA (Palsson)?
-                 Rendered as a structured 3-arm report-card comparison
-                 (per-group axis verdicts + categorized divergences),
-                 NOT a tolerance gate (execute-and-report, per
-                 chris_feedback_2026_05_26 §10).
+This study is the investigation&#39;s extensibility demonstration. Three
+engines have been attached at three deliberately different depths -- a
+Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the
+whole-cell model and coupled to the BiRD reactor; iML1515 genome-scale
+FBA graded against the same Beulig prefix but uncoupled and partly fit
+to it; and the OxidizeME ME-model named as a candidate but not wired.
+The ladder is the finding: the depths differ, and flattening them would
+overclaim. Full detail, including the coupling&#39;s known asymmetry and the
+verification behind each claim, is in the investigation&#39;s what_is_this
+and in the comment above this field.
+
+Of the three, the investigation gates only on the iML1515 grading. The
+Millard arm&#39;s grading against Beulig is deferred as of 2026-08-20 --
+deferred, not concluded -- and the original question this study was
+built to answer (does the kinetic ODE recover growth, close mass
+conservation, and track the bioreactor?) is preserved in the behavior
+tests and their recorded results.
+claims.
 </p>
 
 <nav class="study-tabs" aria-label="Study sections">
@@ -1059,90 +1057,6 @@ FBA contrast (iml1515_vs_beulig).
       
       
       
-      <li class="acceptance-criterion-item outcome-met" data-result="passing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #10b981; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-met" title="raw result: passing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#d1fae5; color:#065f46">✓&nbsp;met</span>
-        <span class="acceptance-criterion-behavior"><code>growth-recovered-vs-baseline</code></span>
-        
-        <a href="#bt-growth-recovered-vs-baseline" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-not-met" title="raw result: failing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#fee2e2; color:#991b1b">✗&nbsp;not met</span>
-        <span class="acceptance-criterion-behavior"><code>millard-growth-axes-graded-vs-beulig</code></span>
-        
-        <a href="#bt-millard-growth-axes-graded-vs-beulig" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-not-met" title="raw result: failing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#fee2e2; color:#991b1b">✗&nbsp;not met</span>
-        <span class="acceptance-criterion-behavior"><code>millard-substrate-axes-graded-vs-beulig</code></span>
-        
-        <a href="#bt-millard-substrate-axes-graded-vs-beulig" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-not-met" title="raw result: failing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#fee2e2; color:#991b1b">✗&nbsp;not met</span>
-        <span class="acceptance-criterion-behavior"><code>millard-gas_transfer-axes-graded-vs-beulig</code></span>
-        
-        <a href="#bt-millard-gas_transfer-axes-graded-vs-beulig" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-met" data-result="passing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #10b981; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-met" title="raw result: passing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#d1fae5; color:#065f46">✓&nbsp;met</span>
-        <span class="acceptance-criterion-behavior"><code>kinetic-vs-fba-tracking-summarized</code></span>
-        
-        <a href="#bt-kinetic-vs-fba-tracking-summarized" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-not-met" title="raw result: failing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#fee2e2; color:#991b1b">✗&nbsp;not met</span>
-        <span class="acceptance-criterion-behavior"><code>wcm-growth-axes-graded-vs-beulig</code></span>
-        
-        <a href="#bt-wcm-growth-axes-graded-vs-beulig" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
-      <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
-          style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
-        <span class="outcome-chip outcome-not-met" title="raw result: failing"
-              style="font-size:0.78em; font-weight:600; padding:2px 9px; border-radius:9999px; background:#fee2e2; color:#991b1b">✗&nbsp;not met</span>
-        <span class="acceptance-criterion-behavior"><code>wcm-gas_transfer-axes-graded-vs-beulig</code></span>
-        
-        <a href="#bt-wcm-gas_transfer-axes-graded-vs-beulig" class="btn-mini" style="margin-left:auto; font-size:0.78em">View test ↓</a>
-        
-      </li>
-      
-      
-      
       <li class="acceptance-criterion-item outcome-not-met" data-result="failing"
           style="display:flex; align-items:center; gap:10px; padding:8px 12px; margin:0 0 6px 0; border-left:4px solid #ef4444; background:#f8fafc; border-radius:4px">
         <span class="outcome-chip outcome-not-met" title="raw result: failing"
@@ -1834,7 +1748,7 @@ pass_if: {"op": "report_card_group_within_tol"}</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "17684c3ac35bdec3b408405197b890f87f4d4180", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/17684c3ac35bdec3b408405197b890f87f4d4180", "branch": "main", "lockfile": "uv.lock@54ac5f8c135f", "generated_at": "2026-08-21 14:59 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "976a9b69c1b783b897a231427eae32362534b9ef", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/976a9b69c1b783b897a231427eae32362534b9ef", "branch": "main", "lockfile": "uv.lock@54ac5f8c135f", "generated_at": "2026-08-21 16:40 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-07-millard-kinetic-metabolism";

@@ -201,6 +201,58 @@ MODIFIED_DATA = {
     "metabolic_reactions": "metabolic_reactions_modified",
 }
 
+def media_registration_gaps(bundle=None, list_of_dict_filenames=None):
+    """Media files a recipe references that the KB loader would never read.
+
+    ``LIST_OF_DICT_FILENAMES`` hardcodes which media ingredient files the
+    loader reads. A media file can be shipped, declared in a bundle manifest
+    and resolved by :class:`SourceBundle`, and still never be loaded, because
+    membership of that list is maintained by hand. The build does not object:
+    the recipe's ``base media`` / ``added media`` reference simply resolves
+    against a table that was never populated.
+
+    ``bundle`` is a parameter rather than a default lookup because the failure
+    this guards against arrives through the override chain. A recipe supplied
+    by ``--bundle-overrides`` can name a medium the public reference bundle
+    never had, and a check hardcoded to the reference bundle could not see it.
+    Pass the same ``SourceBundle`` the build will use.
+
+    Returns:
+        dict mapping media id -> reason, empty when the invariant holds.
+        ``"not in LIST_OF_DICT_FILENAMES"`` means the loader has no entry for
+        it; ``"not resolvable in the bundle"`` means the loader would look for
+        a file the bundle cannot supply.
+    """
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+
+    if bundle is None:
+        bundle = SourceBundle()
+    if list_of_dict_filenames is None:
+        list_of_dict_filenames = LIST_OF_DICT_FILENAMES
+
+    registered = {
+        os.path.splitext(os.path.basename(f))[0]
+        for f in list_of_dict_filenames
+        if os.path.dirname(f) == os.path.join("condition", "media")
+    }
+
+    referenced = set()
+    for row in read_tsv(str(bundle.path("condition__media_recipes"))):
+        for column in ("base media", "added media"):
+            media_id = (row.get(column) or "").strip()
+            if media_id:
+                referenced.add(media_id)
+
+    gaps = {}
+    for media_id in sorted(referenced):
+        if media_id not in registered:
+            gaps[media_id] = "not in LIST_OF_DICT_FILENAMES"
+        elif not bundle.has_key(relpath_to_key(
+                os.path.join("condition", "media", media_id + ".tsv"))):
+            gaps[media_id] = "not resolvable in the bundle"
+    return gaps
+
+
 ADDED_DATA = {
     "complexation_reactions": "complexation_reactions_added",
     "equilibrium_reactions": "equilibrium_reactions_added",

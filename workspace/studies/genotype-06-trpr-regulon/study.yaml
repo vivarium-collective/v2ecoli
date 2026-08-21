@@ -176,6 +176,26 @@ conditions:
 # Bands B1-B5 are pre-registered and literature-sourced. None is set from the
 # data it grades. Four of five are PREDICTED to fail, each for a stated
 # mechanistic reason recorded before any run - see findings F-02/F-03/F-05.
+#
+# QUANTITY. Every band is a BETWEEN-ARM RATIO on the same gene - the knockout
+# arm's value over the wild-type arm's - measured as actual_rna_synth_prob, a
+# per-transcription-unit share normalized to sum to 1 across TUs
+# (transcript_initiation.py:591). Two consequences, both favourable:
+#
+#   - Any global normalization constant CANCELS in a same-gene ratio, so the
+#     share-vs-level distinction does not bite. This is the same reasoning the
+#     workspace's own transcriptome comparator relies on: operands.py:493 picks
+#     a log-log r2 precisely because it is "scale-invariant, the right stat for
+#     absolute abundances on different units". Literature expression levels are
+#     themselves normalized (TPM-like), so the comparison is share to share.
+#   - Granularity is right: TU00067 IS trpLEDCBA (all six genes, one TU), and
+#     the literature's 70-300x is an operon-level number. aroH, aroL and mtr
+#     each carry their own TUs.
+#
+# What does NOT cancel is a genuine shift in total transcription between arms.
+# That is second-order under matched conditions and is not corrected for -
+# total_rna_init is carried as a readout so it can be checked rather than
+# assumed.
 
 behavior_tests:
   - name: trp-operon-derepresses-above-ten-fold
@@ -299,6 +319,16 @@ readouts:
       it requires enabling the RNA-counts listener on the composite.
     units: counts
     status: aspirational
+  - name: total-transcription-initiation
+    store_path: listeners.rna_synth_prob.total_rna_init
+    description: >-
+      Total RNAP initiations per tick - the denominator behind every
+      actual_rna_synth_prob share. Carried as a DIAGNOSTIC, not a correction: a
+      same-gene between-arm ratio cancels any global normalization, so this only
+      needs checking if the arms differ in total transcription, which matched
+      conditions make unlikely.
+    units: count
+    status: available
   - name: trp-intracellular-pool
     store_path: bulk
     description: >-

@@ -5,7 +5,7 @@ title: "Grading a design panel: accounting, landing, reference, resolvability"
 created: '2026-08-21'
 study_type: diagnostic
 design_status: designed
-implementation_status: in-progress
+implementation_status: implemented
 expert_review_status: not-requested
 claim: >-
   A design screen can be graded on its execution and readout alone — every
@@ -196,22 +196,48 @@ tests:
           Zero is the only threshold that grades the discipline rather than the
           result. A screen may legitimately find its design space unresolvable;
           what it may not do is report a ranking the evidence does not carry.
+# Gen-2 card allowlist. ⚠ NAME membership, not a path — several studies list
+# HTML paths here, which silently disables every Gen-2 card on them.
+report_cards:
+  - panel_screen
+report_card_refs:
+  panel_screen:
+    panel_json: workspace/studies/design-screen-panel-01-grading/data/panel.json
+    objective_observable: objective_titer
+    growth_observable: growth_rate
+    reference_arm: reference
+    higher_is_better: true
+    strata:
+      - medium
+    # ⚠ These bands are DEMONSTRATION values for a synthetic panel, not thresholds
+    # carried over from any measurement. They are stated here rather than defaulted
+    # because the card requires all three, and a default would bake an unexamined
+    # number into every study that reused it. An instantiation of this pattern
+    # against real data must replace them with cited values and say what they were
+    # chosen against — a band's meaning comes from the measure it is graded on.
+    bands:
+      objective_vs_reference: {good: 1.20, warn: 1.05}
+      growth_cost: {good: 0.85, warn: 0.70}
+      ranking_resolvable: {good: 3.0, warn: 2.0}
 readouts:
   - name: panel-per-cell
-    status: derived-needed
+    status: available
+    store_path: data/panel_per_cell.tsv
     detail: >-
       One row per (arm x replicate lineage x generation x cell), objective and
       growth observables as columns. The engine-agnostic seam: whatever produces
       it, everything downstream of it is written once.
   - name: panel-accounting
-    status: derived-needed
+    status: available
+    store_path: data/panel_accounting.json
     detail: >-
       data/panel_accounting.json - per arm: declared status, cells contributed vs
       expected, generations reached, and per-target observed/expected protein
       ratio with its within-tolerance flag. The evidence behind the first two
       tests, and the record that turns a dead arm from a gap into a datum.
   - name: panel-card-verdict
-    status: derived-needed
+    status: available
+    store_path: viz/report_card/panel_screen.verdict.json
     detail: >-
       viz/report_card/panel_screen.verdict.json - the panel card's per-axis
       verdicts and the resolved reference arm per stratum.
@@ -232,5 +258,65 @@ limitations:
     Resolvability is assessed at the replicate count the screen was run with. An
     unresolvable panel is a statement about this screen, not about the design
     space - more replicates may resolve it.
-runs: []
+canonical_runs:
+  - name: synthetic-panel
+    default: true
+    label: >-
+      Synthetic panel + card render + acceptance check. No simulation: the grading
+      layer consumes a per-cell table and is engine-agnostic by construction.
+    script: workspace/studies/design-screen-panel-01-grading/sims/make_synthetic_panel.py
+    args: []
+runs:
+  - name: synthetic-panel-2026-08-21
+    canonical_run: synthetic-panel
+    status: completed
+    completed_at: '2026-08-21'
+    command: >-
+      python workspace/studies/design-screen-panel-01-grading/sims/make_synthetic_panel.py
+      && python scripts/study_report_cards.py --study design-screen-panel-01-grading
+      && python workspace/studies/design-screen-panel-01-grading/sims/check_acceptance.py
+    artifacts:
+      per_cell: data/panel_per_cell.tsv
+      panel: data/panel.json
+      accounting: data/panel_accounting.json
+      acceptance: data/acceptance.json
+      card: viz/report_card/panel_screen.verdict.json
+    note: >-
+      8 declared arms across 2 strata; 6 reached the graded window and 2 did not,
+      both recorded with the generation they reached. The card grades
+      overall = mismatch: the highest-objective design clears the
+      objective band at 1.73x reference but its growth_cost of 0.63 sits below the
+      0.70 floor, so the card declines to endorse it. All four acceptance criteria
+      pass regardless — which is the separation this study exists to demonstrate:
+      the instrument is sound and the design space contains a design that is not.
+    outcomes:
+      every-declared-arm-is-accounted-for:
+        result: PASS
+        detail: >-
+          8 declared arms; 6 in panel, 2 recorded as terminated before the graded window.
+          Computed by sims/check_acceptance.py into data/acceptance.json.
+          Verified discriminating: clearing the termination record on the
+          non-viable arms raises this to 2 violations.
+      declared-perturbations-land-within-tolerance:
+        result: PASS
+        detail: >-
+          10 (arm, target) pairs checked at tolerance 0.3; 0 outside.
+          Measured on observed protein, never inferred from the declaration.
+          Verified discriminating: flagging one target out of tolerance raises
+          this to 1 violation.
+      reference-arm-resolves-in-every-stratum:
+        result: PASS
+        detail: >-
+          2 strata graded (medium_a, medium_b); reference arm present in 2.
+          Read from the accounting rather than the card, because a stratum whose
+          reference never ran produces no axis at all and an absent axis is not a
+          failing one. Verified discriminating: removing the reference from one
+          stratum raises this to 1 violation.
+      ranking-claims-do-not-exceed-resolvability:
+        result: PASS
+        detail: >-
+          2 strata; 0 with resolvability not passing; 0 ranking axes still graded there.
+          Grades the coupling, not the resolvability. Verified discriminating:
+          forcing one stratum's resolvability to mismatch while leaving its
+          objective axis graded raises this to 1 violation.
 findings: []

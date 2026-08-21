@@ -481,10 +481,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                     _ctx["sim_data"], _ctx["validation_data"])
 
     # (S3-secret refresh moved out of here and onto each thread's own cursor —
-    # see _run_duckdb_name — since it must still happen once per module, not
-    # once per run, per item 71 b4's ExpiredToken fix; a long multi-module
-    # sweep can outlive one STS session, and boto3 already knows how to
-    # refresh IRSA/web-identity credentials, it just needs to be asked again.)
+    # see _run_duckdb_name's own docstring for why the refresh call itself
+    # must still be serialized via _ctx_lock even though query execution
+    # after it is not.)
 
     def _run_duckdb_name(name: str, step_cls: type, params: dict, scale: str,
                           groups: Any) -> dict:
@@ -492,18 +491,26 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         every group in ``scale``, on its own cursor.
 
         A DuckDB connection is safe to use concurrently from multiple Python
-        threads only via ``conn.cursor()`` (a lightweight, independent session
-        against the same in-memory catalog) — never the base connection
-        object itself from more than one thread at a time. Cursors share the
-        base connection's catalog (tables, secrets), so the S3 credential
-        refresh below is still real per-module freshness (item 71 b4's
-        ExpiredToken fix), it just lands on this call's own cursor rather
-        than the single shared connection object.
+        threads only for QUERY EXECUTION, via ``conn.cursor()`` (a lightweight,
+        independent session against the same in-memory catalog) — never the
+        base connection object itself from more than one thread at a time.
+        Cursors share the base connection's catalog (tables, secrets), which
+        is exactly why concurrent CATALOG WRITES (``INSTALL``/``LOAD`` of an
+        extension, ``CREATE OR REPLACE SECRET``) are NOT safe across threads:
+        DuckDB's transactional catalog correctly raises a write-write
+        TransactionException when two threads try to alter the same object at
+        once (confirmed live 2026-08-21 — see item 79). So the S3 credential
+        refresh below still needs to happen once per module, on each call's
+        own cursor (item 71 b4's ExpiredToken fix — a long multi-module sweep
+        can outlive one STS session), but the refresh CALL ITSELF must be
+        serialized against every other thread's refresh call; only the query
+        execution after it is safe to run concurrently.
         """
         conn, from_clause, sim_data, validation_data = _analysis_ctx()
         cursor = conn.cursor()
         if is_s3_uri(sweep_dir):
-            configure_duckdb_s3(cursor)
+            with _ctx_lock:
+                configure_duckdb_s3(cursor)
         step = step_cls(params, core=core)
         viz_dir = os.path.join(out_dir, "viz")
         os.makedirs(viz_dir, exist_ok=True)

@@ -1,6 +1,6 @@
 schema_version: 2
 name: metabolism-biomass-yield
-title: Is v2ecoli's central carbon metabolism physically correct?
+title: Metabolism — biomass yield
 created: '2026-07-29'
 status: active
 question: >-

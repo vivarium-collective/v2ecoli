@@ -333,7 +333,14 @@ def fixture_operand(fixtures_dir: Path, fixture: str, map_key: str,
         label=f"{fixture}:{map_key}",
         meta={"id_key": blob.get("id_key"), "n_cells": blob.get("n_cells"),
               "gen_lb": blob.get("gen_lb"), "fixture": fixture,
-              "map_key": map_key, "source": "baked model fixture"},
+              "map_key": map_key, "source": "baked model fixture",
+              # The fixture has always declared its units; this operand simply
+              # did not carry them, so a consumer wanting to know what the
+              # numbers ARE had to re-open the blob — and at least one does,
+              # with a `path == "fixture"` special case, which is a resolver
+              # detail leaking into a grader. Stamping it here lets all three
+              # paths be read the same way.
+              "units": blob.get("units")},
     )
 
 
@@ -344,7 +351,36 @@ def fixture_operand(fixtures_dir: Path, fixture: str, map_key: str,
 _RUN_VECTOR_NODES = {
     "transcriptome": ("omics", "transcriptome"),
     "proteome": ("omics", "proteome"),
+    "exchange": ("fluxes", "exchange"),
 }
+
+#: Observables whose values are SIGNED BY DEFINITION, and which therefore do not
+#: mean what the rest of this module's vocabulary assumes.
+#:
+#: ⛔⛔ **An exchange flux is negative for uptake and positive for secretion.**
+#: Every other operand this module resolves is a strictly non-negative abundance,
+#: and the whole downstream vocabulary is built on that: the centre lives in a
+#: column called ``mean_geometric``, the concordance statistic is a LOG-log R²,
+#: and the promoted tier's schema validates ``mean_geometric >= 0``. None of
+#: those hold for a flux.
+#:
+#: The failure mode is not "grades badly", it is "grades silently on a subset
+#: nobody chose". On the committed basal reference, 63 of the 87 exchange fluxes
+#: are zero or negative — including glucose, the headline flux — so a log-log
+#: join would drop 72% of the vector and report an R² over the remaining 24
+#: species as though it covered the exchange fingerprint.
+#:
+#: This module cannot fix that, because fixing it is a GRADING decision and this
+#: layer only resolves. What it can do is refuse to be quiet: a signed operand
+#: stamps ``signed_quantity`` plus an explicit sign census (``n_negative`` /
+#: ``n_zero`` / ``n_positive``) so a consumer has to have looked. A consumer that
+#: reads neither and log-transforms anyway is now making a mistake the operand
+#: told it about, which is a different situation from the one this replaced.
+#:
+#: ⇒ The intended consumer for exchange is the per-species t-test over the
+#: ``per_cell`` matrix, which is sign-agnostic — NOT the log-log path, and NOT a
+#: distributional statistic that assumes positive support.
+_SIGNED_OBSERVABLES = frozenset({"exchange"})
 
 
 def _keyed(vector, entity_ids) -> tuple[dict, int, int]:
@@ -375,6 +411,8 @@ def run_operand(sweep_dir: str | Path, entity_ids,
                 generation_lower_bound: int = 0,
                 out_dir: str | None = None,
                 kind: str = "model_predicted",
+                id_key: str | None = None,
+                with_per_cell: bool = False,
                 declared_in: str = "the caller's axis table") -> Operand | None:
     """Resolve an operand from a LIVE run inside the investigation, or None.
 
@@ -424,6 +462,49 @@ def run_operand(sweep_dir: str | Path, entity_ids,
     where the sweep lives, and its verdict is committed rather than recomputed in
     CI. That is a different integrity story from a promoted or fixture operand
     and belongs in the consuming study's ``assumptions:``.
+
+    **What a live operand carries, and why each piece had to be added.**
+
+    * ``meta["units"]`` — the units its numbers are in, taken from
+      ``card_vectors.VECTOR_UNITS``. ⛔ **This is a correctness fix, not a
+      decoration.** A live operand used to declare nothing, and a grader that
+      restricts a comparison to a counts-bearing subset ("species above N
+      copies/cell") can only do so from a side that says it carries counts. With
+      no declaration the live path contributed none, the subset silently became
+      the whole panel, and the SAME sweep graded live rather than baked got a
+      different number with only a detail field to say so. This function's own
+      guarantee — that live and baked produce the same numbers — was implemented
+      at the aggregation layer (``_keyed``) and missed one level up, at grading.
+      Units are read from the module-level declaration rather than from the
+      cached node so that a pre-v2 or hand-built envelope cannot yield an operand
+      that quietly declares nothing; the node carries them too, and the two agree
+      by construction.
+
+    * ``meta["id_key"]`` — the id-space ``entity_ids`` are in, **passed by the
+      caller, never inferred**, for the same reason ``entity_ids`` itself is: the
+      caller holds the ``sim_data``. Inferring it from ``observable`` would be a
+      hardcoded belief about what labels the caller chose, and it would keep
+      being right until the day it was silently wrong.
+
+    * ``meta["per_cell"]`` (only when ``with_per_cell=True``) — ``{entity_id:
+      [one value per cell]}``, the per-cell samples behind the mean. Needed by
+      any statistic that compares DISTRIBUTIONS rather than two centres; a mean
+      vector is not a distribution. **Opt-in**, because it is ~900k floats at
+      current ensemble sizes and every existing caller wants the mean alone.
+      ⚠ Note the asymmetry with the cache, which stores ``per_cell``
+      unconditionally: a flag is safe HERE (a pure function of the arguments) and
+      unsafe THERE (it would sit outside the cache key, so a caller passing it
+      could get a hit on an envelope written without it and silently see
+      nothing).
+      The matrix is keyed row-by-row through the same ``_keyed`` as the mean, so
+      collisions sum identically and the column mean of ``per_cell`` IS
+      ``values`` to floating tolerance — a property worth asserting rather than
+      assuming, since it is what makes the samples and the centre the same
+      measurement.
+
+    * ``meta["signed_quantity"]`` and the ``n_negative``/``n_zero``/``n_positive``
+      census — see ``_SIGNED_OBSERVABLES``. Read them before applying anything
+      that assumes positive support.
     """
     from v2ecoli.library.sim_vector_cache import load_or_extract
 
@@ -456,12 +537,47 @@ def run_operand(sweep_dir: str | Path, entity_ids,
     if not values:
         return None
 
+    per_cell = None
+    if with_per_cell:
+        rows = node.get("per_cell") or []
+        # A row of a different width than the mean is the width-mismatch trap
+        # one level down, and `_keyed`'s `zip` would truncate it silently rather
+        # than raise — so it is checked here rather than trusted.
+        bad = next((k for k, row in enumerate(rows) if len(row) != len(vector)), None)
+        if bad is not None:
+            raise ValueError(
+                f"per_cell row {bad} for {observable!r} has {len(rows[bad])} values "
+                f"but the mean vector has {len(vector)} — the cached matrix and "
+                f"the cached mean disagree about this run's feature count, so "
+                f"one of them was not produced by the extractor that wrote the "
+                f"other. Re-extract {sweep_dir} rather than keying either.")
+        if rows:
+            # Keyed row-by-row with the SAME function as the mean: collisions sum
+            # the same way, unmapped ids drop the same way, so the key set is
+            # identical by construction and the column mean of this matrix is
+            # `values` to floating tolerance.
+            keyed_rows = [_keyed(row, ids)[0] for row in rows]
+            per_cell = {e: [r[e] for r in keyed_rows] for e in values}
+
+    # Measured, not assumed: what the resolved values actually look like on the
+    # sign axis. Stamped for every observable so a consumer never has to know
+    # which ones are signed in order to ask.
+    vals = list(values.values())
+    n_negative = sum(1 for v in vals if v < 0)
+    n_zero = sum(1 for v in vals if v == 0)
+    n_positive = sum(1 for v in vals if v > 0)
+
     run = env.get("run", {})
     prov = env.get("provenance", {})
     experiment_id = run.get("experiment_id")
     frame = pd.DataFrame({
         "entity_id": list(values),
         "symbol": ["" for _ in values],
+        # ⚠ The column is named for the abundance case and the name is part of
+        # `OPERAND_COLUMNS`, so a signed observable lands in a column called
+        # `mean_geometric` while being nothing of the kind — a flux has no
+        # geometric mean. Renaming the contract is out of scope here; saying so
+        # at the seam is not. See `_SIGNED_OBSERVABLES` and `meta["signed_quantity"]`.
         "mean_geometric": [float(v) for v in values.values()],
         # A run has no limit of detection, so every row is `detected` and this
         # column carries no information on this side — the same asymmetry the
@@ -481,8 +597,30 @@ def run_operand(sweep_dir: str | Path, entity_ids,
               "run_commit": prov.get("run_commit"),
               "extracted_at_commit": prov.get("extracted_at_commit"),
               "extractor_version": (env.get("extractor") or {}).get("version"),
-              "n_unmapped": n_unmapped, "n_collisions": n_collisions},
+              "n_unmapped": n_unmapped, "n_collisions": n_collisions,
+              # From the module-level declaration, not the cached node — see the
+              # docstring. A pre-v2 envelope carries no units; an operand built
+              # from one still must not declare nothing.
+              "units": _card_vector_units(group, name),
+              # The caller's, because only the caller knows which sim_data its
+              # labels came from.
+              "id_key": id_key,
+              "signed_quantity": observable in _SIGNED_OBSERVABLES,
+              "n_negative": n_negative, "n_zero": n_zero,
+              "n_positive": n_positive,
+              "per_cell": per_cell,
+              "n_per_cell": 0 if per_cell is None else len(next(iter(per_cell.values()), []))},
     )
+
+
+def _card_vector_units(group: str, name: str) -> str | None:
+    """Units for a ``(group, name)`` extractor node, or None if it declares none.
+
+    A function rather than an inline lookup so the import stays local to the one
+    place that needs it — ``card_vectors`` pulls numpy and duckdb in at call
+    time and this module is imported by callers that never touch a sweep."""
+    from v2ecoli.library.card_vectors import VECTOR_UNITS
+    return VECTOR_UNITS.get((group, name))
 
 
 # ── Layer 2 — the symmetric join ──────────────────────────────────────────────

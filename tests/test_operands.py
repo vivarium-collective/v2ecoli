@@ -154,16 +154,26 @@ class OperandValues(unittest.TestCase):
 
 
 def _run_cache(sweep: Path, vector, *, observable="transcriptome",
-               n_cells=20, gen_lb=0, run_commit=None) -> Path:
+               n_cells=20, gen_lb=0, run_commit=None, per_cell=None,
+               group="omics", node_name=None) -> Path:
     """Write a synthetic run-vector cache so no parquet sweep is needed.
 
     ``load_or_extract`` returns a cached envelope verbatim when the schema
     matches, so the resolver can be exercised in public CI with no run data.
+
+    ``per_cell`` writes the n_cells x n_features matrix the real extractor emits;
+    ``group``/``node_name`` place the node somewhere other than
+    ``omics.<observable>`` (the exchange observable lives under ``fluxes``).
+    Deliberately does NOT write ``units``: the resolver must take units from its
+    own declaration, so a fixture that supplied them would hide a regression.
     """
     from v2ecoli.library import sim_vector_cache as svc
 
     path = svc.cache_path(str(sweep), gen_lb)
     path.parent.mkdir(parents=True, exist_ok=True)
+    node = {"vector": list(vector), "n_cells": n_cells}
+    if per_cell is not None:
+        node["per_cell"] = [list(r) for r in per_cell]
     path.write_text(json.dumps({
         "schema": svc.CACHE_SCHEMA,
         "run": {"experiment_id": "exp_live_1", "sweep_dir": str(sweep),
@@ -171,8 +181,7 @@ def _run_cache(sweep: Path, vector, *, observable="transcriptome",
         "extractor": {"version": svc.EXTRACTOR_VERSION},
         "provenance": {"run_commit": run_commit,
                        "extracted_at_commit": "cafe1234"},
-        "vectors": {"omics": {observable: {"vector": list(vector),
-                                           "n_cells": n_cells}}},
+        "vectors": {group: {node_name or observable: node}},
     }), encoding="utf-8")
     return path
 
@@ -518,6 +527,327 @@ class DeclaredZeros(unittest.TestCase):
             op = ops.run_operand(sweep, ["EG1", "EG2"])
         self.assertEqual(op.declared_zeros, set())
         self.assertEqual(set(op.values), {"EG1", "EG2"})
+
+
+_REPO = Path(__file__).resolve().parents[1]
+_BASAL_FIXTURES = _REPO / "tests" / "fixtures" / "population_phenotype_basal"
+_BASAL_REFERENCE = _REPO / "tests" / "fixtures" / "population_phenotype_basal_reference.json"
+
+
+def _column_means(per_cell: dict) -> dict:
+    """``{entity: mean over cells}`` — the reduction that must reproduce
+    ``Operand.values`` if the samples and the centre are the same measurement."""
+    return {e: sum(vals) / len(vals) for e, vals in per_cell.items()}
+
+
+class RunOperandPerCell(unittest.TestCase):
+    """A live operand can carry the per-cell samples behind its mean.
+
+    ★ Why this exists: a statistic that compares DISTRIBUTIONS has nothing to
+    consume from a mean vector. Until the extractor emitted ``per_cell`` for the
+    omics groups (it always did for fluxes), no such comparison could be written
+    at all.
+    """
+
+    # 3 cells x 3 features. Column means are 2.0 / 20.0 / 200.0 exactly, and the
+    # per-cell spread is real — both properties are load-bearing below.
+    PER_CELL = [[1.0, 10.0, 100.0],
+                [2.0, 20.0, 200.0],
+                [3.0, 30.0, 300.0]]
+    MEAN = [2.0, 20.0, 200.0]
+    IDS = ["EG1", "EG2", "EG3"]
+
+    def _resolve(self, d, per_cell, **kw):
+        sweep = Path(d) / "sweep"
+        sweep.mkdir()
+        _run_cache(sweep, self.MEAN, per_cell=per_cell, n_cells=len(per_cell))
+        return ops.run_operand(sweep, self.IDS, with_per_cell=True, **kw)
+
+    def test_per_cell_is_absent_unless_asked_for(self):
+        """WOULD CATCH: making it unconditional. ~900k floats at production
+        ensemble sizes, and every caller that wants only the mean would pay for
+        it. The flag is safe HERE precisely because no cache is involved — it is
+        a pure function of the arguments, so it cannot serve a stale answer."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, self.MEAN, per_cell=self.PER_CELL, n_cells=3)
+            op = ops.run_operand(sweep, self.IDS)          # default: opted out
+        self.assertIsNone(op.meta["per_cell"])
+        self.assertEqual(op.meta["n_per_cell"], 0)
+
+    def test_per_cell_has_n_cells_rows_of_the_vectors_width(self):
+        """WOULD CATCH: a transposed matrix, or one keyed by a different id set
+        than ``values`` — either of which makes every per-entity sample list
+        describe a different entity."""
+        with TemporaryDirectory() as d:
+            op = self._resolve(d, self.PER_CELL)
+        self.assertEqual(set(op.meta["per_cell"]), set(op.values))
+        self.assertEqual(op.meta["n_per_cell"], 3)
+        for entity, vals in op.meta["per_cell"].items():
+            self.assertEqual(len(vals), 3, entity)
+
+    def test_the_column_mean_of_per_cell_IS_the_operands_centre(self):
+        """The samples and the centre must be the same measurement.
+
+        WOULD CATCH: keying the matrix with a different rule than the mean — in
+        particular NOT summing collisions the same way, which is the one place
+        the two could plausibly diverge (see the collision case below)."""
+        with TemporaryDirectory() as d:
+            op = self._resolve(d, self.PER_CELL)
+        for entity, mean in _column_means(op.meta["per_cell"]).items():
+            self.assertAlmostEqual(mean, op.values[entity], places=9, msg=entity)
+
+    def test_collisions_are_summed_per_cell_exactly_as_they_are_in_the_mean(self):
+        """Several source rows can map to one entity id; the mean sums them.
+
+        WOULD CATCH: keying ``per_cell`` row-by-row with a rule that overwrites
+        instead of summing. The identity above would then break for exactly the
+        colliding entities and no others — which is why this is a separate case
+        with ids chosen to collide, rather than trusted to the general test."""
+        per_cell = [[1.0, 10.0, 100.0], [3.0, 30.0, 300.0]]
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [2.0, 20.0, 200.0], per_cell=per_cell, n_cells=2)
+            op = ops.run_operand(sweep, ["EG1", "EG1", "EG2"],
+                                 with_per_cell=True)
+        self.assertEqual(op.meta["n_collisions"], 1)
+        self.assertEqual(op.values, {"EG1": 22.0, "EG2": 200.0})
+        self.assertEqual(op.meta["per_cell"], {"EG1": [11.0, 33.0],
+                                               "EG2": [100.0, 300.0]})
+        for entity, mean in _column_means(op.meta["per_cell"]).items():
+            self.assertAlmostEqual(mean, op.values[entity], places=9, msg=entity)
+
+    def test_the_ensemble_mean_repeated_is_NOT_accepted_as_per_cell(self):
+        """★ THE RED CASE §5.1 ASKS FOR, CONSTRUCTED AND SHOWN.
+
+        ⚠ **The mean-repeated matrix SATISFIES the column-mean identity.** That
+        is the whole point: the identity is necessary and not sufficient, so a
+        test that checks only the identity would pass against a `per_cell` that
+        carries no per-cell information whatsoever — a degenerate matrix with
+        zero dispersion, from which every distributional statistic returns a
+        point mass and every t-test divides by zero.
+
+        So the discriminating assertion is DISPERSION, and this asserts both
+        halves: the identity cannot tell the two apart, and dispersion can.
+        """
+        degenerate = [list(self.MEAN) for _ in range(3)]
+        with TemporaryDirectory() as d:
+            good = self._resolve(d, self.PER_CELL)
+        with TemporaryDirectory() as d:
+            bad = self._resolve(d, degenerate)
+
+        def spread(op):
+            return {e: max(v) - min(v) for e, v in op.meta["per_cell"].items()}
+
+        # Both satisfy the identity — the necessary-but-insufficient check.
+        for op in (good, bad):
+            for entity, mean in _column_means(op.meta["per_cell"]).items():
+                self.assertAlmostEqual(mean, op.values[entity], places=9)
+        # Only the real one carries dispersion.
+        self.assertTrue(all(s > 0 for s in spread(good).values()))
+        self.assertTrue(all(s == 0 for s in spread(bad).values()))
+
+    def test_a_per_cell_row_of_the_wrong_width_RAISES(self):
+        """WOULD CATCH: silent truncation. ``_keyed`` zips ids against values, so
+        a short row would key fine and quietly describe the wrong entities — the
+        same failure ``entity_ids``' width check exists to prevent, one level
+        down."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, self.MEAN, n_cells=2,
+                       per_cell=[[1.0, 10.0, 100.0], [3.0, 30.0]])
+            with self.assertRaises(ValueError) as caught:
+                ops.run_operand(sweep, self.IDS, with_per_cell=True)
+        self.assertIn("per_cell row 1", str(caught.exception))
+
+
+class RunOperandUnits(unittest.TestCase):
+    """⛔ A live operand must declare what its numbers ARE.
+
+    ★ THIS IS THE REGRESSION §5.2 ASKS FOR, AND IT FAILS AGAINST THE PARENT
+    COMMIT — a live operand stamped no ``units`` at all.
+
+    Why it matters downstream, stated here because the consumer is not in this
+    repo: a grader that restricts a comparison to a counts-bearing subset
+    ("species above N copies/cell") can only do so from a side that says it
+    carries counts. With nothing declared, the live path contributed no counts,
+    the subset silently widened to the whole panel, and the same sweep graded
+    live rather than baked produced a different headline number with only a
+    detail field to say so. The end-to-end assertion lives with that grader; what
+    is assertable HERE is the interface it keys on — and that is what this pins.
+    """
+
+    CASES = [("transcriptome", "model_transcriptome.json", "by_gene_id"),
+             ("proteome", "model_proteome.json", "by_id")]
+
+    def test_a_live_operand_declares_the_same_units_the_baked_fixture_does(self):
+        """WOULD CATCH: (a) declaring nothing, i.e. the parent commit; (b)
+        declaring a near-miss spelling — ``counts_per_cell`` where the fixture
+        says ``counts/cell`` — which is exactly what defeats a
+        membership-test-based counts collector while looking correct in review.
+
+        Asserted against the COMMITTED FIXTURE rather than an inline literal, so
+        it also fails if the bake side changes its unit string unilaterally."""
+        for observable, fixture, _map_key in self.CASES:
+            with self.subTest(observable=observable):
+                declared = json.loads(
+                    (_BASAL_FIXTURES / fixture).read_text(encoding="utf-8"))["units"]
+                self.assertTrue(declared)
+                with TemporaryDirectory() as d:
+                    sweep = Path(d) / "sweep"
+                    sweep.mkdir()
+                    _run_cache(sweep, [1.0, 2.0], observable=observable)
+                    op = ops.run_operand(sweep, ["EG1", "EG2"],
+                                         observable=observable)
+                self.assertEqual(op.meta["units"], declared)
+
+    def test_units_come_from_the_declaration_not_from_the_cached_node(self):
+        """WOULD CATCH: reading ``node["units"]``, which would make an operand
+        built from a pre-v2 or hand-written envelope declare ``None`` — silently,
+        and only on the machines with an older cache. ``_run_cache`` deliberately
+        writes no units, so this passes only if the resolver never consulted
+        it."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            path = _run_cache(sweep, [1.0, 2.0])
+            self.assertNotIn("units", json.loads(path.read_text())["vectors"]
+                             ["omics"]["transcriptome"])
+            op = ops.run_operand(sweep, ["EG1", "EG2"])
+        self.assertEqual(op.meta["units"], "counts/cell")
+
+    def test_a_fixture_operand_declares_its_units_too(self):
+        """WOULD CATCH: the resolver-detail leak. A consumer that wants to know
+        what a fixture's numbers are had to re-open the blob behind a
+        ``path == "fixture"`` special case — a load-time branch on resolution
+        mechanism sitting inside a grader, which is the split this module exists
+        to remove."""
+        for _observable, fixture, map_key in self.CASES:
+            with self.subTest(fixture=fixture):
+                blob = json.loads(
+                    (_BASAL_FIXTURES / fixture).read_text(encoding="utf-8"))
+                op = ops.fixture_operand(_BASAL_FIXTURES, fixture, map_key)
+                self.assertEqual(op.meta["units"], blob["units"])
+
+    def test_the_bake_path_declares_the_same_units_this_module_does(self):
+        """★ The `live == baked` property of §5.4, asserted where the two paths
+        GENUINELY DIVERGE.
+
+        ⚠ Deliberately NOT asserted through ``_keyed``: live and bake read the
+        same cached node through the same ``load_or_extract`` and key it with
+        near-identical functions, so a test comparing their NUMBERS is comparing
+        one measurement to itself and cannot fail. (The one real difference
+        between the two ``_keyed`` implementations is already pinned by
+        ``test_the_one_way_the_two_keyed_implementations_deliberately_differ``.)
+
+        Units are different: bake hardcodes its string inline while this module
+        reads ``card_vectors.VECTOR_UNITS``. Two independent sources, so this
+        CAN fail — WOULD CATCH either side being changed alone."""
+        import importlib.util
+        from v2ecoli.library.card_vectors import VECTOR_UNITS
+
+        src = _REPO / "scripts" / "bake_model_omics.py"
+        spec = importlib.util.spec_from_file_location("_bake_for_units", src)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        baked = mod._node([1.0], {"gene_ids": ["EG1"]}, 1, "method", "source")
+        self.assertEqual(baked["units"], VECTOR_UNITS[("omics", "transcriptome")])
+
+    def test_the_id_key_is_the_callers_and_is_not_invented(self):
+        """WOULD CATCH: hardcoding an id-space per observable. The positional
+        vector is keyed by whatever labels the caller supplied, and only the
+        caller knows which ``sim_data`` they came from — the same reasoning that
+        makes ``entity_ids`` a parameter. A default that is right for the wild
+        type is the kind that stays right until it silently isn't."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0])
+            unstated = ops.run_operand(sweep, ["EG1", "EG2"])
+            stated = ops.run_operand(sweep, ["EG1", "EG2"],
+                                     id_key="EcoCyc gene id")
+        self.assertIsNone(unstated.meta["id_key"])
+        self.assertEqual(stated.meta["id_key"], "EcoCyc gene id")
+
+
+class RunOperandExchange(unittest.TestCase):
+    """The exchange observable resolves — and says loudly that it is SIGNED."""
+
+    def _exchange_cache(self, d, vector, per_cell=None):
+        sweep = Path(d) / "sweep"
+        sweep.mkdir()
+        _run_cache(sweep, vector, observable="exchange", group="fluxes",
+                   node_name="exchange", per_cell=per_cell,
+                   n_cells=len(per_cell) if per_cell else 20)
+        return sweep
+
+    def test_the_exchange_observable_resolves_instead_of_raising(self):
+        """WOULD CATCH: the mapping being dropped. Before it existed, a study
+        declaring this observable got a ``KeyError`` at resolution — which is the
+        correct behaviour for an unmapped name and the wrong one for this."""
+        with TemporaryDirectory() as d:
+            sweep = self._exchange_cache(d, [-5.0, 0.0, 3.0])
+            op = ops.run_operand(sweep, ["GLC[p]", "ACET[p]", "CARBON-DIOXIDE[p]"],
+                                 observable="exchange")
+        self.assertEqual(op.path, "in-investigation")
+        self.assertEqual(op.values["GLC[p]"], -5.0)
+        self.assertEqual(op.meta["units"], "mmol/gDCW/h")
+
+    def test_an_unmapped_observable_still_raises_and_names_the_known_set(self):
+        """WOULD CATCH: the mapping becoming permissive — a `.get` returning a
+        default, or the guard being relaxed while exchange was added. An operand
+        that resolves an observable nobody declared grades something nobody
+        asked for."""
+        with TemporaryDirectory() as d:
+            sweep = self._exchange_cache(d, [1.0])
+            with self.assertRaises(KeyError) as caught:
+                ops.run_operand(sweep, ["X"], observable="metabolome")
+        msg = str(caught.exception)
+        self.assertIn("metabolome", msg)
+        self.assertIn("exchange", msg)
+
+    def test_exchange_declares_itself_signed_and_counts_the_signs(self):
+        """⛔ THE SEAM. Uses the 87 REAL flux values pinned in the committed
+        basal reference, so the numbers below are a property of the model rather
+        than of this test's imagination.
+
+        WOULD CATCH: an upstream change that rectifies exchange to magnitudes
+        (``n_negative`` would fall to 0), or the flag being dropped — either of
+        which would let a consumer treat fluxes as abundances with nothing
+        objecting.
+        """
+        ref = json.loads(_BASAL_REFERENCE.read_text(encoding="utf-8"))
+        crit = ref["axes"]["fluxes.exchange"]["criterion"]
+        vector, flux_ids = crit["ref_vector"], crit["flux_ids"]
+        self.assertEqual(len(vector), 87)
+
+        with TemporaryDirectory() as d:
+            sweep = self._exchange_cache(d, vector)
+            op = ops.run_operand(sweep, flux_ids, observable="exchange")
+
+        self.assertTrue(op.meta["signed_quantity"])
+        self.assertEqual(op.meta["n_negative"], 17)
+        self.assertEqual(op.meta["n_zero"], 46)
+        self.assertEqual(op.meta["n_positive"], 24)
+        # The consequence, spelled out so it cannot be rediscovered the hard way:
+        # a log transform keeps only the positives, so 63 of 87 species — 72%,
+        # INCLUDING GLUCOSE, the headline flux — leave the comparison silently.
+        self.assertLess(op.values["GLC[p]"], 0)
+        self.assertEqual(op.meta["n_negative"] + op.meta["n_zero"], 63)
+
+    def test_an_abundance_observable_is_not_flagged_signed(self):
+        """WOULD CATCH: flagging everything, which would make the flag mean
+        nothing and train every consumer to ignore it."""
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, [1.0, 2.0])
+            op = ops.run_operand(sweep, ["EG1", "EG2"])
+        self.assertFalse(op.meta["signed_quantity"])
+        self.assertEqual((op.meta["n_negative"], op.meta["n_positive"]), (0, 2))
 
 
 if __name__ == "__main__":

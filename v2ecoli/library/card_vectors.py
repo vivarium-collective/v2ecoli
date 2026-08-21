@@ -20,28 +20,78 @@ array columns below.
 """
 from __future__ import annotations
 
-# Bump whenever the aggregation semantics change (the column set, the ragged-row
-# rule, the cell-first order). It is part of the sim_vector_cache key, so a bump
-# invalidates every cached vector rather than silently serving one built by
-# older code — the vector is a function of this code as much as of the run.
-EXTRACTOR_VERSION = 1
+# Bump whenever a node's CONTENT changes — the aggregation semantics (the column
+# set, the ragged-row rule, the cell-first order) *or* the set of keys a node
+# carries. It is part of the sim_vector_cache key, so a bump invalidates every
+# cached vector rather than silently serving one built by older code — the vector
+# is a function of this code as much as of the run.
+#
+# v1 -> v2: every group now carries ``per_cell`` (was: fluxes only) and every node
+# declares its ``units``. Neither changes a single number, which is exactly why
+# the bump is needed rather than optional: a v1 envelope and a v2 envelope are
+# numerically identical, so nothing else would tell a consumer asking for
+# ``per_cell`` that this cache simply predates it. Without the bump, "the run
+# recorded no per-cell samples" and "this file was written by older code" are
+# indistinguishable — and the first is a fact about the run, the second a fact
+# about the tooling.
+EXTRACTOR_VERSION = 2
 
-# observable column -> card path it populates
+#: observable column -> ``(group, name, units)``.
+#:
+#: **Units are declared HERE, beside the parquet column they describe, and
+#: nowhere else.** They are a property of what the listener emits — monomer
+#: counts are copies/cell whatever anybody does with them downstream — so a
+#: consumer that names its own units is stating a belief about this column
+#: rather than reading a fact from it. ``scripts/bake_model_omics.py`` and the
+#: committed fixtures already declare exactly these strings; this is the
+#: declaration they should eventually read rather than a fourth copy.
 _VECTOR_COLS = {
-    "listeners__rna_counts__mRNA_cistron_counts": ("omics", "transcriptome"),
-    "listeners__monomer_counts": ("omics", "proteome"),
-    "listeners__fba_results__external_exchange_fluxes": ("fluxes", "exchange"),
+    "listeners__rna_counts__mRNA_cistron_counts": ("omics", "transcriptome", "counts/cell"),
+    "listeners__monomer_counts": ("omics", "proteome", "copies/cell"),
+    "listeners__fba_results__external_exchange_fluxes": ("fluxes", "exchange", "mmol/gDCW/h"),
 }
+
+#: ``(group, name) -> units``. The lookup a resolver uses when it holds a card
+#: path rather than a parquet column — see ``operands.run_operand``, which stamps
+#: units from HERE rather than from the cached node, so that a hand-built or
+#: pre-v2 envelope cannot produce an operand that silently declares nothing.
+VECTOR_UNITS = {(group, name): units for group, name, units in _VECTOR_COLS.values()}
 
 
 def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     """Return ``{group: {name: {...}}}`` of cell-first aggregated vectors
     (time-mean within cell, then mean across cells).
 
-    Each node carries the ensemble-mean ``vector`` and ``n_cells``. For the
-    ``fluxes`` group it additionally carries ``per_cell`` (the n_cells x
-    n_features matrix of per-cell time-mean vectors) so named flux KPIs can be
-    sliced out and graded with the same ttest/violin path as the scalar axes.
+    Each node carries the ensemble-mean ``vector``, ``n_cells``, its ``units``,
+    and ``per_cell`` — the n_cells x n_features matrix of per-cell time-mean
+    vectors whose column mean IS ``vector``.
+
+    ``per_cell`` used to be emitted for the ``fluxes`` group alone, so that named
+    flux KPIs could be sliced out and graded with the same ttest/violin path as
+    the scalar axes. It is now emitted for every group, because the matrix was
+    always computed for every group and a comparison that grades DISTRIBUTIONS
+    (rather than two centres) cannot be written without it: a mean vector is not
+    a distribution, so any distributional statistic over omics had nothing to
+    consume.
+
+    ⚠ **The cost is real and was measured before this was made unconditional.**
+    At the ensemble sizes in use the omics matrices dominate the artifact: 104
+    cells x (4345 + 4309) features is ~900k floats, taking a cached envelope from
+    ~279 KB to ~17 MB. That is 0.03% of the sweep it is written beside and it
+    never enters git (the cache is gitignored by contract, see
+    :mod:`v2ecoli.library.sim_vector_cache`), which is what makes unconditional
+    affordable.
+
+    ★ **It is unconditional rather than opt-in, and that is a deliberate refusal
+    of the cheaper design.** An ``include_per_cell`` flag would sit OUTSIDE the
+    cache key — and the key is the whole integrity story here. A caller passing
+    the flag would get a cache HIT on an envelope written without it and see no
+    per-cell data at all, with nothing distinguishing "this run has none" from
+    "the file was written by a caller that didn't ask". Saving ~16 MB is not
+    worth buying that class of silence. Callers who do not want the matrix in
+    memory opt out at the point of USE (``operands.run_operand``'s
+    ``with_per_cell``), where the choice is a pure function of the arguments and
+    no cache can serve a stale answer.
 
     Ragged/empty array rows are dropped per column: ``external_exchange_fluxes``
     emits a ``[]`` default on some timesteps, so only rows whose array matches
@@ -74,7 +124,7 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
                 col_len[i] = max(col_len[i], len(val))
 
     out: dict[str, dict] = {}
-    for i, (col, (group, name)) in enumerate(_VECTOR_COLS.items()):
+    for i, (col, (group, name, units)) in enumerate(_VECTOR_COLS.items()):
         n = col_len[i]
         # per-cell time-mean vector over rows whose array is full-length (drops
         # the [] empties); skip cells with no full-length rows.
@@ -88,8 +138,8 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
         node = {
             "vector": [float(x) for x in ensemble_mean],
             "n_cells": len(cell_means),
+            "units": units,
+            "per_cell": [[float(x) for x in row] for row in per_cell_means],
         }
-        if group == "fluxes":
-            node["per_cell"] = [[float(x) for x in row] for row in per_cell_means]
         out.setdefault(group, {})[name] = node
     return out

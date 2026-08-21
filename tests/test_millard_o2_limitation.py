@@ -85,7 +85,11 @@ def _f(x) -> float:
 
 
 @pytest.mark.sim
-@pytest.mark.slow
+# NOT marked `slow`: CI selects `not slow and not sim` for fast-tests and
+# `sim and not slow` for behavior-tests, so `sim` + `slow` together means a test
+# runs in NEITHER job. This one measured 16.6 s locally against a ~9 min
+# behavior-tests budget, and while it was invisible a change to the reactor
+# coupler broke it with every gate green.
 def test_coupled_reactor_o2_feedback_closes_loop():
     """Coupled-run sanity: as biomass draws the reactor's dissolved O2 down, the
     bridge feeds that DO into the Millard cell and CYTBO respiration EASES

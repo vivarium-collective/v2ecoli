@@ -75,9 +75,10 @@ purpose:
   #     arm is reopened.
   #
   # Reopening the Millard arm means settling one thing first: whether a coupled
-  # reactor should drive this model's external glucose. It currently must not
-  # -- pending v2ecoli#550, which adds `_NOT_REACTOR_DRIVEN_SPECIES` to
-  # reactor_millard_env_bridge.py. Answering it means re-calibrating the model
+  # reactor should drive this model's external glucose. It currently must not,
+  # and v2ecoli#550 (merged 2026-08-21) enforces that: `_NOT_REACTOR_DRIVEN_SPECIES`
+  # in reactor_millard_env_bridge.py holds GLCx back, so the reactor cannot
+  # overwrite the calibrated value. Answering it means re-calibrating the model
   # and regenerating this study's figures and the millard_vs_beulig card.
   #
   # ⚠ DO NOT "tidy" this study's baseline shape. It is the only study of 60

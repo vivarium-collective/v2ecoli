@@ -15,6 +15,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from v2ecoli.processes.parca import _scipy_compat
+
+# ParCa states pickled before a scipy upgrade embed old-format interpolators
+# (CubicSpline mass fits) that fail when called under the current scipy. Bridge
+# them on load so the analysis viewers render. No-op on matching scipy versions.
+_scipy_compat.install()
+
 
 # ``v2ecoli/processes/parca/data_loader.py`` → repo root is four parents up.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -103,9 +110,15 @@ def load_parca_state(path: str | Path | None = None) -> dict[str, Any]:
     ``wholecell.*``) to the canonical ``v2ecoli.processes.parca.*``
     path — without modifying ``sys.modules`` globally.
 
+    Accepts both the gzipped fixture and an UNCOMPRESSED ``parca_state.pkl``:
+    ``v2ecoli-parca`` writes the latter (see ``cli/parca.py``), so a state
+    produced by a local run could not be read back through this loader.
+    Compression is detected from the gzip magic bytes rather than the file
+    extension, because the CLI's output keeps a ``.pkl`` name either way.
+
     Args:
-        path: optional path to a ``parca_state.pkl.gz`` file.  Defaults
-            to ``<repo>/models/parca/parca_state.pkl.gz``.
+        path: optional path to a ``parca_state.pkl.gz`` or ``parca_state.pkl``
+            file.  Defaults to ``<repo>/models/parca/parca_state.pkl.gz``.
 
     Returns:
         Dict of top-level stores (``process``, ``cell_specs``, ``mass``,
@@ -113,7 +126,10 @@ def load_parca_state(path: str | Path | None = None) -> dict[str, Any]:
     """
     p = Path(path) if path is not None else _DEFAULT_PATH
     _ensure_parca_modules_loaded()
-    with gzip.open(p, 'rb') as f:
+    with open(p, 'rb') as probe:
+        gzipped = probe.read(2) == b'\x1f\x8b'
+    opener = gzip.open if gzipped else open
+    with opener(p, 'rb') as f:
         return _RemappingUnpickler(f).load()
 
 

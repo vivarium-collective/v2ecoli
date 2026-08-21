@@ -17,11 +17,11 @@ v2ecoli-specific layers stay in this package:
 
 # Re-export the public API from pbg-emitters. If the [xarray] extra
 # (and therefore xarray / zarr / zarrs) isn't installed,
-# ``from pbg_emitters.xarray_emitter import XArrayEmitter`` raises
+# ``from viva_emitters.xarray_emitter import XArrayEmitter`` raises
 # ImportError; we wrap that in a friendlier message that points at the
 # v2ecoli extra (which now pulls pbg-emitters[xarray]).
 try:
-    from pbg_emitters.xarray_emitter import XArrayEmitter  # noqa: F401
+    from viva_emitters.xarray_emitter import XArrayEmitter  # noqa: F401
 except ImportError as e:
     raise ImportError(
         f"v2ecoli.library.xarray_emitter requires the [xarray] extra. "

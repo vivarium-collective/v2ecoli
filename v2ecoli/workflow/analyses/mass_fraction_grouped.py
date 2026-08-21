@@ -14,7 +14,6 @@ from __future__ import annotations
 
 from typing import Any
 
-import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY  # noqa: F401

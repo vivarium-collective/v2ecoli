@@ -88,15 +88,19 @@ Every investigation under `workspace/investigations/`, with its research questio
 | Investigation | Research question |
 |---|---|
 | [Colony & Microfluidic Phenotype Quantification _(in_progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/colonies.html) | Do the emergent single-cell phenotypes of the whole-cell E. coli model — adder size-homeostasis, the inter-division-time distribution, and the growth rate — survive embedding into a physically-packed… |
+| [Genotype perturbation response: how v2ecoli responds to KO, KD, and OE of native genes _(planning)_](https://vivarium-collective.github.io/v2ecoli/investigations/genotype-perturbation-response.html) | When a native gene is knocked out, knocked down, or overexpressed in v2ecoli, how does the cell respond? |
 | [Does v2ecoli's baseline central-carbon exchange phenotype match KETCHUP kinetic models? _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/ketchup-baseline-comparison.html) | Does the v2ecoli whole-cell baseline reproduce the central-carbon exchange / byproduct phenotype (glucose, O2, CO2, acetate, NH3, SO4) of the KETCHUP core-metabolism kinetic models k-ecoli74 and k-ec… |
+| [Metabolism — biomass yield _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/metabolism-biomass-yield.html) | Does the v2ecoli baseline conserve carbon and respect the thermodynamic ceiling on biomass yield? |
+| [Does v2ecoli reproduce aerobic acetate overflow — the acetate-carbon yield vs growth rate curve? _(in-progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/metabolism-overflow.html) | Does v2ecoli reproduce aerobic acetate overflow — the acetate-carbon yield Y_ac = (2·acetate)/(6·glucose) rising from ~0 to ~linearly above a critical growth rate, as measured in glucose-limited chem… |
 | [v2ecoli — Bioprocess Migration & Reactor Coupling _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/multiscale-bioprocess.html) | Can v2ecoli be migrated and enhanced to run inside a bench-scale bioreactor? |
-| [Parameter UQ — global sensitivity of v2ecoli _(running)_](https://vivarium-collective.github.io/v2ecoli/investigations/parameter-uq.html) | Which sim_data parameters drive variance in v2ecoli single-cell observables? |
+| [Parameter UQ — global sensitivity of v2ecoli _(closed)_](https://vivarium-collective.github.io/v2ecoli/investigations/parameter-uq.html) | Which sim_data parameters drive variance in v2ecoli single-cell observables? |
 | [Perturbation demo — gene knockouts and media shifts on the baseline whole cell](https://vivarium-collective.github.io/v2ecoli/investigations/perturbation-demo.html) | How do you apply a gene knockout or a media change to the v2ecoli baseline, minimally? |
 | [Structural E. coli _(in_progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/structural-ecoli.html) | What does the whole-cell molecular state look like in real 3D space at key points in the cell cycle — just after birth (post-equilibration) versus right before division? |
 | [Surrogate Modeling — can a neural net emulate the v2ecoli baseline? _(complete)_](https://vivarium-collective.github.io/v2ecoli/investigations/surrogate-modeling.html) | Can a neural-network surrogate, trained on v2ecoli baseline rollouts, emulate the model's per-step dynamics across a broad observable panel (growth/mass, exchange fluxes, metabolic fluxes, protein an… |
 | [v2ecoli Baseline Showcase: from ecoli-sources to a calibrated whole cell _(active)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-baseline-showcase.html) | Can v2ecoli, starting from the raw ecoli-sources flat files, rebuild the ParCa in full, run a wild-type baseline single-cell→division ensemble that reproduces measured E. coli properties (doubling ti… |
 | [v2ecoli → PDMP Whole-Cell Model Reformulation _(in_progress)_](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-pdmp.html) | Can v2ecoli's hybrid algorithmic whole-cell model be incrementally transformed into a piecewise-deterministic Markov process (PDMP) suitable for likelihood-based inference and causal discovery, witho… |
-| [v2ecoli ↔ vEcoli comparison](https://vivarium-collective.github.io/v2ecoli/investigations/v2ecoli-vecoli-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions? |
+| [Variant-sweep phenotype — config-declared perturbation sweeps as phenotype comparisons](https://vivarium-collective.github.io/v2ecoli/investigations/variant-sweep-phenotype.html) | How does a config-declared variant sweep move a whole-cell phenotype, read across the sweep axis? |
+| [Whole-Cell Model Comparison](https://vivarium-collective.github.io/v2ecoli/investigations/whole-cell-model-comparison.html) | Does v2ecoli reproduce vEcoli across nutrient conditions and metabolism process swaps? |
 <!-- END:investigations -->
 
 ### 3D whole-cell structural model — *molecular-scale, in your browser*
@@ -288,8 +292,10 @@ same biological processes and differ only in how cells are scheduled and embedde
 | `millard2017_metabolism` | Standalone Millard et al. 2017 kinetic ODE of E. coli central carbon and energy metabolism (BioModels MODEL1505110000), wrapped as a process-bigraph composite via pbg-copasi's CopasiUTCProcess. |
 | `millard_fba_bridge_harness` | Whole-cell E. coli baseline (real tFBA ecoli-metabolism) with the Millard 2017 central-carbon ODE wired in as a flux SOURCE: the Millard fluxes are mapped+converted by fba-flux-coupler into pinned_fl… |
 | `parca` | ParCa parameter-calculation pipeline — the 9-step fit (initialize → input_adjustments → … → final_adjustments) that produces sim_data. |
+| `parca_prep` | ParCa pull-or-compute prerequisite, as an ordinary study on the investigation-as-composite substrate. |
 | `reactor_bird_coupled` | v2ecoli baseline_population coupled to the BiRD bioreactor (BiRDTransportProcess) via ReactorCellCoupler. |
 | `reactor_bird_coupled_millard` | v2ecoli Millard kinetic-metabolism cell (baseline_millard) + PopulationAggregator coupled to the BiRD bioreactor (BiRDTransportHours) via ReactorCellCoupler. |
+| `vecoli` | Genuine upstream vEcoli, run on its own vivarium-core Engine inside ONE process-bigraph node (agents/<agent_id>/vivarium_ecoli) — the REFERENCE model for the v2ecoli<->vEcoli comparison. |
 <!-- END:composites -->
 
 Reach a generator by name — `build_composite("<name>")`; a `*.composite.yaml`
@@ -383,6 +389,45 @@ Aggregate across the grid with the companion analysis CLI:
 ```bash
 v2ecoli-analyze out/workflow            # runs the config's analysis_options
 ```
+
+Or read the Parquet directly — the layout is standard hive-partitioned Parquet,
+so [DuckDB](https://duckdb.org) and [Polars](https://pola.rs) work out of the box.
+Column names are the flattened store paths (`listeners__mass__cell_mass`, …), and
+`hive_partitioning=true` surfaces the `experiment_id` / `variant` / `lineage_seed` /
+`generation` / `agent_id` path keys as ordinary columns:
+
+```python
+import duckdb
+
+con = duckdb.connect()
+glob = "out/workflow/parquet/**/*.pq"
+read = f"read_parquet('{glob}', hive_partitioning=true, union_by_name=true)"
+
+# 1. Schema / column metadata — name + type for every column.
+con.sql(f"DESCRIBE SELECT * FROM {read}").pl()          # -> Polars DataFrame
+
+# 2. Retrieve a few columns for one branch of the sweep, filtered + ordered.
+ts = con.sql(f"""
+    SELECT variant, lineage_seed, generation, global_time,
+           listeners__mass__cell_mass AS cell_mass,
+           listeners__mass__dry_mass  AS dry_mass
+    FROM {read}
+    WHERE lineage_seed = 0 AND generation = 0
+    ORDER BY global_time
+""").pl()                                                # .df() for a pandas DataFrame
+
+# 3. Summarize across the grid — e.g. final dry mass per seed.
+con.sql(f"""
+    SELECT lineage_seed, max(listeners__mass__dry_mass) AS final_dry_mass
+    FROM {read}
+    GROUP BY lineage_seed ORDER BY lineage_seed
+""").df()                                                # -> pandas DataFrame
+```
+
+`union_by_name=true` tolerates columns that differ across generations/variants;
+list-valued listeners (e.g. `listeners__replication_data__fork_coordinates`) come
+back as list columns. `.pl()` returns a Polars DataFrame and `.df()` a pandas one —
+or keep chaining SQL on the lazy DuckDB relation before materializing either.
 
 These mirror vEcoli's own workflow grammar (`lineage_seed` + `n_init_sims`,
 `single_daughters`, variant `target`/`value`/`op`), so configs translate

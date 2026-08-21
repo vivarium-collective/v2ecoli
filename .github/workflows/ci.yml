@@ -78,12 +78,16 @@ jobs:
         run: uv sync --extra dev --no-install-package vivarium-workbench || uv sync --no-install-package vivarium-workbench
 
       # Cache out/cache (initial_state.json + sim_data_cache.dill +
-      # cache_version.json) across PRs. The cache key pins to the same
-      # input files that cache_version.compute_cache_version fingerprints,
-      # so a change to ParCa fixture or the LoadSimData boundary forces
-      # a rebuild on the next CI run. The hashFiles list mirrors
-      # cache_version.INPUT_FILES, plus cache_version.py itself so future
-      # additions to INPUT_FILES automatically bust the cache.
+      # cache_version.json) across PRs. The cache key pins to EXACTLY the
+      # same input files that cache_version.compute_cache_version
+      # fingerprints (v2ecoli/library/cache_version.py:INPUT_FILES), so a
+      # change to the ParCa fixture, the LoadSimData boundary, or any
+      # composite document builder forces a rebuild on the next CI run.
+      # cache_version.py is itself one of the INPUT_FILES entries (it hashes
+      # its own bytes), so future additions to INPUT_FILES automatically
+      # bust this key too — no separate hand-edit needed here beyond
+      # keeping this list equal to INPUT_FILES. Enforced by
+      # tests/test_cache_version_inputs.py::test_ci_key_matches_input_files.
       - name: Restore ParCa cache
         id: parca-cache
         uses: actions/cache@v4
@@ -98,11 +102,13 @@ jobs:
               'v2ecoli/library/initial_conditions.py',
               'v2ecoli/library/cache_version.py',
               'v2ecoli/core.py',
-              'v2ecoli/composites/baseline.py',
-              'v2ecoli/composites/baseline_population.py',
-              'v2ecoli/composites/baseline_time_varying_env.py',
-              'v2ecoli/composites/colony.py',
-              'v2ecoli/composites/millard_pdmp_baseline.py'
+              'v2ecoli/composites/ecoli_baseline.py',
+              'v2ecoli/composites/ecoli_population.py',
+              'v2ecoli/composites/ecoli_time_varying_env.py',
+              'v2ecoli/composites/ecoli_colony.py',
+              'v2ecoli/composites/ecoli_millard.py',
+              'v2ecoli/composites/_helpers.py',
+              'v2ecoli/composites/_millard_helpers.py'
             ) }}
 
       - name: Build ParCa cache on miss
@@ -130,6 +136,28 @@ jobs:
           --ignore=tests/test_unit_bridge.py
           -n auto --dist=loadfile
           -v --tb=short
+
+  lint:
+    # Breakage gate (ruff F + E722) scoped to PROJECT-OWN code only — the ported
+    # wcEcoli/vEcoli model math (v2ecoli/processes, v2ecoli/library, v2ecoli/steps)
+    # is excluded via [tool.ruff] extend-exclude in pyproject.toml AND by passing
+    # the project-own dirs explicitly below. Lightweight: pip-installs ruff, no uv
+    # sync (mirrors validate-status). ~5s.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install ruff
+        run: pip install --quiet 'ruff==0.16.0'
+
+      - name: Ruff check (project-own dirs)
+        run: ruff check v2ecoli/composites v2ecoli/workflow pbg_v2ecoli reports scripts
 
   validate-status:
     # Lightweight read-only consistency check on investigation.yaml +

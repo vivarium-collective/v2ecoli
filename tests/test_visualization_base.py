@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from v2ecoli.steps.base import V2Step
+from process_bigraph import Step
 from v2ecoli.workflow.post_sim import POST_SIM_REGISTRY, Visualization
 
 
@@ -14,8 +14,8 @@ class _DemoViz(Visualization):
 
 def test_visualization_ports_and_registration(core):
     v = _DemoViz({}, core=core)
-    assert isinstance(v, V2Step)
-    assert v.outputs() == {"view": "string", "data": "map"}
+    assert isinstance(v, Step)
+    assert v.outputs() == {"view": "string", "data": "tree"}
     assert POST_SIM_REGISTRY["demo_viz"]["kind"] == "visualization"
 
 

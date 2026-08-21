@@ -3,7 +3,11 @@ name: param-uq-04-deep-params
 investigation: parameter-uq
 title: "Deep physiological parameters — sensitivity to sim_data attributes via ParCa-level injection."
 created: '2026-06-12'
-status: ran
+# Advanced ran → evaluated: the study reached a firm passed verdict
+# (evaluation_status complete, gate passed, conclusion_verdict passed) on
+# strong evidence — cell_dry_mass_fraction S_T = 1.00 on mass across 2 seeds,
+# 100% crash-free. Confidence stays Moderate (proof-of-capability, small budget).
+status: evaluated
 
 # Canonical 6-axis status.
 design_status: complete
@@ -129,6 +133,24 @@ report:
     translation efficiencies, mass sub-fractions) over multi-generation runs, and
     re-calibrate bounds to v2ecoli's current ParCa state.
 
+# Run environment / budget (narrative-spine runtime section). Real values from
+# this study's runs/simulation_set — NOT a new run.
+runtime:
+  tool: pbg-uq + pbg_v2ecoli.uq_sim_data_injection (POST_PARCA + ~2 s REBUILD routing)
+  composite: v2ecoli.composites.ecoli_baseline
+  window_steps: 150
+  seeds: [0, 1]
+  samples: "26 train + 8 test PCRV per seed (68 samples total)"
+  surrogate: per-observable order-2 Polynomial Chaos Expansion
+  sensitivity: analytic Sobol indices per observable
+  wall: "19.5 min (~17 s/sample incl. ~2 s save_sim_input rebuild); single-cell run"
+  observables: [dry_mass, cell_mass, instantaneous_growth_rate]
+  environment: |
+    Ran on the Mac mini in the v2ecoli .venv. 100% crash-free (68/68). Deep
+    sim_data params reached via the injection adapter: post-ParCa config-key
+    routing (rnap_elongation_rate, FBA weights) and a ~2 s save_sim_input bundle
+    regeneration for cell_dry_mass_fraction (no ParCa refit).
+
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -209,9 +231,30 @@ tests:
   # convention, not a literature-derived band. Documented as a citation GAP.
     cites_note: "Sobol >= 0.5 dominance threshold is methodological; not literature-derived."
 
+# Narrative-spine behavior_tests — one entry per tests[] entry, restating the
+# real pass condition and its actual evaluated outcome.
+behavior_tests:
+  - name: deep-param-injection-feasible-and-ranked
+    expectation: |
+      Deep sim_data params inject cleanly (per-sample bundle rebuild, no crashes)
+      and a single param robustly dominates total-order Sobol (>= 0.5) across the
+      growth/mass observables.
+    status: passed  # 100% crash-free; cell_dry_mass_fraction S_T = 1.00 on mass across 2 seeds.
+
 runs:
   - name: uq-deep-params-injection
     status: complete
+    # Run outcomes keyed by the literal test name (matches how a report resolves
+    # the per-test pass/fail pill). Reflects the study's own recorded verdict.
+    outcomes:
+      deep-param-injection-feasible-and-ranked:
+        result: PASS
+        detail: |
+          100% crash-free (68/68 samples); max total-order Sobol across the tested
+          deep params = 1.00 (cell_dry_mass_fraction on dry_mass and cell_mass,
+          [1.00,1.00] across 2 seeds). Dry-mass fraction dominates MASS variance;
+          the FBA kinetic-objective weight is inert (S_T ≈ 0.11); growth-rate
+          variance is a co-dominance (dry-mass fraction ≈0.52 / RNAP elongation ≈0.50).
     n_steps: 150
     n_samples: "26 train + 8 test per seed; seeds [0,1]; order-2 PCE"
     wall: "19.5 min (68 samples, ~17 s/sample incl. ~2 s rebuild)"

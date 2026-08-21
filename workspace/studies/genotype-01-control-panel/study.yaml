@@ -1,0 +1,405 @@
+# genotype-01-control-panel/study.yaml — schema v4
+#
+# Control-case characterization of ParCa-level knockout BUILD mechanics across
+# a three-class gene panel. The classes are verified by wiring; the physiology /
+# fit layer is reached for classes A and B only - class C's builds are preempted
+# by the F-03 crash, so its in-model essentiality behaviour stays unobserved.
+# Descriptive by design: no graded biology bands (settled
+# with Chris 2026-08-17 against the CD2 four-investigation demo structure — the
+# science lives in the sms-ecoli investigations; the public side owes mechanical
+# confidence). Findings are the product; the only tests are mechanical.
+
+schema_version: 4
+name: genotype-01-control-panel
+investigation: genotype-perturbation-response
+title: What do ParCa-level knockout mechanics look like across control gene classes?
+created: '2026-08-17'
+
+design_status: complete
+implementation_status: complete
+expert_review_status: not_requested
+study_type: exploratory
+
+claim: >-
+  Knockout mechanics are structurally sound and class-independent (8/8 genotypes
+  pass every fit-free integrity axis), but a step-3 dangling-reference crash in
+  set_ppgpp_expression blocks the build for ALL ~393 ppGpp-regulated genes (~8%
+  of the genome) - preempting any in-model essentiality signal - and the
+  refit artifact for inert knockouts is per-mille in the bulk with ~10% shifts
+  confined to the target's operon neighbors.
+
+question: >-
+  When genes of three verified classes are knocked out at the ParCa level - (A)
+  expressed but functionally unwired in the model, (B) wired into metabolism but
+  biologically non-essential, (C) essential machinery with three distinct mechanisms
+  (RNA polymerase, ribosome, replisome) - what do the build mechanics actually do?
+  Does every class build? Does the fit converge? How large is the expression
+  perturbation beyond the deleted gene (the refit-artifact floor)? And is anything
+  general or surprising in how the mechanics differ across classes?
+
+# --- The panel (all classifications VERIFIED against the model's wiring, not
+# --- assumed from biology; scan = complexation + metabolism catalysts + TFs +
+# --- two-component + equilibrium + molecule_groups (minus the
+# --- bulk_molecules_binomial_division inventory), with complex membership
+# --- expanded. 2026-08-17, full-condition fixture sim_data.) -----------------
+#
+#   Class A - expressed, functionally unwired, biologically dispensable:
+#     ygiB EG11164 (unknown-function y-gene)   cspA EG10166 (cold shock; inert at 37C)
+#   Class B - functionally wired, biologically non-essential:
+#     pgi  EG10702 (metabolic catalyst)        tpiA EG11015 (metabolic catalyst)
+#     cheY EG10150 (biologically minor AND model-unwired - bridges A/B: chemotaxis
+#                   has no functional representation, so its loss frees only its
+#                   proteome share)
+#   Class C - essential machinery, three distinct mechanisms:
+#     rpoB EG10894 (RNAP core; mg.RNAP_subunits)
+#     rplB EG10865 (50S r-protein; mg.ribosomal_proteins, s50_proteins)
+#     dnaG EG10239 (primase; DIRECTLY consumed via mg.replisome_monomer_subunits -
+#                   the cleanest mechanistic replication dependency in the model)
+
+assumptions:
+- text: >-
+    A ParCa build is deterministic given its inputs (WT rebuilds are byte-identical,
+    measured 2026-08-13), so per-gene contrasts against one WT reference are
+    attributable to the genotype + its refit, not to run-to-run noise.
+  verified_in_v2ecoli: true
+- text: >-
+    A knockout that fails to build or fit is a RESULT, not an infrastructure
+    failure. For essential machinery the fit may legitimately not converge; the
+    runner records the failure mode (and retries with --allow-partial-fit to
+    capture the partial state) rather than treating it as an error.
+  verified_in_v2ecoli: false
+- text: >-
+    "Functionally unwired" is a claim about THIS model, not about biology. The
+    same scan that classified this panel found tufA (EF-Tu), fusA (EF-G), infC
+    (IF-3) and ftsZ are all expression-only - biologically lethal knockouts the
+    model would read as inert. In-model essentiality can only live in explicitly
+    wired machinery (RNAP, ribosomal proteins, replisome subunits, catalysts,
+    TFs, two-component and equilibrium participants).
+  verified_in_v2ecoli: true
+
+conditions:
+  baseline:
+    # Wild type, fast regime - the shared reference arm for every per-gene
+    # contrast. Same conventions as genotype-00 (debug=true is deliberate;
+    # fitted-parameter VALUES are not graded in this regime).
+    composite: v2ecoli.composites.parca.parca
+    params:
+      debug: true
+      cpus: 8
+      cache_dir: out/genotype-01/wt/cache
+      bundle_manifest: ''
+  variants:
+  - name: ko-ygiB
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/ygiB/cache,
+             bundle_manifest: out/genotype-01/ygiB/bundle/reference_bundle.tsv}
+    perturbation: 'Class A: ygiB (EG11164) - expressed, functionally unwired y-gene.'
+    expected_contrast: >-
+      Builds clean; expression deltas at the refit-artifact floor; nothing else moves.
+  - name: ko-cspA
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/cspA/cache,
+             bundle_manifest: out/genotype-01/cspA/bundle/reference_bundle.tsv}
+    perturbation: 'Class A: cspA (EG10166) - cold-shock protein, unwired, inert at 37C.'
+    expected_contrast: Same as ygiB - the second, higher-expression point on the floor.
+  - name: ko-pgi
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/pgi/cache,
+             bundle_manifest: out/genotype-01/pgi/bundle/reference_bundle.tsv}
+    perturbation: 'Class B: pgi (EG10702) - glycolytic catalyst, biologically non-essential with a REAL growth defect.'
+    expected_contrast: >-
+      Builds; the interesting question is whether the model registers any
+      consequence at all - the expectation (Chris) is that it under-reacts
+      relative to the real strain's growth defect.
+  - name: ko-tpiA
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/tpiA/cache,
+             bundle_manifest: out/genotype-01/tpiA/bundle/reference_bundle.tsv}
+    perturbation: 'Class B: tpiA (EG11015) - triose-phosphate isomerase, same shape as pgi.'
+    expected_contrast: As pgi.
+  - name: ko-cheY
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/cheY/cache,
+             bundle_manifest: out/genotype-01/cheY/bundle/reference_bundle.tsv}
+    perturbation: 'Class B/A bridge: cheY (EG10150) - biologically minor (chemotaxis), model-unwired.'
+    expected_contrast: Indistinguishable from class A - which is itself the datum.
+  - name: ko-rpoB
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/rpoB/cache,
+             bundle_manifest: out/genotype-01/rpoB/bundle/reference_bundle.tsv}
+    perturbation: 'Class C: rpoB (EG10894) - RNAP core subunit. Transcription machinery.'
+    expected_contrast: >-
+      Unknown - the point of the class. Candidate outcomes: build failure, fit
+      non-convergence, or builds-with-nonsense. Whatever happens is recorded.
+  - name: ko-rplB
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/rplB/cache,
+             bundle_manifest: out/genotype-01/rplB/bundle/reference_bundle.tsv}
+    perturbation: 'Class C: rplB (EG10865) - 50S ribosomal protein. Translation machinery.'
+    expected_contrast: As rpoB, translation flavor.
+  - name: ko-dnaG
+    role: perturbation
+    composite: v2ecoli.composites.parca.parca
+    params: {debug: true, cpus: 8, cache_dir: out/genotype-01/dnaG/cache,
+             bundle_manifest: out/genotype-01/dnaG/bundle/reference_bundle.tsv}
+    perturbation: >-
+      'Class C: dnaG (EG10239) - primase, directly consumed as a replisome monomer
+      subunit. Replication machinery.'
+    expected_contrast: As rpoB, replication flavor - the most direct mechanistic dependency.
+  model_settings:
+  - name: run-mechanics
+    gate: optional
+    detail: >-
+      The parca composite is a 9-step DAG driven by its own CLI; runs go through
+      canonical_runs (established on genotype-00, which also documents why the
+      generic composite runner cannot drive this pipeline). All arms fast mode,
+      and for these readouts that is provably lossless: a same-commit full-mode
+      control (2026-08-18) found basal fit_cistron_expression BIT-IDENTICAL
+      between --mode fast and --mode full (max relative difference 0.000 over
+      4,289 cistrons), and the KO refit artifact identical in both modes to
+      four significant figures. Mechanistically expected - debug mode prunes
+      the TF condition set (7 vs 51 cell_specs), which does not enter the basal
+      expression fit. NOTE the same comparison run against the SHIPPED fixture
+      shows ~3.6% differences; that fixture predates the #275
+      balance_translation_efficiencies fix, so those are code drift, not mode
+      (fingerprint: 27 r-protein monomers, max delta 0.24). The control is
+      therefore also a sensitivity check: the comparison detects real
+      differences when they exist, and finds none between modes.
+      ⚠ Scope: basal expression readouts. Fitted values that DO depend on the
+      TF condition set are out of scope and unmeasured here.
+      Measured cost, same hardware, cpus=8, as the SUM OF THE 9 PIPELINE STEPS
+      (runtimes.json): full-mode WT 268.3 s, full-mode ygiB-KO 183.4 s; fast
+      mode 81.6 s / 78.9 s. ⚠ Boundary: step sums exclude CLI startup,
+      knowledge-base construction and the ~690 MB state write, so wall-clock is
+      ~20 s larger - an earlier wall-clock reading of 288 s for the WT arm is
+      consistent with this and is NOT what these figures measure. Either way
+      the cost is minutes, not the "4-8 hours" the repo docs claim (docs are
+      stale; see the lane notebook). Committed backing: data/evidence.json E-3,
+      regenerated by sims/extract_evidence.py.
+
+# One bespoke runner drives the whole panel: per gene it generates the bundle,
+# grades the build-integrity card structurally (no fit needed), runs the fast
+# ParCa (plain first; on failure retries with --allow-partial-fit to capture the
+# partial state), and appends per-gene results to data/panel_summary.json.
+canonical_runs:
+- name: panel
+  default: true
+  label: full control panel - WT reference + 8 knockouts, fast mode (~15 min)
+  script: workspace/studies/genotype-01-control-panel/sims/run_panel.py
+  args: []
+
+tests:
+- name: every-panel-genotype-produces-a-recorded-outcome
+  classification: regression
+  question: >-
+    Did the mechanics run end to end for all 8 genotypes - bundle generated,
+    card graded structurally, ParCa attempted with its outcome (success OR
+    characterized failure) recorded?
+  measure:
+    kind: derived
+    detail: >-
+      Count of panel genes missing any of {bundle, card verdict, parca outcome}
+      in data/panel_summary.json. A ParCa failure with a recorded failure mode
+      counts as an outcome (failure is a result); a gene the runner silently
+      skipped does not.
+  pass_if:
+    op: '=='
+    value: 0
+- name: structural-integrity-holds-for-every-genotype-that-builds
+  classification: regression
+  question: >-
+    For every genotype whose bundle generates, do the fit-free structural card
+    axes (round trip, chromosome length, bounds, tombstone, functional absence)
+    all pass? These are the genotype-00 instrument axes; a failure here is a
+    machinery defect, not biology.
+  measure:
+    kind: derived
+    detail: Count of genotypes with any structural axis failing in panel_summary.json.
+  pass_if:
+    op: '=='
+    value: 0
+
+readouts:
+- name: panel-summary
+  status: derived-needed
+  detail: >-
+    data/panel_summary.json - per gene: class, bundle genotype_id, card structural
+    verdict, ParCa exit + mechanistic_fit_status (+ failure mode and
+    allow-partial-fit retry result when the plain run fails), and expression-delta
+    statistics vs the WT arm (median/max relative delta over cistrons, excluding
+    the deleted gene) - the refit-artifact floor for class A and the class
+    contrast for B/C.
+
+visualizations:
+- name: panel-outcomes
+  address: image:charts/panel_outcomes.svg
+  chart: charts/panel_outcomes.svg
+  render: "python sims/render_panel_table.py --out {chart}"
+  description: >-
+    The per-gene evidence table behind findings F-02..F-04: design (gene, class,
+    verified in-model wiring) x structural card verdict x ParCa outcome
+    (completed with fit status, or failed-at-step with the error summary) x
+    expression delta vs WT. Rendered from data/panel_summary.json.
+
+limitations:
+- >-
+  Fast regime throughout (7 of 51 conditions). Structural readouts are
+  regime-independent; expression deltas are contrasts within one regime on one
+  commit, so no fast-vs-full claim is needed or made here (a prior fast-vs-full
+  comparison was confounded by fixture vintage - see the run-mechanics note);
+  fitted-parameter VALUES are not read at all.
+- >-
+  No graded biology bands, by design - this is mechanical characterization
+  feeding the sms-ecoli investigations, not a phenotype claim. Findings name
+  what was observed; anything alarming becomes an issue.
+- >-
+  Single-gene knockouts only; class semantics are about the model's wiring, not
+  biological essentiality (see the tufA/fusA/infC/ftsZ assumption).
+
+# Runs recorded YAML-direct (genotype-00's convention and rationale).
+runs:
+- name: panel-2026-08-17
+  canonical_run: panel
+  status: completed
+  completed_at: '2026-08-17'
+  command: python workspace/studies/genotype-01-control-panel/sims/run_panel.py
+  artifacts:
+    summary: data/panel_summary.json   # committed - the study's result artifact
+    per_gene: out/genotype-01/<gene>/  # machine-local bundles, states, logs
+  note: >-
+    WT reference + 8 knockouts, fast regime. 8/8 outcomes recorded; 8/8 structural
+    card verdicts clean; 4/8 ParCa builds complete with fits ok (ygiB, pgi, tpiA,
+    cheY); 4/8 fail identically at step 3 (cspA, rpoB, rplB, dnaG - see F-03,
+    the panel's headline finding).
+  outcomes:
+    every-panel-genotype-produces-a-recorded-outcome:
+      result: PASS
+      detail: >-
+        8/8 genes have bundle + card verdict + a recorded ParCa outcome in
+        data/panel_summary.json; the four build failures are recorded with their
+        failure tails and --allow-partial-fit retry results (also failed - the
+        crash precedes the fit).
+    structural-integrity-holds-for-every-genotype-that-builds:
+      result: PASS
+      detail: >-
+        8/8 genotypes (including the four whose ParCa later crashes) grade
+        within_tol on every fit-free structural axis - the genome surgery is
+        correct for every gene class; the crashes are downstream of a
+        structurally sound knowledge base.
+
+findings:
+- id: F-01
+  tier: observation
+  status: confirms
+  statement: >-
+    In-model essentiality can only live in explicitly wired machinery: the
+    classification scan for this panel found tufA (EF-Tu), fusA (EF-G), infC
+    (IF-3), and ftsZ are expression-only - no functional wiring in complexation,
+    metabolism, regulation, two-component, equilibrium, or any functional
+    molecule group - so knocking out these biologically essential genes would
+    read as inert. Conversely dnaG, which a complexation-only scan misses, is
+    directly consumed as a replisome monomer subunit.
+  evidence:
+    observed: >-
+      Participation scan over the full-condition fixture sim_data, 2026-08-17:
+      3,386 functionally referenced species after excluding the
+      bulk_molecules_binomial_division inventory (16,321 entries - every bulk
+      molecule, which had masked all distinctions).
+  next_action: >-
+    Holds interpretation weight for every KO study: absence of model response to
+    a KO must be checked against wiring before being read as a model prediction.
+- id: F-02
+  tier: observation
+  status: confirms
+  statement: >-
+    The knockout mechanics are uniform and structurally sound across every gene
+    class: all 8 genotypes generate bundles, and all 8 grade within_tol on every
+    fit-free structural axis (round trip, chromosome length, bounds, tombstone,
+    functional absence) - including the four whose ParCa fit later crashes. The
+    genome-surgery layer is class-independent.
+  evidence:
+    from_run: panel-2026-08-17
+    observed: data/panel_summary.json - card.overall_structural_ok true for 8/8.
+- id: F-03
+  tier: mechanism
+  status: novel
+  statement: >-
+    A ParCa-level knockout of ANY ppGpp-regulated gene crashes the build at step
+    3: set_ppgpp_expression (transcription.py:1935) indexes its fold-change table
+    by cistron id, the deleted gene's cistron has left the functional index, and
+    the lookup raises KeyError('<gene>_RNA'). 393 genes (~8% of the genome) are in
+    ppgpp_regulated_genes, so this is the blast radius. The class-C "essentiality"
+    signal is entirely preempted by this crash - cspA (class A: functionally
+    unwired, biologically dispensable at 37C) fails identically to rpoB/rplB/dnaG,
+    proving the failure is regulon membership, not essentiality. This is the first
+    FATAL instance of the D17 dangling-reference class (the generator prunes
+    nothing by design; consequences are this investigation's subject matter), and
+    what "essential machinery" would do in the model remains unobserved.
+  evidence:
+    from_run: panel-2026-08-17
+    observed: >-
+      Identical failure tails for cspA, rpoB, rplB, dnaG (KeyError on
+      EG10166_RNA / EG10894_RNA / EG10865_RNA / EG10239_RNA respectively);
+      --allow-partial-fit does not help (the crash precedes the fit).
+      len(ppgpp_regulated_genes) = 393 (8.7% of the 4538 functional cistrons;
+      4747 raw genes would give 8.3% - the cistron set is the one
+      set_ppgpp_expression indexes, so it is the operative denominator).
+      Crash-vs-regulon-membership agrees 8/8 with ZERO mismatches across the
+      panel. Committed backing: data/evidence.json E-1, regenerated by
+      sims/extract_evidence.py.
+  next_action: >-
+    FILED as v2ecoli#536 (composition defect: KO generator x
+    set_ppgpp_expression - same family as v2ecoli#490's DnaA-box drop, but
+    fatal rather than silent). Scoped there: the sibling TF fold-change loader
+    (simulation_data.py:146-190) already carries the coordinate guard this site
+    lacks, so a TF knockout does NOT crash - it drops the affected fold-change
+    entries silently instead, behind VERBOSE=False. One-site fix, not a sweep.
+    Candidate fixes belong to the consumer per the D17/#468 precedent: skip or
+    renormalize fold-change entries whose cistron left the functional set.
+    Until fixed, panel and screen gene lists must exclude ppgpp_regulated_genes
+    or expect a build failure - which the runner already records as a result.
+- id: F-04
+  tier: observation
+  status: confirms
+  statement: >-
+    The refit artifact for a functionally-inert knockout has a clean three-part
+    structure: (a) a per-mille bulk shift (median relative expression delta
+    0.02-0.16% across the four builders, scaling with the deleted gene's freed
+    expression share), (b) ~10-12% shifts confined to the deleted gene's OPERON
+    NEIGHBORS (ygiB's tail is ygiC and tolC - transcription-unit share
+    reattribution after TU truncation), and (c) large relative deltas on
+    numerically-zero cistrons (1e-24-scale expression) that mean nothing. The
+    wired-but-nonessential class (pgi, tpiA - genes with real growth defects) is
+    barely distinguishable from a chemotaxis gene at the expression level,
+    consistent with the expectation that the model under-reacts to their loss.
+  evidence:
+    from_run: panel-2026-08-17
+    observed: >-
+      expression_delta_vs_wt in data/panel_summary.json: ygiB median 2.1e-4 /
+      pgi 9.2e-4 / tpiA 1.6e-3 / cheY 8.2e-4; >5% tails 0.1-0.3% of cistrons;
+      ygiB's >5% tail is 9 cistrons, of which exactly 2 carry real expression:
+      ygiC (EG11165_RNA) and tolC (EG11009_RNA), both at 12.35%; the other 7
+      sit below a 1e-12 zero floor and their relative deltas are meaningless.
+      Committed backing: data/evidence.json E-2, regenerated by
+      sims/extract_evidence.py.
+  next_action: >-
+    Directly actionable for the Ambr250 comparison's DEG grading: mask the
+    target's operon neighbors and near-zero cistrons, and treat the per-mille
+    bulk as the artifact floor. Growth-rate-level under-reaction (pgi/tpiA) is
+    a simulation-layer question, out of scope for a ParCa-only panel.
+    Scope, now measured rather than argued (2026-08-18): the magnitudes are
+    MODE-INDEPENDENT. A same-commit full-mode WT/ygiB-KO control reproduces
+    this contrast to full float precision, not merely to four significant
+    figures: median relative delta 2.1025575e-04 and >5% tail 0.210% are
+    IDENTICAL in fast and full, the named tail is ygiC/tolC at 12.35% in both,
+    and full-vs-fast basal WT expression is bit-identical (max relative delta
+    exactly 0.0). So both the structure (TU-neighbor concentration,
+    mechanism-derived) and the numbers carry over; consumers may use them
+    directly. Committed backing: data/evidence.json E-3.

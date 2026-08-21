@@ -1,0 +1,66 @@
+schema_version: 4
+name: metabolism-biomass-yield-s1b-anaerobic-contrast
+title: Does the model's own aerobic-to-anaerobic yield drop match biology?
+created: '2026-07-29'
+status: designed
+
+question: >-
+  Real E. coli anaerobic biomass yield is several-fold below aerobic, because without a
+  terminal electron acceptor the cell cannot extract ATP by respiration. A model that
+  barely respires aerobically (O2:glucose ~0.09, RQ ~3.6) has little respiratory
+  contribution to lose, so it should show a much smaller drop. Does it? This is a
+  first-principles discriminator that needs no external reference data - the model is
+  compared against its own aerobic result.
+
+seeded_from:
+  study: population_phenotype_basal
+  proposal_id: metabolism-biomass-yield-s1b-anaerobic-contrast
+  finding: biomass-yield-exceeds-thermodynamic-limit
+
+assumptions:
+  - text: >-
+      A minimal_minus_oxygen run is comparable to the aerobic baseline on yield once each
+      is measured with the same estimator over the same burn-in window, so the ratio
+      between them isolates the respiratory contribution.
+    verified_in_v2ecoli: false
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+  - artifact: metabolism-biomass-yield-s1-diagnostic
+    from: metabolism-biomass-yield-s1-diagnostic
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      media: minimal_minus_oxygen
+  variants: []
+  model_settings: []
+
+tests:
+  - name: anaerobic-yield-drop-matches-respiratory-contribution
+    classification: primary
+    question: >-
+      Is the aerobic-to-anaerobic yield ratio several-fold, as in real E. coli, or close to
+      1 as a barely-respiring model would predict?
+    measure:
+      kind: derived
+      detail: >-
+        Yxs by direct mass balance under minimal_minus_oxygen, divided by the aerobic Yxs
+        from metabolism-biomass-yield-s1-diagnostic measured the same way.
+
+# NOT RUN. Scoped and wired, deliberately unexecuted in this PR.
+#
+# The planning docs assumed this contrast was free because a `no_oxygen` study already
+# exists in the whole-cell-model-comparison investigation. It is not free. That study records
+# v1-v2 equivalence outcomes only and carries no yield number, its calibrated per-condition
+# ParCa cache (out/cache/.regen_no_oxygen_seed00) is absent from this worktree, and there is
+# no anaerobic entry in v2ecoli/configs/. Running this therefore costs a per-condition ParCa
+# regeneration plus a second simulation, which is out of scope for a diagnostic PR.
+#
+# It stays defined here so the discriminator survives in the record rather than being lost.
+# The cheaper discriminator - carbon closure and RQ on the aerobic run - carries the
+# one-defect-versus-two question in S1, and this contrast is corroboration if that proves
+# ambiguous.

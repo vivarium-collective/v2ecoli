@@ -36,10 +36,87 @@ Outputs:
 """
 
 import time
+import warnings
+from pathlib import Path
 
 from process_bigraph import Step
 
 from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import SimulationDataEcoli
+from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
+from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
+
+
+def _is_valid_raw_data(obj) -> bool:
+    """True iff ``obj`` is a usable ``KnowledgeBaseEcoli`` (exposes the flat-file
+    tables ``sim_data.initialize`` reads). The first thing that method touches is
+    ``raw_data.operons_on``, so that attribute is the cheapest liveness probe."""
+    return hasattr(obj, "operons_on")
+
+
+def _resolve_raw_data(config: dict):
+    """Return a usable ``KnowledgeBaseEcoli`` for the injected ``config``.
+
+    The registered ``parca`` composite is a *structural* document: it carries
+    ``raw_data=None`` (see ``v2ecoli/composites/parca.py``), which the composite
+    runtime materialises to an empty ``dict``. It was only ever runnable via the
+    ``v2ecoli-parca`` CLI, which builds a real ``KnowledgeBaseEcoli`` and injects
+    it. Driving the document through the workbench's generic runner instead fired
+    this step with a plain ``dict`` → ``AttributeError: 'dict' object has no
+    attribute 'operons_on'`` (vivarium-workbench #752).
+
+    When a real KB is already injected (the CLI path) it is used unchanged. When
+    it is missing (the workbench path) a real KB is loaded here — with production
+    genotype defaults matching ``cli/parca.py`` (operons on; rRNA operons kept) —
+    so the composite is self-sufficient. A declared ``bundle_manifest`` selects
+    the ecoli-sources bundle; otherwise the default flat-file bundle is used.
+
+    NOTE: this loads the KB and runs the FULL ParCa fit. Measured 2026-08-18 on a
+    14-core laptop: ~4.6 min end to end (51 TF conditions). The log line below makes
+    it explicit so a workbench run does not look hung; use the Runs-tab stop control
+    to cancel. (Several repo docs still quote 4-8 h / ~300 conditions -- an inherited
+    wcEcoli figure that does not describe this pipeline.)
+    """
+    raw_data = config.get("raw_data")
+    if _is_valid_raw_data(raw_data):
+        return raw_data
+
+    manifest = config.get("bundle_manifest", "") or None
+    # ``bundle_overrides`` was declared alongside ``bundle_manifest`` but never
+    # read, so a study could name a private overlay and be silently ignored.
+    # It is applied ON TOP of v2ecoli's own overrides, not instead of them
+    # (SourceBundle chains them) — so naming one cannot revert v2ecoli's
+    # diverged flat files.
+    # Split on ';' -- symmetric with the CLI, which records its repeatable
+    # --bundle-overrides as a ';'-joined string. Without this the whole joined
+    # value is handed to SourceBundle as ONE path, which round-trips for a
+    # single override and fails on two ("a.tsv;b.tsv" is not a file). The field
+    # is provenance-only on the CLI path, so the breakage only appears where the
+    # value is actually resolved -- which is exactly where it is hardest to
+    # attribute back to how it was recorded.
+    _raw_overrides = config.get("bundle_overrides", "") or ""
+    overrides = [p for p in _raw_overrides.split(";") if p] or None
+    # Likewise ``new_genes``: KnowledgeBaseEcoli has supported new-gene
+    # insertion all along, but no entry point passed the option, so it was
+    # unreachable and every build was "off". A private strain's new-gene flat
+    # inputs arrive through the overlay above; this is what asks for them.
+    new_genes = config.get("new_genes", "") or "off"
+    print(
+        "  Step 1: no KnowledgeBaseEcoli was injected (raw_data="
+        f"{type(raw_data).__name__}); loading it now "
+        f"(bundle_manifest={manifest or 'default'}, "
+        f"bundle_overrides={overrides or 'none'}, new_genes={new_genes}). "
+        "This runs the FULL ParCa "
+        "fit — a few minutes; cancel from the Runs tab if unintended."
+    )
+    bundle = SourceBundle(base_manifest=manifest, overrides=overrides)
+    return KnowledgeBaseEcoli(
+        operons_on=True,
+        remove_rrna_operons=False,
+        remove_rrff=False,
+        stable_rrna=False,
+        new_genes_option=new_genes,
+        bundle=bundle,
+    )
 
 
 # Subsystem object outputs — each typed by its corresponding schema entry.
@@ -125,7 +202,73 @@ class InitializeStep(Step):
             '_type': 'string',
             '_default': 'M9 Glucose minus AAs',
         },
+        # Genotype identity. A ParCa build is identified by the ecoli-sources
+        # bundle manifest its raw_data was built from, so these record WHICH
+        # genome/dataset produced this fit. Declarative: the KnowledgeBase is
+        # constructed by the runner and injected as `raw_data`, and these
+        # fields do not build it. They exist so a study can name its genotype
+        # in composite params, and so a mismatch between the declared genotype
+        # and the injected one is caught rather than silently fitted.
+        'bundle_manifest':  {'_type': 'string', '_default': ''},
+        'bundle_overrides': {'_type': 'string', '_default': ''},
+        # Name of a new_gene_data subdirectory to insert (e.g. a heterologous
+        # pathway shipped by a private overlay bundle); '' / 'off' = none.
+        # Unlike the two above this is NOT provenance-only — it changes the
+        # genome the fit is built from.
+        'new_genes':        {'_type': 'string', '_default': ''},
+        # Which transcriptome tier basal expression is fitted from, and whether
+        # unmeasured genes are cross-filled. Also NOT declarative — but unlike
+        # ``new_genes`` these reach ``sim_data.initialize`` below rather than
+        # the KnowledgeBase, so they are effective on the CLI path too (the CLI
+        # injects a KB but does not build sim_data). That is deliberate: a
+        # selector that only bit on one entry point would be the same
+        # silently-inert parameter this change exists to remove.
+        'rnaseq_source':    {'_type': 'string', '_default': 'reference'},
+        'rnaseq_cross_fill': {'_type': 'boolean', '_default': True},
     }
+
+    def _check_declared_genotype(self):
+        """Warn when the declared bundle disagrees with the injected raw_data.
+
+        Silent divergence here is the expensive failure: the fit succeeds and
+        the resulting sim_data is attributed to a genotype it was not built
+        from, which is exactly the provenance claim downstream studies rest on.
+        """
+        raw_data = self.config.get('raw_data')
+
+        # new_genes is checked FIRST and separately: unlike the bundle fields it
+        # is not merely provenance -- it changes the genome the fit is built
+        # from. On the injected-raw_data path (the CLI, and any
+        # build_parca_composite(raw_data=...) caller) this step never builds the
+        # KB, so a config declaring an insertion against a wild-type KB would
+        # otherwise fit WT, warn nothing, and record a genotype it does not have.
+        declared_genes = self.config.get('new_genes', '') or 'off'
+        actual_genes = getattr(raw_data, 'new_genes_option', None)
+        if actual_genes is not None and declared_genes != actual_genes:
+            warnings.warn(
+                "ParCa genotype mismatch: step config declares new_genes "
+                f"{declared_genes!r} but raw_data was built with "
+                f"{actual_genes!r}. The fit proceeds against the INJECTED "
+                "raw_data, so the resulting sim_data has the latter genome "
+                "while its recorded config claims the former.",
+                stacklevel=2,
+            )
+
+        declared = self.config.get('bundle_manifest', '')
+        if not declared:
+            return
+        bundle = getattr(raw_data, '_bundle', None)
+        actual = getattr(bundle, 'base_manifest', None)
+        if actual is None:
+            return
+        if Path(declared).resolve() != Path(actual).resolve():
+            warnings.warn(
+                "ParCa genotype mismatch: step config declares bundle "
+                f"manifest {declared!r} but raw_data was built from "
+                f"{str(actual)!r}. The fit will proceed against the injected "
+                "raw_data; the declared manifest is provenance only.",
+                stacklevel=2,
+            )
 
     def inputs(self):
         return {}
@@ -135,13 +278,16 @@ class InitializeStep(Step):
 
     def update(self, state):
         t0 = time.time()
-        raw_data = self.config['raw_data']
+        self._check_declared_genotype()
+        raw_data = _resolve_raw_data(self.config)
 
         sim_data = SimulationDataEcoli()
         sim_data.initialize(
             raw_data=raw_data,
             basal_expression_condition=self.config.get(
                 'basal_expression_condition', 'M9 Glucose minus AAs'),
+            rnaseq_source=self.config.get('rnaseq_source') or 'reference',
+            rnaseq_cross_fill=self.config.get('rnaseq_cross_fill', True),
         )
 
         # Scatter subsystems as live object references (no copies) so

@@ -11,7 +11,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 
 def _synthetic_payload() -> dict:

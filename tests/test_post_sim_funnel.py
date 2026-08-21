@@ -10,8 +10,8 @@ def test_report_cards_funnel_into_post_sim():
     assert POST_SIM_REGISTRY.get("tests") == {
         "cls": __import__("v2ecoli.workflow.report_cards.tests_card",
                           fromlist=["TestsCard"]).TestsCard,
-        "kind": "report_card"}
-    assert POST_SIM_REGISTRY["vs_vecoli"]["kind"] == "report_card"
+        "kind": "test"}
+    assert POST_SIM_REGISTRY["vs_vecoli"]["kind"] == "test"
 
 
 def test_analysis_funnels_into_post_sim():

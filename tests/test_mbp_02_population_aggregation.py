@@ -98,12 +98,12 @@ def test_per_cell_observables_unchanged_vs_baseline(baseline_state, aggregated_s
 
 def test_single_cell_aggregation_matches_cell_mass(aggregated_state):
     """At cells_per_agent=1.0 (default) with one agent,
-    population.total_biomass_gDW == agents.0.listeners.mass.cell_mass × 1e-15.
+    population.total_biomass_gDW == agents.0.listeners.mass.dry_mass × 1e-15.
     Backs study.yaml behavior_test ``single-cell-aggregation-matches-cell-mass``.
     """
-    cell_mass_fg = fg_magnitude(aggregated_state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
+    dry_mass_fg = fg_magnitude(aggregated_state["agents"]["0"]["listeners"]["mass"]["dry_mass"])
     pop_gdw = aggregated_state["population"]["total_biomass_gDW"]
-    expected = cell_mass_fg * FG_PER_GRAM
+    expected = dry_mass_fg * FG_PER_GRAM
     assert pop_gdw == pytest.approx(expected, rel=1e-9)
 
 
@@ -120,15 +120,15 @@ def test_population_count_equals_len_agents(aggregated_state):
 
 def test_total_biomass_equals_sum_cell_mass_times_scale(aggregated_state):
     """population.total_biomass_gDW ==
-       sum(agents.*.listeners.mass.cell_mass) × cells_per_agent × 1e-15.
+       sum(agents.*.listeners.mass.dry_mass) × cells_per_agent × 1e-15.
     Backs study.yaml behavior_test
     ``total_biomass_equals_sum_cell_mass_times_scale``.
     """
-    sum_cell_mass_fg = sum(
-        fg_magnitude(agent["listeners"]["mass"]["cell_mass"])
+    sum_dry_mass_fg = sum(
+        fg_magnitude(agent["listeners"]["mass"]["dry_mass"])
         for agent in aggregated_state["agents"].values()
     )
-    expected = sum_cell_mass_fg * 1.0 * FG_PER_GRAM   # cells_per_agent=1.0 default
+    expected = sum_dry_mass_fg * 1.0 * FG_PER_GRAM   # cells_per_agent=1.0 default
     actual = aggregated_state["population"]["total_biomass_gDW"]
     assert actual == pytest.approx(expected, rel=1e-9)
 
@@ -147,8 +147,8 @@ def test_aggregator_output_scales_linearly_with_cells_per_agent(core, cells_per_
     propagate from the composite parameter to the Step instance config.
     """
     state = _run_one_second(core, cells_per_agent=cells_per_agent)
-    cell_mass_fg = fg_magnitude(state["agents"]["0"]["listeners"]["mass"]["cell_mass"])
-    expected_gdw = cell_mass_fg * cells_per_agent * FG_PER_GRAM
+    dry_mass_fg = fg_magnitude(state["agents"]["0"]["listeners"]["mass"]["dry_mass"])
+    expected_gdw = dry_mass_fg * cells_per_agent * FG_PER_GRAM
     assert state["population"]["total_biomass_gDW"] == pytest.approx(expected_gdw, rel=1e-9)
     assert state["population"]["cell_count"] == pytest.approx(cells_per_agent, rel=1e-12)
 

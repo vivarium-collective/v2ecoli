@@ -15,6 +15,11 @@ class ExchangeData(Step):
         "environment_molecules": {"_default": []},
         "saved_media": {"_default": {}},
         "time_step": {"_default": 1},
+        # Upper bound on aerobic glucose uptake (mmol/gDCW/h). None keeps the
+        # stock 20.0. Set per-run via a `config_overrides` patch on
+        # `exchange_data.glc_uptake_cap_aerobic`; `exchange_data` is in
+        # _CACHE_CONFIG_NAMES, so the override survives the daughter rebuild.
+        "glc_uptake_cap_aerobic": {"_default": None},
     }
     topology = {
         "boundary": ("boundary",),
@@ -25,6 +30,7 @@ class ExchangeData(Step):
         self.parameters = config or {}
         self.external_state = self.parameters.get("external_state")
         self.environment_molecules = self.parameters.get("environment_molecules", [])
+        self.glc_uptake_cap_aerobic = self.parameters.get("glc_uptake_cap_aerobic")
 
     def inputs(self):
         return {
@@ -51,7 +57,9 @@ class ExchangeData(Step):
         self.external_state.import_constraint_threshold = (
             float(threshold.magnitude) if hasattr(threshold, "magnitude") else float(threshold)
         )
-        exchange_data = self.external_state.exchange_data_from_concentrations(env_concs)
+        exchange_data = self.external_state.exchange_data_from_concentrations(
+            env_concs, aerobic_cap=self.glc_uptake_cap_aerobic
+        )
 
         unconstrained = exchange_data["importUnconstrainedExchangeMolecules"]
         # importConstrainedExchangeMolecules carries unum quantities (mmol/g/h);

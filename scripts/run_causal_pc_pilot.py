@@ -161,7 +161,7 @@ def main():
     OUT_ROOT.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(7)
 
-    print(f"1. Ground-truth edges from Millard reaction graph...")
+    print("1. Ground-truth edges from Millard reaction graph...")
     gt = ground_truth_edges()
     print(f"   {len(gt)} directed substrate→product edges over {NODES}")
     for e in sorted(gt): print(f"     {e[0]:5s} → {e[1]}")

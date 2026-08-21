@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from scripts._compare import orchestrator
 from scripts._compare.config_adapter import resolve_vecoli_config
+from scripts._compare.reference import ReferenceEngine
 from scripts._compare.parca_section import final_sim_data_diff
 from scripts._compare.report import (
     config_panel_section, converted_processes_section, render_grouped_report)
@@ -194,9 +195,12 @@ def _run_one_config(cfg_path: str, work_root: Path, args,
         vecoli_sim_cfg["emitter"] = "parquet"
         vecoli_sim_cfg_path = work / "vecoli_sim_config.json"
         vecoli_sim_cfg_path.write_text(json.dumps(vecoli_sim_cfg))
+        reference = ReferenceEngine.from_spec(
+            {"repo": args.vecoli_repo, "kind": "vecoli"})
         v_sim = orchestrator.run_vecoli_sim(
+            reference=reference,
             config_path=str(vecoli_sim_cfg_path), out_dir=vecoli_sim_out,
-            token=run_token, vecoli_repo=args.vecoli_repo,
+            token=run_token,
             render_only=getattr(args, "render_only", False))
         v2_sim = orchestrator.run_v2_sim(
             config_path=str(v2_cfg_path), out_dir=work / "v2_sim",

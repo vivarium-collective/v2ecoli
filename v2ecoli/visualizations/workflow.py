@@ -85,10 +85,13 @@ def _plot_mass(history, title=''):
 
     axes[1].set_xlabel('Time (min)')
     # Unit comes from the declared listeners.mass.cell_mass schema (quantity[float,fg]).
-    axes[1].set_ylabel('Mass')
+    axes[1].set_ylabel('Mass (log)')
     axes[1].set_title('Absolute Mass')
+    # Mass components span orders of magnitude (DNA vs protein) — log reads better.
+    # Masses are strictly positive; matplotlib masks any non-positive points.
+    axes[1].set_yscale('log')
     axes[1].legend(fontsize=7)
-    axes[1].grid(True, alpha=0.15)
+    axes[1].grid(True, alpha=0.15, which='both')
 
     fig.suptitle(title, fontsize=13)
     fig.tight_layout()
@@ -438,9 +441,11 @@ def _plot_chromosome_state(snapshots, title=''):
     ax.plot(times, dna, color='#8b5cf6', lw=1.5, label='DNA mass')
     if dry:
         ax.axhline(dry[0] * 2, color='red', lw=1, ls=':', alpha=0.4, label='~2x initial (division)')
-    ax.set_ylabel('Mass (fg)')
+    ax.set_ylabel('Mass (fg, log)')
     ax.set_xlabel('Time (s)')
     ax.set_title('Mass Growth')
+    # Dry mass and DNA mass differ by orders of magnitude — log keeps both legible.
+    ax.set_yscale('log')
     ax.legend(fontsize=7)
 
     try:
@@ -636,10 +641,12 @@ def _plot_single_cell_growth(snapshots, title=''):
         vals = _np_array([s.get(key, 0) for s in snapshots])
         ax.plot(times, vals, color=color, lw=1.5, label=label)
     ax.set_xlabel('Time (min)')
-    ax.set_ylabel('Mass (fg)')
+    ax.set_ylabel('Mass (fg, log)')
     ax.set_title('Absolute Mass')
+    # Log scale: mass components (DNA .. protein) span orders of magnitude.
+    ax.set_yscale('log')
     ax.legend(fontsize=7)
-    ax.grid(True, alpha=0.15)
+    ax.grid(True, alpha=0.15, which='both')
 
     ax = axes[1, 1]
     for (label, key), color in zip(MASS_KEYS.items(), COLORS):
@@ -701,7 +708,9 @@ def _plot_ppgpp_dynamics(snapshots, title=''):
             label = aa_id.replace('[c]', '')
             ax.plot(times, counts / 1e3, color=cmap(i), lw=0.8, label=label)
         if has_data:
-            ax.set_ylabel('Counts (thousands)')
+            ax.set_ylabel('Counts (thousands, log)')
+            # Amino-acid pools span orders of magnitude — log scale reads better.
+            ax.set_yscale('log')
             ax.legend(fontsize=5, ncol=3, loc='upper left',
                       bbox_to_anchor=(0, 1), framealpha=0.7)
         else:
@@ -741,7 +750,9 @@ def _plot_ppgpp_dynamics(snapshots, title=''):
             has_ntp = True
     if has_ntp:
         ax.legend(fontsize=8)
-        ax.set_ylabel('Counts (millions)')
+        ax.set_ylabel('Counts (millions, log)')
+        # NTP pools plotted on log scale to match the other count panels.
+        ax.set_yscale('log')
     else:
         ax.text(0.5, 0.5, 'No NTP data', ha='center', va='center', transform=ax.transAxes)
     ax.set_xlabel('Time (min)')

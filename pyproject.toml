@@ -11,12 +11,19 @@ requires-python = "==3.12.12"
 dependencies = [
     "bigraph-schema>=0.0.60",
     "process-bigraph>=0.0.38",
-    "pbg-superpowers",
-    "pbg-copasi",
+    "viva-superpowers",
+    # Shared source of truth for workspace-layout logic (WorkspacePaths,
+    # find_workspace_root, study_dir, package_slug). Replaces v2ecoli's own
+    # divergent study-dir resolvers + root-walkers. Git source pinned below.
+    "viva-workspace",
+    "viva-copasi",
+    # These repos are renamed to viva-* (URLs below) but their PACKAGE metadata
+    # is still pbg-* upstream, so the dependency name must stay pbg-* until the
+    # package rename lands. (uv rejects a name that mismatches package metadata.)
     "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
-    # Transitive dep of pbg-superpowers (the Actionable Investigation Graph
+    # Transitive dep of viva-superpowers (the Actionable Investigation Graph
     # types); declared directly so [tool.uv.sources] below resolves its git
     # source (uv applies sources to direct deps, not arbitrary transitive ones).
     "investigation-contracts",
@@ -36,13 +43,21 @@ dependencies = [
     # pickled interpolators are not portable across that boundary. Cap at <1.18
     # until the blob migrates off pickle (bigraph-schema ``.pbg``; see
     # ``v2ecoli/processes/parca/data_loader.py`` + ``models/parca/README.md``).
-    "scipy<1.18",
+    # Floor: 1.14 predates BOTH breaking changes this repo already carries
+    # compat shims for — the array-API ``PPoly``/``CubicSpline`` refactor at
+    # 1.15 (``_scipy_compat.py``) and the vendored
+    # ``scipy._lib.array_api_compat`` removal at 1.16 (``data_loader.py``).
+    # Below 1.14 is untested here and unpinned before this change (see
+    # PARCA_REVIEW A9); locked/installed is 1.17.1, comfortably inside
+    # [1.14, 1.18).
+    "scipy>=1.14,<1.18",
     "pymunk",
     # ParCa (v2ecoli/processes/parca/) runtime dependencies
     "cvxpy",
     "biopython",
     "sympy",
     "pandas",
+    "altair",
     "plotly>=5.0",
     "ecoli-sources",
     "numba>=0.59",  # floor: numba<0.59 pins llvmlite<0.42 which has no Python 3.12 wheel
@@ -54,16 +69,24 @@ dependencies = [
     # default (workspace.yaml runtime.default_emitter = parquet); XArray is
     # merely available. [parquet] pulls in duckdb/polars/pyarrow/fsspec/tqdm;
     # [xarray] pulls in xarray/zarr/zarrs. The implementations live in
-    # pbg-emitters; v2ecoli.library.{parquet,xarray}_emitter are shims. PEP 508
-    # direct-URL since pbg-emitters is not yet on PyPI — works with both pip
-    # (CI) and uv; pip/uv union the two extras of the same package. Mirrored in
-    # [tool.uv.sources] for uv-native resolution.
-    "pbg-emitters[parquet] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
-    "pbg-emitters[xarray] @ git+https://github.com/vivarium-collective/pbg-emitters.git@main",
+    # viva-emitters (the renamed pbg-emitters); v2ecoli.library.{parquet,xarray}_emitter
+    # are shims. viva-emitters ships on PyPI (0.2.3+), so a plain PEP 508 dep — no
+    # git source, no `pbg-emitters` name-check trap (the renamed repo builds as
+    # viva-emitters). [parquet] pulls duckdb/polars/pyarrow/fsspec/tqdm; [xarray]
+    # pulls xarray/zarr/zarrs.
+    "viva-emitters[parquet,xarray]>=0.3.0",
+    # S3 backend for fsspec (a viva-emitters[parquet] dep). Both ParquetEmitter
+    # (url_to_fs) and the XArray/zarr store (zarr.open_group) already accept an
+    # s3:// out_uri/store natively — s3fs is the one missing piece that lets an
+    # s3:// URI actually resolve instead of failing with "unknown protocol"
+    # (backlog item 33/35: per-generation chain-dispatch jobs write directly to
+    # a per-seed S3 prefix rather than relying solely on the container
+    # entrypoint's end-of-job `aws s3 sync`).
+    "s3fs>=2024.1",
     # NeuralProcess surrogate of the baseline (investigations/surrogate-modeling).
     # Pulls torch; surfaced in the dashboard Registry via build_core() + the
     # dashboard.registry.include allow-list in workspace.yaml.
-    "pbg-torch @ git+https://github.com/vivarium-collective/pbg-torch.git@main",
+    "pbg-torch @ git+https://github.com/vivarium-collective/viva-torch.git@main",
 ]
 
 [project.optional-dependencies]
@@ -89,6 +112,7 @@ relax = ["pbg-openmm"]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
 v2ecoli-colony = "v2ecoli.cli.colony:main"
 v2ecoli-workflow = "v2ecoli.workflow.run:main"
+v2ecoli-workflow-run = "v2ecoli.workflow.build:main"
 v2ecoli-analyze = "v2ecoli.workflow.analysis_runner:main"
 v2e-compare = "scripts.compare_cli:main"
 
@@ -97,7 +121,7 @@ v2e-compare = "scripts.compare_cli:main"
 "v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["tests", "v2ecoli/tests"]
 markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
     "slow: runs full simulations (60s+)",
@@ -118,6 +142,24 @@ timeout_method = "thread"
 # bigraph-schema process-discovery resolver then maps the ``v2ecoli`` dist to
 # whichever bogus top-level name sorts last (e.g. ``workspace``), so it scans
 # the wrong package and registers zero of v2ecoli's Visualization Steps.
+[tool.ruff]
+# Lint gate is scoped to PROJECT-OWN code only. The ported wcEcoli/vEcoli model
+# math — v2ecoli/processes/, the ported modules under v2ecoli/library/ and
+# v2ecoli/steps/ — is upstream science we mirror, not ours to relint, so it is
+# excluded here (belt-and-suspenders; CI also passes the project-own dirs
+# explicitly: v2ecoli/composites v2ecoli/workflow pbg_v2ecoli reports scripts).
+extend-exclude = [
+    "v2ecoli/processes",
+    "v2ecoli/library",
+    "v2ecoli/steps",
+]
+
+[tool.ruff.lint]
+# F = pyflakes (undefined names, broken/unused imports, unused vars, bad
+# f-strings); E722 = bare `except:`. Deliberately narrow — this is a
+# breakage gate, not a style gate.
+select = ["F", "E722"]
+
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
@@ -125,15 +167,21 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 [tool.uv.sources]
 process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
-pbg-superpowers = { git = "https://github.com/vivarium-collective/pbg-superpowers.git", branch = "main" }
-pbg-copasi = { git = "https://github.com/vivarium-collective/pbg-copasi.git", branch = "main" }
-pbg-parsimony = { git = "https://github.com/vivarium-collective/pbg-parsimony.git", branch = "main" }
-pbg-openmm = { git = "https://github.com/vivarium-collective/pbg-openmm.git", branch = "main" }
-pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/pbg-bioreactordesign.git", branch = "main" }
-pbg-ketchup = { git = "https://github.com/vivarium-collective/pbg-ketchup.git", branch = "main" }
-pbg-emitters = { git = "https://github.com/vivarium-collective/pbg-emitters.git", branch = "main" }
-pbg-torch = { git = "https://github.com/vivarium-collective/pbg-torch.git", branch = "main" }
+viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
+viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }
+# Some transitive consumers (viva-munk, spatio-flux) may still require the legacy
+# "pbg-superpowers" name; resolve it to the deprecation shim in the viva-superpowers
+# repo's shim/ subdir (re-exports viva_superpowers). Kept for safety during the rename.
+pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main", subdirectory = "shim" }
+viva-copasi = { git = "https://github.com/vivarium-collective/viva-copasi.git", branch = "main" }
+# Repos renamed to viva-* (canonical URLs) but packages still build as pbg-* —
+# key must match the pbg-* package name until upstream renames the package.
+pbg-parsimony = { git = "https://github.com/vivarium-collective/viva-parsimony.git", branch = "main" }
+pbg-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
+pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git", branch = "main" }
+pbg-ketchup = { git = "https://github.com/vivarium-collective/viva-ketchup.git", branch = "main" }
+pbg-torch = { git = "https://github.com/vivarium-collective/viva-torch.git", branch = "main" }
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
-ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "e0fcfab181de59666b9f8ad2d1cb80ffe5c2a314" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "2dfabd522003cfe62f1bc7eeee615a2041aff3ad" }

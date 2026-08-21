@@ -173,7 +173,6 @@ class Scorecard(Analysis):
         import numpy as np
         from scipy.stats import pearsonr
 
-        variants = list(scorecard.index)
 
         # --- Schmidt r (proteome) ---
         if "listeners__monomer_counts" in avail and \

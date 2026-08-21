@@ -39,7 +39,15 @@ out
 **/runs.db-shm
 **/runs.db-wal
 .dashboard.log
-reports
+# reports/ is mostly regenerated dashboard/report-card output, but
+# reports/_summary/ is real source (comparison_matrix.py's matrix-builder
+# import, reused from scripts/_compare) -- mirrors .gitignore's own
+# `reports/*` + `!reports/_summary/` pattern, which already treats this
+# subtree as source, not derived output. A bare `reports` exclusion here
+# blocks any `!` re-inclusion of children (Docker's documented ignore-file
+# behavior), so this must be `reports/*` for the exception below to work.
+reports/*
+!reports/_summary/
 
 # Docs / OS cruft — not part of the runnable software
 docs

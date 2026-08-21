@@ -162,14 +162,12 @@ def make_figure(results, projections, t_ticks, n_targets) -> str:
 
     # Panel 2: projection at N=10³
     ax = axes[1]
-    labels = [f"pbg seq\nN={n:,}" for n in n_targets] + \
-             [f"CC parallel\nN={n:,}" for n in n_targets]
     pbg_vals = [p["pbg_sequential_at_target_total_s"] for p in projections]
     cc_vals = [p["cc_at_target_total_s"] for p in projections]
     x = np.arange(len(n_targets))
     w = 0.38
-    bars1 = ax.bar(x - w / 2, pbg_vals, w, color="#dc2626", label="pbg sequential")
-    bars2 = ax.bar(x + w / 2, cc_vals, w, color="#16a34a", label="column-centric parallel")
+    ax.bar(x - w / 2, pbg_vals, w, color="#dc2626", label="pbg sequential")
+    ax.bar(x + w / 2, cc_vals, w, color="#16a34a", label="column-centric parallel")
     for i, (p, c) in enumerate(zip(pbg_vals, cc_vals)):
         ax.text(i - w / 2, p, f"{p:.0f}s", ha="center", va="bottom",
                 fontsize=9)

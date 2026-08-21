@@ -9,7 +9,9 @@ import re
 from pathlib import Path
 from typing import Any
 
-from v2ecoli.workflow.report_cards import StudyContext
+from viva_workspace import study_dir as _study_dir
+
+from v2ecoli.workflow.report_cards import StudyContext, narrows_by_name
 
 _STUDIES_RE = re.compile(r"(?:^|/)studies/([A-Za-z0-9_.\-]+)(?:/|$)")
 
@@ -25,7 +27,7 @@ def resolve_owning_study(out_dir: str, config: dict, ws_root) -> "str | None":
         slug = m.group(1) if m else None
     if not slug:
         return None
-    if (ws_root / "workspace" / "studies" / slug / "study.yaml").is_file():
+    if (_study_dir(ws_root, slug) / "study.yaml").is_file():
         return slug
     return None
 
@@ -50,7 +52,7 @@ class RunExtract:
     def study_viz_dir(self) -> "Path | None":
         if not self.study_slug:
             return None
-        return self.ws_root / "workspace" / "studies" / self.study_slug / "viz"
+        return _study_dir(self.ws_root, self.study_slug) / "viz"
 
     def records(self) -> list:
         if self._records is None:
@@ -138,10 +140,11 @@ def _run_one_step(cls, kind, extract, core):
         if ctx is None:
             return "", {}
         # honor a study's optional report_cards: allowlist (parity with the
-        # standalone runner's report_cards.applicable) — a declared list narrows
-        # which cards run; an absent key = every applicable card.
+        # standalone runner's report_cards.applicable) — a declared list of card
+        # NAMES narrows which cards run; an absent key, or a machine-generated
+        # list of embed paths, leaves every applicable card eligible.
         declared = (getattr(ctx, "spec", None) or {}).get("report_cards")
-        if declared is not None and step.name not in declared:
+        if declared is not None and narrows_by_name(declared) and step.name not in declared:
             return "", {}
         if not step.applies(ctx):
             return "", {}

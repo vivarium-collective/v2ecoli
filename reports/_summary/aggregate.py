@@ -167,8 +167,35 @@ def aggregate(slug: str, workspace_root: str | Path) -> dict[str, Any]:
     rollup = {"PASS": 0, "PARTIAL": 0, "FAIL": 0}
     # Registry model (Study Pipeline Spec 1): investigations REFERENCE top-level
     # studies/<slug>/ via `members:`. Legacy investigations used a nested
-    # `studies:` list under investigations/<inv>/studies/<slug>/. Support both.
-    member_slugs = inv.get("members") or inv.get("studies") or []
+    # `studies:` list under investigations/<inv>/studies/<slug>/. The config-is-
+    # the-unit model (post-Task-6) instead lists `comparison.configs[]`, with no
+    # `members:`/`studies:` key at all -- resolve that case via the shared
+    # study_spec loader (imported lazily: study_spec pulls in ReferenceEngine
+    # etc., and reports/_summary/ should stay light for callers that only want
+    # the legacy members: path). Both paths land on the same top-level
+    # workspace/studies/<slug>/study.yaml.
+    if (inv.get("comparison") or {}).get("configs"):
+        from scripts._compare.study_spec import load_investigation
+        _ctx, specs = load_investigation(inv_dir)
+        member_slugs = [s.name for s in specs]
+        # `comparison.configs[]` models per-condition runs (the config IS the
+        # study), but this investigation also carries standalone root studies
+        # -- `parca` (t=0 initial-state check) and `statistical` (multi-seed
+        # Welch-t check) -- that are structurally not "one config, one study"
+        # and so were deliberately left out of configs[] (see the Task 6
+        # migration commit 4c759527). Those still declare this investigation
+        # via their own `investigation:` back-reference, so pick them up by
+        # scanning the top-level registry rather than hardcoding their names.
+        known = set(member_slugs)
+        for sp in sorted((ws / "studies").glob("*/study.yaml")):
+            study_slug = sp.parent.name
+            if study_slug in known:
+                continue
+            if (_load_yaml(sp) or {}).get("investigation") == slug:
+                member_slugs.append(study_slug)
+                known.add(study_slug)
+    else:
+        member_slugs = inv.get("members") or inv.get("studies") or []
     for study_slug in member_slugs:
         study_dir = ws / "studies" / study_slug
         if not (study_dir / "study.yaml").is_file():

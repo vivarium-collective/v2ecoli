@@ -23,10 +23,12 @@ from v2ecoli import build_composite
 from v2ecoli.core import build_core
 from v2ecoli.composites._helpers import parquet_emitter
 from v2ecoli.library.parquet_emitter import ParquetEmitter
+from v2ecoli.library.run_provenance import write_run_identity
 
 
 CACHE_DIR = "out/cache_with_aa_apr24"
 PARQUET_OUT = "out/with_aa_postmerge_parquet"
+_EXPERIMENT_ID = "with_aa_postmerge"
 MAX_DURATION = 3600  # 60 min — plenty of headroom for the ~21 min cycle
 SNAPSHOT_INTERVAL = 60
 
@@ -38,12 +40,12 @@ def main() -> None:
     print("-" * 60)
     os.makedirs(PARQUET_OUT, exist_ok=True)
 
-    core = build_core()
+    build_core()
     t_wall0 = time.time()
 
     with parquet_emitter(
         out_dir=PARQUET_OUT,
-        experiment_id="with_aa_postmerge",
+        experiment_id=_EXPERIMENT_ID,
         lineage_seed=0,
         agent_id="0",
         generation=1,
@@ -84,6 +86,12 @@ def main() -> None:
         # Flush the parquet trailing batch before the ctx mgr clears the override.
         n_closed = ParquetEmitter.flush_all_in_composite(comp, success=divided)
         print(f"  flushed {n_closed} ParquetEmitter instance(s)")
+
+    # v2ecoli#472/#473: canonical run_identity.json sidecar.
+    write_run_identity(
+        PARQUET_OUT, cache_dir=CACHE_DIR,
+        design={"experiment_id": _EXPERIMENT_ID, "lineage_seed": 0,
+                "generation": 1, "max_duration_s": MAX_DURATION})
 
     wall = time.time() - t_wall0
     print("-" * 60)

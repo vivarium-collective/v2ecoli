@@ -33,12 +33,14 @@ def _default_cpus() -> int:
     return os.cpu_count() or 4
 
 
-def main():
-    from v2ecoli.processes.parca.composite import build_parca_composite
-    from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
-        KnowledgeBaseEcoli,
-    )
+def _build_arg_parser() -> argparse.ArgumentParser:
+    """The CLI's parser, extracted so its behaviour is testable.
 
+    Built here rather than inline in ``main()`` so a test can assert what the
+    flags DO — defaults, round-tripping, rejection of unknown values — instead
+    of grepping this file for a substring, which passes just as happily when a
+    flag is parsed and then dropped on the floor.
+    """
     parser = argparse.ArgumentParser(
         prog="v2ecoli-parca",
         description="ParCa Pipeline as Process-Bigraph Steps",
@@ -66,12 +68,58 @@ def main():
         "--bundle-manifest-path", type=str, default=None,
         help="Path to an ecoli-sources bundle manifest (default: the installed "
              "ecoli-sources reference bundle + v2ecoli overrides).")
+    parser.add_argument(
+        "--bundle-overrides", type=str, action="append", default=None,
+        metavar="MANIFEST",
+        help="Additional overrides manifest layered on the bundle; repeatable, "
+             "applied in the order given. Always applied AFTER v2ecoli's own "
+             "overrides, so naming one cannot revert v2ecoli's diverged flat "
+             "files. This is how a private payload contributes extra canonical "
+             "keys (e.g. a strain's new-gene inputs).")
+    parser.add_argument(
+        "--new-genes", type=str, default="off", metavar="SUBDIR",
+        help="Insert a new_gene_data subdirectory into the genome (e.g. a "
+             "heterologous pathway); 'off' (default) inserts none. The named "
+             "subdirectory's flat inputs must be resolvable through the "
+             "bundle — typically supplied by --bundle-overrides.")
+    parser.add_argument(
+        "--rnaseq-source", type=str, default="reference",
+        choices=["reference", "experimental"],
+        help="Transcriptome tier basal cistron expression is fitted from. "
+             "'reference' (default) reads the legacy wide rna_seq_data table "
+             "at sim_data.basal_expression_condition; 'experimental' reads "
+             "ecoli-sources' long-form rnaseq_experimental_tpms key — the key "
+             "a knockdown() variant bundle rewrites.")
+    parser.add_argument(
+        "--no-rnaseq-cross-fill", dest="rnaseq_cross_fill",
+        action="store_false", default=True,
+        help="On --rnaseq-source experimental, do NOT fill model genes the "
+             "experimental dataset omits from the rnaseq_basal_tpms tier; "
+             "leave them at zero expression (and not RNA-seq-covered).")
     parser.add_argument("--resume-from-step", type=int, default=1,
                         help="Skip steps 1..N-1; load --resume-pickle as the "
                              "initial composite state.  Use to debug late steps "
                              "without re-running step 5 (~60 min).")
     parser.add_argument("--resume-pickle", type=str, default=None,
                         help="Pickle of composite.state from an earlier run.")
+    parser.add_argument(
+        "--allow-partial-fit", action="store_true",
+        help="Step 9's mechanistic_supply/export/uptake fits can fail on "
+             "numerically-marginal kinetics (e.g. debug mode's truncated TF "
+             "set). By default such a failure aborts the run so no "
+             "partially-fit parca_state.pkl is written (PARCA_REVIEW A3). "
+             "Pass this flag to write it anyway, with a per-fit ok/error "
+             "status recorded at state['mechanistic_fit_status'].")
+    return parser
+
+
+def main():
+    from v2ecoli.processes.parca.composite import build_parca_composite
+    from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+        KnowledgeBaseEcoli,
+    )
+
+    parser = _build_arg_parser()
     args = parser.parse_args()
 
     outdir = os.path.abspath(args.outdir)
@@ -91,12 +139,18 @@ def main():
             resume_state = pickle.load(f)
 
     t0 = time.time()
-    print(f"[{time.strftime('%H:%M:%S')}] Loading raw_data (operons={not args.no_operons})")
+    print(f"[{time.strftime('%H:%M:%S')}] Loading raw_data "
+          f"(operons={not args.no_operons}, new_genes={args.new_genes}, "
+          f"overrides={args.bundle_overrides or 'defaults only'}, "
+          f"rnaseq_source={args.rnaseq_source}"
+          f"{'' if args.rnaseq_cross_fill else ', cross-fill OFF'})")
     from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle
-    bundle = SourceBundle(base_manifest=args.bundle_manifest_path)
+    bundle = SourceBundle(base_manifest=args.bundle_manifest_path,
+                          overrides=args.bundle_overrides)
     raw = KnowledgeBaseEcoli(
         operons_on=not args.no_operons,
         remove_rrna_operons=False, remove_rrff=False, stable_rrna=False,
+        new_genes_option=args.new_genes,
         bundle=bundle,
     )
     print(f"    raw_data loaded in {time.time() - t0:.1f}s")
@@ -171,6 +225,20 @@ def main():
             cache_dir=cache_dir,
             resume_from_step=args.resume_from_step,
             resume_state=resume_state,
+            allow_partial_fit=args.allow_partial_fit,
+            # Record WHICH genotype this state was fit from. Without these the
+            # emitted parca_state.pkl reads '' for all three and a new-gene
+            # build is indistinguishable from a wild-type one by its own
+            # recorded config -- so a cache's provenance has to be reconstructed
+            # from outside it, which is exactly the ambiguity these fields exist
+            # to remove.
+            bundle_manifest=args.bundle_manifest_path or "",
+            bundle_overrides=";".join(args.bundle_overrides or ()),
+            new_genes=args.new_genes,
+            # Same reasoning, one layer up: WHICH transcriptome tier the fit was
+            # built from is equally part of a state's identity.
+            rnaseq_source=args.rnaseq_source,
+            rnaseq_cross_fill=args.rnaseq_cross_fill,
         )
     print(f"\n[{time.strftime('%H:%M:%S')}] Pipeline completed in "
           f"{time.time() - t1:.1f}s")

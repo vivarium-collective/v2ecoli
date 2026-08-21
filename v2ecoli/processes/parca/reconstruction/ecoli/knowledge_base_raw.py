@@ -17,6 +17,51 @@ from v2ecoli.processes.parca.wholecell.utils import units  # used by eval()
 from v2ecoli.processes.parca.reconstruction.ecoli.sources import relpath_to_key
 
 FLAT_DIR = os.path.join(os.path.dirname(__file__), "flat")
+
+#: ecoli-sources canonical keys for the long-form TPM tier, and the ONLY way to
+#: address them. They are deliberately not reachable through
+#: ``list_of_dict_filenames``:
+#:
+#: * the key is not derived from the path — ``relpath_to_key`` maps the shipped
+#:   file to ``rnaseq_experimental__vecoli_m9_glucose_minus_aas``, not to
+#:   ``rnaseq_experimental_tpms``; and
+#: * ``_load_tsv`` names the attribute after the file's BASENAME, so a
+#:   ``knockdown()`` variant bundle (which points the key at
+#:   ``rnaseq_experimental_tpms__kd.tsv``) would land the table on a
+#:   per-variant attribute name that nothing reads — a build that validates,
+#:   hashes stably and changes nothing.
+#:
+#: So these load by canonical key onto a FIXED attribute
+#: (``rnaseq_tpm_tables``), outside the flat-file loop.
+RNASEQ_EXPERIMENTAL_KEY = "rnaseq_experimental_tpms"
+RNASEQ_BASAL_KEY = "rnaseq_basal_tpms"
+RNASEQ_TPM_KEYS = (RNASEQ_EXPERIMENTAL_KEY, RNASEQ_BASAL_KEY)
+
+
+def load_tpm_table(path):
+    """Read a long-form ``(gene_id, tpm_mean[, tpm_std])`` TPM table.
+
+    Deliberately NOT ``spreadsheets.read_tsv``. That reader is a ``JsonReader``
+    which ``json.loads`` every cell, and works only because every flat KB file
+    is JSON-quoted (``"EG10001"``). The ecoli-sources TPM tier is plain
+    unquoted TSV, so ``read_tsv`` raises
+    ``ValueError: failed to parse json string:EG10001`` on it. The two tiers
+    have different on-disk conventions and only pandas reads both.
+
+    ``RnaseqTpmTableSchema`` (ecoli-sources' own Pandera schema for this tier)
+    is applied when importable, so a malformed experimental table fails at load
+    with a column/dtype error rather than deep in expression fitting. The
+    guarded import mirrors ``sources.SourceBundle._validate``: an install
+    without the ``schemas`` package degrades to unvalidated rather than failing.
+    """
+    import pandas as pd
+
+    df = pd.read_csv(path, sep="\t")
+    try:
+        from schemas import RnaseqTpmTableSchema  # ecoli-sources package
+    except ImportError:
+        return df
+    return RnaseqTpmTableSchema.validate(df)
 LIST_OF_DICT_FILENAMES = [
     "amino_acid_export_kms.tsv",
     "amino_acid_export_kms_removed.tsv",
@@ -174,6 +219,15 @@ class DataStore(object):
 class KnowledgeBaseEcoli(object):
     """KnowledgeBaseEcoli"""
 
+    # COORDINATE CONVENTION: left_end_pos / right_end_pos are 1-based and
+    # INCLUSIVE, matching the EcoCyc-derived flat files. A feature spanning
+    # [L, R] occupies genome_sequence[L - 1 : R] (see
+    # v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/
+    # getter_functions.py:194, which slices exactly that way) and has length
+    # R - L + 1. Every slice and comparison throughout this class assumes
+    # this; getting it wrong is silent, because feature LENGTHS stay correct
+    # under an off-by-one while the SEQUENCE shifts.
+
     def __init__(
         self,
         operons_on: bool,
@@ -317,6 +371,41 @@ class KnowledgeBaseEcoli(object):
                 self.list_of_dict_filenames.append(file_path)
                 self.new_gene_added_data.update({f: nested_attr + f})
 
+            # OPTIONAL, and deliberately not in new_gene_shared_files above:
+            # that list is asserted present, and neither ``gfp`` nor
+            # ``template`` ships this file, so requiring it would break every
+            # existing new-gene build.
+            #
+            # Why it is needed at all: a new gene set whose enzymes act as
+            # protein COMPLEXES (e.g. a homodimer) names the complex as the
+            # catalyst, and without complexation the complex is never formed —
+            # the monomers accumulate with nothing to do and any consumer
+            # looking up the catalyst id fails. Joining this file lets a
+            # new-gene insertion declare its own complexes, exactly as it
+            # already declares its own genes, RNAs and proteins.
+            # Same optional treatment for the insertion's own metabolites: a
+            # heterologous pathway's product and intermediates are molecules the
+            # base flat files know nothing about, and without them the product
+            # has no entry in the bulk store to accumulate into.
+            met_path = os.path.join(new_gene_path, "metabolites.tsv")
+            if (self._bundle.has_key(relpath_to_key(met_path))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, met_path))):
+                self.list_of_dict_filenames.append(met_path)
+                self.new_gene_added_data.update(
+                    {"metabolites": nested_attr + "metabolites"}
+                )
+
+            cplx_path = os.path.join(new_gene_path, "complexation_reactions.tsv")
+            if (self._bundle.has_key(relpath_to_key(cplx_path))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, cplx_path))):
+                self.list_of_dict_filenames.append(cplx_path)
+                self.new_gene_added_data.update(
+                    {"complexation_reactions": nested_attr
+                     + "complexation_reactions"}
+                )
+
             rnaseq_path = os.path.join(new_gene_path, "rnaseq_rsem_tpm_mean.tsv")
             if (self._bundle.has_key(relpath_to_key(rnaseq_path))
                     if self._bundle is not None
@@ -336,6 +425,8 @@ class KnowledgeBaseEcoli(object):
         for filename in self.list_of_parameter_filenames:
             self._load_parameters(filename, self._resolve(filename))
 
+        self._load_rnaseq_tpm_tables()
+
         self.genome_sequence = self._load_sequence(self._resolve(SEQUENCE_FILE))
 
         self._prune_data()
@@ -343,6 +434,10 @@ class KnowledgeBaseEcoli(object):
         self._join_data()
         self._modify_data()
 
+        # Gene insertion is applied here. Gene DELETION is not: chromosome-level
+        # knockouts are produced upstream by the ecoli-sources knockout generator
+        # (`processing.genotypes.knockout`) and reach ParCa as a variant bundle,
+        # not as a constructor option.
         if self.new_genes_option != "off":
             self._check_new_gene_ids(nested_attr)
 
@@ -362,6 +457,31 @@ class KnowledgeBaseEcoli(object):
 
             self.added_data = self.new_gene_added_data
             self._join_data()
+
+    def _load_rnaseq_tpm_tables(self):
+        """Load the long-form TPM tier by CANONICAL KEY onto fixed attributes.
+
+        The KB loads these; it does not GATE on them. Which tier a build
+        actually fits against is decided once, on ``sim_data``
+        (``sim_data.rnaseq_source``), so both entry points — the ``v2ecoli-parca``
+        CLI, which injects a KB, and the composite path, which builds one — reach
+        the same decision through the same field. Loading here unconditionally is
+        what makes that possible: nothing downstream has to ask the KB to have
+        been constructed differently.
+
+        Cost is ~4.6k rows per key. Absent keys are simply absent — a hand-cut
+        bundle without them still builds, and the reference path never reads them.
+        """
+        self.rnaseq_tpm_tables: Dict[str, object] = {}
+        self.rnaseq_tpm_sources: Dict[str, str] = {}
+        if self._bundle is None:
+            return
+        for key in RNASEQ_TPM_KEYS:
+            if not self._bundle.has_key(key):
+                continue
+            path = self._bundle.path(key)
+            self.rnaseq_tpm_tables[key] = load_tpm_table(path)
+            self.rnaseq_tpm_sources[key] = str(path)
 
     def _resolve(self, rel_path):
         return self._bundle.resolve_relpath(rel_path)
@@ -474,6 +594,46 @@ class KnowledgeBaseEcoli(object):
                         f"Could not join datasets {data_attr} and {attr_to_add} "
                         f"because columns do not match (different columns: {col_diff})."
                     )
+
+                # An added row whose id already exists in the base table does
+                # not merge -- both rows are kept and every downstream consumer
+                # that builds an id-keyed dict silently takes the LAST one
+                # (e.g. molecular weights and charges in getter_functions /
+                # metabolism). For a new-gene insertion that means a payload
+                # re-declaring a HOST molecule would quietly redefine the
+                # host's chemistry: a heterologous pathway consumes host
+                # metabolites, so its own tables can plausibly name one.
+                # Fail loudly instead -- a redefinition may well be intended,
+                # but it must be deliberate rather than a silent last-write.
+                #
+                # Guarding the GENERIC join rather than only the two new
+                # optional tables was checked by enumerating every shipped
+                # (base <- added) pair and comparing raw id sets: the six live
+                # joins (complexation_reactions, equilibrium_reactions,
+                # metabolic_reactions, metabolites, trna_charging_reactions,
+                # transcription_units) all carry ZERO collisions, and
+                # ppgpp_regulation has no id column so the guard skips it.
+                # ⚠ The test suite alone does NOT establish this: the 81-row
+                # transcription_units join comes from the remove_rrna_operons
+                # option, which nothing sets True (every call site hardcodes
+                # False), so no test exercises that path.
+                # ⚠ Nor does the NG- naming convention: a payload is not bound
+                # by it. That is an argument FOR guarding generically rather
+                # than trusting the prefix.
+                if "id" in data[0]:
+                    base_ids = {row["id"] for row in data}
+                    clashes = sorted(
+                        {row["id"] for row in added_data if row["id"] in base_ids}
+                    )
+                    if clashes:
+                        raise ValueError(
+                            f"Cannot join {attr_to_add} into {data_attr}: "
+                            f"{len(clashes)} id(s) already exist in the base "
+                            f"table and would silently redefine it "
+                            f"{clashes[:5]}. Rename the added rows, or remove "
+                            f"the colliding rows from the base table via the "
+                            f"corresponding *_removed.tsv."
+                        )
 
             # Join datasets
             for row in added_data:

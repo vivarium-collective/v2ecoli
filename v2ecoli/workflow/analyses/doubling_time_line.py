@@ -42,7 +42,7 @@ from typing import Any
 import polars as pl
 from duckdb import DuckDBPyConnection
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses._helpers import read_stacked_columns, chart_to_html
 
 # ln(2) expressed per-hour from a per-second growth rate: t2[hr] = (ln2/3600)/mu.

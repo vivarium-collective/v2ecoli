@@ -119,9 +119,7 @@ def _get_step_config(
     from v2ecoli.processes.rna_maturation import RnaMaturation
     from v2ecoli.processes.complexation import Complexation
     from v2ecoli.processes.protein_degradation import ProteinDegradation
-    from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
-    from v2ecoli.processes.transcript_elongation import TranscriptElongation
     from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.tf_binding import TfBinding
@@ -338,7 +336,7 @@ def _get_step_config(
             instance = Requester({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
@@ -359,7 +357,7 @@ def _get_step_config(
             instance = Evolver({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['allocate'] = ('allocate', base_name)
             in_topo['global_time'] = ('global_time',)

@@ -45,3 +45,19 @@ from v2ecoli.workflow.analyses import proteome_delta  # noqa: F401
 from v2ecoli.workflow.analyses import fba_flux_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import regulation_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import scorecard  # noqa: F401
+
+# Comparison-convergence Phase 1, Task 4: candidate-vs-reference workbench-run
+# comparison, rendering the `summary` report card via scripts/_compare (reuse).
+from v2ecoli.workflow.analyses import comparison_summary  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 2: the same candidate-vs-reference
+# comparison, but rendering the FULL wired card set (summary/standard/parca/
+# trajectory/distribution/metabolism/composition) -- see comparison_cards.py
+# module docstring for which cards are wired vs deferred.
+from v2ecoli.workflow.analyses import comparison_cards  # noqa: F401
+
+# Comparison-convergence Phase 2, Task 3: investigation-level cross-config
+# matrix -- configs x observables verdicts, reusing reports/_summary's matrix
+# builder (Task 2's per-config verdicts fanned out across configs).
+from v2ecoli.workflow.analyses import comparison_matrix  # noqa: F401
+from v2ecoli.workflow.analyses import chromosome_state_view  # noqa: F401  (re-added: #444 on main)

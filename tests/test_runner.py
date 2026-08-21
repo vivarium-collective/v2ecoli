@@ -10,7 +10,7 @@ def _spec(name="basal", condition="basal", seeds=1, gens=4, cards=("config", "pa
     return StudySpec(name=name, condition=condition, seeds=seeds, gens=gens,
                      cards=list(cards), invest_name="v2ecoli-vecoli-comparison",
                      v2_cache="out/cache_full", ve_cache="out/compare_harness/vecoli_parca",
-                     fork="", study_path="/x/study.yaml")
+                     study_path="/x/study.yaml")
 
 
 def test_run_engines_passes_condition_seeds_gens_and_store_dir(monkeypatch):
@@ -58,25 +58,19 @@ def test_run_study_render_only_skips_engines(monkeypatch):
 
 
 def test_run_investigation_loops_studies(monkeypatch, tmp_path):
-    # Canonical top-level layout (post-#390): studies/ is a SIBLING of
-    # investigations/ under the workspace root, referenced via `members:`.
+    # config-is-the-unit model (Task 4): run_investigation builds specs from
+    # comparison.configs[], not from a `members:`/`studies:` name list.
     ws = tmp_path / "workspace"
     inv = ws / "investigations/v2ecoli-vecoli-comparison"
-    (ws / "studies/basal").mkdir(parents=True)
-    (ws / "studies/with_aa").mkdir(parents=True)
     inv.mkdir(parents=True)
     (inv / "investigation.yaml").write_text(textwrap.dedent("""
         name: v2ecoli-vecoli-comparison
-        comparison: {defaults: {cards: [config, parca, standard]}}
-        members: [basal, with_aa]
+        comparison:
+          defaults: {cards: [config, parca, standard], seeds: 1, gens: 4}
+          configs:
+          - {name: basal, config: basal}
+          - {name: with_aa, config: with_aa}
     """), encoding="utf-8")
-    for n in ("basal", "with_aa"):
-        (ws / f"studies/{n}/study.yaml").write_text(textwrap.dedent(f"""
-            name: {n}
-            investigation: v2ecoli-vecoli-comparison
-            condition: {n}
-            comparison: {{seeds: 1, generations: 4}}
-        """), encoding="utf-8")
     ran, rendered, mat = [], [], []
     monkeypatch.setattr(runner, "_run_engines", lambda spec, out, mode: ran.append(spec.name))
     monkeypatch.setattr(runner, "_render", lambda inv_ref, out, ms, study=None: rendered.append((inv_ref, ms)))
@@ -94,3 +88,30 @@ def test_run_investigation_empty_raises(monkeypatch, tmp_path):
     (inv / "investigation.yaml").write_text("name: x\nstudies: []\n", encoding="utf-8")
     with pytest.raises(SystemExit):
         runner.run_investigation(str(inv))
+
+
+def test_run_engines_passes_declared_companion_processes_to_both_engines(monkeypatch):
+    # The declaration is inert unless it becomes a flag on the subprocess, so
+    # this drives runner._run_engines and reads the real argv rather than
+    # re-implementing the flag-building inside the test.
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda argv, **k: calls.append(argv))
+    spec = _spec(name="s", condition="basal")
+    spec.config = "configs/redux.json"
+    spec.inject_processes = ["companion-listener"]
+    runner._run_engines(spec, out="out/x", mode="serial")
+
+    assert len(calls) == 2
+    for argv in calls:            # BOTH engines: one declaration, not two that drift
+        assert "--inject-process" in argv, argv
+        assert argv[argv.index("--inject-process") + 1] == "companion-listener"
+
+
+def test_run_engines_omits_the_flag_when_a_study_declares_no_companion(monkeypatch):
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda argv, **k: calls.append(argv))
+    spec = _spec(name="s", condition="basal")
+    spec.config = "configs/redux.json"
+    runner._run_engines(spec, out="out/x", mode="serial")
+    for argv in calls:
+        assert "--inject-process" not in argv

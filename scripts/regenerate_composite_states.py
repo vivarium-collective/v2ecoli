@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -156,7 +155,7 @@ def main() -> int:
             failed.append((cid, reason))
             print(f"  FAIL  {cid}  ({reason})")
             if (out_dir / f"{cid}.json").is_file():
-                print(f"        note: stale artifact on disk — delete it or fix the build")
+                print("        note: stale artifact on disk — delete it or fix the build")
             continue
         if not args.no_trim and isinstance(data, dict) and isinstance(data.get("state"), dict):
             data["state"] = trim_state_for_view(data["state"])

@@ -33,28 +33,21 @@ from typing import Any
 import polars as pl
 import yaml
 
-
-def _find_workspace_root(start: Path | None = None) -> Path:
-    """Walk up to find workspace.yaml."""
-    cur = (start or Path.cwd()).resolve()
-    while cur != cur.parent:
-        if (cur / "workspace.yaml").exists():
-            return cur
-        cur = cur.parent
-    raise RuntimeError(
-        "no workspace.yaml found walking up from "
-        f"{(start or Path.cwd()).resolve()}"
-    )
+# Shared source of truth for workspace-layout resolution (root-walker +
+# layout-aware study-dir), replacing this module's former copy-pasted
+# ``_find_workspace_root`` and hardcoded ``workspace/studies/<slug>`` literals.
+from viva_workspace import find_workspace_root as _find_workspace_root
+from viva_workspace import study_dir as _study_dir
 
 
 def find_latest_parquet_run(study_slug: str,
                             workspace_root: Path | None = None) -> Path:
-    """Return the most-recent ``workspace/studies/<slug>/parquet-runs/<run_id>/``.
+    """Return the most-recent ``<studies>/<slug>/parquet-runs/<run_id>/``.
 
     Picks by directory mtime. Raises FileNotFoundError if no runs exist.
     """
     ws = workspace_root or _find_workspace_root()
-    parquet_root = ws / "workspace" / "studies" / study_slug / "parquet-runs"
+    parquet_root = _study_dir(ws, study_slug) / "parquet-runs"
     if not parquet_root.exists():
         raise FileNotFoundError(
             f"no parquet-runs directory for study {study_slug!r} at {parquet_root}"
@@ -204,7 +197,7 @@ def render_study_visualizations(study_slug: str,
     Returns the list of written file paths.
     """
     ws = workspace_root or _find_workspace_root()
-    study_yaml = ws / "workspace" / "studies" / study_slug / "study.yaml"
+    study_yaml = _study_dir(ws, study_slug) / "study.yaml"
     if not study_yaml.exists():
         raise FileNotFoundError(study_yaml)
 
@@ -216,7 +209,7 @@ def render_study_visualizations(study_slug: str,
     run_dir = find_latest_parquet_run(study_slug, workspace_root=ws)
     df = load_run_history(run_dir)
 
-    out_dir = out_dir or (ws / "workspace" / "studies" / study_slug / "viz")
+    out_dir = out_dir or (_study_dir(ws, study_slug) / "viz")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     written: list[Path] = []

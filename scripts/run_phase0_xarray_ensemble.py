@@ -242,8 +242,14 @@ def main():
           f"(chunk={args.chunk}, parallel={mode or 'sequential'})")
     # Fan seeds across Ray workers when runtime.parallel=ray (one worker/seed,
     # thread-balanced); sequential otherwise. Results are identical either way.
+    # V2E_RAY_THREADS overrides _resolve_threads' default (cpu_count // n_seeds),
+    # which assumes seeds share one machine -- wrong for GovCloud's Ray MNP
+    # topology, where each seed gets its own dedicated node (docs/perf/
+    # v2ecoli-vs-vecoli-performance.md's GovCloud section). Same env var
+    # run_comparison_ensemble.py already honors.
+    _ray_threads = int(os.environ.get("V2E_RAY_THREADS", "0") or 0) or None
     run = run_seeds_parallel(
-        range(args.n_seeds), _safe_run_one, mode=mode,
+        range(args.n_seeds), _safe_run_one, mode=mode, num_threads=_ray_threads,
         run_kwargs={"n_steps": args.n_steps, "chunk": args.chunk})
     results = run.results
     total_wall = run.wall_s

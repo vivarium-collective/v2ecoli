@@ -4,20 +4,23 @@ The study YAML is the source of truth (no manifest JSON). A study's `name` is th
 store/verdict/card key; its `condition` is the biological vEcoli condition the
 ensemble simulates (these differ for disambiguated studies, e.g. `basal_4x4` runs
 the `basal` condition with 4 seeds). The investigation YAML carries the shared
-execution context (ParCa caches, vEcoli fork env, default cards).
+execution context (ParCa caches, reference engine, default cards). A study's
+`config` is a condition name OR a reference-config path -- a "swap" (e.g.
+MetabolismRedux) is just a config path that drives both engines identically.
 """
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 
 import yaml
 
+from scripts._compare.reference import ReferenceEngine
+
 REPO = Path(__file__).resolve().parent.parent.parent
 INVEST_ROOT = REPO / "workspace" / "investigations"
 STUDIES_ROOT = REPO / "workspace" / "studies"
-DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
+DEFAULT_INVEST = "whole-cell-model-comparison"
 # Cards that GATE (pass/fail). The multi-seed `statistical` card (Welch t-test over
 # >=4 seeds) is the gold standard for trajectory reproduction; `parca` gates the
 # t=0 initial-state match. The single-seed `standard` card is DELIBERATELY NOT a
@@ -26,7 +29,7 @@ DEFAULT_INVEST = "v2ecoli-vecoli-comparison"
 # single-seed "mismatch" it was flagged for). `standard` is kept as an illustrative
 # trajectory card only. See project memory `project_v2e_compare_singleseed_stochastic`.
 GRADED = {"statistical", "parca"}   # cards that produce a gating test
-_DEFAULT_CARDS = ["config", "parca", "standard", "statistical"]
+_DEFAULT_CARDS = ["summary", "config", "parca", "standard", "statistical"]
 _DEFAULT_V2_CACHE = "out/cache_full"
 _DEFAULT_VE_CACHE = "out/compare_harness/vecoli_parca"
 
@@ -41,18 +44,93 @@ class StudySpec:
     invest_name: str
     v2_cache: str
     ve_cache: str
-    fork: str                 # V2E_VECOLI_DIR value ("" if unset)
     study_path: str
-    from_vecoli_config: str = ""   # fork-relative vEcoli config driving a process
-                                   # swap on BOTH engines (e.g. metabolism_redux);
-                                   # "" = no swap (plain baseline comparison)
+    config: str = ""           # a condition name, or a reference-config path
+                                # driving a process swap on BOTH engines (e.g.
+                                # metabolism_redux); a bare name = no swap
+    reference: "ReferenceEngine | None" = None   # how to run the reference engine
     max_steps_per_gen: int = 15000  # per-generation tick budget; lower it for a
                                     # short-horizon run of an expensive swap (e.g.
                                     # MetabolismRedux solves an LP per tick)
+    inject_processes: list = dc_field(default_factory=list)
+    # Extra FORK processes to inject alongside the ones `config` declares. A
+    # swapped fork process can depend on a companion fork process — usually a
+    # listener it reads a store from — that arrives on the fork via the config's
+    # standard `processes` list, which injection does not carry. Naming it here
+    # keeps the declaration with the study that needs it, rather than requiring
+    # an edit to a shared fork config. Explicit by design: inferring which ports
+    # lack a writer from a vivarium-1.0 ports_schema means guessing at port
+    # direction.
 
     @property
     def graded_cards(self) -> list:
         return [c for c in self.cards if c in GRADED]
+
+
+def studies_root_for(inv_dir) -> Path:
+    """Where a workspace keeps its studies.
+
+    Studies live as a SIBLING of ``investigations/`` under the same workspace
+    root (``inv_dir`` is always ``<workspace>/investigations/<name>``). Derived
+    from ``inv_dir`` rather than hardcoding ``REPO`` so a caller pointing at an
+    alternate or test workspace resolves studies within THAT workspace.
+
+    ⚠ Both the legacy members path and ``specs_from_configs`` resolve through
+    here. The hardcoded form used to appear only in a ``study_path=`` string --
+    cosmetic, since nothing read it. It is load-bearing now that companions are
+    read from that file, and an investigation rooted outside ``REPO`` would have
+    read none of them with no error.
+    """
+    # NOT the module-level STUDIES_ROOT: that is bound at import, so a test (or
+    # any caller) repointing REPO would not reach it. Looked up at call time.
+    return (Path(inv_dir).parent.parent / "studies") if inv_dir \
+        else (REPO / "workspace" / "studies")
+
+
+def companions_from_study_yaml(study_path) -> list:
+    """Read `inject_processes` from a study.yaml — the ONE surface that declares it.
+
+    Top-level first, then `comparison:` — mirroring how `config` resolves.
+    ⚠ Precedence is by TRUTHINESS, not presence: an empty list at top level is
+    falsy and falls through, so top-level cannot clear a companion declared
+    below.
+
+    Both spec routes read through here. The investigation route builds specs
+    from `comparison.configs[]` entries, which do NOT carry this key, and it
+    already knows each study's yaml path — so without this it would silently
+    ignore a declaration sitting in the file it names, and the study.yaml would
+    look correct while doing nothing on one of two first-class routes.
+    """
+    path = Path(study_path)
+    if not path.exists():
+        return []
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    comp = data.get("comparison") or {}
+    return list(data.get("inject_processes") or comp.get("inject_processes") or [])
+
+
+def is_reference_config(config) -> str | bool:
+    """True when `config` is a reference-config PATH rather than a bare condition
+    name. The single definition of that distinction: it decides whether a run
+    drives a process swap at all, and three copies of the predicate had already
+    started to accumulate."""
+    return str(config).endswith(".json")
+
+
+def check_companions_are_reachable(inject_processes, config, where) -> None:
+    """Raise when companions are declared on a route/config that cannot inject them.
+
+    Companions are injected only on the ``--from-vecoli-config`` path
+    (``run_comparison_ensemble`` guards the injection block on it), so a bare
+    condition name silently discards the declaration. Applied on BOTH spec
+    routes -- a guard that only covers one of them is how a declaration ends up
+    looking correct while doing nothing."""
+    if inject_processes and not is_reference_config(config):
+        raise ValueError(
+            f"{where}: inject_processes={list(inject_processes)} but config="
+            f"{config!r} is a bare condition name, not a reference-config path. "
+            "Companion processes are injected only on the --from-vecoli-config "
+            "path, so this declaration would be silently discarded.")
 
 
 def _invest_dir(ref: str) -> Path:
@@ -71,21 +149,51 @@ def _context(inv_dir: Path) -> dict:
     data = yaml.safe_load(path.read_text(encoding="utf-8")) if path.exists() else {}
     data = data or {}
     comp = data.get("comparison") or {}
-    fork_env = comp.get("vecoli_dir_env", "V2E_VECOLI_DIR")
     # Canonical model (post-#390): investigations reference top-level
     # workspace/studies/<slug>/ via `members:`. Fall back to the legacy
     # `studies:` key for any investigation not yet migrated.
     members = data.get("members") or data.get("studies") or []
+    defaults = comp.get("defaults") or {}
     return {
         "invest_name": data.get("name", inv_dir.name),
         "members": members,
         "studies": members,
+        "reference": ReferenceEngine.from_spec(comp.get("reference") or {}),
+        "configs": comp.get("configs") or [],
         "v2_cache": comp.get("v2_cache", _DEFAULT_V2_CACHE),
         "ve_cache": comp.get("ve_cache", _DEFAULT_VE_CACHE),
-        "fork": os.environ.get(fork_env, ""),
-        "default_cards": (comp.get("defaults") or {}).get("cards") or list(_DEFAULT_CARDS),
+        "defaults": defaults,
+        "default_cards": defaults.get("cards") or list(_DEFAULT_CARDS),
         "inv_dir": inv_dir,
     }
+
+
+def specs_from_configs(ctx: dict) -> list:
+    """One StudySpec per `comparison.configs[]` entry -- a config is the unit."""
+    defaults = ctx.get("defaults") or {}
+    out = []
+    for entry in ctx["configs"]:
+        name = entry["name"]
+        cfg = entry.get("config", name)
+        study_yaml = studies_root_for(ctx.get("inv_dir")) / name / "study.yaml"
+        companions = companions_from_study_yaml(study_yaml)
+        check_companions_are_reachable(companions, cfg, str(study_yaml))
+        out.append(StudySpec(
+            name=name,
+            condition=entry.get("condition", name),
+            config=cfg,
+            seeds=int(entry.get("seeds", defaults.get("seeds", 4))),
+            gens=int(entry.get("gens", defaults.get("generations", defaults.get("gens", 1)))),
+            cards=list(entry.get("cards") or defaults.get("cards") or list(_DEFAULT_CARDS)),
+            invest_name=ctx["invest_name"],
+            v2_cache=ctx["v2_cache"],
+            ve_cache=ctx["ve_cache"],
+            reference=ctx["reference"],
+            study_path=str(study_yaml),
+            max_steps_per_gen=int(entry.get("max_steps_per_gen") or 15000),
+            inject_processes=companions,
+        ))
+    return out
 
 
 def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
@@ -103,6 +211,19 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
     if seeds < 1 or gens < 1:
         raise ValueError(f"{study_path}: comparison.seeds/generations must be >= 1 "
                          f"(got seeds={seeds}, generations={gens})")
+    # `config` is the new name; `from_vecoli_config` is read for backward
+    # compat with study.yaml content not yet migrated (see task-2 report).
+    inject_processes = companions_from_study_yaml(study_path)
+    config = (data.get("config") or comp.get("config")
+              or data.get("from_vecoli_config") or comp.get("from_vecoli_config")
+              or name)
+    # A companion is only ever injected on the `--from-vecoli-config` path
+    # (run_comparison_ensemble.py guards the injection block on it). A study whose
+    # `config` is a bare condition name drives no injection at all, so a companion
+    # declared there would be passed to the runner and silently discarded — the
+    # fail-without-erroring shape. Say so instead.
+    check_companions_are_reachable(inject_processes, config, study_path)
+
     return StudySpec(
         name=name,
         condition=condition,
@@ -112,10 +233,10 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
         invest_name=ctx["invest_name"],
         v2_cache=ctx["v2_cache"],
         ve_cache=ctx["ve_cache"],
-        fork=ctx["fork"],
+        config=config,
+        inject_processes=inject_processes,
+        reference=ctx["reference"],
         study_path=str(study_path),
-        from_vecoli_config=(data.get("from_vecoli_config")
-                            or comp.get("from_vecoli_config") or ""),
         max_steps_per_gen=int(comp.get("max_steps_per_gen") or 15000),
     )
 
@@ -123,22 +244,28 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
 def load_investigation(ref: str) -> tuple[dict, list]:
     """Return (context, [StudySpec, ...]) for an investigation name or path.
 
-    Studies are loaded in the order listed in the investigation's `members:`
-    (legacy `studies:` for any un-migrated investigation); each is resolved
-    from the canonical TOP-LEVEL workspace/studies/<slug>/study.yaml (Study
-    Pipeline registry model, post-#390) -- NOT the legacy nested
-    inv_dir/studies/<slug>/. A listed study whose study.yaml is missing is
-    skipped.
+    Supports BOTH investigation schemas. If `comparison.configs[]` is present
+    (the config-is-the-unit model, post-Task-6), specs are built directly via
+    specs_from_configs() -- the same source run/init/scaffold already use, so
+    render/run/scaffold/init all agree on one spec list. Otherwise (legacy
+    investigations not yet migrated off `members:`), studies are loaded in
+    the order listed in `members:` (legacy `studies:` for any un-migrated
+    investigation); each is resolved from the canonical TOP-LEVEL
+    workspace/studies/<slug>/study.yaml (Study Pipeline registry model,
+    post-#390) -- NOT the legacy nested inv_dir/studies/<slug>/. A listed
+    study whose study.yaml is missing is skipped.
     """
     inv_dir = _invest_dir(ref)
     if not (inv_dir / "investigation.yaml").exists():
         raise FileNotFoundError(f"investigation not found: {inv_dir}/investigation.yaml")
     ctx = _context(inv_dir)
+    if ctx.get("configs"):
+        return ctx, specs_from_configs(ctx)
     # Top-level studies live as a SIBLING of investigations/ under the same
     # workspace root (inv_dir is always <workspace>/investigations/<name>);
     # derive it from inv_dir rather than hardcoding REPO so a caller pointing
     # at an alternate/test workspace resolves studies within that workspace.
-    studies_root = inv_dir.parent.parent / "studies"
+    studies_root = studies_root_for(inv_dir)
     specs = []
     for sname in ctx["members"]:
         sp = studies_root / sname / "study.yaml"
@@ -150,7 +277,8 @@ def load_investigation(ref: str) -> tuple[dict, list]:
 def load_study(ref: str) -> StudySpec:
     """Return a StudySpec for a study NAME (under the canonical investigation) or
     a path (to a study.yaml or its dir). The investigation `comparison` context
-    (caches, fork) is resolved via the study's `investigation:` back-reference."""
+    (caches, reference engine) is resolved via the study's `investigation:`
+    back-reference."""
     p = Path(ref)
     if p.name == "study.yaml":
         sp = p

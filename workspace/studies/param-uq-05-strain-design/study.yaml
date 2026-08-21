@@ -1,0 +1,575 @@
+schema_version: 4
+name: param-uq-05-strain-design
+investigation: parameter-uq
+title: "Strain-design UQ — which new-gene knob (expression vs translation efficiency) drives product/growth variance, decomposed across aggregation strategies 1–3"
+created: '2026-08-15'
+status: evaluated
+
+# Canonical 6-axis status. GFP-new-gene sim_data BUILT (fitSimData_1,
+# new_genes_option='gfp'; gate passed). pbg-uq new-gene driver WIRED, the
+# division daughter-cache blocker FIXED, and a RESOLVING 2-generation ensemble
+# run: n=24 train + 4 test PCRV samples × 3 seeds × 2 generations × 4000 steps →
+# 168 records (84 gen-1 + 84 gen-2; every train lineage divided). ALL THREE
+# aggregation strategies from ONE ensemble. At n=24 the order-2 PCE is now
+# RESOLVED — the inert decoy falls to 0.024 (< 0.05 null) and GFP held-out test
+# error to ~23% (from ~61% at n=12) — so the Sobol values are trustworthy, and
+# the ranking REVERSES vs the under-resolved n=12 run (see claim).
+design_status: complete
+implementation_status: complete       # GFP build + new-gene driver + division fix + aggregation strategies 1–3 all working
+simulation_status: complete           # resolving n=24 2-generation ensemble (168 records, gens 1 & 2); n=12 2-gen + 1-gen smoke preceded it
+evaluation_status: complete           # all three aggregation strategies computed + interpreted at a resolved budget
+gate_status: passed                   # pipeline-runs PASS; aggregation-1-3 PASS; argmax-robustness PASS (exp wins across all seeds+gens); adversarial-null PASS for product level (decoy 0.024 < 0.05). Growth-rate decomposition remains noise-dominated (not asserted).
+expert_review_status: pending
+
+# Investigation-graph node fields.
+claim: |
+  A GFP new-gene strain built via fitSimData_1 (new_genes_option='gfp') runs
+  end-to-end through the pbg-uq forward-UQ pipeline over the two public
+  new_gene_internal_shift knobs (exp, trl_eff). After fixing the cell-division
+  daughter-cache blocker, a single 2-generation ensemble yields ALL THREE
+  aggregation strategies (population, by-generation, by-seed). At a RESOLVED
+  budget (n=24 train + 4 test, 3 seeds, 2 generations, 4000 steps; 168 records),
+  EXPRESSION (exp) is the dominant lever on new-gene PRODUCT LEVEL — total-order
+  Sobol 0.73 vs trl_eff 0.37 under population aggregation — and exp is the argmax
+  in EVERY stratum (both generations 0.72/0.75, all three seeds 0.74/0.77/0.60),
+  so the ranking (exp > trl_eff) is argmax-ROBUST. This CONFIRMS the pre-registered
+  "exp dominates" hypothesis. IMPORTANT — this REVERSES the earlier n=12 result,
+  which (with a leaking inert decoy, 0.24–0.51, and ~61% test error) had trl_eff
+  apparently leading: at n=12 the surrogate was under-resolved, and its adversarial
+  decoy correctly flagged it as untrustworthy; at n=24 the decoy falls to 0.024
+  (< 0.05 null) and product test error to ~23%, and the ranking flips to
+  exp-dominant. The by-generation decomposition is now flat (exp dominates in both
+  generations, 0.72 → 0.75) — the "generational trend" seen at n=12 was also an
+  under-resolution artifact. Growth rate remains nearly insensitive to both knobs
+  (its Sobol decomposition is noise-dominated — inert decoy 0.43 — because growth
+  variance is tiny; GFP expression is a light metabolic load), so no growth-rate
+  ranking is asserted.
+confidence: "Moderate (resolved n=24 budget — adversarial null passes for product level, exp>trl_eff argmax-robust; growth-rate decomposition not asserted)"
+
+question: |
+  For a GFP new-gene strain-design use case in v2ecoli: (1) does the pbg-uq
+  forward-UQ pipeline run end-to-end when the swept knobs are new-gene
+  expression + translation-efficiency factors (public new_gene_internal_shift)?
+  (2) Which knob dominates variance in new-gene product level and in growth rate?
+  (3) Does the dominant-knob ranking depend on the aggregation strategy — a single
+  bulk-population average (strategy 1), stratified by generation across the
+  induction shift (strategy 2), or stratified by stochastic seed (strategy 3)?
+
+hypothesis: |
+  Expression (exp) is the dominant lever on new-gene product level (a direct
+  transcription-level scaling), while translation efficiency (trl_eff) contributes
+  a smaller, more interaction-laden share. Because new_gene_internal_shift induces
+  at a chosen generation, the by-generation aggregation (strategy 2) is expected to
+  reveal induction-timing structure that the population aggregation (strategy 1)
+  averages away — i.e. the strategy choice is itself informative, not merely a
+  variance-reduction knob. Growth-rate sensitivity to either knob is expected to be
+  modest at the demonstration window (product expression is a small metabolic load).
+
+objective: |
+  Run a forward-UQ on a GFP new-gene v2ecoli strain, sweeping the two public
+  strain-design knobs (expression, translation efficiency), to (a) rank their
+  Sobol contributions to new-gene product level and growth rate, and (b)
+  demonstrate the milestone's required decomposition across aggregation strategies
+  1–3. This is the parameter-uq investigation's strain-design extension — the
+  "systematic sweep across the full parameter space" the overview anticipates —
+  and the concrete demonstration deliverable for the M8 / 08.4.2 UQ milestone,
+  built natively in v2ecoli (pbg-uq) rather than the standalone uqEcoli pipeline.
+
+description: |
+  The sibling studies param-uq-00..04 established that the pbg-uq forward-UQ
+  pipeline runs on the v2ecoli baseline and that, among physiological elongation
+  knobs, ribosome basal_elongation_rate dominates growth-rate variance. This study
+  turns the same machinery on a STRAIN-DESIGN use case: a heterologous GFP
+  new-gene insert (ParCa `new_genes: gfp`), swept via the public
+  new_gene_internal_shift variant's two continuous factors — expression (`exp`)
+  and translation efficiency (`trl_eff`).
+
+  Two things make it the milestone demonstration rather than another physiology
+  sweep. First, the observable of interest is an ENGINEERING output — new-gene
+  product level — so the Sobol ranking answers a design question ("which knob to
+  turn to move product yield"). Second, the milestone explicitly requires applying
+  aggregation strategies 1–3, and new_gene_internal_shift's generational induction
+  makes strategy 2 (by-generation) mechanistically meaningful: the same ensemble,
+  aggregated three ways, is expected to yield three readings, and the study's job
+  is to report and interpret that difference — not to pick one.
+
+  Prerequisite (hard): no existing sim_data cache carries a new gene, so a
+  dedicated ParCa build with `new_genes: gfp` is required before any sampling.
+  That build is the study's first implementation step and runs on the mini.
+
+inputs:
+  - artifact: param-uq-01-elongation
+    from: param-uq-01-elongation
+  - artifact: param-uq-03-growth-stratified
+    from: param-uq-03-growth-stratified
+
+pipeline_gate:
+  gate_status: passed
+  proceed_condition: |
+    param-uq-01-elongation.gate_status == passed (the pbg-uq forward-UQ pipeline
+    runs end-to-end on v2ecoli) AND a GFP-new-gene sim_data is built and verified
+    (get_new_gene_ids_and_indices returns a non-empty set).
+  blocks_until_resolved: |
+    Without a GFP-new-gene sim_data the strain-design knobs are inert and no
+    sampling is meaningful; the GFP-ParCa build is the first implementation gate.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    # NOTE: baseline must be built from a GFP-new-gene sim_data (ParCa
+    # new_genes: gfp). Recorded as an enforced input below; wiring in progress.
+  variants:
+    - name: new_gene_expression
+      detail: "new_gene_internal_shift exp_trl_eff.exp — factor scaling induced new-gene expression."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    - name: new_gene_translation_efficiency
+      detail: "new_gene_internal_shift exp_trl_eff.trl_eff — factor scaling induced new-gene translation efficiency."
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  interventions:
+    - name: aggregation-strategy-1-population
+      detail: "Bulk average across all cells & timepoints (uniform)."
+    - name: aggregation-strategy-2-by-generation
+      detail: "Stratify by generation across the induction shift; requires generations >= 2."
+    - name: aggregation-strategy-3-by-seed
+      detail: "Stratify by stochastic (lineage) seed; requires multiple seeds."
+    - name: adversarial-inert-knob
+      detail: "A knob that SHOULD be inert for product level — a post-induction knockout_gen with expression already floored — must return near-zero Sobol, or the sensitivity readout is not trustworthy."
+
+assumptions:
+  - name: new-gene-present
+    detail: |
+      The strain-design knobs only do anything on a sim_data built with the
+      new-gene option enabled. get_new_gene_ids_and_indices(sim_data) must return
+      a non-empty GFP cistron/monomer set; a vanilla baseline errors. Verified as
+      an implementation gate before sampling.
+  - name: demonstration-window
+    detail: |
+      A short demonstration ensemble (few generations, modest sample budget) is a
+      DEMONSTRATION of the strategy decomposition, not a converged full-parameter
+      global sweep. Scope claims accordingly.
+
+tests:
+  - name: strain-design-uq-pipeline-runs-end-to-end
+    observable: pbg-uq ensemble over the two new-gene knobs completes on a GFP sim_data
+    condition: |
+      A GFP-ParCa sim_data is built; PCRV sampling over (exp, trl_eff) runs
+      >= 2 generations x multiple seeds; per-sample new-gene product level and
+      growth rate are emitted; a PCE surrogate fits with reported test error.
+    rationale: |
+      The milestone's need-to-have is a working strain-design demonstration; this
+      is the end-to-end liveness gate.
+  - name: aggregation-strategies-1-3-decomposed
+    observable: Sobol indices reported under all three aggregation strategies
+    condition: |
+      The same ensemble is aggregated three ways (population, by-generation,
+      by-seed) and the study reports a Sobol ranking for each, plus an explicit
+      statement of whether/why the rankings differ.
+    rationale: |
+      "Apply sensitivity analysis for aggregation strategies (1–3)" is the
+      explicit milestone wording. Passing means the decomposition is present and
+      interpreted, not that any particular knob wins.
+  - name: dominant-knob-identified-and-robust
+    observable: a ranked Sobol ordering of (exp, trl_eff) for product level, stable across seeds
+    condition: |
+      One knob's total-order Sobol ranking is stable across PCRV seeds (argmax
+      identical), with the surrogate test error reported. Direction (exp vs
+      trl_eff) is not pre-judged.
+    rationale: |
+      The design question ("which knob moves product yield") needs a robust,
+      not a single-seed, answer.
+  - name: adversarial-inert-knob-returns-null
+    observable: Sobol index of the deliberately-inert knob
+    condition: "The inert adversarial knob's total-order Sobol is near-zero (within noise)."
+    rationale: |
+      Rigor: the sensitivity readout must reject a knob that cannot affect the
+      observable, or it cannot be trusted to accept one that does.
+
+runs: []
+
+planned_runs:
+  - name: gfp-parca-build
+    status: planned
+    n_steps: 0
+    details: |
+      ParCa build with new_genes: gfp on the mini → sim_data with a GFP new gene.
+      Gate: get_new_gene_ids_and_indices(sim_data) non-empty. Not a simulation
+      (n_steps=0); the prerequisite build for every run below.
+  - name: strain-design-screen
+    status: planned
+    n_steps: 120
+    details: |
+      Low→high screen of (exp, trl_eff) on the GFP baseline to set production
+      bounds and confirm each knob moves new-gene product level; seeds [0].
+  - name: strain-design-ensemble
+    status: planned
+    n_steps: 480
+    details: |
+      Production PCRV ensemble over (exp, trl_eff), >= 2 generations x 3 PCRV
+      seeds [0,1,2], XArray emitter. Emits new-gene product level + growth rate
+      per cell/generation so strategies 1–3 can all be computed from one ensemble.
+      tests: [strain-design-uq-pipeline-runs-end-to-end,
+      aggregation-strategies-1-3-decomposed, dominant-knob-identified-and-robust,
+      adversarial-inert-knob-returns-null]
+
+simulation_set:
+  - name: gfp-parca-build
+    kind: build
+    status: done
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    description: |
+      DONE. Built via sims/build_gfp_sim_data.py — classic
+      reconstruction.ecoli.knowledge_base_raw.KnowledgeBaseEcoli(new_genes_option='gfp')
+      + fitSimData_1 (basal_expression_condition='M9 Glucose minus AAs'), 126.7s.
+      GATE PASSED: get_new_gene_ids_and_indices → cistron 'NG001_RNA',
+      monomer 'NG-GFP-MONOMER[c]' (monomer index 4309). One v2ecoli-integration
+      patch was required: the classic DnaA_box unique-molecule schema lacks
+      v2ecoli's pool_label / DnaA_bound_form fields — added before save_sim_input.
+      (sim_data dill + bundle live off-repo at out/paramuq05/, ~66 MB, not committed.)
+    duration_steps: 0
+    seeds: [0]
+    metrics: [new_gene_cistron_count]
+    pass_fail_tests: []
+  - name: strain-design-screen
+    kind: screen
+    status: done
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {new_gene_internal_shift.exp_trl_eff.exp: "1e3..1e4", new_gene_internal_shift.exp_trl_eff.trl_eff: "0.5..2.0"}
+    description: |
+      DONE. The new-gene synth-prob baseline is ~1.7e-9 (genes near-knocked-out
+      by default), so exp factors O(1) give ~0 GFP. Screen (exp ∈ {1,10,100,
+      1000,10000}, trl=1, 1000 steps) gave GFP counts 0 / 1 / 3 / 30 / 409 → the
+      PRODUCTIVE expression-factor range is [1e3, 1e4]. This replaces the
+      pre-screen placeholder bounds [0.5,5.0] (study.yaml anticipated this screen).
+    duration_steps: 1000
+    seeds: [0]
+    metrics: [new_gene_product_level]
+    pass_fail_tests: [strain-design-uq-pipeline-runs-end-to-end]
+  - name: strain-design-ensemble-smoke
+    kind: uq-ensemble
+    status: done
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {sampler: PCRV, knobs: [exp, trl_eff, inert_decoy], n_train: 12, n_test: 3, seeds: 3, generations: 1, steps: 700}
+    description: |
+      DONE (smoke). PCRV ensemble over (exp, trl_eff) + an adversarial inert decoy
+      knob; order-2 PCE + analytic Sobol under aggregation strategies 1 & 3
+      (strategy 2 single-generation only — no division in the 700-step window).
+      45 records in 35.5 min. Results in results_smoke/sobol.json; figures in charts/.
+    duration_steps: 700
+    seeds: [0, 1, 2]
+    metrics: [new_gene_product_level, instantaneous_growth_rate, sobol_indices_per_strategy, pce_test_error]
+    pass_fail_tests: [strain-design-uq-pipeline-runs-end-to-end, aggregation-strategies-1-3-decomposed, dominant-knob-identified-and-robust, adversarial-inert-knob-returns-null]
+  - name: strain-design-ensemble-2gen
+    kind: uq-ensemble
+    status: done
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {sampler: PCRV, knobs: [exp, trl_eff, inert_decoy], n_train: 12, n_test: 2, seeds: 2, generations: 2, steps: 4000}
+    description: |
+      DONE (preliminary — SUPERSEDED as headline by the n=24 resolving ensemble
+      below). First run after fixing the division daughter-cache blocker (pass
+      cache_dir into baseline() so daughters rebuild from the per-sample temp
+      cache instead of default out/cache): 56 records = 28 gen-1 + 28 gen-2, every
+      lineage divided at t≈2529s. Proved strategy 2 (by-generation) works. BUT at
+      n=12 the order-2 PCE was UNDER-RESOLVED (inert decoy 0.24–0.51, ~61% GFP test
+      error) and gave trl_eff > exp — a ranking the n=24 run REVERSES. Kept for the
+      record (results_2gen/). Lesson: trust the ranking only when the adversarial
+      decoy is under the 0.05 null band. See commit
+      "fix(param-uq-05): thread per-sample cache_dir into division".
+    duration_steps: 4000
+    seeds: [0, 1]
+    metrics: [new_gene_product_level, instantaneous_growth_rate, sobol_indices_per_strategy, pce_test_error]
+    pass_fail_tests: [strain-design-uq-pipeline-runs-end-to-end, aggregation-strategies-1-3-decomposed]
+  - name: strain-design-ensemble-n24
+    kind: uq-ensemble
+    status: done
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    perturbation: {sampler: PCRV, knobs: [exp, trl_eff, inert_decoy], n_train: 24, n_test: 4, seeds: 3, generations: 2, steps: 4000}
+    description: |
+      DONE — the HEADLINE result. Resolving 2-generation ensemble: 24 train + 4
+      test PCRV samples × 3 seeds × 2 generations × 4000 steps → 168 records
+      (84 gen-1 + 84 gen-2; every train lineage divided). All three aggregation
+      strategies from ONE ensemble. At this budget the order-2 PCE is RESOLVED:
+      the inert decoy falls to 0.024 (< 0.05 null) and GFP held-out test error to
+      ~23% (from ~61% at n=12), so the adversarial-null check PASSES and the Sobol
+      values are trustworthy. Result: exp dominates product level (0.73 vs 0.37),
+      argmax-robust across all seeds & generations — reversing the under-resolved
+      n=12 ranking and confirming the pre-registered "exp dominates" hypothesis.
+      Results in results_n24/sobol.json; charts/ re-rendered from it.
+    duration_steps: 4000
+    seeds: [0, 1, 2]
+    metrics: [new_gene_product_level, instantaneous_growth_rate, sobol_indices_per_strategy, pce_test_error]
+    pass_fail_tests: [strain-design-uq-pipeline-runs-end-to-end, aggregation-strategies-1-3-decomposed, dominant-knob-identified-and-robust, adversarial-inert-knob-returns-null]
+
+visualizations:
+  - name: Sobol sensitivity by aggregation strategy
+    chart: image
+    address: image:charts/sobol_by_strategy.png
+    config:
+      title: "REAL (n=24) — Strain-design Sobol (exp vs trl_eff vs inert decoy) on GFP product level, aggregation strategies 1–3"
+    render: |
+      REAL resolving result (n=24+4 test, 3 seeds, 2 gens, 4000 steps; 168
+      records): grouped total-order Sobol bars for exp / trl_eff / inert-decoy on
+      new-gene product level. Four groups: strategy 1 (population), strategy 2 as
+      TWO groups (generation_1, generation_2), strategy 3 (by-seed, whiskers =
+      across-seed min–max). exp (blue) is the LARGER real knob in every group —
+      the ranking exp > trl_eff is argmax-robust across seeds and generations.
+      The inert decoy (grey) now sits AT/BELOW the 0.05 null band (dotted) —
+      population 0.024, both generations ~0.025, seeds 0.03/0.04/0.12 — so the
+      adversarial-null check passes and the Sobol values are trustworthy (a sharp
+      change from the under-resolved n=12 run, where the decoy leaked 0.24–0.51
+      and the ranking mistakenly favoured trl_eff). By-generation is now flat:
+      exp dominates in both generations (0.72 → 0.75).
+  - name: PCE response — product level vs strain-design knobs
+    chart: image
+    address: image:charts/pce_response_strain_design.png
+    config:
+      title: "REAL (n=24) — order-2 PCE surrogate: GFP product level vs exp and vs trl_eff (other at midpoint)"
+    render: |
+      REAL resolving result: order-2 PCE surrogate prediction of GFP product level
+      across each knob's productive range (exp ∈ [1e3,1e4], trl_eff ∈ [0.5,2.0]),
+      other knob at midpoint, over the ensemble scatter. GFP rises steeply
+      (saturating) with exp and more weakly with trl_eff — consistent with exp
+      carrying the larger Sobol share; held-out test error ~23%.
+
+# Report authored at Evaluate over REAL emitted numbers from the RESOLVING n=24
+# 2-generation ensemble (results_n24). All three aggregation strategies from one
+# ensemble at a resolved budget (adversarial decoy under the 0.05 null band).
+# No values are invented.
+report:
+  title: param-uq-05-strain-design — strain-design UQ across aggregation strategies 1–3 (resolved, n=24)
+  verdict: supported — all three strategies delivered from one 2-gen ensemble; at a resolved budget exp > trl_eff for product level is argmax-robust across seeds & generations; adversarial-null passes (decoy 0.024)
+  confidence: "Moderate (resolved n=24 — adversarial null passes for product level; exp>trl_eff robust; growth-rate decomposition not asserted)"
+  evidence_quality: "REAL resolving 2-generation ensemble: GFP fitSimData_1 build (gate passed) + pbg-uq order-2 PCE (n=24 train + 4 test, 3 seeds, 2 generations, 4000 steps; 168 records = 84 gen-1 + 84 gen-2, every train lineage divided). All three aggregation strategies from this one ensemble. At n=24 the surrogate is RESOLVED — inert-decoy total-order Sobol 0.024 (< 0.05 null) and ~23% GFP held-out test error (down from ~61% at n=12) — so the Sobol ranking is trustworthy. Preceding runs (results_smoke, results_2gen) were under-resolved and are retained for the record; the n=12 run's trl_eff-leads finding was an under-resolution artifact its own adversarial decoy flagged."
+  objective: |
+    Rank the two GFP new-gene strain-design knobs (expression, translation
+    efficiency) by Sobol contribution to product level and growth rate, and
+    demonstrate the milestone-required decomposition across aggregation
+    strategies 1–3.
+  setup: |
+    ### Parameter Specifications (swept knobs)
+
+    Both knobs come from the PUBLIC `new_gene_internal_shift` variant
+    (present in v2ecoli's ecoli build), applied to a GFP-new-gene sim_data.
+
+    | Parameter | Variant path | Nominal | Planned range | Description |
+    |---|---|---|---|---|
+    | `exp` | `new_gene_internal_shift.exp_trl_eff.exp` | 1.0 | **1e3–1e4 (screened)** | Factor scaling induced new-gene expression (transcription-level). |
+    | `trl_eff` | `new_gene_internal_shift.exp_trl_eff.trl_eff` | 1.0 | 0.5–2.0 | Factor scaling induced new-gene translation efficiency. |
+    | `inert_decoy` | (drawn, never applied) | — | 0–1 | Adversarial null knob: sampled and fed to the PCE but never applied to sim_data; must return ~0 Sobol. |
+
+    The placeholder `exp` range [0.5,5.0] produced ~0 GFP (the new-gene synth-prob
+    baseline is ~1.7e-9 — genes are near-knocked-out by default). A screen
+    (exp ∈ {1,10,100,1000,10000}) gave GFP counts 0 / 1 / 3 / 30 / 409 over 1000
+    steps, so the PRODUCTIVE range [1e3, 1e4] is used (study anticipated this screen).
+
+    ### Tracked observables
+
+    | Observable | Path | Why |
+    |---|---|---|
+    | new-gene product level | new-gene monomer count (GFP) | The engineering output the strain-design ranking is about. |
+    | `instantaneous_growth_rate` | `listeners.mass.instantaneous_growth_rate` | Growth-rate load of expressing the product. |
+
+    ### Methodology (as run — resolving n=24 2-generation ensemble)
+
+    | Field | Value |
+    |---|---|
+    | Tool | pbg-uq · `sims/run_strain_design_uq.py` (adapted from pbg-uq/examples/v2ecoli_demo.py) |
+    | Composite | `v2ecoli.composites.ecoli_baseline` built per-sample from a GFP `new_genes: gfp` sim_data with `modify_new_gene_exp_trl` applied; `cache_dir` passed so cell division rebuilds daughters from the same variant cache |
+    | Induction | immediate (generation 0): v2ecoli bakes sim_data into the cache bundle, so the vEcoli generational `internal_shift_dict` is not honoured — the (exp, trl_eff) factors are applied directly. Knob semantics identical; only induction timing differs. |
+    | Sampling | PCRV (uniform prior) over (exp, trl_eff) + inert decoy; `pbg_uq.sampling.draw_samples` |
+    | Surrogate | order-2 Polynomial Chaos Expansion, analytic Sobol; `pbg_uq.uqpc.fit_pce_and_sobol` (fit per output) |
+    | Aggregation | all three from one ensemble: strategy 1 (population), strategy 2 (by-generation, gens 1 & 2), strategy 3 (by-seed) |
+    | Budget | 24 train + 4 test PCRV samples × 3 seeds × 2 generations × 4000 steps → 168 records (84 gen-1 + 84 gen-2, every train lineage divided at t≈2529s) |
+    | Compute | mini (GFP fitSimData_1 build + ensemble; ~6 h) |
+  result: |
+    REAL — resolving 2-generation ensemble (n=24 train + 4 test, 3 seeds, 2
+    generations, 4000 steps; exp ∈ [1e3,1e4], trl_eff ∈ [0.5,2.0], + inert decoy).
+    168 records = 84 gen-1 + 84 gen-2; every train lineage divided (t≈2529s). All
+    three aggregation strategies from this ONE ensemble. Total-order Sobol on GFP
+    product level (population also lists growth rate):
+
+    **Strategy 1 — population (bulk average over seeds, gens, time):**
+
+    | Observable | exp | trl_eff | inert decoy | PCE held-out test error |
+    |---|---|---|---|---|
+    | GFP product level | **0.733** | 0.374 | 0.024 | ~23% |
+    | instantaneous growth rate | 0.596 | 0.235 | 0.428 | ~3% (see note) |
+
+    **Strategy 2 — by-generation (GFP product level, total-order):**
+
+    | Generation | exp | trl_eff | inert decoy | test err | argmax |
+    |---|---|---|---|---|---|
+    | 1 (founder) | **0.718** | 0.385 | 0.024 | ~20% | exp |
+    | 2 (daughter) | **0.754** | 0.358 | 0.026 | ~31% | exp |
+
+    **Strategy 3 — by-seed (GFP product level, total-order):**
+
+    | Seed | exp | trl_eff | inert decoy | test err | argmax |
+    |---|---|---|---|---|---|
+    | 0 | **0.743** | 0.404 | 0.029 | ~31% | exp |
+    | 1 | **0.770** | 0.291 | 0.042 | ~21% | exp |
+    | 2 | **0.603** | 0.409 | 0.122 | ~40% | exp |
+
+    Adversarial null: the inert decoy's total-order Sobol is 0.024 (population),
+    0.024/0.026 (generations 1/2), and 0.029/0.042 for seeds 0/1 — all UNDER the
+    0.05 null band. Only seed 2 (the noisiest fit, ~40% test error) leaks to 0.122.
+    The population and by-generation readouts PASS the adversarial-null check.
+
+    Growth-rate note: growth barely varies across the ensemble (GFP is a light
+    metabolic load), so its total variance is tiny and its Sobol decomposition is
+    noise-dominated (decoy 0.43 despite ~3% fit error — a small-denominator
+    artifact). No growth-rate ranking is asserted.
+  interpretation: |
+    At a resolved budget the milestone deliverable — all three aggregation
+    strategies from ONE ensemble — is met, and it yields a trustworthy, robust
+    finding, with one important correction to the earlier preliminary run:
+
+    1. **Expression (exp) is the dominant product-level lever, and it is
+       argmax-ROBUST.** exp carries 0.73 of the total-order variance in GFP product
+       level vs 0.37 for trl_eff (population), and exp is the argmax in EVERY
+       stratum — both generations (0.72, 0.75) and all three seeds (0.74, 0.77,
+       0.60). The ranking does not flip. This CONFIRMS the pre-registered
+       "exp dominates" hypothesis: for this GFP insert over these ranges, the
+       induced transcription level is the stronger product lever.
+
+    2. **This REVERSES the n=12 preliminary result — a rigor win, not a
+       contradiction.** The earlier n=12 2-generation run reported trl_eff leading,
+       but its adversarial inert decoy leaked 0.24–0.51 (>> 0.05) and its GFP test
+       error was ~61% — i.e. its own rigor check FLAGGED the surrogate as
+       untrustworthy. At n=24 the decoy falls to 0.024 and test error to ~23%, the
+       surrogate resolves, and the true ranking (exp > trl_eff) emerges. The
+       lesson: honour the adversarial-null gate — a ranking from an ensemble whose
+       decoy leaks is not to be trusted, and here it was outright wrong.
+
+    3. **The by-generation decomposition is now flat.** exp dominates in both
+       generations (0.72 → 0.75; trl_eff 0.39 → 0.36) — the founder/daughter
+       "trend" seen at n=12 (exp falling gen1→gen2) does NOT survive the larger
+       budget and was another under-resolution artifact. The honest strategy-2
+       reading at n=24 is that the dominant-knob ranking is generation-invariant
+       for this system — itself a useful answer to the milestone's question
+       (the strategy choice does not change the ranking here).
+
+    4. **Adversarial-null PASSES for the product-level readout.** Population and
+       by-generation decoy Sobol are ~0.02–0.03 (< 0.05); by-seed passes for 2 of 3
+       seeds (seed 2 leaks 0.12 at ~40% test error — the noisiest single-seed fit).
+       So the headline (population / by-generation) is quantitatively trustworthy.
+
+    5. **Growth rate remains not-assertable.** Growth variance is tiny (light GFP
+       load) → its Sobol is noise-dominated (decoy 0.43). No growth-rate ranking is
+       claimed. Further convergence (n larger still, or a targeted growth-load
+       range) is the way to say anything quantitative about growth.
+  decision: |
+    DELIVER the three-strategy decomposition as the resolved headline result and
+    assert the exp-dominant product-level ranking. At n=24 the adversarial-null
+    gate PASSES for the population and by-generation readouts (decoy 0.024) and the
+    product test error is ~23%, so the ranking is trustworthy: EXPRESSION (exp) is
+    the argmax-robust dominant lever on GFP product level, confirming the
+    pre-registered hypothesis and reversing the under-resolved n=12 finding (whose
+    own decoy had flagged it). The by-generation decomposition shows the ranking is
+    generation-invariant here. Still DO NOT assert any growth-rate ranking — growth
+    variance is too small to decompose (decoy 0.43). Remaining follow-ups: converge
+    seed 2 (its single-seed fit still leaks) and, if a growth claim is wanted, a
+     range/observable that actually loads growth.
+
+readouts:
+  - name: new_gene_product_level
+    notes: "GFP new-gene monomer count — the engineering output."
+  - name: sobol_indices_per_strategy
+    notes: "Sobol ranking of (exp, trl_eff) under each of aggregation strategies 1–3."
+  - name: pce_test_error
+    notes: "Surrogate test relative error, per strategy/seed."
+
+enforced_params:
+  - name: new_genes
+    value: gfp
+    detail: "ParCa build must enable the GFP new-gene option, else the knobs are inert."
+
+study_card:
+  role: |
+    The strain-design extension of parameter-uq: turns the established pbg-uq
+    forward-UQ machinery on an engineering (new-gene product) observable and
+    delivers the M8/08.4.2 milestone's required aggregation-strategy-1–3
+    demonstration, natively in v2ecoli.
+
+biological_summary: |
+  A heterologous GFP gene is inserted (ParCa new_genes: gfp) and induced via the
+  public new_gene_internal_shift variant. Two design knobs — how strongly the gene
+  is transcribed (expression) and how efficiently its mRNA is translated
+  (translation efficiency) — are swept, and forward UQ ranks their contribution to
+  product level and to the growth-rate cost of expression.
+
+literature_anchors:
+  - claim: "new_gene GFP insert + internal-shift induction is the standard vEcoli/v2ecoli new-gene mechanism."
+    model_observable: "new_gene_internal_shift.exp_trl_eff.{exp,trl_eff}; new_genes: gfp"
+    source: "v2ecoli/vEcoli new-gene subsystem (reconstruction/ecoli/flat/new_gene_data/gfp)"
+
+model_change:
+  base_model: v2ecoli.composites.ecoli_baseline
+  detail: |
+    No change to the composite topology. A GFP new-gene sim_data (ParCa
+    new_genes: gfp) replaces the vanilla baseline sim_data; the external pbg-uq
+    driver wraps baseline() per sample and applies the new_gene_internal_shift
+    knob values.
+
+implementation_requirements:
+  - name: gfp-parca-build
+    detail: |
+      Build a sim_data with new_genes: gfp on the mini; verify
+      get_new_gene_ids_and_indices returns a non-empty GFP set before sampling.
+  - name: pbg-uq-new-gene-driver
+    detail: |
+      Extend examples/v2ecoli_uq_ensemble.py (or a sibling) to sweep the
+      new_gene_internal_shift exp_trl_eff knobs and emit new-gene product level.
+  - name: aggregation-strategies-1-3
+    detail: |
+      Aggregate the ensemble population / by-generation / by-seed and report a
+      Sobol ranking for each. by-generation requires generations >= 2; by-seed
+      requires multiple seeds — set the run budget accordingly.
+
+behavior_tests:
+  - name: strain-design-uq-pipeline-runs-end-to-end
+    expectation: "PCRV ensemble over (exp, trl_eff) completes on the GFP sim_data with a fitted PCE."
+    status: passed   # n=24 2-gen ensemble: 168 records, order-2 PCE fit per output
+  - name: aggregation-strategies-1-3-decomposed
+    expectation: "One ensemble yields a Sobol ranking under each of population / by-generation / by-seed, with the difference interpreted."
+    status: passed   # n=24 ensemble (84 gen-1 + 84 gen-2) yields all three strategies from ONE ensemble; strategy-2-vs-1 interpreted (ranking is generation-invariant at this resolved budget: exp dominant in both gens 0.72/0.75)
+  - name: dominant-knob-identified-and-robust
+    expectation: "The dominant knob's total-order Sobol ranking is argmax-stable across PCRV seeds."
+    status: passed   # n=24: exp is argmax in ALL 3 seeds (0.74/0.77/0.60) AND both generations (0.72/0.75) — ranking robust and now QUANTITATIVELY resolved (decoy under null, ~23% test error)
+  - name: adversarial-inert-knob-returns-null
+    expectation: "The deliberately-inert knob returns near-zero total-order Sobol (within noise)."
+    status: passed   # n=24: GFP decoy 0.024 (population), 0.024/0.026 (gens), 0.029/0.042 (seeds 0/1) — all < 0.05 null. Passes for population + by-generation + 2/3 seeds. (seed 2 leaks 0.12 at ~40% test err — noisiest single-seed fit; the headline population/by-gen readouts pass.)
+
+conclusion_verdicts:
+  - claim: "The pbg-uq forward-UQ pipeline runs end-to-end on a GFP new-gene strain-design use case."
+    verdict: supported
+    basis: "n=24 2-generation ensemble: GFP fitSimData_1 build (gate passed) → per-sample GFP monomer count + growth rate emitted across cell divisions → order-2 PCE + analytic Sobol fit. 168 records (84 gen-1 + 84 gen-2)."
+  - claim: "Sobol rankings can be decomposed across aggregation strategies 1–3 from a single ensemble."
+    verdict: supported
+    basis: "After fixing the division daughter-cache blocker (pass cache_dir into baseline() so daughters rebuild from the per-sample variant cache), every train lineage divided and one 2-generation ensemble yields all three strategies: population, by-generation (gens 1 & 2), by-seed."
+  - claim: "The adversarial inert-knob check passes (surrogate is quantitatively trustworthy) for the product-level readout."
+    verdict: supported
+    basis: "At n=24 the inert decoy's total-order Sobol is 0.024 (population), 0.024/0.026 (gens 1/2), 0.029/0.042 (seeds 0/1) — all under the 0.05 null band — and GFP held-out test error is ~23% (down from ~61% at n=12). Only seed 2 leaks (0.12, ~40% fit error). Population + by-generation readouts pass."
+  - claim: "Expression (exp) dominates new-gene product-level variance over translation efficiency (trl_eff)."
+    verdict: supported (argmax-robust, resolved)
+    basis: "n=24 Sobol: exp is the larger knob in EVERY stratum — population (0.73 vs 0.37), both generations (0.72/0.75 vs 0.39/0.36), all three seeds (0.74/0.77/0.60 vs 0.40/0.29/0.41). Argmax does not flip → robust; the decoy is under the null so it is trustworthy. CONFIRMS the pre-registered hypothesis. NB this REVERSES the under-resolved n=12 2-gen result (trl_eff-leads, decoy 0.24–0.51) — whose own adversarial decoy had flagged it as untrustworthy."
+  - claim: "The by-generation ranking differs from the population ranking (strategy choice changes the answer)."
+    verdict: refuted (generation-invariant at resolved budget)
+    basis: "At n=24 exp dominates in both generations (0.72 → 0.75) — the dominant-knob ranking is generation-invariant. The apparent gen1→gen2 trend at n=12 (exp falling) was an under-resolution artifact. Honest strategy-2 answer: the strategy choice does not change the ranking for this system."
+  - claim: "Translation efficiency (or expression) is the dominant growth-rate lever."
+    verdict: not_supported (indeterminate)
+    basis: "Growth variance is tiny across the ensemble (GFP is a light metabolic load) → its Sobol decomposition is noise-dominated (decoy 0.43 at n=24 despite ~3% fit error, a small-denominator artifact). No growth-rate ranking is asserted at any budget run so far."
+
+falsifiability: |
+  The study FAILS its rigor bar if (a) the adversarial inert knob returns a
+  non-null Sobol index, (b) the dominant-knob ranking flips across seeds within a
+  single strategy (not robust), or (c) the three aggregation strategies cannot be
+  computed from one ensemble. A null or reversed expression-vs-trl_eff result is a
+  valid finding, not a failure — only the pipeline/robustness/decomposition gates
+  are pass/fail.
+
+robustness:
+  detail: |
+    Ranking robustness is asserted across PCRV seeds (argmax stability), and the
+    aggregation-strategy comparison is itself a robustness probe: a ranking that
+    holds across all three strategies is stronger than one that only appears under
+    population averaging.

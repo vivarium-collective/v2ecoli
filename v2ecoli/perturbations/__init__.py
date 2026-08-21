@@ -24,6 +24,10 @@ from v2ecoli.perturbations.design_variant import (
     Stage,
     plan_design_variant,
 )
+from v2ecoli.perturbations.native_genes import (
+    resolve_native_targets,
+    set_native_translation_efficiency,
+)
 from v2ecoli.perturbations.new_gene_cache import build_new_gene_cache
 from v2ecoli.perturbations.new_genes import (
     new_gene_indices,
@@ -44,6 +48,8 @@ __all__ = [
     "Stage",
     "build_new_gene_cache",
     "plan_design_variant",
+    "resolve_native_targets",
+    "set_native_translation_efficiency",
     "new_gene_indices",
     "set_new_gene_expression",
     "resolve_targets",

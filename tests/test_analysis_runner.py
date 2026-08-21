@@ -381,3 +381,60 @@ def test_parallel_analyses_use_distinct_cursors_not_shared_connection(monkeypatc
         "two or more modules were handed the identical connection/cursor "
         f"object (ids: {seen_conn_ids}) — concurrent queries on a shared "
         "DuckDB connection are not safe")
+
+
+def test_s3_secret_refresh_is_thread_safe_not_a_catalog_race(monkeypatch, tmp_path):
+    """Item 79 regression: concurrent modules each calling the REAL
+    configure_duckdb_s3() (not mocked) on their own cursor must not race on
+    DuckDB's catalog.
+
+    Reproduces the exact failure hit live 2026-08-21 (item 77 validation
+    pilot, sim172): 8+ modules launched together via ThreadPoolExecutor each
+    called configure_duckdb_s3(cursor) — a catalog-level `CREATE OR REPLACE
+    SECRET v2e_sweep_s3` — at nearly the same instant, and DuckDB correctly
+    raised a real TransactionException ("Catalog write-write conflict on
+    alter with 'v2e_sweep_s3'"). The whole run failed, zero modules wrote
+    output. Fixed by serializing just that call under _ctx_lock while leaving
+    query execution concurrent (see _run_duckdb_name's own docstring).
+
+    `configure_duckdb_s3` is called for REAL here (not stubbed) — it's the
+    exact function under test. It only STORES the given credentials in
+    DuckDB's local catalog; it never validates them against real AWS, so
+    fake env-var credentials make this safe to run with zero network access.
+    Only `history_files` (real S3 LISTING, a genuinely different concern) is
+    stubbed to the tiny local parquet cell _duckdb_test_ctx already wrote,
+    so `is_s3_uri(sweep_dir)` is True (triggering the real credential-refresh
+    code path) without needing a real S3 bucket to list.
+    """
+    ar = _duckdb_test_ctx(monkeypatch, tmp_path)
+    real_cell = (tmp_path / "history" / "experiment_id=e" / "variant=0"
+                 / "lineage_seed=0" / "generation=0" / "agent_id=0" / "400.pq")
+    assert real_cell.exists(), "setup helper's own real cell went missing"
+    monkeypatch.setattr(ar, "history_files", lambda sweep_dir: [str(real_cell)])
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "fake-key-id")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "fake-secret")
+    monkeypatch.delenv("AWS_SESSION_TOKEN", raising=False)
+
+    from v2ecoli.workflow.analysis import Analysis
+
+    class _Deterministic(Analysis):
+        scale = "multiseed"
+
+        def update(self, state, interval=None):
+            n = state["conn"].sql(
+                f"SELECT count(*) FROM ({state['history_sql']})").fetchone()[0]
+            return {"data": {"n_rows": n}}
+
+    names = [f"mod_{i}" for i in range(8)]
+    for n in names:
+        _register_fake(monkeypatch, ar, n, _Deterministic)
+    opts = {"multiseed": {n: {} for n in names}}
+
+    results = ar.run_analyses("s3://fake-bucket/fake-sweep", opts,
+                               out_dir=str(tmp_path / "out"), max_workers=8)
+
+    for n in names:
+        group = next(iter(results["multiseed"][n].values()))
+        assert group == {"n_rows": 1}, (
+            f"{n} produced {group!r} instead of a clean result — a catalog "
+            "write-write race corrupted or dropped this module's output")

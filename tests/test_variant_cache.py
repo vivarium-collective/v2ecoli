@@ -5,6 +5,7 @@ a cache that is written before a perturbation is applied, or that carries only
 one of the two halves, produces a complete run against the wrong strain.
 """
 import copy
+import os
 
 import numpy as np
 import pytest
@@ -242,3 +243,99 @@ def test_spec_mapping_is_not_mutated_by_the_build(spy, tmp_path):
     original = copy.deepcopy(dict(spec.native_perturbations))
     build_variant_cache(sd, str(tmp_path / "c"), spec)
     assert dict(spec.native_perturbations) == original
+
+
+# --------------------------------------------------------------------------
+# End-to-end, against a real new-gene ParCa state.
+#
+# Gated because the input cannot be committed — NOT because it is unverified.
+# It has been executed; see the PR body. Everything above stops at the sim_data
+# boundary by design, and a fake cannot exercise the one thing most likely to
+# break in practice: the weight vectors pair POSITIONALLY against the real
+# new-gene count, which a two-gene fake cannot disagree with.
+# --------------------------------------------------------------------------
+
+_E2E_STATE = os.environ.get("V2ECOLI_NEW_GENE_CACHE")
+
+
+@pytest.mark.skipif(
+    not _E2E_STATE,
+    reason="set V2ECOLI_NEW_GENE_CACHE=/path/to/parca_state.pkl[.gz] from a "
+           "`v2ecoli-parca --new-genes ...` build to run the real chain")
+def test_a_three_stage_plan_produces_three_materially_different_caches(tmp_path):
+    """Declaration -> plan -> three real caches, each differing as declared.
+
+    Catches, as one chain: a plan whose stages are not actually distinct; an
+    induction that does not reach the built cache; a knockout that does not
+    switch the construct back off; and a chassis perturbation that fails to
+    apply to every stage. None of these would raise — each produces a complete
+    cache that is wrong.
+    """
+    from v2ecoli.core import load_cache_bundle
+    from v2ecoli.perturbations import new_gene_indices, plan_design_variant
+    from v2ecoli.processes.parca.data_loader import (
+        hydrate_sim_data_from_state, load_parca_state)
+
+    sim_data = hydrate_sim_data_from_state(load_parca_state(_E2E_STATE))
+    _, _, _, monomer_indices = new_gene_indices(sim_data)
+    n = len(monomer_indices)
+
+    # Unequal weights, one per REAL target — the length a fake cannot get wrong.
+    weights = [float(i + 1) for i in range(n)]
+    native_target = str(
+        sim_data.process.transcription.cistron_data.struct_array["gene_id"][0])
+
+    plan = plan_design_variant({
+        "perturbations": {native_target: 0.5},
+        "new_gene_internal_shift_variable_strength": {
+            "induction_gen": 2,
+            "knockout_gen": 4,
+            "exp_trl_eff": {"exp": 1e6, "trl_eff": 0.285},
+            "rel_adj": {"rel_exp_adj_list": weights,
+                        "rel_trl_eff_adj_list": weights},
+        }})
+    assert [s.cache.label for s in plan.stages] == [
+        "uninduced", "induced", "knocked_out"]
+
+    built = {}
+    for stage in plan.stages:
+        out = build_variant_cache(
+            sim_data, str(tmp_path / stage.cache.label), stage.cache)
+        bundle = load_cache_bundle(out["cache_dir"])
+        bulk = bundle["initial_state"]["bulk"]
+        new_gene_counts = [int(row[1]) for row in bulk
+                           if str(row[0]).startswith("NG-")]
+        built[stage.cache.label] = {
+            "counts": new_gene_counts,
+            "te": np.asarray(bundle["configs"]["ecoli-polypeptide-initiation"]
+                             ["translation_efficiencies"], dtype=float),
+            "native": out["native"],
+        }
+
+    # The construct is SILENT before induction and PRODUCED after it. This is
+    # the whole point of staging, and it is only visible on a real build:
+    # ParCa inserts a new gene with expression exactly zero.
+    assert sum(built["uninduced"]["counts"]) == 0, (
+        "uninduced stage is not silent — the pre-induction control is wrong")
+    assert sum(built["induced"]["counts"]) > 0, (
+        "induction did not reach the built cache")
+    assert sum(built["knocked_out"]["counts"]) == 0, (
+        "knockout did not switch the construct back off")
+
+    # Translation efficiency survives the knockout while expression does not —
+    # the reference switches the construct off without disturbing the rest of
+    # the declaration.
+    ind_te = built["induced"]["te"][monomer_indices]
+    ko_te = built["knocked_out"]["te"][monomer_indices]
+    assert np.allclose(ind_te / ind_te[0], ko_te / ko_te[0], rtol=1e-6)
+
+    # The declared weight ratios survive into the cache. Absolute values do not
+    # — the cached array is L1-normalised — so ratios are the assertable thing.
+    assert np.allclose(ind_te / ind_te[0],
+                       np.array(weights) / weights[0], rtol=1e-6)
+
+    # The chassis perturbation applies to EVERY stage, including the silent one.
+    for label in ("uninduced", "induced", "knocked_out"):
+        prov = built[label]["native"]
+        assert prov["gene_ids"] == [native_target]
+        assert prov["multipliers"] == [0.5]

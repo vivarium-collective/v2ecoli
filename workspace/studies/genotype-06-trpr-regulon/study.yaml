@@ -177,6 +177,24 @@ conditions:
 # data it grades. Four of five are PREDICTED to fail, each for a stated
 # mechanistic reason recorded before any run - see findings F-02/F-03/F-05.
 #
+# ⛔ TWO CORRECTIONS TO THESE BANDS, both forced by the route-B data (2026-08-21).
+#
+# (a) `listener_median` IS NOT A VALID MEASURE KIND. study_evaluator.RUN_DATA_KINDS
+#     contains no listener_* kinds at all; the scaffold's comment lists them and the
+#     evaluator does not implement them, so these bands were authored against a stale
+#     comment and would have fallen through to the agent bucket rather than being graded.
+#     They now declare `kind: derived` — the ratio is computed by a committed script
+#     (sims/analyze_route_b.py) in the same pattern as sims/extract_evidence.py.
+#
+# (b) ★ THE STATISTIC MUST BE THE MEAN, NOT THE MEDIAN. Measured: trp-operon repression
+#     in this model is ON/OFF, not graded. In the AA-replete WT arm the TU synthesis
+#     probability sits at ~8e-12 for 74% of samples and ~2.6e-4 for the rest — TrpR is
+#     present at only 42-80 copies, so a single complex binding and unbinding switches it.
+#     A MEDIAN lands on whichever side of that split it happens to fall: the same WT/KO
+#     pair yielded 5.2e7, 1.98 and 4.5e7 across three generations. The MEAN is both stable
+#     and the biologically right quantity, because transcription integrates over time —
+#     mean = (fraction of time active) x (level when active). ⇒ 6.29x, reproducibly.
+#
 # QUANTITY. Every band is a BETWEEN-ARM RATIO on the same gene - the knockout
 # arm's value over the wild-type arm's - measured as actual_rna_synth_prob, a
 # per-transcription-unit share normalized to sum to 1 across TUs
@@ -203,9 +221,10 @@ behavior_tests:
     question: >-
       B1. Does removing TrpR derepress the trp operon by more than ten fold?
     measure:
-      kind: listener_median
+      kind: derived
       path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
+      statistic: time_mean_ratio_ko_over_wt
     pass_if:
       op: at_least
       value: 10.0
@@ -221,9 +240,10 @@ behavior_tests:
     classification: supporting
     question: B3. Does aroH respond to TrpR loss at roughly six fold?
     measure:
-      kind: listener_median
+      kind: derived
       path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
+      statistic: time_mean_ratio_ko_over_wt
     pass_if:
       op: in_range
       low: 3.0
@@ -239,9 +259,10 @@ behavior_tests:
     classification: primary
     question: B2. Does mtr - a documented TrpR regulon member - respond at all?
     measure:
-      kind: listener_median
+      kind: derived
       path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
+      statistic: time_mean_ratio_ko_over_wt
     pass_if:
       op: at_least
       value: 1.5
@@ -257,9 +278,10 @@ behavior_tests:
     classification: supporting
     question: B4. Does aroL correctly show little or no response?
     measure:
-      kind: listener_median
+      kind: derived
       path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
+      statistic: time_mean_ratio_ko_over_wt
     pass_if:
       op: at_most
       value: 1.5
@@ -276,9 +298,10 @@ behavior_tests:
     question: >-
       B5. Is TrpR repression the dominant control on the trp operon, exceeding attenuation?
     measure:
-      kind: listener_median
+      kind: derived
       path: listeners.rna_synth_prob.actual_rna_synth_prob
       window: second_half
+      statistic: time_mean_ratio_ko_over_wt
     pass_if:
       op: at_least
       value: 1.0
@@ -444,6 +467,12 @@ alternative_hypotheses:
       F-04 - attenuation is OFF in a default run, so it compensates for nothing unless
       explicitly enabled. The attenuation-on control arm tests this directly.
     status: not-excluded
+  - claim: >-
+      The model's TrpR regulation is inert - removing the repressor changes nothing.
+    discriminated_by: >-
+      F-07. Measured in BOTH conditions: 6.29x derepression where the model declares TrpR active,
+      1.06x where it declares it inactive. Inert regulation would give ~1.0x in both.
+    status: excluded
 
 falsifiability: >-
   The central claim - that the model's regulatory reach bounds what any build route can show -
@@ -629,6 +658,60 @@ findings:
         coordinate_bounds.ok, coordinate_shift.ok, tombstone.ok and functional_absence.ok all
         within_tol; fit.completed and fit.conditions_fitted ungraded because no fit completed.
         Artifact: data/route_a_summary.json.
+      from_test: ""
+
+  - id: F-07
+    tier: mechanism
+    mechanism_origin: engineered
+    statement: >-
+      The model's TrpR regulation WORKS, and the earlier basal null result was correct behaviour
+      rather than a divergence. Removing TrpR in the condition where the model declares it active
+      derepresses the trp operon 6.29x; in basal, where the model declares it inactive, the same
+      knockout changes nothing (1.06x). The knockout itself is total in both - zero TrpR copies
+      against 42-80 in the matched wild type.
+    claim_scope: mechanism
+    lifecycle_state: tested-vs-alternatives
+    generality:
+      axes_tested: [parameter_regime, initial_conditions]
+      level: mechanism
+    next_action: >-
+      This resolves the alternative hypothesis recorded above: the weak trp response measured in
+      basal was NOT inert regulation, it was a condition with nothing to derepress. The model's own
+      condition_defs.tsv declares CPLX-125 (TrpR's active form) among with_aa's active TFs and none
+      in basal, so basal has no repression to relieve. Both arms of that alternative are now
+      measured rather than reasoned.
+    next_action_type: replicate
+    evidence:
+      observed: >-
+        Time-mean trp TU (TU00067) synthesis probability, second-half window, 3 generations,
+        seed 0. AA-replete: WT 6.63e-05, trpR KO 4.17e-04, ratio 6.29x. Basal: WT 5.77e-04,
+        trpR KO 6.14e-04, ratio 1.06x. TrpR monomer: 0 in every KO sample, 42-80 in WT.
+        Fraction of samples with the operon repressed (<1e-8): AA-replete WT 74%, KO 0%.
+        Artifacts: data/route_b_*.json.
+      from_test: ""
+  - id: F-08
+    tier: observation
+    statement: >-
+      The measured derepression (6.29x) matches the ceiling predicted statically from the model's
+      own fold_changes table (F-03: 2.03-5.50x). Two independent methods - reading the shipped
+      parameter table, and running the knockout - agree. So B1's predicted failure against the
+      literature's 70-300x is a parameterization result, fully accounted for, and not a defect in
+      the knockout machinery or the run.
+    claim_scope: mechanism
+    lifecycle_state: candidate-explanation
+    generality:
+      axes_tested: [parameter_regime]
+      level: mechanism
+    next_action: >-
+      This is the strongest form the study's central claim can take: the model under-derepresses by
+      roughly an order of magnitude relative to the literature, and the shortfall is exactly what
+      its own regulatory parameterization permits. FU-02 (re-parameterize the TrpR fold-changes) is
+      the actionable consequence.
+    next_action_type: calibrate
+    evidence:
+      observed: >-
+        Static (F-03, from fold_changes.tsv): TrpR terms 2.03-5.50x. Dynamic (F-07, from the run):
+        6.29x. Literature: 70-300x.
       from_test: ""
 
 discovery_implications:

@@ -720,6 +720,7 @@ def run_vivarium_ecoli_pbg_multigen(
     lineage_seed: int = 0,
     whole_config: str | None = None,
     exchange_fluxes: dict | None = None,
+    observable_bulk_ids: list | None = None,
 ) -> dict:
     """Single-lineage multigen for the vEcoli **pbg node**, emitting the v2ecoli-format zarr.
 
@@ -754,6 +755,7 @@ def run_vivarium_ecoli_pbg_multigen(
         shutil.rmtree(store_path)
 
     exchange_fluxes = dict(exchange_fluxes or {})
+    observable_bulk_ids = list(observable_bulk_ids or [])
     _view_vars = {
         "mass": {k: [{"path": k, "dtype": "<f8"}] for k in MASS_OBS},
         "unique_molecule_counts": {k: [{"path": k, "dtype": "<f8"}] for k in COUNT_OBS},
@@ -762,6 +764,9 @@ def run_vivarium_ecoli_pbg_multigen(
         _view_vars["exchange_flux"] = {
             leaf: [{"path": leaf, "dtype": "<f8"}] for leaf in exchange_fluxes}
     view = [{"root": ("listeners",), "variables": _view_vars}]
+    if observable_bulk_ids:
+        view.append({"root": ("bulk",), "variables": {
+            i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}})
     metadata_base = {
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),
@@ -788,7 +793,8 @@ def run_vivarium_ecoli_pbg_multigen(
             swap_processes=swap_processes, flow=flow,
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
             initial_overlay=overlay, variant=variant,
-            exchange_fluxes=exchange_fluxes)
+            exchange_fluxes=exchange_fluxes,
+            observable_bulk_ids=observable_bulk_ids)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise
         if gen == 0:                       # capture vEcoli's OWN resolved config once

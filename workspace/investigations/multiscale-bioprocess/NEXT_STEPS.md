@@ -5,6 +5,20 @@ PR #69 landed the investigation on main: 7 studies, the 3-arm Beulig comparison
 15-gap synthesis, the Millard ATP fix, and the 7→5 composite consolidation. The
 main result — a ~3-order batch-scale gap holding across seeds — is established.
 
+> ⚠ **Updated 2026-08-20 — the Millard arm is deferred.** mbp-07 is now framed as
+> the investigation's *extensibility demonstration* rather than a Millard study,
+> and the Millard arm's five criteria are withdrawn from the acceptance set
+> (three of them grade against Beulig; the other two are a growth-recovery band
+> and a head-to-head tracking summary) (the drop-in itself stands: tFBA Metabolism is replaced by the
+> kinetic ODE across the whole-cell model's full process set and coupled to the reactor). The
+> Beulig comparison the investigation still **gates** on is therefore
+> **two-armed** — WCM-FBA (mbp-05, all five axis groups) and iML1515 (mbp-07) —
+> not three. **Items 4 and 5 below are consequently DEFERRED, not queued.**
+> Reopening either means first settling whether a coupled reactor should drive
+> the Millard model's external glucose (it currently must not — pending
+> `v2ecoli#550`), and then re-calibrating and regenerating this study's figures
+> and the `millard_vs_beulig` card.
+
 This PR resumes the documented follow-ups (priority order):
 
 1. **Both-daughters population runner** — the path past the single-lineage
@@ -16,9 +30,11 @@ This PR resumes the documented follow-ups (priority order):
 3. **Ungraded comparison axes** — add sim concentration stores for byproducts +
    dissolved-O2 so those overlays grade (Beulig lacks acetate/DO ref columns —
    scope decision). (mbp-06 axis B.)
-4. **O2-limited Millard kinetics** — close the reactor→Millard dissolved-O2
-   feedback (Millard currently treats O2 as a fixed species).
-5. **Millard model completeness** — add H2O/CO2 efflux to the SBML so the
+4. **O2-limited Millard kinetics** — ⚠ DEFERRED 2026-08-20 (see the note above).
+   Close the reactor→Millard dissolved-O2 feedback (Millard currently treats O2
+   as a fixed species).
+5. **Millard model completeness** — ⚠ DEFERRED 2026-08-20 (see the note above).
+   Add H2O/CO2 efflux to the SBML so the
    Millard-cell mass balance closes; investigate why Millard growth is too slow
    to reach division (gen 1 at 9k steps).
 6. **pbg-bioreactordesign#2** — upstream O2-saturation temperature-sign fix

@@ -808,7 +808,9 @@ def run_vivarium_ecoli_pbg_multigen(
         em = _build_emitter(
             core=core, store_path=store_path, view=view, metadata_base=metadata_base,
             generation=gen + 1,  # 1-indexed to match run_multigen_xarray (v2ecoli side)
-            agent_id=partition_agent_id, output_metadata={}, buffer_size=3)
+            # Inherit build_emitter_config's buffer_size default (600): flush a
+            # handful of times per generation, not every few steps.
+            agent_id=partition_agent_id, output_metadata={})
 
         steps = 1
         divided = False

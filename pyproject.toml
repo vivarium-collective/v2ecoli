@@ -57,6 +57,7 @@ dependencies = [
     "biopython",
     "sympy",
     "pandas",
+    "altair",
     "plotly>=5.0",
     "ecoli-sources",
     "numba>=0.59",  # floor: numba<0.59 pins llvmlite<0.42 which has no Python 3.12 wheel
@@ -73,7 +74,7 @@ dependencies = [
     # git source, no `pbg-emitters` name-check trap (the renamed repo builds as
     # viva-emitters). [parquet] pulls duckdb/polars/pyarrow/fsspec/tqdm; [xarray]
     # pulls xarray/zarr/zarrs.
-    "viva-emitters[parquet,xarray]>=0.2.3",
+    "viva-emitters[parquet,xarray]>=0.3.0",
     # S3 backend for fsspec (a viva-emitters[parquet] dep). Both ParquetEmitter
     # (url_to_fs) and the XArray/zarr store (zarr.open_group) already accept an
     # s3:// out_uri/store natively — s3fs is the one missing piece that lets an

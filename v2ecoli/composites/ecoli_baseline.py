@@ -129,7 +129,7 @@ def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
 
 
 def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
-                                buffer_size: int = 3) -> dict:
+                                buffer_size: int = 600) -> dict:
     """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
     agent-relative, in-document capture.
 
@@ -162,7 +162,9 @@ def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
         out_uri: zarr store path/URI.
         metadata: non-empty run-identity metadata (experiment_id / variant /
             lineage_seed). Falls back to a non-empty placeholder if omitted.
-        buffer_size: transducer buffer size (streaming, bounded). Default 3.
+        buffer_size: transducer buffer size (streaming, bounded), in emit steps.
+            Default 600 — matches the viva-emitters library default; flushes a
+            handful of times per generation rather than every few steps.
 
     Returns:
         The static XArrayEmitter config skeleton (no ``view`` /

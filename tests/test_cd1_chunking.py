@@ -62,6 +62,53 @@ def test_distinct_cell_filters_batches_by_chunk_size():
     assert len(fragments) == 2  # 3 cells, batches of 2 -> [2, 1]
 
 
+def test_default_chunk_size_matches_documented_constant_for_both_entry_points():
+    """Regression guard (item 77): every OTHER test above passes an explicit
+    chunk_size=1/2, so none of them would catch a future silent regression
+    back to the old chunk_size=1 default. Confirm both `distinct_cell_filters`
+    and `run_chunked` batch by DEFAULT_CD1_CHUNK_SIZE (100) when chunk_size is
+    omitted entirely, for an n_cells that spans multiple chunks at that size.
+    """
+    import math
+
+    from v2ecoli.workflow.analyses._helpers import (
+        DEFAULT_CD1_CHUNK_SIZE,
+        distinct_cell_filters,
+        run_chunked,
+    )
+
+    assert DEFAULT_CD1_CHUNK_SIZE == 100
+
+    n_cells = 250  # spans multiple chunks at the default size (250 -> 3)
+    conn = duckdb.connect()
+    conn.register(
+        "many_cells",
+        pl.DataFrame(
+            {
+                "cell": [f"cell_{i}" for i in range(n_cells)],
+                "value": list(range(n_cells)),
+            }
+        ),
+    )
+    expected_chunks = math.ceil(n_cells / DEFAULT_CD1_CHUNK_SIZE)
+
+    # distinct_cell_filters: fragment count directly reflects chunk_size.
+    fragments = distinct_cell_filters(conn, "SELECT * FROM many_cells", id_cols=["cell"])
+    assert len(fragments) == expected_chunks
+
+    # run_chunked: count the chunk-batches it actually issues by instrumenting
+    # build_batch_sql, with chunk_size omitted (not just fragments un-tested).
+    calls = []
+
+    def _batch_sql(cell_filter: str) -> str:
+        calls.append(cell_filter)
+        return f"SELECT cell, value FROM many_cells WHERE {cell_filter}"
+
+    result = run_chunked(conn, "SELECT * FROM many_cells", _batch_sql, id_cols=["cell"])
+    assert len(calls) == expected_chunks
+    assert result.height == n_cells
+
+
 def test_run_chunked_matches_unchunked_equivalent():
     """The chunked path must produce the exact same AVG/GROUP BY result as a
     single unchunked query over the whole table — the core correctness claim

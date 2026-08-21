@@ -314,6 +314,16 @@ def cast_decimals(df):
 
 _CD1_ID_COLS = ["experiment_id", "variant", "lineage_seed", "generation", "agent_id"]
 
+# Default cells-per-round-trip for run_chunked/distinct_cell_filters (item 77).
+# chunk_size=1 was item 38's original OOM-safety default; item 38's own later
+# investigation found chunking barely moves peak memory (2-6% noise), while at
+# the real 1000-seed x 10-generation production scale chunk_size=1 means
+# ~40,000 sequential DuckDB round-trips across the 4 cd1_* modules that call
+# run_chunked -- confirmed live as the direct cause of a 5+ hour analysis run.
+# 100 cuts that to ~400. Still exposed as a per-module tunable `chunk_size`
+# config_schema param, not hardcoded -- see cd1_fluxomics.py etc.
+DEFAULT_CD1_CHUNK_SIZE = 100
+
 
 def _sql_literal(value) -> str:
     """Inline a Python scalar (str/int/float — cell-identity values only) as a
@@ -327,7 +337,7 @@ def distinct_cell_filters(
     conn: duckdb.DuckDBPyConnection,
     filtered_sql: str,
     id_cols: Optional[list[str]] = None,
-    chunk_size: int = 1,
+    chunk_size: int = DEFAULT_CD1_CHUNK_SIZE,
 ) -> list[str]:
     """Row-tuple ``WHERE`` fragments partitioning ``filtered_sql``'s distinct cells.
 
@@ -356,7 +366,7 @@ def run_chunked(
     filtered_sql: str,
     build_batch_sql,
     id_cols: Optional[list[str]] = None,
-    chunk_size: int = 1,
+    chunk_size: int = DEFAULT_CD1_CHUNK_SIZE,
 ):
     """Run ``build_batch_sql(cell_filter)`` once per cell chunk, concatenated.
 

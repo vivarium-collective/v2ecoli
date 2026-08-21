@@ -62,6 +62,21 @@ from typing import Any, Mapping, Sequence
 #: either, and each is read the same way apart from those vectors.
 _NEW_GENE_KEYS = ("new_gene_shift", "new_gene_internal_shift_variable_strength")
 
+#: Keys legal *inside* an induction block.
+_BLOCK_KEYS = frozenset(
+    {"condition", "induction_gen", "knockout_gen", "exp_trl_eff", "rel_adj"})
+
+#: Keys legal at the top level of a composed (``strain_design``-shaped)
+#: declaration.
+_WRAPPER_KEYS = frozenset({"condition", "perturbations"}) | frozenset(_NEW_GENE_KEYS)
+
+#: A declaration reaches a variant module already expanded to one grid point.
+#: These keys belong to the *unexpanded* grid spec that ``parse_variants``
+#: consumes (``op`` is popped; ``value``/``nested``/... are resolved), so seeing
+#: one means a whole axis was handed over in place of a single point.
+_GRID_SPEC_KEYS = frozenset(
+    {"value", "nested", "linspace", "logspace", "arange", "geomspace"})
+
 
 class DesignVariantError(ValueError):
     """A declaration could not be read. Raised in preference to guessing."""
@@ -174,26 +189,157 @@ def _native_perturbations(params: Mapping[str, Any]) -> dict[str, float]:
     return out
 
 
+def _reject_grid_spec(params: Mapping[str, Any]) -> None:
+    """Refuse an *unexpanded* grid spec handed over as if it were one point.
+
+    ``parse_variants`` expands ``{"value": [...]}`` / ``{"nested": {...}}`` into
+    one declaration per grid point and pops ``op`` on the way. So a declaration
+    still carrying those has skipped expansion, and reading it would plan a
+    single arm from a whole axis — silently, because the shapes are both
+    mappings.
+    """
+    if "op" in params:
+        raise DesignVariantError(
+            "declaration carries an 'op' key, which parse_variants pops during "
+            "expansion; this looks like an unexpanded grid spec rather than one "
+            "grid point")
+    for key, value in params.items():
+        if isinstance(value, Mapping) and _GRID_SPEC_KEYS.intersection(value):
+            spec = ", ".join(sorted(_GRID_SPEC_KEYS.intersection(value)))
+            raise DesignVariantError(
+                f"{key!r} carries grid-spec key(s) ({spec}); this looks like an "
+                "unexpanded grid spec rather than one grid point")
+
+
+def _reject_unknown_keys(params: Mapping[str, Any], allowed: frozenset,
+                         what: str) -> None:
+    """Refuse keys this reader does not act on.
+
+    ⚠ A deliberate divergence from the reference, which ignores extras in
+    silence. A misspelled key there yields an arm that builds, runs to
+    completion and reports as a data point while carrying none of the
+    perturbation its author wrote. On a screen that arm is indistinguishable
+    from a real negative result.
+    """
+    unknown = sorted(set(params) - allowed)
+    if unknown:
+        raise DesignVariantError(
+            f"{what} names key(s) this reader does not act on: "
+            f"{', '.join(repr(k) for k in unknown)}. Expected one of: "
+            f"{', '.join(sorted(allowed))}")
+
+
 def _induction_block(params: Mapping[str, Any]) -> tuple[Mapping[str, Any] | None, str]:
     """Return the new-gene block and which key carried it.
 
+    Two declaration shapes reach this reader, because vEcoli dispatches on the
+    **single** key under ``variants:`` and hands ``apply_variant`` exactly the
+    contents beneath it (``runscripts/create_variants.py:398-412``):
+
+    * **composed** — the module is ``strain_design``, so the induction sits in a
+      nested block beside ``condition`` / ``perturbations``;
+    * **bare** — the module *is* an induction variant, so the declaration has no
+      wrapper key and its own keys are the block's.
+
+    ⚠ Reading only the composed shape is not a narrower reader, it is a wrong
+    one: a bare declaration has no ``_NEW_GENE_KEYS`` key, so the induction is
+    not partially read, it is **not seen at all** — and the plan comes back as a
+    single unperturbed stage that looks entirely reasonable.
+
     ⚠ Both keys present is an error rather than a merge or a precedence rule:
     they set the same fields, so silently preferring one would make a
-    declaration mean something its author did not write.
+    declaration mean something its author did not write. The reference *does*
+    accept it — two independent ``if`` blocks, and the second variant opens with
+    ``sim_data.internal_shift_dict = {}``, so the first block is erased rather
+    than merged. Refusing is a deliberate guard against a declaration whose
+    first half is dead text; no config in the reference's own set declares both.
     """
     present = [k for k in _NEW_GENE_KEYS if params.get(k) is not None]
-    if not present:
-        return None, ""
+    bare = sorted(_BLOCK_KEYS.intersection(params) - {"condition"})
+
+    if present and bare:
+        raise DesignVariantError(
+            f"declaration mixes a nested induction block ({', '.join(present)}) "
+            f"with block-level key(s) ({', '.join(bare)}) at the top level; "
+            "which one carries the induction would be a guess")
     if len(present) > 1:
         raise DesignVariantError(
             f"declaration names more than one induction block ({', '.join(present)}); "
             "they set the same fields, so which one wins would be arbitrary")
-    key = present[0]
-    block = params[key]
-    if not isinstance(block, Mapping):
+
+    if present:
+        key = present[0]
+        block = params[key]
+        if not isinstance(block, Mapping):
+            raise DesignVariantError(
+                f"{key!r} must be a mapping, got {type(block).__name__}")
+        _reject_unknown_keys(params, _WRAPPER_KEYS, "declaration")
+        _reject_unknown_keys(block, _BLOCK_KEYS, f"{key!r}")
+        return block, key
+
+    if bare:
+        _reject_unknown_keys(params, _BLOCK_KEYS, "declaration")
+        return params, "declaration"
+
+    _reject_unknown_keys(params, _WRAPPER_KEYS, "declaration")
+    return None, ""
+
+
+def _generation(raw: Any, what: str) -> int:
+    """Read a 1-based generation index, refusing anything not already whole.
+
+    ⚠ ``int()`` truncates, and the reference does not: its shift fires on
+    ``generation >= induction_gen``, so ``2.7`` means generation **3** there and
+    would mean generation **2** here. A silent off-by-one on the induction
+    generation shifts the whole protocol by one cell cycle.
+    """
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
         raise DesignVariantError(
-            f"{key!r} must be a mapping, got {type(block).__name__}")
-    return block, key
+            f"{what} must be a whole number, got {type(raw).__name__}")
+    if isinstance(raw, float) and not raw.is_integer():
+        raise DesignVariantError(
+            f"{what} must be a whole number, got {raw!r}; the reference fires on "
+            f"'generation >= {raw!r}', which truncation would silently move")
+    return int(raw)
+
+
+def _condition(params: Mapping[str, Any], block: Mapping[str, Any] | None,
+               key: str) -> str | None:
+    """Resolve the growth condition, with the reference's precedence.
+
+    ``strain_design`` applies a top-level ``condition`` first, then inherits it
+    into the induction block **only if the block does not carry its own**
+    (``ecoli/variants/strain_design.py:81-82``, *"inherit if not given"*), and
+    the induction variant then applies whatever it ends up holding
+    (``new_gene_internal_shift.py:161``). So a block-level condition is legal
+    and **wins**.
+
+    ⚠ This is not a corner case: no config in the reference's own set declares
+    ``condition`` at the top level. Both CD2 screens declare it inside the
+    induction block, where it carries the media axis of the grid — so reading
+    only the top level drops that axis entirely and plans every arm in the
+    default medium.
+
+    The condition applies to **every** stage: the reference mutates ``sim_data``
+    once at build time, not per generation.
+    """
+    resolved = params.get("condition")
+    if block is not None and block.get("condition") is not None:
+        resolved = block["condition"]
+    if resolved is not None and not isinstance(resolved, str):
+        raise DesignVariantError(
+            f"'condition' must be a string, got {type(resolved).__name__}")
+    if block is not None and resolved is None:
+        # ``condition.apply_variant`` reads ``params["condition"]`` unguarded
+        # (``ecoli/variants/condition.py:30``), so the reference raises KeyError
+        # here rather than choosing a default. Defaulting would put the arm in a
+        # medium nobody declared.
+        raise DesignVariantError(
+            f"{key} declares an induction but no growth condition, and the "
+            "reference requires one (condition.apply_variant reads "
+            "params['condition'] unguarded). Declare it on the block or at the "
+            "top level rather than relying on a default")
+    return resolved
 
 
 def _induction(block: Mapping[str, Any], key: str,
@@ -246,23 +392,22 @@ def plan_design_variant(params: Mapping[str, Any]) -> DesignPlan:
         raise DesignVariantError(
             f"declaration must be a mapping, got {type(params).__name__}")
 
-    condition = params.get("condition")
-    if condition is not None and not isinstance(condition, str):
-        raise DesignVariantError(
-            f"'condition' must be a string, got {type(condition).__name__}")
+    _reject_grid_spec(params)
+    block, key = _induction_block(params)
+    condition = _condition(params, block, key)
     native = _native_perturbations(params)
 
     def spec(label: str, new_gene: NewGeneInduction | None) -> CacheSpec:
         return CacheSpec(label=label, condition=condition,
                          native_perturbations=dict(native), new_gene=new_gene)
 
-    block, key = _induction_block(params)
     if block is None:
         # No induction declared: one cache for the whole lineage. The chassis
         # perturbations still apply — they are not an event.
         return DesignPlan(stages=(Stage(1, spec("baseline", None)),))
 
-    induction_gen = int(block.get("induction_gen", 1))
+    induction_gen = _generation(block.get("induction_gen", 1),
+                                f"{key}.induction_gen")
     if induction_gen < 1:
         raise DesignVariantError(
             f"{key}.induction_gen is 1-based; got {induction_gen}")
@@ -278,7 +423,7 @@ def plan_design_variant(params: Mapping[str, Any]) -> DesignPlan:
 
     knockout_gen = block.get("knockout_gen")
     if knockout_gen is not None:
-        knockout_gen = int(knockout_gen)
+        knockout_gen = _generation(knockout_gen, f"{key}.knockout_gen")
         if knockout_gen <= induction_gen:
             raise DesignVariantError(
                 f"{key}.knockout_gen ({knockout_gen}) must come after "

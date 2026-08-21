@@ -419,13 +419,13 @@ def _select_exchange_fluxes(environment, fluxes: dict) -> dict:
     """Pick named metabolic exchange fluxes out of the cell's environment store.
 
     ``fluxes`` maps ``leaf_name -> exchange_key`` (e.g.
-    ``{"violacein_exchange": "VIOLACEIN[c]", "glucose_exchange": "GLC[p]"}``).
+    ``{"acetate_exchange": "AC[p]", "glucose_exchange": "GLC[p]"}``).
     The exchange dmdt lives at ``environment["exchange"]`` (keyed by metabolite
     id, uptake negative / secretion positive — the same store #547 measured with
     175 keys). A key absent this tick yields ``0.0`` so the leaf stays a
     continuous trace. Sign is preserved verbatim; consumers decide on ``abs``.
 
-    Deliberately generic: no molecule is special-cased here. GENERIC/violacein-
+    Deliberately generic: no molecule is special-cased here. GENERIC/pathway-
     agnostic by design — the flux map is supplied by config, so this stays out of
     the shared model's knowledge of any particular pathway."""
     if not fluxes:

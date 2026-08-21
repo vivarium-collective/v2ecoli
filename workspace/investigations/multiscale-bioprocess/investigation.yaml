@@ -431,7 +431,7 @@ executive:
 
     The seventh, mbp-07, is different in kind. It demonstrates that the cell-side interface contract is EXTENSIBLE -- that a metabolic engine other than v2ecoli's own can be attached behind the same interface. Three engines have been attached, at three deliberately different depths, and the ladder is the finding: flattening it into "three models drop in" would overclaim.
 
-    1. Millard 2017 kinetic ODE, the deepest: v2ecoli's constraint-based tFBA Metabolism is REMOVED and central-carbon metabolism runs through the kinetic ODE across the whole-cell model's full process set (baseline_millard), then coupled to the BiRD reactor. An engine swap inside the WCM, not a standalone model. Built, runs, produces live kinetic fluxes. The coupling is not symmetric: cell-to-reactor carries exchange today, while the reactor-to-cell direction is repaired by v2ecoli#550, which is NOT YET MERGED -- before it the mirror matches none of the coupler's molecule ids and that direction carries nothing. #550 also withholds this arm's medium glucose deliberately, so the reactor cannot overwrite the model's calibrated GLCx.
+    1. Millard 2017 kinetic ODE, the deepest: v2ecoli's constraint-based tFBA Metabolism is REMOVED and central-carbon metabolism runs through the kinetic ODE across the whole-cell model's full process set (baseline_millard), then coupled to the BiRD reactor. An engine swap inside the WCM, not a standalone model. Built, runs, produces live kinetic fluxes. The coupling is now bidirectional: cell-to-reactor carries exchange, and the reactor-to-cell direction was repaired by v2ecoli#550 (merged 2026-08-21). Before it the mirror matched none of the coupler's molecule ids and that direction carried nothing. #550 also withholds this arm's medium glucose deliberately, so the reactor cannot overwrite the model's calibrated GLCx.
     2. iML1515 genome-scale FBA (cobra), shallower and caveated: graded against the same Beulig WT batch prefix, but NOT coupled to the reactor and partly fit to the reference it is graded against -- its glucose and O2 uptake lower bounds are set FROM the measured Beulig rates, so growth is the only genuine prediction graded. Its own report card states it is not apples-to-apples with the whole-cell arm.
     3. OxidizeME ME-model, the thinnest and stated as such: a NAMED candidate, not a wired one. A third-party wrapper repo exists (ref 0.1.0, with a live demo report) and workspace.yaml declares it as a reference-only import, but it appears in neither pyproject.toml nor uv.lock, is not importable here, and local:OxidizeMEStep does not resolve -- verified 2026-08-20 against a positive control that does. Standing it up needs the package plus an upstream proprietary solver (Python 2.7 / qMINOS). It is named because it is the ME-model family Beulig 2025 itself used.
 
@@ -452,7 +452,13 @@ executive:
     closed the topology gap, but it matched NONE of the reactor coupler's
     compartment-tagged molecule ids, so the reactor->cell direction carried
     nothing at all — silently, because unmatched ids were dropped without a
-    record. Measured, and fixed by v2ecoli#548 (merged) together with #550 (OPEN, not yet merged -- so on main today that direction still carries nothing); see mbp-01's superseded
+    record. Measured, and fixed by v2ecoli#548 together with #550 (both merged
+    2026-08-21): on main today the coupler's ids resolve onto the boundary and
+    the glucose channel carries end to end -- the cell draws the reactor pool
+    down and stops when it is exhausted. The dissolved-O2 channel does NOT yet
+    carry, for a separate reason that is not id resolution: metabolism seeds an
+    unlimited molecule at `inf`, the mirror writes a DELTA, and no delta can
+    move `inf`, so the write is a defined no-op. See mbp-01's superseded
     `env-driver-molecule-id-convention` decision.
 
   verdict_status: in-progress

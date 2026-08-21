@@ -513,7 +513,7 @@ required_knowledge:
       topology fix in the same commit.
 
 
-      ⚠ SUPERSEDED 2026-08-20 (pending v2ecoli#550). Option (a) was recorded
+      ⚠ SUPERSEDED 2026-08-20 (by v2ecoli#550, merged 2026-08-21). Option (a) was recorded
 
       as taken, but the effect of #550 is closer to option (c): the mirror now
 

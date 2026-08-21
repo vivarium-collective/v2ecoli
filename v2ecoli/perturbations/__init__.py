@@ -33,6 +33,7 @@ from v2ecoli.perturbations.new_genes import (
     new_gene_indices,
     set_new_gene_expression,
 )
+from v2ecoli.perturbations.variant_cache import build_variant_cache
 from v2ecoli.perturbations.translation import (
     UnknownPerturbationTarget,
     resolve_targets,
@@ -47,6 +48,7 @@ __all__ = [
     "NewGeneInduction",
     "Stage",
     "build_new_gene_cache",
+    "build_variant_cache",
     "plan_design_variant",
     "resolve_native_targets",
     "set_native_translation_efficiency",

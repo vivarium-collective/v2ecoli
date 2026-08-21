@@ -22,6 +22,7 @@ import polars as pl
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
+    DEFAULT_CD1_CHUNK_SIZE,
     cd1_filter_clause,
     read_stacked_columns,
     run_chunked,
@@ -38,6 +39,7 @@ class Cd1Proteomics(Analysis):
     config_schema = {
         "generation_lower_bound": "integer",
         "time_lower_bound": "float",
+        "chunk_size": {"_type": "integer", "_default": DEFAULT_CD1_CHUNK_SIZE},
     }
 
     def analyze(
@@ -51,6 +53,7 @@ class Cd1Proteomics(Analysis):
     ) -> dict:
         params = {**(self.config or {}), **(variant_metadata or {})}
         filter_clause = cd1_filter_clause(params)
+        chunk_size = int(params.get("chunk_size", DEFAULT_CD1_CHUNK_SIZE))
 
         monomer_ids = [
             str(m) for m in sim_data.process.translation.monomer_data["id"]
@@ -89,7 +92,9 @@ class Cd1Proteomics(Analysis):
         # Chunked one cell at a time: the full-sweep unnest of every cell's
         # monomer-count array at once is what OOM-kills this analysis (item
         # 38) — see run_chunked's docstring for why per-cell chunks are safe.
-        proteomics = run_chunked(conn, filtered_sql, _batch_sql, id_cols=_ID_COLS)
+        proteomics = run_chunked(
+            conn, filtered_sql, _batch_sql, id_cols=_ID_COLS, chunk_size=chunk_size
+        )
 
         if proteomics.is_empty():
             empty = pl.DataFrame({"EcoCyc Monomer ID": [], "mean": [], "std": []})

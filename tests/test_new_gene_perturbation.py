@@ -164,3 +164,134 @@ def test_mismatched_rna_and_monomer_ordering_raises():
     rna[2], rna[3] = rna[3], rna[2]
     with pytest.raises(ValueError, match="do not correspond"):
         set_new_gene_expression(sd, expression=1.0, translation_efficiency=1.0)
+
+
+# --------------------------------------------------------------------------- #
+# Batching + order independence, asserted NUMERICALLY.
+#
+# ``test_equal_weights_give_equal_expression_regardless_of_gene_order`` above
+# discriminates against a per-gene loop via ``len(sd.adjust_calls) == 1`` — a
+# CALL-COUNT proxy for implementation shape. It would still pass if someone
+# batched the call correctly and got the arithmetic wrong. The two tests below
+# assert the consequence we actually care about instead: a loop produces the
+# wrong numbers, and the real function produces the right ones.
+# --------------------------------------------------------------------------- #
+
+class _InterleavedFakeSimData:
+    """A fake whose new genes sit at CHOSEN positions among the natives.
+
+    ``_FakeSimData`` always appends the new genes after the natives, so the only
+    reordering it can express is rna_data-vs-cistron_data divergence — which
+    ``new_gene_indices`` rejects by design ("do not correspond"), meaning a test
+    built on it asserts the guard rather than the arithmetic. The permutation a
+    per-gene loop is sensitive to is which ARRAY POSITIONS the new genes occupy,
+    because that fixes the order the loop writes and renormalizes in. This fake
+    takes that layout as input and keeps rna_data and cistron_data in
+    correspondence, so the guard does not fire first and the defect stays
+    expressible.
+    """
+
+    def __init__(self, layout, baseline=1e-4, native_expression=0.5):
+        is_new = [g.startswith("NG") for g in layout]
+        self.process = type("P", (), {})()
+        self.process.transcription = type("T", (), {})()
+        self.process.translation = type("L", (), {})()
+        self.process.transcription.cistron_data = _Struct(np.array(
+            list(zip(layout, is_new)), dtype=[("id", "U32"), ("is_new_gene", "?")]))
+        self.process.translation.monomer_data = _Struct(np.array(
+            [(g, f"{g}-MONOMER") for g in layout],
+            dtype=[("cistron_id", "U32"), ("id", "U40")]))
+        self.process.transcription.rna_data = {
+            "id": np.array([f"{g}[c]" for g in layout], dtype="U40")}
+        self.process.transcription.rna_expression = {"basal": np.array(
+            [0.0 if n else native_expression for n in is_new])}
+        self.process.translation.translation_efficiencies_by_monomer = np.ones(
+            len(layout))
+        self._baseline = baseline
+        self.adjust_calls = []
+
+    def adjust_new_gene_final_expression(self, indices, factors):
+        # Same semantics as the reference: assign each target FROM ITS BASELINE,
+        # then renormalize the whole transcriptome once per call.
+        self.adjust_calls.append((list(indices), list(factors)))
+        arr = self.process.transcription.rna_expression["basal"]
+        for i, f in zip(indices, factors):
+            arr[i] = self._baseline * f
+        arr /= arr.sum()
+
+    def expression_by_gene(self):
+        ids = [str(r)[:-3] for r in self.process.transcription.rna_data["id"]]
+        arr = self.process.transcription.rna_expression["basal"]
+        return {g: float(v) for g, v in zip(ids, arr)}
+
+
+def _loop_apply(sd, expression, rel_exp_adj):
+    """The fork's shape: ONE adjust call per gene, each renormalizing."""
+    _, rna_indices, _, _ = new_gene_indices(sd)
+    for idx, weight in zip(rna_indices, rel_exp_adj):
+        sd.adjust_new_gene_final_expression([idx], [expression * weight])
+
+
+_LAYOUT = ["EG10001_RNA", "NG-GFP-A", "NG-GFP-B", "EG10002_RNA", "NG-GFP-C"]
+
+
+def test_a_per_gene_loop_corrupts_equal_weights_and_the_real_function_does_not():
+    # Catches: a re-introduced per-gene loop, AND a batched call whose
+    # arithmetic is wrong — neither of which the call-count assertion sees.
+    weights = [1.0, 1.0, 1.0]
+    new_genes = ["NG-GFP-A", "NG-GFP-B", "NG-GFP-C"]
+
+    looped = _InterleavedFakeSimData(_LAYOUT)
+    _loop_apply(looped, 1e6, weights)
+    loop_vals = [looped.expression_by_gene()[g] for g in new_genes]
+
+    batched = _InterleavedFakeSimData(_LAYOUT)
+    set_new_gene_expression(batched, expression=1e6, translation_efficiency=1.0,
+                            rel_exp_adj=weights)
+    real_vals = [batched.expression_by_gene()[g] for g in new_genes]
+
+    # Direction 1 — the stub really is broken, so the invariant is not vacuous.
+    assert loop_vals[0] != pytest.approx(loop_vals[1], rel=1e-6)
+    assert loop_vals[1] != pytest.approx(loop_vals[2], rel=1e-6)
+    # Direction 2 — ... and the shipped function gets it exactly right.
+    assert real_vals[0] == pytest.approx(real_vals[1]) == pytest.approx(real_vals[2])
+
+
+def test_expression_is_independent_of_where_the_new_genes_sit_in_the_arrays():
+    # Weights and assertions are keyed BY GENE ID, never by position, so the
+    # permuted quantity is not derived through the map being permuted.
+    weights = {"NG-GFP-A": 1.0, "NG-GFP-B": 2.0, "NG-GFP-C": 4.0}
+    layouts = [
+        ["EG10001_RNA", "EG10002_RNA", "NG-GFP-A", "NG-GFP-B", "NG-GFP-C"],
+        ["NG-GFP-C", "EG10001_RNA", "NG-GFP-B", "EG10002_RNA", "NG-GFP-A"],
+        ["NG-GFP-B", "NG-GFP-A", "EG10001_RNA", "NG-GFP-C", "EG10002_RNA"],
+    ]
+
+    per_layout = []
+    for layout in layouts:
+        sd = _InterleavedFakeSimData(layout)
+        rna_ids, _, _, _ = new_gene_indices(sd)
+        set_new_gene_expression(sd, expression=1e6, translation_efficiency=1.0,
+                                rel_exp_adj=[weights[g] for g in rna_ids])
+        got = {g: sd.expression_by_gene()[g] for g in weights}
+        # Value ratios equal weight ratios in EVERY arrangement.
+        assert got["NG-GFP-B"] / got["NG-GFP-A"] == pytest.approx(2.0)
+        assert got["NG-GFP-C"] / got["NG-GFP-A"] == pytest.approx(4.0)
+        per_layout.append(got)
+
+    # ... and the values themselves are identical across arrangements.
+    for other in per_layout[1:]:
+        for gene in weights:
+            assert other[gene] == pytest.approx(per_layout[0][gene])
+
+    # Non-vacuity: a per-gene loop DOES depend on the layout, so this
+    # permutation can express the defect (an earlier attempt in this area could
+    # not — see test_mismatched_rna_and_monomer_ordering_raises).
+    loop_results = []
+    for layout in layouts[:2]:
+        sd = _InterleavedFakeSimData(layout)
+        rna_ids, _, _, _ = new_gene_indices(sd)
+        _loop_apply(sd, 1e6, [weights[g] for g in rna_ids])
+        loop_results.append({g: sd.expression_by_gene()[g] for g in weights})
+    assert loop_results[0]["NG-GFP-A"] != pytest.approx(
+        loop_results[1]["NG-GFP-A"], rel=1e-6)

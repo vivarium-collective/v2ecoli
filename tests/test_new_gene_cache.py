@@ -362,3 +362,28 @@ def test_round_trip_builds_a_composite_from_the_saved_cache(tmp_path):
         assert built[idx] == pytest.approx(cached_te[idx])
         assert built[idx] / built[result["applied"]["monomer_indices"][0]] == (
             pytest.approx(weights[i] / weights[0], rel=1e-6))
+
+    # THE INDUCTION SURVIVES DIVISION — the property that distinguishes a cache
+    # from a build-time argument, and the reason this driver writes one.
+    #
+    # `division.py:373-376` rebuilds each daughter with
+    # `baseline(core=, seed=, cache_dir=self._cache_dir, emitter=,
+    # injected_processes=)`: `cache_dir` is threaded, `config_overrides` and
+    # `knockouts` are NOT. So a perturbation compiled into `config_overrides` at
+    # build time (`ecoli_baseline.py:1435` does exactly that for `knockouts`)
+    # exists in generation 1 and evaporates at the first division, while
+    # anything resident in the cache is inherited by construction.
+    #
+    # Catches: a future change that moves this driver's perturbation out of the
+    # cache and into a build-time argument. Everything above would still pass —
+    # generation 1 would look correct — and every daughter would silently revert
+    # to baseline expression. Reproducing division's own call is what makes the
+    # difference visible without paying for a full cell cycle.
+    daughter = baseline(core=build_core(), seed=1, cache_dir=cache_dir)
+    d_inst = daughter["state"]["agents"]["0"]["ecoli-polypeptide-initiation"]["instance"]
+    d_te = np.asarray(d_inst.parameters["translation_efficiencies"])
+    for i, idx in enumerate(result["applied"]["monomer_indices"]):
+        assert d_te[idx] == pytest.approx(cached_te[idx]), (
+            "new-gene efficiency did not survive a daughter-style rebuild")
+        assert d_te[idx] / d_te[result["applied"]["monomer_indices"][0]] == (
+            pytest.approx(weights[i] / weights[0], rel=1e-6))

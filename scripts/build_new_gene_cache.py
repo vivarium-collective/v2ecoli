@@ -89,6 +89,11 @@ def build(state_path: str, cache_dir: str, expression: float,
           seed: int = 0,
           media_condition: str | None = None,
           fixed_media: str | None = None) -> dict:
+    # Resolve BEFORE the chdir: `build()` is importable as a function, and a
+    # caller passing a relative path would otherwise have it silently resolved
+    # against the repo root rather than their own cwd.
+    state_path = os.path.abspath(state_path)
+    cache_dir = os.path.abspath(cache_dir)
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
 

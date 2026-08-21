@@ -31,12 +31,37 @@ TOPOLOGY = {
 }
 
 
+def _strip_compartment(mid: str) -> str:
+    """``VIOLACEIN[c]`` -> ``VIOLACEIN``; unchanged if no ``[..]`` suffix."""
+    return mid[:-3] if len(mid) > 3 and mid.endswith("]") and mid[-3] == "[" else mid
+
+
+def resolve_exchange_key(exchange: dict, key: str):
+    """Compartment-tolerant lookup: exchange stores may key by full metabolite id
+    (``VIOLACEIN[c]``, the fork convention) or compartment-stripped (``VIOLACEIN``,
+    v2ecoli's convention). Try exact, then the stripped form on both sides, so one
+    study config value works across both comparison arms. Returns None if absent."""
+    exchange = exchange or {}
+    if key in exchange:
+        return exchange[key]
+    stripped = _strip_compartment(key)
+    if stripped in exchange:
+        return exchange[stripped]
+    for k, v in exchange.items():
+        if _strip_compartment(k) == stripped:
+            return v
+    return None
+
+
 def derive_fluxes(exchange: dict, fluxes: dict) -> dict:
     """Pure core: pull each configured exchange key into its leaf name. A key
     absent this tick yields 0.0 so the leaf stays a continuous trace."""
     exchange = exchange or {}
-    return {leaf: (float(exchange[key]) if exchange.get(key) is not None else 0.0)
-            for leaf, key in (fluxes or {}).items()}
+    out = {}
+    for leaf, key in (fluxes or {}).items():
+        v = resolve_exchange_key(exchange, key)
+        out[leaf] = float(v) if v is not None else 0.0
+    return out
 
 
 class ExchangeFluxListener(Step):

@@ -5,9 +5,27 @@ view carries them. Generic — the flux map is config; no pathway is special-cas
 import pytest
 
 from v2ecoli.steps.derivers.exchange_flux_listener import (
-    ExchangeFluxListener, derive_fluxes)
+    ExchangeFluxListener, derive_fluxes, resolve_exchange_key)
 
 FLUXES = {"violacein_exchange": "VIOLACEIN[c]", "glucose_exchange": "GLC[p]"}
+
+
+def test_resolve_key_is_compartment_tolerant():
+    # v2ecoli strips compartments (GLC); fork ids carry them (GLC[p]). One config
+    # value must match either store convention.
+    stripped_store = {"GLC": -8.5, "VIOLACEIN": 0.042}
+    assert resolve_exchange_key(stripped_store, "GLC[p]") == -8.5
+    assert resolve_exchange_key(stripped_store, "VIOLACEIN[c]") == 0.042
+    full_store = {"GLC[p]": -8.5}
+    assert resolve_exchange_key(full_store, "GLC") == -8.5      # reverse direction
+    assert resolve_exchange_key(full_store, "GLC[p]") == -8.5   # exact
+    assert resolve_exchange_key({"GLC": -8.5}, "MISSING[c]") is None
+
+
+def test_derive_matches_fork_ids_against_stripped_store():
+    # study config uses fork ids; candidate store is stripped -> still matches
+    out = derive_fluxes({"GLC": -8.5, "VIOLACEIN": 0.042}, FLUXES)
+    assert out == {"violacein_exchange": 0.042, "glucose_exchange": -8.5}
 
 
 def test_derive_selects_named_fluxes_preserving_sign():

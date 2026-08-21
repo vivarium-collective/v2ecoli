@@ -430,11 +430,15 @@ def _select_exchange_fluxes(environment, fluxes: dict) -> dict:
     the shared model's knowledge of any particular pathway."""
     if not fluxes:
         return {}
+    from v2ecoli.steps.derivers.exchange_flux_listener import resolve_exchange_key
     env = environment if isinstance(environment, dict) else {}
     exchange = env.get("exchange")
     exchange = exchange if isinstance(exchange, dict) else {}
-    return {leaf: float(exchange.get(key, 0.0) or 0.0)
-            for leaf, key in fluxes.items()}
+    out = {}
+    for leaf, key in fluxes.items():
+        v = resolve_exchange_key(exchange, key)
+        out[leaf] = float(v) if v is not None else 0.0
+    return out
 
 
 # ---------------------------------------------------------------------------

@@ -270,7 +270,10 @@ class LineageProcess(Process):
         raw_view = [dict(e, root=tuple(e["root"])) for e in raw_view]
         transducer = arg.get("transducer") or {}
         buf = ((transducer.get("buffer") or {}).get("size"))
-        buf = max(3, int(buf or 4))  # transducer requires buffer.size > 2
+        # Default 600 (viva-emitters library default: a handful of flushes per
+        # generation, not one every few steps); floor 3 since the transducer
+        # requires buffer.size > 2.
+        buf = max(3, int(buf or 600))
         predicate = transducer.get("predicate")
         writer = arg.get("writer")
         out_dir = arg.get("out_dir") or self.config["out_dir"]

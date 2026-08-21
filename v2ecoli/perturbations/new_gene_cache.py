@@ -37,14 +37,19 @@ is derived from survive it.
 design **grid** — one loaded sim_data, many expression levels. Mutating the
 caller's object would let grid point *k* inherit grid point *k-1*'s expression
 silently, which is expensive to find and cheap to prevent, so this function
-deep-copies first via ``pickle.loads(pickle.dumps(...))``. That idiom is not
-invented here: it mirrors ``SimDataInjector.materialize``
-(``pbg_v2ecoli/uq_sim_data_injection.py:243``), which isolates per UQ sample the
-same way. The two are kept separate on purpose — that class is scalar-sampling
-shaped (``materialize(sample: dict[str, float])``, ``(bundle, overrides,
-cleanup)`` over a **temp** dir) while this writes a durable, named cache for a
-design variant — but the duplication is deliberate and visible rather than
-hidden. A third copy is a signal to factor it out.
+deep-copies first, via ``copy.deepcopy``.
+
+``SimDataInjector.materialize`` (``pbg_v2ecoli/uq_sim_data_injection.py:243``)
+isolates per UQ sample the same way but spells it ``pickle.loads(pickle.dumps
+(...))``. This module deliberately does **not** follow that spelling:
+``tests/test_pickle_allowlist.py`` keeps ``pickle``/``dill`` imports rare and
+individually justified, and a stdlib deep copy needs no exception. Measured on a
+real hydrated ``SimulationDataEcoli``, the two are equivalent in behaviour and
+cost (0.5 s vs 0.3 s, both fully isolating), so the allowlist entry would buy
+nothing. The two modules are kept separate anyway — that class is
+scalar-sampling shaped (``materialize(sample: dict[str, float])``, returning
+``(bundle, overrides, cleanup)`` over a **temp** dir) while this writes a
+durable, named cache for a design variant.
 
 ⚠ ``translation_efficiency`` is a WEIGHT, not an achieved rate
 --------------------------------------------------------------
@@ -66,7 +71,7 @@ simulation read-out, not for this record.
 
 from __future__ import annotations
 
-import pickle
+import copy
 from typing import Any, Sequence
 
 from v2ecoli.perturbations.new_genes import set_new_gene_expression
@@ -124,9 +129,9 @@ def build_new_gene_cache(
     # arithmetic that a test can import in milliseconds.
     from v2ecoli.core import save_sim_input
 
-    # Isolate before mutating — see the module docstring. Mirrors
-    # ``SimDataInjector.materialize`` (pbg_v2ecoli/uq_sim_data_injection.py:243).
-    perturbed = pickle.loads(pickle.dumps(sim_data))
+    # Isolate before mutating — see the module docstring on why this is
+    # ``copy.deepcopy`` rather than the pickle round-trip its sibling uses.
+    perturbed = copy.deepcopy(sim_data)
 
     applied = set_new_gene_expression(
         perturbed,

@@ -540,6 +540,31 @@ def run_operand(sweep_dir: str | Path, entity_ids,
     per_cell = None
     if with_per_cell:
         rows = node.get("per_cell") or []
+        # ⛔ ASKED FOR THE MATRIX AND THE NODE HAS NONE => RAISE, NEVER RETURN
+        # THE SUMMARY QUIETLY.
+        #
+        # Without this the caller gets `per_cell=None` and `n_per_cell=0`, which
+        # is BYTE-IDENTICAL to what `with_per_cell=False` returns — a request
+        # for a distribution silently answered with a centre. That is exactly
+        # the failure the design note above rejects a cache-level flag for
+        # ("a caller passing it could get a hit on an envelope written without
+        # it and silently see nothing"), so leaving it here would refuse the
+        # cheaper design and then reimplement its defect one layer down.
+        #
+        # Unreachable through `load_or_extract` today, because `cache_path()`
+        # puts `v{EXTRACTOR_VERSION}` in the filename and every v2 envelope
+        # carries the matrix — but this function does not check the envelope's
+        # version, so a hand-placed file, an `out_dir` pointing at a foreign
+        # cache, or any future non-`load_or_extract` producer reopens it.
+        if not rows:
+            raise ValueError(
+                f"with_per_cell=True but the cached node for {observable!r} "
+                f"carries no per_cell matrix ({sweep_dir}). This envelope was "
+                f"written by an extractor that did not emit one; returning the "
+                f"ensemble mean alone would answer a request for a "
+                f"distribution with a centre. Re-extract rather than falling "
+                f"back — `load_or_extract` keys the cache on EXTRACTOR_VERSION, "
+                f"so a refresh cannot serve this file again.")
         # A row of a different width than the mean is the width-mismatch trap
         # one level down, and `_keyed`'s `zip` would truncate it silently rather
         # than raise — so it is checked here rather than trusted.

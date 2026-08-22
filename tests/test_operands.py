@@ -649,6 +649,34 @@ class RunOperandPerCell(unittest.TestCase):
         self.assertTrue(all(s > 0 for s in spread(good).values()))
         self.assertTrue(all(s == 0 for s in spread(bad).values()))
 
+    def test_asking_for_per_cell_when_the_node_has_NONE_raises(self):
+        """WOULD CATCH: a request for a distribution answered with a centre.
+
+        Without the guard, ``per_cell=None`` and ``n_per_cell=0`` come back —
+        BYTE-IDENTICAL to ``with_per_cell=False``. There is no value a caller
+        could inspect to tell "this run has no matrix" from "I did not ask", so
+        the degradation is invisible at every layer above.
+
+        ★ This is the failure the module's own design note rejects a
+        cache-level flag for; the resolver reimplemented it one layer down.
+        Unreachable via ``load_or_extract`` (the cache key carries
+        EXTRACTOR_VERSION), which is exactly why it needs a test rather than an
+        argument — nothing in the normal path would ever exercise it.
+        """
+        with TemporaryDirectory() as d:
+            sweep = Path(d) / "sweep"
+            sweep.mkdir()
+            _run_cache(sweep, self.MEAN, n_cells=3, per_cell=None)
+            # The control: without per_cell the summary path must still work,
+            # so the raise below is about the REQUEST and not about the node.
+            ok = ops.run_operand(sweep, self.IDS)
+            self.assertIsNotNone(ok)
+            self.assertIsNone(ok.meta["per_cell"])
+            self.assertEqual(ok.meta["n_per_cell"], 0)
+            with self.assertRaises(ValueError) as caught:
+                ops.run_operand(sweep, self.IDS, with_per_cell=True)
+        self.assertIn("no per_cell matrix", str(caught.exception))
+
     def test_a_per_cell_row_of_the_wrong_width_RAISES(self):
         """WOULD CATCH: silent truncation. ``_keyed`` zips ids against values, so
         a short row would key fine and quietly describe the wrong entities — the

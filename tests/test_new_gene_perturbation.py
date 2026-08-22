@@ -131,7 +131,8 @@ def test_returns_provenance_a_caller_can_record():
                                       translation_efficiency=0.5)
     assert set(applied) == {"rna_ids", "rna_indices", "expression_factors",
                             "monomer_ids", "monomer_indices",
-                            "translation_efficiencies"}
+                            "translation_efficiencies",
+                            "operon_structure", "is_polycistronic"}
     assert all(isinstance(m, str) for m in applied["monomer_ids"])
 
 
@@ -295,3 +296,133 @@ def test_expression_is_independent_of_where_the_new_genes_sit_in_the_arrays():
         loop_results.append({g: sd.expression_by_gene()[g] for g in weights})
     assert loop_results[0]["NG-GFP-A"] != pytest.approx(
         loop_results[1]["NG-GFP-A"], rel=1e-6)
+
+
+class _FakeOperonSimData(_FakeSimData):
+    """A POLYCISTRONIC insertion: one transcription unit, N cistrons.
+
+    ⚠ The topology this fake exists for is not exotic — it is what an operon is,
+    and it is the shape a real screen's design vectors are written against (one
+    expression weight for the TU, one translation weight per gene). The default
+    fake is monocistronic, so nothing in this file exercised it.
+
+    Ids are invented. A fixture in a public repo must not carry a real construct's
+    identifiers, and the assertions do not need them: what is under test is the
+    1-TU-to-N-cistron shape, not which pathway it happens to encode.
+    """
+
+    def __init__(self, n_cistrons=5, tu_id="NG-TU-A", with_mapping=True,
+                 orphan_cistron=False, extra_empty_tu=False):
+        super().__init__(n_new=n_cistrons)
+        cis = [("EG10001_RNA", False), ("EG10002_RNA", False)]
+        cis += [(f"NG-CIS-{i}", True) for i in range(n_cistrons)]
+        self.process.transcription.cistron_data = _Struct(
+            np.array(cis, dtype=[("id", "U32"), ("is_new_gene", "?")]))
+
+        mon = [("EG10001_RNA", "NATIVE-MONOMER-0"), ("EG10002_RNA", "NATIVE-MONOMER-1")]
+        mon += [(f"NG-CIS-{i}", f"NG-MONOMER-{i}") for i in range(n_cistrons)]
+        self.process.translation.monomer_data = _Struct(
+            np.array(mon, dtype=[("cistron_id", "U32"), ("id", "U32")]))
+        self.process.translation.translation_efficiencies_by_monomer = np.array(
+            [1.0, 1.0] + [2.0 * (i + 1) for i in range(n_cistrons)])
+
+        # ONE new RNA for N cistrons — the whole point.
+        rnas = ["EG10001_RNA[c]", "EG10002_RNA[c]", f"{tu_id}[c]"]
+        if extra_empty_tu:
+            rnas.append("NG-TU-UNRELATED[c]")
+        self.process.transcription.rna_data = {"id": np.array(rnas, dtype="U32")}
+        self.process.transcription.rna_expression = {
+            "basal": np.array([0.5, 0.5] + [0.0] * (len(rnas) - 2))}
+
+        if with_mapping:
+            m = np.zeros((len(cis), len(rnas)))
+            tu_col = 2
+            for i in range(n_cistrons):
+                # `orphan_cistron` leaves the last cistron off every new TU.
+                if orphan_cistron and i == n_cistrons - 1:
+                    continue
+                m[2 + i, tu_col] = 1.0
+            self.process.transcription.cistron_tu_mapping_matrix = m
+
+
+def test_a_polycistronic_insertion_is_read_not_rejected():
+    # Catches: requiring the new-gene RNA list to equal the cistron list. An
+    # operon has ONE TU and N cistrons, so the lists legitimately differ in
+    # length — and the guard fired before any weight was applied, rejecting the
+    # construct outright. This function's own docstring already says a cistron
+    # does not map 1:1 to an RNA once operons are involved.
+    rna_ids, rna_idx, monomer_ids, monomer_idx = new_gene_indices(
+        _FakeOperonSimData(n_cistrons=5))
+    assert rna_ids == ["NG-TU-A"], "the transcription unit was not identified"
+    assert len(monomer_ids) == 5, "the five cistrons' monomers were not found"
+    assert len(rna_idx) == 1 and len(monomer_idx) == 5
+
+
+def test_operon_weight_vectors_pair_to_their_own_spaces():
+    # Catches: pairing both vectors against one list. Expression is a property of
+    # the TRANSCRIPTION UNIT (the reference writes RNA-indexed arrays), while
+    # translation efficiency is per MONOMER — so an operon takes 1 expression
+    # weight and N efficiency weights. Demanding equal lengths would reject the
+    # exact shape a real design grid declares.
+    sd = _FakeOperonSimData(n_cistrons=5)
+    applied = set_new_gene_expression(
+        sd, expression=1e6, translation_efficiency=0.285,
+        rel_exp_adj=[1.0],
+        rel_trl_eff_adj=[0.56, 0.94, 1.0, 1.73, 1.35])
+    assert applied["expression_factors"] == [1e6]
+    assert applied["translation_efficiencies"] == pytest.approx(
+        [0.285 * w for w in (0.56, 0.94, 1.0, 1.73, 1.35)])
+
+
+def test_provenance_records_the_build_topology():
+    # Catches: recording values without the topology they were applied against.
+    # The same insertion can reconstruct as N monocistronic TUs or as one operon,
+    # and one expression weight means something different against each. Without
+    # this, an arm built on the wrong topology is invisible in the manifest.
+    poly = set_new_gene_expression(_FakeOperonSimData(n_cistrons=5),
+                                   expression=1.0, translation_efficiency=1.0,
+                                   rel_exp_adj=[1.0])
+    assert poly["is_polycistronic"] is True
+    assert poly["operon_structure"] == {
+        "NG-TU-A": [f"NG-CIS-{i}" for i in range(5)]}
+
+    mono = set_new_gene_expression(_FakeSimData(n_new=2), expression=1.0,
+                                   translation_efficiency=1.0)
+    assert mono["is_polycistronic"] is False
+
+
+def test_a_polycistronic_build_without_a_tu_mapping_is_refused():
+    # Catches: pairing weights on an assumption. With differing list lengths and
+    # no cistron->TU mapping, which cistrons sit on which TU is unknowable — and
+    # guessing would apply the construct's expression weight to an RNA that may
+    # not carry it. Refusing loudly beats a plausible wrong arm.
+    with pytest.raises(ValueError, match="cistron_tu_mapping_matrix"):
+        new_gene_indices(_FakeOperonSimData(n_cistrons=5, with_mapping=False))
+
+
+def test_a_cistron_on_no_new_transcription_unit_is_refused():
+    # Catches: assuming coverage. A new cistron transcribed from no new TU would
+    # never receive the expression weight, so the arm would run with part of its
+    # construct silent while reporting as fully induced.
+    with pytest.raises(ValueError, match="not transcribed from any"):
+        new_gene_indices(_FakeOperonSimData(n_cistrons=5, orphan_cistron=True))
+
+
+def test_an_ng_rna_carrying_no_new_cistron_is_refused():
+    # Catches: trusting the 'NG' id prefix. New RNAs are found by prefix because
+    # rna_data has no is_new_gene flag, so an unrelated NG-prefixed RNA would
+    # silently collect an expression weight meant for the construct.
+    with pytest.raises(ValueError, match="carry no new-gene cistron"):
+        new_gene_indices(_FakeOperonSimData(n_cistrons=5, extra_empty_tu=True))
+
+
+def test_monocistronic_order_correspondence_is_still_enforced():
+    # Catches: dropping the original guard while generalising. When the two lists
+    # DO describe the same genes, a positional weight for RNA i and monomer i
+    # must mean the same gene; that protection must survive the operon change.
+    sd = _FakeSimData(n_new=3)
+    rnas = list(sd.process.transcription.rna_data["id"])
+    rnas[2], rnas[3] = rnas[3], rnas[2]          # scramble RNA order only
+    sd.process.transcription.rna_data = {"id": np.array(rnas, dtype="U32")}
+    with pytest.raises(ValueError, match="do not correspond"):
+        new_gene_indices(sd)

@@ -124,10 +124,17 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     # and was then grouped into a SECOND full copy keyed by cell. Peak footprint
     # was therefore ~2x the sweep's vector columns, in Python objects.
     #
-    # ⚠ Measured 2026-08-21 on an 8x16 basal sweep (50 GB of history parquet):
-    # 52 GB resident, 63 GB peak, 42.5 GB of 44 GB swap consumed, the process
-    # pinned in uninterruptible I/O wait. It could not have completed, and it
-    # took the machine down with it rather than failing on its own.
+    # ⚠ Measured 2026-08-21 on an 8x16 basal sweep (50 GB of history parquet) at
+    # ``generation_lower_bound=0``: 52 GB resident, 63 GB peak, 42.5 GB of 44 GB
+    # swap consumed, the process pinned in uninterruptible I/O wait, and killed
+    # rather than failing on its own -- taking the machine with it.
+    #
+    # ⚠ NOT "it could never have completed": the surviving v1 cache envelope for
+    # this same sweep records ``extract_seconds: 680.76`` at ``gen_lb=3`` over
+    # the same 104 cells, extracted 2026-07-30 by the ``fetchall`` code. The old
+    # path completed this sweep at gen_lb=3 and blew past the machine at
+    # gen_lb=0, +21% rows. The defect is that peak scales with the RUN, so the
+    # margin is a property of the hardware and not of the code.
     #
     # The fix is to never hold the rows. We accumulate a RUNNING SUM per
     # (cell, column, array-length) and divide at the end, so peak memory is a

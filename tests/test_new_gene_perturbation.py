@@ -359,19 +359,45 @@ def test_a_polycistronic_insertion_is_read_not_rejected():
 
 
 def test_operon_weight_vectors_pair_to_their_own_spaces():
-    # Catches: pairing both vectors against one list. Expression is a property of
-    # the TRANSCRIPTION UNIT (the reference writes RNA-indexed arrays), while
-    # translation efficiency is per MONOMER — so an operon takes 1 expression
-    # weight and N efficiency weights. Demanding equal lengths would reject the
-    # exact shape a real design grid declares.
+    # Catches: pairing both vectors against one list, AND mis-pairing a weight to
+    # the wrong monomer. Expression is a property of the TRANSCRIPTION UNIT (the
+    # reference writes RNA-indexed arrays), translation efficiency is per MONOMER
+    # — so an operon takes 1 expression weight and N efficiency weights.
+    #
+    # ⚠ Asserts on the EFFICIENCY ARRAY, not on the returned list. An earlier
+    # version checked `applied["translation_efficiencies"]`, which the function
+    # builds in weight order regardless of which index each value was written to
+    # — so reversing the pairing left it green. A returned value is not evidence
+    # about where it landed.
     sd = _FakeOperonSimData(n_cistrons=5)
+    weights = [0.56, 0.94, 1.0, 1.73, 1.35]
     applied = set_new_gene_expression(
         sd, expression=1e6, translation_efficiency=0.285,
-        rel_exp_adj=[1.0],
-        rel_trl_eff_adj=[0.56, 0.94, 1.0, 1.73, 1.35])
+        rel_exp_adj=[1.0], rel_trl_eff_adj=weights)
+
     assert applied["expression_factors"] == [1e6]
-    assert applied["translation_efficiencies"] == pytest.approx(
-        [0.285 * w for w in (0.56, 0.94, 1.0, 1.73, 1.35)])
+    assert len(applied["rna_ids"]) == 1, "expression must pair against the ONE TU"
+
+    te = sd.process.translation.translation_efficiencies_by_monomer
+    for monomer_id, weight in zip([f"NG-MONOMER-{i}" for i in range(5)], weights):
+        idx = applied["monomer_ids"].index(monomer_id)
+        landed = te[applied["monomer_indices"][idx]]
+        assert landed == pytest.approx(0.285 * weight), (
+            f"{monomer_id} received {landed}, expected {0.285 * weight}")
+
+
+def test_a_construct_cistron_on_a_native_tu_is_refused():
+    # Catches: counting ANY transcription unit as coverage. A new cistron sitting
+    # only on a NATIVE TU passes a naive coverage check while the expression
+    # weight — applied to the new RNAs — never reaches it. That is exactly the
+    # "part of the construct silent while reporting as fully induced" failure the
+    # coverage check exists to catch, so accepting it makes the check decorative.
+    sd = _FakeOperonSimData(n_cistrons=5)
+    m = sd.process.transcription.cistron_tu_mapping_matrix
+    m[2 + 4, 2] = 0.0     # last construct cistron off the new TU...
+    m[2 + 4, 0] = 1.0     # ...and onto a native one
+    with pytest.raises(ValueError, match="not transcribed from any"):
+        new_gene_indices(sd)
 
 
 def test_provenance_records_the_build_topology():

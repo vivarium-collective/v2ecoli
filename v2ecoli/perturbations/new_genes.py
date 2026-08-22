@@ -168,13 +168,17 @@ def new_gene_operon_structure(sim_data: Any) -> dict[str, list[str]]:
     cistron_row = {c: i for i, c in enumerate(cistrons["id"])}
     rna_ids = [str(r)[:-3] for r in sim_data.process.transcription.rna_data["id"]]
 
-    dense = matrix.toarray() if hasattr(matrix, "toarray") else matrix
+    # ⚠ Sparse row access, not ``toarray()``. Densifying this matrix costs ~120 MB
+    # on a real build, and every other consumer in either repo keeps it sparse.
     structure: dict[str, list[str]] = {}
     for cistron in new_cistron_ids:
-        row = dense[cistron_row[cistron]]
-        for col, value in enumerate(row):
-            if value:
-                structure.setdefault(rna_ids[col], []).append(str(cistron))
+        r = cistron_row[cistron]
+        if hasattr(matrix, "getrow"):
+            cols = matrix.getrow(r).indices
+        else:
+            cols = [i for i, v in enumerate(matrix[r]) if v]
+        for col in cols:
+            structure.setdefault(rna_ids[col], []).append(str(cistron))
     return structure
 
 
@@ -191,7 +195,13 @@ def _check_operon_coverage(
             "which cistrons belong to which transcription unit cannot be "
             "verified. Refusing rather than pairing weights on an assumption."
         )
-    covered = {c for cistrons in structure.values() for c in cistrons}
+    # ⚠ Only NEW transcription units count. Mapping a construct cistron to *any*
+    # TU would accept a cistron that sits solely on a NATIVE one — which is
+    # precisely the failure this check exists to catch, since the expression
+    # weight is applied to the new RNAs and would never reach it.
+    new_tus = set(new_rna_ids)
+    covered = {c for tu, cistrons in structure.items() if tu in new_tus
+               for c in cistrons}
     orphan_cistrons = sorted(set(new_cistron_ids) - covered)
     if orphan_cistrons:
         raise ValueError(
@@ -216,6 +226,17 @@ def set_new_gene_expression(
     rel_trl_eff_adj: Sequence[float] | None = None,
 ) -> dict[str, Any]:
     """Turn new genes on, in place, at a chosen expression and efficiency.
+
+    ⚠ **Weight-vector ordering.** ``rel_exp_adj`` pairs positionally with the
+    new-gene **RNAs** (transcription units) and ``rel_trl_eff_adj`` with the
+    new-gene **monomers**, which follow ``cistron_data`` order. That order is NOT
+    guaranteed to be ascending gene id — on a real build it is not — so a caller
+    writing a design vector by eye can silently mis-pair it. For a monocistronic
+    insertion the two lists are equal, so the returned ``rna_ids`` anchor the
+    order; for an operon there is one TU and N monomers, and only the returned
+    ``monomer_ids`` recover it. Read the order from a build rather than assuming
+    it, and check ``monomer_ids`` in the returned provenance against the vector
+    you intended.
 
     Args:
         sim_data: a ``SimulationDataEcoli`` built with a new-gene insertion.
@@ -285,7 +306,7 @@ def set_new_gene_expression(
         "monomer_indices": monomer_indices,
         "translation_efficiencies": te_applied,
         "operon_structure": structure,
-        "is_polycistronic": bool(structure) and len(rna_ids) != len(monomer_ids),
+        "is_polycistronic": len(rna_ids) != len(monomer_ids),
     }
 
 

@@ -51,7 +51,22 @@ def _write_sweep(tmp_path, n_cells=3, n_steps=40, width=5, ragged=True):
     cols = list(card_vectors._VECTOR_COLS)
     for c in cols:
         rows[c] = []
+    def _empty_row(cell):
+        rows["lineage_seed"].append(0)
+        rows["generation"].append(2)
+        rows["agent_id"].append(str(cell))
+        for c in cols:
+            rows[c].append([])
+
     for cell in range(n_cells):
+        if ragged:
+            # ⚠ BEFORE the steps as well as after. An empty row only at the END
+            # leaves each cell's FIRST row full-width, so a mutant taking the
+            # first-seen length instead of the max still passes — measured
+            # 2026-08-21. On a real sweep `external_exchange_fluxes`' `[]`
+            # default is at least as likely at a cell's first timestep as its
+            # last, so bracketing is what makes the fixture representative.
+            _empty_row(cell)
         for t in range(n_steps):
             rows["lineage_seed"].append(0)
             rows["generation"].append(2)
@@ -72,11 +87,7 @@ def _write_sweep(tmp_path, n_cells=3, n_steps=40, width=5, ragged=True):
             # These rows are DROPPED by the correct implementation, so every
             # mean below is unchanged by their presence. Under the min mutant
             # they become the only surviving rows and the node collapses.
-            rows["lineage_seed"].append(0)
-            rows["generation"].append(2)
-            rows["agent_id"].append(str(cell))
-            for c in cols:
-                rows[c].append([])
+            _empty_row(cell)
     pyarrow.parquet.write_table(pq.table(rows), d / "0.pq")
     return str(tmp_path / "exp")
 
@@ -174,6 +185,13 @@ def test_batching_does_not_change_the_numbers(tmp_path, monkeypatch):
 def test_ragged_rows_are_dropped_against_the_MODAL_length_not_the_min(tmp_path):
     """The modal length is the MAX, and taking the min instead must be visible.
 
+    ⚠ Naming, flagged rather than silently propagated: this codebase says
+    "modal" throughout but the rule implemented is `if length > col_len[i]`,
+    i.e. the MAX. The two differ only if a spuriously LONGER row appears, in
+    which case max would drop the entire real panel. Nothing currently pins
+    which is intended; this test asserts the implemented rule (max) and both
+    ends of the ragged case, so a change to either would surface here.
+
     `external_exchange_fluxes` emits a `[]` default on some timesteps, so every
     real sweep is ragged and this rule decides whether a node has any data at
     all. Until 2026-08-21 the fixture wrote a uniform width, so min == max and a
@@ -187,6 +205,7 @@ def test_ragged_rows_are_dropped_against_the_MODAL_length_not_the_min(tmp_path):
     """
     sweep = _write_sweep(tmp_path, n_cells=3, n_steps=4, width=5)
     out = card_vectors.extract_vectors(sweep, generation_lower_bound=0)
+    checked = 0
 
     for j, (_col, (group, name, _u)) in enumerate(card_vectors._VECTOR_COLS.items()):
         node = out[group][name]
@@ -197,9 +216,13 @@ def test_ragged_rows_are_dropped_against_the_MODAL_length_not_the_min(tmp_path):
         # Cell c, step t, column j holds (c + j + t) at every position; the
         # empty rows contribute nothing, so the ensemble mean is over t only.
         expected = sum(c + j + t for c in range(3) for t in range(4)) / 12.0
+        checked += 1
         assert node["vector"][0] == pytest.approx(expected), (
             f"{group}.{name} mean {node['vector'][0]} != {expected} -- an empty "
             f"row was averaged in rather than dropped")
+    assert checked == len(card_vectors._VECTOR_COLS), (
+        f"checked {checked} nodes, expected {len(card_vectors._VECTOR_COLS)} -- "
+        f"this test would pass vacuously if extraction returned nothing")
 
 
 def test_cell_order_is_first_appearance_not_merely_self_consistent(tmp_path, monkeypatch):

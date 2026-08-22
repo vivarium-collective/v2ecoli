@@ -556,15 +556,24 @@ def run_operand(sweep_dir: str | Path, entity_ids,
         # carries the matrix — but this function does not check the envelope's
         # version, so a hand-placed file, an `out_dir` pointing at a foreign
         # cache, or any future non-`load_or_extract` producer reopens it.
+        #
+        # ⚠ And on exactly those routes the version-keying argument is VOID, so
+        # the message below must not recommend a refresh: `load_or_extract`
+        # gates on `schema`, not on the extractor version, and returns any
+        # existing file that satisfies the filename it was asked for. Measured
+        # 2026-08-21: a hand-placed `…__v2.json` with no matrix raises, and
+        # raises again on the next call. Recovery is deleting the file.
         if not rows:
             raise ValueError(
                 f"with_per_cell=True but the cached node for {observable!r} "
                 f"carries no per_cell matrix ({sweep_dir}). This envelope was "
                 f"written by an extractor that did not emit one; returning the "
                 f"ensemble mean alone would answer a request for a "
-                f"distribution with a centre. Re-extract rather than falling "
-                f"back — `load_or_extract` keys the cache on EXTRACTOR_VERSION, "
-                f"so a refresh cannot serve this file again.")
+                f"distribution with a centre. DELETE THE CACHE FILE and let it "
+                f"re-extract — `load_or_extract` returns any existing file whose "
+                f"`schema` matches and does NOT check the envelope's extractor "
+                f"version, and `run_operand` exposes no `refresh`, so nothing "
+                f"short of removing the file will replace it.")
         # A row of a different width than the mean is the width-mismatch trap
         # one level down, and `_keyed`'s `zip` would truncate it silently rather
         # than raise — so it is checked here rather than trusted.

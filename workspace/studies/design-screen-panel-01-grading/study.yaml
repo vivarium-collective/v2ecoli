@@ -219,6 +219,24 @@ report_card_refs:
       objective_vs_reference: {good: 1.20, warn: 1.05}
       growth_cost: {good: 0.85, warn: 0.70}
       ranking_resolvable: {good: 3.0, warn: 2.0}
+# ⚠ `address: image:` deliberately, and SVG deliberately. Four independent
+# consumers each carry their own address-scheme set; `image:` is the only scheme
+# all four accept. `html:` does not survive into the published report, and
+# `file:` + `.html` renders NOTHING while passing both the linter and the audit —
+# an unrecognised scheme vanishes silently from the charts payload. Both
+# `address:` (what makes it display) and `chart:`/`render:` (what drives
+# freshness) are declared, per the house pattern.
+visualizations:
+  - name: design-panel
+    address: image:charts/panel.svg
+    chart: charts/panel.svg
+    render: python workspace/studies/design-screen-panel-01-grading/sims/render_panel.py --out {chart}
+    description: >-
+      The screen's readout: arms ranked by objective within each stratum, with
+      the graded arm carrying the card's verdict and the others shown as ranked
+      but not graded. Arms that never reached the graded window appear in the
+      same frame with the generation they reached — a ranking alone would show
+      six rows where eight were declared, and a reader could not tell.
 readouts:
   - name: panel-per-cell
     status: available

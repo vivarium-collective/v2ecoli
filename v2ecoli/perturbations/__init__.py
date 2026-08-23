@@ -31,6 +31,7 @@ from v2ecoli.perturbations.native_genes import (
 from v2ecoli.perturbations.new_gene_cache import build_new_gene_cache
 from v2ecoli.perturbations.new_genes import (
     new_gene_indices,
+    new_gene_operon_structure,
     set_new_gene_expression,
 )
 from v2ecoli.perturbations.variant_cache import build_variant_cache
@@ -53,6 +54,7 @@ __all__ = [
     "resolve_native_targets",
     "set_native_translation_efficiency",
     "new_gene_indices",
+    "new_gene_operon_structure",
     "set_new_gene_expression",
     "resolve_targets",
     "translation_efficiency_override",

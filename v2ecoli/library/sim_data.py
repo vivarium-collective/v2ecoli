@@ -46,6 +46,7 @@ class LoadSimData:
         mar_regulon: bool = False,
         process_configs: Optional[dict[str, Any]] = None,
         amp_lysis: bool = False,
+        mecillinam: bool = False,
         initial_state_gaussian: bool = True,
         superhelical_density: bool = False,
         recycle_stalled_elongation: bool = False,
@@ -91,6 +92,10 @@ class LoadSimData:
                 currently only used to configure :py:class:`~ecoli.processes.rna_interference.RnaInterference`
             amp_lysis: Enable ampicillin-induced lysis, adds ampicillin and
                 hydrolyzed ampicillin to bulk molecule store
+            mecillinam: Add mecillinam, hydrolyzed mecillinam, and the
+                mecillinam-PBP2 (``EG10606-MONOMER``) complex to the bulk
+                molecule store (parity with the ampicillin ``amp_lysis`` path;
+                required for the mecillinam antibiotic config, e.g. final_mec)
             initial_state_gaussian: If the simulation is configured to generate an
                 initial state from pickled simulation data (see option 3 in
                 :py:meth:`~ecoli.composites.ecoli_master.Ecoli.initial_state`),
@@ -567,6 +572,47 @@ class LoadSimData:
                     [
                         ("ampicillin[p]",) + (amp_mass,),
                         ("ampicillin_hydrolyzed[p]",) + (amp_hydro_mass,),
+                    ],
+                    dtype=bulk_data.dtype,
+                ),
+            )
+            bulk_units = bulk_mol_alias.bulk_data.fullUnits()
+            bulk_mol_alias.bulk_data = UnitStructArray(bulk_data, bulk_units)
+
+        # NEW to vivarium-ecoli / v2ecoli
+        # Add mecillinam, hydrolyzed mecillinam, and the mecillinam-PBP2 complex
+        # to bulk molecules. Mirrors the ampicillin ``amp_lysis`` block above and
+        # ports vEcoli-private ecoli/library/sim_data.py:206-240 faithfully. The
+        # free PBP2 target ``EG10606-MONOMER[i]`` already exists in the bulk
+        # store; the complex is a new combined species whose mass is the
+        # mecillinam mass plus the existing PBP2 monomer mass. No ParCa rebuild
+        # is required — species are injected at LoadSimData time.
+        if mecillinam:
+            bulk_mol_alias = self.sim_data.internal_state.bulk_molecules
+            # Add mass data for mecillinam, hydrolyzed mecillinam, and mecillinam-PBP2
+            bulk_data = bulk_mol_alias.bulk_data.fullArray()
+            metabolite_idx = self.sim_data.submass_name_to_index["metabolite"]
+            mec_mass = (
+                param_store.get(("mecillinam", "molar_mass")).to(
+                    vivunits.g / vivunits.mol
+                )
+            ).magnitude
+            mec_mass_arr = np.zeros(bulk_data["mass"].shape[1])
+            mec_mass_arr[metabolite_idx] = mec_mass
+            # Include molar mass of water added during hydrolysis
+            mec_hydro_mass_arr = mec_mass_arr.copy()
+            mec_hydro_mass_arr[metabolite_idx] += 18
+            mec_pbp2_mass_arr = (
+                mec_mass_arr
+                + bulk_data["mass"][bulk_data["id"] == "EG10606-MONOMER[i]"]
+            )
+            bulk_data = np.append(
+                bulk_data,
+                np.array(
+                    [
+                        ("mecillinam[p]", mec_mass_arr),
+                        ("mecillinam_hydrolyzed[p]", mec_hydro_mass_arr),
+                        ("mecillinam[p]-EG10606-MONOMER[i]", mec_pbp2_mass_arr),
                     ],
                     dtype=bulk_data.dtype,
                 ),

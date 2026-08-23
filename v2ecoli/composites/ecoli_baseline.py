@@ -1205,8 +1205,17 @@ def _build_batch_document(
         "n_generations": {
             "type": "integer",
             "default": 1,
-            "description": "Cell-division generations to follow per seed lineage. "
-                           ">1 (or n_seeds>1) launches a batch run.",
+            "description": "Cell-division generations to follow per seed lineage — "
+                           "ONLY engages under batch mode (n_seeds>1 or "
+                           "n_generations>1), which attaches the division-aware "
+                           "LineageProcess stop. It has NO effect on the "
+                           "single-cell default (n_seeds=1, n_generations=1): that "
+                           "run has no division-stop and simulates the full "
+                           "requested step count, continuing past the cell's own "
+                           "division (see issue #495). To bound a run to one cell "
+                           "cycle today, use batch mode (e.g. n_seeds=2, "
+                           "n_generations=1); each seed's LineageProcess stops at "
+                           "its division.",
         },
         "single_daughters": {
             "type": "bool",
@@ -1404,6 +1413,20 @@ def baseline(
             daughter_state_out_path) apply only in batch mode;
             knockouts/media/config_overrides carry through to every seed.
             n_seeds==1, n_generations==1 (default) = single cell.
+
+            NOTE (issue #495): the division-aware stop lives ONLY in batch mode
+            (BatchBaselineRunner -> LineageProcess._run_until_division). The
+            single-cell default path built below has NO division-stop: the
+            in-cell Division step still fires and structurally splits state into
+            daughters, but nothing tells the *run* to stop, so it simulates the
+            full requested step budget and keeps going past division (now
+            simulating the daughter). n_generations therefore does NOT bound a
+            single-cell run to one cell cycle — it is inert unless n_seeds>1 or
+            n_generations>1 flips this into batch mode. To bound to one cell
+            cycle today, opt into batch mode (e.g. n_seeds=2, n_generations=1);
+            each seed's LineageProcess stops at its own division. A proper
+            single-cell stop_at_division opt-in is deferred pending a design
+            decision.
         initial_carry_state_path, initial_generation_index,
             daughter_state_out_path: batch-mode-only per-generation
             checkpoint/resume (backlog item 34) — a wave orchestrator's own
@@ -1814,6 +1837,37 @@ def baseline(
         'agents': {'0': cell_state},
         'global_time': 0.0,
     }
+
+    # Issue #495: this single-cell (n_seeds==1, n_generations==1) document has
+    # NO division-stop. The in-cell Division step fires and structurally splits
+    # state at division, but nothing halts the *run* — it simulates the full
+    # requested step budget and keeps going past division (now the daughter).
+    # Surface that here, at document-build time, so it is not a silent surprise.
+    # Suppressed when a lineage/daughter build is in flight (an emitter override
+    # is active): the batch path — BatchBaselineRunner -> LineageProcess — builds
+    # its per-generation cell through this same single-cell branch but DOES stop
+    # at division out of band, so the note would be misleading there. warnings'
+    # default once-per-location filter keeps this to a single line per process.
+    from v2ecoli.composites._helpers import (  # noqa: PLC0415
+        _EMITTER_OVERRIDE, _NULL_EMITTER_OVERRIDE, _PARQUET_EMITTER_OVERRIDE)
+    _lineage_context = (
+        _PARQUET_EMITTER_OVERRIDE is not None
+        or _EMITTER_OVERRIDE is not None
+        or bool(_NULL_EMITTER_OVERRIDE))
+    if not _lineage_context:
+        import warnings  # noqa: PLC0415
+        warnings.warn(
+            "ecoli_baseline single-cell mode (n_seeds=1, n_generations=1) has "
+            "no division-stop: if this cell divides within the requested step "
+            "budget, the run continues PAST division (simulating the daughter) "
+            "rather than stopping — n_steps controls how far past division it "
+            "runs, and n_generations is inert here (issue #495). To bound the "
+            "run to one cell cycle today, use batch mode (e.g. n_seeds=2, "
+            "n_generations=1); each seed's LineageProcess stops at its own "
+            "division. A single-cell stop_at_division opt-in is deferred pending "
+            "a design decision.",
+            stacklevel=2,
+        )
 
     return {
         'state': state,

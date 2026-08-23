@@ -997,6 +997,24 @@ def _build_batch_document(
             runner, BatchBaselineRunner.topology, edge_type="step",
             config=runner_config),
     }
+    # Install a top-level observation sink so the batch orchestrator document is
+    # not left "observing nothing". Without an emitter node here,
+    # CompositeSpec._with_emitters installs the generator's declared ParquetEmitter
+    # default with an EMPTY config, which raises "ParquetEmitter requires either
+    # config['out_dir'] or config['out_uri']" at Composite() realize -- before any
+    # step runs (issue #496). Resolve out_dir exactly as the single-cell path does.
+    from process_bigraph.emitter import install_emitters  # noqa: PLC0415
+    _emit_out_dir = out_dir
+    if not _emit_out_dir:
+        _ws_root = _find_workspace_root()
+        _emit_out_dir = (str(_ws_root / ".pbg" / "parquet-runs")
+                         if _ws_root is not None else "out/parquet")
+    state = install_emitters(
+        state,
+        [{"address": "local:ParquetEmitter",
+          "config": {"out_dir": _emit_out_dir},
+          "paths": ["global_time"]}],
+        core=core)
     return {"state": state}
 
 

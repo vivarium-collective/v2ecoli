@@ -269,6 +269,19 @@ def test_baseline_batch_mode_document_is_cheap_and_well_formed():
         "state"]["batch_runner"]["config"]["emitter"] == "both"
 
 
+def test_baseline_batch_mode_document_carries_a_realizable_emitter():
+    """Regression for #496: batch document must carry an emitter with a resolved
+    out_dir so Composite() does not raise the ParquetEmitter empty-config error."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    from process_bigraph.emitter import document_has_emitter
+    from process_bigraph import Composite
+    core = build_core()
+    doc = baseline(core=core, n_seeds=1, n_generations=3, emitter="parquet", out_dir="")
+    assert document_has_emitter(doc["state"], core)
+    Composite(doc, core=core)   # must not raise the #496 ValueError
+
+
 def test_baseline_batch_mode_threads_checkpoint_resume_keys_into_document():
     """Backlog item 34: baseline(n_seeds>1, ...) must carry the 3
     checkpoint/resume keys into the BatchBaselineRunner step config it

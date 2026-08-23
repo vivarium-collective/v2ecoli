@@ -310,6 +310,12 @@ class SingleCellXArrayEmitter(Emitter):
         super().__init__(config, core)
         self._em = None
         self._leaf_key_paths: list | None = None
+        # Declared bulk molecule ids to surface as scalar observables under
+        # listeners.observable_bulk.<id> (the two-arm comparison's bulk KPI hook —
+        # e.g. VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] drug-target
+        # complex). Emitting under the `listeners` root reuses the existing view
+        # machinery and gives BOTH engines an identical path to compare on.
+        self._obs_bulk_ids: list = list(config.get("observable_bulk_ids") or [])
 
     def inputs(self):
         return {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"}
@@ -333,6 +339,9 @@ class SingleCellXArrayEmitter(Emitter):
         full_state = comp.state
         cell = (full_state.get("agents") or {}).get("0") or full_state
         listener_paths = list(_listener_leaf_paths(cell.get("listeners") or {}))
+        # Declared bulk observables ride under a synthetic listeners.observable_bulk
+        # group so the SAME listener view captures them (both engines share the path).
+        listener_paths += [f"listeners.observable_bulk.{i}" for i in self._obs_bulk_ids]
         # Listener view (unmodified helper) + manual bulk entry. root=() so the
         # read path resolves to () + ("bulk",) == ("bulk",); LeafView.path (the
         # OUTPUT var name) must be non-empty, hence "bulk".
@@ -383,6 +392,15 @@ class SingleCellXArrayEmitter(Emitter):
             for k in path[:-1]:
                 cursor = cursor.setdefault(k, {})
             cursor[path[-1]] = cur
+        # Declared bulk observables → listeners.observable_bulk.<id> scalars,
+        # selected by molecule id from the bulk record (state["bulk"] carries both
+        # "id" and "count"). A missing id emits 0.0 so the trace stays continuous.
+        if self._obs_bulk_ids:
+            ids = state["bulk"]["id"]
+            grp = filtered.setdefault("observable_bulk", {})
+            for mol in self._obs_bulk_ids:
+                hit = np.where(ids == mol)[0]
+                grp[mol] = float(bulk_counts[hit[0]]) if len(hit) else 0.0
         self._em.update({
             "global_time": state["global_time"],
             "bulk": bulk_counts,

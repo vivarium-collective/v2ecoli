@@ -575,7 +575,10 @@ class VivariumEcoliProcess(Process):
             "unique_molecule_counts": {k: "overwrite[float]" for k in COUNT_OBS},
         }}
         if self._obs_bulk_ids:
-            out["bulk"] = {i: "overwrite[float]" for i in self._obs_bulk_ids}
+            # Emit declared bulk counts under listeners.observable_bulk.<id> so the
+            # candidate (v2ecoli) and reference (this) share ONE comparison path.
+            out["listeners"]["observable_bulk"] = {
+                i: "overwrite[float]" for i in self._obs_bulk_ids}
         if self._exchange_fluxes:
             out["listeners"]["exchange_flux"] = {
                 leaf: "overwrite[float]" for leaf in self._exchange_fluxes}
@@ -597,7 +600,8 @@ class VivariumEcoliProcess(Process):
             _deep_merge(upd["listeners"],
                         _select_observables(obs.get("listeners", {}), self._observables))
         if self._obs_bulk_ids:
-            upd["bulk"] = _select_bulk_observables(obs.get("bulk", {}), self._obs_bulk_ids)
+            upd["listeners"]["observable_bulk"] = _select_bulk_observables(
+                obs.get("bulk", {}), self._obs_bulk_ids)
         return upd
 
     def divide(self) -> dict:
@@ -843,10 +847,12 @@ def run_vivarium_ecoli_pbg_multigen(
         for k in parts[:-1]:
             cur = cur.setdefault(k, {})
         cur[parts[-1]] = [{"path": parts[-1], "dtype": "<f8"}]
-    view = [{"root": ("listeners",), "variables": _view_vars}]
+    # Declared bulk observables ride under listeners.observable_bulk.<id> (the
+    # process emits them there), so BOTH engines compare on one path.
     if observable_bulk_ids:
-        view.append({"root": ("bulk",), "variables": {
-            i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}})
+        _view_vars["observable_bulk"] = {
+            i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}
+    view = [{"root": ("listeners",), "variables": _view_vars}]
     metadata_base = {
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),

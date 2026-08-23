@@ -455,6 +455,33 @@ def _build_emitter(*, core: Any, **kwargs):
     return XArrayEmitter(config=build_emitter_config(**kwargs), core=core)
 
 
+def _with_observable_bulk(agent: dict, ids: list) -> dict:
+    """Return a shallow copy of ``agent`` whose ``listeners`` gains an
+    ``observable_bulk`` group holding the declared bulk molecules' counts as
+    scalars (``listeners.observable_bulk.<id>``).
+
+    This is the two-arm comparison's bulk-KPI hook: bulk counts (e.g.
+    ``VIOLACEIN[c]`` titer, ``mecillinam[p]-EG10606-MONOMER[i]`` drug-target
+    complex) ride under the ``listeners`` root so the SAME listener view + emit
+    machinery captures them, and BOTH engines expose an identical path to grade
+    on. Selection is by molecule id from the bulk record (``agent["bulk"]`` carries
+    both ``id`` and ``count``); a missing id yields 0.0 so the trace stays
+    continuous. The live composite state is left untouched (a fresh dict is
+    returned), so this never perturbs the simulation.
+    """
+    bulk = agent.get("bulk")
+    if bulk is None or not ids:
+        return agent
+    bids = bulk["id"]
+    counts = bulk["count"]
+    grp = {}
+    for mol in ids:
+        hit = np.where(bids == mol)[0]
+        grp[mol] = float(counts[hit[0]]) if len(hit) else 0.0
+    return {**agent, "listeners": {**(agent.get("listeners") or {}),
+                                   "observable_bulk": grp}}
+
+
 def run_multigen_xarray(
     composite: Any,
     *,
@@ -470,6 +497,7 @@ def run_multigen_xarray(
     single_daughters: bool = False,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     provenance: dict | None = None,
+    observable_bulk_ids: list | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
 
@@ -535,6 +563,16 @@ def run_multigen_xarray(
     # run. We mirror SQLite's lenient behaviour: keep what's there, drop what
     # isn't.
     state_after_warmup = composite.state or {}
+    # Augment a COPY of the warmup state with the declared bulk observables so the
+    # view-filter (below) and coord-metadata discovery keep the synthetic
+    # listeners.observable_bulk.<id> leaves — the live state is never mutated.
+    if observable_bulk_ids:
+        _agents = state_after_warmup.get("agents") or {}
+        _cell = _agents.get(initial_agent_id) or next(iter(_agents.values()), None)
+        if isinstance(_cell, dict):
+            _key = initial_agent_id if initial_agent_id in _agents else next(iter(_agents))
+            state_after_warmup = {**state_after_warmup, "agents": {
+                **_agents, _key: _with_observable_bulk(_cell, observable_bulk_ids)}}
     filtered_view = filter_view_to_existing_leaves(state_after_warmup, view)
     if not filtered_view:
         raise RuntimeError(
@@ -588,7 +626,10 @@ def run_multigen_xarray(
     def _emit_followed(emitter, agents_map, key):
         if key not in agents_map:
             return
-        payload = _filter_agent_state(agents_map[key], view)
+        _agent = agents_map[key]
+        if observable_bulk_ids:
+            _agent = _with_observable_bulk(_agent, observable_bulk_ids)
+        payload = _filter_agent_state(_agent, view)
         if _EMIT_UNIQUE:
             payload = {**payload, **_extract_unique_attrs(agents_map[key])}
         # CRITICAL: emit the payload under the emitter's OWN agent_id

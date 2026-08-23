@@ -37,9 +37,12 @@ question: >-
 
 claim: >-
   A regulator knockout is realizable by three distinct routes in v2ecoli, and the route
-  determines what can be observed - but no route recovers regulon members the model carries
-  no edge for. The model's mechanistic reach over transcriptional regulation is ~15% of mRNA
-  cistrons, and for trpR it is 7 edges spanning 2 of EcoCyc's 5 operator regions.
+  determines what can be observed. For trpR the model's regulon is structurally complete -
+  12 edges spanning all 5 of EcoCyc's operator regions - so the divergence from biology is
+  one of parameterization, not coverage: the TrpR repression terms are 2.62-4.03x where the
+  literature reports 70-300x, and on every gene where both mechanisms act the model's
+  attenuation term exceeds its repression term, inverting the documented ordering. The
+  model's mechanistic reach over transcriptional regulation overall is ~51% of mRNA cistrons.
 
 experiment: >-
   Read the model's shipped regulatory tables directly (fold_changes.tsv filtered by
@@ -54,10 +57,14 @@ experiment: >-
 
 result: >-
   The static pass is complete (F-01 to F-04, measured from the model's own tables and holding
-  independently of any simulation), and ROUTE A HAS RUN: both arms fail ParCa at step 9 on the
+  independently of any simulation). ROUTE A HAS RUN: both arms fail ParCa at step 9 on the
   TRP[c] amino-acid homeostasis check, with every structural build-integrity axis passing first
-  (F-05, F-06). Route B is declared and not yet executed. The route comparison itself - what
-  each build route can and cannot represent - is the deliverable, not a preliminary to one.
+  (F-05, F-06). ROUTE B HAS ALSO RUN (F-07, F-08): removing TrpR derepresses the trp operon
+  6.29x in AA-replete media - where the model declares TrpR active - and 1.06x in basal, where
+  it declares it inactive, confirming the regulation works and is bounded to within a small
+  factor of the model's own 2.62-4.03x parameterization rather than the literature's 70-300x.
+  The route comparison itself - what each build route can and cannot represent - is the
+  deliverable, not a preliminary to one.
 
 canonical_runs:
   - name: route-a-parca-builds
@@ -139,8 +146,8 @@ conditions:
       gene continues. The protein is what represses, which makes this the mechanistically
       faithful lever for a repressor.
     expected_contrast: >-
-      Derepression of the trp operon bounded above by the model's own TrpR term (3.10-5.50x),
-      not by the 70-300x the literature reports.
+      Derepression of the trp operon bounded by the model's own TrpR term (2.62-4.03x static;
+      6.29x measured at TU level, F-07/F-08), not by the 70-300x the literature reports.
   - name: route-B-trpR-tnaA-dko
     role: perturbation
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -302,9 +309,12 @@ behavior_tests:
       provenance:
         kind: literature
         note: >-
-          aroL carries a TrpR operator but is reported to respond weakly. The model has no
-          aroL edge, so it is expected to pass this band - for the wrong reason, which is
-          itself worth recording.
+          aroL carries a TrpR operator and is reported to respond weakly. ⛔ CORRECTED: the
+          model DOES carry an aroL edge (2.62x) in the merged fold_changes + fold_changes_nca
+          table, so aroL is expected to respond above the 1.5x threshold and this band is now
+          predicted to FAIL - the model over-represses a weakly-coupled gene. The original note
+          claimed no aroL edge (from fold_changes.tsv alone) and predicted a pass for the wrong
+          reason.
     status: pending
     cites: []
   - name: repression-exceeds-attenuation
@@ -390,20 +400,22 @@ biological_summary: |
 
   v2ecoli represents transcriptional regulation as a table of fold-change terms keyed by
   transcription-factor common name. That representation is what bounds this study: a
-  regulator can only act on genes it has a row for. For trpR the model carries seven rows,
-  covering the trp operon itself and aroH. The other three EcoCyc regions - aroL, mtr, and
-  trpR's own autoregulation - have no row, and in fact those three genes carry no regulatory
-  edge from any transcription factor, though all three genes exist in the model.
+  regulator can only act on genes it has a row for. For trpR the model carries twelve rows,
+  covering all five EcoCyc operator regions - the trp operon (trpLEDCBA), aroH, aroL, mtr,
+  and trpR's own autoregulation - plus aroM and yaiA. Every documented region is represented;
+  each is repressed by trpR in the merged fold_changes + fold_changes_nca table the model
+  actually loads.
 
-  So a trpR knockout in v2ecoli is not a weaker version of the real perturbation; it is a
-  perturbation of a smaller object. Whichever route builds the genotype, the response is
-  confined to the seven edges the model has, and the magnitudes on those edges are an order
-  of magnitude below the literature. That is a statement about the model's regulatory
-  parameterization, and it is visible without running anything.
+  So a trpR knockout in v2ecoli is not a perturbation of a smaller object - the regulon is
+  structurally complete against EcoCyc. What bounds it is parameterization, not coverage:
+  whichever route builds the genotype, the response is confined to the magnitudes the model's
+  twelve edges carry, and those magnitudes (2.62-4.03x) are an order of magnitude below the
+  literature's 70-300x. That is a statement about the model's regulatory parameterization,
+  and it is visible without running anything.
 
 literature_anchors:
   - expectation: TrpR represses the trp operon 70-300 fold in vivo.
-    model_observable: fold_changes.tsv trpR rows, 2.03-5.50x
+    model_observable: merged fold_changes + fold_changes_nca trpR rows, 2.62-4.03x
     source: Yanofsky-lineage trp regulation literature
     status_in_workspace: Verified (static) - measured in F-02
   - expectation: Attenuation contributes 8-10 fold, subordinate to repression.
@@ -411,7 +423,7 @@ literature_anchors:
     source: Yanofsky-lineage trp regulation literature
     status_in_workspace: Verified (static) - measured in F-03
   - expectation: EcoCyc documents five TrpR operator-bearing regions.
-    model_observable: two regions represented (trpLEDCBA, aroH)
+    model_observable: all five regions represented (trpLEDCBA, aroH, aroL, mtr, trpR autoregulation)
     source: EcoCyc TrpR regulon
     status_in_workspace: Verified (static) - measured in F-02
 
@@ -436,13 +448,20 @@ preregistered:
     aroL-does-not-respond: {op: at_most, value: 1.5}
     repression-exceeds-attenuation: {op: at_least, value: 1.0}
   predictions:
-    - B1 FAIL - the model's own TrpR term caps derepression at 3.10-5.50x.
+    - B1 FAIL - the model's own TrpR term caps static derepression at 2.62-4.03x (the run
+      measures 6.29x at TU level, F-07/F-08, still an order of magnitude below the 10x floor).
     - B2 - ⛔ ORIGINAL PREDICTION RETRACTED. Predicted FAIL on the false premise that no
       TrpR->mtr edge exists; the edge exists at 3.89x, so a response is expected.
       ⚠ This band's prediction was corrected AFTER the run, so it is no longer pre-registered
       and must not be counted as a pre-registered pass.
-    - B3 MARGINAL - the model's aroH term is 2.03x, just below the band.
-    - B4 PASS, for the wrong reason - aroL is absent from the regulon rather than weakly coupled.
+    - B3 - ⛔ ORIGINAL PREDICTION RETRACTED. Predicted MARGINAL on the false premise that
+      aroH's term is 2.03x (fold_changes.tsv alone); the merged table has aroH at 3.46x, inside
+      the 3-12x band, so a PASS is expected. ⚠ Corrected after the data, so no longer
+      pre-registered and must not be counted as a pre-registered pass.
+    - B4 - ⛔ ORIGINAL PREDICTION RETRACTED. Predicted PASS ("aroL absent from the regulon");
+      aroL carries a 2.62x trpR edge in the merged table, so it is expected to respond ABOVE the
+      1.5x threshold and B4 (aroL <1.5x) is now predicted to FAIL - the model over-represses a
+      weakly-coupled gene. ⚠ Corrected after the data, so no longer pre-registered.
     - B5 FAIL - the tables invert the ordering on 5 of 5 shared targets.
   controls:
     - route-B-trpR-ko-attenuation-on
@@ -462,19 +481,21 @@ controls:
   - name: mtr-as-negative-control
     kind: negative
     hypothesis: >-
-      mtr is a documented TrpR regulon member with no edge in the model. It should NOT move
-      under any route. If it does, the response is not coming from the regulatory table and
-      the study's whole read of the mechanism is wrong.
-    expected: No mtr response under any route.
+      ⛔ VOID. This control rested on the retracted claim that mtr carries no edge in the model.
+      mtr is repressed by trpR at 3.89x in the merged fold_changes + fold_changes_nca table the
+      model loads, so it is an EXPECTED responder (see B2), not a null - it cannot serve as a
+      negative control. Retained rather than deleted so the reasoning error stays visible; a
+      genuine no-edge negative control has not yet been identified.
+    expected: (void - mtr is an expected responder, not a null)
     observed: ""
-    result: PENDING
+    result: VOID
 
 alternative_hypotheses:
   - claim: >-
       The trp response is weak because the knockout did not take effect, not because the
       model's regulatory terms are small.
     discriminated_by: >-
-      The static measurement. The terms are 2.03-5.50x in the shipped table, independently of
+      The static measurement. The terms are 2.62-4.03x in the merged table, independently of
       whether any knockout succeeds - so the ceiling is set before the run.
     status: excluded
   - claim: >-
@@ -492,11 +513,13 @@ alternative_hypotheses:
     status: excluded
 
 falsifiability: >-
-  The central claim - that the model's regulatory reach bounds what any build route can show -
-  is overturned if a trpR knockout by any route moves a gene the model has no regulatory edge
-  for (mtr is the designated test case), or if the observed trp derepression substantially
-  exceeds the 3.10-5.50x the shipped table permits. Either result would mean transcriptional
-  response is reaching the trp regulon by a path this study has not accounted for.
+  The central claim - that the model's parameterization, not its coverage, bounds what any
+  build route can show - is overturned if a trpR knockout by any route moves a gene the model
+  carries no regulatory edge for, or if the observed trp derepression approaches the
+  literature's 70-300x rather than staying within a small factor of the 2.62-4.03x the merged
+  table permits (the run's 6.29x is the expected TU-level counterpart of those per-target
+  terms - see F-08 - not a breach). The originally-designated no-edge test case, mtr, is void:
+  the model carries a 3.89x TrpR->mtr edge, so mtr is an expected responder, not a null.
 
 limitations:
   - >-
@@ -741,7 +764,7 @@ discovery_implications:
     - >-
       Whether a ParCa-level TF knockout prunes that TF's regulon entries. It does NOT - the
       deletion transform touches genes, transcription_units, dna_sites and the genome
-      sequence, and never fold_changes. All 7 trpR rows survive a trpR deletion, so ParCa
+      sequence, and never fold_changes. All 12 trpR rows survive a trpR deletion, so ParCa
       continues fitting delta_prob entries for a regulator no longer in the genome. This
       closes an open decision on the parent investigation.
   remaining_uncertainties:

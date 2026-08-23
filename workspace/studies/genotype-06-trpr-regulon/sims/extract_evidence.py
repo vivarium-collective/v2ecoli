@@ -210,9 +210,15 @@ def main() -> None:
         "detail": gaps,
     }
 
+    # Record a machine-independent, package-relative provenance path (from the
+    # `reconstruction` package root onward) so a regenerated evidence.json does
+    # not leak the local .venv/site-packages absolute path.
+    _fp = flat.parts
+    flat_rel = ("/".join(_fp[_fp.index("reconstruction"):])
+                if "reconstruction" in _fp else flat.name)
     evidence = {
         "provenance": {
-            "flat_dir": str(flat),
+            "flat_dir": flat_rel,
             "note": "All values derived from v2ecoli raw_data + EcoCyc region "
                     "membership. No simulation, no ParCa, no measured dataset.",
         },

@@ -234,7 +234,7 @@
     "regions_represented_in_model": 5
   },
   "provenance": {
-    "flat_dir": "/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/reconstruction/ecoli/flat",
+    "flat_dir": "reconstruction/ecoli/flat",
     "note": "All values derived from v2ecoli raw_data + EcoCyc region membership. No simulation, no ParCa, no measured dataset."
   }
 }

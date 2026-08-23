@@ -1144,6 +1144,33 @@ def _build_batch_document(
                            "(ecoli-mass-conservation step). Off by default — the "
                            "residual is not yet calibrated, so it warns each tick.",
         },
+        "mecillinam": {
+            "type": "bool",
+            "default": False,
+            "description": "Inject the mecillinam bulk species — mecillinam[p], "
+                           "mecillinam_hydrolyzed[p], and the mecillinam-PBP2 "
+                           "drug-target complex (mecillinam[p]-EG10606-MONOMER[i]) "
+                           "— into this composite's initial bulk store at generate "
+                           "time (count 0, correct submass), mirroring "
+                           "LoadSimData(mecillinam=True). The cache bundle is built "
+                           "WITHOUT these species, so an injected mecillinam "
+                           "antibiotic process (e.g. the final_mec candidate arm's "
+                           "antibiotic_transport_odeint) would otherwise raise "
+                           "'Names not found in bulk_names'. Re-injected on the "
+                           "bundle-loaded bulk store — no ParCa/cache rebuild. Off "
+                           "by default = unchanged baseline.",
+        },
+        "amp_lysis": {
+            "type": "bool",
+            "default": False,
+            "description": "Inject the ampicillin bulk species (ampicillin[p], "
+                           "ampicillin_hydrolyzed[p]) into this composite's initial "
+                           "bulk store at generate time, mirroring "
+                           "LoadSimData(amp_lysis=True). Same generate-time "
+                           "re-injection mechanism as `mecillinam` (no ParCa "
+                           "rebuild); closes the same latent gap for the ampicillin "
+                           "antibiotic path. Off by default = unchanged baseline.",
+        },
         "exchange_fluxes": {
             "type": "map",
             "default": {},
@@ -1352,6 +1379,8 @@ def baseline(
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
+    mecillinam: bool = False,
+    amp_lysis: bool = False,
     exchange_fluxes: dict | None = None,
     emitter: str = "parquet",
     emitter_out_dir: str = "",
@@ -1465,6 +1494,17 @@ def baseline(
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
         mass_conservation: insert the mass-conservation check (default off).
+        mecillinam: re-inject the mecillinam bulk species (mecillinam[p],
+            mecillinam_hydrolyzed[p], and the mecillinam-PBP2 drug-target complex
+            mecillinam[p]-EG10606-MONOMER[i]) into the bundle-loaded initial bulk
+            store at generate time, count 0 with correct submass — the same
+            species LoadSimData(mecillinam=True) injects, applied here on the
+            pre-built cache bundle so an injected mecillinam antibiotic process
+            (e.g. the final_mec candidate arm) finds them in bulk_names without a
+            ParCa/cache rebuild. Default False = unchanged baseline.
+        amp_lysis: same generate-time re-injection for the ampicillin species
+            (ampicillin[p], ampicillin_hydrolyzed[p]); mirrors
+            LoadSimData(amp_lysis=True). Default False = unchanged baseline.
         emitter: observation sink for the internal 'emitter' step — one of
             ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
         emitter_out_dir: explicit output-directory override for the chosen
@@ -1552,6 +1592,22 @@ def baseline(
     # division). configs is already deep-copied below for the same reason —
     # initial_state needs the same isolation.
     initial_state = copy.deepcopy(bundle["initial_state"])
+
+    # Antibiotic bulk-species re-injection (opt-in). The ParCa cache bundle is
+    # built WITHOUT the ampicillin / mecillinam species, so an injected
+    # antibiotic process (e.g. the final_mec candidate arm's
+    # antibiotic_transport_odeint) that reads mecillinam[p] / its PBP2 complex
+    # from the bulk store would raise "Names not found in bulk_names". The
+    # vEcoli reference arm gets these via LoadSimData(**config); the candidate
+    # here loads a pre-built bundle and never re-runs LoadSimData, so we re-apply
+    # the SAME injection (single-sourced with LoadSimData) directly onto the
+    # bundle-loaded columnar bulk store — count 0, correct submass — with no
+    # ParCa/cache rebuild. No-op (unchanged baseline) when both flags are False.
+    if mecillinam or amp_lysis:
+        from v2ecoli.library.sim_data import inject_antibiotic_bulk_species
+        initial_state["bulk"] = inject_antibiotic_bulk_species(
+            initial_state["bulk"], mecillinam=mecillinam, amp_lysis=amp_lysis)
+
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict

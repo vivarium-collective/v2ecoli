@@ -94,3 +94,111 @@ def test_mecillinam_injection_adds_species():
     assert complex_mass == pytest.approx(mec + pbp2), (
         'complex mass should equal mecillinam mass + PBP2 monomer mass'
     )
+
+
+# --- Generate-time re-injection (ecoli_baseline path) ----------------------
+# The ecoli_baseline composite builds the CANDIDATE from a pre-built cache
+# bundle (load_cache_bundle) and never re-runs LoadSimData, so the antibiotic
+# flags never reached its bulk store. `inject_antibiotic_bulk_species`
+# re-applies the SAME injection (single-sourced with LoadSimData) onto the
+# bundle-loaded *columnar* initial-state bulk array — count 0, correct submass,
+# no ParCa rebuild. These tests cover that helper directly against the columnar
+# bulk store the bundle actually carries.
+
+SUBMASS_COLS_HINT = 'metabolite_submass'
+
+
+def _columnar_bulk(sim_data, **loader_kwargs):
+    """Build the columnar initial-state ``bulk`` array (the bundle format) for a
+    given sim_data via LoadSimData.generate_initial_state()."""
+    from v2ecoli.library.sim_data import LoadSimData
+    loader = LoadSimData(sim_data=sim_data, **loader_kwargs)
+    return loader.generate_initial_state()['bulk']
+
+
+@pytest.mark.skipif(not FIXTURE_PATH.exists(),
+                    reason=f'fixture absent at {FIXTURE_PATH}')
+def test_generate_path_reinjection_matches_loadsimdata():
+    """`inject_antibiotic_bulk_species(mecillinam=True)` on the bundle-format
+    columnar bulk store adds the three species with masses IDENTICAL to what
+    LoadSimData(mecillinam=True) produces, and averts the bulk_names crash."""
+    from v2ecoli.library.sim_data import inject_antibiotic_bulk_species
+    from v2ecoli.library.schema import bulk_name_to_idx
+    from v2ecoli.processes.parca.data_loader import (
+        hydrate_sim_data_from_state, load_parca_state,
+    )
+
+    state = load_parca_state(str(FIXTURE_PATH))
+
+    # Baseline columnar bulk WITHOUT any antibiotic flag (the cache-bundle shape).
+    bulk_off = _columnar_bulk(hydrate_sim_data_from_state(state))
+    assert SUBMASS_COLS_HINT in bulk_off.dtype.names, (
+        'columnar bulk store must carry per-submass columns')
+    off_ids = list(bulk_off['id'])
+    for name in MEC_SPECIES:
+        assert name not in off_ids
+
+    # Ground truth: LoadSimData(mecillinam=True) columnar bulk (separate sim_data
+    # so its in-place bulk_molecules mutation does not leak into bulk_off).
+    bulk_truth = _columnar_bulk(
+        hydrate_sim_data_from_state(state), mecillinam=True)
+    truth_by_id = {row['id']: row for row in bulk_truth}
+
+    # Re-inject onto the plain columnar bulk store (the ecoli_baseline path).
+    bulk_re = inject_antibiotic_bulk_species(bulk_off, mecillinam=True)
+    re_by_id = {row['id']: row for row in bulk_re}
+
+    submass_cols = [n for n in bulk_re.dtype.names if n.endswith('_submass')]
+    for name in MEC_SPECIES:
+        assert name in re_by_id, f'{name} missing after re-injection'
+        # Counts start at 0, exactly like the LoadSimData injection.
+        assert re_by_id[name]['count'] == 0
+        # Submass columns match LoadSimData(mecillinam=True) to floating tol.
+        for col in submass_cols:
+            assert re_by_id[name][col] == pytest.approx(
+                truth_by_id[name][col], rel=1e-9, abs=1e-30), (
+                f'{name}.{col} must match the LoadSimData injection')
+
+    # The exact crash the final_mec candidate arm hits: bulk_name_to_idx over a
+    # bulk store MISSING the species raises; over the re-injected store it does
+    # not. This is the acceptance condition (no ValueError: Names not found).
+    with pytest.raises(ValueError, match='Names not found in bulk_names'):
+        bulk_name_to_idx(list(MEC_SPECIES), bulk_off['id'])
+    idx = bulk_name_to_idx(list(MEC_SPECIES), bulk_re['id'])
+    assert len(idx) == len(MEC_SPECIES)
+    # PBP2 target still present exactly once (not duplicated by re-injection).
+    assert list(bulk_re['id']).count(PBP2_ID) == 1
+
+
+@pytest.mark.skipif(not FIXTURE_PATH.exists(),
+                    reason=f'fixture absent at {FIXTURE_PATH}')
+def test_generate_path_reinjection_amp_lysis_and_idempotent():
+    """amp_lysis re-injection adds the ampicillin species; re-applying either
+    flag is idempotent (no duplicate rows); no flags is a no-op passthrough."""
+    from v2ecoli.library.sim_data import inject_antibiotic_bulk_species
+    from v2ecoli.processes.parca.data_loader import (
+        hydrate_sim_data_from_state, load_parca_state,
+    )
+    state = load_parca_state(str(FIXTURE_PATH))
+    bulk_off = _columnar_bulk(hydrate_sim_data_from_state(state))
+
+    # No flags = identity passthrough (same object).
+    assert inject_antibiotic_bulk_species(bulk_off) is bulk_off
+
+    amp_species = ('ampicillin[p]', 'ampicillin_hydrolyzed[p]')
+    bulk_amp = inject_antibiotic_bulk_species(bulk_off, amp_lysis=True)
+    for name in amp_species:
+        assert name in list(bulk_amp['id'])
+
+    # Both flags together add all five species.
+    bulk_both = inject_antibiotic_bulk_species(
+        bulk_off, mecillinam=True, amp_lysis=True)
+    both_ids = list(bulk_both['id'])
+    for name in (*MEC_SPECIES, *amp_species):
+        assert name in both_ids
+
+    # Idempotent: re-applying does not duplicate already-present species.
+    bulk_twice = inject_antibiotic_bulk_species(bulk_both, mecillinam=True,
+                                                amp_lysis=True)
+    for name in (*MEC_SPECIES, *amp_species):
+        assert list(bulk_twice['id']).count(name) == 1

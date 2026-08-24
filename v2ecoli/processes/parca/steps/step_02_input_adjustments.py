@@ -198,6 +198,16 @@ class InputAdjustmentsStep(Step):
                 "  Step 2: debug mode — reducing tf_to_active_inactive_conditions"
                 " to a single key"
             )
+            # ⚠ WHICH TF survives is decided by FILE POSITION, not by a choice:
+            # next(iter(...)) takes insertion order, which follows the row order
+            # of condition/tf_condition.tsv. Today that first row is trpR
+            # (CPLX-125), so a fast build applies trpR's regulation and drops
+            # every other declared TF's.
+            #
+            # Reordering that file therefore silently changes which regulation a
+            # fast build models. Nothing fails; the run completes and its numbers
+            # quietly stop meaning what they meant. tests/test_fast_mode_tf_prune.py
+            # exists to make that change loud.
             first_key = next(iter(tf_cond))
             tf_cond_out = {first_key: tf_cond[first_key]}
 

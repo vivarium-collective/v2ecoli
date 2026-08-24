@@ -530,6 +530,18 @@ FEATURE_MODULES = {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['exchange_flux_listener'],
     },
+    # Opt-in: native cell-shape geometry (periplasm/cytoplasm volume split +
+    # outer surface area), ported from vEcoli ecoli/processes/shape.py.
+    # Populates `volumes.periplasm`/`volumes.cytoplasm`/
+    # `boundary.outer_surface_area` for the mecillinam candidate arm's
+    # injected antibiotic_transport_odeint, which otherwise finds nothing
+    # writing those stores. Runs right after the mass listener so it reads
+    # this tick's `listeners.mass.volume`. Auto-enabled by `baseline(...,
+    # mecillinam=True)`; a no-op (no `volumes` store, no step) otherwise.
+    'cell_geometry': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['cell_geometry_step'],
+    },
 }
 
 DEFAULT_FEATURES = ['ppgpp_regulation']  # trna_attenuation + mass_conservation off by default
@@ -743,6 +755,17 @@ def _get_step_config(
             'time_step': 1,
         }
         instance = _make_instance(Dars, dars_cfg, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
+    # mecillinam candidate arm: native cell-shape geometry deriver. No ParCa
+    # config; built from class defaults (width_um=1.0, matching vEcoli
+    # shape.py's default width).
+    if step_name == 'cell_geometry_step':
+        from v2ecoli.steps.derivers.cell_geometry import CellGeometry
+        instance = _make_instance(CellGeometry, {}, core)
         topology = getattr(instance, 'topology', {})
         if callable(topology):
             topology = topology()
@@ -1645,6 +1668,14 @@ def baseline(
     _exchange_fluxes = dict(exchange_fluxes or {})
     if _exchange_fluxes and 'exchange_flux' not in _requested_features:
         _requested_features.append('exchange_flux')
+    # mecillinam (antibiotic mode) auto-enables the native cell_geometry
+    # feature: the injected antibiotic_transport_odeint divides molecule
+    # counts by volumes.periplasm/cytoplasm and reads
+    # boundary.outer_surface_area, which nothing else in the candidate
+    # populates. amp_lysis does not need it (that arm reads cell_wall/
+    # murein-division state, not this geometry split).
+    if mecillinam and 'cell_geometry' not in _requested_features:
+        _requested_features.append('cell_geometry')
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)
@@ -1705,6 +1736,20 @@ def baseline(
     cell_state.setdefault('attenuation_config', {
         'enabled': False,
     })
+    # cell_geometry feature (mecillinam candidate arm): pre-create the new
+    # top-level `volumes` store the CellGeometry step writes to, so the
+    # document build sees it as an existing (pint-typed) path rather than
+    # inferring a schema from nothing. `boundary` already exists (from the
+    # bundle's initial_state); CellGeometry only adds one new leaf to it.
+    if 'cell_geometry' in features:
+        from v2ecoli.types.quantity import ureg as _geom_units
+        cell_state.setdefault('volumes', {
+            'periplasm': 0.0 * _geom_units.L,
+            'cytoplasm': 0.0 * _geom_units.L,
+        })
+        cell_state.setdefault('boundary', {})
+        cell_state['boundary'].setdefault(
+            'outer_surface_area', 0.0 * _geom_units.um**2)
 
     # Initialize next_update_time for all partitioned processes
     nut = cell_state.setdefault('next_update_time', {})

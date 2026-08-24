@@ -22,6 +22,47 @@ def test_resolve_key_is_compartment_tolerant():
     assert resolve_exchange_key({"GLC": -8.5}, "MISSING[c]") is None
 
 
+def test_zero_placeholder_does_not_shadow_the_real_flux():
+    """A genuine-fork ``environment.exchange`` store carries BOTH forms of the
+    same molecule, and only one of them is real.
+
+    The fork's metabolism process declares the store's schema over the
+    COMPARTMENT-TAGGED exchange ids, each with ``_default: 0``, but writes its
+    per-tick exchange dmdt under the COMPARTMENT-STRIPPED id. So every exchange
+    molecule ends up with a tagged key parked at the schema default alongside
+    the stripped key carrying the value. An exact-match-first lookup returns the
+    0 and reports "no exchange" for a molecule the cell is visibly exchanging.
+
+    This is the store shape a resolver has to survive; the compartment-tolerance
+    tests above never exercise it, because they never put both forms in one
+    store.
+    """
+    both = {"AC[p]": 0, "AC": 0.042, "GLC[p]": 0, "GLC": -8.5}
+    # secretion (positive) and uptake (negative) both reach past the placeholder
+    assert resolve_exchange_key(both, "AC[p]") == 0.042
+    assert resolve_exchange_key(both, "GLC[p]") == -8.5
+    # and asking by the stripped id is unchanged
+    assert resolve_exchange_key(both, "AC") == 0.042
+
+
+def test_derive_reads_real_flux_from_a_placeholder_shadowed_store():
+    """End-to-end through the public helper: the declared leaves carry the real
+    values, not the placeholders. A study declares tagged ids (the fork
+    convention), so this is the path every reference-arm run takes."""
+    both = {"AC[p]": 0, "AC": 0.042, "GLC[p]": 0, "GLC": -8.5}
+    assert derive_fluxes(both, FLUXES) == {
+        "acetate_exchange": 0.042, "glucose_exchange": -8.5}
+
+
+def test_a_genuine_zero_still_reads_zero():
+    """The fix must not manufacture a value: a molecule that really is not
+    being exchanged still resolves to 0.0, so a zero on the leaf keeps meaning
+    'no flux' rather than 'lookup gave up'."""
+    assert resolve_exchange_key({"AC[p]": 0, "AC": 0}, "AC[p]") == 0
+    assert derive_fluxes({"AC[p]": 0, "AC": 0, "GLC": -8.5}, FLUXES) == {
+        "acetate_exchange": 0.0, "glucose_exchange": -8.5}
+
+
 def test_derive_matches_fork_ids_against_stripped_store():
     # study config uses fork ids; candidate store is stripped -> still matches
     out = derive_fluxes({"GLC": -8.5, "AC": 0.042}, FLUXES)

@@ -423,52 +423,75 @@ class KnowledgeBaseEcoli(object):
                 self.list_of_dict_filenames.append(file_path)
                 self.new_gene_added_data.update({f: nested_attr + f})
 
-            # OPTIONAL, and deliberately not in new_gene_shared_files above:
-            # that list is asserted present, and neither ``gfp`` nor
-            # ``template`` ships this file, so requiring it would break every
-            # existing new-gene build.
+            # OPTIONAL joins. These are deliberately not in
+            # ``new_gene_shared_files`` above: that list is asserted present,
+            # and neither ``gfp`` nor ``template`` ships any of these files, so
+            # requiring them would break every existing new-gene build.
+            def _join_if_present(filename, key=None):
+                """Join one optional new-gene file, if the insertion ships it.
+
+                Rows are appended to the base attribute of the same name;
+                ``key`` overrides that when the base attribute lives under a
+                nested path (as ``rna_seq_data`` does).
+                """
+                rel = os.path.join(new_gene_path, filename + ".tsv")
+                present = (
+                    self._bundle.has_key(relpath_to_key(rel))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, rel))
+                )
+                if not present:
+                    return
+                self.list_of_dict_filenames.append(rel)
+                self.new_gene_added_data.update(
+                    {key or filename: nested_attr + filename}
+                )
+
+            # Why each of these is needed at all:
             #
-            # Why it is needed at all: a new gene set whose enzymes act as
+            # ``metabolites`` -- a heterologous pathway's product and
+            # intermediates are molecules the base flat files know nothing
+            # about, and without them the product has no entry in the bulk
+            # store to accumulate into.
+            _join_if_present("metabolites")
+
+            # ``complexation_reactions`` -- an insertion whose enzymes act as
             # protein COMPLEXES (e.g. a homodimer) names the complex as the
-            # catalyst, and without complexation the complex is never formed —
+            # catalyst, and without complexation the complex is never formed:
             # the monomers accumulate with nothing to do and any consumer
-            # looking up the catalyst id fails. Joining this file lets a
-            # new-gene insertion declare its own complexes, exactly as it
-            # already declares its own genes, RNAs and proteins.
-            # Same optional treatment for the insertion's own metabolites: a
-            # heterologous pathway's product and intermediates are molecules the
-            # base flat files know nothing about, and without them the product
-            # has no entry in the bulk store to accumulate into.
-            met_path = os.path.join(new_gene_path, "metabolites.tsv")
-            if (self._bundle.has_key(relpath_to_key(met_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, met_path))):
-                self.list_of_dict_filenames.append(met_path)
-                self.new_gene_added_data.update(
-                    {"metabolites": nested_attr + "metabolites"}
-                )
+            # looking up the catalyst id fails.
+            _join_if_present("complexation_reactions")
 
-            cplx_path = os.path.join(new_gene_path, "complexation_reactions.tsv")
-            if (self._bundle.has_key(relpath_to_key(cplx_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, cplx_path))):
-                self.list_of_dict_filenames.append(cplx_path)
-                self.new_gene_added_data.update(
-                    {"complexation_reactions": nested_attr
-                     + "complexation_reactions"}
-                )
+            # ``metabolic_reactions`` -- THE REACTIONS THE INSERTED ENZYMES
+            # CATALYSE. Without them the pathway's enzymes are expressed, its
+            # product has a bulk entry, and nothing connects the two: the
+            # product sits at its initial count for the whole simulation and
+            # every flux and yield readout is a structural zero rather than a
+            # measurement. ``metabolism.py`` builds ``reaction_stoich`` from
+            # ``raw_data.metabolic_reactions``, so an insertion that declares
+            # its own reactions must have them joined here or they do not
+            # exist as far as the model is concerned.
+            _join_if_present("metabolic_reactions")
 
-            rnaseq_path = os.path.join(new_gene_path, "rnaseq_rsem_tpm_mean.tsv")
-            if (self._bundle.has_key(relpath_to_key(rnaseq_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, rnaseq_path))):
-                self.list_of_dict_filenames.append(rnaseq_path)
-                self.new_gene_added_data.update(
-                    {
-                        "rna_seq_data.rnaseq_rsem_tpm_mean": nested_attr
-                        + "rnaseq_rsem_tpm_mean"
-                    }
-                )
+            # ``metabolism_kinetics`` -- kcat/KM constraints for those
+            # reactions. Absent, they are unconstrained rather than wrong, but
+            # an insertion that ships measured kinetics means them to apply.
+            _join_if_present("metabolism_kinetics")
+
+            # ``transcription_units`` -- the insertion's OWN operon structure.
+            # Absent, every inserted gene becomes its own transcription unit,
+            # which is a different genetic construct from the one declared: it
+            # changes transcription initiation, mRNA counts and the coupling
+            # between the genes. ⚠ Positions in this file are RELATIVE to the
+            # insertion and are converted to genome coordinates in
+            # ``_update_gene_locations``; joining the file without that
+            # conversion would place the operon at the wrong locus.
+            _join_if_present("transcription_units")
+
+            _join_if_present(
+                "rnaseq_rsem_tpm_mean",
+                key="rna_seq_data.rnaseq_rsem_tpm_mean",
+            )
 
         # Load raw data from TSV files
         for filename in self.list_of_dict_filenames:
@@ -892,6 +915,38 @@ class KnowledgeBaseEcoli(object):
             right = row["right_end_pos"]
             row.update({"left_end_pos": left + insert_pos})
             row.update({"right_end_pos": right + insert_pos})
+
+        # If the new genes are in operons, change relative positions to global.
+        # ⚠ ORDER IS LOAD-BEARING: the loop above has already converted
+        # ``new_genes_data`` to genome coordinates, and the upper-bound
+        # assertion below compares against it, so both sides are global. Moving
+        # this block above that loop would compare a global position against a
+        # relative one and pass or fail for the wrong reason.
+        new_genes_tu_data = getattr(nested_data, "transcription_units", None)
+        if new_genes_tu_data:
+            new_genes_tu_data = sorted(
+                new_genes_tu_data, key=lambda d: d["left_end_pos"]
+            )
+            for row in new_genes_tu_data:
+                left = row["left_end_pos"]
+                right = row["right_end_pos"]
+
+                # An added transcription unit must lie entirely within the
+                # added genes: it may not reach back into the original genome
+                # on either side. Checked rather than clamped, because a TU
+                # that silently spanned the insertion boundary would transcribe
+                # native genes as part of the construct.
+                assert left >= 1, (
+                    "added transcription unit start positions cannot overlap "
+                    "original genes at this time"
+                )
+                assert right + insert_pos <= new_genes_data[-1]["right_end_pos"], (
+                    "added transcription unit end positions cannot exceed new "
+                    "gene end position at this time"
+                )
+
+                row.update({"left_end_pos": left + insert_pos})
+                row.update({"right_end_pos": right + insert_pos})
 
         return insert_end
 

@@ -325,3 +325,145 @@ def test_initialize_step_defaults_new_genes_off():
         s1._resolve_raw_data({"raw_data": None})
 
     assert mock_kb.call_args.kwargs["new_genes_option"] == "off"
+
+
+# --------------------------------------------------------------------------
+# 4. The reaction / kinetics / operon joins
+#
+# An insertion declares more than parts: it declares the CHEMISTRY those parts
+# perform and the OPERON they sit in. Three files carried that and were never
+# joined, so a pathway built with its genes expressed, its enzymes complexed
+# and its product given a bulk entry -- and no reaction connecting them.
+# --------------------------------------------------------------------------
+
+# A synthetic reaction making the synthetic product, catalysed by the public
+# insertion's own monomer. Column set must match the base metabolic_reactions
+# table exactly or ``_join_data`` refuses the join. ⚠ Needs >1 stoichiometry
+# entries: metabolism.py raises "Invalid biochemical reaction" on a shorter one.
+NG_REACTION = (
+    '"id"\t"stoichiometry"\t"direction"\t"catalyzed_by"\n'
+    '"NG-TEST-RXN"\t{"TRP[CCO-CYTOSOL]": -1, "NG-TEST-PRODUCT[CCO-CYTOSOL]": 1}'
+    '\t"L2R"\t["' + GFP_MONOMER + '"]\n'
+)
+
+# A kcat constraint on that reaction. Column set must match the base
+# metabolism_kinetics table exactly (it is unquoted, unlike most).
+NG_KINETICS = (
+    "reactionID\tenzymeID\tsubstrateIDs\tTemp\trateEquationType\tdirection"
+    "\tkcat (1/units.s)\tkM (units.umol/units.L)\tkI (units.umol/units.L)"
+    "\tcustomRateEquation\tcustomParameters\tcustomParameterConstants"
+    "\tcustomParameterConstantValues\tcustomParameterVariables\tPubmed ID\n"
+    '"NG-TEST-RXN"\t"' + GFP_MONOMER + '"\t["TRP"]\t37\t"standard"\t'
+    '\t[12.5]\t[]\t[]\t\t\t\t\t\t"0"\n'
+)
+
+# An operon over the public insertion's single gene, in the insertion's own
+# RELATIVE coordinates -- which is how a payload declares them, and why the
+# conversion in _update_gene_locations exists. NG001 spans 1..717.
+GFP_GENE_SPAN = 717
+NG_OPERON = (
+    '"id"\t"common_name"\t"genes"\t"left_end_pos"\t"right_end_pos"'
+    '\t"direction"\t"evidence"\n'
+    '"NG-TEST-TU"\t"test operon"\t["NG001"]\t1\t' + str(GFP_GENE_SPAN)
+    + '\t"+"\t[]\n'
+)
+
+
+def test_new_gene_metabolic_reactions_are_joined_and_reach_the_model(tmp_path):
+    """Without this the pathway is expressed and its product cannot be made.
+
+    This is the failure the join exists to prevent, and it is silent: the
+    enzymes are synthesised, the product HAS a bulk entry to accumulate into,
+    and no reaction connects them -- so the product sits at its initial count
+    for the whole simulation. Every flux and yield readout is then a structural
+    zero that is indistinguishable from a real "not produced" result.
+    """
+    from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import (
+        SimulationDataEcoli,
+    )
+
+    manifest = _write_overlay(
+        tmp_path, "gfp_rxn",
+        extra={"metabolites.tsv": PRODUCT_METABOLITE,
+               "metabolic_reactions.tsv": NG_REACTION},
+    )
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_rxn")
+    assert "NG-TEST-RXN" in [r["id"] for r in kb.metabolic_reactions]
+
+    sim_data = SimulationDataEcoli()
+    sim_data.initialize(raw_data=kb)
+    assert "NG-TEST-RXN" in sim_data.process.metabolism.reaction_stoich
+
+
+def test_new_gene_metabolic_reactions_absent_still_builds(tmp_path):
+    """The file is OPTIONAL -- neither ``gfp`` nor ``template`` ships one, so
+    requiring it would break every existing insertion."""
+    manifest = _write_overlay(tmp_path, "gfp_no_rxn")
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_no_rxn")
+
+    assert not [r for r in kb.metabolic_reactions
+                if str(r["id"]).startswith("NG-TEST")]
+    assert any(str(p["id"]).startswith("NG-") for p in kb.proteins)
+
+
+def test_new_gene_kinetics_are_joined(tmp_path):
+    """Absent, the insertion's reactions are UNCONSTRAINED rather than wrong --
+    but a payload that ships measured kcats means them to apply."""
+    manifest = _write_overlay(
+        tmp_path, "gfp_kin",
+        extra={"metabolites.tsv": PRODUCT_METABOLITE,
+               "metabolic_reactions.tsv": NG_REACTION,
+               "metabolism_kinetics.tsv": NG_KINETICS},
+    )
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_kin")
+
+    assert "NG-TEST-RXN" in [k["reactionID"] for k in kb.metabolism_kinetics]
+
+
+def _ng_tus(kb):
+    return [t for t in kb.transcription_units if str(t["id"]).startswith("NG-")]
+
+
+def test_new_gene_operon_is_joined_and_converted_to_genome_coordinates(tmp_path):
+    """The operon must land at the insertion's locus, not at coordinate 1.
+
+    A payload declares its TU in coordinates RELATIVE to the insertion, exactly
+    as it declares its genes. The genes are converted to genome coordinates by
+    ``_update_gene_locations``; the TU has to make the same journey or the
+    operon is placed near the origin, overlapping whatever native genes happen
+    to live there, while the genes it names sit elsewhere.
+
+    ⇒ The assertion is that the TU spans EXACTLY its gene, wherever that gene
+    ended up -- which fails both if the file is not joined at all and if it is
+    joined without the conversion.
+    """
+    manifest = _write_overlay(
+        tmp_path, "gfp_operon", extra={"transcription_units.tsv": NG_OPERON}
+    )
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_operon")
+
+    tus = _ng_tus(kb)
+    assert [t["id"] for t in tus] == ["NG-TEST-TU"]
+    tu = tus[0]
+
+    gene = next(g for g in kb.genes if g["id"] == "NG001")
+    assert tu["left_end_pos"] == gene["left_end_pos"]
+    assert tu["right_end_pos"] == gene["right_end_pos"]
+
+    # The insertion does not land at the start of the genome, so a TU left at
+    # its relative coordinates would still read 1..717. Encoded rather than
+    # assumed: without this the two assertions above pass vacuously if the
+    # insertion ever were placed at position 0.
+    assert tu["left_end_pos"] > 1, (
+        "fixture assumes the insertion is not at genome coordinate 0; without "
+        "that the coordinate conversion is untestable here"
+    )
+
+
+def test_new_gene_operon_absent_still_builds(tmp_path):
+    """Optional, like the others -- and the shape every existing insertion has."""
+    manifest = _write_overlay(tmp_path, "gfp_no_operon")
+    kb = _kb(SourceBundle(overrides=manifest), "gfp_no_operon")
+
+    assert _ng_tus(kb) == []
+    assert any(str(g["id"]).startswith("NG") for g in kb.genes)

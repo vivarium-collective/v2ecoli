@@ -487,7 +487,7 @@ def _baseline_param_names() -> set:
     import v2ecoli.composites  # noqa: F401  (register generators)
     from viva_superpowers.composite_generator import _REGISTRY
     for e in _REGISTRY.values():
-        if e.name == "baseline":
+        if e.name in ("ecoli_baseline", "baseline"):
             return set(e.parameters)
     return set()
 

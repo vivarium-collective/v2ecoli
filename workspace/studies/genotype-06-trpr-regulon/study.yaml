@@ -523,24 +523,31 @@ falsifiability: >-
 
 limitations:
   - >-
-    The static findings (F-01..F-05) measure the model's PARAMETER TABLES. They constrain what
-    a run can show but are not themselves run results; the run arms are declared and not yet
-    executed.
+    The static findings (F-01..F-04) measure the model's PARAMETER TABLES. They constrain what
+    a run can show but are not themselves run results. F-05..F-08 are the run results: route A
+    (build) and route B (multigen) have both executed.
   - >-
     Route C - imposing a measured differential-expression table at ParCa time via the
     rnaseq_experimental key - is named but not exercised. It depends on which DE table is
     supplied, which makes it an input question rather than a property of the machinery.
   - >-
-    The route-A failure is reported from a prior measurement, not reproduced in this study yet.
-    Reproducing it formally is exactly what F-05 exists to do.
+    F-07's positive arm is measured in with_aa, which is a blunt instrument for the question.
+    Relative to basal it supplies all 20 amino acids, shortens the doubling time from 44.0 to
+    25.0 min, and declares five TFs active and three inactive rather than TrpR alone
+    (condition_defs.tsv). The 6.29x is therefore attributable to "a condition where the model
+    declares TrpR active", not to tryptophan specifically. The basal_with_trp condition
+    (ecoli-sources#15, merged 2026-08-23) isolates tryptophan at basal's own 44.0 min and is
+    the intended clean re-run; it is not yet reachable from v2ecoli, which still pins
+    ecoli-sources to a rev predating it.
   - >-
     EcoCyc region membership is entered by hand in the evidence extractor. It is literature,
     not model data, and is the one input a reader must take on trust rather than re-derive.
 
 # ─── Findings ────────────────────────────────────────────────────────
 #
-# All five are STATIC - measured from the model's own tables by
+# F-01..F-04 are STATIC - measured from the model's own tables by
 # sims/extract_evidence.py, which writes data/evidence.json. No simulation.
+# F-05..F-08 are RUN results: route A (build) and route B (multigen).
 
 findings:
   - id: F-01
@@ -812,7 +819,9 @@ design_pivot_required:
 conclusion_verdicts:
   regression_compatibility:
     basis: >-
-      No runs executed. The static pass reads shipped tables and changes nothing.
+      The study changes no shipped code or data. The static pass reads the model's own tables,
+      and the run arms (route A build attempts, route B multigen) execute stock v2ecoli against
+      cache-baked knockouts without modifying it.
   biological_validation:
     basis: >-
       Not asserted. The parent investigation is descriptive and asserts no verdict past build

@@ -815,11 +815,13 @@ findings:
         - source_kind: behavior_test_result
           source_ref: mbp-07:wcm-growth-axes-graded-vs-beulig
         - source_kind: behavior_test_result
-          source_ref: mbp-07:millard-growth-axes-graded-vs-beulig
+          source_ref: 'mbp-07:millard-growth-axes-graded-vs-beulig'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: docs/report_cards/beulig_batch/vs_beulig/report_card_verdict.json
         - source_kind: external
           source_ref: docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: further_investigation
       resolution_venue: v2ecoli
       candidate_resolution:
@@ -836,11 +838,14 @@ findings:
       provenance: this_investigation
       evidence:
         - source_kind: behavior_test_result
-          source_ref: mbp-07:millard-growth-axes-graded-vs-beulig
+          source_ref: 'mbp-07:millard-growth-axes-graded-vs-beulig'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json (multigen.generations_seen=[1], steps_reached=9000)
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: 'precursor-drain diagnostic (80 steps, seed 0): PHE -99.5% / LEU -96.8% / NTPs -24..-74% in Millard vs steady in FBA; mu 7.3e-6 vs 2.15e-4 /s'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: scope_decision
       resolution_venue: v2ecoli
       candidate_resolution:
@@ -859,11 +864,14 @@ findings:
       provenance: this_investigation
       evidence:
         - source_kind: behavior_test_result
-          source_ref: mbp-07:wcm-mass-conservation-closes-millard
+          source_ref: 'mbp-07:wcm-mass-conservation-closes-millard'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: open_question
-          source_ref: mbp-07:millard-mass-balance-non-closure
+          source_ref: 'mbp-07:millard-mass-balance-non-closure'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: 'mass-balance diagnostic (baseline_millard, seed 0, 40 ticks): net mass-in +2.46 fg / cumRel ~25 BEFORE; +0.09 fg / cumRel ~1.4 AFTER CO2+H2O efflux accounting'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: model_improvement
       resolution_venue: v2ecoli
       candidate_resolution:
@@ -880,9 +888,11 @@ findings:
       provenance: this_investigation
       evidence:
         - source_kind: behavior_test_result
-          source_ref: mbp-07:millard-gas_transfer-axes-graded-vs-beulig
+          source_ref: 'mbp-07:millard-gas_transfer-axes-graded-vs-beulig'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json (gas_transfer.CTR=0.0, OTR mismatch)
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: model_improvement
       resolution_venue: v2ecoli
       candidate_resolution:
@@ -899,7 +909,8 @@ findings:
       provenance: this_investigation
       evidence:
         - source_kind: behavior_test_result
-          source_ref: mbp-07:millard-gas_transfer-axes-graded-vs-beulig
+          source_ref: 'mbp-07:millard-gas_transfer-axes-graded-vs-beulig'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
         - source_kind: external
           source_ref: docs/report_cards/beulig_batch/vs_beulig/report_card_verdict.json (byproducts + gas_transfer.dissolved_o2 ungraded)
       resolution_type: model_improvement
@@ -977,7 +988,8 @@ findings:
         - source_kind: external
           source_ref: 'docs/report_cards/beulig_batch/iml1515_vs_beulig/report_card_verdict.json (acetate ungraded: no measured acetate)'
         - source_kind: behavior_test_result
-          source_ref: mbp-07:millard-substrate-axes-graded-vs-beulig
+          source_ref: 'mbp-07:millard-substrate-axes-graded-vs-beulig'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: scope_decision
       resolution_venue: multiscale-bioprocess investigation
       candidate_resolution:
@@ -1038,7 +1050,8 @@ findings:
         - source_kind: external
           source_ref: "docs/report_cards/beulig_batch/vs_beulig/report_card_verdict.json (scope: 'verdict mismatch by design')"
         - source_kind: external
-          source_ref: "docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json (scope: 'execute-and-report')"
+          source_ref: 'docs/report_cards/beulig_batch/millard_vs_beulig/report_card_verdict.json (scope: ''execute-and-report'')'
+          note: 'provenance: DEFERRED KINETIC ARM -- the mbp-07 Millard grading was withdrawn from the investigation acceptance set on 2026-08-20; the observation stands, the arm is no longer gated'
       resolution_type: upstream_PR
       resolution_venue: pbg-superpowers
       candidate_resolution:

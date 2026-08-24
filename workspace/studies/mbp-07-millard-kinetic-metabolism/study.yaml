@@ -30,29 +30,85 @@ baseline:
   params: {seed: 0, cache_dir: out/cache}
 
 purpose:
+  # ⚠ REFRAMED 2026-08-20. This study was built as the Millard kinetic-metabolism
+  # arc (the question below). It is now framed as the investigation's
+  # EXTENSIBILITY DEMONSTRATION for the cell-side interface contract: foreign
+  # metabolic engines behind the same interface, at three honestly different
+  # depths.
+  #
+  #   1. Millard 2017 kinetic ODE -- the deepest. v2ecoli's tFBA Metabolism is
+  #      REMOVED and central-carbon metabolism runs through the kinetic ODE
+  #      across the whole-cell model's full process set (baseline_millard),
+  #      then coupled to the
+  #      reactor. This is an ENGINE SWAP INSIDE THE WCM, not a standalone
+  #      Millard model -- a distinction worth stating because it is easy to
+  #      read the other way. Built and running.
+  #   2. iML1515 genome-scale FBA -- graded against the same Beulig prefix, but
+  #      UNCOUPLED and partly fit to the reference (its glucose/O2 uptake lower
+  #      bounds come FROM the measured Beulig rates), so growth is the only
+  #      genuine prediction graded. Its own card says it is not
+  #      apples-to-apples.
+  #   3. OxidizeME ME-model -- a NAMED candidate, not a wired one. Verified
+  #      2026-08-20: `pbg_oxidizeme` is not importable here and
+  #      `local:OxidizeMEStep` does not resolve, against a positive control
+  #      (`local:BiRDTransportProcess`) that does.
+  #
+  # What the INVESTIGATION gates on from this study is the iML1515 grading
+  # only, 2 criteria. Withdrawn: the five Millard criteria (its Beulig grading
+  # is deferred, not concluded) and the two wcm-* criteria, which were
+  # redundant -- mbp-05 already grades the same vs_beulig card across all five
+  # axis groups. Nothing here is deleted; the runs, figures and cards stand.
+  #
+  # On what the extensibility claim is gated by, stated precisely because the
+  # first draft of this note was sloppy about it:
+  #   - `composite-builds-and-runs` (`> 0.0`) and `central-fluxes-nontrivial`
+  #     (`!= 0.0`) are existence checks and were never investigation criteria.
+  #   - `growth-recovered-vs-baseline` WAS gated and is DE-promoted here, not
+  #     merely left unpromoted. Its band `[0.0, 0.04]` cannot distinguish
+  #     recovered growth from stalled growth, so keeping it would have gated an
+  #     extensibility claim on a check that cannot fail.
+  #   - ⚠ `wcm-mass-conservation-closes-millard` (band `[0.0, 0.05]`) CAN
+  #     discriminate and currently FAILS -- mbp-06 records cumRel ~1.4 after
+  #     CO2+H2O efflux accounting. It is not gated by the investigation, and
+  #     that is a real gap in this study's coverage rather than a deliberate
+  #     exclusion. Promoting it is the obvious candidate whenever the Millard
+  #     arm is reopened.
+  #
+  # Reopening the Millard arm means settling one thing first: whether a coupled
+  # reactor should drive this model's external glucose. It currently must not,
+  # and v2ecoli#550 (merged 2026-08-21) enforces that: `_NOT_REACTOR_DRIVEN_SPECIES`
+  # in reactor_millard_env_bridge.py holds GLCx back, so the reactor cannot
+  # overwrite the calibrated value. Answering it means re-calibrating the model
+  # and regenerating this study's figures and the millard_vs_beulig card.
+  #
+  # ⚠ DO NOT "tidy" this study's baseline shape. It is the only study of 60
+  # carrying a top-level `baseline:` list rather than `conditions.baseline`,
+  # and it is allowlisted for that (known_audit_failures.txt:28,
+  # `canonical-model-schema # multi_baseline_needs_human`). The two shapes are
+  # mutually exclusive across the workspace; converting it to clear the audit
+  # entry would move it onto the shape the observable-check readout guard does
+  # not read. See vivarium-workbench#913.
   question: |
-    The Millard kinetic-metabolism arc, end-to-end. Can the Millard 2017
-    kinetic central-carbon ODE replace v2ecoli's constraint-based central-
-    carbon FBA as a drop-in cell engine under the cell-side interface
-    contract?
+    Can a metabolic engine other than v2ecoli's own be attached behind the same cell-side interface contract, and what does it actually take?
 
-    Three linked questions:
-      1. BUILD     — does the swapped composite (baseline_millard) build and
-                     run, with non-trivial live central fluxes (kinetic ODE
-                     active, not FBA)?
-      2. VALIDATE  — does the Millard whole-cell model recover growth
-                     comparable to the FBA baseline, and (once the Millard
-                     cell exposes mass-exchange accounting) close mass
-                     conservation?
-      3. COMPARE   — coupled to the same BiRD reactor and run against the
-                     Beulig WT batch prefix, does the Millard kinetic central
-                     metabolism track the bioreactor (growth, substrate, gas
-                     transfer) BETTER than v2ecoli's WCM-FBA — and how do both
-                     compare to the iML1515 genome-scale FBA (Palsson)?
-                     Rendered as a structured 3-arm report-card comparison
-                     (per-group axis verdicts + categorized divergences),
-                     NOT a tolerance gate (execute-and-report, per
-                     chris_feedback_2026_05_26 §10).
+    This study is the investigation's extensibility demonstration. Three
+    engines have been attached at three deliberately different depths -- a
+    Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the
+    whole-cell model and coupled to the BiRD reactor; iML1515 genome-scale
+    FBA graded against the same Beulig prefix but uncoupled and partly fit
+    to it; and the OxidizeME ME-model named as a candidate but not wired.
+    The ladder is the finding: the depths differ, and flattening them would
+    overclaim. Full detail, including the coupling's known asymmetry and the
+    verification behind each claim, is in the investigation's what_is_this
+    and in the comment above this field.
+
+    Of the three, the investigation gates only on the iML1515 grading. The
+    Millard arm's grading against Beulig is deferred as of 2026-08-20 --
+    deferred, not concluded -- and the original question this study was
+    built to answer (does the kinetic ODE recover growth, close mass
+    conservation, and track the bioreactor?) is preserved in the behavior
+    tests and their recorded results.
+    claims.
 
 implementation_requirements:
 - id: req-1-millard-exchange-accounting
@@ -607,7 +663,7 @@ pipeline_gate:
     evaluated_by: code
     diverges_from_authored: false
 study_card:
-  one_liner: 'Millard kinetic central-carbon ODE as a drop-in cell engine: build, validate, and 3-arm reactor comparison vs WCM-FBA and iML1515.'
+  one_liner: 'Extensibility demonstration for the cell-side interface contract: foreign metabolic engines behind the same interface -- a Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the WCM and coupled to the reactor, iML1515 genome-scale FBA graded against the same Beulig prefix (uncoupled, partly fit to it), and the OxidizeME ME-model as a named candidate. The investigation gates on the iML1515 grading only.'
   phase: Evaluate
   kind: diagnostic (build -> validate -> head-to-head comparison)
   depends_on: [mbp-03, mbp-05]

@@ -81,7 +81,7 @@ at_a_glance:
       across five axes (v2ecoli biology / coupling / BiRD physics / Beulig
       scope / methodology), each with a resolution type and venue, feeding
       the next investigation iteration.
-  - mbp-07-millard-kinetic-metabolism: "Build->Validate->Compare (consolidated): replace v2ecoli's central-carbon FBA with the Millard 2017 kinetic ODE as a drop-in cell engine (baseline_millard), validate it recovers growth vs the FBA baseline, then couple it to the BiRD reactor and grade it head-to-head against the Beulig WT batch prefix alongside the WCM-FBA and iML1515 genome-scale FBA arms (3-arm report cards). Deliverables: baseline_millard + reactor_bird_coupled_millard + 3-arm Beulig comparison.\n"
+  - mbp-07-millard-kinetic-metabolism: "EXTENSIBILITY DEMONSTRATION for the cell-side interface contract -- metabolic engines other than v2ecoli's own dropped in behind the same interface, at three honestly different depths: the Millard 2017 kinetic ODE replacing tFBA Metabolism inside the WCM and coupled to the reactor (built, running); iML1515 genome-scale FBA graded against the same Beulig prefix but uncoupled and partly fit to it; and the OxidizeME ME-model named as a candidate drop-in (wrapper repo + a workspace reference import, but NOT installed here and not resolvable -- verified, see executive.what_is_this). REFRAMED 2026-08-20 from a Millard-centred study. The investigation gates on the iML1515 grading only (2 criteria): the Millard arm's Beulig grading is deferred and its five criteria withdrawn, and the two wcm-* criteria are withdrawn as redundant -- mbp-05 already grades vs_beulig across all five axis groups.\n"
   blocked:
   - |
     Reaching the Beulig high-density regime (~50–80 gDW/L fed-batch endpoint,
@@ -135,13 +135,12 @@ scientific_argument:
   - mbp-02 cells_per_agent scaling validated empirically across seeds {0,1,2} and cpa ∈ {1, 1e6, 1e9}, with log-y parallelism over 9 orders of magnitude and narrow variance ribbons; the per-cell-mass-invariant chart confirms the aggregator never touches per-cell state.
   - The mbp-03 hard prerequisite is satisfied. pbg-bioreactor-transport-fork merged to pbg-bioreactordesign main (f40f82f, PR   #1), 43 tests green; MonodCellProcess publishes external_exchange_fluxes in mmol/(gDW·h), honouring the cell-side interface contract so a WCM/dFBA engine is a drop-in swap.
   - The mbp-05 comparison harness renders sim-vs-Beulig overlays plus categorized divergences from a YAML comparison_overlays list (13 overlays), so adding a comparison is configuration, not code.
-  - ? The keystone mbp-03 coupling is demonstrated green (2026-07-27). tests/test_mbp_03_bird_reactor_coupling.py ran against pbg-bioreactordesign origin/main (a360f92)
-    : 6 passed, 1 skipped. The full coupled composite produces a physically consistent 0D trajectory — DO rises to Henry saturation with no cells, drops below it under cell O2 demand (cstar_o2=6.58 mg/L, DO 2nd-half mean 6.24 mg/L at 310.15 K), higher kLa raises steady-state DO, one generation completes without divergence, and the O2 mass balance closes within ±5%.
+  - 'The keystone mbp-03 coupling is demonstrated green (2026-07-27). tests/test_mbp_03_bird_reactor_coupling.py ran against pbg-bioreactordesign origin/main (a360f92): 6 passed, 1 skipped. The full coupled composite produces a physically consistent 0D trajectory — DO rises to Henry saturation with no cells, drops below it under cell O2 demand (cstar_o2=6.58 mg/L, DO 2nd-half mean 6.24 mg/L at 310.15 K), higher kLa raises steady-state DO, one generation completes without divergence, and the O2 mass balance closes within ±5%.'
   - The upstream O2-saturation temperature-sign bug (pbg-bioreactordesign#2) is FIXED and verified. PR   #3 (a06709b, 2026-06-15) flipped the van 't Hoff sign so O2 solubility correctly DECREASES with temperature; a regression test guards it. mbp-03 now reports the correct cstar_o2≈6.58 mg/L at 310.15 K (was the biased ~10.2), so all mbp-03/04 dissolved-O2 magnitudes inherit the corrected calibration.
   evidence_against:
   - Single-lineage population plateaus at ~4.3 mg/L vs the Beulig batch peak ~9.6 g/L, a ~3.3-order gap not closable by duration or the --no-single-daughters flag (chart 03 refuted that prediction); needs a both-daughters population runner plus fed-batch.
-  - Whether an alternative kinetic metabolism (Millard FBA-bridge / dFBA) adapts better to these conditions is untested under coupling. The bridge is open-loop today (env→metabolism coupling deferred); scoped as the next study.
-  - The CO2 leg of the mbp-03 coupler is wired but unexercised: in M9-minimal-glucose FBA v2ecoli reports zero CO2 environmental efflux, so cells cannot raise dissolved CO2 above saturation. It needs an overflow/anaerobic condition to test (deferred, not a wiring failure).
+  - 'Whether an alternative kinetic metabolism adapts better to these conditions is UNRESOLVED rather than untested. mbp-07 swapped the Millard 2017 kinetic ODE in for tFBA Metabolism and coupled it to the reactor; its Beulig grading is deferred as of 2026-08-20 rather than concluded. (This line previously read "untested … scoped as the next study", which the mbp-07 build superseded.)'
+  - 'The CO2 leg of the mbp-03 coupler is wired but unexercised. In M9-minimal-glucose FBA v2ecoli reports zero CO2 environmental efflux, so cells cannot raise dissolved CO2 above saturation. It needs an overflow/anaerobic condition to test (deferred, not a wiring failure).'
   key_figures:
   - studies/mbp-02-population-aggregation/charts/04_population-scaling-variance-bands.svg — cpa scaling robust across 3 seeds × 3 cpa (mean ± std, log-y).
   - studies/mbp-01-time-varying-environment/charts/01_driven-env-glc-trajectory.svg — first env-driven multigen boundary.external.GLC trajectories.
@@ -311,11 +310,17 @@ description: |
      mbp-01..05 artifacts, synthesizes gaps across five axes (v2ecoli biology
      / coupling / BiRD physics / Beulig scope / methodology), and feeds the
      next investigation iteration.
-  7. mbp-07-millard-kinetic-metabolism — Evaluate phase — kinetic-metabolism
-     (Millard 2017) drop-in cell engine (baseline_millard) + reactor coupling,
-     validated against the FBA baseline and graded head-to-head against the
-     Beulig WT batch prefix alongside the WCM-FBA and iML1515 arms (3-arm
-     report cards).
+  7. mbp-07-millard-kinetic-metabolism — Evaluate phase, and different in kind
+     from 1–6: an EXTENSIBILITY demonstration for the cell-side interface
+     contract rather than another step in building the coupling. Three foreign
+     metabolic engines behind the same interface — the Millard 2017 kinetic ODE
+     swapped in for tFBA Metabolism inside the WCM and coupled to the reactor;
+     iML1515 genome-scale FBA graded against the same Beulig prefix (uncoupled,
+     partly fit to it); and the OxidizeME ME-model named as a candidate drop-in
+     (declared as a workspace reference import, but not installed here and not
+     resolvable — verified). REFRAMED 2026-08-20. The investigation gates on the
+     iML1515 grading only; the Millard arm's Beulig grading is deferred, and
+     the wcm-* criteria are withdrawn as redundant with mbp-05.
 
 
 # ─── Methodology discipline ─────────────────────────────────────────────────
@@ -422,7 +427,15 @@ discipline:
 # to Evaluate-ready.
 executive:
   what_is_this: |
-    Puts the v2ecoli single-cell model inside a bench-scale bioreactor. Seven studies build up the coupling: a time-varying environment hook, population aggregation with representative-sampling scaling, BiRD reactor coupling, multigeneration runs, a sim-vs-Beulig comparison, gap analysis, and a Millard 2017 kinetic-metabolism drop-in with 3-arm Beulig report cards.
+    Puts the v2ecoli single-cell model inside a bench-scale bioreactor. Six studies build the coupling itself: a time-varying environment hook, population aggregation with representative-sampling scaling, BiRD reactor coupling, multigeneration runs, a sim-vs-Beulig comparison, and gap analysis.
+
+    The seventh, mbp-07, is different in kind. It demonstrates that the cell-side interface contract is EXTENSIBLE -- that a metabolic engine other than v2ecoli's own can be attached behind the same interface. Three engines have been attached, at three deliberately different depths, and the ladder is the finding: flattening it into "three models drop in" would overclaim.
+
+    1. Millard 2017 kinetic ODE, the deepest: v2ecoli's constraint-based tFBA Metabolism is REMOVED and central-carbon metabolism runs through the kinetic ODE across the whole-cell model's full process set (baseline_millard), then coupled to the BiRD reactor. An engine swap inside the WCM, not a standalone model. Built, runs, produces live kinetic fluxes. The coupling is now bidirectional: cell-to-reactor carries exchange, and the reactor-to-cell direction was repaired by v2ecoli#550 (merged 2026-08-21). Before it the mirror matched none of the coupler's molecule ids and that direction carried nothing. #550 also withholds this arm's medium glucose deliberately, so the reactor cannot overwrite the model's calibrated GLCx.
+    2. iML1515 genome-scale FBA (cobra), shallower and caveated: graded against the same Beulig WT batch prefix, but NOT coupled to the reactor and partly fit to the reference it is graded against -- its glucose and O2 uptake lower bounds are set FROM the measured Beulig rates, so growth is the only genuine prediction graded. Its own report card states it is not apples-to-apples with the whole-cell arm.
+    3. OxidizeME ME-model, the thinnest and stated as such: a NAMED candidate, not a wired one. A third-party wrapper repo exists (ref 0.1.0, with a live demo report) and workspace.yaml declares it as a reference-only import, but it appears in neither pyproject.toml nor uv.lock, is not importable here, and local:OxidizeMEStep does not resolve -- verified 2026-08-20 against a positive control that does. Standing it up needs the package plus an upstream proprietary solver (Python 2.7 / qMINOS). It is named because it is the ME-model family Beulig 2025 itself used.
+
+    Of these three, this investigation gates only on the iML1515 grading; the investigation as a whole gates on 28 criteria across seven studies. The Millard arm's grading against Beulig is DEFERRED as of 2026-08-20 -- deferred, not concluded -- and the drop-in itself stands as demonstrated. Its build and run checks are existence checks rather than discriminating ones, so they are deliberately not promoted into the acceptance set. Gap findings that rest on evidence the Millard arm produced are marked as such.
   verdict: |
     **Build phase complete for mbp-01 and mbp-02; ready for Evaluate
     tooling.** Reviewer feedback through 2026-05-28 is processed (digest +
@@ -432,6 +445,21 @@ executive:
     left open (env-store-topology + env-driver-molecule-id) resolved
     2026-05-29 by the EnvironmentMirror Step (commit `60cdbd3`). mbp-01 went
     from 1 passing / 5 skipped to **6 passing / 0 skipped**.
+
+
+    ⚠ AMENDED 2026-08-20. The claim that those two architectural blockers were
+    "resolved 2026-05-29 by the EnvironmentMirror Step" did not hold. The mirror
+    closed the topology gap, but it matched NONE of the reactor coupler's
+    compartment-tagged molecule ids, so the reactor->cell direction carried
+    nothing at all — silently, because unmatched ids were dropped without a
+    record. Measured, and fixed by v2ecoli#548 together with #550 (both merged
+    2026-08-21): on main today the coupler's ids resolve onto the boundary and
+    the glucose channel carries end to end -- the cell draws the reactor pool
+    down and stops when it is exhausted. The dissolved-O2 channel does NOT yet
+    carry, for a separate reason that is not id resolution: metabolism seeds an
+    unlimited molecule at `inf`, the mirror writes a DELTA, and no delta can
+    move `inf`, so the write is a defined no-op. See mbp-01's superseded
+    `env-driver-molecule-id-convention` decision.
 
   verdict_status: in-progress
 
@@ -750,9 +778,6 @@ executive:
     - study: mbp-05-palsson-benchmark
       behavior: acetate-profile-comparison-rendered
       result: passing-with-caveats
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: growth-recovered-vs-baseline
-      result: passing
     - study: mbp-05-palsson-benchmark
       behavior: growth-axes-graded-vs-beulig
       result: failing
@@ -768,24 +793,6 @@ executive:
     - study: mbp-05-palsson-benchmark
       behavior: ph_control-axes-graded-vs-beulig
       result: passing-with-caveats
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-growth-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-substrate-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-gas_transfer-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: kinetic-vs-fba-tracking-summarized
-      result: passing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: wcm-growth-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: wcm-gas_transfer-axes-graded-vs-beulig
-      result: failing
     - study: mbp-07-millard-kinetic-metabolism
       behavior: iml1515-growth-axes-graded-vs-beulig
       result: failing
@@ -832,21 +839,6 @@ executive:
     - study: mbp-05-palsson-benchmark
       behavior: ph_control-axes-graded-vs-beulig
       result: passing-with-caveats
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-growth-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-substrate-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: millard-gas_transfer-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: wcm-growth-axes-graded-vs-beulig
-      result: failing
-    - study: mbp-07-millard-kinetic-metabolism
-      behavior: wcm-gas_transfer-axes-graded-vs-beulig
-      result: failing
     - study: mbp-07-millard-kinetic-metabolism
       behavior: iml1515-growth-axes-graded-vs-beulig
       result: failing
@@ -896,9 +888,6 @@ acceptance_criteria:
 - {study: mbp-04-multigeneration-runs, behavior: carbon-mass-balance-closes-over-3-generations, gating: per_study}
 - {study: mbp-05-palsson-benchmark, behavior: end-of-run-od-comparison-rendered, gating: per_study}
 - {study: mbp-05-palsson-benchmark, behavior: acetate-profile-comparison-rendered, gating: per_study}
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: growth-recovered-vs-baseline
-  gating: per_study
 - study: mbp-05-palsson-benchmark
   behavior: growth-axes-graded-vs-beulig
   gating: per_study
@@ -913,24 +902,6 @@ acceptance_criteria:
   gating: per_study
 - study: mbp-05-palsson-benchmark
   behavior: ph_control-axes-graded-vs-beulig
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: millard-growth-axes-graded-vs-beulig
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: millard-substrate-axes-graded-vs-beulig
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: millard-gas_transfer-axes-graded-vs-beulig
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: kinetic-vs-fba-tracking-summarized
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: wcm-growth-axes-graded-vs-beulig
-  gating: per_study
-- study: mbp-07-millard-kinetic-metabolism
-  behavior: wcm-gas_transfer-axes-graded-vs-beulig
   gating: per_study
 - study: mbp-07-millard-kinetic-metabolism
   behavior: iml1515-growth-axes-graded-vs-beulig

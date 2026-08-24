@@ -512,6 +512,27 @@ required_knowledge:
 
       topology fix in the same commit.
 
+
+      ⚠ SUPERSEDED 2026-08-20 (by v2ecoli#550, merged 2026-08-21). Option (a) was recorded
+
+      as taken, but the effect of #550 is closer to option (c): the mirror now
+
+      resolves a compartment-tagged id onto the bare boundary key, preferring
+
+      an exact match, so the driver''s bare-name convention is unchanged while
+
+      ''GLC[p]'' no longer misses. It was NOT a stylistic gap — the reactor
+
+      coupler writes compartment-tagged ids, so the mirror matched ZERO of
+
+      them on every tick and the reactor→cell direction carried nothing at
+
+      all. And an unmatched name is no longer SILENTLY skipped: it is counted
+
+      and named once. Withdrawing the word ''silently'' here matters, because
+
+      that silence is what let the defect survive.
+
       '
 failure_modes:
 - signature: external_glucose_updates_propagate_within_one_step fails (write not visible to media_update)

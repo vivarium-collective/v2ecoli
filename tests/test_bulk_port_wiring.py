@@ -53,6 +53,21 @@ def test_generator_omits_bulk_port_when_no_ids(monkeypatch):
     assert "bulk" not in outputs
 
 
+def test_generator_threads_observables_into_process_config(monkeypatch):
+    """The node must pass a declared ``observables`` (arbitrary listener leaves)
+    list into the process config — the engine already emits them under the wired
+    ``listeners`` port (e.g. ``peptidoglycan_shape.lysed`` for a shape/lysis
+    phenotype). Mirrors observable_bulk_ids threading."""
+    _patch_engine_and_process(monkeypatch, [])
+    from v2ecoli.composites.vecoli import vecoli
+    obs = ["peptidoglycan_shape.lysed", "mass.dry_mass"]
+    doc = vecoli(core=build_core(), observables=obs)
+    node = doc["state"]["agents"]["0"]["vivarium_ecoli"]
+    assert node["instance"].config.get("observables") == obs
+    # listeners port is always wired, so declared observables reach a store
+    assert node["outputs"].get("listeners") == ["listeners"]
+
+
 def test_library_builder_wires_bulk_port_when_ids_present(monkeypatch):
     _patch_engine_and_process(monkeypatch, ["A[c]"])
     composite, _info = ve.build_vivarium_ecoli_composite(

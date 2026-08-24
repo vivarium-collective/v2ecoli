@@ -129,7 +129,7 @@ def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
 
 
 def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
-                                buffer_size: int = 3) -> dict:
+                                buffer_size: int = 600) -> dict:
     """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
     agent-relative, in-document capture.
 
@@ -162,7 +162,9 @@ def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
         out_uri: zarr store path/URI.
         metadata: non-empty run-identity metadata (experiment_id / variant /
             lineage_seed). Falls back to a non-empty placeholder if omitted.
-        buffer_size: transducer buffer size (streaming, bounded). Default 3.
+        buffer_size: transducer buffer size (streaming, bounded), in emit steps.
+            Default 600 — matches the viva-emitters library default; flushes a
+            handful of times per generation rather than every few steps.
 
     Returns:
         The static XArrayEmitter config skeleton (no ``view`` /
@@ -244,6 +246,7 @@ from v2ecoli.composites._helpers import (
     set_default_emitter_decl,
     set_emitter_override,
     set_null_emitter_override,
+    set_exchange_fluxes_override,
     _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
@@ -307,6 +310,12 @@ class SingleCellXArrayEmitter(Emitter):
         super().__init__(config, core)
         self._em = None
         self._leaf_key_paths: list | None = None
+        # Declared bulk molecule ids to surface as scalar observables under
+        # listeners.observable_bulk.<id> (the two-arm comparison's bulk KPI hook —
+        # e.g. VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] drug-target
+        # complex). Emitting under the `listeners` root reuses the existing view
+        # machinery and gives BOTH engines an identical path to compare on.
+        self._obs_bulk_ids: list = list(config.get("observable_bulk_ids") or [])
 
     def inputs(self):
         return {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"}
@@ -330,6 +339,9 @@ class SingleCellXArrayEmitter(Emitter):
         full_state = comp.state
         cell = (full_state.get("agents") or {}).get("0") or full_state
         listener_paths = list(_listener_leaf_paths(cell.get("listeners") or {}))
+        # Declared bulk observables ride under a synthetic listeners.observable_bulk
+        # group so the SAME listener view captures them (both engines share the path).
+        listener_paths += [f"listeners.observable_bulk.{i}" for i in self._obs_bulk_ids]
         # Listener view (unmodified helper) + manual bulk entry. root=() so the
         # read path resolves to () + ("bulk",) == ("bulk",); LeafView.path (the
         # OUTPUT var name) must be non-empty, hence "bulk".
@@ -380,6 +392,15 @@ class SingleCellXArrayEmitter(Emitter):
             for k in path[:-1]:
                 cursor = cursor.setdefault(k, {})
             cursor[path[-1]] = cur
+        # Declared bulk observables → listeners.observable_bulk.<id> scalars,
+        # selected by molecule id from the bulk record (state["bulk"] carries both
+        # "id" and "count"). A missing id emits 0.0 so the trace stays continuous.
+        if self._obs_bulk_ids:
+            ids = state["bulk"]["id"]
+            grp = filtered.setdefault("observable_bulk", {})
+            for mol in self._obs_bulk_ids:
+                hit = np.where(ids == mol)[0]
+                grp[mol] = float(bulk_counts[hit[0]]) if len(hit) else 0.0
         self._em.update({
             "global_time": state["global_time"],
             "bulk": bulk_counts,
@@ -500,6 +521,14 @@ FEATURE_MODULES = {
     'mass_conservation': {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['ecoli-mass-conservation'],
+    },
+    # Opt-in: re-home named environment.exchange fluxes onto
+    # listeners.exchange_flux.<name> so the compact XArray view (listeners-only)
+    # carries them. Enabled automatically when the generator's exchange_fluxes
+    # param is non-empty; the flux map is threaded via set_exchange_fluxes_override.
+    'exchange_flux': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['exchange_flux_listener'],
     },
 }
 
@@ -968,6 +997,24 @@ def _build_batch_document(
             runner, BatchBaselineRunner.topology, edge_type="step",
             config=runner_config),
     }
+    # Install a top-level observation sink so the batch orchestrator document is
+    # not left "observing nothing". Without an emitter node here,
+    # CompositeSpec._with_emitters installs the generator's declared ParquetEmitter
+    # default with an EMPTY config, which raises "ParquetEmitter requires either
+    # config['out_dir'] or config['out_uri']" at Composite() realize -- before any
+    # step runs (issue #496). Resolve out_dir exactly as the single-cell path does.
+    from process_bigraph.emitter import install_emitters  # noqa: PLC0415
+    _emit_out_dir = out_dir
+    if not _emit_out_dir:
+        _ws_root = _find_workspace_root()
+        _emit_out_dir = (str(_ws_root / ".pbg" / "parquet-runs")
+                         if _ws_root is not None else "out/parquet")
+    state = install_emitters(
+        state,
+        [{"address": "local:ParquetEmitter",
+          "config": {"out_dir": _emit_out_dir},
+          "paths": ["global_time"]}],
+        core=core)
     return {"state": state}
 
 
@@ -1097,6 +1144,15 @@ def _build_batch_document(
                            "(ecoli-mass-conservation step). Off by default — the "
                            "residual is not yet calibrated, so it warns each tick.",
         },
+        "exchange_fluxes": {
+            "type": "map",
+            "default": {},
+            "description": "{leaf_name: exchange_key} — re-home named "
+                           "environment.exchange fluxes onto "
+                           "listeners.exchange_flux.<leaf> so the listeners-only "
+                           "XArray view carries them (e.g. "
+                           "{'glucose_exchange': 'GLC[p]'}). Empty = off.",
+        },
         # --- Observation sink selection ---
         "emitter": {
             "type": "string",
@@ -1149,8 +1205,31 @@ def _build_batch_document(
         "n_generations": {
             "type": "integer",
             "default": 1,
-            "description": "Cell-division generations to follow per seed lineage. "
-                           ">1 (or n_seeds>1) launches a batch run.",
+            "description": "Cell-division generations to follow per seed lineage — "
+                           "engages the division-aware LineageProcess stop under "
+                           "batch mode (n_seeds>1 or n_generations>1) OR under "
+                           "stop_at_division=True. It has NO effect on the PLAIN "
+                           "single-cell default (n_seeds=1, n_generations=1, "
+                           "stop_at_division=False): that run has no division-stop "
+                           "and simulates the full requested step count, continuing "
+                           "past the cell's own division (see issue #495). To bound "
+                           "a single-cell run to one cell cycle, pass "
+                           "stop_at_division=True (routes through the lineage path "
+                           "at n_seeds=1, generations=n_generations).",
+        },
+        "stop_at_division": {
+            "type": "bool",
+            "default": False,
+            "description": "Single-cell division-stop opt-in (issue #495, Option "
+                           "A). True bounds a single-cell run to ONE cell cycle by "
+                           "routing this build through the lineage machinery at "
+                           "n_seeds=1, generations=n_generations, where "
+                           "LineageProcess stops at the first division. Two "
+                           "consequences: (i) observations take the lineage "
+                           "'generation=N/agent_id' layout, not the flat "
+                           "single-cell agents/0 layout; (ii) INCOMPATIBLE with "
+                           "match_simdata (raises ValueError). False (default) = "
+                           "unchanged full-budget single-cell run.",
         },
         "single_daughters": {
             "type": "bool",
@@ -1273,12 +1352,14 @@ def baseline(
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
+    exchange_fluxes: dict | None = None,
     emitter: str = "parquet",
     emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
     n_seeds: int = 1,
     n_generations: int = 1,
+    stop_at_division: bool = False,
     single_daughters: bool = True,
     time_step: float = 1.0,
     max_duration: float = 3600.0,
@@ -1347,6 +1428,33 @@ def baseline(
             daughter_state_out_path) apply only in batch mode;
             knockouts/media/config_overrides carry through to every seed.
             n_seeds==1, n_generations==1 (default) = single cell.
+
+            NOTE (issue #495): the division-aware stop lives ONLY in the
+            lineage/batch machinery (BatchBaselineRunner ->
+            LineageProcess._run_until_division). The plain single-cell default
+            path built below has NO division-stop: the in-cell Division step
+            still fires and structurally splits state into daughters, but nothing
+            tells the *run* to stop, so it simulates the full requested step
+            budget and keeps going past division (now simulating the daughter).
+            n_generations therefore does NOT bound a plain single-cell run to one
+            cell cycle — it is inert unless n_seeds>1 or n_generations>1 flips
+            this into batch mode. To bound a single-cell run to one cell cycle,
+            pass stop_at_division=True (see below); that routes this single-cell
+            build through the same lineage machinery at n_seeds=1, generations=1
+            so LineageProcess stops at the first division.
+        stop_at_division: opt-in that bounds a single-cell run to ONE cell cycle
+            (issue #495, Option A). When True, this build is routed through the
+            lineage/batch machinery at n_seeds=1 and generations=n_generations
+            (default 1), where LineageProcess._run_until_division halts the run at
+            the first division instead of continuing into the daughter. Two
+            consequences of routing through the lineage path:
+              (i) the emitted observations take the lineage
+                  ``generation=N/agent_id`` layout, NOT the flat single-cell
+                  agents/0 layout the plain single-cell build emits; and
+              (ii) it is INCOMPATIBLE with match_simdata (a build-time,
+                  single-cell initial-state overlay that the run-time lineage
+                  fan-out has no wiring for) — combining them raises ValueError.
+            False (default) = unchanged full-budget single-cell behavior.
         initial_carry_state_path, initial_generation_index,
             daughter_state_out_path: batch-mode-only per-generation
             checkpoint/resume (backlog item 34) — a wave orchestrator's own
@@ -1375,11 +1483,32 @@ def baseline(
     if core is None:
         core = build_core()
 
-    # Batch dispatch: n_seeds>1 or n_generations>1 turns baseline from a single
-    # 55-process cell into a one-step batch-orchestrator document (absorbs the
-    # former batch_baseline composite). The single-cell path below is untouched
-    # for n_seeds==1, n_generations==1 (bit-identical to plain baseline).
-    if int(n_seeds) > 1 or int(n_generations) > 1:
+    # Option A single-cell division-stop guard (issue #495): stop_at_division
+    # routes the single-cell build through the lineage machinery, which fans out
+    # per-seed lineages at RUN time — match_simdata is a build-time, single-cell
+    # initial-state overlay with no wiring in that run-time path, so the two are
+    # mutually exclusive (same reason the n_seeds>1/n_generations>1 batch path
+    # rejects match_simdata below). Fail loud rather than silently dropping the
+    # overlay. A future single-cell orchestrator (Option B) that keeps the flat
+    # single-cell build AND stops at division could support both.
+    if stop_at_division and match_simdata:
+        raise ValueError(
+            "stop_at_division=True is incompatible with match_simdata: Option A "
+            "(issue #495) bounds the run to one cell cycle by routing through the "
+            "lineage machinery, whose run-time per-seed fan-out has no wiring for "
+            "the build-time single-cell match_simdata overlay. Pass one or the "
+            "other (a future single-cell orchestrator / Option B could support "
+            "both).")
+
+    # Batch / lineage dispatch: n_seeds>1, n_generations>1, OR stop_at_division
+    # turns baseline from a single 55-process cell into a one-step
+    # batch-orchestrator document (absorbs the former batch_baseline composite).
+    # stop_at_division routes the single-cell defaults (n_seeds=1,
+    # n_generations=1) through this same lineage path so LineageProcess stops at
+    # the first division (Option A). The plain single-cell path below is untouched
+    # for n_seeds==1, n_generations==1, stop_at_division=False (bit-identical to
+    # plain baseline).
+    if int(n_seeds) > 1 or int(n_generations) > 1 or stop_at_division:
         if match_simdata:
             # Batch mode builds per-seed lineages via BatchBaselineRunner at
             # RUN time, outside this document-building call, so match_simdata
@@ -1455,6 +1584,11 @@ def baseline(
     }
     _requested_features = list(features or [])
     features = [name for name, on in _toggle_features.items() if on]
+    # exchange_fluxes (non-empty) auto-enables the exchange_flux feature; its map
+    # is threaded to the feature step via the external override set below.
+    _exchange_fluxes = dict(exchange_fluxes or {})
+    if _exchange_fluxes and 'exchange_flux' not in _requested_features:
+        _requested_features.append('exchange_flux')
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)
@@ -1663,6 +1797,9 @@ def baseline(
     # emitter == "parquet": the declared parquet default (set above) is used.
 
     _process_cache = {}
+    # Thread the flux map to the exchange_flux_listener feature step (built via
+    # _get_special_step) for the duration of this build; restored in finally.
+    set_exchange_fluxes_override(_exchange_fluxes)
     try:
         for step_name in flow_order:
             config = _get_step_config(
@@ -1686,6 +1823,7 @@ def baseline(
         # ever changed them when none was active, so this clears ours).
         set_emitter_override(_ext_sqlite)
         set_null_emitter_override(_ext_null)
+        set_exchange_fluxes_override({})
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():
@@ -1748,6 +1886,42 @@ def baseline(
         'agents': {'0': cell_state},
         'global_time': 0.0,
     }
+
+    # Issue #495: this plain single-cell (n_seeds==1, n_generations==1,
+    # stop_at_division=False) document has NO division-stop. The in-cell Division
+    # step fires and structurally splits state at division, but nothing halts the
+    # *run* — it simulates the full requested step budget and keeps going past
+    # division (now the daughter). Surface that here, at document-build time, so
+    # it is not a silent surprise. Suppressed in two cases:
+    #  - stop_at_division=True: this build is routed through the lineage path
+    #    (early return above) and DOES stop at division, so the note is moot. The
+    #    early return already prevents reaching here; the explicit check is a
+    #    belt-and-braces guard so the warning can never fire for that opt-in.
+    #  - a lineage/daughter build is in flight (an emitter override is active):
+    #    the batch path — BatchBaselineRunner -> LineageProcess — builds its
+    #    per-generation cell through this same single-cell branch but DOES stop at
+    #    division out of band, so the note would be misleading there.
+    # warnings' default once-per-location filter keeps this to a single line per
+    # process.
+    from v2ecoli.composites._helpers import (  # noqa: PLC0415
+        _EMITTER_OVERRIDE, _NULL_EMITTER_OVERRIDE, _PARQUET_EMITTER_OVERRIDE)
+    _lineage_context = (
+        _PARQUET_EMITTER_OVERRIDE is not None
+        or _EMITTER_OVERRIDE is not None
+        or bool(_NULL_EMITTER_OVERRIDE))
+    if not _lineage_context and not stop_at_division:
+        import warnings  # noqa: PLC0415
+        warnings.warn(
+            "ecoli_baseline single-cell mode (n_seeds=1, n_generations=1) has "
+            "no division-stop: if this cell divides within the requested step "
+            "budget, the run continues PAST division (simulating the daughter) "
+            "rather than stopping — n_steps controls how far past division it "
+            "runs, and n_generations is inert here (issue #495). To bound the "
+            "run to one cell cycle, pass stop_at_division=True; it routes this "
+            "single-cell build through the lineage machinery (n_seeds=1, "
+            "generations=1) so LineageProcess stops at the first division.",
+            stacklevel=2,
+        )
 
     return {
         'state': state,

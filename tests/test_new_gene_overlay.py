@@ -467,3 +467,184 @@ def test_new_gene_operon_absent_still_builds(tmp_path):
 
     assert _ng_tus(kb) == []
     assert any(str(g["id"]).startswith("NG") for g in kb.genes)
+
+
+# --------------------------------------------------------------------------
+# 5. What the joins must NOT do
+# --------------------------------------------------------------------------
+
+def _kb_no_operons(bundle, new_genes):
+    return KnowledgeBaseEcoli(
+        operons_on=False, remove_rrna_operons=False, remove_rrff=False,
+        stable_rrna=False, new_genes_option=new_genes, bundle=bundle,
+    )
+
+
+def test_operon_shipping_insertion_still_builds_with_operons_disabled(tmp_path):
+    """Joining a TU with operons OFF is a crash, not a no-op.
+
+    With operons disabled the BASE transcription_units table is never loaded,
+    so the base side of the join is empty and ``_join_data`` -- which guards the
+    added side but indexes ``data[0]`` on the base side -- dies with a bare
+    IndexError naming nothing. ``--no-operons`` and ``--new-genes`` are
+    independent CLI flags, so this combination is reachable, and before the
+    join existed it simply ignored the file.
+    """
+    manifest = _write_overlay(
+        tmp_path, "gfp_op_off", extra={"transcription_units.tsv": NG_OPERON}
+    )
+    with pytest.warns(UserWarning, match="operons are disabled"):
+        kb = _kb_no_operons(SourceBundle(overrides=manifest), "gfp_op_off")
+
+    # The insertion is still built; only its operon structure is dropped.
+    assert any(str(g["id"]).startswith("NG") for g in kb.genes)
+    assert _ng_tus(kb) == []
+
+
+def test_kinetics_colliding_with_a_host_constraint_are_refused(tmp_path):
+    """A kinetics table has no ``id`` column, so the id-based collision guard
+    is structurally blind to it.
+
+    Constraints ACCUMULATE per (reaction, enzyme) rather than replacing, so an
+    added row naming a host pair does not merely shadow the host's constraint,
+    it shifts it -- silently, and in a table the guard would otherwise skip.
+    """
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import SourceBundle as _SB
+    base = _SB()._index["metabolism_kinetics"]
+    header, first = Path(base).read_text().splitlines()[:2]
+    while header.startswith("#"):
+        rest = Path(base).read_text().splitlines()
+        header, first = [r for r in rest if not r.startswith("#")][:2]
+
+    manifest = _write_overlay(
+        tmp_path, "gfp_kin_clash",
+        extra={"metabolism_kinetics.tsv": header + "\n" + first + "\n"},
+    )
+    with pytest.raises(ValueError, match="already exist in the base table"):
+        _kb(SourceBundle(overrides=manifest), "gfp_kin_clash")
+
+
+def test_reversed_operon_span_is_refused(tmp_path):
+    """left > right passes both bounds and emerges as a TU ending before it
+    starts. Never present in the base data; this block exists to catch exactly
+    this class of payload-authoring mistake."""
+    reversed_tu = NG_OPERON.replace(
+        '\t1\t' + str(GFP_GENE_SPAN) + '\t', '\t' + str(GFP_GENE_SPAN) + '\t1\t'
+    )
+    manifest = _write_overlay(
+        tmp_path, "gfp_op_rev", extra={"transcription_units.tsv": reversed_tu}
+    )
+    with pytest.raises(AssertionError, match="must not follow its end position"):
+        _kb(SourceBundle(overrides=manifest), "gfp_op_rev")
+
+
+def test_operon_reaching_past_the_insertion_is_refused(tmp_path):
+    """An operon may not reach back into the original genome: it would
+    transcribe native genes as part of the construct."""
+    overshoot = NG_OPERON.replace(
+        '\t1\t' + str(GFP_GENE_SPAN) + '\t', '\t1\t' + str(GFP_GENE_SPAN + 1) + '\t'
+    )
+    manifest = _write_overlay(
+        tmp_path, "gfp_op_over", extra={"transcription_units.tsv": overshoot}
+    )
+    with pytest.raises(AssertionError, match="cannot exceed new gene end"):
+        _kb(SourceBundle(overrides=manifest), "gfp_op_over")
+
+
+# --------------------------------------------------------------------------
+# 6. The motivating case: ONE operon spanning SEVERAL genes
+#
+# Every fixture above is the single-gene public insertion, where "one operon"
+# and "one gene per TU" are the same arrangement -- so the thing the operon
+# join exists for is not actually exercised by them. A real heterologous
+# pathway is several enzymes under one promoter, and that is the shape where
+# joined-vs-not changes the RNA count.
+# --------------------------------------------------------------------------
+
+def _write_two_gene_overlay(root: Path, subdir: str, with_operon: bool):
+    """The public insertion duplicated into two contiguous genes.
+
+    Coordinates must be gap-free: ``_update_gene_locations`` asserts
+    ``gene[i+1].left == gene[i].right + 1``.
+    """
+    manifest = _write_overlay(root, subdir)
+    dest = root / "flat" / "new_gene_data" / subdir
+
+    def _dup(name, transform):
+        lines = (dest / name).read_text().rstrip("\n").split("\n")
+        body = [ln for ln in lines if not ln.startswith("#")]
+        head, first = body[0], body[1]
+        keep = [ln for ln in lines if ln.startswith("#")]
+        (dest / name).write_text(
+            "\n".join(keep + [head, first, transform(first)]) + "\n")
+
+    second_span = (GFP_GENE_SPAN + 1, GFP_GENE_SPAN * 2)
+    _dup("genes.tsv", lambda r: r
+         .replace('"NG001"', '"NG002"', 1)
+         .replace('["NG001_RNA"]', '["NG002_RNA"]', 1)
+         .replace(f'\t1\t{GFP_GENE_SPAN}\t', f'\t{second_span[0]}\t{second_span[1]}\t', 1))
+    _dup("gene_sequences.tsv", lambda r: r.replace('"NG001"', '"NG002"', 1))
+    _dup("rnas.tsv", lambda r: r
+         .replace('"NG001_RNA"', '"NG002_RNA"', 1)
+         .replace('"NG001"', '"NG002"', 1)
+         .replace('["NG-GFP-MONOMER"]', '["NG-GFP2-MONOMER"]', 1))
+    _dup("proteins.tsv", lambda r: r.replace('"NG-GFP-MONOMER"', '"NG-GFP2-MONOMER"', 1))
+
+    if with_operon:
+        (dest / "transcription_units.tsv").write_text(
+            '"id"\t"common_name"\t"genes"\t"left_end_pos"\t"right_end_pos"'
+            '\t"direction"\t"evidence"\n'
+            '"NG-TEST-OPERON"\t"test operon"\t["NG001", "NG002"]\t1\t'
+            + str(second_span[1]) + '\t"+"\t[]\n'
+        )
+
+    # Rewrite the manifest so it lists whatever the directory now holds.
+    rows = ["\t".join(["canonical_key", "source_path", "description", "schema_name"])]
+    for f in sorted(dest.glob("*.tsv")):
+        rel = f"new_gene_data/{subdir}/{f.name}"
+        rows.append("\t".join(
+            [rel[: -len(".tsv")].replace("/", "__"), f"flat/{rel}", "test fixture", ""]))
+    manifest.write_text("\n".join(rows) + "\n")
+    return manifest
+
+
+def _ng_rna_ids(sim_data):
+    rna = sim_data.process.transcription.rna_data
+    return sorted(str(i) for i in rna.struct_array["id"] if str(i).startswith("NG"))
+
+
+def test_one_operon_over_two_genes_yields_one_rna_not_two(tmp_path):
+    """The behaviour the operon join exists to produce, on the shape that shows it.
+
+    Two genes under one declared promoter must reach the model as ONE
+    transcript. Without the join each becomes its own transcription unit --
+    which is not a smaller version of the declared construct but a different
+    one, and it is the difference that makes a per-RNA weight vector sized for
+    the operon no longer match the build.
+    """
+    from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import (
+        SimulationDataEcoli,
+    )
+
+    with_op = _write_two_gene_overlay(tmp_path / "op", "two_gene_op", True)
+    without = _write_two_gene_overlay(tmp_path / "no", "two_gene_plain", False)
+
+    sd_op = SimulationDataEcoli()
+    sd_op.initialize(raw_data=_kb(SourceBundle(overrides=with_op), "two_gene_op"))
+    sd_no = SimulationDataEcoli()
+    sd_no.initialize(raw_data=_kb(SourceBundle(overrides=without), "two_gene_plain"))
+
+    operon_rnas = _ng_rna_ids(sd_op)
+    monocistronic = _ng_rna_ids(sd_no)
+
+    assert len(operon_rnas) == 1, operon_rnas
+    assert len(monocistronic) == 2, monocistronic
+
+    # Both arrangements still carry BOTH genes -- the difference is how they are
+    # transcribed, not whether they are present. Without this the test would
+    # also pass if the operon join simply lost a gene.
+    for sim_data in (sd_op, sd_no):
+        cistrons = [str(c) for c in
+                    sim_data.process.transcription.cistron_data.struct_array["id"]
+                    if str(c).startswith("NG")]
+        assert len(cistrons) == 2, cistrons

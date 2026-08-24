@@ -268,6 +268,18 @@ class DataStore(object):
         pass
 
 
+#: Tables whose row identity is NOT a single ``id`` column, and the columns
+#: that stand in for one. Without an entry here ``_join_data``'s collision
+#: guard skips such a table entirely, so an added row naming a host entity is
+#: joined silently -- the exact failure the guard exists to prevent, in the
+#: tables where it is structurally blind.
+COMPOSITE_ID_COLUMNS = {
+    # metabolism.py keys kinetic constraints on (reaction, enzyme) and
+    # accumulates rather than replaces, so a collision SHIFTS host chemistry.
+    "metabolism_kinetics": ("reactionID", "enzymeID"),
+}
+
+
 class KnowledgeBaseEcoli(object):
     """KnowledgeBaseEcoli"""
 
@@ -427,6 +439,15 @@ class KnowledgeBaseEcoli(object):
             # ``new_gene_shared_files`` above: that list is asserted present,
             # and neither ``gfp`` nor ``template`` ships any of these files, so
             # requiring them would break every existing new-gene build.
+            def _new_gene_file_present(filename):
+                """Whether the insertion ships ``filename``, bundle or flat."""
+                rel = os.path.join(new_gene_path, filename + ".tsv")
+                return (
+                    self._bundle.has_key(relpath_to_key(rel))
+                    if self._bundle is not None
+                    else os.path.isfile(os.path.join(FLAT_DIR, rel))
+                )
+
             def _join_if_present(filename, key=None):
                 """Join one optional new-gene file, if the insertion ships it.
 
@@ -435,12 +456,7 @@ class KnowledgeBaseEcoli(object):
                 nested path (as ``rna_seq_data`` does).
                 """
                 rel = os.path.join(new_gene_path, filename + ".tsv")
-                present = (
-                    self._bundle.has_key(relpath_to_key(rel))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, rel))
-                )
-                if not present:
+                if not _new_gene_file_present(filename):
                     return
                 self.list_of_dict_filenames.append(rel)
                 self.new_gene_added_data.update(
@@ -486,7 +502,25 @@ class KnowledgeBaseEcoli(object):
             # insertion and are converted to genome coordinates in
             # ``_update_gene_locations``; joining the file without that
             # conversion would place the operon at the wrong locus.
-            _join_if_present("transcription_units")
+            #
+            # ⚠ GATED ON ``operons_on``, and the gate is not cosmetic. With
+            # operons off the BASE transcription_units table is never loaded
+            # (see the constructor above), so ``self.transcription_units`` is
+            # empty and ``_join_data`` -- which guards the added side but reads
+            # ``data[0]`` on the base side -- raises a bare IndexError naming
+            # nothing. It is also semantically pointless: ``transcription.py``
+            # consumes TUs only when ``sim_data.operons_on``. The two options
+            # are independent flags on the CLI, so this combination is
+            # reachable rather than theoretical.
+            if self.operons_on:
+                _join_if_present("transcription_units")
+            elif _new_gene_file_present("transcription_units"):
+                warnings.warn(
+                    f"new-gene insertion {new_gene_subdir!r} ships "
+                    "transcription_units.tsv, but operons are disabled for "
+                    "this build; its operon structure will be ignored and "
+                    "each inserted gene becomes its own transcription unit."
+                )
 
             _join_if_present(
                 "rnaseq_rsem_tpm_mean",
@@ -683,11 +717,14 @@ class KnowledgeBaseEcoli(object):
                 #
                 # Guarding the GENERIC join rather than only the two new
                 # optional tables was checked by enumerating every shipped
-                # (base <- added) pair and comparing raw id sets: the six live
-                # joins (complexation_reactions, equilibrium_reactions,
+                # (base <- added) pair and comparing raw id sets: the live
+                # id-keyed joins (complexation_reactions, equilibrium_reactions,
                 # metabolic_reactions, metabolites, trna_charging_reactions,
                 # transcription_units) all carry ZERO collisions, and
                 # ppgpp_regulation has no id column so the guard skips it.
+                # ⚠ A new-gene insertion can now contribute to several of these
+                # AND to metabolism_kinetics, which is keyed compositely rather
+                # than by id -- see COMPOSITE_ID_COLUMNS below.
                 # ⚠ The test suite alone does NOT establish this: the 81-row
                 # transcription_units join comes from the remove_rrna_operons
                 # option, which nothing sets True (every call site hardcodes
@@ -695,16 +732,38 @@ class KnowledgeBaseEcoli(object):
                 # ⚠ Nor does the NG- naming convention: a payload is not bound
                 # by it. That is an argument FOR guarding generically rather
                 # than trusting the prefix.
-                if "id" in data[0]:
-                    base_ids = {row["id"] for row in data}
+                # ⚠ Guarding on ``id`` alone leaves a table with no id column
+                # UNGUARDED, not merely unchecked: an added row naming a HOST
+                # entity joins in silence. ``metabolism_kinetics`` is the live
+                # case -- it is keyed on (reactionID, enzymeID), and
+                # ``metabolism.py`` ACCUMULATES constraints per that pair
+                # rather than replacing them, so a payload row naming a host
+                # pair shifts that host reaction's constraint with nothing
+                # raised anywhere.
+                key_columns = COMPOSITE_ID_COLUMNS.get(data_attr)
+                if key_columns and all(c in data[0] for c in key_columns):
+                    def _identity(row):
+                        return tuple(row[c] for c in key_columns)
+                    label = "+".join(key_columns)
+                elif "id" in data[0]:
+                    def _identity(row):
+                        return row["id"]
+                    label = "id"
+                else:
+                    _identity = None
+
+                if _identity is not None:
+                    base_ids = {_identity(row) for row in data}
                     clashes = sorted(
-                        {row["id"] for row in added_data if row["id"] in base_ids}
+                        {_identity(row) for row in added_data
+                         if _identity(row) in base_ids},
+                        key=str,
                     )
                     if clashes:
                         raise ValueError(
                             f"Cannot join {attr_to_add} into {data_attr}: "
-                            f"{len(clashes)} id(s) already exist in the base "
-                            f"table and would silently redefine it "
+                            f"{len(clashes)} {label}(s) already exist in the "
+                            f"base table and would silently redefine it "
                             f"{clashes[:5]}. Rename the added rows, or remove "
                             f"the colliding rows from the base table via the "
                             f"corresponding *_removed.tsv."
@@ -936,13 +995,29 @@ class KnowledgeBaseEcoli(object):
                 # on either side. Checked rather than clamped, because a TU
                 # that silently spanned the insertion boundary would transcribe
                 # native genes as part of the construct.
+                #
+                # Bounds are compared in the insertion's own RELATIVE frame
+                # against ``insert_len`` -- deliberately, so this block does not
+                # depend on whether the gene rows above have been converted yet.
+                # Comparing a relative bound against an already-converted gene
+                # row would make the check order-sensitive, and an order-
+                # sensitive assertion is one that passes for the wrong reason
+                # the first time somebody moves it.
                 assert left >= 1, (
                     "added transcription unit start positions cannot overlap "
                     "original genes at this time"
                 )
-                assert right + insert_pos <= new_genes_data[-1]["right_end_pos"], (
+                assert right <= insert_len, (
                     "added transcription unit end positions cannot exceed new "
                     "gene end position at this time"
+                )
+                # A reversed span passes both bounds and emerges as a TU whose
+                # end precedes its start. Never present in the base data;
+                # guarded because this block exists to catch payload-authoring
+                # mistakes, and this is one.
+                assert left <= right, (
+                    "added transcription unit start position "
+                    f"({left}) must not follow its end position ({right})"
                 )
 
                 row.update({"left_end_pos": left + insert_pos})

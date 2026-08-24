@@ -45,6 +45,7 @@ from v2ecoli.workflow.analyses import proteome_delta  # noqa: F401
 from v2ecoli.workflow.analyses import fba_flux_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import regulation_overlay  # noqa: F401
 from v2ecoli.workflow.analyses import scorecard  # noqa: F401
+from v2ecoli.workflow.analyses import antibiotic_dose_response  # noqa: F401
 
 # Comparison-convergence Phase 1, Task 4: candidate-vs-reference workbench-run
 # comparison, rendering the `summary` report card via scripts/_compare (reuse).

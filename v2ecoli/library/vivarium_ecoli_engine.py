@@ -378,8 +378,64 @@ def cell_observables(engine) -> dict:
         "unique": st.get("unique"),
         "environment": st.get("environment", {}),
         "boundary": st.get("boundary", {}),
+        "listeners": listeners,   # raw listener tree, for declared `observables`
     })
     return obs
+
+
+def _select_observables(listeners: dict, paths) -> dict:
+    """Read declared listener leaves out of the raw listener tree.
+
+    ``paths`` are dotted ``"group.leaf"`` (or deeper) selectors relative to
+    ``listeners`` — e.g. ``"rna_synth_prob.total_rna_init"``. Returns a nested
+    dict mirroring that structure, with each leaf coerced to float; a missing
+    path yields 0.0 so the emitted leaf stays a continuous trace. This is the
+    general counterpart to the mass/count/exchange/bulk readers — it lets a
+    study surface ANY genuine-vEcoli listener leaf without a code change here."""
+    out: dict = {}
+    for path in paths or []:
+        parts = [p for p in str(path).replace("listeners.", "", 1).split(".") if p]
+        if not parts:
+            continue
+        src = listeners or {}
+        for k in parts[:-1]:
+            src = src.get(k, {}) if isinstance(src, dict) else {}
+        leaf = parts[-1]
+        v = src.get(leaf) if isinstance(src, dict) else None
+        cur = out
+        for k in parts[:-1]:
+            cur = cur.setdefault(k, {})
+        try:
+            cur[leaf] = float(v) if v is not None else 0.0
+        except (TypeError, ValueError):
+            cur[leaf] = 0.0
+    return out
+
+
+def _deep_merge(dst: dict, src: dict) -> dict:
+    """Recursively merge ``src`` into ``dst`` (nested dicts merged, leaves set)."""
+    for k, v in (src or {}).items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _deep_merge(dst[k], v)
+        else:
+            dst[k] = v
+    return dst
+
+
+def _merge_listener_schema(listeners_schema: dict, paths) -> None:
+    """Add ``overwrite[float]`` leaves to a listeners output-schema dict for each
+    dotted ``group.leaf`` observable path (mirrors _select_observables' nesting)."""
+    for path in paths or []:
+        parts = [p for p in str(path).replace("listeners.", "", 1).split(".") if p]
+        if not parts:
+            continue
+        cur = listeners_schema
+        for k in parts[:-1]:
+            cur = cur.setdefault(k, {})
+            if not isinstance(cur, dict):
+                break
+        else:
+            cur[parts[-1]] = "overwrite[float]"
 
 
 def _select_bulk_observables(obs_bulk, ids: list) -> dict:
@@ -477,6 +533,10 @@ class VivariumEcoliProcess(Process):
         # {leaf_name: exchange_key} — metabolic exchange fluxes to emit under
         # listeners.exchange_flux.<leaf> (generic; the caller names the keys).
         "exchange_fluxes": {"_type": "map[string]", "_default": {}},
+        # Arbitrary genuine-vEcoli listener leaves to surface, as dotted
+        # "group.leaf" paths under listeners (e.g. "rna_synth_prob.total_rna_init").
+        # The fully-general measurement hook — any listener leaf, no code change.
+        "observables": {"_type": "list[string]", "_default": []},
     }
 
     # Set by build_vivarium_ecoli_composite to inject a pre-built (possibly daughter-
@@ -502,6 +562,7 @@ class VivariumEcoliProcess(Process):
             )
             self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
         self._exchange_fluxes = dict(self.config.get("exchange_fluxes") or {})
+        self._observables = list(self.config.get("observables") or [])
 
     def inputs(self):
         return {}
@@ -514,10 +575,15 @@ class VivariumEcoliProcess(Process):
             "unique_molecule_counts": {k: "overwrite[float]" for k in COUNT_OBS},
         }}
         if self._obs_bulk_ids:
-            out["bulk"] = {i: "overwrite[float]" for i in self._obs_bulk_ids}
+            # Emit declared bulk counts under listeners.observable_bulk.<id> so the
+            # candidate (v2ecoli) and reference (this) share ONE comparison path.
+            out["listeners"]["observable_bulk"] = {
+                i: "overwrite[float]" for i in self._obs_bulk_ids}
         if self._exchange_fluxes:
             out["listeners"]["exchange_flux"] = {
                 leaf: "overwrite[float]" for leaf in self._exchange_fluxes}
+        if self._observables:
+            _merge_listener_schema(out["listeners"], self._observables)
         return out
 
     def update(self, state, interval):
@@ -530,8 +596,12 @@ class VivariumEcoliProcess(Process):
         if self._exchange_fluxes:
             upd["listeners"]["exchange_flux"] = _select_exchange_fluxes(
                 obs.get("environment"), self._exchange_fluxes)
+        if self._observables:
+            _deep_merge(upd["listeners"],
+                        _select_observables(obs.get("listeners", {}), self._observables))
         if self._obs_bulk_ids:
-            upd["bulk"] = _select_bulk_observables(obs.get("bulk", {}), self._obs_bulk_ids)
+            upd["listeners"]["observable_bulk"] = _select_bulk_observables(
+                obs.get("bulk", {}), self._obs_bulk_ids)
         return upd
 
     def divide(self) -> dict:
@@ -566,6 +636,7 @@ def build_vivarium_ecoli_composite(
     variant: int = 0,
     observable_bulk_ids: list | None = None,
     exchange_fluxes: dict | None = None,
+    observables: list | None = None,
 ):
     """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
     ``agents/<agent_id>`` — the genuine-vEcoli analogue of the v2ecoli agent composite,
@@ -595,6 +666,7 @@ def build_vivarium_ecoli_composite(
         "variant": int(variant),
         "observable_bulk_ids": list(observable_bulk_ids or []),
         "exchange_fluxes": dict(exchange_fluxes or {}),
+        "observables": list(observables or []),
     }, core=core)
     iface = proc.interface()
 
@@ -721,6 +793,7 @@ def run_vivarium_ecoli_pbg_multigen(
     whole_config: str | None = None,
     exchange_fluxes: dict | None = None,
     observable_bulk_ids: list | None = None,
+    observables: list | None = None,
 ) -> dict:
     """Single-lineage multigen for the vEcoli **pbg node**, emitting the v2ecoli-format zarr.
 
@@ -756,6 +829,7 @@ def run_vivarium_ecoli_pbg_multigen(
 
     exchange_fluxes = dict(exchange_fluxes or {})
     observable_bulk_ids = list(observable_bulk_ids or [])
+    observables = list(observables or [])
     _view_vars = {
         "mass": {k: [{"path": k, "dtype": "<f8"}] for k in MASS_OBS},
         "unique_molecule_counts": {k: [{"path": k, "dtype": "<f8"}] for k in COUNT_OBS},
@@ -763,10 +837,22 @@ def run_vivarium_ecoli_pbg_multigen(
     if exchange_fluxes:
         _view_vars["exchange_flux"] = {
             leaf: [{"path": leaf, "dtype": "<f8"}] for leaf in exchange_fluxes}
-    view = [{"root": ("listeners",), "variables": _view_vars}]
+    # Declared arbitrary listener leaves ("group.leaf" under listeners): add each
+    # to the nested listeners view so _filter_agent_state emits it.
+    for path in observables:
+        parts = [p for p in str(path).replace("listeners.", "", 1).split(".") if p]
+        if len(parts) < 2:
+            continue
+        cur = _view_vars
+        for k in parts[:-1]:
+            cur = cur.setdefault(k, {})
+        cur[parts[-1]] = [{"path": parts[-1], "dtype": "<f8"}]
+    # Declared bulk observables ride under listeners.observable_bulk.<id> (the
+    # process emits them there), so BOTH engines compare on one path.
     if observable_bulk_ids:
-        view.append({"root": ("bulk",), "variables": {
-            i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}})
+        _view_vars["observable_bulk"] = {
+            i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}
+    view = [{"root": ("listeners",), "variables": _view_vars}]
     metadata_base = {
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),
@@ -794,7 +880,7 @@ def run_vivarium_ecoli_pbg_multigen(
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
             initial_overlay=overlay, variant=variant,
             exchange_fluxes=exchange_fluxes,
-            observable_bulk_ids=observable_bulk_ids)
+            observable_bulk_ids=observable_bulk_ids, observables=observables)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise
         if gen == 0:                       # capture vEcoli's OWN resolved config once

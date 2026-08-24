@@ -156,6 +156,18 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
                 "observables only."
             ),
         },
+        "observables": {
+            "type": "list",
+            "default": [],
+            "description": (
+                "Arbitrary listener leaves ('group.leaf', e.g. "
+                "'peptidoglycan_shape.lysed') to emit under "
+                "'listeners.<group>.<leaf>' for downstream sweep/phenotype "
+                "extraction. Empty = the default mass/count observables only. "
+                "The engine already supports this (see VivariumEcoliProcess); "
+                "this exposes it as a node param, mirroring observable_bulk_ids."
+            ),
+        },
     },
     default_n_steps=2700,
 )
@@ -172,6 +184,7 @@ def vecoli(
     whole_config: str = "",
     variant: int = 0,
     observable_bulk_ids: list | None = None,
+    observables: list | None = None,
 ) -> dict:
     """Build the process-bigraph document for genuine vEcoli as one node.
 
@@ -203,6 +216,10 @@ def vecoli(
             (0 = unperturbed baseline). Only meaningful with whole_config.
         observable_bulk_ids: bulk molecule ids to emit as observables for
             downstream sweep/phenotype extraction.
+        observables: arbitrary listener leaves ('group.leaf') to emit under
+            'listeners.<group>.<leaf>' (e.g. 'peptidoglycan_shape.lysed' for a
+            cell-shape/lysis phenotype). Threaded into VivariumEcoliProcess,
+            which already supports it; lands under the wired 'listeners' port.
 
     Returns:
         Process-bigraph document dict with keys ``schema``/``state``.
@@ -250,6 +267,7 @@ def vecoli(
             "fork_dir": reference_repo or "",
             "variant": int(variant),
             "observable_bulk_ids": list(observable_bulk_ids or []),
+            "observables": list(observables or []),
         }, core=core)
     finally:
         if whole_config:

@@ -83,9 +83,20 @@ def test_untracked_molecule_is_still_skipped():
     assert _resolve_boundary_keys({"NOT-A-MOLECULE[p]": 1.0}, {"GLC": 11.1}) == {}
 
 
-def test_mirror_emits_a_delta_for_a_compartment_tagged_id(core):
-    """discriminates: pre-fix the mirror returned {} for exactly this input --
-    which is what made the reactor->cell direction inert.
+def test_mirror_writes_the_reactor_value_for_a_compartment_tagged_id(core):
+    """The id resolves AND the value lands.
+
+    discriminates: pre-#550 the mirror returned {} for exactly this input --
+    the compartment-tagged id matched no bare boundary key, which is what made
+    the reactor->cell direction inert.
+
+    ⚠ The asserted value changed with #566, and the change is deliberate: the
+    mirror now writes the reactor's ABSOLUTE concentration rather than a delta
+    against the current boundary. This test read `22.2 - 11.1` when
+    boundary.external accumulated; it reads `22.2` now that the leaves are
+    declared `map[overwrite[float[mM]]]` and the apply replaces. Same
+    resolution behaviour, different write semantics -- see #566 for why a delta
+    could not express a change to an unlimited (inf) boundary at all.
     """
     mirror = EnvironmentMirror(config={}, core=core)
     out = mirror.next_update(
@@ -95,7 +106,7 @@ def test_mirror_emits_a_delta_for_a_compartment_tagged_id(core):
             "agents": {"0": {"boundary": {"external": {"GLC": 11.1}}}},
         },
     )
-    assert out["agents"]["0"]["boundary"]["external"]["GLC"] == pytest.approx(22.2 - 11.1)
+    assert out["agents"]["0"]["boundary"]["external"]["GLC"] == pytest.approx(22.2)
 
 
 # --- 2. glucose reaches the environment --------------------------------------

@@ -15,9 +15,10 @@ main result — a ~3-order batch-scale gap holding across seeds — is establish
 > **two-armed** — WCM-FBA (mbp-05, all five axis groups) and iML1515 (mbp-07) —
 > not three. **Items 4 and 5 below are consequently DEFERRED, not queued.**
 > Reopening either means first settling whether a coupled reactor should drive
-> the Millard model's external glucose (it currently must not — pending
-> `v2ecoli#550`), and then re-calibrating and regenerating this study's figures
-> and the `millard_vs_beulig` card.
+> the Millard model's external glucose (it currently must not, and `v2ecoli#550`
+> — merged 2026-08-21 — enforces that with an explicit exclusion rather than
+> leaving it to chance), and then re-calibrating and regenerating this study's
+> figures and the `millard_vs_beulig` card.
 
 This PR resumes the documented follow-ups (priority order):
 

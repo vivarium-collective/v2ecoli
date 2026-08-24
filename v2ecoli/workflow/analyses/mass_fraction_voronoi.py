@@ -23,7 +23,7 @@ from duckdb import DuckDBPyConnection
 from wholecell.utils import units
 from wholecell.utils.voronoi_plot_main import VoronoiMaster
 
-from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY
+from v2ecoli.workflow.analysis import Analysis
 from v2ecoli.workflow.analyses import _wholecell_compat
 from v2ecoli.workflow.analyses._shims import bulk_count_matrix
 from v2ecoli.workflow.render import fig_to_html

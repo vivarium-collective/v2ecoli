@@ -59,6 +59,7 @@ from v2ecoli.composites._helpers import (
 from v2ecoli.core import build_core
 from v2ecoli.library.sqlite_run import run_multigen_sqlite
 from v2ecoli.library.parquet_run import run_multigen_parquet
+from v2ecoli.library.run_provenance import write_run_identity
 
 
 INVESTIGATION_SLUG = "multiscale-bioprocess"
@@ -335,9 +336,21 @@ def _run_one_variant(
     simulation_id = str(uuid.uuid4())
 
     t_build = time.time()
-    doc = builder_fn(core, cache_dir, **builder_kwargs)
-    from process_bigraph import Composite
-    composite = Composite(doc, core=core)
+    # Silence the composite's internal generator-declared default emitter
+    # (workspace runtime.default_emitter). It is not lineage-aware: at the
+    # first division it writes the raw inner agent_id under
+    # experiment_id=default and crashes the run with a missing-partition
+    # FileNotFoundError. Recording here is the external lineage-following
+    # emitter's job (run_multigen_parquet / run_multigen_sqlite).
+    from v2ecoli.composites import _helpers as _emit_h
+    _prev_null_override = _emit_h._NULL_EMITTER_OVERRIDE
+    _emit_h.set_null_emitter_override(True)
+    try:
+        doc = builder_fn(core, cache_dir, **builder_kwargs)
+        from process_bigraph import Composite
+        composite = Composite(doc, core=core)
+    finally:
+        _emit_h.set_null_emitter_override(_prev_null_override)
     build_time = time.time() - t_build
 
     t_start = time.time()
@@ -406,6 +419,23 @@ def _run_one_variant(
         artifact = str(
             (parquet_root / simulation_id).relative_to(REPO_ROOT)
         )
+        # v2ecoli#472/#473: canonical run_identity.json sidecar, at the actual
+        # sweep_dir sim_vector_cache._run_commit reads (out_dir/experiment_id,
+        # not out_dir itself — this runner nests one experiment_id per run
+        # under a shared per-study parquet_root).
+        write_run_identity(
+            str(parquet_root / simulation_id), cache_dir=cache_dir,
+            design={
+                "experiment_id": simulation_id,
+                "sim_name": sim_name,
+                "study_slug": study_slug,
+                "investigation_slug": INVESTIGATION_SLUG,
+                "duration_sec": duration_sec,
+                "max_generations": max_generations,
+                "chunk": chunk,
+                "single_daughters": single_daughters,
+            },
+        )
 
     else:
         raise ValueError(f"unknown emitter {emitter!r}; expected sqlite|parquet")
@@ -469,7 +499,7 @@ def main():
     if args.emitter == "sqlite":
         print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
     else:
-        print(f"Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
+        print("Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
     print(f"Per-variant: emitter={args.emitter}  max_steps={args.duration_sec}s "
           f"({args.duration_sec/60:.0f} min), max_generations={args.max_generations}, "
           f"chunk={args.chunk}")

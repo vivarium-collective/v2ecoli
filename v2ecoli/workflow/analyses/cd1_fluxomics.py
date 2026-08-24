@@ -32,8 +32,10 @@ from ecoli.processes.metabolism import COUNTS_UNITS, MASS_UNITS, TIME_UNITS
 from wholecell.utils import units
 
 from v2ecoli.workflow.analyses._helpers import (
+    DEFAULT_CD1_CHUNK_SIZE,
     cd1_filter_clause,
     read_stacked_columns,
+    run_chunked,
     with_cross_cell_stats,
 )
 from v2ecoli.workflow.analysis import Analysis
@@ -47,6 +49,7 @@ class Cd1Fluxomics(Analysis):
     config_schema = {
         "generation_lower_bound": "integer",
         "time_lower_bound": "float",
+        "chunk_size": {"_type": "integer", "_default": DEFAULT_CD1_CHUNK_SIZE},
     }
 
     def analyze(
@@ -63,6 +66,7 @@ class Cd1Fluxomics(Analysis):
         # Read both so the params land whichever way the analysis was invoked.
         params = {**(self.config or {}), **(variant_metadata or {})}
         filter_clause = cd1_filter_clause(params)
+        chunk_size = int(params.get("chunk_size", DEFAULT_CD1_CHUNK_SIZE))
 
         rxn_ids = [str(r) for r in sim_data.process.metabolism.base_reaction_ids]
         cell_density = sim_data.constants.cell_density.asNumber(units.g / units.L)
@@ -77,27 +81,41 @@ class Cd1Fluxomics(Analysis):
             order_results=False,
         )
         id_cols = ", ".join(_ID_COLS)
-        flux_data = conn.sql(
-            f"""
-            WITH unnest_fluxes AS (
-                SELECT listeners__mass__dry_mass /
-                    listeners__mass__cell_mass * {cell_density} AS conversion_coeffs,
-                    unnest(listeners__fba_results__base_reaction_fluxes) AS fluxes,
-                    generate_subscripts(
-                        listeners__fba_results__base_reaction_fluxes, 1) AS idx,
-                    {id_cols}
-                FROM ({flux_subquery})
-                {filter_clause}
-            )
-            SELECT
-                avg(fluxes / conversion_coeffs) AS "flux-avg",
-                stddev(fluxes / conversion_coeffs) AS "flux-std",
-                {id_cols}, idx
-            FROM unnest_fluxes
-            GROUP BY idx, {id_cols}
-            ORDER BY idx
-            """
-        ).pl()
+        filtered_sql = f"""
+            SELECT * FROM ({flux_subquery})
+            {filter_clause}
+        """
+
+        def _batch_sql(cell_filter: str) -> str:
+            return f"""
+                WITH cell_batch AS (
+                    SELECT * FROM ({filtered_sql}) WHERE {cell_filter}
+                ),
+                unnest_fluxes AS (
+                    SELECT listeners__mass__dry_mass /
+                        listeners__mass__cell_mass * {cell_density} AS conversion_coeffs,
+                        unnest(listeners__fba_results__base_reaction_fluxes) AS fluxes,
+                        generate_subscripts(
+                            listeners__fba_results__base_reaction_fluxes, 1) AS idx,
+                        {id_cols}
+                    FROM cell_batch
+                )
+                SELECT
+                    avg(fluxes / conversion_coeffs) AS "flux-avg",
+                    stddev(fluxes / conversion_coeffs) AS "flux-std",
+                    {id_cols}, idx
+                FROM unnest_fluxes
+                GROUP BY idx, {id_cols}
+                ORDER BY idx
+                """
+
+        # Chunked one cell at a time (see run_chunked's docstring / item 38):
+        # the full-sweep unnest of every cell's flux array at once is what
+        # OOM-kills this analysis. Same AVG/STDDEV math, same unit
+        # conversion, just computed per cell and concatenated.
+        flux_data = run_chunked(
+            conn, filtered_sql, _batch_sql, id_cols=_ID_COLS, chunk_size=chunk_size
+        )
 
         if flux_data.is_empty():
             empty = pl.DataFrame({"EcoCyc Reaction ID": [], "mean": [], "std": []})
@@ -120,7 +138,8 @@ class Cd1Fluxomics(Analysis):
                     (COUNTS_UNITS / MASS_UNITS / TIME_UNITS) * pl.col("flux-avg")
                 ).asNumber(units.mmol / units.g / units.h),
                 "cell_id": pl.format(
-                    "Cell: {}_{}", pl.col("lineage_seed"), pl.col("agent_id")
+                    "Cell: {}_{}_{}", pl.col("lineage_seed"), pl.col("generation"),
+                    pl.col("agent_id")
                 ),
             }
         )

@@ -541,7 +541,7 @@ def _flux_divergence_section(cols, ref_idx=0):
         return "—" if v is None else f"{v:.3g}"
 
     # ---- structure summary ----
-    struct_lines = [f"<li>base reactions: " + ", ".join(
+    struct_lines = ["<li>base reactions: " + ", ".join(
         f"{html.escape(cols[i]['engine'])} <b>{len(cols[i]['_flux_ids'])}</b>"
         for i in flux_is) + "</li>"]
     for i, ref_missing, extra in struct:
@@ -559,8 +559,6 @@ def _flux_divergence_section(cols, ref_idx=0):
         struct_lines.append(f"<li>{en} vs {rn}: " +
                             ("; ".join(bits) if bits else "identical reaction set") +
                             "</li>")
-    n_shared = len([x for x in recs if x["ref"] is not None
-                    and all(x["vals"][i] is not None for i in other_is)])
     struct_html = (f"<ul class='note' style='margin:0 0 12px;padding-left:18px'>"
                    f"{''.join(struct_lines)}</ul>"
                    f"<p class='note'><b>{len(material)}</b> reactions carry "

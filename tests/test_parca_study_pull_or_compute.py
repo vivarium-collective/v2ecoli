@@ -196,3 +196,36 @@ def test_prerequisite_edge_matches_study_seed_shape():
 def test_unknown_engine_raises():
     with pytest.raises(ValueError):
         parca_study.resolve_or_build_parca("bogus-engine", "/tmp/whatever")
+
+
+def test_build_reference_hands_absolute_paths_to_the_fork(tmp_path, monkeypatch):
+    """_build_reference runs the fork's runscripts/parca.py with cwd=reference_repo,
+    so a RELATIVE config_path/outdir resolves against the fork dir and parca.py
+    fails (FileNotFoundError on the config). The build must pass ABSOLUTE paths."""
+    import os
+    from scripts._compare import orchestrator, config_adapter
+    from scripts._compare import reference as ref_mod
+
+    monkeypatch.chdir(tmp_path)  # a relative cache_dir is now relative to here
+    monkeypatch.setattr(ref_mod, "ReferenceEngine", lambda **kw: object())
+    monkeypatch.setattr(config_adapter, "resolve_vecoli_config", lambda *a, **k: {})
+    monkeypatch.setattr(parca_study, "_current_vecoli_commit", lambda repo: "abc123")
+    monkeypatch.setattr(parca_study, "write_producing_commit", lambda d, c: None)
+
+    captured = {}
+
+    def fake_run(*, reference, config_path, out_dir):
+        captured["config_path"] = config_path
+        captured["out_dir"] = str(out_dir)
+        kb = os.path.join(str(out_dir), "kb")
+        os.makedirs(kb, exist_ok=True)
+        open(os.path.join(kb, "simData.cPickle"), "w").close()
+
+    monkeypatch.setattr(orchestrator, "run_vecoli_parca", fake_run)
+
+    parca_study._build_reference("relcache", "/some/vEcoli")  # RELATIVE cache_dir
+
+    assert os.path.isabs(captured["config_path"]), captured["config_path"]
+    assert os.path.isabs(captured["out_dir"]), captured["out_dir"]
+    # the config file was actually written at the absolute location
+    assert os.path.isfile(captured["config_path"])

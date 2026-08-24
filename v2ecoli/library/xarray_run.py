@@ -386,7 +386,7 @@ def build_emitter_config(
     metadata_base: dict,
     generation: int,
     agent_id: str,
-    buffer_size: int = 4,
+    buffer_size: int = 600,
     output_metadata: dict | None = None,
     writer: dict | None = None,
     predicate: list | None = None,
@@ -405,7 +405,7 @@ def build_emitter_config(
     writer_cfg = {
         "backend": "zarr",
         "store": str(store_path),
-        "buffers_per_chunk": 1,
+        "buffers_per_chunk": 10,
         "backend_config": {"format": 3},
     }
     if writer:
@@ -455,6 +455,33 @@ def _build_emitter(*, core: Any, **kwargs):
     return XArrayEmitter(config=build_emitter_config(**kwargs), core=core)
 
 
+def _with_observable_bulk(agent: dict, ids: list) -> dict:
+    """Return a shallow copy of ``agent`` whose ``listeners`` gains an
+    ``observable_bulk`` group holding the declared bulk molecules' counts as
+    scalars (``listeners.observable_bulk.<id>``).
+
+    This is the two-arm comparison's bulk-KPI hook: bulk counts (e.g.
+    ``VIOLACEIN[c]`` titer, ``mecillinam[p]-EG10606-MONOMER[i]`` drug-target
+    complex) ride under the ``listeners`` root so the SAME listener view + emit
+    machinery captures them, and BOTH engines expose an identical path to grade
+    on. Selection is by molecule id from the bulk record (``agent["bulk"]`` carries
+    both ``id`` and ``count``); a missing id yields 0.0 so the trace stays
+    continuous. The live composite state is left untouched (a fresh dict is
+    returned), so this never perturbs the simulation.
+    """
+    bulk = agent.get("bulk")
+    if bulk is None or not ids:
+        return agent
+    bids = bulk["id"]
+    counts = bulk["count"]
+    grp = {}
+    for mol in ids:
+        hit = np.where(bids == mol)[0]
+        grp[mol] = float(counts[hit[0]]) if len(hit) else 0.0
+    return {**agent, "listeners": {**(agent.get("listeners") or {}),
+                                   "observable_bulk": grp}}
+
+
 def run_multigen_xarray(
     composite: Any,
     *,
@@ -466,10 +493,11 @@ def run_multigen_xarray(
     chunk: int = 60,
     initial_agent_id: str = "0",
     overwrite: bool = True,
-    buffer_size: int = 3,
+    buffer_size: int = 600,
     single_daughters: bool = False,
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     provenance: dict | None = None,
+    observable_bulk_ids: list | None = None,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
 
@@ -485,12 +513,17 @@ def run_multigen_xarray(
       chunk: how many ticks between emitter updates.
       initial_agent_id: agent_id to start following.
       overwrite: if True, delete ``store_path`` before starting.
-      buffer_size: XArrayEmitter transducer buffer size. Default 3 (NOT the
-        config builder's 4): the installed pbg-emitters trips an
-        ``assert not include_static`` in its ``flush(final=True)`` path when the
-        buffer is exactly full at close (i.e. ``n_updates % buffer_size == 0``);
-        3 is the value the single-generation runner uses to dodge it. Override
-        only if you know the emit count won't land on a multiple of it.
+      buffer_size: XArrayEmitter transducer buffer size, in *emit steps*, held
+        in memory before each flush to the zarr store. Default 600, matching the
+        viva-emitters library default — sized to flush only a handful of times
+        per generation (see :py:class:`viva_emitters.xarray_emitter.transducer.
+        XarrayTransducer`). A tiny buffer (the old default of 3) forces a flush
+        every few emit steps, degrading latency and compression by ~2 orders of
+        magnitude; it was originally chosen to dodge a ``flush(final=True)``
+        assertion in an early vendored emitter, which current viva-emitters has
+        since fixed (the buffer-full/partial/aligned close paths are all
+        regression-tested). The ``except AssertionError`` guards around the
+        closes below are now belt-and-suspenders against that fixed quirk.
       division_detector: optional ``(prev_ids, curr_ids) -> (divided?, daughter_id|None)``.
         Default: detect division when ``len(curr) > len(prev)`` and pick the
         first new agent_id sorted.
@@ -530,6 +563,16 @@ def run_multigen_xarray(
     # run. We mirror SQLite's lenient behaviour: keep what's there, drop what
     # isn't.
     state_after_warmup = composite.state or {}
+    # Augment a COPY of the warmup state with the declared bulk observables so the
+    # view-filter (below) and coord-metadata discovery keep the synthetic
+    # listeners.observable_bulk.<id> leaves — the live state is never mutated.
+    if observable_bulk_ids:
+        _agents = state_after_warmup.get("agents") or {}
+        _cell = _agents.get(initial_agent_id) or next(iter(_agents.values()), None)
+        if isinstance(_cell, dict):
+            _key = initial_agent_id if initial_agent_id in _agents else next(iter(_agents))
+            state_after_warmup = {**state_after_warmup, "agents": {
+                **_agents, _key: _with_observable_bulk(_cell, observable_bulk_ids)}}
     filtered_view = filter_view_to_existing_leaves(state_after_warmup, view)
     if not filtered_view:
         raise RuntimeError(
@@ -583,7 +626,10 @@ def run_multigen_xarray(
     def _emit_followed(emitter, agents_map, key):
         if key not in agents_map:
             return
-        payload = _filter_agent_state(agents_map[key], view)
+        _agent = agents_map[key]
+        if observable_bulk_ids:
+            _agent = _with_observable_bulk(_agent, observable_bulk_ids)
+        payload = _filter_agent_state(_agent, view)
         if _EMIT_UNIQUE:
             payload = {**payload, **_extract_unique_attrs(agents_map[key])}
         # CRITICAL: emit the payload under the emitter's OWN agent_id

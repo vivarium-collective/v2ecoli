@@ -139,7 +139,7 @@ def main():
     print(f"   state species: {n_state}, reactions: {mdl.n_reactions}, "
           f"build time: {build_wall*1000:.0f} ms")
     print(f"   tolerances: rtol={RTOL}, atol={ATOL}")
-    print(f"   integrator: diffrax.Kvaerno3 (implicit, stiff)")
+    print("   integrator: diffrax.Kvaerno3 (implicit, stiff)")
 
     y0 = jnp.array(mdl.y0, dtype=jnp.float64)
     integrate = _build_integrator(mdl.rhs)

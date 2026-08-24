@@ -92,7 +92,7 @@ class Cd1ExchangeFluxes(Analysis):
             f"""
             SELECT {", ".join(avg_fluxes)},
                 avg(growth_rate_h) AS growth_rate_h,
-                concat('Cell: ', lineage_seed, '_', agent_id) AS cell_id
+                concat('Cell: ', lineage_seed, '_', generation, '_', agent_id) AS cell_id
             FROM ({flux_subquery})
             {filter_clause}
             GROUP BY {id_cols}

@@ -10,8 +10,21 @@ and plots (scatter).
 This reads the sweep parquet directly (the array columns aren't carried in the
 scalar per-cell records). It is heavier than the scalar analysis (~minute over
 a 4x8 ensemble), so it runs at report-render time, not in the workflow step.
+
+``sweep_dir`` may be a local path or an ``s3://`` URI (see
+:mod:`v2ecoli.library.sweep_io`). The S3 form lets an equivalence reference be
+pinned — and a measured card rendered — against a sweep that never lands on the
+local disk, which is what makes a multi-condition card affordable: the parquet
+stays in object storage and DuckDB's column projection reads only the three
+array columns below.
 """
 from __future__ import annotations
+
+# Bump whenever the aggregation semantics change (the column set, the ragged-row
+# rule, the cell-first order). It is part of the sim_vector_cache key, so a bump
+# invalidates every cached vector rather than silently serving one built by
+# older code — the vector is a function of this code as much as of the run.
+EXTRACTOR_VERSION = 1
 
 # observable column -> card path it populates
 _VECTOR_COLS = {
@@ -33,18 +46,16 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     Ragged/empty array rows are dropped per column: ``external_exchange_fluxes``
     emits a ``[]`` default on some timesteps, so only rows whose array matches
     the column's modal length are averaged."""
-    import glob
-    import os
     from collections import defaultdict
 
-    import duckdb
     import numpy as np
 
-    files = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
-                      recursive=True)
+    from v2ecoli.library.sweep_io import connect_for, history_files
+
+    files = history_files(sweep_dir)
     if not files:
         return {}
-    con = duckdb.connect()
+    con = connect_for(sweep_dir)
     rel = "read_parquet(" + repr(files) + ", hive_partitioning=true)"
     cols = ", ".join(_VECTOR_COLS)
     rows = con.sql(

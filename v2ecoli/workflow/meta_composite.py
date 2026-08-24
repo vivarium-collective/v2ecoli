@@ -38,6 +38,11 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
                 "config_overrides": dict(spec.overrides),
                 "generations": int(config.get("generations", 1)),
                 "single_daughters": bool(config.get("single_daughters", True)),
+                # Per-generation checkpoint/resume (backlog item 34) — see
+                # LineageProcess.config_schema.
+                "initial_carry_state_path": config.get("initial_carry_state_path", ""),
+                "initial_generation_index": int(config.get("initial_generation_index", 0)),
+                "daughter_state_out_path": config.get("daughter_state_out_path", ""),
                 "experiment_id": config.get("experiment_id", "default"),
                 "out_dir": config.get("out_dir", "out/workflow"),
                 "max_duration_per_gen": float(config.get("max_duration_per_gen", 3600.0)),

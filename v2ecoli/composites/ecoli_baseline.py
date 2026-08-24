@@ -74,9 +74,162 @@ def _derive_process_seed(master_seed: int, process_name: str) -> int:
     """
     return binascii.crc32(process_name.encode("utf-8"), master_seed) & 0x7FFFFFFF
 
+
+def _is_plain_numeric_leaf(v: Any) -> bool:
+    """True for listener leaf values the XArrayEmitter transducer can write
+    straight into a fixed-dtype DataArray slot: python/numpy int/float/bool
+    scalars, or numeric ``numpy.ndarray``s with more than one element.
+
+    False for ``pint.Quantity`` (no unit-stripping hook in viva_emitters'
+    view/transducer), ``str``/``bytes``/``list``/``tuple`` (the transducer
+    only walks plain dicts, not these), and — critically — length-0 or
+    length-1 numeric arrays.
+
+    The size<=1 exclusion mirrors ``extract_output_metadata_from_state``'s own
+    "scalar, no coord needed" threshold (``arr.ndim==0 or arr.size<=1``) and
+    guards against a real viva_emitters promotion-trap bug (Task 1 spike,
+    gotcha #5b): a leaf with no declared output_metadata coord starts with
+    ``spec.coord is None`` and goes through the *dynamic* promote-or-drop
+    write path on its first ``update()``. If that first write is itself a
+    length-0/1 array (common in v2ecoli — many listener leaves start
+    empty/singleton until a biological event first populates them),
+    ``_promote_port`` allocates a tiny slot AND mutates ``spec.coord`` to a
+    real (non-``None``) array; every SUBSEQUENT write then takes the
+    "declared coord" direct-write branch with no promote/drop safety net, so
+    the first time the leaf grows to its real, different length the write
+    crashes with a broadcast ``ValueError``. Excluding size<=1 leaves up
+    front keeps every kept leaf on a stable, provably-safe path.
+    """
+    import pint
+    if isinstance(v, pint.Quantity):
+        return False
+    if isinstance(v, (str, bytes, list, tuple)):
+        return False
+    if isinstance(v, (int, float, np.integer, np.floating, bool)):
+        return True
+    if isinstance(v, np.ndarray):
+        return np.issubdtype(v.dtype, np.number) and v.size > 1
+    return False
+
+
+def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
+    """Yield dotted ``listeners.<...>`` leaf paths for plain-numeric values.
+
+    Recurses ``listeners`` (a nested dict of namespace -> leaf -> value);
+    yields a path for each leaf that survives ``_is_plain_numeric_leaf``.
+    Non-numeric / ragged leaves (pint.Quantity, str, list, size<=1 arrays)
+    are silently dropped — see ``_is_plain_numeric_leaf`` for why.
+    """
+    for k, v in listeners.items():
+        p = f"{prefix}.{k}"
+        if isinstance(v, dict):
+            yield from _listener_leaf_paths(v, prefix=p)
+        elif _is_plain_numeric_leaf(v):
+            yield p
+
+
+def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
+                                buffer_size: int = 600) -> dict:
+    """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
+    agent-relative, in-document capture.
+
+    Pure — no IO, no Composite construction, no ``cell_state`` inspection. The
+    two realize-dependent keys — ``view`` and ``output_metadata`` — are NOT set
+    here; they are discovered from the REALIZED composite state at run time by
+    ``SingleCellXArrayEmitter`` (see its docstring and Task 4 / C2). This is why
+    the helper no longer takes ``cell_state``: at document-build time the
+    listener tree is only partially materialised (``core.realize()`` fills the
+    schema-defaulted listener namespaces only when the ``Composite`` is
+    constructed), so a view built here would starve the capture down to the
+    handful of pre-seeded leaves (Task 3 concern #1). The lazy step instead
+    reads the fully-realized listener tree on its first ``update()``.
+
+    Encodes the static parts of the recipe validated by Task 1's spike (see
+    ``.superpowers/sdd/2026-08-10-single-cell-xarray-emitter/task-1-report.md``):
+
+      * ``strategy="flat"``, ``emit_root=[]`` — the in-document emitter Step is
+        co-located inside ``agents/0`` and receives bare
+        ``{"global_time": ..., "bulk": ..., "listeners": ...}`` payloads, NOT
+        wrapped in an ``{"agents": {id: ...}}`` envelope (that's the
+        lineage-runner's ``strategy="colony"`` pattern, not this one).
+      * ``metadata`` must be non-empty (an empty dict silently skips
+        XArrayEmitter's partition setup and crashes the first ``update()`` —
+        Task 1 gotcha #1). Callers pass their real experiment_id/variant/seed.
+      * bounded, streaming buffer (``subsample(1)`` + small buffer), zarr v3
+        writer — copied verbatim from the spike.
+
+    Args:
+        out_uri: zarr store path/URI.
+        metadata: non-empty run-identity metadata (experiment_id / variant /
+            lineage_seed). Falls back to a non-empty placeholder if omitted.
+        buffer_size: transducer buffer size (streaming, bounded), in emit steps.
+            Default 600 — matches the viva-emitters library default; flushes a
+            handful of times per generation rather than every few steps.
+
+    Returns:
+        The static XArrayEmitter config skeleton (no ``view`` /
+        ``output_metadata`` — those are added lazily at run time).
+    """
+    return {
+        "emit": {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"},
+        "out_uri": str(out_uri),
+        "strategy": "flat",
+        "emit_root": [],
+        "transducer": {
+            "predicate": [[{"subsample": {"interval": 1}}]],
+            "buffer": {"size": buffer_size},
+        },
+        "writer": {
+            "backend": "zarr",
+            "store": str(out_uri),
+            "buffers_per_chunk": 1,
+            "backend_config": {"format": 3},
+        },
+        "metadata": dict(metadata) if metadata else {
+            "experiment_id": "single_cell", "variant": 0, "lineage_seed": 0},
+        "metadata_keys": [],
+        "metadata_validators": {},
+        "provenance": {},
+        "debug": False,
+    }
+
+
+def _resolve_xarray_out_uri(experiment_id: str, out_dir: str = "") -> str:
+    """Resolve the zarr store path for the in-document single-cell
+    XArrayEmitter (``baseline()``'s ``emitter=="xarray"`` branch).
+
+    Mirrors the sqlite branch's workspace-shared-root convention
+    (``_find_workspace_root`` -> ``<ws>/.pbg/...``): prefers the workspace's
+    ``.pbg/xarray-runs/`` dir so a workspace-hosted run's zarr store lives
+    alongside the sqlite history db (``.pbg/composite-runs.db``) and parquet
+    hive dir (``.pbg/parquet-runs/``); falls back to ``out/xarray`` when no
+    ``workspace.yaml`` is found (e.g. a bare-checkout build).
+
+    ``out_dir`` is threaded through explicitly (rather than resolved
+    unconditionally) so a caller — e.g. Task 4's real-run integration test —
+    can target a tmp dir without needing a real workspace on disk.
+
+    Args:
+        experiment_id: names the zarr store (``<experiment_id>.zarr``).
+        out_dir: explicit output directory override. Empty (default) falls
+            back to the workspace-root / ``out/xarray`` resolution above.
+
+    Returns:
+        The zarr store path as a string. Not created on disk here — the
+        XArrayEmitter's writer creates it lazily on first write.
+    """
+    from pathlib import Path
+    if out_dir:
+        base = Path(out_dir)
+    else:
+        ws_root = _find_workspace_root()
+        base = (ws_root / ".pbg" / "xarray-runs") if ws_root is not None else Path("out/xarray")
+    return str(base / f"{experiment_id}.zarr")
+
+
 from viva_superpowers.composite_generator import composite_generator, emitter_defaults
 
-from v2ecoli.core import build_core, load_cache_bundle
+from v2ecoli.core import build_core, load_cache_bundle, register_ecoli_core
 
 # ---------------------------------------------------------------------------
 # Shared helpers and constants
@@ -93,6 +246,7 @@ from v2ecoli.composites._helpers import (
     set_default_emitter_decl,
     set_emitter_override,
     set_null_emitter_override,
+    set_exchange_fluxes_override,
     _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
@@ -107,6 +261,178 @@ from v2ecoli.composites._helpers import (
 # unaffected; display tools (Composite Explorer / loom, follow-up) read this to
 # render the flat stores grouped as biology. See store_groups.py.
 from v2ecoli.composites.store_groups import STORE_GROUPS as STORE_GROUPS  # noqa: PLC0414
+
+from process_bigraph.emitter import Emitter
+
+
+class SingleCellXArrayEmitter(Emitter):
+    """In-document, agent-relative XArrayEmitter — built LAZILY from realized state.
+
+    Subclasses ``process_bigraph.emitter.Emitter`` (not a bare ``Step``) so the
+    composite_generator convention recognises it as the document's observation
+    sink (``process_bigraph.emitter._node_is_emitter`` short-circuits on
+    ``isinstance(instance, Emitter)``). Without that, ``CompositeSpec._with_emitters``
+    treats the document as observing nothing and injects the generator's declared
+    ParquetEmitter default at the top level with an empty ``out_dir`` — which then
+    fails ``Composite`` realize.
+
+    Swapped into the single ``agents/0/emitter`` key in place (never as an extra
+    document Step: adding sibling Steps perturbs process_bigraph's scheduling and
+    trips a pre-existing metabolism fragility — Task 1 gotcha #4). It wraps a real
+    ``viva_emitters.XArrayEmitter`` but defers its construction to the FIRST
+    ``update()`` so the view/output_metadata are discovered from the fully
+    REALIZED composite state, resolving the two Task-4 blockers:
+
+      * **C2 (realized-state view).** At document-build time the listener tree is
+        only partially materialised — ``core.realize()`` fills the schema-defaulted
+        listener namespaces only when the ``Composite`` is constructed, and per-tick
+        listener vectors are populated only once processes run. Building the view
+        then captures ~4 leaves. This step instead reaches the driving ``Composite``
+        via ``get_current_composite()`` (the ``run()`` contextvar) on its first
+        ``update()`` and reads the full realized ``agents/0`` subtree — yielding the
+        complete listener set (~50-115 leaves) plus process-instance-derived named
+        coord labels via ``output_metadata(full_state)``. Mirrors the multigen
+        runner's "warm 1 tick, then discover coords" pattern.
+
+      * **C1 (structured ``bulk``).** ``cell_state["bulk"]`` is a numpy *record*
+        array (fields ``id``/``count``/``*_submass``); the transducer cannot cast
+        it to ``<i8``. This step projects ``bulk["count"]`` to a plain int64 vector
+        inside ``update()`` before emitting (no field-projection hook exists in the
+        emitter's view machinery).
+
+    The trailing partial buffer is flushed by ``close_emitter()`` (called by
+    ``v2ecoli.build_composite``'s run-wrap): the emitter only auto-flushes a FULL
+    buffer mid-run, and ``flush(final=False)`` asserts a full buffer, so a partial
+    tail can only be written via ``close()``/``flush(final=True)``.
+    """
+
+    def __init__(self, config, core):
+        super().__init__(config, core)
+        self._em = None
+        self._leaf_key_paths: list | None = None
+        # Declared bulk molecule ids to surface as scalar observables under
+        # listeners.observable_bulk.<id> (the two-arm comparison's bulk KPI hook —
+        # e.g. VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] drug-target
+        # complex). Emitting under the `listeners` root reuses the existing view
+        # machinery and gives BOTH engines an identical path to compare on.
+        self._obs_bulk_ids: list = list(config.get("observable_bulk_ids") or [])
+
+    def inputs(self):
+        return {"global_time": "float", "bulk": "array[integer]", "listeners": "tree"}
+
+    def outputs(self):
+        return {}
+
+    def _lazy_init(self):
+        from process_bigraph.composite import get_current_composite
+        from viva_emitters import XArrayEmitter
+        from v2ecoli.library.xarray_run import (
+            view_from_emit_paths, extract_output_metadata_from_state)
+        from v2ecoli.library.output_metadata import output_metadata as _named_output_metadata
+
+        comp = get_current_composite()
+        if comp is None:
+            raise RuntimeError(
+                "SingleCellXArrayEmitter.update() ran outside a Composite.run() "
+                "context — get_current_composite() returned None, so the "
+                "realized listener tree cannot be discovered.")
+        full_state = comp.state
+        cell = (full_state.get("agents") or {}).get("0") or full_state
+        listener_paths = list(_listener_leaf_paths(cell.get("listeners") or {}))
+        # Declared bulk observables ride under a synthetic listeners.observable_bulk
+        # group so the SAME listener view captures them (both engines share the path).
+        listener_paths += [f"listeners.observable_bulk.{i}" for i in self._obs_bulk_ids]
+        # Listener view (unmodified helper) + manual bulk entry. root=() so the
+        # read path resolves to () + ("bulk",) == ("bulk",); LeafView.path (the
+        # OUTPUT var name) must be non-empty, hence "bulk".
+        view = view_from_emit_paths(listener_paths)
+        view.append({"root": (), "variables": {"bulk": [{"path": "bulk", "dtype": "<i8"}]}})
+        named_metadata = _named_output_metadata(full_state)
+        output_metadata_ = extract_output_metadata_from_state(
+            full_state, view, named_metadata=named_metadata)
+
+        cfg = {**dict(self.config), "view": view, "output_metadata": output_metadata_}
+        self._em = XArrayEmitter(cfg, self.core)
+        # listener_paths are "listeners.<ns>.<leaf>"; store the key path relative
+        # to the listeners root (drop the leading "listeners").
+        self._leaf_key_paths = [tuple(p.split(".")[1:]) for p in listener_paths]
+
+    def update(self, state, interval=None):
+        if self._em is not None and getattr(self._em, "_closed", False):
+            # F3: build_composite's run-end flush hook calls close_emitter()
+            # after each run(), which finalizes the zarr writer. A SECOND run()
+            # on the same xarray composite would drive updates into a closed
+            # writer and silently no-op/corrupt. Fail loudly and actionably
+            # instead — this is a single-run sink by design.
+            raise RuntimeError(
+                "SingleCellXArrayEmitter was already closed by the run-end flush "
+                "hook: the in-document single-cell XArray sink supports ONE run() "
+                "per build_composite(...). Rebuild the composite (a fresh "
+                "build_composite(..., emitter='xarray')) for another run, or use "
+                "emitter='parquet' if you need to resume/extend a run.")
+        if self._em is None:
+            self._lazy_init()
+        # C1: project the structured bulk record array to a plain int64 vector.
+        bulk_counts = np.asarray(state["bulk"]["count"], dtype=np.int64)
+        # Filter listeners to exactly the declared leaves (the transducer raises
+        # on any undeclared emit path once sim_tix > 0).
+        src = state.get("listeners") or {}
+        filtered: dict = {}
+        for path in self._leaf_key_paths or []:
+            cur = src
+            ok = True
+            for k in path:
+                if not isinstance(cur, dict) or k not in cur:
+                    ok = False
+                    break
+                cur = cur[k]
+            if not ok:
+                continue
+            cursor = filtered
+            for k in path[:-1]:
+                cursor = cursor.setdefault(k, {})
+            cursor[path[-1]] = cur
+        # Declared bulk observables → listeners.observable_bulk.<id> scalars,
+        # selected by molecule id from the bulk record (state["bulk"] carries both
+        # "id" and "count"). A missing id emits 0.0 so the trace stays continuous.
+        if self._obs_bulk_ids:
+            ids = state["bulk"]["id"]
+            grp = filtered.setdefault("observable_bulk", {})
+            for mol in self._obs_bulk_ids:
+                hit = np.where(ids == mol)[0]
+                grp[mol] = float(bulk_counts[hit[0]]) if len(hit) else 0.0
+        self._em.update({
+            "global_time": state["global_time"],
+            "bulk": bulk_counts,
+            "listeners": filtered,
+        })
+        return {}
+
+    def close_emitter(self):
+        """Flush the trailing partial buffer and finalize the zarr store.
+
+        Idempotent. Swallows the known viva_emitters ``flush(final=True)`` assert
+        (buffer exactly full at close) ONLY when at least one buffer already
+        reached disk mid-run — those rows are safe and only the just-flushed
+        trailing buffer tripped the boundary assert. If NOTHING was ever written
+        (``num_writes <= 0``), the store would be left empty/without a success
+        marker, so the assert is re-raised with context instead of masked (F4).
+        """
+        if self._em is None or getattr(self._em, "_closed", False):
+            return
+        try:
+            self._em.close(success=True)
+        except AssertionError:
+            writer = getattr(self._em, "writer", None)
+            num_writes = getattr(writer, "num_writes", 0)
+            if num_writes and num_writes > 0:
+                # benign trailing-buffer boundary — earlier buffers are on disk
+                return
+            raise RuntimeError(
+                "SingleCellXArrayEmitter.close_emitter(): the XArray final flush "
+                "asserted before any buffer reached disk — the zarr store at "
+                f"{(self.config or {}).get('out_uri')!r} is likely empty/unfinalized. "
+                "This is NOT the benign buffer-full-at-close boundary.")
 
 
 # ---------------------------------------------------------------------------
@@ -195,6 +521,26 @@ FEATURE_MODULES = {
     'mass_conservation': {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['ecoli-mass-conservation'],
+    },
+    # Opt-in: re-home named environment.exchange fluxes onto
+    # listeners.exchange_flux.<name> so the compact XArray view (listeners-only)
+    # carries them. Enabled automatically when the generator's exchange_fluxes
+    # param is non-empty; the flux map is threaded via set_exchange_fluxes_override.
+    'exchange_flux': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['exchange_flux_listener'],
+    },
+    # Opt-in: native cell-shape geometry (periplasm/cytoplasm volume split +
+    # outer surface area), ported from vEcoli ecoli/processes/shape.py.
+    # Populates `periplasm.global.volume`/`cytoplasm.global.volume`/
+    # `boundary.outer_surface_area` (the vEcoli ecoli-shape store paths) for
+    # the mecillinam candidate arm's injected antibiotic_transport_odeint
+    # chain, which otherwise finds nothing writing those stores. Runs right
+    # after the mass listener so it reads this tick's `listeners.mass.volume`.
+    # Auto-enabled by `baseline(..., mecillinam=True)`; a no-op otherwise.
+    'cell_geometry': {
+        'insert_after': 'ecoli-mass-listener',
+        'steps': ['cell_geometry_step'],
     },
 }
 
@@ -287,9 +633,7 @@ def _get_step_config(
     from v2ecoli.steps.ddah import Ddah
     from v2ecoli.steps.dars import Dars
     from v2ecoli.processes.protein_degradation import ProteinDegradation
-    from v2ecoli.processes.rna_degradation import RnaDegradation
     from v2ecoli.processes.transcript_initiation import TranscriptInitiation
-    from v2ecoli.processes.transcript_elongation import TranscriptElongation
     from v2ecoli.processes.polypeptide_initiation import PolypeptideInitiation
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.tf_binding import TfBinding
@@ -416,6 +760,17 @@ def _get_step_config(
             topology = topology()
         return instance, topology, 'step'
 
+    # mecillinam candidate arm: native cell-shape geometry deriver. No ParCa
+    # config; built from class defaults (width_um=1.0, matching vEcoli
+    # shape.py's default width).
+    if step_name == 'cell_geometry_step':
+        from v2ecoli.steps.derivers.cell_geometry import CellGeometry
+        instance = _make_instance(CellGeometry, {}, core)
+        topology = getattr(instance, 'topology', {})
+        if callable(topology):
+            topology = topology()
+        return instance, topology, 'step'
+
     try:
         config = loader.get_config_by_name(base_name)
     except (KeyError, AttributeError):
@@ -500,7 +855,7 @@ def _get_step_config(
             instance = Requester({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['global_time'] = ('global_time',)
             in_topo.setdefault('timestep', ('timestep',))
@@ -521,7 +876,7 @@ def _get_step_config(
             instance = Evolver({
                 'time_step': config.get('time_step', 1),
                 'process': process,
-            })
+            }, core=core)
             in_topo = dict(topology)
             in_topo['allocate'] = ('allocate', base_name)
             in_topo['global_time'] = ('global_time',)
@@ -583,6 +938,9 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Build the batch-orchestrator document (seeds × generations lineage).
 
@@ -597,6 +955,13 @@ def _build_batch_document(
     ``seed .. seed+n_seeds-1``); ``knockouts`` + ``config_overrides`` fold into
     the runner's panel-wide ``base_config_overrides`` (applied to every seed);
     ``media`` threads through to each per-seed ``baseline`` build.
+
+    ``initial_carry_state_path``/``initial_generation_index``/
+    ``daughter_state_out_path`` (backlog item 34): a wave orchestrator's own
+    per-seed-per-generation checkpoint/resume keys, passed straight through to
+    ``BatchBaselineRunner`` -> ``run_workflow`` -> ``meta_composite.py``'s
+    per-branch ``LineageProcess`` config. Empty/0 (default) = today's
+    single-invocation-runs-every-generation behavior, unchanged.
     """
     from v2ecoli.core import load_cache_bundle
     from v2ecoli.perturbations import translation_efficiency_override
@@ -643,6 +1008,9 @@ def _build_batch_document(
         "parallel": parallel or "",
         "base_config_overrides": base_config_overrides,
         "media": media,
+        "initial_carry_state_path": initial_carry_state_path,
+        "initial_generation_index": int(initial_generation_index),
+        "daughter_state_out_path": daughter_state_out_path,
     }
     runner = _make_instance(BatchBaselineRunner, runner_config, core)
     state = {
@@ -652,6 +1020,24 @@ def _build_batch_document(
             runner, BatchBaselineRunner.topology, edge_type="step",
             config=runner_config),
     }
+    # Install a top-level observation sink so the batch orchestrator document is
+    # not left "observing nothing". Without an emitter node here,
+    # CompositeSpec._with_emitters installs the generator's declared ParquetEmitter
+    # default with an EMPTY config, which raises "ParquetEmitter requires either
+    # config['out_dir'] or config['out_uri']" at Composite() realize -- before any
+    # step runs (issue #496). Resolve out_dir exactly as the single-cell path does.
+    from process_bigraph.emitter import install_emitters  # noqa: PLC0415
+    _emit_out_dir = out_dir
+    if not _emit_out_dir:
+        _ws_root = _find_workspace_root()
+        _emit_out_dir = (str(_ws_root / ".pbg" / "parquet-runs")
+                         if _ws_root is not None else "out/parquet")
+    state = install_emitters(
+        state,
+        [{"address": "local:ParquetEmitter",
+          "config": {"out_dir": _emit_out_dir},
+          "paths": ["global_time"]}],
+        core=core)
     return {"state": state}
 
 
@@ -781,6 +1167,42 @@ def _build_batch_document(
                            "(ecoli-mass-conservation step). Off by default — the "
                            "residual is not yet calibrated, so it warns each tick.",
         },
+        "mecillinam": {
+            "type": "bool",
+            "default": False,
+            "description": "Inject the mecillinam bulk species — mecillinam[p], "
+                           "mecillinam_hydrolyzed[p], and the mecillinam-PBP2 "
+                           "drug-target complex (mecillinam[p]-EG10606-MONOMER[i]) "
+                           "— into this composite's initial bulk store at generate "
+                           "time (count 0, correct submass), mirroring "
+                           "LoadSimData(mecillinam=True). The cache bundle is built "
+                           "WITHOUT these species, so an injected mecillinam "
+                           "antibiotic process (e.g. the final_mec candidate arm's "
+                           "antibiotic_transport_odeint) would otherwise raise "
+                           "'Names not found in bulk_names'. Re-injected on the "
+                           "bundle-loaded bulk store — no ParCa/cache rebuild. Off "
+                           "by default = unchanged baseline.",
+        },
+        "amp_lysis": {
+            "type": "bool",
+            "default": False,
+            "description": "Inject the ampicillin bulk species (ampicillin[p], "
+                           "ampicillin_hydrolyzed[p]) into this composite's initial "
+                           "bulk store at generate time, mirroring "
+                           "LoadSimData(amp_lysis=True). Same generate-time "
+                           "re-injection mechanism as `mecillinam` (no ParCa "
+                           "rebuild); closes the same latent gap for the ampicillin "
+                           "antibiotic path. Off by default = unchanged baseline.",
+        },
+        "exchange_fluxes": {
+            "type": "map",
+            "default": {},
+            "description": "{leaf_name: exchange_key} — re-home named "
+                           "environment.exchange fluxes onto "
+                           "listeners.exchange_flux.<leaf> so the listeners-only "
+                           "XArray view carries them (e.g. "
+                           "{'glucose_exchange': 'GLC[p]'}). Empty = off.",
+        },
         # --- Observation sink selection ---
         "emitter": {
             "type": "string",
@@ -793,6 +1215,22 @@ def _build_batch_document(
                            "(per-lineage zarr), or 'both' (parquet + zarr; what "
                            "the dashboard per-run charts read). 'both' is batch "
                            "only; 'sqlite'/'null' are single-cell only.",
+        },
+        "emitter_out_dir": {
+            "type": "string",
+            "default": "",
+            "description": "Single-cell observation-sink output directory "
+                           "override. Empty (default) = unchanged behavior: "
+                           "each emitter resolves its own default location "
+                           "(parquet -> workspace .pbg/parquet-runs, sqlite -> "
+                           "workspace .pbg or out/, xarray -> workspace "
+                           ".pbg/xarray-runs or out/xarray). Set this to pin "
+                           "the sink to an explicit directory instead — e.g. "
+                           "a standalone/provisioned run with no workspace on "
+                           "disk (a generic runner building this composite via "
+                           "core_extensions alone, with no dashboard around "
+                           "it). Ignored for emitter='null'. Batch runs use "
+                           "the separate out_dir param instead.",
         },
         "injected_processes": {
             "type": "map",
@@ -817,8 +1255,31 @@ def _build_batch_document(
         "n_generations": {
             "type": "integer",
             "default": 1,
-            "description": "Cell-division generations to follow per seed lineage. "
-                           ">1 (or n_seeds>1) launches a batch run.",
+            "description": "Cell-division generations to follow per seed lineage — "
+                           "engages the division-aware LineageProcess stop under "
+                           "batch mode (n_seeds>1 or n_generations>1) OR under "
+                           "stop_at_division=True. It has NO effect on the PLAIN "
+                           "single-cell default (n_seeds=1, n_generations=1, "
+                           "stop_at_division=False): that run has no division-stop "
+                           "and simulates the full requested step count, continuing "
+                           "past the cell's own division (see issue #495). To bound "
+                           "a single-cell run to one cell cycle, pass "
+                           "stop_at_division=True (routes through the lineage path "
+                           "at n_seeds=1, generations=n_generations).",
+        },
+        "stop_at_division": {
+            "type": "bool",
+            "default": False,
+            "description": "Single-cell division-stop opt-in (issue #495, Option "
+                           "A). True bounds a single-cell run to ONE cell cycle by "
+                           "routing this build through the lineage machinery at "
+                           "n_seeds=1, generations=n_generations, where "
+                           "LineageProcess stops at the first division. Two "
+                           "consequences: (i) observations take the lineage "
+                           "'generation=N/agent_id' layout, not the flat "
+                           "single-cell agents/0 layout; (ii) INCOMPATIBLE with "
+                           "match_simdata (raises ValueError). False (default) = "
+                           "unchanged full-budget single-cell run.",
         },
         "single_daughters": {
             "type": "bool",
@@ -874,9 +1335,42 @@ def _build_batch_document(
             "description": "Batch runs only: 'ray' to fan out across worker "
                            "processes; '' for sequential.",
         },
+        "initial_carry_state_path": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only, per-generation checkpoint/resume "
+                           "(backlog item 34): path to a prior generation's "
+                           "saved daughter state, threaded to every branch's "
+                           "LineageProcess. Empty = fresh lineage at generation "
+                           "0 (default, unchanged single-invocation behavior). "
+                           "Set together with initial_generation_index by a "
+                           "wave orchestrator resuming a checkpointed lineage.",
+        },
+        "initial_generation_index": {
+            "type": "integer",
+            "default": 0,
+            "description": "Batch runs only, per-generation checkpoint/resume: "
+                           "the generation index this invocation resumes at. "
+                           "Must be 0 when initial_carry_state_path is empty "
+                           "(enforced by LineageProcess at run time).",
+        },
+        "daughter_state_out_path": {
+            "type": "string",
+            "default": "",
+            "description": "Batch runs only, per-generation checkpoint/resume: "
+                           "path to persist this invocation's daughter state "
+                           "to, for the next generation's job to resume from. "
+                           "Empty = no checkpoint hand-off.",
+        },
     },
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
+    # Lets a generic runner (e.g. process_bigraph.workflow.provision) provision
+    # a BARE core with exactly this composite's required types/links, without
+    # needing to import v2ecoli.core.build_core directly. See
+    # v2ecoli.core.register_ecoli_core + v2ecoli/__init__.py's register_types
+    # convention hook (same function, two discovery paths).
+    core_extensions=[register_ecoli_core],
     emitters=[
         {
             # Default observation sink for standalone builds: a vEcoli-shaped
@@ -908,11 +1402,16 @@ def baseline(
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
+    mecillinam: bool = False,
+    amp_lysis: bool = False,
+    exchange_fluxes: dict | None = None,
     emitter: str = "parquet",
+    emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
     n_seeds: int = 1,
     n_generations: int = 1,
+    stop_at_division: bool = False,
     single_daughters: bool = True,
     time_step: float = 1.0,
     max_duration: float = 3600.0,
@@ -922,6 +1421,9 @@ def baseline(
     analyses: Any = "applicable",
     study: str = "",
     parallel: str = "ray",
+    initial_carry_state_path: str = "",
+    initial_generation_index: int = 0,
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Build the process-bigraph state document for the baseline architecture.
 
@@ -973,15 +1475,65 @@ def baseline(
             per seed (seeds seed..seed+n_seeds-1) at run time and flushes the
             ported analyses (absorbs the former batch_baseline composite). The
             other batch knobs (single_daughters, time_step, max_duration,
-            variants, out_dir, experiment_id, analyses, study, parallel) apply
-            only in batch mode; knockouts/media/config_overrides carry through to
-            every seed. n_seeds==1, n_generations==1 (default) = single cell.
+            variants, out_dir, experiment_id, analyses, study, parallel,
+            initial_carry_state_path, initial_generation_index,
+            daughter_state_out_path) apply only in batch mode;
+            knockouts/media/config_overrides carry through to every seed.
+            n_seeds==1, n_generations==1 (default) = single cell.
+
+            NOTE (issue #495): the division-aware stop lives ONLY in the
+            lineage/batch machinery (BatchBaselineRunner ->
+            LineageProcess._run_until_division). The plain single-cell default
+            path built below has NO division-stop: the in-cell Division step
+            still fires and structurally splits state into daughters, but nothing
+            tells the *run* to stop, so it simulates the full requested step
+            budget and keeps going past division (now simulating the daughter).
+            n_generations therefore does NOT bound a plain single-cell run to one
+            cell cycle — it is inert unless n_seeds>1 or n_generations>1 flips
+            this into batch mode. To bound a single-cell run to one cell cycle,
+            pass stop_at_division=True (see below); that routes this single-cell
+            build through the same lineage machinery at n_seeds=1, generations=1
+            so LineageProcess stops at the first division.
+        stop_at_division: opt-in that bounds a single-cell run to ONE cell cycle
+            (issue #495, Option A). When True, this build is routed through the
+            lineage/batch machinery at n_seeds=1 and generations=n_generations
+            (default 1), where LineageProcess._run_until_division halts the run at
+            the first division instead of continuing into the daughter. Two
+            consequences of routing through the lineage path:
+              (i) the emitted observations take the lineage
+                  ``generation=N/agent_id`` layout, NOT the flat single-cell
+                  agents/0 layout the plain single-cell build emits; and
+              (ii) it is INCOMPATIBLE with match_simdata (a build-time,
+                  single-cell initial-state overlay that the run-time lineage
+                  fan-out has no wiring for) — combining them raises ValueError.
+            False (default) = unchanged full-budget single-cell behavior.
+        initial_carry_state_path, initial_generation_index,
+            daughter_state_out_path: batch-mode-only per-generation
+            checkpoint/resume (backlog item 34) — a wave orchestrator's own
+            resume hand-off, passed straight through to each branch's
+            LineageProcess. Empty/0 (default) = unchanged single-invocation
+            behavior; see BatchBaselineRunner/LineageProcess for the contract.
         ppgpp_regulation: insert the ppGpp-regulation feature module (default on).
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
         mass_conservation: insert the mass-conservation check (default off).
+        mecillinam: re-inject the mecillinam bulk species (mecillinam[p],
+            mecillinam_hydrolyzed[p], and the mecillinam-PBP2 drug-target complex
+            mecillinam[p]-EG10606-MONOMER[i]) into the bundle-loaded initial bulk
+            store at generate time, count 0 with correct submass — the same
+            species LoadSimData(mecillinam=True) injects, applied here on the
+            pre-built cache bundle so an injected mecillinam antibiotic process
+            (e.g. the final_mec candidate arm) finds them in bulk_names without a
+            ParCa/cache rebuild. Default False = unchanged baseline.
+        amp_lysis: same generate-time re-injection for the ampicillin species
+            (ampicillin[p], ampicillin_hydrolyzed[p]); mirrors
+            LoadSimData(amp_lysis=True). Default False = unchanged baseline.
         emitter: observation sink for the internal 'emitter' step — one of
             ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
+        emitter_out_dir: explicit output-directory override for the chosen
+            single-cell emitter. Empty (default) = unchanged behavior (each
+            sink resolves its own workspace-relative default). Ignored for
+            ``emitter="null"``.
         bundle: optional pre-loaded cache bundle (as returned by
             ``load_cache_bundle``). When given, the cache is not re-read from
             ``cache_dir`` — lets callers building many composites from the same
@@ -994,11 +1546,32 @@ def baseline(
     if core is None:
         core = build_core()
 
-    # Batch dispatch: n_seeds>1 or n_generations>1 turns baseline from a single
-    # 55-process cell into a one-step batch-orchestrator document (absorbs the
-    # former batch_baseline composite). The single-cell path below is untouched
-    # for n_seeds==1, n_generations==1 (bit-identical to plain baseline).
-    if int(n_seeds) > 1 or int(n_generations) > 1:
+    # Option A single-cell division-stop guard (issue #495): stop_at_division
+    # routes the single-cell build through the lineage machinery, which fans out
+    # per-seed lineages at RUN time — match_simdata is a build-time, single-cell
+    # initial-state overlay with no wiring in that run-time path, so the two are
+    # mutually exclusive (same reason the n_seeds>1/n_generations>1 batch path
+    # rejects match_simdata below). Fail loud rather than silently dropping the
+    # overlay. A future single-cell orchestrator (Option B) that keeps the flat
+    # single-cell build AND stops at division could support both.
+    if stop_at_division and match_simdata:
+        raise ValueError(
+            "stop_at_division=True is incompatible with match_simdata: Option A "
+            "(issue #495) bounds the run to one cell cycle by routing through the "
+            "lineage machinery, whose run-time per-seed fan-out has no wiring for "
+            "the build-time single-cell match_simdata overlay. Pass one or the "
+            "other (a future single-cell orchestrator / Option B could support "
+            "both).")
+
+    # Batch / lineage dispatch: n_seeds>1, n_generations>1, OR stop_at_division
+    # turns baseline from a single 55-process cell into a one-step
+    # batch-orchestrator document (absorbs the former batch_baseline composite).
+    # stop_at_division routes the single-cell defaults (n_seeds=1,
+    # n_generations=1) through this same lineage path so LineageProcess stops at
+    # the first division (Option A). The plain single-cell path below is untouched
+    # for n_seeds==1, n_generations==1, stop_at_division=False (bit-identical to
+    # plain baseline).
+    if int(n_seeds) > 1 or int(n_generations) > 1 or stop_at_division:
         if match_simdata:
             # Batch mode builds per-seed lineages via BatchBaselineRunner at
             # RUN time, outside this document-building call, so match_simdata
@@ -1014,7 +1587,10 @@ def baseline(
             max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
             study=study, parallel=parallel, variants=variants,
-            knockouts=knockouts, config_overrides=config_overrides, media=media)
+            knockouts=knockouts, config_overrides=config_overrides, media=media,
+            initial_carry_state_path=initial_carry_state_path,
+            initial_generation_index=initial_generation_index,
+            daughter_state_out_path=daughter_state_out_path)
 
     if bundle is None:
         bundle = load_cache_bundle(cache_dir)
@@ -1039,6 +1615,22 @@ def baseline(
     # division). configs is already deep-copied below for the same reason —
     # initial_state needs the same isolation.
     initial_state = copy.deepcopy(bundle["initial_state"])
+
+    # Antibiotic bulk-species re-injection (opt-in). The ParCa cache bundle is
+    # built WITHOUT the ampicillin / mecillinam species, so an injected
+    # antibiotic process (e.g. the final_mec candidate arm's
+    # antibiotic_transport_odeint) that reads mecillinam[p] / its PBP2 complex
+    # from the bulk store would raise "Names not found in bulk_names". The
+    # vEcoli reference arm gets these via LoadSimData(**config); the candidate
+    # here loads a pre-built bundle and never re-runs LoadSimData, so we re-apply
+    # the SAME injection (single-sourced with LoadSimData) directly onto the
+    # bundle-loaded columnar bulk store — count 0, correct submass — with no
+    # ParCa/cache rebuild. No-op (unchanged baseline) when both flags are False.
+    if mecillinam or amp_lysis:
+        from v2ecoli.library.sim_data import inject_antibiotic_bulk_species
+        initial_state["bulk"] = inject_antibiotic_bulk_species(
+            initial_state["bulk"], mecillinam=mecillinam, amp_lysis=amp_lysis)
+
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict
@@ -1071,6 +1663,19 @@ def baseline(
     }
     _requested_features = list(features or [])
     features = [name for name, on in _toggle_features.items() if on]
+    # exchange_fluxes (non-empty) auto-enables the exchange_flux feature; its map
+    # is threaded to the feature step via the external override set below.
+    _exchange_fluxes = dict(exchange_fluxes or {})
+    if _exchange_fluxes and 'exchange_flux' not in _requested_features:
+        _requested_features.append('exchange_flux')
+    # mecillinam (antibiotic mode) auto-enables the native cell_geometry
+    # feature: the injected antibiotic_transport_odeint divides molecule
+    # counts by periplasm.global.volume/cytoplasm.global.volume and reads
+    # boundary.outer_surface_area, which nothing else in the candidate
+    # populates. amp_lysis does not need it (that arm reads cell_wall/
+    # murein-division state, not this geometry split).
+    if mecillinam and 'cell_geometry' not in _requested_features:
+        _requested_features.append('cell_geometry')
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)
@@ -1131,6 +1736,16 @@ def baseline(
     cell_state.setdefault('attenuation_config', {
         'enabled': False,
     })
+    # cell_geometry feature (mecillinam candidate arm): the `periplasm` /
+    # `cytoplasm` compartment stores are built entirely by the injected vEcoli
+    # subsystem's own port materialization (antibiotic-transport-odeint declares
+    # periplasm.global.volume / .potential + cytoplasm.global.volume;
+    # concentrations_deriver declares periplasm.concentrations.<id>), which lets
+    # pbg infer flexible schemas for their dynamic leaves. CellGeometry's own
+    # `quantity[...]` output declaration then supplies the applyable schema for
+    # the two volume leaves it writes each tick. Deliberately NO pre-seed here:
+    # pre-typing part of `periplasm` rigidifies the store so the concentrations
+    # leaf can no longer be applied ("apply(None, ...)").
 
     # Initialize next_update_time for all partitioned processes
     nut = cell_state.setdefault('next_update_time', {})
@@ -1190,6 +1805,13 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
+    if _default_decl is not None and emitter_out_dir:
+        # parquet default decl: pin its out_dir instead of letting the step
+        # resolve the workspace-relative default (see emitter_out_dir param).
+        _default_decl = {
+            **_default_decl,
+            "config": {**_default_decl.get("config", {}), "out_dir": emitter_out_dir},
+        }
 
     # Snapshot external overrides so we can detect 'caller already pinned one'
     # and restore them exactly on exit.
@@ -1202,29 +1824,67 @@ def baseline(
     set_default_emitter_decl(_default_decl)
 
     if emitter == "xarray" and not _any_external:
-        # XArray is emitted OUT OF BAND by the workflow/lineage runner: its
-        # transducer + view describe per-composite variable shapes that are only
-        # knowable lazily on the first populated emit tick (see
-        # workflow/lineage.py:_emit_xarray), so there is no self-contained
-        # in-document XArrayEmitter step. We therefore mirror the canonical
-        # xarray contract here: minimise the INTERNAL 'emitter' step to
-        # global_time only (set_null_emitter_override) and let the external
-        # XArray sink own persistence. Selecting 'xarray' in a plain
-        # build_composite/dashboard run thus behaves like 'null' internally;
-        # the real XArray output appears when run under the lineage workflow.
-        import warnings
+        # In-document, agent-relative XArrayEmitter (single-cell / plain
+        # build_composite path — no lineage workflow runner). Reuses the same
+        # declared-emitter mechanism the parquet default travels through
+        # (set_default_emitter_decl -> _get_special_step ->
+        # _build_declared_emitter's XArrayEmitter branch): that branch builds a
+        # SingleCellXArrayEmitter wired to the agent-relative
+        # global_time/bulk/listeners ports and seeded with the static config
+        # skeleton below. The step defers building the real XArrayEmitter to its
+        # first update(), where it reads the REALIZED composite state (via the
+        # run() contextvar) to discover the FULL listener view + named coords
+        # (Task 4 / C2) and projects the structured bulk record array to counts
+        # (Task 4 / C1). See SingleCellXArrayEmitter + task-{1,4}-report.md in
+        # .superpowers/sdd/2026-08-10-single-cell-xarray-emitter/.
+        #
+        # This REPLACES the single existing 'emitter' key in place (no new
+        # document Steps) — see Task 1 gotcha #4: adding extra document
+        # Steps, even read-only ones, perturbs process_bigraph's step
+        # scheduling enough to trip a pre-existing metabolism numerical
+        # fragility. The lineage workflow runner (v2ecoli.workflow.lineage)
+        # still owns its own OUT-OF-BAND XArrayEmitter for multi-generation
+        # sweeps (n_seeds>1 / n_generations>1 dispatches to
+        # _build_batch_document before this branch is ever reached), so this
+        # only changes the plain single-cell build_composite path.
+        import warnings  # noqa: PLC0415
         warnings.warn(
-            "emitter='xarray': the internal emitter is minimised to global_time "
-            "only; real XArray persistence is produced out-of-band by the "
-            "lineage workflow runner (v2ecoli.workflow.lineage), not by this "
-            "in-document emitter step.")
-        set_null_emitter_override(True)
+            "emitter='xarray' uses the in-document single-cell XArray sink: it "
+            "streams bulk + listeners to zarr with bounded memory and is "
+            "validated for short/moderate runs. Its per-leaf view is discovered "
+            "from the first tick's realized shapes, so a VERY long run may hit an "
+            "upstream viva_emitters ragged-vector limitation (a listener leaf that "
+            "later changes length or disappears). For long single-cell runs "
+            "prefer emitter='parquet' (the robust default).",
+            stacklevel=2,
+        )
+        _xr_out = _resolve_xarray_out_uri(experiment_id, emitter_out_dir or out_dir)
+        # Static config skeleton only — view/output_metadata are discovered
+        # lazily from the REALIZED state by SingleCellXArrayEmitter at run time
+        # (Task 4 / C2). The real run-identity metadata is baked in here.
+        _xr_cfg = _single_cell_xarray_config(
+            out_uri=_xr_out,
+            metadata={
+                "experiment_id": experiment_id,
+                "variant": 0,
+                "lineage_seed": int(seed),
+            },
+        )
+        set_default_emitter_decl({
+            "address": "local:XArrayEmitter",
+            "config": _xr_cfg,
+            "paths": ["global_time", "bulk", "listeners"],
+        })
     elif emitter == "sqlite" and not _any_external:
         # Minimal persistent SQLite sink. Resolve the workspace-shared DB (the
         # dashboard's Simulations-DB tab aggregates from it); fall back to out/.
-        _ws_root = _find_workspace_root()
-        _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
-                       else "out")
+        # emitter_out_dir, when set, pins this instead of the workspace lookup.
+        if emitter_out_dir:
+            _sqlite_dir = emitter_out_dir
+        else:
+            _ws_root = _find_workspace_root()
+            _sqlite_dir = (str(_ws_root / ".pbg") if _ws_root is not None
+                           else "out")
         set_emitter_override({
             "file_path": _sqlite_dir,
             "db_file": "composite-runs.db",
@@ -1234,6 +1894,9 @@ def baseline(
     # emitter == "parquet": the declared parquet default (set above) is used.
 
     _process_cache = {}
+    # Thread the flux map to the exchange_flux_listener feature step (built via
+    # _get_special_step) for the duration of this build; restored in finally.
+    set_exchange_fluxes_override(_exchange_fluxes)
     try:
         for step_name in flow_order:
             config = _get_step_config(
@@ -1257,6 +1920,7 @@ def baseline(
         # ever changed them when none was active, so this clears ours).
         set_emitter_override(_ext_sqlite)
         set_null_emitter_override(_ext_null)
+        set_exchange_fluxes_override({})
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():
@@ -1319,6 +1983,42 @@ def baseline(
         'agents': {'0': cell_state},
         'global_time': 0.0,
     }
+
+    # Issue #495: this plain single-cell (n_seeds==1, n_generations==1,
+    # stop_at_division=False) document has NO division-stop. The in-cell Division
+    # step fires and structurally splits state at division, but nothing halts the
+    # *run* — it simulates the full requested step budget and keeps going past
+    # division (now the daughter). Surface that here, at document-build time, so
+    # it is not a silent surprise. Suppressed in two cases:
+    #  - stop_at_division=True: this build is routed through the lineage path
+    #    (early return above) and DOES stop at division, so the note is moot. The
+    #    early return already prevents reaching here; the explicit check is a
+    #    belt-and-braces guard so the warning can never fire for that opt-in.
+    #  - a lineage/daughter build is in flight (an emitter override is active):
+    #    the batch path — BatchBaselineRunner -> LineageProcess — builds its
+    #    per-generation cell through this same single-cell branch but DOES stop at
+    #    division out of band, so the note would be misleading there.
+    # warnings' default once-per-location filter keeps this to a single line per
+    # process.
+    from v2ecoli.composites._helpers import (  # noqa: PLC0415
+        _EMITTER_OVERRIDE, _NULL_EMITTER_OVERRIDE, _PARQUET_EMITTER_OVERRIDE)
+    _lineage_context = (
+        _PARQUET_EMITTER_OVERRIDE is not None
+        or _EMITTER_OVERRIDE is not None
+        or bool(_NULL_EMITTER_OVERRIDE))
+    if not _lineage_context and not stop_at_division:
+        import warnings  # noqa: PLC0415
+        warnings.warn(
+            "ecoli_baseline single-cell mode (n_seeds=1, n_generations=1) has "
+            "no division-stop: if this cell divides within the requested step "
+            "budget, the run continues PAST division (simulating the daughter) "
+            "rather than stopping — n_steps controls how far past division it "
+            "runs, and n_generations is inert here (issue #495). To bound the "
+            "run to one cell cycle, pass stop_at_division=True; it routes this "
+            "single-cell build through the lineage machinery (n_seeds=1, "
+            "generations=1) so LineageProcess stops at the first division.",
+            stacklevel=2,
+        )
 
     return {
         'state': state,

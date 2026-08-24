@@ -58,6 +58,26 @@ def _make_runs_db(runs_db: Path, run_id: str, emitter_path: str) -> None:
         conn.close()
 
 
+def _make_runs_db_rows(runs_db: Path, rows: "list[dict]") -> None:
+    """Like ``_make_runs_db`` but inserts an arbitrary set of rows — used by
+    the sim_name-resolution tests below, which need distinct ``sim_name``
+    columns (and, for the ambiguity-ordering test, multiple rows sharing one
+    sim_name at different ``started_at`` times)."""
+    conn = sqlite3.connect(runs_db)
+    try:
+        conn.executescript(RUNS_META_DDL)
+        for row in rows:
+            conn.execute(
+                "INSERT INTO runs_meta(run_id, spec_id, started_at, status,"
+                " sim_name, emitter_path) VALUES (?, 'vecoli', ?, 'complete', ?, ?)",
+                (row["run_id"], row.get("started_at", 0.0), row.get("sim_name"),
+                 row["emitter_path"]),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 # --------------------------------------------------------------------------- #
 # resolve_run_store — direct path forms
 # --------------------------------------------------------------------------- #
@@ -159,6 +179,74 @@ def test_load_run_observables_shape_and_known_values():
     assert len(times) == len(values) == 5
     assert times[0] == pytest.approx(60.2)
     assert values[0] == pytest.approx(1280.973673270876)
+
+
+# --------------------------------------------------------------------------- #
+# resolve_run_store — sim_name resolution (Phase B native comparison_cards
+# passes candidate_run/reference_run as sim_names, not run_ids — the
+# baseline/candidate's is <config> (e.g. "basal"), the variant's is
+# "reference" — see run_store_adapter.py's _lookup_emitter_path docstring).
+# --------------------------------------------------------------------------- #
+
+def _sim_name_runs_db(tmp_path) -> Path:
+    runs_db = tmp_path / "runs.db"
+    _make_runs_db_rows(runs_db, [
+        {"run_id": "rid-cand", "sim_name": "basal",
+         "emitter_path": str(tmp_path / "cand" / "store.zarr")},
+        {"run_id": "rid-ref", "sim_name": "reference",
+         "emitter_path": str(tmp_path / "ref" / "store.zarr")},
+    ])
+    (tmp_path / "cand" / "store.zarr").mkdir(parents=True)
+    (tmp_path / "ref" / "store.zarr").mkdir(parents=True)
+    return runs_db
+
+
+def test_resolve_by_sim_name_candidate(tmp_path):
+    runs_db = _sim_name_runs_db(tmp_path)
+    resolved = resolve_run_store("basal", runs_db=runs_db)
+    assert resolved == tmp_path / "cand" / "store.zarr"
+
+
+def test_resolve_by_sim_name_reference(tmp_path):
+    runs_db = _sim_name_runs_db(tmp_path)
+    resolved = resolve_run_store("reference", runs_db=runs_db)
+    assert resolved == tmp_path / "ref" / "store.zarr"
+
+
+def test_resolve_by_run_id_still_tried_first(tmp_path):
+    runs_db = _sim_name_runs_db(tmp_path)
+    resolved = resolve_run_store("rid-cand", runs_db=runs_db)
+    assert resolved == tmp_path / "cand" / "store.zarr"
+
+
+def test_resolve_unknown_ref_raises_clear_error(tmp_path):
+    runs_db = _sim_name_runs_db(tmp_path)
+    with pytest.raises(RunStoreError):
+        resolve_run_store("totally-unknown", runs_db=runs_db)
+
+
+def test_resolve_mapping_form_run_id_still_works(tmp_path):
+    runs_db = _sim_name_runs_db(tmp_path)
+    resolved = resolve_run_store({"run_id": "rid-ref"}, runs_db=runs_db)
+    assert resolved == tmp_path / "ref" / "store.zarr"
+
+
+def test_resolve_by_sim_name_picks_most_recent_on_ambiguity(tmp_path):
+    """Two rows share sim_name="basal" (e.g. a re-run) — resolution must
+    pick the most recently started one, not an arbitrary row."""
+    runs_db = tmp_path / "runs.db"
+    older = tmp_path / "older" / "store.zarr"
+    newer = tmp_path / "newer" / "store.zarr"
+    older.mkdir(parents=True)
+    newer.mkdir(parents=True)
+    _make_runs_db_rows(runs_db, [
+        {"run_id": "rid-old", "sim_name": "basal", "started_at": 1.0,
+         "emitter_path": str(older)},
+        {"run_id": "rid-new", "sim_name": "basal", "started_at": 2.0,
+         "emitter_path": str(newer)},
+    ])
+    resolved = resolve_run_store("basal", runs_db=runs_db)
+    assert resolved == newer
 
 
 def test_load_run_observables_via_run_dir(tmp_path):

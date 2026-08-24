@@ -77,7 +77,8 @@ def _spec_from_vecoli_config() -> str | None:
 
 
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
-                   overrides: dict | None = None):
+                   overrides: dict | None = None,
+                   exchange_fluxes: dict | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
 
     The condition MUST be threaded through: the v2ecoli builder selects the
@@ -216,6 +217,10 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     # and not already provided via overrides.
     if expected_media is not None and "media" not in kwargs:
         kwargs["media"] = expected_media
+    if exchange_fluxes:
+        # Opt-in exchange_flux feature on the candidate: emit named
+        # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
+        kwargs["exchange_fluxes"] = dict(exchange_fluxes)
     comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
@@ -487,7 +492,7 @@ def _baseline_param_names() -> set:
     import v2ecoli.composites  # noqa: F401  (register generators)
     from viva_superpowers.composite_generator import _REGISTRY
     for e in _REGISTRY.values():
-        if e.name == "baseline":
+        if e.name in ("ecoli_baseline", "baseline"):
             return set(e.parameters)
     return set()
 
@@ -509,7 +514,8 @@ def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
 
 
 def _injected_from_resolved(resolved: dict, fork_repo: str,
-                            fork_sim_data: str | None) -> dict | None:
+                            fork_sim_data: str | None,
+                            extra_processes: list | None = None) -> dict | None:
     """Assemble a baseline ``injected_processes`` block from a resolved vEcoli
     config, so the v2 side converts+injects the fork's add/swap processes.
 
@@ -518,12 +524,30 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
     config-described; ``fork_sim_data`` lets a swapped process pull its full
     config from the fork's own LoadSimData.
     """
+    # A swapped fork process can depend on a COMPANION fork process — typically a
+    # listener it reads a store from. On the fork those arrive via the config's
+    # standard ``processes`` list; injection carries only ``add_processes`` /
+    # ``swap_processes``, so the companion is absent and its store is created
+    # from schema defaults. The process then fails inside the fork on a lookup
+    # against empty contents, far from the cause.
+    #
+    # ``extra_processes`` names those companions EXPLICITLY. Deliberately not
+    # inferred: deciding "this port has no writer" from a vivarium-1.0
+    # ports_schema means guessing at port direction, and a prototype that guessed
+    # produced 90 false positives on the first real composite. An unknown name
+    # still fails loud — ``resolve_injections`` raises on a process the fork
+    # registry does not have.
+    extra = [p for p in (extra_processes or []) if p]
     if not (resolved.get("add_processes") or resolved.get("swap_processes")
-            or resolved.get("exclude_processes")):
+            or resolved.get("exclude_processes") or extra):
         return None
+    declared = list(resolved.get("add_processes") or [])
+    for name in extra:                      # union, order-stable, no duplicates
+        if name not in declared:
+            declared.append(name)
     inj = {
         "fork_repo": fork_repo,
-        "add_processes": resolved.get("add_processes") or [],
+        "add_processes": declared,
         "swap_processes": resolved.get("swap_processes") or {},
         "exclude_processes": resolved.get("exclude_processes") or [],
         "process_configs": resolved.get("process_configs") or {},
@@ -538,6 +562,16 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         # own first-update logic builds the rest).
         "initial_state": resolved.get("initial_state") or {},
         "initial_state_overrides": resolved.get("initial_state_overrides") or [],
+        # Fork-declared candidate-side ParCa-cache gaps: bulk molecules the
+        # fork's sim_data flags add at runtime that the candidate's own ParCa
+        # cache never applies, and initial values a config-declared process
+        # needs but the single-cell candidate has no upstream process to fill
+        # (e.g. a spatial shape process). See resolve_injections for how
+        # these three are consumed; a config declares them directly (no
+        # per-fork-flag translation lives here or in resolve_injections).
+        "extra_bulk_species": resolved.get("extra_bulk_species") or [],
+        "shape_seed_param_store": resolved.get("shape_seed_param_store") or {},
+        "shape_seed_literal": resolved.get("shape_seed_literal") or {},
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data
@@ -561,12 +595,37 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
                  from_vecoli_config: str | None = None,
+                 inject_processes: list | None = None,
                  vecoli_dir: str | None = None,
                  match_initial_state: bool = False,
                  match_unique_state: bool = False,
-                 match_vecoli_simdata: str | None = None):
-    """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
+                 match_vecoli_simdata: str | None = None,
+                 vecoli_whole_config: str = "auto",
+                 exchange_fluxes: dict | None = None,
+                 observables: list | None = None,
+                 observable_bulk_ids: list | None = None):
+    """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
+
+    ``vecoli_whole_config`` controls the genuine-vEcoli (``--composite vecoli``)
+    reference route for a ``--from-vecoli-config`` run: ``auto`` (default) loads the
+    fork config NATIVELY as one WCM node whenever its model content can't be
+    expressed as ``swap_processes``/``flow`` (it declares ``add_processes`` or
+    ``spatial_environment_config``); ``on`` forces native whole-config; ``off`` keeps
+    the swap/flow route. Native loading is faithful-by-construction for ANY fork
+    (``$V2E_VECOLI_DIR``).
+
+    ``exchange_fluxes`` ({leaf: exchange_key}) emits named environment.exchange
+    fluxes onto ``listeners.exchange_flux.<leaf>`` on the reference arm too, so
+    candidate and reference expose the same leaves to the report cards.
+    ``observables`` (arbitrary ``group.leaf`` listener paths) are likewise emitted
+    on both arms as declared measurements."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
+
+    exchange_fluxes = dict(exchange_fluxes or {})
+    observables = list(observables or [])
+    # Bulk molecule ids to grade as config-specific KPIs — emitted on BOTH arms
+    # under listeners.observable_bulk.<id> (violacein titer, drug-target complex).
+    observable_bulk_ids = list(observable_bulk_ids or [])
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
     v2_overrides: dict | None = None
@@ -588,7 +647,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # passes the raw keys through but never assembles the block).
             inj = _injected_from_resolved(
                 resolved, fork_dir,
-                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None)
+                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None,
+                extra_processes=inject_processes)
             if inj:
                 v2_overrides = dict(v2_overrides or {})
                 v2_overrides["injected_processes"] = inj
@@ -604,6 +664,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     # and the comparison would confound the engine with the metabolism model.
     ve_swap_processes: dict | None = None
     ve_flow: dict | None = None
+    ve_whole_config: str | None = None
     if from_vecoli_config and composite_kind == "vecoli":
         try:
             from scripts._compare.config_adapter import resolve_vecoli_config_local
@@ -615,8 +676,22 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             if ve_swap_processes:
                 print(f"[from-vecoli-config] vecoli side applies swap_processes="
                       f"{ve_swap_processes}")
+            # Whole-config route: swap_processes/flow can only reorder/replace
+            # EXISTING processes — a config that ADDS processes or declares a spatial
+            # environment can't be expressed that way, so the faithful reference is
+            # that config run NATIVELY as one WCM node. Auto-enable when such content
+            # is present; `on`/`off` override.
+            _needs_native = bool(resolved_ve.get("add_processes")
+                                 or resolved_ve.get("spatial_environment_config"))
+            _mode = (vecoli_whole_config or "auto").lower()
+            if _mode == "on" or (_mode == "auto" and _needs_native):
+                ve_whole_config = from_vecoli_config
+                print(f"[from-vecoli-config] vecoli side: WHOLE-CONFIG WCM node "
+                      f"(loads {from_vecoli_config} natively"
+                      + (" — add_processes/spatial detected" if _mode == "auto" else "")
+                      + ")")
         except Exception as e:  # noqa: BLE001
-            print(f"[warn] vecoli from-vecoli-config swap resolve failed: "
+            print(f"[warn] vecoli from-vecoli-config resolve failed: "
                   f"{type(e).__name__} {e}")
 
     # Legacy opt-in: translate the vEcoli config into baseline overrides ONCE
@@ -655,7 +730,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
-                variant=0, lineage_seed=seed)
+                variant=0, lineage_seed=seed, whole_config=ve_whole_config,
+                exchange_fluxes=exchange_fluxes, observables=observables,
+                observable_bulk_ids=observable_bulk_ids)
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
             if seed == seed_start and res.get("build_config"):
@@ -675,7 +752,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
 
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
-                                       overrides=v2_overrides)
+                                       overrides=v2_overrides,
+                                       exchange_fluxes=exchange_fluxes)
             # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
             # initial bulk onto v2 so both engines start from identical molecule
             # counts — removing the stochastic low-copy sampling divergence
@@ -740,7 +818,12 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         # include_vectors=False skipped the counts by name too — dropping them
         # from the comparison. The view is still only the 8 COMPARISON_PATHS, so
         # this keeps the two counts (scalars) without emitting any coord vectors.
-        view = view_from_emit_paths(COMPARISON_PATHS, include_vectors=True)
+        _paths = COMPARISON_PATHS + [
+            f"listeners.exchange_flux.{leaf}" for leaf in exchange_fluxes] + [
+            (o if str(o).startswith("listeners.") else f"listeners.{o}")
+            for o in observables] + [
+            f"listeners.observable_bulk.{i}" for i in observable_bulk_ids]
+        view = view_from_emit_paths(_paths, include_vectors=True)
         metadata_base = {
             "experiment_id": f"cmp-{composite_kind}-{condition}-seed{seed:02d}",
             "engine": composite_kind,
@@ -759,6 +842,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             max_steps=max_steps,
             max_generations=max_generations,
             chunk=chunk,
+            # Candidate side: select declared bulk ids from the bulk record into
+            # listeners.observable_bulk.<id> (the reference emits the same path).
+            observable_bulk_ids=observable_bulk_ids,
             # Follow a single lineage (prune non-followed daughters each
             # division) so EVERY generation — including the last — runs to its
             # own division, matching genuine vEcoli. Without this, kept siblings
@@ -802,6 +888,19 @@ def main(argv=None):
                    help="OPT-IN: configure the v2ecoli build FROM the translated "
                         "vEcoli config (default off — keeps the working runs on "
                         "baseline defaults).")
+    p.add_argument("--inject-process", action="append", default=None,
+                   dest="inject_processes", metavar="NAME",
+                   help="Also inject this fork process, in addition to whatever "
+                        "--from-vecoli-config's add_processes/swap_processes "
+                        "declare. Repeatable. Use it when a swapped fork process "
+                        "reads a store written by a COMPANION fork process that "
+                        "v2ecoli has no equivalent of: on the fork that companion "
+                        "arrives via the config's standard `processes` list, which "
+                        "injection does not carry, so its store is created from "
+                        "schema defaults and the swapped process later fails inside "
+                        "the fork on a lookup against empty contents. Named "
+                        "explicitly rather than inferred; an unknown name fails "
+                        "loud at resolve time.")
     p.add_argument("--from-vecoli-config", default=None,
                    help="Path WITHIN the vEcoli fork (under V2E_VECOLI_DIR), e.g. "
                         "configs/default.json, to drive BOTH engines from: the "
@@ -828,7 +927,46 @@ def main(argv=None):
                    help="Path to the genuine vEcoli simData.cPickle used as the "
                         "matched-initial-state reference (default: the upstream "
                         "fallback). Required when that fallback is absent.")
+    p.add_argument("--vecoli-whole-config", choices=["auto", "on", "off"],
+                   default="auto",
+                   help="Genuine-vEcoli (--composite vecoli) reference route for a "
+                        "--from-vecoli-config run: 'auto' (default) loads the fork "
+                        "config NATIVELY as one WCM node when it declares "
+                        "add_processes or spatial_environment_config (which "
+                        "swap_processes/flow can't express); 'on' forces it; 'off' "
+                        "keeps the swap/flow route. Faithful-by-construction for any "
+                        "fork ($V2E_VECOLI_DIR).")
+    p.add_argument("--exchange-flux", action="append", default=[],
+                   metavar="leaf=exchange_key",
+                   help="Emit a metabolic exchange flux onto "
+                        "listeners.exchange_flux.<leaf> on BOTH arms, read from "
+                        "environment.exchange[<exchange_key>] (e.g. "
+                        "glucose_exchange=GLC[p]). Repeatable. The violacein card "
+                        "reads these leaves.")
+    p.add_argument("--observable", action="append", default=[],
+                   metavar="group.leaf",
+                   help="Emit an arbitrary genuine-vEcoli listener leaf as a "
+                        "measurement on BOTH arms — a dotted 'group.leaf' path "
+                        "under listeners (e.g. rna_synth_prob.total_rna_init). "
+                        "Repeatable. The general observable-declaration hook.")
+    p.add_argument("--observable-bulk", action="append", default=[],
+                   metavar="MOLECULE_ID",
+                   help="Emit a bulk molecule count as a config-specific KPI on "
+                        "BOTH arms, under listeners.observable_bulk.<id> (e.g. "
+                        "VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] "
+                        "drug-target complex). Repeatable. Graded by the "
+                        "bulk-aware comparison cards.")
     args = p.parse_args(argv)
+
+    # Parse repeatable --exchange-flux leaf=key into a {leaf: key} map.
+    exchange_fluxes: dict = {}
+    for item in args.exchange_flux:
+        if "=" not in item:
+            raise SystemExit(f"--exchange-flux expects leaf=key, got {item!r}")
+        leaf, key = item.split("=", 1)
+        exchange_fluxes[leaf.strip()] = key.strip()
+    observables: list = [o.strip() for o in args.observable if o.strip()]
+    observable_bulk_ids: list = [b.strip() for b in args.observable_bulk if b.strip()]
 
     # Resolve --from-vecoli-config: CLI flag > env > baked comparison_spec.json.
     from_vc = (args.from_vecoli_config
@@ -846,9 +984,13 @@ def main(argv=None):
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
+        inject_processes=args.inject_processes,
         match_initial_state=args.match_initial_state,
         match_unique_state=args.match_unique_state,
-        match_vecoli_simdata=args.match_vecoli_simdata)
+        match_vecoli_simdata=args.match_vecoli_simdata,
+        vecoli_whole_config=args.vecoli_whole_config,
+        exchange_fluxes=exchange_fluxes, observables=observables,
+        observable_bulk_ids=observable_bulk_ids)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
     # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).

@@ -11,6 +11,11 @@ from scripts.study_report_cards import run_studies
 
 
 def _study(tmp_path, name, spec):
+    # Declare the nested studies layout the shared viva_workspace resolver reads
+    # (matches v2ecoli's real workspace.yaml).
+    (tmp_path / "workspace.yaml").write_text(
+        yaml.safe_dump({"name": "test-ws", "layout": {"studies": "workspace/studies"}})
+    )
     sd = tmp_path / "workspace" / "studies" / name
     sd.mkdir(parents=True)
     (sd / "study.yaml").write_text(yaml.safe_dump(spec))

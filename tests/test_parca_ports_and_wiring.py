@@ -150,7 +150,12 @@ def test_build_parca_composite_constructs_with_mock_raw_data():
     during spec validation or wiring)."""
     from v2ecoli.processes.parca.composite import build_parca_composite
 
-    raw = MagicMock(spec=[])  # no attributes — forces Step 1 to raise
+    # A KB-shaped-but-incomplete stub: it exposes ``operons_on`` so Step 1's
+    # auto-load guard (``_resolve_raw_data``, added for vivarium-workbench #752)
+    # treats it as a real KB and does NOT trigger a heavy flat-file load, then
+    # ``initialize()`` fails deeper on the next missing attribute — i.e. the
+    # failure is inside Step 1's update, which is what this test asserts.
+    raw = MagicMock(spec=["operons_on"])
     try:
         build_parca_composite(raw, debug=True, cpus=1)
     except AttributeError as e:

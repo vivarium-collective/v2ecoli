@@ -1,0 +1,199 @@
+{
+  "meta": {
+    "generations_present": [
+      1
+    ],
+    "seeds_present": [
+      0,
+      1,
+      2
+    ],
+    "n_records": 45
+  },
+  "strategy_1_population": {
+    "total_order": {
+      "gfp_product_level": {
+        "exp": 0.49193328160304445,
+        "trl_eff": 0.45689239656195796,
+        "inert_decoy": 0.1122506089403416
+      },
+      "instantaneous_growth_rate": {
+        "exp": 0.5109451771217564,
+        "trl_eff": 0.8578856527235961,
+        "inert_decoy": 0.03923475058063229
+      }
+    },
+    "first_order": {
+      "gfp_product_level": {
+        "exp": 0.48100917339180366,
+        "trl_eff": 0.3961130149311424,
+        "inert_decoy": 0.0618015245717099
+      },
+      "instantaneous_growth_rate": {
+        "exp": 0.11809834992022175,
+        "trl_eff": 0.45194214780245107,
+        "inert_decoy": 0.021893921851342875
+      }
+    },
+    "rel_test_error": {
+      "gfp_product_level": 0.5070348274103671,
+      "instantaneous_growth_rate": 0.09857319686730286
+    }
+  },
+  "strategy_2_by_generation": {
+    "generation_1": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.49193328160304445,
+          "trl_eff": 0.45689239656195796,
+          "inert_decoy": 0.1122506089403416
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5109451771217564,
+          "trl_eff": 0.8578856527235961,
+          "inert_decoy": 0.03923475058063229
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.48100917339180366,
+          "trl_eff": 0.3961130149311424,
+          "inert_decoy": 0.0618015245717099
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.11809834992022175,
+          "trl_eff": 0.45194214780245107,
+          "inert_decoy": 0.021893921851342875
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.5070348274103671,
+        "instantaneous_growth_rate": 0.09857319686730286
+      }
+    }
+  },
+  "strategy_3_by_seed": {
+    "seed_0": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.40155590948186654,
+          "trl_eff": 0.4899503549181755,
+          "inert_decoy": 0.21764505600897951
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.1737332055503832,
+          "trl_eff": 0.3981195340707486,
+          "inert_decoy": 0.7460663461722553
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.38997383503386873,
+          "trl_eff": 0.38083090025026983,
+          "inert_decoy": 0.12004394430683937
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.05689299257070994,
+          "trl_eff": 0.09946515881601516,
+          "inert_decoy": 0.5257227628198881
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.955014797960204,
+        "instantaneous_growth_rate": 0.025008215506314938
+      }
+    },
+    "seed_1": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.4622862875004081,
+          "trl_eff": 0.4859080276426817,
+          "inert_decoy": 0.08220635315729764
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.45421593238327673,
+          "trl_eff": 0.7986843752711646,
+          "inert_decoy": 0.1201051013547654
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.452893832012054,
+          "trl_eff": 0.4625401220904642,
+          "inert_decoy": 0.05416537759709419
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.12478747019019627,
+          "trl_eff": 0.4304976917697358,
+          "inert_decoy": 0.0717094290308611
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.37803762457064394,
+        "instantaneous_growth_rate": 0.1793926746050227
+      }
+    },
+    "seed_2": {
+      "total_order": {
+        "gfp_product_level": {
+          "exp": 0.6376783097783659,
+          "trl_eff": 0.4098885280941321,
+          "inert_decoy": 0.04778473972591259
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.5409104933095132,
+          "trl_eff": 0.8135710355596547,
+          "inert_decoy": 0.11647515295134703
+        }
+      },
+      "first_order": {
+        "gfp_product_level": {
+          "exp": 0.5737745701892747,
+          "trl_eff": 0.3152363449333639,
+          "inert_decoy": 0.01563750727895091
+        },
+        "instantaneous_growth_rate": {
+          "exp": 0.10533850701544278,
+          "trl_eff": 0.3471756337725613,
+          "inert_decoy": 0.07652917739148088
+        }
+      },
+      "rel_test_error": {
+        "gfp_product_level": 0.25885899172951526,
+        "instantaneous_growth_rate": 0.14298390364433847
+      }
+    }
+  },
+  "run_config": {
+    "mode": "smoke",
+    "n_train": 12,
+    "n_test": 3,
+    "seeds": 3,
+    "gens": 1,
+    "steps": 700,
+    "param_names": [
+      "exp",
+      "trl_eff",
+      "inert_decoy"
+    ],
+    "bounds": [
+      [
+        1000.0,
+        10000.0
+      ],
+      [
+        0.5,
+        2.0
+      ],
+      [
+        0.0,
+        1.0
+      ]
+    ],
+    "obs_names": [
+      "gfp_product_level",
+      "instantaneous_growth_rate"
+    ],
+    "gfp_monomer_id": "NG-GFP-MONOMER[c]"
+  }
+}

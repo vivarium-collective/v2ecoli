@@ -284,7 +284,6 @@ FIGS = [
 def render_traces():
     """ppGpp + tRNA-charged-fraction traces over the whole sweep (all cells)."""
     import altair as alt
-    import pandas as pd
     files = glob.glob(os.path.join(SWEEP, "**", "history", "**", "*.pq"), recursive=True)
     flist = "[" + ",".join("'" + f + "'" for f in files) + "]"
     base = f"SELECT * FROM read_parquet({flist}, hive_partitioning=true)"

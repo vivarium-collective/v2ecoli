@@ -1163,8 +1163,11 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
         state = {"name": name, "condition": spec.condition, "seeds": spec.seeds,
                  "generations": spec.gens, "variant": 0, "observables": per_obs,
                  "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
+                 # config-specific bulk KPIs the study declared (for the bulk_kpi card)
+                 "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or []),
                  "config": {"condition": spec.condition, "seeds": spec.seeds,
-                            "generations": spec.gens, "cards": spec.cards},
+                            "generations": spec.gens, "cards": spec.cards,
+                            "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or [])},
                  "v2_dir": v2_dir, "ve_dir": ve_dir}
         card_verdicts, viz = {}, []
         for card in spec.cards:

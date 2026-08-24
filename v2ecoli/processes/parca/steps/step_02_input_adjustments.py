@@ -169,15 +169,20 @@ def select_debug_tf_conditions(tf_cond: dict) -> dict:
     file*, filtered to rows whose active TF also appears in the fold-change
     tables.
 
-    Today that is ``trpR`` (``CPLX-125``); every other declared TF's regulation
-    is dropped. Change the ordering — or the fold-change tables' membership —
-    and fast builds silently model a different regulator. Nothing fails: the run
-    completes and its numbers quietly stop meaning what they meant, and a
-    knockout of a now-unregulated TF returns a plausible null rather than an
-    error.
+    At the time of writing that is ``trpR`` (``CPLX-125``) out of 23 declared
+    TFs; every other TF's regulation is dropped. Treat that as a fact to look up
+    rather than a guarantee — change the ordering, or the fold-change tables'
+    membership, and fast builds silently model a different regulator. Nothing
+    fails: the run completes and its numbers quietly stop meaning what they
+    meant, and a knockout of a TF the fast regime dropped returns a plausible
+    null rather than an error.
 
-    Extracted from ``update`` so the selection is named, and so a test can
-    exercise it; ``tests/test_fast_mode_tf_prune.py`` pins both halves.
+    ⇒ Do not read regulatory behaviour out of a fast-mode build without checking
+    which TF survived.
+
+    Extracted from ``update`` so the selection is named and testable;
+    ``tests/test_fast_mode_tf_prune.py`` pins that it stays positional and
+    single-valued, deliberately not which TF wins (that is upstream data).
     """
     first_key = next(iter(tf_cond))
     return {first_key: tf_cond[first_key]}

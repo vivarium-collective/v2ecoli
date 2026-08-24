@@ -821,5 +821,6 @@ conclusion_verdicts:
   explanatory_gain:
     basis: >-
       F-03 identifies a specific, actionable mis-parameterization - the repression/attenuation
-      ordering is inverted on every gene where both act - and F-02 identifies why three
-      documented regulon members are unreachable by any build route.
+      ordering is inverted on every gene where both act - and F-02 establishes that the regulon
+      is structurally COMPLETE against EcoCyc (12 edges, all five operator regions), so the
+      divergence is one of parameterization rather than coverage.

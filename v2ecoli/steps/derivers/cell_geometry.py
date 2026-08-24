@@ -9,11 +9,16 @@ Native cell-shape geometry deriver, ported from vEcoli's
 Splits the whole-cell volume (from the mass listener) into periplasm and
 cytoplasm compartments, and derives the outer surface area via 3D capsule
 geometry (a cylinder capped with hemispheres). This exists for the mecillinam
-candidate arm: the injected ``antibiotic_transport_odeint`` process divides
-periplasmic/cytoplasmic molecule counts by ``state["volumes"]["periplasm"]`` /
-``["cytoplasm"]`` and the boundary-permeability side of that chain reads
-``boundary.outer_surface_area`` — neither of which the single-cell candidate
-otherwise populates, since nothing else in v2ecoli writes them.
+candidate arm: the injected ``antibiotic_transport_odeint`` chain divides
+periplasmic/cytoplasmic molecule counts by the periplasm/cytoplasm volumes and
+reads the outer surface area. It writes the SAME store paths vEcoli's
+``ecoli-shape`` writes (``periplasm.global.volume`` / ``cytoplasm.global.volume``
+/ ``boundary.outer_surface_area``) so that the ONE well-mixed mecillinam config
+serves BOTH arms: the reference's native ``ecoli-shape`` and this candidate step
+populate the identical topology the config's transport/permeability/gillespie/
+concentrations_deriver wiring reads (``["..","periplasm","global","volume"]`` etc).
+None of these are otherwise populated in the single-cell candidate, since nothing
+else in v2ecoli writes them.
 
 **Bridge-quirk guard**: vEcoli's ``Shape`` wires its ``cell_global`` port
 directly to the agent's ``boundary`` store. In the candidate's vivarium
@@ -31,11 +36,25 @@ import math
 from v2ecoli.library.ecoli_step import EcoliStep as Step
 from v2ecoli.library.quantity_helpers import as_quantity
 from v2ecoli.types.quantity import ureg as units
+# The injected antibiotic_transport_odeint / permeability / gillespie /
+# concentrations_deriver are vEcoli processes that do their unit arithmetic in
+# VIVARIUM's pint registry (e.g. ``units.mol / (volume * N_A)``). v2ecoli sets
+# its OWN ``bigraph_schema.units`` registry as pint's application registry, so a
+# volume written as a v2ecoli ``quantity[float,L]`` deserialises back into the
+# v2ecoli registry and pint refuses to operate across the two ("Cannot operate
+# with Quantity of different registries"). This step therefore WRITES its outputs
+# as vivarium-registry Quantities into ``any``-typed stores (pbg keeps the raw
+# object, exactly as the harness's vivarium-unit shape-seeds do), so the vEcoli
+# consumers receive quantities in their own registry. Inputs (the v2ecoli mass
+# listener) are read via ``as_quantity`` and reduced to a plain magnitude first,
+# so the input registry never matters.
+from vivarium.library.units import units as viv_units
 
 NAME = "cell-geometry"
 TOPOLOGY = {
     "listeners": ("listeners",),
-    "volumes": ("volumes",),
+    "periplasm": ("periplasm",),
+    "cytoplasm": ("cytoplasm",),
     "boundary": ("boundary",),
 }
 
@@ -82,9 +101,9 @@ class CellGeometry(Step):
       * ``listeners.mass.volume`` (in): whole-cell volume, pint
         Quantity[fL] — this candidate's OWN mass listener, never the shared
         ``boundary`` store.
-      * ``volumes.periplasm`` / ``volumes.cytoplasm`` (out): pint
-        Quantity[L] — matches what the injected
-        ``antibiotic_transport_odeint`` divides molecule counts by.
+      * ``periplasm.global.volume`` / ``cytoplasm.global.volume`` (out): pint
+        Quantity[L] — the vEcoli ``ecoli-shape`` store paths the injected
+        ``antibiotic_transport_odeint`` chain divides molecule counts by.
       * ``boundary.outer_surface_area`` (out): pint Quantity[um**2].
     """
 
@@ -108,12 +127,24 @@ class CellGeometry(Step):
         }
 
     def outputs(self):
+        # ``quantity[...]`` leaves so pbg can APPLY the per-tick update — but the
+        # VALUES written are vivarium-registry Quantities (see the module-level
+        # import comment). v2ecoli's ``Quantity.realize`` returns an incoming
+        # ``pint.Quantity`` UNCHANGED (it only rebuilds via the app registry for
+        # bare dict/scalar encodings), so the vivarium object survives intact and
+        # the vEcoli consumers read it in their own registry.
         return {
-            "volumes": {
-                "periplasm": {
-                    "_type": "overwrite[quantity[float,L]]", "_default": 0.0},
-                "cytoplasm": {
-                    "_type": "overwrite[quantity[float,L]]", "_default": 0.0},
+            "periplasm": {
+                "global": {
+                    "volume": {
+                        "_type": "overwrite[quantity[float,L]]", "_default": 0.0},
+                },
+            },
+            "cytoplasm": {
+                "global": {
+                    "volume": {
+                        "_type": "overwrite[quantity[float,L]]", "_default": 0.0},
+                },
             },
             "boundary": {
                 "outer_surface_area": {
@@ -146,12 +177,16 @@ class CellGeometry(Step):
         cell_volume = as_quantity(states["listeners"]["mass"]["volume"], units.fL)
         cell_volume_L = cell_volume.to(units.L).magnitude
         geometry = self.compute(cell_volume_L)
+        # Emit in VIVARIUM's registry so the downstream vEcoli processes can do
+        # their unit arithmetic (see the module-level import comment).
         return {
-            "volumes": {
-                "periplasm": geometry["periplasm"] * units.L,
-                "cytoplasm": geometry["cytoplasm"] * units.L,
+            "periplasm": {
+                "global": {"volume": geometry["periplasm"] * viv_units.L},
+            },
+            "cytoplasm": {
+                "global": {"volume": geometry["cytoplasm"] * viv_units.L},
             },
             "boundary": {
-                "outer_surface_area": geometry["outer_surface_area"] * units.um**2,
+                "outer_surface_area": geometry["outer_surface_area"] * viv_units.um**2,
             },
         }

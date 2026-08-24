@@ -532,12 +532,12 @@ FEATURE_MODULES = {
     },
     # Opt-in: native cell-shape geometry (periplasm/cytoplasm volume split +
     # outer surface area), ported from vEcoli ecoli/processes/shape.py.
-    # Populates `volumes.periplasm`/`volumes.cytoplasm`/
-    # `boundary.outer_surface_area` for the mecillinam candidate arm's
-    # injected antibiotic_transport_odeint, which otherwise finds nothing
-    # writing those stores. Runs right after the mass listener so it reads
-    # this tick's `listeners.mass.volume`. Auto-enabled by `baseline(...,
-    # mecillinam=True)`; a no-op (no `volumes` store, no step) otherwise.
+    # Populates `periplasm.global.volume`/`cytoplasm.global.volume`/
+    # `boundary.outer_surface_area` (the vEcoli ecoli-shape store paths) for
+    # the mecillinam candidate arm's injected antibiotic_transport_odeint
+    # chain, which otherwise finds nothing writing those stores. Runs right
+    # after the mass listener so it reads this tick's `listeners.mass.volume`.
+    # Auto-enabled by `baseline(..., mecillinam=True)`; a no-op otherwise.
     'cell_geometry': {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['cell_geometry_step'],
@@ -1670,7 +1670,7 @@ def baseline(
         _requested_features.append('exchange_flux')
     # mecillinam (antibiotic mode) auto-enables the native cell_geometry
     # feature: the injected antibiotic_transport_odeint divides molecule
-    # counts by volumes.periplasm/cytoplasm and reads
+    # counts by periplasm.global.volume/cytoplasm.global.volume and reads
     # boundary.outer_surface_area, which nothing else in the candidate
     # populates. amp_lysis does not need it (that arm reads cell_wall/
     # murein-division state, not this geometry split).
@@ -1736,20 +1736,16 @@ def baseline(
     cell_state.setdefault('attenuation_config', {
         'enabled': False,
     })
-    # cell_geometry feature (mecillinam candidate arm): pre-create the new
-    # top-level `volumes` store the CellGeometry step writes to, so the
-    # document build sees it as an existing (pint-typed) path rather than
-    # inferring a schema from nothing. `boundary` already exists (from the
-    # bundle's initial_state); CellGeometry only adds one new leaf to it.
-    if 'cell_geometry' in features:
-        from v2ecoli.types.quantity import ureg as _geom_units
-        cell_state.setdefault('volumes', {
-            'periplasm': 0.0 * _geom_units.L,
-            'cytoplasm': 0.0 * _geom_units.L,
-        })
-        cell_state.setdefault('boundary', {})
-        cell_state['boundary'].setdefault(
-            'outer_surface_area', 0.0 * _geom_units.um**2)
+    # cell_geometry feature (mecillinam candidate arm): the `periplasm` /
+    # `cytoplasm` compartment stores are built entirely by the injected vEcoli
+    # subsystem's own port materialization (antibiotic-transport-odeint declares
+    # periplasm.global.volume / .potential + cytoplasm.global.volume;
+    # concentrations_deriver declares periplasm.concentrations.<id>), which lets
+    # pbg infer flexible schemas for their dynamic leaves. CellGeometry's own
+    # `quantity[...]` output declaration then supplies the applyable schema for
+    # the two volume leaves it writes each tick. Deliberately NO pre-seed here:
+    # pre-typing part of `periplasm` rigidifies the store so the concentrations
+    # leaf can no longer be applied ("apply(None, ...)").
 
     # Initialize next_update_time for all partitioned processes
     nut = cell_state.setdefault('next_update_time', {})

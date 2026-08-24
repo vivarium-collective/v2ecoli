@@ -522,6 +522,31 @@ class KnowledgeBaseEcoli(object):
                     "each inserted gene becomes its own transcription unit."
                 )
 
+            # ``environment_molecules`` / ``secretions`` -- THE PRODUCT'S WAY
+            # OUT, and without it the pathway cannot run at all.
+            #
+            # This is not a reporting concern. FBA is a steady-state mass
+            # balance: a metabolite that is produced, consumed by nothing, and
+            # absent from the biomass objective has no sink, so the only
+            # feasible flux through its producing reaction is ZERO. An
+            # insertion can therefore have every gene expressed, every enzyme
+            # complexed and every reaction joined, and still carry no flux --
+            # reproducing exactly the silent zero the reaction join was added
+            # to eliminate, one layer further on.
+            #
+            # ``environment_molecules`` makes the product an external exchange
+            # molecule (id + compartment); ``secretions`` puts it in the
+            # secretion set. Which compartment the exchange happens in is the
+            # PAYLOAD's decision and deliberately not encoded here: a pathway
+            # whose product is transported to the periplasm declares it there,
+            # while one modelling export as a direct cytosolic exchange
+            # declares it in the cytosol. Both are expressible; the base tables
+            # already carry entries of each kind.
+            _join_if_present(
+                "environment_molecules", key="condition.environment_molecules"
+            )
+            _join_if_present("secretions")
+
             _join_if_present(
                 "rnaseq_rsem_tpm_mean",
                 key="rna_seq_data.rnaseq_rsem_tpm_mean",

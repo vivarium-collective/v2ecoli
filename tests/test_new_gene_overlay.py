@@ -648,3 +648,83 @@ def test_one_operon_over_two_genes_yields_one_rna_not_two(tmp_path):
                     sim_data.process.transcription.cistron_data.struct_array["id"]
                     if str(c).startswith("NG")]
         assert len(cistrons) == 2, cistrons
+
+
+# --------------------------------------------------------------------------
+# 7. The product's way out
+#
+# The reaction join lets a pathway be BUILT. It does not let it RUN: FBA is a
+# steady-state mass balance, so a product with no sink pins its own producing
+# reaction to zero flux. These two files are how an insertion declares the sink.
+# --------------------------------------------------------------------------
+
+NG_ENVIRONMENT_MOLECULE = (
+    '"molecule id"\t"exchange molecule location"\t"formula weight"\n'
+    '"NG-TEST-PRODUCT"\t"[c]"\t"None"\n'
+)
+
+NG_SECRETION = (
+    '"molecule id"\t"lower bound"\t"upper bound"\n'
+    '"NG-TEST-PRODUCT[c]"\tnull\tnull\n'
+)
+
+
+def _external_state(kb):
+    from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import (
+        SimulationDataEcoli,
+    )
+    sim_data = SimulationDataEcoli()
+    sim_data.initialize(raw_data=kb)
+    return sim_data.external_state
+
+
+def test_new_gene_exchange_declaration_reaches_the_external_state(tmp_path):
+    """An insertion declaring its product's exchange gets a sink for it.
+
+    Without this the pathway is complete and inert: every gene expressed, every
+    enzyme complexed, every reaction joined, and the only feasible flux through
+    the producing reaction is zero -- which reads identically to a design that
+    genuinely makes nothing.
+    """
+    manifest = _write_overlay(
+        tmp_path, "gfp_exch",
+        extra={"metabolites.tsv": PRODUCT_METABOLITE,
+               "environment_molecules.tsv": NG_ENVIRONMENT_MOLECULE,
+               "secretions.tsv": NG_SECRETION},
+    )
+    ext = _external_state(_kb(SourceBundle(overrides=manifest), "gfp_exch"))
+
+    assert "NG-TEST-PRODUCT[c]" in set(ext.all_external_exchange_molecules)
+    assert "NG-TEST-PRODUCT[c]" in set(ext.secretion_exchange_molecules)
+
+
+def test_new_gene_exchange_absent_still_builds(tmp_path):
+    """Optional, like every other insertion-supplied table. An insertion whose
+    product stays intracellular declares neither file."""
+    manifest = _write_overlay(
+        tmp_path, "gfp_no_exch", extra={"metabolites.tsv": PRODUCT_METABOLITE}
+    )
+    ext = _external_state(_kb(SourceBundle(overrides=manifest), "gfp_no_exch"))
+
+    assert not [m for m in ext.all_external_exchange_molecules
+                if "NG-TEST" in str(m)]
+
+
+def test_new_gene_exchange_compartment_is_the_payloads_choice(tmp_path):
+    """The compartment is declared, not assumed.
+
+    A pathway exporting its product to the periplasm declares it there; one
+    modelling export as a direct cytosolic exchange declares it in the cytosol.
+    Encoding either here would silently overrule a payload that meant the other,
+    and the base tables already carry entries of both kinds.
+    """
+    periplasmic = NG_ENVIRONMENT_MOLECULE.replace('\t"[c]"\t', '\t"[p]"\t')
+    manifest = _write_overlay(
+        tmp_path, "gfp_exch_p",
+        extra={"metabolites.tsv": PRODUCT_METABOLITE,
+               "environment_molecules.tsv": periplasmic},
+    )
+    ext = _external_state(_kb(SourceBundle(overrides=manifest), "gfp_exch_p"))
+
+    assert "NG-TEST-PRODUCT[p]" in set(ext.all_external_exchange_molecules)
+    assert "NG-TEST-PRODUCT[c]" not in set(ext.all_external_exchange_molecules)

@@ -174,19 +174,26 @@ tests:
   - name: ranking-claims-do-not-exceed-resolvability
     classification: primary
     question: >-
-      When between-arm separation does not exceed within-arm noise, does the card
-      withhold the graded ranking rather than reporting an ordering of noise?
+      When between-arm separation does not exceed within-arm noise, does the
+      FIGURE withhold the ranking rather than presenting an ordering of noise?
     measure:
       kind: derived
       detail: >-
-        Count of strata in viz/report_card/panel_screen.verdict.json where the
-        ranking_resolvable axis is not passing AND the objective or growth axis
-        still carries a graded verdict rather than being forced to ungraded. What
-        is measured is the COUPLING, not the resolvability: an unresolvable panel
-        that correctly withholds its ranking scores zero here and passes.
-        ⚠ Not expressible through report_card_axis — that evaluator aggregates a
-        group to its worst axis, so a failing resolvability would read as FAIL,
-        reintroducing exactly the outcome-dependence this criterion set avoids.
+        Count of strata in data/panel_presentation.json that are not resolvable
+        and for which sims/render_panel.py nonetheless presented a ranking
+        (ordered rows and a named top arm). What is measured is the COUPLING, not
+        the resolvability: an unresolvable panel that correctly withholds its
+        ranking scores zero here and passes.
+        ⚠ THIS CHECK MOVED, and the move is the point. It previously read the
+        card's verdicts — "where resolvability fails, no ranking axis may carry a
+        verdict." Once the outcome axes became ungraded by policy they can never
+        carry one, so that formulation could not fail: vacuous while still
+        reporting PASS. The ranking claim lives in the FINDING, so the check reads
+        what the figure actually presented.
+        ⚠ Still not expressible through report_card_axis — that evaluator
+        aggregates a group to its worst axis, so a failing resolvability would
+        read as FAIL, reintroducing exactly the outcome-dependence this criterion
+        set avoids.
     pass_if:
       op: '=='
       value: 0
@@ -195,7 +202,10 @@ tests:
         detail: >-
           Zero is the only threshold that grades the discipline rather than the
           result. A screen may legitimately find its design space unresolvable;
-          what it may not do is report a ranking the evidence does not carry.
+          what it may not do is draw a ranked panel anyway. Verified discriminating
+          in both directions: marking a stratum unresolvable while still presenting
+          its ranking raises this to 1 violation; marking it unresolvable with the
+          ranking withheld leaves it at 0.
 # Gen-2 card allowlist. ⚠ NAME membership, not a path — several studies list
 # HTML paths here, which silently disables every Gen-2 card on them.
 report_cards:
@@ -280,9 +290,13 @@ canonical_runs:
   - name: synthetic-panel
     default: true
     label: >-
-      Synthetic panel + card render + acceptance check. No simulation: the grading
-      layer consumes a per-cell table and is engine-agnostic by construction.
-    script: workspace/studies/design-screen-panel-01-grading/sims/make_synthetic_panel.py
+      Synthetic panel -> card -> figure -> acceptance check. No simulation: the
+      grading layer consumes a per-cell table and is engine-agnostic by
+      construction. Every downstream artifact is REGENERATED here, so none of the
+      committed outputs is hand-carried — a card-library change that would alter
+      the verdict shows up as a diff rather than silently disagreeing with the
+      committed file.
+    script: workspace/studies/design-screen-panel-01-grading/sims/run_chain.py
     args: []
 runs:
   - name: synthetic-panel-2026-08-21
@@ -291,22 +305,32 @@ runs:
     completed_at: '2026-08-21'
     command: >-
       python workspace/studies/design-screen-panel-01-grading/sims/make_synthetic_panel.py
-      && python scripts/study_report_cards.py --study design-screen-panel-01-grading
+      && python workspace/studies/design-screen-panel-01-grading/sims/render_card.py
+      && python workspace/studies/design-screen-panel-01-grading/sims/render_panel.py
       && python workspace/studies/design-screen-panel-01-grading/sims/check_acceptance.py
     artifacts:
       per_cell: data/panel_per_cell.tsv
       panel: data/panel.json
       accounting: data/panel_accounting.json
       acceptance: data/acceptance.json
+      presentation: data/panel_presentation.json
       card: viz/report_card/panel_screen.verdict.json
     note: >-
       8 declared arms across 2 strata; 6 reached the graded window and 2 did not,
-      both recorded with the generation they reached. The card grades
-      overall = mismatch: the highest-objective design clears the
-      objective band at 1.73x reference but its growth_cost of 0.63 sits below the
-      0.70 floor, so the card declines to endorse it. All four acceptance criteria
-      pass regardless — which is the separation this study exists to demonstrate:
-      the instrument is sound and the design space contains a design that is not.
+      both recorded with the generation they reached.
+
+      The card grades overall = within_tol, because the only graded axis is
+      ranking_resolvable and both strata resolve. That is the separation this
+      study exists to demonstrate: the card rules on whether the screen was
+      EXECUTED and RECORDED faithfully, and says nothing about whether the
+      designs were any good.
+
+      The scientific result is a FINDING, reported and not graded: the
+      highest-objective design reaches 1.73x the reference on the objective and
+      costs growth, landing at 0.63x against a declared design target of 0.70x.
+      Whether that trade is acceptable is a decision for a reader of the finding,
+      not a verdict for the card — a growth floor is a biology/design choice, not
+      execution correctness. All four acceptance criteria pass.
     outcomes:
       every-declared-arm-is-accounted-for:
         result: PASS
@@ -333,8 +357,12 @@ runs:
       ranking-claims-do-not-exceed-resolvability:
         result: PASS
         detail: >-
-          2 strata; 0 with resolvability not passing; 0 ranking axes still graded there.
-          Grades the coupling, not the resolvability. Verified discriminating:
-          forcing one stratum's resolvability to mismatch while leaving its
-          objective axis graded raises this to 1 violation.
+          2 strata; 0 not resolvable; 0 presented a ranking anyway. Grades the
+          coupling, not the resolvability, and reads the FIGURE rather than the
+          card verdicts — the ranking claim lives in the finding. Verified
+          discriminating in BOTH directions: marking a stratum unresolvable while
+          still presenting its ranking raises this to 1 violation; marking it
+          unresolvable with the ranking withheld leaves it at 0. The withhold path
+          was exercised end to end, not only asserted: the rendered figure orders
+          those rows by arm id, names no top arm, and says "ranking withheld".
 findings: []

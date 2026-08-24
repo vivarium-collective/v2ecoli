@@ -41,9 +41,21 @@ STATUS = {
     "absent":     ("●", "no cells",    "#57606a"),
 }
 
+# ⛔ The design-target vocabulary is DELIBERATELY DISTINCT from STATUS above.
+# STATUS renders CARD VERDICTS — rulings about whether the screen executed
+# correctly. These render a FINDING: how the best arm sits against the design
+# target the study declared. Sharing one glyph set would invite a reader to
+# read a biology result as a card ruling, which is the confusion this whole
+# study exists to prevent.
+TARGET = {
+    "meets":  ("▲", "meets target",   "#1a7f37"),
+    "under":  ("▽", "under target",   "#9a6700"),
+    "n/a":    ("·", "not compared",   "#8c959f"),
+}
+
 W, ROW, PAD = 1180, 26, 18
 COLS = [(24, "arm"), (230, "cells"), (330, "objective"), (450, "growth"),
-        (580, "graded state"), (790, "note")]
+        (580, "vs design target"), (790, "note")]
 
 
 def esc(t: str) -> str:
@@ -93,17 +105,36 @@ def axis_verdicts(verdict):
     return out
 
 
-def render(rows, acct, verdict) -> str:
+def design_targets(verdict) -> dict:
+    """{stratum: {axis: design_target}} — the declared targets the card REPORTS
+    against but does not grade."""
+    out = {}
+    for g in (verdict.get("groups") or {}).values():
+        for a in g.get("axes", []):
+            aid = a.get("id", "")
+            if ".medium=" not in aid:
+                continue
+            stratum, _, axis = aid.split(".medium=", 1)[1].partition(".")
+            tgt = (a.get("detail") or {}).get("design_target")
+            if tgt:
+                out.setdefault(stratum, {})[axis] = tgt
+    return out
+
+
+def render(rows, acct, verdict, presented: dict) -> str:
     stats = per_arm(rows)
     verdicts = axis_verdicts(verdict)
+    targets = design_targets(verdict)
     strata = sorted({a["stratum"] for a in acct["arms"]})
     expected = acct["cells_expected_per_arm"]
 
     parts, y = [], 0
-    parts.append(f'<text x="24" y="34" class="h1">Design panel — ranked arms, '
-                 f'and the arms that never arrived</text>')
-    parts.append('<text x="24" y="56" class="sub">Synthetic panel. Each arm graded  '
-                 'against the named reference within its own stratum.</text>')
+    parts.append('<text x="24" y="34" class="h1">Design panel — ranked arms, '
+                 'and the arms that never arrived</text>')
+    parts.append('<text x="24" y="56" class="sub">Synthetic panel. Each arm '
+                 'compared to the named reference within its own stratum. '
+                 'Design-target comparisons are FINDINGS, not card verdicts — '
+                 'the card grades execution, not which design wins.</text>')
     y = 78
 
     for stratum in strata:
@@ -124,9 +155,23 @@ def render(rows, acct, verdict) -> str:
         # Present arms first, ranked by objective; absent arms last.
         present = [a for a in entries if a["in_panel"]]
         absent = [a for a in entries if not a["in_panel"]]
-        present.sort(key=lambda a: -stats[a["arm"]]["objective"])
-        best_arm = next((a["arm"] for a in present
-                         if a["design"] != "reference"), None)
+        rv = verdicts.get(stratum, {}).get("ranking_resolvable", "ungraded")
+        resolvable = rv not in ("mismatch", "ungraded")
+        if resolvable:
+            present.sort(key=lambda a: -stats[a["arm"]]["objective"])
+        else:
+            # ⛔ THE RANKING IS WITHHELD, not merely annotated. Rows ordered by
+            # arm id, and no arm is named "best": an ordering drawn from noise
+            # is a claim the evidence does not carry, and a reader takes row
+            # order as the claim whatever the footnote says.
+            present.sort(key=lambda a: a["arm"])
+        best_arm = (next((a["arm"] for a in present
+                          if a["design"] != "reference"), None)
+                    if resolvable else None)
+        presented[stratum] = {"resolvable": resolvable,
+                              "ranking_presented": bool(best_arm),
+                              "resolvability_verdict": rv,
+                              "n_present": len(present), "n_absent": len(absent)}
 
         for a in present + absent:
             y += ROW
@@ -147,20 +192,29 @@ def render(rows, acct, verdict) -> str:
                 icon, word, colour = "—", "reference", "#57606a"
                 note = "the named comparator"
             elif a["arm"] == best_arm:
-                # The card grades THE BEST ARM against the bands, not every arm.
-                # An earlier version stamped the stratum's verdict onto every row,
-                # reporting a design as failing a band it was never graded
+                # The FINDING for the top-ranked arm, against the declared design
+                # target. Not a card verdict: the card grades execution, and this
+                # column says nothing about whether the screen ran correctly.
+                # An earlier version stamped the stratum's CARD verdict onto every
+                # row, reporting a design as failing a band it was never graded
                 # against -- moderate at 0.91x growth flagged for a 0.85 floor it
-                # clears. Only the graded arm carries a verdict.
-                v = verdicts.get(stratum, {})
-                worst = "mismatch" if v.get("growth_cost") == "mismatch" else \
-                        v.get("objective_vs_reference", "ungraded")
-                icon, word, colour = STATUS.get(worst, STATUS["ungraded"])
-                note = ("best objective; growth below floor"
-                        if v.get("growth_cost") == "mismatch" else "best objective")
+                # clears. Only the top-ranked arm carries a target comparison.
+                gt = targets.get(stratum, {}).get("growth_cost")
+                gv = stats[a["arm"]]["growth"] / ref_stats["growth"] if ref_stats else None
+                if gt is None or gv is None:
+                    icon, word, colour = TARGET["n/a"]
+                    note = "highest objective"
+                elif gv < gt.get("warn", float("-inf")):
+                    icon, word, colour = TARGET["under"]
+                    note = (f'highest objective; growth {gv:.2f}x under the '
+                            f'{gt["warn"]:.2f}x design target')
+                else:
+                    icon, word, colour = TARGET["meets"]
+                    note = "highest objective; growth meets target"
             else:
-                icon, word, colour = "·", "not graded", "#8c959f"
-                note = "ranked, not the graded arm"
+                icon, word, colour = TARGET["n/a"]
+                note = ("ranking withheld — not resolvable" if not resolvable
+                        else "ranked, not the top arm")
 
             label = a["design"] + ("  (reference)" if is_ref else "")
             parts.append(f'<text x="{COLS[0][0]}" y="{y}" class="td">{esc(label)}</text>')
@@ -171,13 +225,17 @@ def render(rows, acct, verdict) -> str:
                          f'fill="{colour}">{icon} {esc(word)}</text>')
             parts.append(f'<text x="{COLS[5][0]}" y="{y}" class="tdm">{esc(note)}</text>')
 
-        y += 14
-        rv = verdicts.get(stratum, {}).get("ranking_resolvable", "ungraded")
+        # ⚠ 26px, not 14: at 14 this line sat flush under the last row and read
+        # as belonging to that ARM. It is a statement about the STRATUM, and a
+        # scope-level claim rendered as a row-level one is the same category of
+        # error this figure exists to avoid.
+        y += 26
         icon, word, _ = STATUS.get(rv, STATUS["ungraded"])
-        parts.append(f'<text x="24" y="{y}" class="foot">ranking resolvable: '
-                     f'{icon} {esc(word)} — a ranking is only reported when '
-                     f'this passes</text>')
-        y += 10
+        tail = ("rows are ordered by arm id, not ranked"
+                if not resolvable else "rows are ranked by objective")
+        parts.append(f'<text x="24" y="{y}" class="foot">stratum ranking '
+                     f'resolvable: {icon} {esc(word)} — {tail}</text>')
+        y += 12
 
     y += 30
     declared = len(acct["arms"])
@@ -210,9 +268,17 @@ def main() -> None:
     ap.add_argument("--out", default=str(STUDY / "charts" / "panel.svg"))
     args = ap.parse_args()
     rows, acct, verdict = load()
+    presented: dict = {}
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render(rows, acct, verdict), encoding="utf-8")
+    out.write_text(render(rows, acct, verdict, presented), encoding="utf-8")
+    # The machine-readable record of WHAT THE FIGURE CLAIMED. The acceptance
+    # criterion on ranking discipline reads this: the claim now lives in the
+    # finding, so the check has to look at the finding.
+    (STUDY / "data" / "panel_presentation.json").write_text(
+        json.dumps({"_comment": ["Written by sims/render_panel.py.",
+                                 "Per stratum: was a ranking actually presented?"],
+                    "strata": presented}, indent=1) + "\n", encoding="utf-8")
     print(f"wrote {out}")
 
 

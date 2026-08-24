@@ -18,10 +18,11 @@ from pathlib import Path
 STUDY = Path(__file__).resolve().parent.parent
 DATA = STUDY / "data"
 VERDICT = STUDY / "viz" / "report_card" / "panel_screen.verdict.json"
+PRESENTATION = DATA / "panel_presentation.json"
 
-#: A resolvability axis in any of these states does not support a graded ranking.
+#: A resolvability axis in any of these states does not support a ranking.
 _NOT_PASSING = {"mismatch", "ungraded"}
-#: Axes whose verdicts constitute a ranking claim.
+#: Retained for the reference-arm check below.
 _RANKING_AXES = ("objective_vs_reference", "growth_cost")
 
 
@@ -101,41 +102,38 @@ def reference_resolves_in_every_stratum(verdict: dict, acct: dict) -> tuple[int,
     return len(missing), detail
 
 
-def ranking_claims_do_not_exceed_resolvability(verdict: dict) -> tuple[int, str]:
-    """Where resolvability does not pass, no ranking axis may carry a verdict.
+def ranking_claims_do_not_exceed_resolvability(presentation: dict) -> tuple[int, str]:
+    """Where resolvability does not pass, the FIGURE must not present a ranking.
 
-    ⚠ This grades the COUPLING, not the resolvability. An unresolvable panel that
-    correctly withholds its ranking scores zero and passes — which is the whole
-    point: a screen may legitimately find its design space unresolvable.
+    ⛔ THIS CHECK MOVED, and the move is the point. It used to read the card's
+    verdicts: "where resolvability fails, no ranking axis may carry a verdict."
+    Once the outcome axes became ungraded by policy they can NEVER carry one, so
+    that check could not fail — vacuous, while still reporting PASS.
+
+    The ranking claim now lives where it always really lived: in the finding. So
+    the check reads what the figure actually presented. A screen may legitimately
+    find its design space unresolvable; what it may not do is draw a ranked panel
+    anyway.
     """
-    by_stratum: dict[str, dict[str, str]] = {}
-    for a in _axes(verdict):
-        aid = a.get("id", "")
-        if ".medium=" not in aid:
-            continue
-        rest = aid.split(".medium=", 1)[1]
-        stratum, _, axis = rest.partition(".")
-        by_stratum.setdefault(stratum, {})[axis] = a.get("verdict", "ungraded")
-
-    violations = []
-    unresolvable = 0
-    for stratum, axes in sorted(by_stratum.items()):
-        if axes.get("ranking_resolvable", "ungraded") not in _NOT_PASSING:
-            continue
-        unresolvable += 1
-        for axis in _RANKING_AXES:
-            if axes.get(axis, "ungraded") not in _NOT_PASSING:
-                violations.append(f"{stratum}:{axis}={axes[axis]}")
-    detail = (f"{len(by_stratum)} strata; {unresolvable} with resolvability not "
-              f"passing; {len(violations)} ranking axes still graded there")
+    strata = (presentation or {}).get("strata") or {}
+    violations = [f"{k}:presented a ranking at resolvability="
+                  f"{v.get('resolvability_verdict')}"
+                  for k, v in sorted(strata.items())
+                  if not v.get("resolvable") and v.get("ranking_presented")]
+    unresolvable = sum(1 for v in strata.values() if not v.get("resolvable"))
+    detail = (f"{len(strata)} strata; {unresolvable} not resolvable; "
+              f"{len(violations)} presented a ranking anyway")
     if violations:
-        detail += f": {', '.join(violations)}"
+        detail += "; " + ", ".join(violations)
+    if not strata:
+        return 1, "no presentation record — run sims/render_panel.py first"
     return len(violations), detail
 
 
 def main() -> None:
     acct = _load(DATA / "panel_accounting.json")
     verdict = _load(VERDICT)
+    presentation = _load(PRESENTATION)
 
     results = {
         "every-declared-arm-is-accounted-for":
@@ -145,7 +143,7 @@ def main() -> None:
         "reference-arm-resolves-in-every-stratum":
             reference_resolves_in_every_stratum(verdict, acct),
         "ranking-claims-do-not-exceed-resolvability":
-            ranking_claims_do_not_exceed_resolvability(verdict),
+            ranking_claims_do_not_exceed_resolvability(presentation),
     }
 
     out = {

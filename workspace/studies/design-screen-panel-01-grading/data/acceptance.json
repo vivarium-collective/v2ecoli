@@ -5,7 +5,7 @@
     "Each value is a COUNT OF VIOLATIONS; zero is the passing state.",
     "No criterion requires a design to succeed."
   ],
-  "card_overall": "mismatch",
+  "card_overall": "within_tol",
   "criteria": {
     "every-declared-arm-is-accounted-for": {
       "violations": 0,
@@ -21,7 +21,7 @@
     },
     "ranking-claims-do-not-exceed-resolvability": {
       "violations": 0,
-      "detail": "2 strata; 0 with resolvability not passing; 0 ranking axes still graded there"
+      "detail": "2 strata; 0 not resolvable; 0 presented a ranking anyway"
     }
   }
 }

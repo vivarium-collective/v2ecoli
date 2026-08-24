@@ -210,6 +210,7 @@ def make_card_state():
         "plot_trajs": {},
         "v2_bounds": [],
         "config": {},
+        "observable_bulk_ids": [],
         "v2_dir": REDUX_CARDS_FIXTURE_DIR,
         "ve_dir": REDUX_CARDS_FIXTURE_DIR,
     }

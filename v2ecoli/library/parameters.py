@@ -124,6 +124,14 @@ PARAMETER_DICT = {
         },
         "molar_mass": Parameter(349.406 * units.g / units.mol),
     },
+    # Ported from vEcoli-private ecoli/library/parameters.py ("mecillinam" block,
+    # molar_mass at :309). Only the molar mass is needed by the LoadSimData
+    # mecillinam species injection (mirroring the ampicillin amp_lysis path);
+    # the antibiotic kinetic params (efflux/permeability/pbp2/decay) have no
+    # consumer in v2ecoli and are intentionally omitted from this port.
+    "mecillinam": {
+        "molar_mass": Parameter(325.426 * units.g / units.mol),
+    },
     "cephaloridine": {
         "permeability": {
             "outer": Parameter(

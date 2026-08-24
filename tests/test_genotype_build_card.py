@@ -151,9 +151,11 @@ def test_an_unperformed_knockout_fails_rather_than_passes(arms):
 # --- the mode trap ------------------------------------------------------------
 
 def test_conditions_fitted_reads_cell_specs_not_conditions():
-    """`conditions` is the full condition LIST and reads 51 in BOTH fast and full
+    """`conditions` is the full condition LIST and reads 52 in BOTH fast and full
     mode; only `cell_specs` distinguishes them. An axis against `conditions` would
-    pass at 51 on a fast build and never discriminate."""
+    pass at 52 on a fast build and never discriminate. (The numbers below are a
+    synthetic fixture, deliberately not the real count -- this test is about the
+    mode trap, not about how many conditions ship.)"""
     fit = gb.measure_fit({"cell_specs": {"basal": {}, "with_aa": {}},
                           "conditions": list(range(51)),
                           "mechanistic_fit_status": {"mechanistic_supply": "ok"}})

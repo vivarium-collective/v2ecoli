@@ -61,6 +61,16 @@ class StudySpec:
     # an edit to a shared fork config. Explicit by design: inferring which ports
     # lack a writer from a vivarium-1.0 ports_schema means guessing at port
     # direction.
+    observables: list = dc_field(default_factory=list)  # arbitrary "group.leaf" listener
+                                    # paths to emit on BOTH arms as measurements
+    exchange_fluxes: dict = dc_field(default_factory=dict)  # {leaf: exchange_key}
+                                    # metabolic exchange fluxes to emit onto
+                                    # listeners.exchange_flux.<leaf> on BOTH arms
+                                    # (e.g. the violacein card's rate/yield inputs)
+    observable_bulk_ids: list = dc_field(default_factory=list)  # bulk molecule ids
+                                    # to grade as config-specific KPIs, emitted on
+                                    # BOTH arms under listeners.observable_bulk.<id>
+                                    # (violacein titer, antibiotic drug-target complex)
 
     @property
     def graded_cards(self) -> list:
@@ -192,6 +202,15 @@ def specs_from_configs(ctx: dict) -> list:
             study_path=str(study_yaml),
             max_steps_per_gen=int(entry.get("max_steps_per_gen") or 15000),
             inject_processes=companions,
+            # Measurement declarations: per-config entry wins, else the
+            # investigation `defaults` block (so a whole investigation can share
+            # one measurement set). Mirrors the study.yaml path in _spec_from_study.
+            observables=list(entry.get("observables")
+                             or defaults.get("observables") or []),
+            exchange_fluxes=dict(entry.get("exchange_fluxes")
+                                 or defaults.get("exchange_fluxes") or {}),
+            observable_bulk_ids=list(entry.get("observable_bulk_ids")
+                                     or defaults.get("observable_bulk_ids") or []),
         ))
     return out
 
@@ -238,6 +257,12 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
         reference=ctx["reference"],
         study_path=str(study_path),
         max_steps_per_gen=int(comp.get("max_steps_per_gen") or 15000),
+        observables=list(comp.get("observables")
+                         or (ctx.get("defaults") or {}).get("observables") or []),
+        exchange_fluxes=dict(comp.get("exchange_fluxes")
+                             or (ctx.get("defaults") or {}).get("exchange_fluxes") or {}),
+        observable_bulk_ids=list(comp.get("observable_bulk_ids")
+                                 or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )
 
 

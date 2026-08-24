@@ -13,8 +13,10 @@ Each run is also tagged with ``study_slug`` + ``investigation_slug`` so
 the dashboard's Simulations DB tab groups them under the
 ``multiscale-bioprocess`` investigation.
 
-Currently runnable variants (those that don't need the upstream
-``pbg-bioreactor-transport-fork`` PR for mbp-03's BiRDTransportProcess):
+Currently runnable variants. (This list once excluded anything needing
+the upstream ``pbg-bioreactor-transport-fork`` PR for mbp-03's
+BiRDTransportProcess; that merged 2026-07-27, so the coupled composite is
+runnable here now.)
 
   mbp-01-time-varying-environment:
     static-env-baseline   — baseline_time_varying_env (env_driver_mode=static)
@@ -25,10 +27,18 @@ Currently runnable variants (those that don't need the upstream
     aggregator-cpa1e6     — at 1e6 (scaling-factor sweep)
     aggregator-cpa1e9     — at 1e9 (high-density representative sampling)
 
+  mbp-04-multigeneration-runs:
+    reactor-bird-coupled-batch-multigen
+                          — v2ecoli cells <-> BiRD 0D reactor, batch.
+                            Carries the import-gate booleans (v2ecoli#572).
+
   Cross-investigation reference:
     baseline-reference    — unmodified v2ecoli.composites.ecoli_baseline
 
-Default duration is 120 sim-min (~2 doublings); --duration-sec overrides.
+Default duration is 120 sim-min (~2 doublings). A variant may override that
+via VARIANT_DEFAULTS when its window is a study-enforced param rather than a
+runner preference (mbp-04: 240 sim-min); an explicit --duration-sec /
+--max-generations always wins.
 
 Usage:
     python scripts/run_mbp_tracked.py [--variant <name>] [--duration-sec N]
@@ -116,6 +126,32 @@ def _build_baseline_time_varying_env(
         core=core, seed=seed, cache_dir=cache_dir,
         env_driver_mode=env_driver_mode,
         synthetic_trajectory_spec=synthetic_trajectory_spec or {},
+    )
+
+
+def _build_reactor_bird_coupled(
+    core, cache_dir, *,
+    seed=0,
+    cells_per_agent=1.0e9,
+    population_growth_mode="representative_doubling",
+    initial_glucose_mM=None,
+    bird_reactor_config=None,
+):
+    """mbp-04's coupled composite: v2ecoli cells <-> BiRD 0D reactor.
+
+    Defaults mirror mbp-04's ``enforced_params`` so the variant is
+    reproducible without remembering flags (see VARIANT_DEFAULTS for the
+    duration / generation half of that contract).
+    """
+    from v2ecoli.composites.reactor_bird_coupled import reactor_bird_coupled
+    return reactor_bird_coupled(
+        core=core, seed=seed, cache_dir=cache_dir,
+        cells_per_agent=cells_per_agent,
+        population_growth_mode=population_growth_mode,
+        initial_glucose_mM=(
+            MBP_04_GLUCOSE_MM if initial_glucose_mM is None else initial_glucose_mM
+        ),
+        bird_reactor_config=bird_reactor_config or dict(MBP_04_REACTOR_CONFIG),
     )
 
 
@@ -274,6 +310,79 @@ VARIANTS.extend([
 ])
 
 
+# --- mbp-04 multigeneration batch ------------------------------------------
+# Promoted out of a scratchpad script (2026-08-24). Both prior mbp-04 runs
+# (2026-08-21) were driven by an untracked script, so the study's headline
+# trajectory was reproducible only by the session that ran it -- no
+# run_identity sidecar, no registry row, no dashboard grouping.
+#
+# Params are mbp-04's own `enforced_params`: 4.0 g/L glucose (MW 180.156),
+# cells_per_agent 1e9 ("calibrated so 4 g/L depletes within the 240-min
+# window"), bubble column 1.0 L / 2.0 Lpm / 310.15 K, 240 sim-min.
+#
+# NOT a graded study. Two of mbp-04's five criteria measure
+# reactor.diagnostics.{carbon,nitrogen}_residual, which nothing in this repo
+# computes; the headline criterion is undispatchable on both `kind` and `op`.
+# This variant produces the TRAJECTORY.
+MBP_04_GLUCOSE_MM = 4.0 / 180.156 * 1000.0      # 22.20 mM
+MBP_04_REACTOR_CONFIG = {
+    "reactor_type": "bubble_column",
+    "volume_L": 1.0,
+    "gas_flow_rate_Lpm": 2.0,
+    "temperature_K": 310.15,
+}
+
+VARIANTS.append((
+    "reactor-bird-coupled-batch-multigen",
+    "mbp-04-multigeneration-runs",
+    _build_reactor_bird_coupled,
+    {},
+    [
+        "population/total_biomass_gDW",
+        "population/cell_count",
+        "population/biomass_concentration_gL",
+        "population/OD600",
+        "reactor/glucose_medium_mM",
+        "reactor/dissolved_o2",
+        "reactor/dissolved_co2",
+        "reactor/biomass",
+    ],
+))
+
+
+# Per-variant agent-level emit paths, added to COMMON_AGENT_PATHS.
+#
+# The gate booleans are the discriminating observable for v2ecoli#572:
+# `constrained_molecules` / `unconstrained_molecules` are boolean masks over
+# the 87-entry sim_data.external_state.all_external_exchange_molecules
+# (GLC[p] = index 0) -- they answer "did the import gate FIRE?", which is
+# sharper than a rate. `external_exchange_fluxes` is emitted DELIBERATELY
+# despite being measured all-zeros on 2026-08-21: it is the probe for whether
+# #576's batch emitter-sink install changes emission on this path. Do not
+# grade anything on it without a known-secreting positive control (see the
+# cross-lane zero-exchange-flux hazard).
+EXTRA_AGENT_PATHS: dict[str, list[str]] = {
+    "reactor-bird-coupled-batch-multigen": [
+        "boundary/external/OXYGEN-MOLECULE",
+        "listeners/fba_results/external_exchange_fluxes",
+        "listeners/fba_results/constrained_molecules",
+        "listeners/fba_results/unconstrained_molecules",
+    ],
+}
+
+# Per-variant duration / generation defaults, applied only when the caller did
+# NOT pass the corresponding flag. mbp-04's window is a study-enforced param
+# (240 sim-min), not a runner preference -- the global 120-min default would
+# silently truncate it, and the 2026-08-21 run 1 was in fact cut short at 135
+# sim-min by the generation cap rather than the clock.
+VARIANT_DEFAULTS: dict[str, dict] = {
+    "reactor-bird-coupled-batch-multigen": {
+        "duration_sec": 240 * 60,
+        "max_generations": 6,
+    },
+}
+
+
 def _register_simulation_row(
     db_path: Path, *, simulation_id: str, name: str,
     study_slug: str, investigation_slug: str, started_at: float,
@@ -327,6 +436,10 @@ def _run_one_variant(
     duration_sec, max_generations, chunk, cache_dir, core, emitter,
     single_daughters=True,
 ) -> dict:
+    # COMMON_AGENT_PATHS is shared by every variant; EXTRA_AGENT_PATHS adds
+    # the observables only one variant needs (see its docstring for why
+    # mbp-04 carries the gate booleans).
+    agent_paths = COMMON_AGENT_PATHS + EXTRA_AGENT_PATHS.get(sim_name, [])
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
@@ -370,7 +483,7 @@ def _run_one_variant(
             composite,
             run_id=simulation_id,
             db_file=str(DB_PATH),
-            emit_paths=COMMON_AGENT_PATHS,
+            emit_paths=agent_paths,
             extra_root_paths=extra_root_paths,
             max_steps=duration_sec,
             max_generations=max_generations,
@@ -402,7 +515,7 @@ def _run_one_variant(
             composite,
             experiment_id=simulation_id,
             out_dir=str(parquet_root),
-            emit_paths=COMMON_AGENT_PATHS,
+            emit_paths=agent_paths,
             extra_root_paths=extra_root_paths,
             max_steps=duration_sec,
             max_generations=max_generations,
@@ -468,8 +581,12 @@ def main():
     p.add_argument("--emitter", choices=["parquet", "sqlite"], default=DEFAULT_EMITTER,
                    help=(f"Emitter to capture history with (default: {DEFAULT_EMITTER}, "
                          "the workspace default per workspace.yaml.runtime.default_emitter)."))
-    p.add_argument("--duration-sec", type=int, default=DEFAULT_DURATION_SEC)
-    p.add_argument("--max-generations", type=int, default=DEFAULT_MAX_GENERATIONS)
+    # default=None so a variant's own VARIANT_DEFAULTS entry can supply the
+    # value; an explicit flag always wins. Falls back to DEFAULT_* otherwise.
+    p.add_argument("--duration-sec", type=int, default=None,
+                   help=f"Sim seconds (default: per-variant, else {DEFAULT_DURATION_SEC}).")
+    p.add_argument("--max-generations", type=int, default=None,
+                   help=f"Generation cap (default: per-variant, else {DEFAULT_MAX_GENERATIONS}).")
     p.add_argument("--chunk", type=int, default=DEFAULT_CHUNK,
                    help=(f"Composite-tick chunk (default {DEFAULT_CHUNK} → "
                          "per-tick emit; larger = sparser emit, faster runtime)."))
@@ -500,20 +617,25 @@ def main():
         print(f"Workspace DB: {DB_PATH.relative_to(REPO_ROOT)}")
     else:
         print("Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
-    print(f"Per-variant: emitter={args.emitter}  max_steps={args.duration_sec}s "
-          f"({args.duration_sec/60:.0f} min), max_generations={args.max_generations}, "
-          f"chunk={args.chunk}")
+    print(f"Per-variant: emitter={args.emitter}  chunk={args.chunk}  "
+          f"(duration / max_generations resolved per variant)")
 
     core = build_core()
     results = []
     t_all = time.time()
     for sim_name, study_slug, builder_fn, builder_kwargs, extra_root in variants:
+        # Explicit flag > per-variant default > global default.
+        _vd = VARIANT_DEFAULTS.get(sim_name, {})
+        _duration = (args.duration_sec if args.duration_sec is not None
+                     else _vd.get("duration_sec", DEFAULT_DURATION_SEC))
+        _max_gens = (args.max_generations if args.max_generations is not None
+                     else _vd.get("max_generations", DEFAULT_MAX_GENERATIONS))
         result = _run_one_variant(
             sim_name=sim_name, study_slug=study_slug,
             builder_fn=builder_fn, builder_kwargs=builder_kwargs,
             extra_root_paths=extra_root,
-            duration_sec=args.duration_sec,
-            max_generations=args.max_generations,
+            duration_sec=_duration,
+            max_generations=_max_gens,
             chunk=args.chunk,
             emitter=args.emitter,
             cache_dir=args.cache_dir, core=core,
@@ -526,7 +648,11 @@ def main():
     print(f"Done — {len(results)} variant(s) in {total_wall:.1f}s wall "
           f"({total_wall/60:.1f} min).")
     for r in results:
-        sim_min = r["max_step"] / 60.0
+        # Sim-minutes come from the runner's own tick counter, NOT from the
+        # emitted row count: with chunk>1 the composite advances `chunk` ticks
+        # per emitted row, so rows/60 under-reports sim time by a factor of
+        # `chunk` (an 8400-tick run at chunk=100 printed "sim=1.4min").
+        sim_min = (r.get("result_steps") or 0) / 60.0
         gens = r["result_gens"]
         print(f"  {r['sim_name']:35s} sim={sim_min:5.1f}min  gens={gens}  rows={r['n_history_rows']}")
 

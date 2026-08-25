@@ -332,9 +332,9 @@ def measure_fit(state: dict | None) -> dict:
         "completed": bool(status) and all(v == "ok" for v in status.values()),
         "status": status,
         # len(cell_specs), NOT len(conditions): `conditions` is the full condition
-        # LIST and reads 51 in BOTH fast and full mode, so grading against it would
+        # LIST and reads 52 in BOTH fast and full mode, so grading against it would
         # pass on a fast build and never discriminate. cell_specs holds the
-        # conditions actually fitted (7 in fast mode).
+        # conditions actually fitted (8 in fast mode; measured, both modes).
         "conditions_fitted": len(state.get("cell_specs") or {}),
         "conditions_declared": len(state.get("conditions") or []),
     }
@@ -434,9 +434,16 @@ def _reference(gene_ids: list[str], mode: "str | None", deleted_bp: int) -> dict
             },
             "fit.conditions_fitted": {
                 "group": "ParCa fit", "label": "Conditions fitted (len(cell_specs))",
-                # Deliberately ungraded outside full mode: a fast build fits 7 of 51
+                # Deliberately ungraded outside full mode: a fast build fits 8 of 52
                 # by design, so grading it would report a true fact as a failure.
-                "criterion": ({"type": "rel_tol", "reference": 51, "tol_rel": 0.0}
+                # ⚠ 52 is HAND-DERIVED and moves whenever a condition is added:
+                # it is len(condition_defs.tsv rows) + 2 * len(tf_condition.tsv rows)
+                # = 6 + 2*23. It was 51 until ecoli-sources gained basal_with_trp.
+                # A hardcoded literal here is fragile by construction -- see the
+                # follow-up issue on deriving it from the declared inputs. Do NOT
+                # "fix" it by deriving from the build's own output (len(conditions)):
+                # that grades a build against itself and can never fail.
+                "criterion": ({"type": "rel_tol", "reference": 52, "tol_rel": 0.0}
                               if graded_fit else {"type": "status"}),
             },
         },

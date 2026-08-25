@@ -114,3 +114,123 @@ def test_feature_inserts_step_after_mass_listener():
     flat = [s for L in build_execution_layers(["exchange_flux"]) for s in L]
     assert "exchange_flux_listener" in flat
     assert flat.index("exchange_flux_listener") > flat.index("ecoli-mass-listener")
+
+
+# --------------------------------------------------------------------------
+# The gDCW basis
+#
+# The store is a running total, so the default leaf is not a rate. Anything
+# that time-averages it — which is what a per-cell KPI table does — averages a
+# running total and gets a number that grows with generation length. These
+# cover the conversion, and the two ways it could quietly go wrong.
+# --------------------------------------------------------------------------
+
+from v2ecoli.steps.derivers.exchange_flux_listener import (  # noqa: E402
+    BASIS_COUNTS, BASIS_GDCW, counts_to_gdcw_rate)
+
+
+def _listener(fluxes, basis=BASIS_COUNTS):
+    """Build the Step directly, matching how the tests above construct it."""
+    from v2ecoli.core import build_core
+    return ExchangeFluxListener({"fluxes": fluxes, "basis": basis},
+                                core=build_core())
+
+
+@pytest.mark.fast
+def test_the_conversion_lands_in_the_physiological_band():
+    """The check that is not self-referential.
+
+    A glucose uptake for E. coli on minimal medium is ~8-10 mmol/gDCW/h, and a
+    genuine vEcoli reports 9.73 for this condition. Feeding this converter a
+    real measured count trace has to land there — which tests the arithmetic
+    against biology and against the other engine, rather than against itself.
+    """
+    # One generation of measured glucose uptake: counts, seconds, mean fg.
+    counts, seconds, dry_mass_fg = 2.2617e9, 2701.0, (420.3 + 747.3) / 2
+    per_tick = counts / seconds
+
+    rate = counts_to_gdcw_rate(per_tick, dry_mass_fg, timestep_s=1.0)
+
+    assert 8.0 <= rate <= 10.0, (
+        f"{rate:.2f} mmol/gDCW/h is outside the physiological band for glucose "
+        "uptake; the unit conversion is wrong")
+
+
+@pytest.mark.fast
+def test_a_rate_is_intensive_not_extensive():
+    """Doubling the cell halves the per-gram rate at the same absolute uptake.
+
+    This is what separates a rate from the running total it is derived from,
+    and it is the property that makes the leaf comparable across engines and
+    across cells of different sizes.
+    """
+    a = counts_to_gdcw_rate(1e6, dry_mass_fg=500.0, timestep_s=1.0)
+    b = counts_to_gdcw_rate(1e6, dry_mass_fg=1000.0, timestep_s=1.0)
+    assert b == pytest.approx(a / 2)
+
+
+@pytest.mark.fast
+def test_sign_is_preserved_so_uptake_stays_negative():
+    """Uptake negative, secretion positive — the same convention as the counts
+    basis and as a genuine vEcoli. A basis change must not flip it, since a
+    flipped uptake reads as secretion and nothing downstream would object."""
+    assert counts_to_gdcw_rate(-1e6, 500.0, 1.0) < 0
+    assert counts_to_gdcw_rate(+1e6, 500.0, 1.0) > 0
+
+
+@pytest.mark.fast
+@pytest.mark.parametrize("dry_mass,timestep", [(0.0, 1.0), (500.0, 0.0),
+                                               (-1.0, 1.0)])
+def test_an_undefined_rate_is_zero_not_nan_or_infinite(dry_mass, timestep):
+    """At division the mass listener can read zero. An infinity or NaN there
+    propagates through every downstream mean, turning one undefined tick into
+    an undefined generation — so the undefined case yields 0.0."""
+    out = counts_to_gdcw_rate(1e6, dry_mass, timestep)
+    assert out == 0.0
+
+
+@pytest.mark.fast
+def test_an_unknown_basis_is_refused_rather_than_defaulted():
+    """The two bases are different QUANTITIES, not different units. Defaulting a
+    misspelled basis would emit a running total under a name the caller meant as
+    a rate, and nothing downstream could tell."""
+    with pytest.raises(ValueError, match="unknown basis"):
+        _listener({"glucose": "GLC[p]"}, basis="per-gram")
+
+
+@pytest.mark.fast
+def test_counts_basis_is_unchanged_by_the_addition():
+    """Guard against over-correction. The default must still re-home the store's
+    value verbatim — existing consumers depend on it, and a silent switch to
+    rates would rescale every number they read."""
+    step = _listener({"glucose": "GLC[p]"})
+    out = step.update({"exchange": {"GLC[p]": -1234.0}, "global_time": 0.0,
+                       "timestep": 1.0, "mass": {"dry_mass": 500.0}})
+    assert out["listeners"]["exchange_flux"]["glucose"] == -1234.0
+
+
+@pytest.mark.fast
+def test_the_first_observation_emits_no_rate():
+    """Differencing against an assumed zero would report a whole generation's
+    accumulation as one tick if the store survives division — a spike at every
+    division that looks like a result. One lost tick is the cheaper error."""
+    step = _listener({"glucose": "GLC[p]"}, basis=BASIS_GDCW)
+    first = step.update({"exchange": {"GLC[p]": -1e9}, "global_time": 0.0,
+                         "timestep": 1.0, "mass": {"dry_mass": 500.0}})
+    assert first["listeners"]["exchange_flux"]["glucose"] == 0.0
+
+
+@pytest.mark.fast
+def test_the_rate_is_the_difference_of_the_running_total():
+    """The whole point: a constant per-tick uptake gives a CONSTANT rate, even
+    though the underlying store keeps climbing."""
+    step = _listener({"glucose": "GLC[p]"}, basis=BASIS_GDCW)
+    common = {"global_time": 0.0, "timestep": 1.0, "mass": {"dry_mass": 500.0}}
+    step.update({"exchange": {"GLC[p]": -1e6}, **common})          # priming
+    second = step.update({"exchange": {"GLC[p]": -2e6}, **common})
+    third = step.update({"exchange": {"GLC[p]": -3e6}, **common})
+
+    expected = counts_to_gdcw_rate(-1e6, 500.0, 1.0)
+    assert second["listeners"]["exchange_flux"]["glucose"] == pytest.approx(expected)
+    assert third["listeners"]["exchange_flux"]["glucose"] == pytest.approx(expected)
+    assert expected < 0

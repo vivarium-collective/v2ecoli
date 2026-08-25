@@ -39,18 +39,20 @@ def _strip_compartment(mid: str) -> str:
 def resolve_exchange_key(exchange: dict, key: str):
     """Compartment-tolerant lookup: exchange stores may key by full metabolite id
     (``AC[p]``, the fork convention) or compartment-stripped (``AC``,
-    v2ecoli's convention). Try exact, then the stripped form on both sides, so one
-    study config value works across both comparison arms. Returns None if absent."""
+    v2ecoli's convention), and a genuine-vEcoli store can carry BOTH forms for the
+    same molecule — a zero-valued compartment-tagged placeholder alongside the
+    real flux on the stripped key (e.g. ``{"GLC[p]": 0, "GLC": -1.28e7}``). So an
+    exact-first match would return the 0 placeholder and miss the real value.
+    Instead gather every entry whose compartment-stripped form matches the
+    request and return the one with the largest magnitude (placeholders are 0;
+    the real flux is not). Returns None if no key matches."""
     exchange = exchange or {}
-    if key in exchange:
-        return exchange[key]
     stripped = _strip_compartment(key)
-    if stripped in exchange:
-        return exchange[stripped]
-    for k, v in exchange.items():
-        if _strip_compartment(k) == stripped:
-            return v
-    return None
+    matches = [v for k, v in exchange.items()
+               if k == key or _strip_compartment(k) == stripped]
+    if not matches:
+        return None
+    return max(matches, key=lambda v: abs(float(v)) if v is not None else 0.0)
 
 
 def derive_fluxes(exchange: dict, fluxes: dict) -> dict:

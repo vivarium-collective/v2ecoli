@@ -785,3 +785,142 @@ def test_a_dividing_cell_rebuilds_BOTH_daughters_on_the_declared_basis(monkeypat
     # the map has to travel with it, or the daughter declares no leaves at all
     assert [r.get("exchange_fluxes") for r in rebuilds] == \
         [{"product_exchange": "X[c]"}] * 2
+
+
+# --- the gdcw CALL SITE against real composite value types -------------------
+#
+# ⚠ The helper test above (`..._tolerates_pint_quantities_...`) asserts on
+# `_as_float_fg` in ISOLATION. That is the "covers the helper, not the call
+# site" failure this lane has already catalogued: reverting `update()` to a bare
+# `float(...)` — i.e. restoring the crash the coercion exists to fix — left the
+# whole suite green (measured: 111 pass across five files). These execute the
+# Step's real `update()` with the value TYPE the composite supplies.
+
+def _gdcw_step(fluxes):
+    """The real Step on the gdcw basis, built the way the composite builds it."""
+    from v2ecoli.core import build_core
+    from v2ecoli.steps.derivers.exchange_flux_listener import ExchangeFluxListener
+    return ExchangeFluxListener({"fluxes": fluxes, "basis": "gdcw"},
+                                core=build_core())
+
+
+def _fg(x):
+    """A dry mass as the real composite carries it: a pint Quantity in fg."""
+    from v2ecoli.types.quantity import ureg
+    return x * ureg.fg
+
+
+def test_gdcw_update_survives_a_pint_dry_mass_at_the_CALL_SITE():
+    """⚠ Regression for the crash that took down the first real gdcw run.
+
+    `listeners.mass.dry_mass` is a `quantity[float,fg]` on the composite while
+    this Step declares it a bare `float`, so `update()` receives a Quantity. A
+    bare `float()` on it raises DimensionalityError on the FIRST tick.
+
+    Asserts through `update()` rather than through the coercion helper, because
+    the helper was already covered and the call site was not — reverting only
+    the call site reproduced the shipped crash with every test still green."""
+    step = _gdcw_step({"product_exchange": "X[c]"})
+    common = {"global_time": 0.0, "timestep": 1.0, "mass": {"dry_mass": _fg(400.0)}}
+    step.update({"exchange": {"X[c]": 1.0e6}, **common})       # priming tick
+    out = step.update({"exchange": {"X[c]": 3.0e6}, **common})
+    rate = out["listeners"]["exchange_flux"]["product_exchange"]
+    assert rate > 0, "a secretion on the gdcw basis must report a positive rate"
+    assert 1e-3 < rate < 1e3, f"rate {rate} is outside any physiological band"
+
+
+def test_gdcw_reads_a_pint_dry_mass_IN_FEMTOGRAMS_not_by_bare_magnitude():
+    """⚠ The same mass in a different unit must give the SAME rate.
+
+    Taking `.magnitude` off a Quantity verbatim is only correct while the
+    Quantity happens to be in fg — nothing in this Step's port contract says it
+    is, since the port declares a bare `float`. A picogram-valued Quantity read
+    by bare magnitude yields 0.4 where 400.0 is meant, so the rate comes out
+    1000x too large with no error: a silently wrong QUANTITY under a correct
+    name, which is the failure the basis exists to remove."""
+    from v2ecoli.types.quantity import ureg
+
+    def _rate(dry_mass):
+        step = _gdcw_step({"product_exchange": "X[c]"})
+        common = {"global_time": 0.0, "timestep": 1.0,
+                  "mass": {"dry_mass": dry_mass}}
+        step.update({"exchange": {"X[c]": 1.0e6}, **common})
+        return step.update({"exchange": {"X[c]": 3.0e6},
+                            **common})["listeners"]["exchange_flux"]["product_exchange"]
+
+    in_fg = _rate(400.0 * ureg.fg)
+    in_pg = _rate((400.0 * ureg.fg).to(ureg.pg))     # the SAME mass
+    assert in_fg == pytest.approx(in_pg, rel=1e-9), (
+        f"same dry mass, different unit, different rate: fg->{in_fg} pg->{in_pg}; "
+        "the magnitude is being read without converting")
+
+
+def test_an_uncoercible_dry_mass_is_no_rate_rather_than_a_crash():
+    """The tolerance the conversion must not lose: a value that is neither a
+    number nor a mass Quantity yields 0.0 ("no rate is defined"), not an
+    exception that takes a completed run down at the last tick."""
+    step = _gdcw_step({"product_exchange": "X[c]"})
+    common = {"global_time": 0.0, "timestep": 1.0,
+              "mass": {"dry_mass": "not a mass"}}
+    step.update({"exchange": {"X[c]": 1.0e6}, **common})
+    out = step.update({"exchange": {"X[c]": 3.0e6}, **common})
+    assert out["listeners"]["exchange_flux"]["product_exchange"] == 0.0
+
+
+# --- the sidecar's RUN SHAPE, through the production writer ------------------
+#
+# ⚠ GAP MEASURED: `_write_real_sidecar` above calls the writer without
+# `seeds=`/`generations=`, so nothing exercised the run-shape fields at all.
+# Deleting both from `_write_exchange_flux_sidecar` left 42 tests green — the
+# staleness guard added alongside them could be removed silently, because the
+# reader skips its check whenever either side is None.
+
+def _write_real_sidecar_with_shape(out_root, prefix, basis, seeds, generations):
+    """The PRODUCTION writer, exercising the run-shape keyword arguments."""
+    from scripts.run_comparison_ensemble import _write_exchange_flux_sidecar
+    _write_exchange_flux_sidecar(str(out_root), prefix, {"product_exchange": "X[c]"},
+                                 basis, seeds=seeds, generations=generations)
+
+
+def test_the_writer_records_the_run_shape_the_reader_compares(tmp_path):
+    """Round trip: the real writer's run-shape fields reach the real reader.
+
+    Spelled through both production functions rather than a hand-rolled dict,
+    because re-typing the contract in the test is how a rename stays green here
+    and refuses on every real run."""
+    import json
+    from scripts._compare.report_cards import violacein as card
+    _write_real_sidecar_with_shape(tmp_path, "v2ecoli", "gdcw", 4, 8)
+    _write_real_sidecar_with_shape(tmp_path, "vecoli", "gdcw", 4, 8)
+
+    doc = json.loads((tmp_path / "v2ecoli_exchange_flux.json").read_text())
+    assert doc.get("seeds") == 4 and doc.get("generations") == 8, (
+        f"the writer did not record the run shape: {doc}")
+    basis, why = card._basis_from_runs({"v2_dir": str(tmp_path), "ve_dir": str(tmp_path)})
+    assert (basis, why) == ("gdcw", ""), (basis, why)
+
+
+def test_two_arms_with_different_run_shapes_are_refused_as_stale(tmp_path):
+    """⚠ The guard the fields exist for. Both arms write into ONE out_root and
+    nothing cleans it, so re-running one arm leaves the other's sidecar and
+    stores in place. Two sidecars agreeing on 'gdcw' would otherwise pass the
+    agreement check while describing different invocations."""
+    from scripts._compare.report_cards import violacein as card
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(), ve.mkdir()
+    _write_real_sidecar_with_shape(v2, "v2ecoli", "gdcw", seeds=4, generations=8)
+    _write_real_sidecar_with_shape(ve, "vecoli", "gdcw", seeds=1, generations=1)
+
+    basis, why = card._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    assert basis is None, "a stale arm was accepted as a matching run"
+    assert "stale" in why and "seeds=4" in why and "seeds=1" in why, why
+
+
+def test_matching_run_shapes_are_not_refused(tmp_path):
+    """So the test above cannot pass by refusing everything."""
+    from scripts._compare.report_cards import violacein as card
+    v2, ve = tmp_path / "v2b", tmp_path / "veb"
+    v2.mkdir(), ve.mkdir()
+    _write_real_sidecar_with_shape(v2, "v2ecoli", "gdcw", seeds=4, generations=8)
+    _write_real_sidecar_with_shape(ve, "vecoli", "gdcw", seeds=4, generations=8)
+    assert card._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)}) == ("gdcw", "")

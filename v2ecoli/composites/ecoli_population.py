@@ -41,6 +41,24 @@ from v2ecoli.steps.population_aggregator import (
 # Step name used in the top-level state document and in flow_order.
 POPULATION_AGGREGATOR_STEP_NAME = "population_aggregator"
 
+# Metabolism process name in the cache configs (config_overrides target).
+_METABOLISM_PROC = "ecoli-metabolism"
+
+
+def _carbon_arrest_overrides(
+    enabled: bool, carbon_source_ids: list | None
+) -> dict | None:
+    """Metabolism ``config_overrides`` that enable the #572 substrate-exhaustion
+    arrest, or ``None`` when disabled. Glucose is the default carbon source (M9);
+    pass ``carbon_source_ids`` for other media. See
+    ``v2ecoli.processes.metabolism`` (``carbon_exhaustion_arrest``)."""
+    if not enabled:
+        return None
+    return {
+        f"{_METABOLISM_PROC}.carbon_exhaustion_arrest": True,
+        f"{_METABOLISM_PROC}.carbon_source_ids": list(carbon_source_ids or ["GLC[p]"]),
+    }
+
 
 def _empty_population_store() -> dict[str, float]:
     """Zero-initialized population store (populated by the aggregator at run)."""
@@ -140,6 +158,11 @@ def add_population_aggregator(
         # doubling mode the multigen runner advances lineage.doublings so the
         # represented population grows 2x per generation (breaks the plateau).
         "population_growth_mode": {"type": "string", "default": DEFAULT_POPULATION_GROWTH_MODE},
+        # Opt into the #572 substrate-exhaustion growth arrest (default off ->
+        # metabolism unchanged). Needed for batch-to-exhaustion runs so the cell
+        # arrests instead of growing on phantom internal carbon once glucose is
+        # gone. carbon_source_ids defaults to ["GLC[p]"] (M9 glucose).
+        "carbon_exhaustion_arrest": {"type": "boolean", "default": False},
     },
 )
 def baseline_population(
@@ -151,14 +174,25 @@ def baseline_population(
     od_to_gdw: float = DEFAULT_OD_TO_GDW,
     reactor_volume_L: float = DEFAULT_REACTOR_VOLUME_L,
     population_growth_mode: str = DEFAULT_POPULATION_GROWTH_MODE,
+    carbon_exhaustion_arrest: bool = False,
+    carbon_source_ids: list | None = None,
 ) -> dict:
     """Build the baseline_population document.
 
     Returns a process-bigraph document dict with the same shape as
     ``v2ecoli.composites.ecoli_baseline.ecoli_baseline`` plus an added top-level
     ``population`` store and ``population_aggregator`` Step.
+
+    ``carbon_exhaustion_arrest`` (default False): opt into the substrate-exhaustion
+    growth arrest (#572). When True the cell stops building biomass once none of
+    ``carbon_source_ids`` (default ``["GLC[p]"]``) is importable — needed for
+    batch-to-exhaustion runs so the cell arrests instead of growing on phantom
+    internal carbon. Threaded onto the metabolism process via ``config_overrides``.
     """
-    document = _baseline_builder(core, seed=seed, cache_dir=cache_dir)
+    config_overrides = _carbon_arrest_overrides(
+        carbon_exhaustion_arrest, carbon_source_ids)
+    document = _baseline_builder(
+        core, seed=seed, cache_dir=cache_dir, config_overrides=config_overrides)
 
     # Add the top-level population store + aggregator Step (shared helper, also
     # used by the Millard cell base in reactor_bird_coupled_millard).

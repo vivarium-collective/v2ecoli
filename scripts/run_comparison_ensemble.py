@@ -588,9 +588,27 @@ def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
     return _overrides_from_resolved(resolve_vecoli_config(vecoli_config_path))
 
 
+def read_design_point(cache_dir: str) -> dict | None:
+    """What the v2ecoli cache says it encodes, read off disk.
+
+    ``build_variant_cache`` writes ``design_point.json`` beside the bundle. It is
+    absent from a cache built by any other route (``build_cache.py``, an upstream
+    fixture), and that absence is itself informative: the run used a cache whose
+    perturbation is unrecorded. Returns None rather than raising — provenance
+    that cannot be read must not stop a run, only be reported as missing.
+    """
+    from v2ecoli.perturbations.variant_cache import DESIGN_POINT_FILE
+    path = os.path.join(cache_dir, DESIGN_POINT_FILE)
+    try:
+        with open(path) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return None
+
+
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
-                 out_root: str, seed_start: int = 0,
+                 out_root: str, seed_start: int = 0, variant: int = 0,
                  vecoli_config: str | None = None,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
@@ -730,16 +748,22 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
-                variant=0, lineage_seed=seed, whole_config=ve_whole_config,
+                variant=variant, lineage_seed=seed, whole_config=ve_whole_config,
                 exchange_fluxes=exchange_fluxes, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
             if seed == seed_start and res.get("build_config"):
                 try:
+                    _bc = dict(res["build_config"])
+                    # Requested vs applied, kept separate on purpose. The engine
+                    # reports what it resolved; if the two ever disagree the
+                    # sidecar shows it instead of quietly recording the ask.
+                    _bc["variant"] = int(variant)
+                    _bc["variant_applied_by"] = "config_variants_grid"
+                    _bc.setdefault("variant_applied", res.get("variant_applied"))
                     _write_json_sidecar(
-                        f"{out_root.rstrip('/')}/vecoli_build_config.json",
-                        res["build_config"])
+                        f"{out_root.rstrip('/')}/vecoli_build_config.json", _bc)
                     print(f"[config] wrote vecoli_build_config.json "
                           f"({res['build_config'].get('n_processes')} processes) "
                           f"under {out_root}")
@@ -801,6 +825,16 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                                  "translated_from_vecoli": vecoli_config
                                  if translate_config else None,
                                  "translated": v2_translated})
+                    # The design point, and the distinction that makes it
+                    # trustworthy: ``variant`` is what the CALLER asked for and
+                    # is only a label on this arm, while ``design_point`` is
+                    # what the CACHE says it carries. They can disagree — a
+                    # caller can label a run --variant 3 against a baseline
+                    # cache — and a reader must be able to see that rather than
+                    # infer agreement from a single field.
+                    cfg["variant"] = int(variant)
+                    cfg["variant_applied_by"] = "cache_dir"
+                    cfg["design_point"] = read_design_point(cache_dir)
                     _write_json_sidecar(
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
                     print(f"[config] wrote v2ecoli_build_config.json "
@@ -828,7 +862,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             "experiment_id": f"cmp-{composite_kind}-{condition}-seed{seed:02d}",
             "engine": composite_kind,
             "condition": condition,
-            "variant": 0,
+            "variant": int(variant),
             "lineage_seed": seed,
             "time_step": 1.0,
             "max_duration": float(max_steps),
@@ -863,6 +897,14 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--composite", required=True, choices=["v2ecoli", "vecoli"])
     p.add_argument("--condition", default="basal")
+    p.add_argument("--variant", type=int, default=0,
+                   help="Design point to run: a 1-BASED index into the "
+                        "--from-vecoli-config 'variants' grid, 0 = unperturbed "
+                        "baseline (the fork's own convention; see "
+                        "_select_variant_params). ⚠ APPLIED on the vecoli arm "
+                        "only. On the v2ecoli arm the design point is carried by "
+                        "--cache-dir, so this is recorded as a label and the "
+                        "sidecar reports what the CACHE says it encodes.")
     p.add_argument("--cache-dir", default=str(REPO_ROOT / "out" / "cache"),
                    help="v2ecoli condition cache (v2ecoli engine only).")
     p.add_argument("--n-seeds", type=int, default=16)
@@ -980,7 +1022,8 @@ def main(argv=None):
         composite_kind=args.composite, condition=args.condition,
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
-        seed_start=args.seed_start, vecoli_config=args.vecoli_config,
+        seed_start=args.seed_start, variant=args.variant,
+        vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,

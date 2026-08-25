@@ -187,26 +187,163 @@ def test_both_spec_routes_resolve_the_basis_by_ONE_rule(tmp_path):
     assert exchange_flux_basis_from_study_yaml(y, fallback="counts") == "gdcw"
 
 
-def test_runner_emits_the_basis_flag_alongside_the_flux_map():
-    """Catches the study-level declaration never reaching either arm's CLI."""
-    import inspect
+def _spec(**kw):
+    """A minimal StudySpec for the runner tests below."""
+    from scripts._compare.study_spec import StudySpec
+    base = dict(name="s", condition="basal", seeds=1, gens=1, cards=[],
+                invest_name="i", v2_cache="v2c", ve_cache="vec",
+                study_path="workspace/studies/s/study.yaml", config="basal")
+    base.update(kw)
+    return StudySpec(**base)
+
+
+def _argvs_from_run_engines(monkeypatch, spec):
+    """Run the REAL _run_engines with subprocess.run captured. Returns the argv
+    of every engine invocation it made."""
     from scripts._compare import runner
-    src = inspect.getsource(runner)
-    assert "--exchange-flux-basis" in src, (
-        "the runner must pass the basis to run_comparison_ensemble; without it "
-        "a study declaring gdcw silently gets counts on both arms")
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run",
+                        lambda argv, **kw: calls.append(list(argv)))
+    runner._run_engines(spec, out="out/x", mode="serial")
+    return calls
 
 
-def test_study_yaml_declaration_survives_the_investigation_route(tmp_path):
-    """A study.yaml declaring the basis must win on BOTH spec routes. The
-    investigation route builds from configs[] entries, which carry no study.yaml
-    keys — so a declaration in the file the investigation NAMES would otherwise
-    be silently ignored. The previous version of this test only inspected the
-    dataclass field, so deleting both parse hunks left it green."""
-    from scripts._compare.study_spec import exchange_flux_basis_from_study_yaml
-    y = tmp_path / "study.yaml"
-    y.write_text("comparison:\n  exchange_flux_basis: gdcw\n", encoding="utf-8")
-    assert exchange_flux_basis_from_study_yaml(y, fallback="counts") == "gdcw"
+def _flag_value(argv, flag):
+    return argv[argv.index(flag) + 1] if flag in argv else None
+
+
+def test_runner_puts_the_basis_on_BOTH_engine_command_lines(monkeypatch):
+    """Replaces a source-substring test that only proved the STRING
+    "--exchange-flux-basis" appeared somewhere in runner.py — which stays true
+    if the flag is hardcoded to "counts", appended to only one of the two
+    subprocess calls, or built from a field that no longer exists.
+
+    This runs the real _run_engines with subprocess.run captured and reads the
+    value off each argv. Two arms carrying different quantities under one leaf
+    name is the failure the whole basis surface exists to prevent, so ONE arm is
+    not enough."""
+    calls = _argvs_from_run_engines(
+        monkeypatch, _spec(exchange_fluxes={"product_exchange": "X[c]"},
+                           exchange_flux_basis="gdcw"))
+    assert len(calls) == 2, "expected one invocation per engine"
+    for argv in calls:
+        assert _flag_value(argv, "--exchange-flux-basis") == "gdcw", argv
+        # and it must ride WITH the map, not instead of it
+        assert "--exchange-flux" in argv, argv
+
+
+def test_runner_carries_counts_too_so_the_flag_cannot_be_hardcoded(monkeypatch):
+    """The other value, so the test above cannot pass against a literal."""
+    calls = _argvs_from_run_engines(
+        monkeypatch, _spec(exchange_fluxes={"product_exchange": "X[c]"},
+                           exchange_flux_basis="counts"))
+    assert [_flag_value(a, "--exchange-flux-basis") for a in calls] == \
+        ["counts", "counts"]
+
+
+def test_runner_emits_no_basis_flag_when_no_fluxes_are_declared(monkeypatch):
+    """A study declaring no exchange fluxes must be unchanged: the basis is
+    meaningless without the map, and an unconditional flag would make every
+    baseline study's command line differ from what it ran before."""
+    calls = _argvs_from_run_engines(monkeypatch, _spec())
+    for argv in calls:
+        assert "--exchange-flux-basis" not in argv
+        assert "--exchange-flux" not in argv
+
+
+def _fake_workspace(tmp_path, study_yaml_text, name="s"):
+    """Lay out workspace/{investigations/i,studies/<name>} the way
+    studies_root_for() resolves it (inv_dir.parent.parent / "studies")."""
+    inv = tmp_path / "workspace" / "investigations" / "i"
+    inv.mkdir(parents=True)
+    study_dir = tmp_path / "workspace" / "studies" / name
+    study_dir.mkdir(parents=True)
+    (study_dir / "study.yaml").write_text(study_yaml_text, encoding="utf-8")
+    return inv, study_dir / "study.yaml"
+
+
+def _ctx(inv_dir, **kw):
+    from scripts._compare.reference import ReferenceEngine
+    ctx = {"invest_name": "i", "v2_cache": "a", "ve_cache": "b",
+           "reference": ReferenceEngine.from_spec({}), "configs": [],
+           "defaults": {}, "default_cards": [], "inv_dir": inv_dir}
+    ctx.update(kw)
+    return ctx
+
+
+def test_investigation_route_lands_the_basis_ON_THE_SPEC(tmp_path):
+    """Replaces a test that called the helper directly and therefore proved
+    nothing about the route: deleting the `exchange_flux_basis=` argument from
+    the StudySpec built in specs_from_configs left it green, and the spec is
+    what the runner reads.
+
+    This builds the spec through the real specs_from_configs and asserts on the
+    FIELD. configs[] entries carry no study.yaml keys, so a declaration in the
+    file the investigation NAMES reaches the spec only via the bridge."""
+    from scripts._compare.study_spec import specs_from_configs
+    inv, _ = _fake_workspace(
+        tmp_path, "comparison:\n  exchange_flux_basis: gdcw\n")
+    ctx = _ctx(inv, configs=[{"name": "s", "condition": "basal"}])
+    spec, = specs_from_configs(ctx)
+    assert spec.exchange_flux_basis == "gdcw"
+
+
+def test_investigation_route_default_is_counts_not_a_stale_value(tmp_path):
+    """The other side, so the test above cannot pass by the field defaulting to
+    'gdcw' or by the bridge ignoring the file entirely."""
+    from scripts._compare.study_spec import specs_from_configs
+    inv, _ = _fake_workspace(tmp_path, "comparison:\n  seeds: 1\n")
+    ctx = _ctx(inv, configs=[{"name": "s", "condition": "basal"}])
+    spec, = specs_from_configs(ctx)
+    assert spec.exchange_flux_basis == "counts"
+
+
+def test_investigation_defaults_reach_the_spec_when_the_study_is_silent(tmp_path):
+    """An investigation-level declaration must survive the bridge: the helper
+    receives it as the fallback, and a bridge that passed its own literal
+    default instead would silently drop it."""
+    from scripts._compare.study_spec import specs_from_configs
+    inv, _ = _fake_workspace(tmp_path, "comparison:\n  seeds: 1\n")
+    ctx = _ctx(inv, configs=[{"name": "s", "condition": "basal"}],
+               defaults={"exchange_flux_basis": "gdcw"})
+    spec, = specs_from_configs(ctx)
+    assert spec.exchange_flux_basis == "gdcw"
+
+
+def test_study_route_lands_the_basis_ON_THE_SPEC(tmp_path):
+    """The other first-class route. _spec_from_study builds the spec the runner
+    reads; a missing `exchange_flux_basis=` there silently runs every study on
+    counts while its YAML says otherwise."""
+    from scripts._compare.study_spec import _spec_from_study
+    inv, study = _fake_workspace(
+        tmp_path,
+        "name: s\ncondition: basal\ncomparison:\n  exchange_flux_basis: gdcw\n")
+    spec = _spec_from_study(study, _ctx(inv))
+    assert spec.exchange_flux_basis == "gdcw"
+
+
+def test_study_route_default_is_counts(tmp_path):
+    from scripts._compare.study_spec import _spec_from_study
+    inv, study = _fake_workspace(
+        tmp_path, "name: s\ncondition: basal\ncomparison:\n  seeds: 1\n")
+    assert _spec_from_study(study, _ctx(inv)).exchange_flux_basis == "counts"
+
+
+def test_the_two_spec_routes_agree_on_one_file(tmp_path):
+    """The bug that shipped: one study.yaml, two routes, two answers. Asserted
+    on the SPECS the two routes produce, not on the shared helper — a helper
+    both routes agree about proves nothing if one route stops calling it."""
+    from scripts._compare.study_spec import _spec_from_study, specs_from_configs
+    text = ("name: s\ncondition: basal\n"
+            "exchange_flux_basis: gdcw\n"          # stray TOP-LEVEL key
+            "comparison:\n  exchange_flux_basis: counts\n")
+    inv, study = _fake_workspace(tmp_path, text)
+    ctx = _ctx(inv, configs=[{"name": "s", "condition": "basal"}])
+    from_configs, = specs_from_configs(ctx)
+    from_study = _spec_from_study(study, ctx)
+    assert from_configs.exchange_flux_basis == from_study.exchange_flux_basis
+    # and `comparison:` is the rule both follow — top level must NOT win
+    assert from_study.exchange_flux_basis == "counts"
 
 
 def test_investigation_fallback_applies_when_the_study_is_silent(tmp_path):
@@ -239,3 +376,412 @@ def test_gdcw_deriver_tolerates_pint_quantities_for_mass_and_timestep():
     assert _as_float_fg(2.0) == 2.0          # plain floats still work
     assert _as_float_fg(None) == 0.0         # absent -> no rate, not a crash
     assert _as_float_fg("not a number") == 0.0
+
+
+# --- the on-disk sidecar contract: the REAL writer against the REAL reader ---
+#
+# The filename, the JSON key and the two arm prefixes are a CONTRACT between
+# `run_comparison_ensemble._write_exchange_flux_sidecar` and the violacein
+# card's `_basis_from_runs`. Re-typing either side by hand in a test helper is
+# how a rename stays green here and breaks every real run, so these tests call
+# both production functions and never spell the filename or the key themselves.
+
+def _write_real_sidecar(out_root, prefix, basis, leaves=None):
+    """The PRODUCTION writer. Deliberately not a hand-rolled json.dump."""
+    from scripts.run_comparison_ensemble import _write_exchange_flux_sidecar
+    if leaves is None:
+        leaves = {"product_exchange": "X[c]"}
+    _write_exchange_flux_sidecar(str(out_root), prefix, dict(leaves), basis)
+
+
+def test_the_sidecar_round_trips_from_the_real_writer_to_the_real_reader(tmp_path):
+    """GAP: nothing executed writer and reader together. Renaming the file or
+    the ``basis`` key in the writer left every card test green (they re-typed
+    both) while every real run lost its basis and the card refused to grade.
+
+    Both arms write into ONE out_root, exactly as a real run does, so the arm
+    PREFIXES are part of what round-trips."""
+    from scripts._compare.report_cards import violacein as vio
+    _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
+    _write_real_sidecar(tmp_path, "vecoli", "gdcw")
+    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                       "ve_dir": str(tmp_path)})
+    assert (basis, why) == ("gdcw", "")
+
+
+def test_the_round_trip_keeps_the_two_arms_apart_in_one_out_root(tmp_path):
+    """The arm prefixes are load-bearing: both engines share one out_root, so a
+    writer that dropped the prefix (or a reader that looked for the wrong one)
+    would let ONE arm's basis answer for both — which is precisely the
+    two-arms-disagree failure the sidecar exists to expose."""
+    from scripts._compare.report_cards import violacein as vio
+    _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
+    _write_real_sidecar(tmp_path, "vecoli", "counts")
+    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                       "ve_dir": str(tmp_path)})
+    assert basis is None
+    assert "'gdcw'" in why and "'counts'" in why, why
+
+
+def test_the_round_trip_carries_counts_too(tmp_path):
+    """So the test above cannot pass by the reader hardcoding 'gdcw'."""
+    from scripts._compare.report_cards import violacein as vio
+    _write_real_sidecar(tmp_path, "v2ecoli", "counts")
+    _write_real_sidecar(tmp_path, "vecoli", "counts")
+    assert vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                 "ve_dir": str(tmp_path)}) == ("counts", "")
+
+
+def test_a_run_that_declared_no_fluxes_writes_no_sidecar_and_is_refused(tmp_path):
+    """The writer short-circuits on an empty flux map. That is intended (nothing
+    to describe), and the reader must treat the absent file as a REFUSAL rather
+    than guessing — a run predating the sidecar looks identical."""
+    from scripts._compare.report_cards import violacein as vio
+    _write_real_sidecar(tmp_path, "v2ecoli", "gdcw", leaves={})
+    _write_real_sidecar(tmp_path, "vecoli", "gdcw", leaves={})
+    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                       "ve_dir": str(tmp_path)})
+    assert basis is None and "sidecar" in why
+
+
+# --- the ensemble driver: CLI -> run_one -> composite build ------------------
+#
+# Every hop below is a place the basis is handed from one layer to the next.
+# They are tested by EXECUTING the caller with the callee captured, so severing
+# the hop (dropping the keyword, renaming it, hardcoding a literal) reds them —
+# which asserting on the callee's signature or on module source would not.
+
+class _Stop(Exception):
+    """Sentinel: stop the caller the moment the hop under test has been made,
+    so no test ever needs a ParCa cache or a simulation."""
+
+
+def test_the_CLI_hands_the_parsed_basis_to_make_run_one(monkeypatch, tmp_path):
+    """Hop: main() -> make_run_one(exchange_flux_basis=...). The runner's flag
+    reaches the process, argparse parses it, and then it has to be forwarded —
+    a dropped keyword here means every arm of every study runs on counts while
+    both YAML and command line say gdcw."""
+    import scripts.run_comparison_ensemble as rce
+    import v2ecoli.library.parallel_seeds as ps
+    seen = {}
+
+    def _fake_make_run_one(**kw):
+        seen.update(kw)
+        return lambda seed: {"seed": seed}
+
+    monkeypatch.setattr(rce, "make_run_one", _fake_make_run_one)
+    monkeypatch.setattr(ps, "run_seeds_parallel",
+                        lambda seeds, run_one, **kw: [])
+    rce.main(["--composite", "v2ecoli", "--condition", "basal",
+              "--cache-dir", str(tmp_path), "--n-seeds", "1",
+              "--out-root", str(tmp_path), "--mode", "serial",
+              "--exchange-flux", "product_exchange=X[c]",
+              "--exchange-flux-basis", "gdcw"])
+    assert seen["exchange_flux_basis"] == "gdcw"
+    # the map has to arrive too — the basis is meaningless without it
+    assert seen["exchange_fluxes"] == {"product_exchange": "X[c]"}
+
+
+def test_the_CLI_defaults_the_basis_to_counts(monkeypatch, tmp_path):
+    """So the test above cannot pass against a hardcoded 'gdcw'."""
+    import scripts.run_comparison_ensemble as rce
+    import v2ecoli.library.parallel_seeds as ps
+    seen = {}
+    monkeypatch.setattr(rce, "make_run_one",
+                        lambda **kw: (seen.update(kw), (lambda s: {}))[1])
+    monkeypatch.setattr(ps, "run_seeds_parallel",
+                        lambda seeds, run_one, **kw: [])
+    rce.main(["--composite", "v2ecoli", "--condition", "basal",
+              "--cache-dir", str(tmp_path), "--n-seeds", "1",
+              "--out-root", str(tmp_path), "--mode", "serial"])
+    assert seen["exchange_flux_basis"] == "counts"
+
+
+def _run_one(monkeypatch, out_root, **kw):
+    import scripts.run_comparison_ensemble as rce
+    base = dict(composite_kind="v2ecoli", condition="basal", cache_dir="c",
+                max_generations=1, max_steps=1, chunk=1, out_root=str(out_root))
+    base.update(kw)
+    return rce.make_run_one(**base)
+
+
+def test_run_one_builds_the_CANDIDATE_with_the_declared_basis(monkeypatch, tmp_path):
+    """Hop: make_run_one's closure -> _build_v2ecoli(exchange_flux_basis=...).
+    Captured at the call, not at the signature: a caller that stopped passing
+    the keyword would still satisfy any signature check while every candidate
+    run silently reverted to counts."""
+    import scripts.run_comparison_ensemble as rce
+    seen = {}
+
+    def _fake_build(seed, condition, cache_dir, overrides=None,
+                    exchange_fluxes=None, exchange_flux_basis=None):
+        seen.update(basis=exchange_flux_basis, fluxes=exchange_fluxes)
+        raise _Stop()
+
+    monkeypatch.setattr(rce, "_build_v2ecoli", _fake_build)
+    run_one = _run_one(monkeypatch, tmp_path,
+                       exchange_fluxes={"product_exchange": "X[c]"},
+                       exchange_flux_basis="gdcw")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert seen == {"basis": "gdcw", "fluxes": {"product_exchange": "X[c]"}}
+
+
+def test_run_one_runs_the_REFERENCE_engine_on_the_declared_basis_and_records_it(
+        monkeypatch, tmp_path):
+    """Two hops on the reference arm in one execution, because they must agree:
+    the basis reaches the wrapped-vEcoli engine, AND the sidecar written beside
+    that run records the same value. A sidecar written from a different source
+    than the engine ran on is exactly the disagreement this design removed.
+
+    The assertion goes through the card's REAL reader, so the file name and key
+    are not re-typed here."""
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    from scripts._compare.report_cards import violacein as vio
+    seen = {}
+
+    def _fake_engine(**kw):
+        seen.update(kw)
+        return {"generations": 1, "build_config": None}
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake_engine)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli",
+                       exchange_fluxes={"product_exchange": "X[c]"},
+                       exchange_flux_basis="gdcw")
+    run_one(0)
+    assert seen["exchange_flux_basis"] == "gdcw"
+    # ...and the run said so on disk, in the file the card reads. The candidate
+    # arm's sidecar stands in (written by the same production writer) so the
+    # reader has the pair it requires; the reference half is the one under test.
+    _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
+    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                       "ve_dir": str(tmp_path)})
+    assert (basis, why) == ("gdcw", ""), why
+
+
+def test_run_one_records_the_CANDIDATE_arm_basis_beside_its_stores(
+        monkeypatch, tmp_path):
+    """The same contract on the other arm: the v2ecoli sidecar is written from
+    inside run_one, in the same best-effort try/except as the build-config
+    sidecar — so a failure there is PRINTED AND SWALLOWED, and the only visible
+    symptom is a card that refuses every axis on an otherwise healthy run.
+
+    Nothing executed that block before, which is why a broken call there could
+    survive review."""
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import xarray_run
+    from scripts._compare.report_cards import violacein as vio
+
+    monkeypatch.setattr(rce, "_build_v2ecoli",
+                        lambda *a, **k: SimpleNamespace(state={}))
+    monkeypatch.setattr(rce, "extract_v2_build_config",
+                        lambda *a, **k: {"n_processes": 0})
+    monkeypatch.setattr(xarray_run, "run_multigen_xarray",
+                        lambda *a, **kw: {"steps": 1, "generations": [1]})
+    run_one = _run_one(monkeypatch, tmp_path,
+                       exchange_fluxes={"product_exchange": "X[c]"},
+                       exchange_flux_basis="gdcw")
+    run_one(0)
+    _write_real_sidecar(tmp_path, "vecoli", "gdcw")     # the other arm stands in
+    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+                                       "ve_dir": str(tmp_path)})
+    assert (basis, why) == ("gdcw", ""), why
+
+
+def test_build_v2ecoli_hands_the_basis_to_build_composite(monkeypatch):
+    """Hop: _build_v2ecoli -> build_composite("ecoli_baseline",
+    exchange_flux_basis=...). The last hop before the composite generator; a
+    drop here is invisible because the leaves are still emitted, just carrying
+    the other quantity."""
+    import v2ecoli
+    from scripts.run_comparison_ensemble import _build_v2ecoli
+    seen = {}
+
+    def _fake_build_composite(name, **kwargs):
+        seen["name"] = name
+        seen.update(kwargs)
+        return object()          # no .state -> the media assertion is skipped
+
+    monkeypatch.setattr(v2ecoli, "build_composite", _fake_build_composite)
+    # condition="" short-circuits the per-condition ParCa regen, so this needs
+    # no cache on disk.
+    _build_v2ecoli(0, "", "out/cache",
+                   exchange_fluxes={"product_exchange": "X[c]"},
+                   exchange_flux_basis="gdcw")
+    assert seen["name"] == "ecoli_baseline"
+    assert seen["exchange_flux_basis"] == "gdcw"
+    assert seen["exchange_fluxes"] == {"product_exchange": "X[c]"}
+
+
+def test_build_v2ecoli_declares_no_basis_when_no_fluxes_are_declared(monkeypatch):
+    """An undeclared study must build the composite exactly as before — no new
+    keyword — so enabling this feature cannot change a baseline run."""
+    import v2ecoli
+    from scripts.run_comparison_ensemble import _build_v2ecoli
+    seen = {}
+    monkeypatch.setattr(v2ecoli, "build_composite",
+                        lambda name, **kw: (seen.update(kw), object())[1])
+    _build_v2ecoli(0, "", "out/cache")
+    assert "exchange_flux_basis" not in seen and "exchange_fluxes" not in seen
+
+
+# --- the composite: baseline() -> the module-level override -----------------
+
+def _stub_bundle():
+    """The smallest bundle baseline() will accept. Passing `bundle=` skips
+    load_cache_bundle entirely, so this needs no ParCa cache (and cannot be
+    invalidated by one going stale)."""
+    return {"initial_state": {"environment": {"media_id": "minimal"}},
+            "configs": {}, "unique_names": [], "dry_mass_inc_dict": {}}
+
+
+def _baseline_basis_override(monkeypatch, **kw):
+    """Run the REAL baseline() with its step-building loop stubbed out, and
+    return every value it pushed through set_exchange_flux_basis_override."""
+    from v2ecoli.composites import ecoli_baseline as eb
+    seen = []
+    monkeypatch.setattr(eb, "set_exchange_flux_basis_override", seen.append)
+    monkeypatch.setattr(eb, "_get_step_config", lambda *a, **k: None)
+    eb.baseline(bundle=_stub_bundle(), emitter="null", **kw)
+    return seen
+
+
+def test_baseline_pushes_the_declared_basis_onto_the_build_override(monkeypatch):
+    """⚠ THE HIGHEST-VALUE HOP. baseline() threads the basis to the deriver
+    through a module-level override; deleting that ONE line reverts the whole
+    feature to counts with no error, no warning and no missing leaf — the run
+    completes and every number is a different quantity than the card believes.
+
+    Executes the real baseline() (with a synthetic bundle and the step loop
+    stubbed, so it takes ~1s and needs no cache) and reads the value the
+    override actually received."""
+    seen = _baseline_basis_override(
+        monkeypatch, exchange_fluxes={"product_exchange": "X[c]"},
+        exchange_flux_basis="gdcw")
+    assert seen and seen[0] == "gdcw", (
+        "baseline() did not push the declared basis onto the exchange-flux "
+        "override, so the deriver is built on the default")
+
+
+def test_baseline_restores_the_override_so_it_cannot_leak_to_a_later_build(monkeypatch):
+    """The other half of the same line's contract: the override is process-wide,
+    so a build that left 'gdcw' set would silently re-base the NEXT composite
+    built in the same process (a sweep, a daughter, a test)."""
+    seen = _baseline_basis_override(
+        monkeypatch, exchange_fluxes={"product_exchange": "X[c]"},
+        exchange_flux_basis="gdcw")
+    assert seen[-1] is None, f"override not restored: {seen}"
+
+
+def test_baseline_resolves_an_undeclared_basis_to_counts(monkeypatch):
+    """So the test above cannot pass against a hardcoded literal, and an
+    undeclared build is pinned to the unchanged behaviour."""
+    seen = _baseline_basis_override(monkeypatch)
+    assert seen and seen[0] == "counts"
+
+
+# --- surviving division: the composite -> Division -> the daughter ----------
+
+class _DivisionLoader(_StubLoader):
+    """The attributes _get_special_step's 'division' branch reads, on top of the
+    unique-molecule names it reads for every step."""
+
+    def __init__(self):
+        super().__init__()
+        self.sim_data.expectedDryMassIncreaseDict = {}
+        self.unique_names = []
+        self.cache_dir = "out/cache"
+
+    def get_config_by_name(self, name):
+        return {}
+
+
+def _division_step(fluxes, basis):
+    from v2ecoli.composites import _helpers
+    from v2ecoli.core import build_core
+    core = build_core()
+    _helpers.set_exchange_fluxes_override(fluxes)
+    _helpers.set_exchange_flux_basis_override(basis)
+    try:
+        instance, _topo, _kind = _helpers._get_special_step(
+            _DivisionLoader(), "division", core)
+    finally:
+        _helpers.set_exchange_fluxes_override({})
+        _helpers.set_exchange_flux_basis_override(None)
+    return instance
+
+
+def test_the_division_step_is_built_carrying_the_basis(monkeypatch):
+    """Two hops, executed together because neither is worth anything alone:
+    _helpers' division branch must put the basis in div_config, and
+    Division.initialize must lift it off self.parameters. Read off the built
+    INSTANCE, so setting the key under a different name, or holding it in
+    parameters without lifting it, both red."""
+    step = _division_step({"product_exchange": "X[c]"}, "gdcw")
+    assert getattr(step, "_exchange_flux_basis", None) == "gdcw"
+
+
+def test_the_division_step_carries_counts_too(monkeypatch):
+    """Not a hardcoded 'gdcw' — and 'counts' is the value a daughter reverts to
+    when the hop is severed, so it must be carried explicitly rather than
+    arrived at by accident."""
+    step = _division_step({"product_exchange": "X[c]"}, "counts")
+    assert getattr(step, "_exchange_flux_basis", None) == "counts"
+
+
+def test_no_declared_fluxes_leaves_the_division_step_untouched(monkeypatch):
+    """A baseline study's division step must be built exactly as before."""
+    step = _division_step({}, "gdcw")
+    assert getattr(step, "_exchange_flux_basis", None) is None
+
+
+def test_a_dividing_cell_rebuilds_BOTH_daughters_on_the_declared_basis(monkeypatch):
+    """The regression that shipped for the sibling field, pinned by EXECUTION:
+    drive the real Division.next_update through a real division event with
+    baseline() captured, and read the basis off both daughter rebuild calls.
+
+    A daughter rebuilt without it reverts to counts and emits a lineage-
+    cumulative running total under a leaf the card reads as mmol/gDCW/h — while
+    dry mass, growth and division all look normal. Generation 1 carries the
+    declared quantity and every later generation carries the other one.
+
+    The sibling test for `exchange_fluxes` checks this against module SOURCE
+    TEXT; this runs the code instead, so a rebuild that passes the wrong
+    variable, or passes it only to one of the two daughters, is caught too."""
+    import numpy as np
+    from v2ecoli.steps import division as division_mod
+    from v2ecoli.composites import ecoli_baseline as eb
+    from v2ecoli.library import division as division_lib
+
+    step = object.__new__(division_mod.Division)
+    step.core = None
+    division_mod.Division.initialize(step, {
+        "exchange_fluxes": {"product_exchange": "X[c]"},
+        "exchange_flux_basis": "gdcw",
+    })
+
+    bulk = np.zeros(1, dtype=[("count", "i8")])
+    daughter_state = {"bulk": bulk, "unique": {}, "environment": {},
+                      "boundary": {}}
+    monkeypatch.setattr(division_lib, "divide_cell",
+                        lambda cell: (dict(daughter_state), dict(daughter_state)))
+
+    rebuilds = []
+    monkeypatch.setattr(eb, "baseline", lambda **kw: (
+        rebuilds.append(kw),
+        {"state": {"agents": {"0": {"listeners": {}}}}})[1])
+    monkeypatch.setattr(eb, "seed_mass_listener", lambda *a, **k: None)
+
+    chromosomes = np.zeros(2, dtype=[("_entryState", "i8")])
+    chromosomes["_entryState"] = 1
+    update = step.next_update(1.0, {
+        "bulk": bulk, "unique": {"full_chromosome": chromosomes},
+        "listeners": {"mass": {"dry_mass": 500.0}}, "environment": {},
+        "boundary": {}, "global_time": 100.0, "divide": True})
+
+    assert len(update["agents"]["_add"]) == 2, "no division happened"
+    assert len(rebuilds) == 2, "both daughters must be rebuilt"
+    assert [r.get("exchange_flux_basis") for r in rebuilds] == ["gdcw", "gdcw"]
+    # the map has to travel with it, or the daughter declares no leaves at all
+    assert [r.get("exchange_fluxes") for r in rebuilds] == \
+        [{"product_exchange": "X[c]"}] * 2

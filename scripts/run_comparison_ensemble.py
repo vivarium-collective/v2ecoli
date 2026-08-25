@@ -442,7 +442,8 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
 
 
 def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
-                                 basis: str) -> None:
+                                 basis: str, *, seeds=None,
+                                 generations=None) -> None:
     """Record, NEXT TO THE RUN, which quantity that run's exchange leaves carry.
 
     ⚠ This exists so a consumer never has to RE-DERIVE the basis from the study
@@ -458,12 +459,24 @@ def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
 
     Named ``{prefix}_exchange_flux.json`` to match the ``{prefix}_seed*.zarr`` and
     ``{prefix}_build_config.json`` already written here, so both arms can share one
-    out_root without ambiguity."""
+    out_root without ambiguity.
+    ⚠ The basis alone is NOT enough to tie this file to the data beside it. Both
+    arms write into ONE out_root and nothing cleans it, so a re-run of one arm
+    leaves the other arm's sidecar and stores in place. Two sidecars agreeing on
+    "gdcw" would then pass an agreement check while describing runs from different
+    invocations. The run shape is recorded alongside so that mismatch is
+    detectable: two arms of one study share seeds and generations by construction,
+    so a disagreement means one of them is stale.
+    """
     if not fluxes:
         return
+    import time
     _write_json_sidecar(
         f"{out_root.rstrip('/')}/{prefix}_exchange_flux.json",
-        {"basis": str(basis or "counts"), "leaves": dict(fluxes)})
+        {"basis": str(basis or "counts"), "leaves": dict(fluxes),
+         "seeds": (int(seeds) if seeds is not None else None),
+         "generations": (int(generations) if generations is not None else None),
+         "written_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
 
 
 def _write_json_sidecar(path: str, obj: dict) -> None:
@@ -617,7 +630,7 @@ def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
 
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
-                 out_root: str, seed_start: int = 0,
+                 out_root: str, seed_start: int = 0, n_seeds: int = 1,
                  vecoli_config: str | None = None,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
@@ -764,8 +777,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 observable_bulk_ids=observable_bulk_ids)
             if seed == seed_start:
                 try:
-                    _write_exchange_flux_sidecar(out_root, "vecoli",
-                                                 exchange_fluxes, exchange_flux_basis)
+                    _write_exchange_flux_sidecar(
+                        out_root, "vecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds, generations=max_generations)
                 except Exception as e:  # noqa: BLE001 — never block a completed run
                     print(f"[warn] vecoli exchange-flux sidecar failed: "
                           f"{type(e).__name__} {e}")
@@ -840,8 +854,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                                  "translated": v2_translated})
                     _write_json_sidecar(
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
-                    _write_exchange_flux_sidecar(out_root, "v2ecoli",
-                                                 exchange_fluxes, exchange_flux_basis)
+                    _write_exchange_flux_sidecar(
+                        out_root, "v2ecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds, generations=max_generations)
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001
@@ -1032,7 +1047,8 @@ def main(argv=None):
         composite_kind=args.composite, condition=args.condition,
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
-        seed_start=args.seed_start, vecoli_config=args.vecoli_config,
+        seed_start=args.seed_start, n_seeds=args.n_seeds,
+        vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,

@@ -8,24 +8,49 @@ yield, and the acceptance bands are all violacein-specific knowledge, so the
 card that reads them belongs here, in the sms-ecoli comparison harness, beside
 the other `scripts/_compare/report_cards/` cards.
 
-DATA SOURCE — reads the violacein EXCHANGE leaf, not a listener leaf. On the
-injection path, dict-valued listener leaves (``listeners.fba_results.*``)
-silently drop their updates (v2ecoli#547), but the ``environment.exchange``
-store populates correctly. So this card reads the exchange flux, which sidesteps
-#547: it produces a real readout the moment the exchange leaf is emitted into
-the matched zarr, with no engine fix required. Emission of that leaf is a
+DATA SOURCE — reads the derived exchange-flux leaf from the matched zarr.
+⚠ The claim that this "sidesteps v2ecoli#547 by never touching a listener leaf"
+no longer holds on both arms: on the `gdcw` basis the CANDIDATE arm still derives
+its leaf from `environment.exchange`, but the REFERENCE arm reads
+`listeners.fba_results.external_exchange_fluxes` — the wrapped metabolism's own
+per-tick rate, and the leaf genuine vEcoli's own analyses read. #547 concerns
+dict leaves dropped on the INJECTION path, which the reference arm does not use,
+so that arm is unaffected — but the card is no longer listener-free by design. Emission of that leaf is a
 separate (harness/emit-config) concern; until it lands the card degrades to an
 ungraded status that names the exact leaf it looked for, making the gap visible
 rather than silently green.
 
-GRADING — candidate (v2ecoli) vs reference (vEcoli), both pbg engines emitting
-the SAME zarr format in the SAME units, so the graded quantity is the RELATIVE
-delta candidate/reference. That is unit-robust: it is correct whatever native
-unit the exchange leaf carries, because both arms are divided through the same
-conversion. Absolute values are shown in mmol/gDW/h for the reader, under a
-documented dry-mass normalization; the grade never depends on that conversion.
+⛔ CORRECTED — the paragraph that stood here claimed the relative delta is
+"unit-robust: correct whatever native unit the exchange leaf carries, because
+both arms are divided through the same conversion". That is the belief this card
+was rebuilt to refute. Both arms being equally wrong does NOT make the ratio
+meaningful: on the `counts` basis each leaf is a LINEAGE-CUMULATIVE molecule
+total whose mean grows with how long the lineage ran, so a ratio of two such
+means is not a ratio of rates, and it grades inside a 3% band while measuring
+something that is not a flux. A relative delta is robust to a shared unit; it is
+not robust to a shared WRONG QUANTITY.
+
+⇒ The axes are therefore computed only from the `gdcw` basis and refused on
+`counts`, and the basis is read off the RUNS (`{prefix}_exchange_flux.json`
+beside the stores) rather than re-derived from the study config — two readers of
+one setting disagreed once and graded a cumulative total as a rate.
+
+⚠ There is no dry-mass normalization any more. On `gdcw` the leaf is already
+mmol/gDCW/h, so the specific rate IS its mean; normalising again divided by dry
+mass twice. `dry_mass` is still collected and passed to keep the call signature
+stable, and is deliberately unused by `_specific_rate`.
+
 Bands are study #86's (within_tol < 3%, drift 3–10%, mismatch > 10%) — tighter
 than the harness 5%/10% default because both arms implement the SAME model.
+⚠ Those bands live in this module's DEFAULTS; the study YAML's `bands:` are not
+read here, so editing them there changes nothing.
+
+⚠ GATE NOTE: a refused axis is `ungraded`, which the shared severity model scores
+0 — i.e. no worse than a pass — so refusing RELAXES a gate that could previously
+fail. That aggregation semantic is `_SEVERITY`/`worst()` in
+`scripts/_compare/verdict.py`, mirroring pbg_v2ecoli's evaluator, and is not this
+card's to change. The refusal is surfaced on the axis (`unresolved_reason`) and
+in the card body so it is at least visible to a reader.
 
 Reads the zarr stores off state["v2_dir"]/state["ve_dir"] via the harness's
 existing ``read_pbg_local`` — same source as the metabolism/trajectory cards.
@@ -92,7 +117,7 @@ def _basis_from_runs(state: dict) -> tuple[str | None, str]:
     those are refusals, because a number whose quantity is unknown is worse than
     no number.
     """
-    found = {}
+    found, shape = {}, {}
     for key, prefix in (("v2_dir", "v2ecoli"), ("ve_dir", "vecoli")):
         d = state.get(key)
         path = os.path.join(d or "", f"{prefix}_exchange_flux.json")
@@ -100,13 +125,33 @@ def _basis_from_runs(state: dict) -> tuple[str | None, str]:
             return None, f"no exchange-flux sidecar for the {prefix} arm"
         try:
             with open(path, encoding="utf-8") as fh:
-                found[prefix] = str((json.load(fh) or {}).get("basis") or "")
+                doc = json.load(fh) or {}
         except Exception:  # noqa: BLE001 — an unreadable sidecar is a refusal
             return None, f"unreadable exchange-flux sidecar for the {prefix} arm"
+        basis = doc.get("basis")
+        if not basis:
+            # ⚠ Distinct from "counts": the quantity is UNRECORDED. Two such
+            # sidecars would compare equal and slip through the agreement check
+            # below, and the caller would then describe them with counts
+            # semantics it has no evidence for.
+            return None, (f"the {prefix} arm's sidecar records no basis, so the "
+                          "quantity its leaves carry is unknown")
+        found[prefix] = str(basis)
+        shape[prefix] = (doc.get("seeds"), doc.get("generations"))
     if found["v2ecoli"] != found["vecoli"]:
         return None, (f"the two arms ran different bases "
                       f"(candidate={found['v2ecoli']!r}, reference={found['vecoli']!r})")
-    return (found["v2ecoli"] or None), ""
+    # ⚠ Agreeing on the basis does NOT establish the two sidecars describe the
+    # same invocation: both arms write into one out_root and nothing cleans it,
+    # so re-running one arm leaves the other's sidecar and stores in place. Two
+    # arms of one study share seeds and generations by construction, so a
+    # disagreement here means one side is stale.
+    if shape["v2ecoli"] != shape["vecoli"] and None not in shape["v2ecoli"] + shape["vecoli"]:
+        return None, (f"the two arms' runs do not correspond — candidate ran "
+                      f"seeds={shape['v2ecoli'][0]} generations={shape['v2ecoli'][1]}, "
+                      f"reference ran seeds={shape['vecoli'][0]} "
+                      f"generations={shape['vecoli'][1]}; one of them is stale")
+    return found["v2ecoli"], ""
 
 
 def _specific_rate(flux_trace, drymass_trace, basis: str = "counts") -> float | None:

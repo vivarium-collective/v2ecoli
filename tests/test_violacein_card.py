@@ -39,10 +39,16 @@ def test_specific_rate_none_when_empty():
 
 
 def _write_sidecar(d, prefix, basis):
-    import json
-    (d / f"{prefix}_exchange_flux.json").write_text(
-        json.dumps({"basis": basis, "leaves": {"product_exchange": "X[c]"}}),
-        encoding="utf-8")
+    """The PRODUCTION writer, not a hand-rolled json.dump.
+
+    ⚠ This used to re-type the filename and the JSON key by hand, which made the
+    on-disk contract between run_comparison_ensemble's writer and this card's
+    reader untested from BOTH ends: renaming either in the writer left every test
+    below green while every real run lost its basis and the card refused to grade
+    an otherwise healthy run. Calling the writer means a rename reds here."""
+    from scripts.run_comparison_ensemble import _write_exchange_flux_sidecar
+    _write_exchange_flux_sidecar(str(d), prefix,
+                                 {"product_exchange": "X[c]"}, basis)
 
 
 def test_basis_is_read_from_the_RUNS_not_the_study_config(tmp_path):

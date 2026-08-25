@@ -59,7 +59,8 @@ def test_assemble_from_studies_config_card_sees_study_spec(tmp_path, monkeypatch
                               studies_root=str(tmp_path / "studies"))
     # the config card receives the study's run spec via state["config"]
     assert captured["state"]["config"] == {"condition": "basal", "seeds": 1,
-                                           "generations": 4, "cards": ["config"]}
+                                           "generations": 4, "cards": ["config"],
+                                           "observable_bulk_ids": []}
 
 
 def test_assemble_from_studies_writes_viz_cards(tmp_path, monkeypatch):

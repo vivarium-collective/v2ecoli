@@ -18,7 +18,11 @@ claim: 'A regulator knockout is realizable by three distinct routes in v2ecoli, 
   5 of EcoCyc''s operator regions - so the divergence from biology is one of parameterization, not coverage:
   the TrpR repression terms are 2.62-4.03x where the literature reports 70-300x, and on every gene where
   both mechanisms act the model''s attenuation term exceeds its repression term, inverting the documented
-  ordering. The model''s mechanistic reach over transcriptional regulation overall is ~51% of mRNA cistrons.'
+  ordering. The model''s mechanistic reach over transcriptional regulation overall is ~51% of mRNA cistrons.
+  What the run adds is that those table terms do not set the dynamic response: because a bound promoter''s
+  transcription probability is fitted to exactly zero, the knockout''s measured effect is governed by
+  TrpR occupancy in the condition rather than by the size of any fold-change term, which is why one knockout
+  yields four answers spanning seven orders of magnitude.'
 experiment: 'Read the model''s shipped regulatory tables directly (fold_changes.tsv filtered by fold_changes_removed.tsv,
   transcriptional_attenuation.tsv, genes.tsv, rnas.tsv) to fix what the model can represent before anything
   is run, then realize the ΔtrpR genotype by each available route and record what each route does. Route
@@ -30,11 +34,14 @@ experiment: 'Read the model''s shipped regulatory tables directly (fold_changes.
 result: 'The static pass is complete (F-01 to F-04, measured from the model''s own tables and holding
   independently of any simulation). ROUTE A HAS RUN: both arms fail ParCa at step 9 on the TRP[c] amino-acid
   homeostasis check, with every structural build-integrity axis passing first (F-05, F-06). ROUTE B HAS
-  ALSO RUN (F-07, F-08): removing TrpR derepresses the trp operon 6.29x in AA-replete media - where the
-  model declares TrpR active - and 1.06x in basal, where it declares it inactive, confirming the regulation
-  works and is bounded to within a small factor of the model''s own 2.62-4.03x parameterization rather
-  than the literature''s 70-300x. The route comparison itself - what each build route can and cannot represent
-  - is the deliverable, not a preliminary to one.'
+  RUN IN FOUR CONDITIONS, recorded as four runs with their own outcomes (F-09..F-12). The same knockout
+  measures 1.06x in stock basal, 2.26x with tryptophan removed but TrpR''s own cell spec held fixed, 6.29x
+  in AA-replete media, and 6.1e7 at saturating tryptophan. Those are not four strengths of one effect:
+  every knockout arm sits at the same derepressed level, and what varies is how much of the time the WILD
+  TYPE is repressed. The knockout changes the operon''s OCCUPANCY, not its level. F-13 adds that a chromosome-level
+  deletion leaves 11 of trpR''s 12 fold-change rows intact, so a genome edit alone does not remove the
+  fitted repression. The route comparison itself - what each build route can and cannot represent - is
+  the deliverable, not a preliminary to one.'
 canonical_runs:
 - name: route-a-parca-builds
   entry: sims/run_route_a.py

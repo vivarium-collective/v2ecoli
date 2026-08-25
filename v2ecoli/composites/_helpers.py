@@ -1544,6 +1544,20 @@ def _get_special_step(loader, step_name, core):
         _injected = getattr(loader, '_injected_processes', None)
         if _injected:
             div_config['injected_processes'] = _injected
+        # Same reasoning, for DECLARED MEASUREMENTS. baseline() threads the flux
+        # map through the module-level override above and CLEARS it in its
+        # finally, so a daughter rebuilt mid-run is built with an empty map: the
+        # feature step declares no leaves and every exchange-flux leaf sits at
+        # its 0.0 default for the rest of the lineage. Measured on a two-
+        # generation run: generation 1 carries the data, generation 2 reads
+        # exactly zero on every sample while dry mass, growth rate and division
+        # are all normal — i.e. the cell is fine and only the measurement is
+        # gone, which is the shape that gets mistaken for a result.
+        # Captured here rather than read at daughter-build time because by then
+        # the override has been restored.
+        _fluxes = dict(_EXCHANGE_FLUXES_OVERRIDE)
+        if _fluxes:
+            div_config['exchange_fluxes'] = _fluxes
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

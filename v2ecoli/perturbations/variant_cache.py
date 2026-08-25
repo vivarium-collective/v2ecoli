@@ -29,7 +29,13 @@ that is the signal, not this.
 from __future__ import annotations
 
 import copy
+import json
+from pathlib import Path
 from typing import Any
+
+#: Filename the design point is written under, inside the cache directory.
+#: Read it to learn what a cache encodes; ``metadata.json`` will not tell you.
+DESIGN_POINT_FILE = "design_point.json"
 
 from v2ecoli.perturbations.design_variant import CacheSpec
 from v2ecoli.perturbations.native_genes import set_native_translation_efficiency
@@ -104,7 +110,7 @@ def build_variant_cache(
     save_sim_input(perturbed, cache_dir, seed=seed,
                    condition=spec.condition, fixed_media=fixed_media)
 
-    return {
+    provenance = {
         "cache_dir": cache_dir,
         "label": spec.label,
         "condition": spec.condition,
@@ -113,3 +119,24 @@ def build_variant_cache(
         "native": native,
         "new_gene": new_gene,
     }
+
+    # Persist it INTO the cache, not just return it. A caller that keeps the
+    # returned dict has provenance; a consumer handed only ``cache_dir`` — which
+    # is every consumer, because ``baseline(cache_dir=…)`` is the whole
+    # interface — previously had none. The cache's own ``metadata.json`` records
+    # ``unique_names`` and ``media_id`` and nothing about the perturbation, so a
+    # perturbed cache and an unperturbed one were indistinguishable on disk.
+    #
+    # ⚠ That is the failure this file's own docstring warns about, one layer
+    # out: not "a pre-perturbation cache wearing a perturbed cache's name", but
+    # a perturbed cache that cannot say which perturbation it carries. A design
+    # screen ranks over exactly that distinction.
+    try:
+        (Path(cache_dir) / DESIGN_POINT_FILE).write_text(
+            json.dumps(provenance, indent=1, default=str))
+    except OSError as exc:  # pragma: no cover - disk-full / read-only cache dir
+        # Best-effort: a cache that built is more valuable than one refused for
+        # want of a sidecar, and the return value still carries the record.
+        print(f"[variant_cache] could not write {DESIGN_POINT_FILE}: {exc}")
+
+    return provenance

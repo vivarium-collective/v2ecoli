@@ -224,6 +224,17 @@ def build_vivarium_ecoli(
             if _vmeta:
                 print(f"[build_vivarium_ecoli] applied config variant "
                       f"'{_vmeta['variant_name']}' #{variant}: {_vmeta['params']}")
+                # Record what was APPLIED, not what was asked for, so the
+                # sidecar can report the resolved grid point rather than echo
+                # the request. Stashed on sim.config because that is the object
+                # _vecoli_config_summary already reads; a run that never reaches
+                # here leaves the key absent, which correctly reads as "no
+                # variant applied" rather than as variant 0 having been chosen.
+                sim.config["variant_applied"] = {
+                    "variant_name": _vmeta["variant_name"],
+                    "variant_index": _vmeta["variant_index"],
+                    "params": _vmeta["params"],
+                }
                 # PERSIST the variant-mutated sim_data and repoint sim_data_path.
                 # The composer's ``LoadSimData`` ALWAYS reloads sim_data from
                 # ``sim_data_path`` and IGNORES a handed-in ``sim.config['sim_data']``

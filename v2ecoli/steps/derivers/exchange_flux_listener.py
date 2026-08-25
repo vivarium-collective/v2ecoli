@@ -110,6 +110,35 @@ def derive_fluxes(exchange: dict, fluxes: dict) -> dict:
     return out
 
 
+def _as_float_fg(value) -> float:
+    """Coerce a mass/time reading to a plain float, tolerating pint Quantities.
+
+    ⚠ ``listeners.mass.dry_mass`` arrives as a pint Quantity in femtograms on the
+    real composite, so a bare ``float()`` raises
+    ``DimensionalityError: Cannot convert from 'femtogram' to 'dimensionless'``
+    and takes the whole run down on the first tick of the gdcw basis.
+
+    This path shipped unreachable — no study could set a basis until the setting
+    was threaded — so it had never been executed against a real composite, only
+    against unit tests that pass plain floats. Unreachable and untested are the
+    same fact here: the first real run found it immediately.
+
+    Magnitude is taken as-is rather than converted, because the caller's
+    arithmetic already expects femtograms (see ``counts_to_gdcw_rate``). A value
+    that is neither a number nor a Quantity yields 0.0, which that function
+    already treats as "no rate is defined" rather than an infinity.
+    """
+    if value is None:
+        return 0.0
+    magnitude = getattr(value, "magnitude", None)
+    if magnitude is not None:
+        value = magnitude
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 def counts_to_gdcw_rate(delta_counts: float, dry_mass_fg: float,
                         timestep_s: float) -> float:
     """Molecule-count delta -> mmol/gDCW/h.
@@ -193,8 +222,8 @@ class ExchangeFluxListener(Step):
         if self.basis == BASIS_COUNTS:
             return {"listeners": {"exchange_flux": totals}}
 
-        dry_mass = float((states.get("mass") or {}).get("dry_mass") or 0.0)
-        timestep = float(states.get("timestep") or 0.0)
+        dry_mass = _as_float_fg((states.get("mass") or {}).get("dry_mass"))
+        timestep = _as_float_fg(states.get("timestep"))
         out = {}
         for leaf, total in totals.items():
             previous = self._previous.get(leaf)

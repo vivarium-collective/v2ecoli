@@ -218,3 +218,24 @@ def test_investigation_fallback_applies_when_the_study_is_silent(tmp_path):
     assert exchange_flux_basis_from_study_yaml(y, fallback="gdcw") == "gdcw"
     assert exchange_flux_basis_from_study_yaml(
         tmp_path / "missing.yaml", fallback="gdcw") == "gdcw"
+
+
+# --- the gdcw path against REAL composite value types ------------------------
+
+def test_gdcw_deriver_tolerates_pint_quantities_for_mass_and_timestep():
+    """⚠ Regression for a crash that unit tests could not see. On the real
+    composite ``listeners.mass.dry_mass`` is a pint Quantity in femtograms, and a
+    bare ``float()`` on it raises
+    ``DimensionalityError: Cannot convert from 'femtogram' to 'dimensionless'``,
+    taking the whole run down on the first tick of the gdcw basis.
+
+    It survived because the path was UNREACHABLE — no study could set a basis, so
+    it had only ever run against tests passing plain floats. Unreachable and
+    untested were the same fact. This asserts the real value type."""
+    from v2ecoli.steps.derivers.exchange_flux_listener import _as_float_fg
+    import pint
+    ureg = pint.UnitRegistry()
+    assert _as_float_fg(300.0 * ureg.femtogram) == 300.0
+    assert _as_float_fg(2.0) == 2.0          # plain floats still work
+    assert _as_float_fg(None) == 0.0         # absent -> no rate, not a crash
+    assert _as_float_fg("not a number") == 0.0

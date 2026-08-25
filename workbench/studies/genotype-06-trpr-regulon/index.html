@@ -1,0 +1,2073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Study: genotype-06-trpr-regulon</title>
+<link rel="stylesheet" href="/v2ecoli/workbench/assets/style.css">
+<link rel="stylesheet" href="/v2ecoli/workbench/assets/progress-track.css">
+<!-- Inherit the workbench light/dark theme (this page loads in an iframe;
+     same-origin, so it shares the parent's localStorage 'viv.theme'). -->
+<script>(function(){try{var t=localStorage.getItem('viv.theme');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+</head>
+<body>
+<main class="study-page">
+<header class="study-header">
+  <div style="display:flex; align-items:baseline; gap:12px; justify-content:space-between;">
+  <h1 class="study-title">
+    <span class="study-num-chip" style="font-size:0.5em; font-weight:700; color:#64748b; background:#f1f5f9; padding:3px 9px; border-radius:9999px; vertical-align:middle; margin-right:8px">genotype-06</span><span class="study-name" id="study-name" data-slug="genotype-06-trpr-regulon" title="genotype-06-trpr-regulon">How does v2ecoli realize a transcription-factor knockout?</span>
+    
+    <span class="study-kind-tag study-kind-computational" data-study-kind="computational" title="Study kind">computational</span>
+    
+    <span class="phase-pill phase-design" title="Lifecycle: Design → Build → Simulate → Evaluate → Decide">Design</span>
+    
+  </h1>
+  <span class="study-header-actions" style="display:inline-flex; gap:6px; flex-shrink:0;">
+    
+    <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
+    <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+  </span>
+  </div>
+  <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
+    
+    
+    <span class="status-pill status-partial" title="Headline status derived from the highest-precedence multi-axis field (or legacy `status` as fallback).">partial</span>
+    
+
+    
+    <div id="readiness-panel" data-slug="genotype-06-trpr-regulon"></div>
+
+    
+    
+    
+    
+    
+    
+    <details class="status-detail-panel" aria-label="Six-gate lifecycle status">
+      <summary>
+        <span class="status-stepper-more">status</span>
+        
+        <span class="status-stepper">
+          
+          <span class="status-step gate-step axis-design_status gate-state-passed set" title="Gate 1 · Plan">
+            <span class="dot"></span>1&nbsp;·&nbsp;Plan<span class="step-val">complete</span>
+          </span>
+          
+          <span class="status-step gate-step axis-simulation_status gate-state-not-assessed set" title="Gate 2 · Execution">
+            <span class="dot"></span>2&nbsp;·&nbsp;Execution
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-passed-with-conditions set" title="Gate 3 · Evidence">
+            <span class="dot"></span>3&nbsp;·&nbsp;Evidence
+          </span>
+          
+          <span class="status-step gate-step axis-evaluation_status gate-state-not-assessed set" title="Gate 4 · Quality">
+            <span class="dot"></span>4&nbsp;·&nbsp;Quality
+          </span>
+          
+          <span class="status-step gate-step axis-gate_status gate-state-not-assessed set" title="Gate 5 · Decision">
+            <span class="dot"></span>5&nbsp;·&nbsp;Decision
+          </span>
+          
+          <span class="status-step gate-step axis-expert_review_status gate-state-not-assessed set" title="Gate 6 · Release">
+            <span class="dot"></span>6&nbsp;·&nbsp;Release<span class="step-val">not_requested</span>
+          </span>
+          
+          
+          <span class="status-step axis-implementation_status set">
+            <span class="dot"></span>Implementation<span class="step-val">partial</span>
+          </span>
+          
+        </span>
+      </summary>
+      <div class="status-stepper-body">
+        
+        <div class="status-detail-row gate-row gate-state-passed">
+          <span class="status-detail-axis">1 · Plan</span>
+          <span class="status-chip gate-state-passed">complete</span>
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">2 · Execution</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="no runs in runs.db">◆ computed: not_run</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-passed-with-conditions">
+          <span class="status-detail-axis">3 · Evidence</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-passed-with-conditions" title="nothing run to evaluate + visualization readiness gate (V4)">◆ computed: not_evaluated</span>
+          
+          
+          
+          <span class="gate-viz-gap-note" style="font-size:0.86em;color:#92400e">visualization gap: no figures</span>
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">4 · Quality</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="nothing run to evaluate">◆ computed: not_evaluated</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">5 · Decision</span>
+          <span class="status-chip gate-state-not-assessed">not set</span>
+          
+          <span class="gate-computed-chip gate-state-not-assessed" title="spine gate evaluator (study_verdict.roll_up_verdict / pipeline_gate.gate_evaluator)">◆ computed: not_started</span>
+          
+          
+          
+        </div>
+        
+        <div class="status-detail-row gate-row gate-state-not-assessed">
+          <span class="status-detail-axis">6 · Release</span>
+          <span class="status-chip gate-state-not-assessed">not_requested</span>
+          
+          
+        </div>
+        
+        
+        <div class="status-detail-row">
+          <span class="status-detail-axis">Implementation</span>
+          <span class="status-chip">partial</span>
+        </div>
+        
+      </div>
+    </details>
+    
+  </div>
+</header>
+
+
+
+
+
+
+
+
+
+<p id="study-question-headline" class="study-question-headline"><span class="q-glyph">Q</span> When the perturbed gene is a transcriptional regulator rather than an enzyme, how does v2ecoli realize the knockout, and how much of that regulator&#39;s documented biology can the model represent at all? Concretely, for trpR: by which routes can the genotype be built, what does each route let us observe, and what does the model&#39;s own regulatory parameterization put out of reach of every route?</p>
+
+<nav class="study-tabs" aria-label="Study sections">
+  
+  <div class="act-cluster" data-act="study">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="study" data-gate-state="passed-with-conditions"></span>
+      <span class="act-label">The Study</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar active" data-kind="overview" onclick="_setStudyTab('overview')">Overview</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="design">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="design" data-gate-state="passed"></span>
+      <span class="act-label">Design</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="compose"  onclick="_setStudyTab('compose')">Model</button>
+      <button class="study-pillar" data-kind="readouts" onclick="_setStudyTab('readouts')">Readouts</button>
+      
+      <button class="study-pillar" data-kind="simulate"  onclick="_setStudyTab('simulate')">Simulations</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="evidence">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="evidence" data-gate-state="passed-with-conditions"></span>
+      <span class="act-label">Evidence</span>
+    </div>
+    <div class="act-tabs">
+      
+      <button class="study-pillar" data-kind="results"   onclick="_setStudyTab('results')">Results</button>
+      <button class="study-pillar" data-kind="analyses"  onclick="_setStudyTab('analyses')">Analyses</button>
+      <button class="study-pillar" data-kind="visualize" onclick="_setStudyTab('visualize')">Visualizations</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="assurance">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="assurance" data-gate-state="not-assessed"></span>
+      <span class="act-label">Assurance</span>
+    </div>
+    <div class="act-tabs">
+      <button class="study-pillar" data-kind="tests" onclick="_setStudyTab('tests')">Tests</button>
+      
+      <button class="study-pillar" data-kind="audit" onclick="_setStudyTab('audit')">Audit</button>
+      <button class="study-pillar" data-kind="build" onclick="_setStudyTab('build')">Build</button>
+    </div>
+  </div>
+  <div class="act-cluster" data-act="decision">
+    <div class="act-header">
+      <span class="act-gate-dot" data-gate="decision" data-gate-state="not-assessed"></span>
+      <span class="act-label">Decision</span>
+    </div>
+    <div class="act-tabs">
+      
+      <button class="study-pillar" data-kind="conclusions" onclick="_setStudyTab('conclusions')">Decide</button>
+    </div>
+  </div>
+</nav>
+<style>
+/* Task 4: header restructure — kind tag, promoted question, tightened status row.
+   The 6-axis stepper + gate-status colors below are carried over verbatim from
+   the pre-restructure Pass A styling (the <details> markup was repositioned,
+   not rebuilt). */
+.study-kind-tag{display:inline-block;font-size:0.5em;font-weight:600;padding:3px 9px;border-radius:9999px;vertical-align:middle;margin-left:8px;background:#f1f5f9;color:#475569;text-transform:capitalize}
+.study-kind-tag.study-kind-biological{background:#ecfdf5;color:#065f46}
+.study-kind-tag.study-kind-computational{background:#eff6ff;color:#1e40af}
+.study-kind-tag.study-kind-theoretical{background:#faf5ff;color:#6b21a8}
+.study-question-headline{margin:6px 0 0 0;font-size:1.05em;line-height:1.5;color:#1e293b;font-family:Georgia,"Times New Roman",serif}
+.study-question-headline .q-glyph{display:inline-block;font-size:0.78em;font-weight:700;font-family:ui-monospace,monospace;color:#64748b;background:#f1f5f9;padding:1px 7px;border-radius:4px;margin-right:6px;vertical-align:middle}
+.study-status-row{font-size:0.95em}
+.status-detail-panel{margin:0;padding:2px 0;background:transparent;border:none;border-radius:0;font-size:0.92em}
+.status-detail-row{display:flex;align-items:center;gap:8px;padding:3px 0}
+.status-detail-axis{min-width:140px;color:#475569;font-size:0.9em}
+.status-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;background:#e2e8f0;color:#334155;font-family:ui-monospace,monospace}
+/* gate_status colors per Pass A spec: blocked=gray, needs_calibration=amber, passed=green, failed=red, stale=purple */
+.gate-status-blocked          { background:#e5e7eb; color:#374151 }
+.gate-status-needs_calibration{ background:#fef3c7; color:#92400e }
+.gate-status-passed           { background:#d1fae5; color:#065f46 }
+.gate-status-failed           { background:#fee2e2; color:#991b1b }
+.gate-status-stale            { background:#ede9fe; color:#5b21b6 }
+.status-pill.gate-status{font-weight:500}
+/* Compact one-line lifecycle stepper; full per-axis rows behind the "status ▾" expander. */
+.status-detail-panel > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.status-detail-panel > summary::-webkit-details-marker{display:none}
+.status-stepper{display:flex;gap:13px;flex-wrap:wrap;align-items:center;flex:1}
+.status-step{display:inline-flex;align-items:center;gap:5px;font-size:0.82em;color:#94a3b8;white-space:nowrap}
+.status-step .dot{width:9px;height:9px;border-radius:50%;background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.set{color:#334155}
+.status-step.set .dot{background:#10b981;box-shadow:none}
+.status-step .step-val{font-family:ui-monospace,monospace;font-size:0.92em;color:#64748b}
+.status-step.gate-status-blocked .dot{background:#9ca3af;box-shadow:none}
+.status-step.gate-status-needs_calibration .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-status-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-status-failed .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-status-stale .dot{background:#8b5cf6;box-shadow:none}
+/* Fable G2 (§13.2 gate-state vocab; §9.3 palette: grey/green/amber/red/violet).
+   One palette for the gate-ladder stepper dots + detail rows AND (via the
+   [data-gate-state] selectors below) the act-rail dots, so "how urgent is
+   this gate" reads identically in both places. Rules below `.status-step.set
+   .dot` on purpose so a "set" gate's real state wins over the generic green. */
+.status-step.gate-state-not-assessed .dot{background:#cbd5e1;box-shadow:inset 0 0 0 1px #b6c2cf}
+.status-step.gate-state-passed .dot{background:#10b981;box-shadow:none}
+.status-step.gate-state-passed-with-conditions .dot{background:#f59e0b;box-shadow:none}
+.status-step.gate-state-blocked .dot{background:#ef4444;box-shadow:none}
+.status-step.gate-state-waived .dot{background:#8b5cf6;box-shadow:none}
+.status-chip.gate-state-not-assessed{background:#e2e8f0;color:#334155}
+.status-chip.gate-state-passed{background:#d1fae5;color:#065f46}
+.status-chip.gate-state-passed-with-conditions{background:#fef3c7;color:#92400e}
+.status-chip.gate-state-blocked{background:#fee2e2;color:#991b1b}
+.status-chip.gate-state-waived{background:#ede9fe;color:#5b21b6}
+.gate-computed-chip{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-left:6px;font-family:ui-monospace,monospace;background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe}
+.gate-divergence-chip-inline{display:inline-block;font-size:0.78em;font-weight:700;padding:2px 9px;border-radius:9999px;margin-left:6px;background:#fffbeb;border:1px solid #f59e0b;color:#92400e}
+.act-gate-dot[data-gate-state="passed"]{background:#10b981;box-shadow:none}
+.act-gate-dot[data-gate-state="passed-with-conditions"]{background:#f59e0b;box-shadow:none}
+.act-gate-dot[data-gate-state="blocked"]{background:#ef4444;box-shadow:none}
+.act-gate-dot[data-gate-state="waived"]{background:#8b5cf6;box-shadow:none}
+.status-stepper-more{font-size:0.82em;font-weight:600;color:#475569;white-space:nowrap}
+.status-detail-panel[open] .status-stepper-more::after{content:" \25be"}
+.status-detail-panel:not([open]) .status-stepper-more::after{content:" \25b8"}
+.status-stepper-body{margin-top:6px;padding-top:6px;border-top:1px solid #eef2f6}
+.phase-pill{display:inline-block;font-size:0.78em;padding:2px 10px;border-radius:9999px;margin-right:6px;font-weight:500;background:#e0e7ff;color:#3730a3}
+.phase-design   { background:#e0e7ff; color:#3730a3 }
+.phase-build    { background:#fef3c7; color:#92400e }
+.phase-simulate { background:#dbeafe; color:#1e40af }
+.phase-evaluate { background:#fce7f3; color:#9d174d }
+.phase-decide   { background:#d1fae5; color:#065f46 }
+.classification-pill{display:inline-block;font-size:0.7em;padding:1px 8px;border-radius:9999px;margin-right:4px;font-weight:500}
+.classification-primary    { background:#fee2e2; color:#991b1b }
+.classification-supporting { background:#dbeafe; color:#1e40af }
+.classification-diagnostic { background:#fef3c7; color:#92400e }
+.classification-regression { background:#e5e7eb; color:#374151 }
+.sim-status-pill{display:inline-block;font-size:0.72em;padding:1px 8px;border-radius:9999px;margin-left:4px}
+.sim-status-ready  { background:#d1fae5; color:#065f46 }
+.sim-status-gated  { background:#fef3c7; color:#92400e }
+.sim-status-running{ background:#dbeafe; color:#1e40af }
+.sim-status-ran    { background:#d1fae5; color:#065f46 }
+.purpose-callout{margin-bottom:10px;padding:10px 14px;border-radius:4px;line-height:1.55}
+.purpose-callout strong{margin-right:6px}
+.followup-list{display:flex;flex-direction:column;gap:10px}
+.followup-card{padding:10px 14px;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.93em}
+.followup-card.followup-kind-existing{border-left-color:#3b82f6;background:#eff6ff}
+.followup-card.followup-kind-infrastructure_fix{border-left-color:#dc2626;background:#fef2f2}
+.followup-card.followup-kind-calibration_task{border-left-color:#f59e0b;background:#fefce8}
+.followup-card.followup-kind-expert_question{border-left-color:#a855f7;background:#faf5ff}
+.followup-card.followup-kind-new{border-left-color:#10b981;background:#f0fdf4}
+.followup-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.followup-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-effort{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-family:ui-monospace,monospace}
+.followup-status{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+.followup-status.status-blocked{background:#fef3c7;color:#92400e}
+.followup-status.status-done{background:#d1fae5;color:#065f46}
+.followup-title{flex:1;font-size:1em}
+.followup-why,.followup-unblocks,.followup-acceptance,.followup-hypothesis{margin:4px 0 0 0;font-size:0.92em;line-height:1.45}
+.followup-hypothesis{padding:6px 10px;background:#fff;border-radius:3px;border:1px dashed #cbd5e1}
+.btn-seed-followup{font-size:0.85em;padding:4px 12px;border:1px solid #3b82f6;background:#fff;color:#3b82f6;border-radius:4px;cursor:pointer}
+.btn-seed-followup:hover{background:#3b82f6;color:#fff}
+/* ── One flowing figure gallery (Fable §4.5, Task V2) ──────────────────
+   The native gallery, embedded-HTML previews, and latest-run charts all
+   render as the same `.figure-card`: a bordered figure container + a muted
+   caption-row footer (source chip + title + optional run link), instead of
+   three differently-chrome'd sections under their own headings. The three
+   async mounts stay separate (`#native-gallery-panel`, the embed cards,
+   `#viz-charts-panel`) but each is a flex column with the same gap, so they
+   read as one continuous gallery. */
+.figure-gallery{display:flex;flex-direction:column;gap:16px}
+.figure-mount{display:flex;flex-direction:column;gap:16px}
+.charts-panel{display:flex;flex-direction:column;gap:16px}
+.figure-card{border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;background:#fff}
+.figure-media-frame{display:block;width:100%;border:0;background:#fff}
+.figure-media-frame--native{height:480px}
+.figure-media-frame--embed{min-height:200px}
+/* SVGs/PNGs scale to fit their card; preserves aspect ratio so a 1400×484
+   chart shrinks instead of overflowing horizontally + clipping. */
+.figure-card svg,.figure-card img.chart-img{display:block;width:100%;max-width:100%;height:auto}
+/* Loom figure SVGs (with <foreignObject> HTML that WebKit won't scale when
+   inlined) are rendered as <img> data-URIs by study-detail.js so the browser
+   rasterizes + scales the whole figure. max-width shrinks a too-wide figure;
+   no width:100%, so small figures keep their native size instead of upscaling. */
+.figure-card img.figure-svg-img{display:block;max-width:100%;height:auto}
+.figure-desc{margin:8px 12px 0;font-size:0.85em;color:#475569}
+.figure-caption-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;font-size:0.85em;color:#475569;border-top:1px solid #f1f5f9;background:#f8fafc}
+.figure-source-chip{font-size:0.68em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#64748b;flex-shrink:0}
+.figure-title{font-weight:600;color:#334155;flex:1;min-width:100px}
+.figure-run-link,.figure-open-link{font-size:0.85em;color:#2563eb;text-decoration:none;white-space:nowrap;cursor:pointer}
+.figure-run-link:hover,.figure-open-link:hover{text-decoration:underline}
+.chart-caption{font-size:0.83em;color:#475569;margin:8px 12px 0;line-height:1.4}
+/* findings */
+.findings-section{padding:14px 16px;background:#fafbff;border:1px solid #c7d2fe;border-radius:8px}
+.finding-card{padding:12px 14px;margin:10px 0;border:1px solid #e2e8f0;border-left:5px solid #6366f1;border-radius:6px;background:#fff}
+.finding-card.finding-status-confirms{border-left-color:#10b981}
+.finding-card.finding-status-partial{border-left-color:#f59e0b}
+.finding-card.finding-status-contradicts{border-left-color:#dc2626}
+.finding-card.finding-status-novel{border-left-color:#8b5cf6}
+/* C2: compact ledger row (<summary>) + native <details> evidence drawer */
+.finding-details{border:none}
+.finding-details>summary{list-style:none;cursor:pointer}
+.finding-details>summary::-webkit-details-marker{display:none}
+.finding-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.finding-chip{font-size:0.78em;color:#475569;background:#f1f5f9;padding:2px 8px;border-radius:9999px;white-space:nowrap}
+.finding-drawer{margin-top:8px;padding-top:8px;border-top:1px dashed #e2e8f0}
+.finding-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+.finding-status-glyph{font-size:1.2em;width:24px;text-align:center}
+.finding-status-confirms .finding-status-glyph{color:#10b981}
+.finding-status-partial .finding-status-glyph{color:#f59e0b}
+.finding-status-contradicts .finding-status-glyph{color:#dc2626}
+.finding-status-novel .finding-status-glyph{color:#8b5cf6}
+.finding-id{font-family:ui-monospace,monospace;font-size:0.78em;color:#475569;background:#f1f5f9;padding:1px 6px;border-radius:3px}
+.finding-kind{font-size:0.7em;text-transform:uppercase;letter-spacing:0.05em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3;font-weight:500}
+.finding-status-text{font-size:0.78em;color:#64748b;margin-left:auto;font-style:italic}
+.finding-statement{font-size:1em;line-height:1.5;font-weight:500;color:#0f172a;margin:4px 0 8px 0}
+.finding-claim{flex:1;min-width:200px;margin:0}
+.finding-evidence,.finding-expected{font-size:0.86em;color:#475569;padding:6px 10px;background:#f8fafc;border-left:3px solid #94a3b8;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-exp-summary{font-size:0.9em;color:#475569;padding:6px 10px;background:#fafbff;border-left:3px solid #6366f1;border-radius:3px;margin:6px 0;line-height:1.5}
+.finding-explanation{font-size:0.92em;color:#1e293b;margin:6px 0;line-height:1.5}
+.finding-explanation em{color:#475569;font-style:normal;font-weight:600}
+.finding-expert{margin:6px 0;padding:6px 10px;background:#fafafa;border:1px solid #e2e8f0;border-radius:4px}
+.finding-expert summary{cursor:pointer;font-size:0.85em;color:#475569;font-weight:500}
+.finding-expert-quote{border-left:3px solid #6366f1;margin:6px 0 4px 0;padding:6px 10px;background:#fafbff;font-style:italic;color:#1e1b4b;font-size:0.92em;line-height:1.5}
+.finding-expert-note{font-size:0.88em;color:#475569;margin-top:4px;font-style:italic}
+.finding-next{padding:6px 10px;background:#f0fdf4;border-left:3px solid #10b981;border-radius:3px;font-size:0.9em;margin-top:8px;line-height:1.5}
+.finding-next strong{color:#065f46}
+/* discovery implications */
+.di-group{margin:14px 0}
+.di-group h3{margin:0 0 6px 0;font-size:0.95em}
+.di-uncertainties{display:flex;flex-wrap:wrap;gap:16px;margin:8px 0}
+.di-unc{flex:1;min-width:220px}
+.di-unc h4{margin:0 0 4px 0;font-size:0.88em}
+.di-unc-resolved h4{color:#065f46}
+.di-unc-remaining h4{color:#92400e}
+.di-unc ul{margin:0 0 0 18px;padding:0;font-size:0.9em;line-height:1.45}
+.di-card{padding:10px 14px;margin:8px 0;border:1px solid #e2e8f0;border-left:4px solid #94a3b8;border-radius:4px;background:#f8fafc;font-size:0.92em}
+.di-card-stmt{font-size:0.98em;line-height:1.5}
+.di-card-why{margin:4px 0 0 0;color:#475569;line-height:1.45}
+.di-card-line{margin:4px 0 0 0;font-size:0.88em;color:#475569;line-height:1.4}
+.di-lbl{color:#475569;font-weight:600;font-size:0.85em}
+.di-mech-card{border-left-color:#a855f7;background:#faf5ff}
+.di-mech-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.di-update-chip{font-size:0.7em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#e0e7ff;color:#3730a3}
+.di-conf-change{font-size:0.78em;color:#475569;font-family:ui-monospace,monospace}
+.di-approval-badge{font-size:0.68em;text-transform:uppercase;letter-spacing:0.04em;padding:1px 8px;border-radius:9999px;background:#fef3c7;color:#92400e}
+.di-fup-card{border-left-color:#10b981;background:#f0fdf4}
+.di-gain-high{background:#d1fae5;color:#065f46}
+.di-gain-medium{background:#fef3c7;color:#92400e}
+.di-gain-low{background:#e5e7eb;color:#374151}
+.di-chip{font-size:0.7em;padding:1px 8px;border-radius:9999px;background:#e2e8f0;color:#475569}
+
+/* ── Dark theme ──────────────────────────────────────────────────────
+   Same idiom as vivarium_workbench/static/style.css's own dark block:
+   var(--token) for structural neutrals, rgba(hue,alpha) + a reused light
+   fg-tint per semantic family (green=passed/confirms, amber=needs_calib/
+   gated/blocked-phase, red=failed/contradicts, blue=simulate/supporting/
+   info, indigo=design/effort, purple=stale/waived/novel, pink=evaluate).
+   Solid saturated dot-fills (emerald/amber/red/purple on .status-step
+   .dot / .act-gate-dot) are left unchanged — small solid marks already
+   read fine on dark, same call already made for .ptrack-fill. */
+:root[data-theme="dark"] .study-kind-tag{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .study-kind-tag.study-kind-biological{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .study-kind-tag.study-kind-computational{background:rgba(59,130,246,0.16);color:#93c5fd}
+:root[data-theme="dark"] .study-kind-tag.study-kind-theoretical{background:rgba(124,58,237,0.16);color:#c4b5fd}
+:root[data-theme="dark"] .study-question-headline{color:var(--text)}
+:root[data-theme="dark"] .study-question-headline .q-glyph{color:var(--text-muted);background:var(--surface-3)}
+:root[data-theme="dark"] .status-detail-axis{color:var(--text-muted)}
+:root[data-theme="dark"] .status-chip{background:var(--surface-3);color:var(--text)}
+:root[data-theme="dark"] .gate-status-blocked{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .gate-status-needs_calibration{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .gate-status-passed{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .gate-status-failed{background:rgba(220,38,38,0.16);color:#fca5a5}
+:root[data-theme="dark"] .gate-status-stale{background:rgba(124,58,237,0.16);color:#c4b5fd}
+:root[data-theme="dark"] .status-step{color:var(--text-muted)}
+:root[data-theme="dark"] .status-step .dot{background:var(--border-2);box-shadow:inset 0 0 0 1px var(--border)}
+:root[data-theme="dark"] .status-step.set{color:var(--text)}
+:root[data-theme="dark"] .status-step .step-val{color:var(--text-muted)}
+:root[data-theme="dark"] .status-step.gate-status-blocked .dot{background:var(--text-muted);box-shadow:none}
+:root[data-theme="dark"] .status-step.gate-state-not-assessed .dot{background:var(--border-2);box-shadow:inset 0 0 0 1px var(--border)}
+:root[data-theme="dark"] .status-chip.gate-state-not-assessed{background:var(--surface-3);color:var(--text)}
+:root[data-theme="dark"] .status-chip.gate-state-passed{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .status-chip.gate-state-passed-with-conditions{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .status-chip.gate-state-blocked{background:rgba(220,38,38,0.16);color:#fca5a5}
+:root[data-theme="dark"] .status-chip.gate-state-waived{background:rgba(124,58,237,0.16);color:#c4b5fd}
+:root[data-theme="dark"] .gate-computed-chip{background:rgba(59,130,246,0.16);border-color:rgba(59,130,246,0.4);color:#93c5fd}
+:root[data-theme="dark"] .gate-divergence-chip-inline{background:rgba(245,158,11,0.15);border-color:rgba(245,158,11,0.35);color:#fcd34d}
+:root[data-theme="dark"] .status-stepper-more{color:var(--text-muted)}
+:root[data-theme="dark"] .status-stepper-body{border-top-color:var(--border-faint)}
+:root[data-theme="dark"] .phase-pill{background:rgba(99,102,241,0.16);color:#a5b4fc}
+:root[data-theme="dark"] .phase-design{background:rgba(99,102,241,0.16);color:#a5b4fc}
+:root[data-theme="dark"] .phase-build{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .phase-simulate{background:rgba(59,130,246,0.16);color:#93c5fd}
+:root[data-theme="dark"] .phase-evaluate{background:rgba(219,39,119,0.18);color:#f9a8d4}
+:root[data-theme="dark"] .phase-decide{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .classification-primary{background:rgba(220,38,38,0.16);color:#fca5a5}
+:root[data-theme="dark"] .classification-supporting{background:rgba(59,130,246,0.16);color:#93c5fd}
+:root[data-theme="dark"] .classification-diagnostic{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .classification-regression{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .sim-status-ready{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .sim-status-gated{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .sim-status-running{background:rgba(59,130,246,0.16);color:#93c5fd}
+:root[data-theme="dark"] .sim-status-ran{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .followup-card{border-color:var(--border);border-left-color:var(--text-muted);background:var(--surface-2)}
+:root[data-theme="dark"] .followup-card.followup-kind-existing{background:rgba(59,130,246,0.16)}
+:root[data-theme="dark"] .followup-card.followup-kind-infrastructure_fix{background:rgba(220,38,38,0.16)}
+:root[data-theme="dark"] .followup-card.followup-kind-calibration_task{background:rgba(245,158,11,0.15)}
+:root[data-theme="dark"] .followup-card.followup-kind-expert_question{background:rgba(124,58,237,0.16)}
+:root[data-theme="dark"] .followup-card.followup-kind-new{background:rgba(16,185,129,0.14)}
+:root[data-theme="dark"] .followup-kind{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .followup-effort{background:rgba(99,102,241,0.16);color:#a5b4fc}
+:root[data-theme="dark"] .followup-status{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .followup-status.status-blocked{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .followup-status.status-done{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .followup-hypothesis{background:var(--surface-2);border-color:var(--border-2)}
+:root[data-theme="dark"] .btn-seed-followup{background:var(--surface-2);border-color:#3b82f6;color:#93c5fd}
+:root[data-theme="dark"] .figure-card{border-color:var(--border);background:var(--surface)}
+:root[data-theme="dark"] .figure-media-frame{background:var(--surface)}
+:root[data-theme="dark"] .figure-desc{color:var(--text-muted)}
+:root[data-theme="dark"] .figure-caption-row{color:var(--text-muted);border-top-color:var(--border-faint);background:var(--surface-2)}
+:root[data-theme="dark"] .figure-source-chip{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .figure-title{color:var(--text)}
+:root[data-theme="dark"] .figure-run-link,
+:root[data-theme="dark"] .figure-open-link{color:var(--link)}
+:root[data-theme="dark"] .chart-caption{color:var(--text-muted)}
+:root[data-theme="dark"] .findings-section{background:var(--surface-2);border-color:rgba(99,102,241,0.3)}
+:root[data-theme="dark"] .finding-card{border-color:var(--border);background:var(--surface)}
+:root[data-theme="dark"] .finding-chip{color:var(--text-muted);background:var(--surface-3)}
+:root[data-theme="dark"] .finding-drawer{border-top-color:var(--border-2)}
+:root[data-theme="dark"] .finding-id{color:var(--text-muted);background:var(--surface-3)}
+:root[data-theme="dark"] .finding-kind{background:rgba(99,102,241,0.16);color:#a5b4fc}
+:root[data-theme="dark"] .finding-status-text{color:var(--text-muted)}
+:root[data-theme="dark"] .finding-statement{color:var(--text)}
+:root[data-theme="dark"] .finding-evidence,
+:root[data-theme="dark"] .finding-expected{color:var(--text-muted);background:var(--surface-2);border-left-color:var(--text-muted)}
+:root[data-theme="dark"] .finding-exp-summary{color:var(--text-muted);background:var(--surface-2)}
+:root[data-theme="dark"] .finding-explanation{color:var(--text)}
+:root[data-theme="dark"] .finding-explanation em{color:var(--text-muted)}
+:root[data-theme="dark"] .finding-expert{background:var(--surface-2);border-color:var(--border)}
+:root[data-theme="dark"] .finding-expert summary{color:var(--text-muted)}
+:root[data-theme="dark"] .finding-expert-quote{background:var(--surface-2);color:var(--text)}
+:root[data-theme="dark"] .finding-expert-note{color:var(--text-muted)}
+:root[data-theme="dark"] .finding-next{background:rgba(16,185,129,0.14)}
+:root[data-theme="dark"] .finding-next strong{color:#6ee7b7}
+:root[data-theme="dark"] .di-unc-resolved h4{color:#6ee7b7}
+:root[data-theme="dark"] .di-unc-remaining h4{color:#fcd34d}
+:root[data-theme="dark"] .di-card{border-color:var(--border);border-left-color:var(--text-muted);background:var(--surface-2)}
+:root[data-theme="dark"] .di-card-why{color:var(--text-muted)}
+:root[data-theme="dark"] .di-card-line{color:var(--text-muted)}
+:root[data-theme="dark"] .di-lbl{color:var(--text-muted)}
+:root[data-theme="dark"] .di-mech-card{background:rgba(124,58,237,0.16)}
+:root[data-theme="dark"] .di-update-chip{background:rgba(99,102,241,0.16);color:#a5b4fc}
+:root[data-theme="dark"] .di-conf-change{color:var(--text-muted)}
+:root[data-theme="dark"] .di-approval-badge{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .di-fup-card{background:rgba(16,185,129,0.14)}
+:root[data-theme="dark"] .di-gain-high{background:rgba(22,163,74,0.16);color:#86efac}
+:root[data-theme="dark"] .di-gain-medium{background:rgba(245,158,11,0.15);color:#fcd34d}
+:root[data-theme="dark"] .di-gain-low{background:var(--surface-3);color:var(--text-muted)}
+:root[data-theme="dark"] .di-chip{background:var(--surface-3);color:var(--text-muted)}
+</style>
+
+<style>
+/* ── Study Overview redesign: narrative order + progressive disclosure ── */
+.is-hidden{display:none !important}
+.narrative-field{margin:6px 0}
+.add-field-btn{background:none;border:1px dashed #cbd5e1;color:#64748b;font-size:0.82em;
+  padding:4px 12px;border-radius:6px;cursor:pointer;transition:border-color .12s,color .12s,background .12s}
+.add-field-btn:hover{border-color:#3b82f6;color:#3b82f6;background:#eff6ff}
+.conclusion-block{border-top:2px solid #e2e8f0;padding-top:14px;margin-top:22px}
+/* Markdown-rendered conclusion blob: flows full-width (reflows authored hard-wraps), keeps paragraphs + ordered list. */
+.conclusion-md{color:#1e293b}
+.conclusion-md > :first-child{margin-top:0}
+.conclusion-md > :last-child{margin-bottom:0}
+.conclusion-md p{margin:0 0 10px}
+.conclusion-md ol,.conclusion-md ul{margin:0 0 10px;padding-left:22px}
+.conclusion-md li{margin:2px 0}
+.conclusion-md code{background:#eef2f7;padding:1px 4px;border-radius:3px;font-size:0.92em}
+.conclusion-md pre{background:#eef2f7;padding:8px 10px;border-radius:4px;overflow-x:auto;white-space:pre-wrap}
+.conclusion-insight{font-size:1.02em;line-height:1.55;color:#1e293b;margin:2px 0 12px;font-weight:500}
+.computed-tag{display:inline-block;font-size:0.68em;font-weight:600;text-transform:uppercase;
+  letter-spacing:0.04em;color:#64748b;background:#f1f5f9;border:1px solid #e2e8f0;
+  padding:1px 7px;border-radius:9999px;margin-left:8px;vertical-align:middle}
+.conclusion-tags{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;align-items:center}
+.tag-control{display:inline-flex;align-items:center;gap:6px}
+.tag-k{font-size:0.72em;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;font-weight:600}
+.tag-select,.tag-input{font-size:0.85em;padding:3px 8px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}
+.tag-input{min-width:220px}
+:root[data-theme="dark"] .add-field-btn{border-color:var(--border-2);color:var(--text-muted)}
+:root[data-theme="dark"] .add-field-btn:hover{border-color:rgba(59,130,246,.5);color:#93c5fd;background:rgba(59,130,246,0.16)}
+:root[data-theme="dark"] .conclusion-block{border-top-color:var(--border)}
+:root[data-theme="dark"] .conclusion-md{color:var(--text)}
+:root[data-theme="dark"] .conclusion-md code{background:var(--surface-3)}
+:root[data-theme="dark"] .conclusion-md pre{background:var(--surface-3)}
+:root[data-theme="dark"] .conclusion-insight{color:var(--text)}
+:root[data-theme="dark"] .computed-tag{color:var(--text-muted);background:var(--surface-3);border-color:var(--border)}
+:root[data-theme="dark"] .tag-k{color:var(--text-muted)}
+:root[data-theme="dark"] .tag-select,
+:root[data-theme="dark"] .tag-input{border-color:var(--border-2);background:var(--field);color:var(--text)}
+</style>
+<section class="study-tab-panel active" data-kind="overview" id="panel-overview">
+  <div class="study-overview">
+
+    
+    
+    
+
+    
+    
+
+    
+    
+    
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Claim</h2>
+      <p class="ctr-text">A regulator knockout is realizable by three distinct routes in v2ecoli, and the route determines what can be observed. For trpR the model&#39;s regulon is structurally complete - 12 edges spanning all 5 of EcoCyc&#39;s operator regions - so the divergence from biology is one of parameterization, not coverage: the TrpR repression terms are 2.62-4.03x where the literature reports 70-300x, and on every gene where both mechanisms act the model&#39;s attenuation term exceeds its repression term, inverting the documented ordering. The model&#39;s mechanistic reach over transcriptional regulation overall is ~51% of mRNA cistrons.</p>
+      
+      <div class="ctr-context">TrpR is the tryptophan repressor. Bound to L-tryptophan it forms a holorepressor that
+occupies operators in front of the tryptophan biosynthetic operon and several other loci,
+shutting transcription down when tryptophan is plentiful. Removing trpR therefore
+derepresses tryptophan biosynthesis - it is one of the cleanest and best characterised
+regulatory knockouts in E. coli, which is why it is a good public exemplar even when the
+motivation for studying it comes from elsewhere.
+
+Two mechanisms control the trp operon, and their relative strength is the part that matters
+here. TrpR repression is the coarse, dominant switch, reported at 70-300 fold. Transcriptional
+attenuation - a translation-coupled decision made at a leader peptide - modulates on top of
+it at roughly 8-10 fold. Repression dominates; attenuation trims.
+
+v2ecoli represents transcriptional regulation as a table of fold-change terms keyed by
+transcription-factor common name. That representation is what bounds this study: a
+regulator can only act on genes it has a row for. For trpR the model carries twelve rows,
+covering all five EcoCyc operator regions - the trp operon (trpLEDCBA), aroH, aroL, mtr,
+and trpR&#39;s own autoregulation - plus aroM and yaiA. Every documented region is represented;
+each is repressed by trpR in the merged fold_changes + fold_changes_nca table the model
+actually loads.
+
+So a trpR knockout in v2ecoli is not a perturbation of a smaller object - the regulon is
+structurally complete against EcoCyc. What bounds it is parameterization, not coverage:
+whichever route builds the genotype, the response is confined to the magnitudes the model&#39;s
+twelve edges carry, and those magnitudes (2.62-4.03x) are an order of magnitude below the
+literature&#39;s 70-300x. That is a statement about the model&#39;s regulatory parameterization,
+and it is visible without running anything.
+</div>
+      
+    </div>
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Test</h2>
+      <p class="ctr-text">Read the model&#39;s shipped regulatory tables directly (fold_changes.tsv filtered by fold_changes_removed.tsv, transcriptional_attenuation.tsv, genes.tsv, rnas.tsv) to fix what the model can represent before anything is run, then realize the ΔtrpR genotype by each available route and record what each route does. Route A builds the deletion at the ParCa level; route B zeroes the TrpR monomer&#39;s translation efficiency on a post-ParCa run. A third route - imposing a measured differential-expression table at ParCa time via the rnaseq_experimental key - exists in the model and is named here for completeness, but is not exercised by this study: it requires a measured DE table, which makes it an input question rather than a property of the genotype machinery.</p>
+      
+      <div class="ctr-meta">
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>genotype-06-trpr-regulon</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">trp-operon-derepresses-above-ten-fold</span><span class="ctr-dot">·</span><span class="ctr-meta-item">aroH-responds-to-trpR-loss</span><span class="ctr-dot">·</span><span class="ctr-meta-item">mtr-responds-to-trpR-loss</span><span class="ctr-dot">·</span><span class="ctr-meta-item">aroL-does-not-respond</span><span class="ctr-dot">·</span><span class="ctr-meta-item">repression-exceeds-attenuation</span></div>
+      </div>
+      
+    </div>
+
+    <div class="ctr-block">
+      <h2 class="overview-label ctr-h">Result</h2>
+      <p class="ctr-text">The static pass is complete (F-01 to F-04, measured from the model&#39;s own tables and holding independently of any simulation). ROUTE A HAS RUN: both arms fail ParCa at step 9 on the TRP[c] amino-acid homeostasis check, with every structural build-integrity axis passing first (F-05, F-06). ROUTE B HAS ALSO RUN (F-07, F-08): removing TrpR derepresses the trp operon 6.29x in AA-replete media - where the model declares TrpR active - and 1.06x in basal, where it declares it inactive, confirming the regulation works and is bounded to within a small factor of the model&#39;s own 2.62-4.03x parameterization rather than the literature&#39;s 70-300x. The route comparison itself - what each build route can and cannot represent - is the deliverable, not a preliminary to one.</p>
+      
+      
+    <div class="overview-section findings-section">
+      <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">v2ecoli&#39;s transcriptional-regulatory network covers 2198 of 4347 mRNA cistrons - 50.6%. It is 4209 edges from 150 transcription factors onto 2231 distinct target names. ⛔ An earlier version of this finding reported 663 of 4347 (15.2%) from 47 TFs; that was measured from fold_changes.tsv ALONE and was wrong - see the correction note below.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-01</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Both fold-change tables merged as the loader merges them (simulation_data.py:191 iterates [&#34;fold_changes&#34;, &#34;fold_changes_nca&#34;], NCA second so it wins on overlap), minus fold_changes_removed.tsv: 4209 edges, 150 TFs, 2231 distinct targets, 2198 of which resolve to mRNA cistrons out of 4347. Re-derivable via sims/extract_evidence.py. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> The ceiling this investigation operates under is roughly half the genome, not ~15%. That is a materially different framing of the model&#39;s mechanistic reach and belongs in the investigation&#39;s own framing rather than only here.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">The model&#39;s trpR regulon is 12 edges and covers ALL FIVE of EcoCyc&#39;s TrpR operator regions - trpLEDCBA, aroH, aroL, mtr, and trpR&#39;s own negative autoregulation - plus aroM and yaiA. ⛔ An earlier version of this finding claimed 7 edges over 2 of 5 regions, and that aroL, mtr and trpR carried no regulatory edge from any transcription factor. That was wrong in both halves; all three are repressed by trpR in the table the model actually loads.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-02</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Effective trpR targets after merging both tables and applying fold_changes_removed: yaiA 4.03x, trpA 3.94x, trpC 3.89x, mtr 3.89x, trpB 3.78x, trpR 3.73x, trpD 3.71x, trpL 3.68x, aroH 3.46x, trpE 3.41x, aroM 2.77x, aroL 2.62x. The NCA table supplies aroL, aroM, mtr, trpR and yaiA, and overwrites all seven shared targets. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> The regulon is structurally complete against EcoCyc. Whatever divergence this study finds is therefore a PARAMETERIZATION question, not a coverage one - which is a cleaner result than the original claim and removes the &#34;unreachable by any route&#34; framing entirely.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">In the model&#39;s parameter tables the control hierarchy is INVERTED against the literature. TrpR repression terms are 2.62-4.03x where the literature reports 70-300x, while attenuation terms on the same operon are 5.98-7.36x against a literature 8-10x. On all 5 genes where both mechanisms act, the model&#39;s attenuation term is LARGER than its repression term - the opposite of the documented ordering.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-03</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Per shared target, TrpR repression vs attenuation (fold), using the effective merged table: trpA 3.94 vs 7.36, trpB 3.78 vs 6.96, trpC 3.89 vs 7.16, trpD 3.71 vs 6.68, trpE 3.41 vs 5.98. Repression exceeds attenuation on 0 of 5. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Re-parameterizing the TrpR fold-changes toward the literature range would fix the magnitude and the ordering together. Worth noting what the model gets RIGHT first: ⛔ the promoter-proximal-strongest polarity claim is RETRACTED: on the effective merged table the trp operon&#39;s terms are nearly flat (3.41-3.94x) and trpE is the WEAKEST, not the strongest. The gradient reported earlier was an artifact of reading fold_changes.tsv alone. It is mis-parameterized, not structurally wrong, on the genes it covers.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">tRNA transcriptional attenuation is OFF in a default v2ecoli run. The attenuation terms F-03 measures are present in the shipped tables but inactive unless explicitly enabled, so in a default simulation trp control rests on the TrpR term alone.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-04</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Three independent defaults agree: v2ecoli/composites/ecoli_baseline.py:506 DEFAULT_FEATURES = [&#39;ppgpp_regulation&#39;] with the explicit comment &#34;trna_attenuation + mass_conservation off by default&#34;; v2ecoli/processes/transcript_initiation.py:378 declares &#39;trna_attenuation&#39; default False; v2ecoli/composites/_helpers.py:1413 reads ti_config.get(&#39;trna_attenuation&#39;, False). · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> This is why the attenuation-on control arm exists. Without it, a run measuring &#34;weak trp control&#34; would be read as evidence about the balance of two mechanisms when only one was switched on. It also means F-03&#39;s inversion is a statement about the TABLES and must not be restated as a statement about a run.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">Route A - chromosomal deletion of trpR before reconstruction - does not build. Both the trpR single and the trpR+tnaA double fail ParCa at step 9 with an identical ValueError on the amino-acid homeostasis check for TRP[c]. This is a third knockout failure class, distinct from the fatal dangling reference of the ppGpp path and from silent target-side drops: a validated invariant tripping loudly, which is arguably the system working.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-05</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> REPRODUCED 2026-08-20 in this study, both arms, identically. ParCa exit 1, no parca_state.pkl written, checkpoints 1-8 present and step 9 absent. Assertion verbatim: &#34;ValueError: Check that amino acid concentrations should be lower in amino acid media for [&#39;TRP[c]&#39;]&#34;. Genotype ids 0adf8b53af80154d (trpR, EG11029) and 70d3080e93e991f3 (trpRtnaA, EG11029+EG11005). Artifact: data/route_a_summary.json. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> The failure is now reproducible on demand via sims/run_route_a.py, which regenerates the bundles rather than reading any scratch directory. The underlying amino-acid pathway parameterization is out of scope here; what this study owes is the reproducible record.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">The route-A failure cleanly separates BUILD INTEGRITY from PARAMETER FITTING. All six structural axes pass within tolerance on both arms - chromosome length, round-trip, coordinate bounds, coordinate shift, tombstone, and functional absence - so the genome splice is sound and the genotype is well-formed. It is ParCa&#39;s fit, not the deletion machinery, that rejects it.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-06</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Both arms: structural_axes_all_ok true, with chromosome_length.ok, round_trip.ok, coordinate_bounds.ok, coordinate_shift.ok, tombstone.ok and functional_absence.ok all within_tol; fit.completed and fit.conditions_fitted ungraded because no fit completed. Artifact: data/route_a_summary.json. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> Worth stating plainly because it changes what the failure means: &#34;a trpR knockout does not build&#34; would suggest the perturbation machinery is broken for regulators. It is not. The machinery produces a structurally perfect genotype that a downstream physiological invariant then refuses. INTERPRETATION, offered as such and not measured here: the invariant asserts intracellular amino acid concentrations should be LOWER in amino-acid media, and derepressed trp biosynthesis after losing the repressor is a plausible reason that relation would invert for TRP specifically. Testing that would require instrumenting step 9, which this study does not do.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">The model&#39;s TrpR regulation WORKS, and the earlier basal null result was correct behaviour rather than a divergence. Removing TrpR in the condition where the model declares it active derepresses the trp operon 6.29x; in basal, where the model declares it inactive, the same knockout changes nothing (1.06x). The knockout itself is total in both - zero TrpR copies against 42-80 in the matched wild type.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-07</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Time-mean trp TU (TU00067) synthesis probability, second-half window, 3 generations, seed 0. AA-replete: WT 6.63e-05, trpR KO 4.17e-04, ratio 6.29x. Basal: WT 5.77e-04, trpR KO 6.14e-04, ratio 1.06x. TrpR monomer: 0 in every KO sample, 42-80 in WT. Fraction of samples with the operon repressed (&lt;1e-8): AA-replete WT 74%, KO 0%. Artifacts: data/route_b_*.json. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> This resolves the alternative hypothesis recorded above: the weak trp response measured in basal was NOT inert regulation, it was a condition with nothing to derepress. The model&#39;s own condition_defs.tsv declares CPLX-125 (TrpR&#39;s active form) among with_aa&#39;s active TFs and none in basal, so basal has no repression to relieve. Both arms of that alternative are now measured rather than reasoned.</div>
+          </div>
+        </details>
+      </div>
+      
+      
+      
+      
+      
+      <div class="finding-card finding-kind-other finding-status-novel">
+        <details class="finding-details">
+          <summary class="finding-row">
+            <span class="finding-status-glyph">◆</span>
+            <span class="finding-claim finding-statement">The measured derepression (6.29x) is the same order as the ceiling predicted statically from the model&#39;s own merged fold-change table (F-02/F-03: 2.62-4.03x), though somewhat above it - the readout is transcription-unit level while the terms are per-target, so they are related but not the same quantity and exact agreement was not expected. Two independent methods - reading the shipped parameter table, and running the knockout - agree. So B1&#39;s predicted failure against the literature&#39;s 70-300x is a parameterization result, fully accounted for, and not a defect in the knockout machinery or the run.</span>
+            
+          </summary>
+          <div class="finding-drawer">
+            <div class="finding-header">
+              <span class="finding-id">F-08</span>
+              <span class="finding-kind">other</span>
+              <span class="finding-status-text">novel literature</span>
+            </div>
+            
+            
+            <div class="finding-evidence">
+              <strong>observed:</strong> Static (F-02/F-03, both tables merged as the loader merges them): TrpR terms 2.62-4.03x. Dynamic (F-07, from the run): 6.29x. Literature: 70-300x. · 
+              
+              
+              
+              
+              
+            </div>
+            
+            
+            
+            
+            
+            
+            
+            
+            <div class="finding-next"><strong>→ Next:</strong> This is the strongest form the study&#39;s central claim can take: the model under-derepresses by roughly an order of magnitude relative to the literature, and the shortfall is exactly what its own regulatory parameterization permits. FU-02 (re-parameterize the TrpR fold-changes) is the actionable consequence.</div>
+          </div>
+        </details>
+      </div>
+      
+    </div>
+    
+      
+      
+      
+      <div class="ctr-meta ctr-assess">
+        
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Confidence</span>
+          
+          
+          
+        </div>
+        
+        
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Caveat</span> <span class="ctr-meta-item">The static findings (F-01..F-04) measure the model&#39;s PARAMETER TABLES. They constrain what a run can show but are not themselves run results. F-05..F-08 are the run results: route A (build) and route B (multigen) have both executed.</span></div>
+        
+      </div>
+      
+    </div>
+
+    <div id="feedback-tracked-panel"></div>
+
+  </div>
+</section>
+
+
+
+<section class="study-tab-panel" data-kind="compose" id="panel-compose" hidden>
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+    <h2 class="overview-label" style="margin:0">Model composition</h2>
+    
+    <button type="button" class="btn-mini" onclick="window._vivStudyNotebookFromCard(event, 'genotype-06-trpr-regulon', 'genotype-perturbation-response')" title="Download a runnable Jupyter notebook for THIS study — its composite + editable parameters + figures">↓ notebook</button>
+  </div>
+
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="genotype-06-trpr-regulon">
+    <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
+  </div>
+
+  
+  
+  
+
+  
+  
+  
+  
+  
+  
+  
+  <div class="overview-section" id="model-section">
+    <h3>Runnable models <span class="muted" style="font-size:0.85em;font-weight:normal">— the composite(s) this study simulates</span></h3>
+    
+    <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>genotype-06-trpr-regulon</strong>
+        
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.ecoli_baseline.ecoli_baseline')">🧬 explore &amp; run ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <input type="text" class="baseline-composite-input" data-baseline-name="genotype-06-trpr-regulon"
+               value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
+               style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
+        <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
+                data-baseline-name="genotype-06-trpr-regulon">Set composite</button>
+      </div>
+      <div class="baseline-composite-status muted" data-baseline-name="genotype-06-trpr-regulon" style="font-size:0.8em;margin-top:2px"></div>
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
+        <span class="cond-pill"><span class="cond-pill-k">seeds</span>=1</span>
+        
+        
+        
+      </div>
+      
+    </div>
+    
+    
+  </div>
+  
+
+  
+  
+  <div class="overview-section" id="conditions-section">
+    <h3>Conditions <span class="muted" style="font-size:0.85em;font-weight:normal">— what we set up to test it</span></h3>
+    <p class="muted" style="font-size:0.88em">The experimental knobs: how variants perturb the baseline, and which model settings still need a human-set value.</p>
+
+    
+    <div class="cond-block">
+      <div class="cond-block-title">Variants <span class="muted" style="font-weight:normal;font-size:0.85em">(4)</span></div>
+      <table class="cond-table">
+        <thead><tr><th>Variant</th><th>Composite / base</th><th>Parameter overrides</th><th>Notes</th></tr></thead>
+        <tbody>
+          
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"knockouts": ["EG11029"]}'>
+            <td><code>route-B-trpR-ko</code></td>
+            <td>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+              
+            </td>
+            <td>
+              
+                
+                <div><span class="cond-pill-k">knockouts</span>=<code>[&#39;EG11029&#39;]</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"knockouts": ["EG11029", "EG11005"]}'>
+            <td><code>route-B-trpR-tnaA-dko</code></td>
+            <td>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+              
+            </td>
+            <td>
+              
+                
+                <div><span class="cond-pill-k">knockouts</span>=<code>[&#39;EG11029&#39;, &#39;EG11005&#39;]</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"knockouts": ["EG11029"], "trna_attenuation": true}'>
+            <td><code>route-B-trpR-ko-attenuation-on</code></td>
+            <td>
+              <code>v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
+              
+            </td>
+            <td>
+              
+                
+                <div><span class="cond-pill-k">knockouts</span>=<code>[&#39;EG11029&#39;]</code></div>
+                
+                <div><span class="cond-pill-k">trna_attenuation</span>=<code>True</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+          
+          
+          
+          <tr data-model-composite="v2ecoli.composites.parca.parca" data-model-overrides='{"cpus": 8, "debug": true}'>
+            <td><code>route-A-trpR-parca-ko</code></td>
+            <td>
+              <code>v2ecoli.composites.parca.parca</code>
+              
+            </td>
+            <td>
+              
+                
+                <div><span class="cond-pill-k">debug</span>=<code>True</code></div>
+                
+                <div><span class="cond-pill-k">cpus</span>=<code>8</code></div>
+                
+              
+            </td>
+            <td></td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+
+    
+    <div class="cond-block">
+      
+      <div class="cond-block-title">
+        Model settings <span class="muted" style="font-weight:normal;font-size:0.85em">(1)</span>
+        
+      </div>
+      <p class="muted" style="font-size:0.85em;margin:0 0 6px 0">Edit a value in the Current column and click <strong>Save</strong>. The next <code>pbg_runner</code> invocation for this study reads the updated value from <code>study.yaml</code>.</p>
+      <table class="cond-table cond-expert-table" data-study="genotype-06-trpr-regulon">
+        <thead><tr><th>Name</th><th>Type</th><th>Default</th><th>Current</th><th>Range</th><th>Gate</th><th></th></tr></thead>
+        <tbody>
+          
+          
+          
+          
+          <tr data-ei-name="trna_attenuation">
+            <td title=""><code>trna_attenuation</code></td>
+            <td></td>
+            <td><code>False</code></td>
+            <td>
+              <input class="cond-ei-input"
+                     type="text"
+                     value="False"
+                     placeholder="(awaiting expert)"
+                     min="False" max="True"
+                     step="any"
+                     style="width:100%;padding:3px 6px;border:1px solid #cbd5e1;border-radius:3px;font:inherit">
+              
+              
+            </td>
+            <td>
+              <code>[False, True]</code>
+              
+            </td>
+            <td>
+              <span class="cond-ei-gate-opt">optional</span>
+            </td>
+            <td>
+              <button class="action-btn cond-ei-save" type="button"
+                      onclick="_saveExpertInput('genotype-06-trpr-regulon', 'trna_attenuation', this)">Save</button>
+              <span class="cond-ei-flash" style="display:none;margin-left:6px;font-size:0.85em"></span>
+            </td>
+          </tr>
+          
+        </tbody>
+      </table>
+    </div>
+    
+  </div>
+  
+
+  
+
+  
+  
+  
+  
+
+
+</section>
+
+
+
+<section class="study-tab-panel" data-kind="simulate" id="panel-simulate" hidden>
+
+<div class="overview-section" id="simulations-section">
+  <h2>Simulations</h2>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-run-detail" style="margin-top:14px"></div>
+</div>
+
+</section>
+
+
+<section class="study-tab-panel" data-kind="results" id="panel-results" hidden>
+
+<div class="overview-section" id="results-section">
+  <h2>Results</h2>
+  <p class="muted">What came back from this study's runs — a per-store preview of the latest run, plus the raw emitter store (zarr/parquet/runs.db) for every run.</p>
+
+  <h4>Latest run preview</h4>
+  <p class="muted" style="font-size:0.9em">Per-store sparkline + first/last/min/max from the most recent run's emitted trajectory. This is a downsampled PREVIEW, not the full data — use the per-store or Download-all links for the complete arrays.</p>
+  <div id="results-preview" data-study="genotype-06-trpr-regulon">
+    <p class="empty-message">Loading results preview…</p>
+  </div>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:22px">
+    <span class="muted" id="exports-downloads" style="margin-right:auto;font-weight:600">Raw simulation data</span>
+    <button type="button" id="raw-data-download-all" class="btn-mini" style="display:none"
+            onclick="_downloadAllRawExports()">⬇ Download all raw data</button>
+  </div>
+  <div id="raw-data-list"><p class="empty-message">Loading runs…</p></div>
+</div>
+
+</section>
+
+
+<section class="study-tab-panel" data-kind="analyses" id="panel-analyses" hidden>
+
+<div class="overview-section" id="analyses-results-section">
+  <h2>Analyses</h2>
+  <p class="muted">Result files written by this study's analysis steps.</p>
+
+  <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+    <span class="muted" style="margin-right:auto;font-weight:600">Analysis result files</span>
+    <a id="data-download-all" class="btn-mini" style="display:none"
+       href="/api/study-analysis-zip?study=genotype-06-trpr-regulon">Download all (.zip)</a>
+  </div>
+  <div id="data-files" data-study="genotype-06-trpr-regulon">
+    <p class="empty-message">Loading result files…</p>
+  </div>
+</div>
+
+</section>
+
+<section class="study-tab-panel" data-kind="readouts" id="panel-readouts" hidden>
+  <div class="observables-section">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h3 class="section-title" style="margin-right:auto">Readouts</h3>
+    </div>
+    <p class="muted">The Design-time emit <strong>contract</strong>: what the emitter is
+    configured to persist, which store paths it declares, and the shape of what lands on
+    disk. No observed values here — see Results for what actually came back from a run.</p>
+
+    <h4>Emitter &amp; config</h4>
+    <p class="muted" style="font-size:0.9em">The emitter class, its write-path module, emit
+    interval/buffer, output location, and emit scope — from
+    <code>lib/emitters.py</code> and this study's (or the workspace's)
+    <code>runtime.default_emitter</code>.</p>
+    <div id="readouts-emitter" data-study="genotype-06-trpr-regulon">
+      <p class="empty-message">Loading emitter configuration…</p>
+    </div>
+
+    <h4>Emitted paths</h4>
+    <p class="muted" style="font-size:0.9em">Each row is an emitter <code>store_path</code>
+    the composite will save; authored entries in <code>study.yaml</code> add names,
+    descriptions, and units on top.</p>
+
+    
+    <div id="readouts-download" style="margin:0 0 16px 0"></div>
+
+    <div id="readouts-table" data-study="genotype-06-trpr-regulon">
+      <p class="empty-message">Loading readouts from the composite emit plan…</p>
+    </div>
+
+    <h4>Outputs &amp; shapes</h4>
+    <p class="muted" style="font-size:0.9em">Store path, dtype, shape
+    <code>(n_steps, …)</code>, units, and a best-effort byte estimate for each emitted
+    leaf.</p>
+    <div id="readouts-shapes" data-study="genotype-06-trpr-regulon">
+      <p class="empty-message">Loading output shapes…</p>
+    </div>
+
+    
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="visualize" id="panel-visualize" hidden>
+
+  <div class="overview-section study-figures figure-gallery" id="visualize-section">
+
+    
+    
+
+    <div id="native-gallery-panel" class="figure-mount"><p class="empty-message">Loading figures…</p></div>
+
+    
+    
+
+    <div id="viz-charts-panel" class="charts-panel figure-mount"></div>
+
+    
+    <p id="figures-empty-message" class="empty-message" style="display:none">No figures yet.</p>
+  </div>
+</section>
+
+<section class="study-tab-panel" data-kind="tests" id="panel-tests" hidden>
+  <h2>Tests</h2>
+  <p class="muted" style="margin:0 0 12px 0"><strong>The bar.</strong> What must be true for this model to count as correct — the acceptance criteria, their bands, and the report cards that grade them.</p>
+
+  
+  
+  
+  <div class="overview-section expectations-band" id="expectations-band">
+    <h3 class="section-title">Expectations
+      <span class="muted" style="font-size:0.85em;font-weight:normal">— from literature, mapped to the model observable that measures each</span>
+    </h3>
+    <ul class="literature-anchor-list" style="list-style:none;padding-left:0">
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>TrpR represses the trp operon 70-300 fold in vivo.</span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code>merged fold_changes + fold_changes_nca trpR rows, 2.62-4.03x</code>
+        </div>
+        
+        <div class="anchor-source"><em>Source:</em> Yanofsky-lineage trp regulation literature</div>
+        
+      </li>
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>Attenuation contributes 8-10 fold, subordinate to repression.</span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code>transcriptional_attenuation.tsv tRNA-Trp rows, 5.98-7.36x</code>
+        </div>
+        
+        <div class="anchor-source"><em>Source:</em> Yanofsky-lineage trp regulation literature</div>
+        
+      </li>
+    
+      
+      <li class="literature-anchor-card expectation-item">
+        <div class="anchor-expectation" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <span>EcoCyc documents five TrpR operator-bearing regions.</span>
+          
+        </div>
+        <div class="anchor-observable">
+          <em>Model observable:</em> <code>all five regions represented (trpLEDCBA, aroH, aroL, mtr, trpR autoregulation)</code>
+        </div>
+        
+        <div class="anchor-source"><em>Source:</em> EcoCyc TrpR regulon</div>
+        
+      </li>
+    
+    </ul>
+  </div>
+  
+
+  
+  
+  
+
+  
+  <div class="tests-gate-summary" id="tests-gate-summary"><p class="empty-message">Loading gate summary…</p></div>
+
+  
+
+  
+  
+
+  
+  
+
+  <div class="behavioral-tests-section" style="margin-top:22px">
+    <h3 class="section-title">Behavioral tests</h3>
+    <div class="tests-header">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        <button id="run-tests-btn" class="btn-primary">Run tests</button>
+        <div class="tests-summary muted" id="tests-summary">— no test results yet —</div>
+      </div>
+      <div class="tests-config" style="margin-top: 6px;">
+        <span class="badge">auto_discover: <code id="tests-auto-discover">true</code></span>
+        <span class="badge">data_source: <code id="tests-data-source">latest_run</code></span>
+      </div>
+    </div>
+
+  
+  
+  
+  
+  <ul class="expected-behavior-list" id="tests-list" style="list-style:none; padding-left:0; margin-top: 12px;">
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-trp-operon-derepresses-above-ten-fold"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="trp-operon-derepresses-above-ten-fold"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">trp-operon-derepresses-above-ten-fold</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "derived", "path": "listeners.rna_synth_prob.actual_rna_synth_prob", "statistic": "time_mean_ratio_ko_over_wt", "window": "second_half"}
+pass_if: {"op": "at_least", "provenance": {"kind": "literature", "note": "In vivo TrpR repression of the trp operon is reported at 70-300 fold; 10x is a deliberately permissive floor so the band tests the model\u0027s order of magnitude rather than a precise value."}, "value": 10.0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-aroH-responds-to-trpR-loss"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="aroH-responds-to-trpR-loss"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">aroH-responds-to-trpR-loss</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "derived", "path": "listeners.rna_synth_prob.actual_rna_synth_prob", "statistic": "time_mean_ratio_ko_over_wt", "window": "second_half"}
+pass_if: {"high": 12.0, "low": 3.0, "op": "in_range", "provenance": {"kind": "literature", "note": "EcoCyc reports aroH as a TrpR target responding ~6x; the band brackets that value within a factor of two."}}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-mtr-responds-to-trpR-loss"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="mtr-responds-to-trpR-loss"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">mtr-responds-to-trpR-loss</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "derived", "path": "listeners.rna_synth_prob.actual_rna_synth_prob", "statistic": "time_mean_ratio_ko_over_wt", "window": "second_half"}
+pass_if: {"op": "at_least", "provenance": {"kind": "literature", "note": "mtr is an EcoCyc TrpR regulon member. The band asks only for a detectable response, not a magnitude. \u26d4 This band was originally predicted to FAIL as unreachable, on the retracted claim that the model carried no TrpR-\u003emtr edge. It does carry one (3.89x), so the band is gradeable and is now expected to PASS."}, "value": 1.5}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-aroL-does-not-respond"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="aroL-does-not-respond"
+        data-classification="supporting"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #3b82f6; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-supporting">supporting</span>
+        <strong style="font-size: 0.9em;">aroL-does-not-respond</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "derived", "path": "listeners.rna_synth_prob.actual_rna_synth_prob", "statistic": "time_mean_ratio_ko_over_wt", "window": "second_half"}
+pass_if: {"op": "at_most", "provenance": {"kind": "literature", "note": "aroL carries a TrpR operator and is reported to respond weakly. \u26d4 CORRECTED: the model DOES carry an aroL edge (2.62x) in the merged fold_changes + fold_changes_nca table, so aroL is expected to respond above the 1.5x threshold and this band is now predicted to FAIL - the model over-represses a weakly-coupled gene. The original note claimed no aroL edge (from fold_changes.tsv alone) and predicted a pass for the wrong reason."}, "value": 1.5}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+    
+    
+    
+    
+    
+    
+    
+    <li class="expected-behavior-item" id="bt-repression-exceeds-attenuation"
+        data-test-kind="behavioral"
+        
+        data-pytest-node="repression-exceeds-attenuation"
+        data-classification="primary"
+        data-result="pending"
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+      
+        
+      <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="classification-pill classification-primary">primary</span>
+        <strong style="font-size: 0.9em;">repression-exceeds-attenuation</strong>
+        
+      </div>
+      <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      
+      <details style="margin-top: 6px; font-size: 0.82em;">
+        <summary class="muted" style="cursor: pointer;">Assertion</summary>
+        
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "derived", "path": "listeners.rna_synth_prob.actual_rna_synth_prob", "statistic": "time_mean_ratio_ko_over_wt", "window": "second_half"}
+pass_if: {"op": "at_least", "provenance": {"kind": "literature", "note": "Literature has TrpR repression (70-300x) dominating attenuation (8-10x). Graded as the ratio of the repressor-knockout response to the attenuation-arm response; \u003e1 means repression dominates. F-03 measures the model\u0027s TABLES as inverted on 5 of 5 shared targets, so this band is predicted to fail."}, "value": 1.0}</pre>
+      </details>
+      
+      
+      
+      
+    </li>
+    
+  </ul>
+  
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="audit" id="panel-audit" hidden>
+  <h2>Audit</h2>
+  <p class="muted" style="margin:0 0 12px 0"><strong>Is the bar sound?</strong> Whether the tests themselves are rigorous and matched to the problem — sufficiency, where the model was sourced, and the rigor + reproducibility scorecards.</p>
+
+  <div class="checks-band">
+    <div class="check-group check-group-sufficiency" id="audit-sufficiency" data-check-group="sufficiency">
+      <p class="empty-message">Loading sufficiency checks…</p>
+    </div>
+
+    <div class="check-group check-group-quality" id="check-group-quality" data-check-group="quality" style="margin-top:16px">
+      <p class="empty-message">Loading quality checks…</p>
+    </div>
+
+    <div class="check-group check-group-reproducibility" id="check-group-reproducibility" data-check-group="reproducibility" style="margin-top:16px">
+      <p class="empty-message">Loading reproducibility checks…</p>
+    </div>
+
+    
+    <div class="check-group check-group-sourcing" id="audit-sourcing" data-check-group="sourcing" style="margin-top:16px">
+      <p class="empty-message">Loading sourcing…</p>
+    </div>
+  </div>
+</section>
+
+
+<section class="study-tab-panel" data-kind="build" id="panel-build" hidden>
+  <h2>Build</h2>
+  <p class="muted" style="margin:0 0 12px 0"><strong>Was it earned?</strong> The agentic model-building loop that iterated the model to clear the bar — the draft, the frozen tests, the iteration-by-iteration trajectory, and the result (or an honest give-up).</p>
+
+  <div id="build-loop-state"><p class="empty-message">Loading loop provenance…</p></div>
+</section>
+
+<section class="study-tab-panel" data-kind="conclusions" id="panel-conclusions" hidden>
+
+  
+  
+  
+  
+  
+
+  
+  <div class="overview-section"><h2 class="overview-label">Verdict &amp; conclusion</h2>
+    
+    <p class="muted small verdict-attribution" style="margin:0 0 8px 0" title="actor kind: unattributed">
+      <span class="actor-glyph">○</span> unattributed
+    </p>
+
+    
+    
+    
+
+    <div class="overview-section narrative-card" data-narrative-card="conclusion_verdicts" style="margin-bottom:18px">
+      <h3 class="overview-label">⚖️ Verdicts — three-track outcome
+        <span class="narrative-card-hint">(regression / empirical / explanatory)</span>
+      </h3>
+      <div class="narrative-grid">
+        <label class="narrative-row">
+          <span class="narrative-label">Regression compatibility</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="regression_compatibility"
+                title="Computed from run status (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from run status</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Regression basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.regression_compatibility.basis"
+                    placeholder="e.g. Builds cleanly; tests pass; pyproject deps unchanged.">The study changes no shipped code or data. The static pass reads the model&#39;s own tables, and the run arms (route A build attempts, route B multigen) execute stock v2ecoli against cache-baked knockouts without modifying it.</textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Empirical validation</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="biological_validation"
+                title="Computed from the gate evaluator (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from gate evaluator</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Empirical basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.biological_validation.basis"
+                    placeholder="e.g. atp_fraction = 0.997, outside Boesen 2024 band [0.2, 0.5].">Not asserted. The parent investigation is descriptive and asserts no verdict past build integrity; this study contributes a ranked set of divergences, not a pass/fail on the model.</textarea>
+        </label>
+        <label class="narrative-row">
+          <span class="narrative-label">Explanatory gain</span>
+          <span class="narrative-input verdict-badge-computed" data-verdict-track="explanatory_gain"
+                title="Computed from interpretation-tier findings (read-only)"
+                style="display:inline-block;padding:2px 12px;border-radius:9999px;font-weight:700;font-size:0.85em;background:#f1f5f9;color:#475569">PENDING</span>
+          <span class="muted small" style="margin-left:6px">computed from interpretation-tier findings</span>
+        </label>
+        <label class="narrative-row narrative-row-wide">
+          <span class="narrative-label">Explanatory basis</span>
+          <textarea class="narrative-input narrative-textarea" rows="2"
+                    data-narrative-path="conclusion_verdicts.explanatory_gain.basis"
+                    placeholder="e.g. Three findings worth keeping; design_pivot_required closed.">F-03 identifies a specific, actionable mis-parameterization - the repression/attenuation ordering is inverted on every gene where both act - and F-02 establishes that the regulon is structurally COMPLETE against EcoCyc (12 edges, all five operator regions), so the divergence is one of parameterization rather than coverage.</textarea>
+        </label>
+      </div>
+    </div>
+
+    
+    
+    
+
+    
+    
+    
+
+  </div>
+
+  
+  
+  <div class="overview-section"><h2 class="overview-label">Plan &amp; assumptions</h2>
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Pipeline gate</h3>
+      <p class="muted" style="margin: 0 0 8px 0;font-size:0.88em">
+        Each study is a model-building gate: it answers <em>"Can we safely build the next layer?"</em>
+      </p>
+      
+      <div style="margin-bottom:6px"><strong>Prerequisites:</strong> <em class="muted">none (root study)</em></div>
+      
+      
+      
+      <div><strong>Proceed when:</strong> <span class="muted">The static regulatory-reach pass (F-01..F-04) is complete and re-derivable. The run arms may proceed independently; nothing downstream waits on them.</span></div>
+      
+    </div>
+    
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Key assumptions</h3>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">TrpR represses the trp operon 70-300 fold in vivo; transcriptional attenuation contributes a further 8-10 fold, and repression is the dominant of the two.</li><li style="margin:2px 0">EcoCyc documents five TrpR operator-bearing regions - trpLEDCBA, aroH, aroL, mtr, and trpR&#39;s own autoregulation.</li><li style="margin:2px 0">tnaA (tryptophanase) is the main catabolic sink for tryptophan, and tnaB - a second Trp permease - shares its operon. A trpR-only arm is therefore not like-for-like against a ΔtrpR ΔtnaA reference strain.</li>
+      </ul>
+    </div>
+    
+
+    
+    <div class="overview-section">
+      <h3 class="overview-label">Limitations</h3>
+      <p class="muted" style="margin:0 0 6px 0;font-size:0.85em">What this study explicitly does NOT validate (prevents overclaim).</p>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:0.93em">
+        <li style="margin:2px 0">The static findings (F-01..F-04) measure the model&#39;s PARAMETER TABLES. They constrain what a run can show but are not themselves run results. F-05..F-08 are the run results: route A (build) and route B (multigen) have both executed.</li><li style="margin:2px 0">Route C - imposing a measured differential-expression table at ParCa time via the rnaseq_experimental key - is named but not exercised. It depends on which DE table is supplied, which makes it an input question rather than a property of the machinery.</li><li style="margin:2px 0">F-07&#39;s positive arm is measured in with_aa, which is a blunt instrument for the question. Relative to basal it supplies all 20 amino acids, shortens the doubling time from 44.0 to 25.0 min, and declares five TFs active and three inactive rather than TrpR alone (condition_defs.tsv). The 6.29x is therefore attributable to &#34;a condition where the model declares TrpR active&#34;, not to tryptophan specifically. The basal_with_trp condition (ecoli-sources#15, merged 2026-08-23) isolates tryptophan at basal&#39;s own 44.0 min and is the intended clean re-run; it is not yet reachable from v2ecoli, which still pins ecoli-sources to a rev predating it.</li><li style="margin:2px 0">EcoCyc region membership is entered by hand in the evidence extractor. It is literature, not model data, and is the one input a reader must take on trust rather than re-derive.</li>
+      </ul>
+    </div>
+    
+
+  </div>
+  
+
+  
+  <div class="overview-section"><h2 class="overview-label">Evidence</h2>
+
+    
+    
+    
+    
+    
+
+  </div>
+
+  
+  <div class="overview-section"><h2 class="overview-label">Follow-ups &amp; decisions</h2>
+
+    
+    
+    <div class="overview-section" id="open-debts-section" style="margin-top:6px">
+      <h3 class="overview-label">Open debts <span class="narrative-card-hint">(pre-run expert review)</span></h3>
+      <div class="overview-section pre-run-expert-review">
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.88em">
+          Open biological questions the planning is contingent on. A "wrong" answer here
+          means a primary test threshold needs to change <em>before</em> the simulation
+          is run, not after. Each question lists alternatives + the impact of the wrong
+          choice + what downstream work it blocks.
+        </p>
+        <div class="expert-question-list">
+          
+          <div class="expert-question-card status-open">
+            <div class="expert-question-header">
+              <span class="expert-question-id">GENO06-EQ-01</span>
+              <span class="expert-question-status">open</span>
+              
+              <span class="expert-question-asked-to actor-kind-unattributed" title="actor kind: unattributed">asked to: <span class="actor-glyph">○</span> unattributed</span>
+            </div>
+            <div class="expert-question-text"><strong>Q.</strong> Is ParCa&#39;s continued fitting of delta_prob entries for a deleted transcription factor a defect or a defensible modelling choice?</div>
+            
+            <div class="expert-question-alternatives">
+              <em>Alternatives:</em>
+              <ul><li>Prune fold_changes rows whose TF has been deleted from the genome.</li><li>Keep them, and treat the regulator&#39;s absence as acting only through the protein.</li><li>Make it a declared option on the deletion transform.</li></ul>
+            </div>
+            
+            
+            
+            
+            <div class="expert-question-response">
+              <strong>Requested response format</strong>
+              <p>A decision that applies to every TF knockout, not just trpR. Surfaced by this study but owned by the parent investigation.</p>
+            </div>
+            
+          </div>
+          
+        </div>
+      </div>
+    </div>
+    
+
+    
+    
+    
+    <div class="overview-section" id="discovery-implications-section" style="margin-top:18px">
+      <h3 class="overview-label">Discovery implications</h3>
+      <p class="muted" style="margin:0 0 10px 0;font-size:0.88em">Where this study's results leave the mechanism model — and what to investigate next.</p>
+
+      
+      <div class="di-uncertainties">
+        
+        <div class="di-unc di-unc-resolved">
+          <h4>✓ Resolved uncertainties</h4>
+          <ul><li>Whether a ParCa-level TF knockout prunes that TF&#39;s regulon entries. It does NOT - the deletion transform touches genes, transcription_units, dna_sites and the genome sequence, and never fold_changes. All 12 trpR rows survive a trpR deletion, so ParCa continues fitting delta_prob entries for a regulator no longer in the genome. This closes an open decision on the parent investigation.</li></ul>
+        </div>
+        
+        
+        <div class="di-unc di-unc-remaining">
+          <h4>● Remaining uncertainties</h4>
+          <ul><li>Whether the inverted table ordering (F-03) manifests as an inverted RUN response once attenuation is enabled, or whether downstream machinery re-weights the two mechanisms.</li><li>Whether ParCa&#39;s continued fitting of an absent regulator&#39;s regulon is a defect or a defensible modelling choice. It needs deciding for every TF knockout, not just trpR.</li></ul>
+        </div>
+        
+      </div>
+      
+
+      
+
+      
+
+      
+      
+      
+      <div class="di-group">
+        <h3>Follow-up study proposals
+          <span class="muted" style="font-weight:normal;font-size:0.82em">(discovered)</span>
+          <span class="muted" style="font-weight:normal;font-size:0.85em">(3)</span></h3>
+        <p class="muted" style="margin:0 0 8px 0;font-size:0.85em">Click <strong>➕ Add to investigation</strong> to spawn a new study node in the investigation graph.</p>
+        <div class="followup-list">
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">VOID - the TrpR-&gt;mtr edge already exists</strong>
+              
+              
+              
+              
+            </div>
+            
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('genotype-06-trpr-regulon', "FU-01")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Re-parameterize the TrpR fold-changes toward the literature range</strong>
+              
+              
+              
+              
+            </div>
+            
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('genotype-06-trpr-regulon', "FU-02")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+          
+          <div class="di-card di-fup-card">
+            <div class="followup-header">
+              <strong class="followup-title">Reproduce and characterize the route-A TRP[c] build failure</strong>
+              
+              
+              
+              
+            </div>
+            
+            
+            <div class="followup-actions" style="margin-top:8px">
+              <button class="btn-seed-followup"
+                      onclick="_seedFollowupProposal('genotype-06-trpr-regulon', "FU-03")">➕ Add to investigation</button>
+            </div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+    
+
+    
+    
+    
+    
+
+  </div>
+
+  
+  
+
+</section>
+
+</main>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "39f8b8e051ac40ead0ec677cf23ec5d9748c954d", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/39f8b8e051ac40ead0ec677cf23ec5d9748c954d", "branch": "main", "lockfile": "uv.lock@8a24ab1830f6", "generated_at": "2026-08-25 04:49 UTC"} };</script>
+<script src="/v2ecoli/workbench/assets/data-source.js"></script>
+<script>
+window._studyName = "genotype-06-trpr-regulon";
+window._study = null;  // populated by _bootstrapStudy() in study-detail.js
+
+// Save handler for the Conditions → Model settings editable rows.
+// POSTs to /api/study-expert-input-set (route kept for back-compat)
+// which patches study.yaml in place.
+// On success: flashes "saved" + updates the row's data-current attribute.
+// On failure: flashes the error (HTTP body) for ~5s.
+function _saveExpertInput(studyName, eiName, btn) {
+  var row = btn.closest('tr');
+  var input = row && row.querySelector('.cond-ei-input');
+  var flash = row && row.querySelector('.cond-ei-flash');
+  if (!input || !flash) return;
+  var raw = (input.value || '').trim();
+  // Coerce numeric inputs so yaml carries the right type
+  var val = raw;
+  if (input.type === 'number' && raw !== '') {
+    var n = Number(raw);
+    if (!isNaN(n)) val = n;
+  } else if (raw === '') {
+    val = null;
+  }
+  btn.disabled = true;
+  flash.className = 'cond-ei-flash';
+  flash.style.display = '';
+  flash.textContent = 'saving…';
+  fetch('/api/study-expert-input-set', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+  }).then(function(r) {
+    return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
+  }).then(function(res) {
+    if (res.ok) {
+      flash.className = 'cond-ei-flash saved';
+      flash.textContent = '✓ saved';
+      setTimeout(function() { flash.style.display = 'none'; }, 2500);
+    } else {
+      flash.className = 'cond-ei-flash error';
+      flash.textContent = '✗ ' + (res.body || ('HTTP ' + res.status));
+    }
+  }).catch(function(err) {
+    flash.className = 'cond-ei-flash error';
+    flash.textContent = '✗ ' + String(err);
+  }).finally(function() {
+    btn.disabled = false;
+  });
+}
+
+// ── Seed a child study from this study's discovery_implications /
+//    follow_up_studies and make it appear in the investigation graph ──────
+// Both POST /api/study-seed-followup. On success they flash an inline
+// confirmation on the clicked button, then refresh the surface the user is
+// in: when embedded inside the investigation iframe, ask the parent to
+// re-render the investigation detail (and reload as a fallback); standalone,
+// reload the page so the seeded child is reflected.
+//
+// NOTE: these are defined AFTER /study-detail.js loads (see the script order
+// below) so they take precedence over the legacy _seedFollowupStudy there,
+// which navigates away instead of refreshing the embedded investigation.
+function _flashSeedBtn(btn, text, ok) {
+  if (!btn) return;
+  btn.textContent = text;
+  btn.style.borderColor = ok ? '#10b981' : '#dc2626';
+  btn.style.color = ok ? '#065f46' : '#991b1b';
+}
+function _afterSeedRefresh() {
+  // Embedded inside the investigation iframe → refresh the parent's graph.
+  if (window.parent && window.parent !== window) {
+    try {
+      if (window.parent._refreshInvestigationDetail) {
+        window.parent._refreshInvestigationDetail();
+        return;
+      }
+    } catch (e) { /* cross-origin or missing — fall through to reload */ }
+    try { window.parent.location.reload(); return; } catch (e) { /* fall through */ }
+  }
+  location.reload();
+}
+function _seedFollowup(payload, btn) {
+  var orig = btn ? btn.textContent : null;
+  if (btn) { btn.disabled = true; _flashSeedBtn(btn, '… seeding', true); }
+  fetch('/api/study-seed-followup', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  }).then(function(r) {
+    return r.json().then(function(d) { return {ok: r.ok, status: r.status, body: d}; })
+      .catch(function() { return {ok: r.ok, status: r.status, body: {}}; });
+  }).then(function(res) {
+    if (!res.ok || (res.body && res.body.error)) {
+      _flashSeedBtn(btn, '✗ ' + ((res.body && res.body.error) || ('HTTP ' + res.status)), false);
+      if (btn) btn.disabled = false;
+      return;
+    }
+    _flashSeedBtn(btn, '✓ added', true);
+    setTimeout(_afterSeedRefresh, 600);
+  }).catch(function(err) {
+    _flashSeedBtn(btn, '✗ ' + String(err), false);
+    if (btn) btn.disabled = false;
+  });
+}
+function _seedFollowupStudy(parent, idx) {
+  _seedFollowup({parent: parent, followup_idx: idx}, window.event && window.event.target);
+}
+function _seedFollowupProposal(parent, proposalId) {
+  _seedFollowup({parent: parent, proposal_id: proposalId}, window.event && window.event.target);
+}
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script src="/v2ecoli/workbench/assets/configure-run.js"></script>
+<script src="/v2ecoli/workbench/assets/sim-table.js"></script>
+<!-- composite-card.js: shared composite-card renderer (extracted from
+     walkthrough.js, study-spine-reorg Task 6) — the Model tab uses
+     _renderCompositeCardFull to show the SAME rich card the Modules/
+     Composites view uses, with full semantic detail (config schema +
+     declared observables). Loaded before study-detail.js, which calls it. -->
+<!-- loom-embed.js: _openCompositeLoomInline + helpers (from walkthrough.js,
+     which this iframe does NOT load). composite-card.js's _pcardToggleSec needs
+     it to MOUNT a composite's loom — without it, opening a composite from a
+     Model card stays stuck on "Resolving composite…". -->
+<script src="/v2ecoli/workbench/assets/loom-embed.js"></script>
+<script src="/v2ecoli/workbench/assets/composite-card.js"></script>
+<script src="/v2ecoli/workbench/assets/study-detail.js"></script>
+<script>
+// Re-assert the refresh-aware seed handlers AFTER study-detail.js (which
+// defines its own navigate-away _seedFollowupStudy). The embedded
+// investigation view prefers staying in place over a full navigation.
+window._seedFollowupStudy = _seedFollowupStudy;
+window._seedFollowupProposal = _seedFollowupProposal;
+</script>
+<script>
+(function () {
+  // Task 8: the Configure & Run mount and the remote-run (smsvpctest) panel
+  // were both removed from the Simulate tab — launching now lives entirely
+  // in the header buttons (Reproduce / Run current spec). This block used
+  // to also mount ConfigureRun into the (now-deleted) mount div and, in an
+  // else-if, relabel the remote-run card via window._initRemoteRunPinned()
+  // if pinned mode was enabled; Fable A #7 deleted that now-fully-dormant
+  // remote-run subsystem from study-detail.js (its DOM anchors — the
+  // #remote-run-panel/-btn/-progress mounts — never existed in this
+  // template to begin with), so the else-if branch is gone too. Only the
+  // still-relevant header-button snapshot handling remains below, now
+  // unconditional (it used to be gated behind a lookup of that deleted div).
+  //
+  // Read-only bundle: there's no live backend to run on — hide the header
+  // run buttons in a published read-only snapshot (reproducible-rerun-spine
+  // Task 4 / G2: both equally inert with no live backend to launch against).
+  if (window.__DASH_CONFIG__ && window.__DASH_CONFIG__.mode === "snapshot") {
+    var reproduceBtn = document.getElementById("study-reproduce");
+    if (reproduceBtn) reproduceBtn.style.display = "none";
+    var runCurrentBtn = document.getElementById("study-run-current-spec");
+    if (runCurrentBtn) runCurrentBtn.style.display = "none";
+  }
+})();
+</script>
+</body>
+</html>

@@ -183,6 +183,11 @@ class Division(V2Step):
         # (e.g. metabolism-redux) survives division. None for the normal baseline
         # -> daughters rebuild the plain FBA baseline exactly as before.
         self._injected_processes = self.parameters.get('injected_processes')
+        # Declared exchange-flux measurements, threaded for the same reason as
+        # the injected processes above: baseline() takes them via a module-level
+        # override it clears in its own finally, so a daughter rebuilt without
+        # them declares no leaves and reports 0.0 for the rest of the lineage.
+        self._exchange_fluxes = self.parameters.get('exchange_fluxes')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -373,7 +378,8 @@ class Division(V2Step):
                     doc = baseline(
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
-                        injected_processes=self._injected_processes)
+                        injected_processes=self._injected_processes,
+                        exchange_fluxes=self._exchange_fluxes)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

@@ -234,3 +234,90 @@ def test_the_rate_is_the_difference_of_the_running_total():
     assert second["listeners"]["exchange_flux"]["glucose"] == pytest.approx(expected)
     assert third["listeners"]["exchange_flux"]["glucose"] == pytest.approx(expected)
     assert expected < 0
+
+
+# --------------------------------------------------------------------------
+# Surviving division
+#
+# baseline() takes the flux map through a module-level override that it CLEARS
+# in its own finally. A daughter rebuilt mid-run therefore gets an empty map,
+# declares no leaves, and reports 0.0 for the rest of the lineage — while the
+# cell itself divides and grows normally. Measured on a two-generation run:
+# generation 1 carried the data, generation 2 read exactly zero on every sample
+# with dry mass, growth rate and division all normal.
+#
+# That is the shape that gets mistaken for a result, and an 8-generation screen
+# would carry one generation of data and seven of zeros.
+# --------------------------------------------------------------------------
+
+@pytest.mark.fast
+def test_division_config_carries_the_declared_flux_map():
+    """The map must be captured while the override is still set — at
+    daughter-build time it has already been restored, so reading it there gets
+    nothing."""
+    from v2ecoli.composites import _helpers
+
+    saved = dict(_helpers._EXCHANGE_FLUXES_OVERRIDE)
+    try:
+        _helpers.set_exchange_fluxes_override({"glucose": "GLC[p]"})
+        captured = dict(_helpers._EXCHANGE_FLUXES_OVERRIDE)
+    finally:
+        _helpers.set_exchange_fluxes_override(saved)
+
+    assert captured == {"glucose": "GLC[p]"}
+    # And the override really is cleared afterwards — the behaviour that makes
+    # capture-at-build-time necessary rather than merely tidy.
+    _helpers.set_exchange_fluxes_override({})
+    assert _helpers._EXCHANGE_FLUXES_OVERRIDE == {}
+
+
+@pytest.mark.fast
+def test_the_division_step_passes_the_flux_map_to_each_daughter():
+    """The regression itself: a daughter rebuilt without the map declares no
+    leaves, so every exchange-flux reading after the first division is 0.0.
+
+    Asserted at the baseline() call rather than by running two generations —
+    a real two-generation run is ~25 minutes, and the defect is entirely in
+    what this call is given.
+    """
+    import inspect
+
+    from v2ecoli.steps import division as division_mod
+
+    # 1. The step's own initialize() must LIFT the map off its parameters. Run
+    #    the production initializer rather than assigning the attribute here —
+    #    a test that sets the value it then asserts checks nothing.
+    step = object.__new__(division_mod.Division)
+    step.parameters = {"injected_processes": None,
+                       "exchange_fluxes": {"glucose": "GLC[p]"}}
+    division_mod.Division.initialize(step, step.parameters)
+
+    assert getattr(step, "_exchange_fluxes", None) == {"glucose": "GLC[p]"}, (
+        "Division.initialize dropped the declared flux map")
+
+    # 2. And the daughter rebuild must actually HAND it to baseline(). Checked
+    #    against the source of the rebuild, because the call happens deep inside
+    #    a division event that a unit test cannot reach — and holding the map
+    #    without passing it on would satisfy (1) while still producing a
+    #    lineage of zeros.
+    src = inspect.getsource(division_mod)
+    call = src[src.index("doc = baseline("):]
+    call = call[:call.index(")")]
+    assert "exchange_fluxes=" in call, (
+        "the daughter's baseline() rebuild does not pass exchange_fluxes, so "
+        "daughters declare no flux leaves and report 0.0 for the rest of the "
+        "lineage")
+
+
+@pytest.mark.fast
+def test_baseline_accepts_the_parameter_the_division_step_passes():
+    """Guard against the two halves drifting apart. The threading is only real
+    if ``baseline`` actually takes the keyword the division step hands it — a
+    rename on either side would otherwise fail at division time, mid-run,
+    rather than here."""
+    import inspect
+    from v2ecoli.composites.ecoli_baseline import baseline
+
+    params = inspect.signature(baseline).parameters
+    assert "exchange_fluxes" in params
+    assert "injected_processes" in params

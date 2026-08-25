@@ -38,20 +38,96 @@ def test_specific_rate_none_when_empty():
     assert vio._specific_rate((None, []), (None, [0.5]), basis="gdcw") is None
 
 
-def test_card_reads_the_basis_from_study_config():
-    """The grading layer must see the study's declaration. Catches the basis
-    being threaded to the engines but never to the card — which is exactly how
-    the double-normalisation reached a graded axis."""
-    assert vio._cfg({"config": {"exchange_flux_basis": "gdcw"}},
-                    "exchange_flux_basis") == "gdcw"
-    assert vio._cfg({}, "exchange_flux_basis") == "counts"
+def _write_sidecar(d, prefix, basis):
+    import json
+    (d / f"{prefix}_exchange_flux.json").write_text(
+        json.dumps({"basis": basis, "leaves": {"product_exchange": "X[c]"}}),
+        encoding="utf-8")
+
+
+def test_basis_is_read_from_the_RUNS_not_the_study_config(tmp_path):
+    """Ground truth is what the run computed. Reading it from the study config
+    instead is what previously let the engines emit one quantity while the card
+    graded another — inside tolerance, because both arms were equally wrong."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "gdcw")
+    _write_sidecar(ve, "vecoli", "gdcw")
+    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    assert basis == "gdcw" and why == ""
+
+
+def test_basis_refused_when_the_two_arms_disagree(tmp_path):
+    """The failure this whole surface exists to make impossible: two arms
+    carrying different quantities under one leaf name."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "gdcw")
+    _write_sidecar(ve, "vecoli", "counts")
+    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    assert basis is None and "different bases" in why
+
+
+def test_card_END_TO_END_takes_the_basis_from_the_run_over_the_config(tmp_path):
+    """⚠ The wiring, not the helper. Every previous version of this test suite
+    tested _basis_from_runs directly, so swapping the CALL SITE back to
+    state["config"] — the exact bug that shipped — stayed green three times.
+
+    The state below is contradictory on purpose: the runs say gdcw, the config
+    says counts. Reading the run yields a computable basis and no refusal; reading
+    the config yields a refusal. That difference is the assertion."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "gdcw")
+    _write_sidecar(ve, "vecoli", "gdcw")
+    st = _state({}, name="t", config={"exchange_flux_basis": "counts"})  # IGNORED
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    out = _run_card("violacein", st)
+    for ax in out["axes"]:
+        assert "unresolved_reason" not in ax["detail"], (
+            "the card refused on a basis it should have read from the run — it is "
+            "re-deriving from the study config again")
+
+
+def test_card_END_TO_END_refuses_when_the_runs_say_counts(tmp_path):
+    """The other direction, so the test above cannot pass by never refusing."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "counts")
+    _write_sidecar(ve, "vecoli", "counts")
+    st = _state({}, name="t", config={"exchange_flux_basis": "gdcw"})  # IGNORED
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    out = _run_card("violacein", st)
+    assert all("unresolved_reason" in ax["detail"] for ax in out["axes"])
+    assert "not graded" in out["card_html"] or "not computed" in out["card_html"]
+
+
+def test_basis_refused_when_a_sidecar_is_missing(tmp_path):
+    """A run that predates the sidecar, or an arm that never emitted one. A
+    number whose quantity is unknown is worse than no number."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "gdcw")
+    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    assert basis is None and "vecoli" in why
 
 
 def test_yield_gg_uses_mw_ratio():
-    # 1 mmol/s violacein, 5 mmol/s glucose uptake; g/g = (1*MWv)/(5*MWg)
     y = vio._yield_gg((None, [1.0, 1.0]), (None, [5.0, 5.0]),
-                      vio_mw=0.34338, glc_mw=0.180156)
+                      vio_mw=0.34338, glc_mw=0.180156, basis="gdcw")
     assert abs(y - (1 * 0.34338) / (5 * 0.180156)) < 1e-9
+
+
+def test_yield_gg_is_refused_on_counts():
+    """Units cancel in a ratio, but the QUANTITY does not: on counts this is a
+    ratio of lineage-cumulative totals carrying the offset inherited across
+    division, so it drifts toward the lineage's historical yield while reporting
+    the same id, label and band. Silently changing meaning with a setting is the
+    failure, not the units."""
+    assert vio._yield_gg((None, [1.0]), (None, [5.0]),
+                         vio_mw=0.34338, glc_mw=0.180156, basis="counts") is None
+    assert vio._yield_gg((None, [1.0]), (None, [5.0]),
+                         vio_mw=0.34338, glc_mw=0.180156) is None
 
 
 def test_grade_rel_bands_match_86():

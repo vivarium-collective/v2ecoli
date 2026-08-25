@@ -158,22 +158,33 @@ def test_deriver_defaults_to_counts_when_nothing_declared():
     assert getattr(instance, "basis", None) == "counts"
 
 
-def test_report_card_threads_the_basis_into_the_cards_config():
-    """The grading layer is the last hop and the easiest to forget: the basis can
-    reach both engines correctly and still never reach the card that normalises
-    by dry mass. Asserted against the `config` dict construction specifically —
-    a card reading `config["exchange_flux_basis"]` is useless if nothing puts it
-    there, and that mutation passed every other test in this file."""
+def test_the_card_no_longer_re_derives_the_basis_from_the_study_config():
+    """The second reader is DELETED, not repaired. Two readers of one setting
+    disagreed once (engines took `comparison:` only, the card's helper preferred a
+    top-level key) and graded a cumulative total as a rate. This pins the deletion:
+    re-adding the key to the card's state re-creates the disagreement."""
     import inspect, re
     import scripts.comparison_report_card as crc
     src = inspect.getsource(crc)
-    m = re.search(r'"config":\s*\{(.*?)\}', src, re.S)
+    m = re.search(r'"config":\s*\{(.*?)\},\n', src, re.S)
     assert m, "could not locate the card state's config dict"
-    block = m.group(1)
-    assert "exchange_flux_basis" in block, (
-        "the card's config must carry exchange_flux_basis; without it a study "
-        "declaring gdcw is graded by a card that still normalises by dry mass")
-    assert "spec" in block, "it must come from the study spec, not a constant"
+    assert "exchange_flux_basis" not in m.group(1), (
+        "the card must read the basis off the RUN, not re-derive it from config")
+
+
+def test_both_spec_routes_resolve_the_basis_by_ONE_rule(tmp_path):
+    """The bug: the study route read `comparison:` while the investigation route's
+    helper preferred a top-level key, so one file gave two answers and the run and
+    the card could disagree. Both now go through this helper, and it is
+    `comparison:`-only like every other per-study measurement key."""
+    from scripts._compare.study_spec import exchange_flux_basis_from_study_yaml
+    y = tmp_path / "study.yaml"
+    y.write_text("exchange_flux_basis: gdcw\ncomparison:\n  seeds: 4\n",
+                 encoding="utf-8")
+    # a stray TOP-LEVEL key must NOT win — that asymmetry was the defect
+    assert exchange_flux_basis_from_study_yaml(y, fallback="counts") == "counts"
+    y.write_text("comparison:\n  exchange_flux_basis: gdcw\n", encoding="utf-8")
+    assert exchange_flux_basis_from_study_yaml(y, fallback="counts") == "gdcw"
 
 
 def test_runner_emits_the_basis_flag_alongside_the_flux_map():

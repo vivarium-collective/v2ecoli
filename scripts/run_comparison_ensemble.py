@@ -441,6 +441,31 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
     }
 
 
+def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
+                                 basis: str) -> None:
+    """Record, NEXT TO THE RUN, which quantity that run's exchange leaves carry.
+
+    ⚠ This exists so a consumer never has to RE-DERIVE the basis from the study
+    config. Two readers resolving the same setting from the same YAML by slightly
+    different rules is not hypothetical — it shipped, and it graded a
+    lineage-cumulative molecule total as a mmol/gDCW/h rate inside a 3% band,
+    because both arms were equally wrong so the relative delta looked fine.
+
+    The run is the ground truth for what the run computed. A card reading this
+    cannot disagree with the engine that wrote it, and a study whose declaration
+    never reached the machinery is now VISIBLE (the study says gdcw, the sidecar
+    says counts) instead of being a silent no-op.
+
+    Named ``{prefix}_exchange_flux.json`` to match the ``{prefix}_seed*.zarr`` and
+    ``{prefix}_build_config.json`` already written here, so both arms can share one
+    out_root without ambiguity."""
+    if not fluxes:
+        return
+    _write_json_sidecar(
+        f"{out_root.rstrip('/')}/{prefix}_exchange_flux.json",
+        {"basis": str(basis or "counts"), "leaves": dict(fluxes)})
+
+
 def _write_json_sidecar(path: str, obj: dict) -> None:
     """Write ``obj`` as JSON to ``path`` (local or s3://) via fsspec.
 
@@ -737,6 +762,13 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 exchange_fluxes=exchange_fluxes,
                 exchange_flux_basis=exchange_flux_basis, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
+            if seed == seed_start:
+                try:
+                    _write_exchange_flux_sidecar(out_root, "vecoli",
+                                                 exchange_fluxes, exchange_flux_basis)
+                except Exception as e:  # noqa: BLE001 — never block a completed run
+                    print(f"[warn] vecoli exchange-flux sidecar failed: "
+                          f"{type(e).__name__} {e}")
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
             if seed == seed_start and res.get("build_config"):
@@ -808,6 +840,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                                  "translated": v2_translated})
                     _write_json_sidecar(
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
+                    _write_exchange_flux_sidecar(out_root, "v2ecoli",
+                                                 exchange_fluxes, exchange_flux_basis)
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001

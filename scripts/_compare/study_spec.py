@@ -127,11 +127,14 @@ def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") ->
     if not isinstance(doc, dict):
         return fallback
     comp = doc.get("comparison") if isinstance(doc.get("comparison"), dict) else {}
-    for src in (doc, comp):
-        v = src.get("exchange_flux_basis")
-        if v:
-            return str(v)
-    return fallback
+    # ⚠ `comparison:` ONLY — deliberately not top-level. An earlier version read
+    # top-level first, which _spec_from_study never looks at, so the two spec
+    # routes disagreed on the same file and a run could emit one quantity while
+    # the card graded another. Every other per-study measurement key
+    # (exchange_fluxes, observables, observable_bulk_ids) resolves from
+    # `comparison:`, and this now matches them.
+    v = comp.get("exchange_flux_basis")
+    return str(v) if v else fallback
 
 
 def companions_from_study_yaml(study_path) -> list:
@@ -307,9 +310,11 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          or (ctx.get("defaults") or {}).get("observables") or []),
         exchange_fluxes=dict(comp.get("exchange_fluxes")
                              or (ctx.get("defaults") or {}).get("exchange_fluxes") or {}),
-        exchange_flux_basis=str(comp.get("exchange_flux_basis")
-                                or (ctx.get("defaults") or {}).get("exchange_flux_basis")
-                                or "counts"),
+        # Same helper as the investigation route — one reader, one precedence.
+        exchange_flux_basis=exchange_flux_basis_from_study_yaml(
+            study_path,
+            fallback=str((ctx.get("defaults") or {}).get("exchange_flux_basis")
+                         or "counts")),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

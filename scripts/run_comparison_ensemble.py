@@ -78,7 +78,8 @@ def _spec_from_vecoli_config() -> str | None:
 
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                    overrides: dict | None = None,
-                   exchange_fluxes: dict | None = None):
+                   exchange_fluxes: dict | None = None,
+                   exchange_flux_basis: str | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
 
     The condition MUST be threaded through: the v2ecoli builder selects the
@@ -221,6 +222,7 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         # Opt-in exchange_flux feature on the candidate: emit named
         # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
         kwargs["exchange_fluxes"] = dict(exchange_fluxes)
+        kwargs["exchange_flux_basis"] = str(exchange_flux_basis or "counts")
     comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
@@ -602,6 +604,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  match_vecoli_simdata: str | None = None,
                  vecoli_whole_config: str = "auto",
                  exchange_fluxes: dict | None = None,
+                 exchange_flux_basis: str = "counts",
                  observables: list | None = None,
                  observable_bulk_ids: list | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
@@ -731,7 +734,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
                 variant=0, lineage_seed=seed, whole_config=ve_whole_config,
-                exchange_fluxes=exchange_fluxes, observables=observables,
+                exchange_fluxes=exchange_fluxes,
+                exchange_flux_basis=exchange_flux_basis, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
@@ -753,7 +757,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
                                        overrides=v2_overrides,
-                                       exchange_fluxes=exchange_fluxes)
+                                       exchange_fluxes=exchange_fluxes,
+                                       exchange_flux_basis=exchange_flux_basis)
             # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
             # initial bulk onto v2 so both engines start from identical molecule
             # counts — removing the stochastic low-copy sampling divergence
@@ -943,6 +948,18 @@ def main(argv=None):
                         "environment.exchange[<exchange_key>] (e.g. "
                         "glucose_exchange=GLC[p]). Repeatable. The violacein card "
                         "reads these leaves.")
+    p.add_argument("--exchange-flux-basis", default="counts",
+                   choices=["counts", "gdcw"],
+                   help="WHICH QUANTITY the --exchange-flux leaves carry, on "
+                        "BOTH arms. 'counts' (default) re-homes the exchange "
+                        "store verbatim — a LINEAGE-CUMULATIVE molecule total "
+                        "whose time-average is not a rate. 'gdcw' is a per-tick "
+                        "mmol/gDCW/h rate: the candidate differences the counts "
+                        "store and normalises, the reference reads the wrapped "
+                        "metabolism's own listeners.fba_results."
+                        "external_exchange_fluxes, which is already that "
+                        "quantity. Declared once so the two arms cannot end up "
+                        "carrying different measurements under one leaf name.")
     p.add_argument("--observable", action="append", default=[],
                    metavar="group.leaf",
                    help="Emit an arbitrary genuine-vEcoli listener leaf as a "
@@ -989,7 +1006,8 @@ def main(argv=None):
         match_unique_state=args.match_unique_state,
         match_vecoli_simdata=args.match_vecoli_simdata,
         vecoli_whole_config=args.vecoli_whole_config,
-        exchange_fluxes=exchange_fluxes, observables=observables,
+        exchange_fluxes=exchange_fluxes,
+        exchange_flux_basis=args.exchange_flux_basis, observables=observables,
         observable_bulk_ids=observable_bulk_ids)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen

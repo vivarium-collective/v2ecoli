@@ -376,6 +376,20 @@ def set_exchange_fluxes_override(fluxes: dict | None) -> None:
     _EXCHANGE_FLUXES_OVERRIDE = dict(fluxes or {})
 
 
+# WHICH QUANTITY those leaves carry — "counts" (a lineage-cumulative molecule
+# total) or "gdcw" (a per-tick mmol/gDCW/h rate). Threaded the same way as the
+# flux map above so a study declares it once. Default preserves the deriver's
+# own default, so an undeclared build is unchanged.
+_EXCHANGE_FLUX_BASIS_OVERRIDE: str = "counts"
+
+
+def set_exchange_flux_basis_override(basis: str | None) -> None:
+    """Set the ``basis`` the ``exchange_flux_listener`` feature step is built with
+    (see ``_EXCHANGE_FLUX_BASIS_OVERRIDE``). Pass None to restore the default."""
+    global _EXCHANGE_FLUX_BASIS_OVERRIDE
+    _EXCHANGE_FLUX_BASIS_OVERRIDE = str(basis or "counts")
+
+
 def set_default_emitter_decl(decl: dict | None) -> None:
     """Set the generator-declared default emitter (see ``_DEFAULT_EMITTER_DECL``).
 
@@ -1191,7 +1205,8 @@ def _get_special_step(loader, step_name, core):
         from v2ecoli.steps.derivers.exchange_flux_listener import ExchangeFluxListener
         # Flux map comes from the external override the generator sets from its
         # ``exchange_fluxes`` param (same discipline as the emitter overrides).
-        config = {'fluxes': dict(_EXCHANGE_FLUXES_OVERRIDE)}
+        config = {'fluxes': dict(_EXCHANGE_FLUXES_OVERRIDE),
+                  'basis': str(_EXCHANGE_FLUX_BASIS_OVERRIDE)}
         instance = _make_instance(ExchangeFluxListener, config, core)
         return instance, instance.topology, 'step'
 
@@ -1558,6 +1573,11 @@ def _get_special_step(loader, step_name, core):
         _fluxes = dict(_EXCHANGE_FLUXES_OVERRIDE)
         if _fluxes:
             div_config['exchange_fluxes'] = _fluxes
+            # The BASIS travels with the map for the same reason the map does: a
+            # daughter rebuilt without it silently reverts to counts and emits a
+            # running total under a rate's leaf name — the two are different
+            # quantities, and nothing downstream can tell which one it got.
+            div_config['exchange_flux_basis'] = str(_EXCHANGE_FLUX_BASIS_OVERRIDE)
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

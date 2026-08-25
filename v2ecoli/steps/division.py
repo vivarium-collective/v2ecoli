@@ -188,6 +188,7 @@ class Division(V2Step):
         # override it clears in its own finally, so a daughter rebuilt without
         # them declares no leaves and reports 0.0 for the rest of the lineage.
         self._exchange_fluxes = self.parameters.get('exchange_fluxes')
+        self._exchange_flux_basis = self.parameters.get('exchange_flux_basis')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -379,7 +380,8 @@ class Division(V2Step):
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
                         injected_processes=self._injected_processes,
-                        exchange_fluxes=self._exchange_fluxes)
+                        exchange_fluxes=self._exchange_fluxes,
+                        exchange_flux_basis=self._exchange_flux_basis)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

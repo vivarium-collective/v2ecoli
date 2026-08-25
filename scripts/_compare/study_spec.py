@@ -63,6 +63,12 @@ class StudySpec:
     # direction.
     observables: list = dc_field(default_factory=list)  # arbitrary "group.leaf" listener
                                     # paths to emit on BOTH arms as measurements
+    exchange_flux_basis: str = "counts"   # "counts" | "gdcw" — WHICH QUANTITY
+                                    # the exchange_flux leaves carry, on BOTH
+                                    # arms. counts is a lineage-cumulative
+                                    # molecule total (its time-average is not a
+                                    # rate); gdcw is mmol/gDCW/h. Different
+                                    # measurements, not different units.
     exchange_fluxes: dict = dc_field(default_factory=dict)  # {leaf: exchange_key}
                                     # metabolic exchange fluxes to emit onto
                                     # listeners.exchange_flux.<leaf> on BOTH arms
@@ -209,6 +215,9 @@ def specs_from_configs(ctx: dict) -> list:
                              or defaults.get("observables") or []),
             exchange_fluxes=dict(entry.get("exchange_fluxes")
                                  or defaults.get("exchange_fluxes") or {}),
+            exchange_flux_basis=str(entry.get("exchange_flux_basis")
+                                    or defaults.get("exchange_flux_basis")
+                                    or "counts"),
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))
@@ -261,6 +270,9 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          or (ctx.get("defaults") or {}).get("observables") or []),
         exchange_fluxes=dict(comp.get("exchange_fluxes")
                              or (ctx.get("defaults") or {}).get("exchange_fluxes") or {}),
+        exchange_flux_basis=str(comp.get("exchange_flux_basis")
+                                or (ctx.get("defaults") or {}).get("exchange_flux_basis")
+                                or "counts"),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

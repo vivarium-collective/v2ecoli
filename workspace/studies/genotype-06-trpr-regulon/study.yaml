@@ -236,6 +236,27 @@ behavior_tests:
         to fail.
   status: pending
   cites: []
+- name: deleted-regulator-regulon-is-not-pruned
+  classification: primary
+  question: B6. When trpR is deleted from the chromosome, how many of its fold-change rows does the reconstruction
+    still carry? A regulon that survives its regulator means ParCa keeps fitting repression attributable
+    to a gene no longer in the genome.
+  measure:
+    kind: derived
+    path: tf_to_fold_change[CPLX-125]
+    window: not_applicable
+    statistic: surviving_row_count_after_chromosomal_deletion
+  pass_if:
+    op: at_most
+    value: 0
+    provenance:
+      kind: theory
+      note: Passing means the deletion prunes the regulon. This is the expectation the study tests, NOT
+        a literature value and not a target to tune toward -- the measured answer is 11 of 12, so the
+        test is expected to fail and the failure is the result. Recorded as a criterion so the behaviour
+        is graded rather than asserted in prose.
+  status: pending
+  cites: []
 readouts:
 - name: trp-operon-synthesis-probability
   store_path: listeners.rna_synth_prob.actual_rna_synth_prob
@@ -588,11 +609,14 @@ findings:
 - id: F-07
   tier: mechanism
   mechanism_origin: engineered
-  statement: The model's TrpR regulation WORKS, and the earlier basal null result was correct behaviour
+  statement: 'The model''s TrpR regulation WORKS, and the earlier basal null result was correct behaviour
     rather than a divergence. Removing TrpR in the condition where the model declares it active derepresses
     the trp operon 6.29x; in basal, where the model declares it inactive, the same knockout changes nothing
     (1.06x). The knockout itself is total in both - zero TrpR copies against 42-80 in the matched wild
-    type.
+    type. NOTE 2026-08-25: the 6.29x magnitude is superseded by F-09..F-12, which measure the same knockout
+    across four conditions. What survives here is the qualitative result the finding was written for -
+    the regulation is live, and the basal null was a condition with little repression to relieve, not
+    inert machinery.'
   claim_scope: mechanism
   lifecycle_state: tested-vs-alternatives
   generality:
@@ -614,28 +638,28 @@ findings:
     from_test: ''
 - id: F-08
   tier: observation
-  statement: 'The measured derepression (6.29x) is the same order as the ceiling predicted statically
-    from the model''s own merged fold-change table (F-02/F-03: 2.62-4.03x), though somewhat above it -
-    the readout is transcription-unit level while the terms are per-target, so they are related but not
-    the same quantity and exact agreement was not expected. Two independent methods - reading the shipped
-    parameter table, and running the knockout - agree. So B1''s predicted failure against the literature''s
-    70-300x is a parameterization result, fully accounted for, and not a defect in the knockout machinery
-    or the run.'
+  statement: 'RETRACTED 2026-08-25. This read: ''the measured derepression (6.29x) is the same order as
+    the ceiling predicted statically from the model''s own merged fold-change table (2.62-4.03x) ... two
+    independent methods agree.'' That agreement was a coincidence of the with_aa condition. The identical
+    knockout measures 2.26x at TRP 0.0 and 6.1e7 at saturating tryptophan (F-09..F-12), so the static
+    term and the run are not measurements of one quantity: the knockout moves the operon''s time-averaged
+    OCCUPANCY between a repressed floor and a fixed derepressed level rather than scaling a level by the
+    table''s factor. Retained rather than deleted so the reasoning stays visible.'
   claim_scope: mechanism
   lifecycle_state: candidate-explanation
   generality:
     axes_tested:
     - parameter_regime
     level: mechanism
-  next_action: 'This is the strongest form the study''s central claim can take: the model under-derepresses
-    by roughly an order of magnitude relative to the literature, and the shortfall is exactly what its
-    own regulatory parameterization permits. FU-02 (re-parameterize the TrpR fold-changes) is the actionable
-    consequence.'
+  next_action: The action this finding named - re-parameterise the TrpR fold-changes because the model
+    under-derepresses - does not follow and should not be taken on its authority. Establish what sets
+    the repressed floor first.
   next_action_type: calibrate
   evidence:
     observed: 'Static (F-02/F-03, both tables merged as the loader merges them): TrpR terms 2.62-4.03x.
       Dynamic (F-07, from the run): 6.29x. Literature: 70-300x.'
     from_test: ''
+  status: retracted
 - id: F-09
   kind: biological
   status: contradicts
@@ -695,6 +719,26 @@ findings:
   next_action: 'The binding constraint is occupancy, not repression depth: with the bound state at probability
     zero the ratio is 1/(1 - occupancy), so any occupancy near 0.5 caps the knockout response near 2x
     regardless of every other parameter.'
+  tier: observation
+- id: F-13
+  kind: biological
+  status: contradicts
+  statement: 'A chromosome-level trpR deletion leaves 11 of trpR''s 12 fold-change rows intact, so ParCa
+    continues fitting delta_prob entries for a regulator no longer in the genome. The single row that
+    drops is trpR''s OWN autoregulation, and it drops for a reason that generalises to every TF knockout:
+    the loader''s only guard on this path keys on the TARGET (simulation_data.py:219 discards a row whose
+    target is not in rna_ids_with_coordinates), and a knockout tombstones its gene by nulling those coordinates.'
+  evidence:
+    from_run: regulon-survival-under-deletion
+    from_test: deleted-regulator-regulon-is-not-pruned
+    observed: 'WT 12 rows (aroH aroL aroM mtr trpA trpB trpC trpD trpE trpL trpR yaiA); trpR-KO 11 rows,
+      dropping trpR. Positive control: lacZ 2 incoming edges in the wild type, 0 after a lacZ deletion.
+      Artifact: data/regulon_survival.json.'
+  next_action: 'The direction of the result is the useful part: the 11 survivors are exactly the rows
+    whose targets remain on the chromosome - every row that can still mis-parameterise a downstream gene
+    - while the one row removed is the one whose target is gone and which therefore had no downstream
+    consequence left. So a genome edit alone leaves the fitted repression of the trp regulon fully in
+    place, which is why an imposed-expression route is the lever rather than a second genome edit.'
   tier: observation
 discovery_implications:
   resolved_uncertainties:
@@ -816,3 +860,20 @@ runs:
         basal_with_trp cell spec, external TRP = 0.0 (minimal). Wild-type mean intracellular [TRP] 40.6
         uM against a TrpR Kd of 21.7 uM, implying mean occupancy 0.479 versus ParCa''s fitted 0.500 --
         the run sits at the occupancy it was parameterised for.'
+- name: regulon-survival-under-deletion
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  kind: analysis
+  canonical: true
+  status: completed
+  result: FAIL
+  description: Runs the real fold-change loader (SimulationDataEcoli._add_condition_data) against wild-type
+    raw_data and a generated trpR knockout bundle. No ParCa fit, no simulation.
+  outcomes:
+    deleted-regulator-regulon-is-not-pruned:
+      result: FAIL
+      detail: '12 rows in the wild type, 11 surviving a chromosomal trpR deletion; dropped: [''trpR''].
+        Mechanism: the Target-keyed coordinate guard at simulation_data.py:219 (rna_ids_with_coordinates);
+        a knockout nulls its gene''s coordinates. POSITIVE CONTROL, because the informative answer is
+        a negative one: lacZ carries 2 incoming fold-change edges in the wild type and 0 after its own
+        deletion, so the guard demonstrably fires and ''11 survived'' is not the answer of a check that
+        cannot see a drop.'

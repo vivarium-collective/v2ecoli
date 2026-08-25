@@ -494,7 +494,10 @@ def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
         metabolism's own per-tick RATE in mmol/gDCW/h
         (``.asNumber(GDCW_BASIS)`` at the source), which is also the leaf genuine
         vEcoli's own bioproduction analyses read
-        (``listeners__fba_results__external_exchange_fluxes__*``). ⚠ It is read
+        (``listeners__fba_results__external_exchange_fluxes``). ⚠ Those analyses
+        index it POSITIONALLY, resolving names from emit metadata; this reads it
+        by key, which works only for a metabolism that writes it as a mapping —
+        see the TypeError below. ⚠ It is read
         rather than derived here deliberately: differencing the counts store to
         recover a rate would re-implement a conversion the wrapped process
         already performs, and the two would drift.
@@ -513,10 +516,11 @@ def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
     Deliberately generic: no molecule is special-cased here. GENERIC/pathway-
     agnostic by design — the flux map is supplied by config, so this stays out of
     the shared model's knowledge of any particular pathway."""
-    if not fluxes:
-        return {}
     from v2ecoli.steps.derivers.exchange_flux_listener import (
         BASIS_COUNTS, BASIS_GDCW, resolve_exchange_key)
+    # Validated BEFORE the empty-map short-circuit, so a bad basis is refused on
+    # every call rather than only when something is declared — the deriver
+    # validates in initialize() regardless of its map, and the two must agree.
     basis = str(basis or BASIS_COUNTS)
     if basis not in (BASIS_COUNTS, BASIS_GDCW):
         # Refused rather than defaulted, matching the deriver: a silently
@@ -524,10 +528,28 @@ def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
         raise ValueError(
             f"exchange-flux basis {basis!r} unknown; expected "
             f"{BASIS_COUNTS!r} or {BASIS_GDCW!r}.")
+    if not fluxes:
+        return {}
     if basis == BASIS_GDCW:
         lst = listeners if isinstance(listeners, dict) else {}
         fba = lst.get("fba_results")
         source = (fba or {}).get("external_exchange_fluxes")
+        # ⚠ NOT every metabolism writes this leaf the same way, and the two
+        # shapes are not interchangeable. A process that keys it by metabolite id
+        # (a dict) can be looked up here; one that writes a POSITIONAL ARRAY
+        # cannot, because the id->index mapping lives in emit metadata and is not
+        # in this store at all. Refused rather than treated as empty: falling
+        # through to {} would emit 0.0 on every leaf of every tick — a flat zero
+        # trace that reads exactly like a cell producing none of the molecule,
+        # which is the failure this basis exists to remove.
+        if source is not None and not isinstance(source, dict):
+            raise TypeError(
+                "exchange-flux basis 'gdcw' needs "
+                "listeners.fba_results.external_exchange_fluxes keyed by "
+                f"metabolite id, but this run's metabolism writes a "
+                f"{type(source).__name__}. Positional output cannot be resolved "
+                "by key here (the id order is emit metadata, not store content). "
+                "Use basis 'counts', or a metabolism that keys the leaf.")
         source = source if isinstance(source, dict) else {}
     else:
         env = environment if isinstance(environment, dict) else {}

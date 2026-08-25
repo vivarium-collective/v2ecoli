@@ -52,6 +52,9 @@ DEFAULTS = {
     "glucose_mw": 0.180156,
     "within_tol": 0.03,
     "drift": 0.10,
+    # WHICH QUANTITY the flux leaves carry. The specific-rate axis is only
+    # computable from "gdcw"; see _specific_rate.
+    "exchange_flux_basis": "counts",
 }
 _RATE_ID = "bioproduction.violacein_rate"
 _YIELD_ID = "bioproduction.violacein_yield"
@@ -76,17 +79,29 @@ def _mean(values) -> float | None:
     return sum(vals) / len(vals) if vals else None
 
 
-def _specific_rate(flux_trace, drymass_trace) -> float | None:
-    """Mean secretion flux normalized by mean dry mass — a per-gDW specific
-    rate in the leaf's native flux units per dry-mass unit. Both arms use this
-    same formula, so its candidate/reference ratio is the graded quantity."""
-    if not flux_trace or not drymass_trace:
+def _specific_rate(flux_trace, drymass_trace, basis: str = "counts") -> float | None:
+    """The mean specific secretion rate, in mmol/gDCW/h — or None if the leaf's
+    basis cannot express one.
+
+    ⚠ This axis is computable ONLY from a ``gdcw`` leaf, and the reason is not a
+    unit conversion. On that basis the leaf is already a per-tick mmol/gDCW/h
+    rate, so the specific rate IS its mean and no normalisation is wanted —
+    dividing by dry mass again would divide by it twice, which grades cleanly
+    against a 3% band and is wrong.
+
+    On ``counts`` the leaf is a LINEAGE-CUMULATIVE molecule total. Its mean over
+    a trace is not a flux (it grows with how long the lineage ran), and
+    mean(count)/mean(dry_mass) has units of count per femtogram — not the
+    mmol/gDW/h this axis reports. That is refused rather than emitted: a
+    mislabelled quantity that looks plausible is the failure this whole path
+    exists to prevent, and returning None leaves the axis unresolved and visible
+    instead of confidently wrong.
+    """
+    if str(basis) != "gdcw":
         return None
-    flux = _mean(flux_trace[1])
-    dm = _mean(drymass_trace[1])
-    if flux is None or dm is None or dm == 0:
+    if not flux_trace:
         return None
-    return flux / dm
+    return _mean(flux_trace[1])
 
 
 def _yield_gg(vio_trace, glc_trace, *, vio_mw: float, glc_mw: float) -> float | None:
@@ -193,8 +208,11 @@ def update_violacein_report_card(state):
 
     per = _collect(state, [vio_leaf, glc_leaf, "dry_mass"])
 
+    basis = _cfg(state, "exchange_flux_basis")
+
     def rate(arm):
-        return _specific_rate(_first(per[vio_leaf][arm]), _first(per["dry_mass"][arm]))
+        return _specific_rate(_first(per[vio_leaf][arm]),
+                              _first(per["dry_mass"][arm]), basis=basis)
 
     def yld(arm):
         return _yield_gg(_first(per[vio_leaf][arm]), _first(per[glc_leaf][arm]),

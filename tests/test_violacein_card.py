@@ -15,15 +15,36 @@ from _card_helpers import _run_card, _state
 # --------------------------------------------------------------------------- #
 # pure helpers (no zarr needed)
 # --------------------------------------------------------------------------- #
-def test_specific_rate_normalizes_by_dry_mass():
-    # flux constant 2.0, dry mass constant 0.5 -> specific rate 4.0 in leaf units
-    r = vio._specific_rate((None, [2.0, 2.0]), (None, [0.5, 0.5]))
-    assert abs(r - 4.0) < 1e-9
+def test_specific_rate_on_gdcw_is_the_leaf_mean_and_does_NOT_normalize():
+    """On the gdcw basis the leaf is ALREADY mmol/gDCW/h, so the specific rate is
+    its mean. Dividing by dry mass here would divide by it twice — which grades
+    cleanly against a 3% band and is wrong. Dry mass is passed and must be
+    ignored: this test fails if the normalisation is reinstated."""
+    r = vio._specific_rate((None, [2.0, 2.0]), (None, [0.5, 0.5]), basis="gdcw")
+    assert abs(r - 2.0) < 1e-9
+
+
+def test_specific_rate_is_refused_on_the_counts_basis():
+    """A counts leaf is a lineage-cumulative molecule total; its mean is not a
+    flux, and mean(count)/mean(dry_mass) is count-per-femtogram, not the
+    mmol/gDW/h this axis reports. Unresolved-and-visible beats confidently wrong.
+    Also pins the default: an undeclared basis is counts, hence refused."""
+    assert vio._specific_rate((None, [2.0, 2.0]), (None, [0.5, 0.5]),
+                              basis="counts") is None
+    assert vio._specific_rate((None, [2.0, 2.0]), (None, [0.5, 0.5])) is None
 
 
 def test_specific_rate_none_when_empty():
-    assert vio._specific_rate((None, []), (None, [0.5])) is None
-    assert vio._specific_rate((None, [1.0]), (None, [])) is None
+    assert vio._specific_rate((None, []), (None, [0.5]), basis="gdcw") is None
+
+
+def test_card_reads_the_basis_from_study_config():
+    """The grading layer must see the study's declaration. Catches the basis
+    being threaded to the engines but never to the card — which is exactly how
+    the double-normalisation reached a graded axis."""
+    assert vio._cfg({"config": {"exchange_flux_basis": "gdcw"}},
+                    "exchange_flux_basis") == "gdcw"
+    assert vio._cfg({}, "exchange_flux_basis") == "counts"
 
 
 def test_yield_gg_uses_mw_ratio():

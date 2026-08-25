@@ -4,18 +4,33 @@
 first is a lineage-cumulative molecule total read from ``environment.exchange``,
 the second a per-tick mmol/gDCW/h rate. On the reference (wrapped-vEcoli) arm the
 rate is not derived — it is read from the wrapped metabolism's own
-``listeners.fba_results.external_exchange_fluxes``, which is the leaf genuine
-vEcoli's own analyses read.
+``listeners.fba_results.external_exchange_fluxes`` — the same leaf genuine
+vEcoli's own analyses read, though they index it positionally while this reads it
+by key, so it works only for a metabolism that writes that leaf as a mapping.
 
 Each test below names the failure it exists to catch; several of them pass
 trivially if the basis is dropped anywhere along the chain, so the chain is
 tested at each hop rather than end-to-end only.
 """
+from types import SimpleNamespace
+
 import pytest
 
 from v2ecoli.library.vivarium_ecoli_engine import _select_exchange_fluxes
 
 FLUXES = {"glucose_exchange": "GLC[p]", "product_exchange": "SOME-PRODUCT[c]"}
+
+
+class _StubLoader:
+    """_get_special_step reads unique-molecule names off the loader before it
+    reaches any step branch. This deriver needs none of them, so a stub keeps the
+    test a unit test rather than requiring a 90MB ParCa load."""
+
+    def __init__(self):
+        self.sim_data = SimpleNamespace(
+            internal_state=SimpleNamespace(
+                unique_molecule=SimpleNamespace(
+                    unique_molecule_definitions={})))
 
 # A store shaped like the real one: the environment carries glucose as a
 # cumulative count and has NO key for the product, while fba_results carries
@@ -67,6 +82,31 @@ def test_unknown_basis_raises_rather_than_defaulting():
                                 listeners=LISTENERS)
 
 
+def test_gdcw_refuses_a_positional_array_source():
+    """Not every metabolism keys that leaf: some write a POSITIONAL ARRAY, whose
+    id->index map lives in emit metadata and is not in the store. Treating that as
+    empty would emit 0.0 on every leaf of every tick — a flat zero trace that reads
+    exactly like a cell producing none of the molecule. Refused instead."""
+    import numpy as np
+    listeners = {"fba_results": {"external_exchange_fluxes": np.array([-7.3, 0.129])}}
+    with pytest.raises(TypeError, match="metabolite id"):
+        _select_exchange_fluxes(ENVIRONMENT, FLUXES, basis="gdcw",
+                                listeners=listeners)
+    # a plain list is the same hazard
+    with pytest.raises(TypeError):
+        _select_exchange_fluxes(
+            ENVIRONMENT, FLUXES, basis="gdcw",
+            listeners={"fba_results": {"external_exchange_fluxes": [-7.3, 0.129]}})
+
+
+def test_unknown_basis_raises_even_with_an_empty_flux_map():
+    """Validation must precede the empty-map short-circuit, so a bad basis is
+    refused on every call — the deriver validates in initialize() regardless of
+    its map, and the two surfaces must agree."""
+    with pytest.raises(ValueError, match="basis"):
+        _select_exchange_fluxes(ENVIRONMENT, {}, basis="per-cell")
+
+
 def test_gdcw_with_no_fba_results_yields_zero_not_a_crash():
     """A reference arm whose wrapped process has not populated the listener yet
     must emit a continuous trace rather than raise mid-run."""
@@ -75,24 +115,65 @@ def test_gdcw_with_no_fba_results_yields_zero_not_a_crash():
     assert out == {"glucose_exchange": 0.0, "product_exchange": 0.0}
 
 
-def test_empty_flux_map_is_a_no_op_on_either_basis():
+def test_empty_flux_map_is_a_no_op_on_either_VALID_basis():
     assert _select_exchange_fluxes(ENVIRONMENT, {}, basis="gdcw") == {}
     assert _select_exchange_fluxes(ENVIRONMENT, {}, basis="counts") == {}
 
 
 # --- the chain: each hop that could silently drop the basis -----------------
 
-def test_deriver_is_built_with_the_declared_basis():
-    """Catches the candidate-arm half being dropped in _get_special_step."""
+def test_deriver_is_actually_built_with_the_declared_basis():
+    """Builds the step through _get_special_step and reads the basis off the
+    INSTANCE. The previous version of this test only asserted the module global
+    it had just set, so deleting the `basis` key from the deriver's config in
+    _get_special_step left it green — the exact failure it claimed to catch."""
     from v2ecoli.composites import _helpers
+    from v2ecoli.core import build_core
+    core = build_core()
     _helpers.set_exchange_fluxes_override({"glucose_exchange": "GLC[p]"})
     _helpers.set_exchange_flux_basis_override("gdcw")
+    loader = _StubLoader()
     try:
-        assert _helpers._EXCHANGE_FLUX_BASIS_OVERRIDE == "gdcw"
+        instance, _topo, _kind = _helpers._get_special_step(
+            loader, "exchange_flux_listener", core)
     finally:
         _helpers.set_exchange_fluxes_override({})
         _helpers.set_exchange_flux_basis_override(None)
-    assert _helpers._EXCHANGE_FLUX_BASIS_OVERRIDE == "counts"
+    assert getattr(instance, "basis", None) == "gdcw"
+
+
+def test_deriver_defaults_to_counts_when_nothing_declared():
+    """The other half: an undeclared basis must reach the step as counts, not as
+    whatever the previous build left in the module global."""
+    from v2ecoli.composites import _helpers
+    from v2ecoli.core import build_core
+    core = build_core()
+    _helpers.set_exchange_fluxes_override({"glucose_exchange": "GLC[p]"})
+    loader = _StubLoader()
+    try:
+        instance, _topo, _kind = _helpers._get_special_step(
+            loader, "exchange_flux_listener", core)
+    finally:
+        _helpers.set_exchange_fluxes_override({})
+    assert getattr(instance, "basis", None) == "counts"
+
+
+def test_report_card_threads_the_basis_into_the_cards_config():
+    """The grading layer is the last hop and the easiest to forget: the basis can
+    reach both engines correctly and still never reach the card that normalises
+    by dry mass. Asserted against the `config` dict construction specifically —
+    a card reading `config["exchange_flux_basis"]` is useless if nothing puts it
+    there, and that mutation passed every other test in this file."""
+    import inspect, re
+    import scripts.comparison_report_card as crc
+    src = inspect.getsource(crc)
+    m = re.search(r'"config":\s*\{(.*?)\}', src, re.S)
+    assert m, "could not locate the card state's config dict"
+    block = m.group(1)
+    assert "exchange_flux_basis" in block, (
+        "the card's config must carry exchange_flux_basis; without it a study "
+        "declaring gdcw is graded by a card that still normalises by dry mass")
+    assert "spec" in block, "it must come from the study spec, not a constant"
 
 
 def test_runner_emits_the_basis_flag_alongside_the_flux_map():
@@ -105,8 +186,24 @@ def test_runner_emits_the_basis_flag_alongside_the_flux_map():
         "a study declaring gdcw silently gets counts on both arms")
 
 
-def test_study_spec_carries_the_basis_with_a_counts_default():
-    """Catches the field being added to the dataclass but never parsed."""
-    from scripts._compare.study_spec import StudySpec
-    assert getattr(StudySpec, "exchange_flux_basis", None) == "counts" or \
-        "exchange_flux_basis" in getattr(StudySpec, "__dataclass_fields__", {})
+def test_study_yaml_declaration_survives_the_investigation_route(tmp_path):
+    """A study.yaml declaring the basis must win on BOTH spec routes. The
+    investigation route builds from configs[] entries, which carry no study.yaml
+    keys — so a declaration in the file the investigation NAMES would otherwise
+    be silently ignored. The previous version of this test only inspected the
+    dataclass field, so deleting both parse hunks left it green."""
+    from scripts._compare.study_spec import exchange_flux_basis_from_study_yaml
+    y = tmp_path / "study.yaml"
+    y.write_text("comparison:\n  exchange_flux_basis: gdcw\n", encoding="utf-8")
+    assert exchange_flux_basis_from_study_yaml(y, fallback="counts") == "gdcw"
+
+
+def test_investigation_fallback_applies_when_the_study_is_silent(tmp_path):
+    """And an investigation-level declaration still wins where the study says
+    nothing — the bridge must not clobber the fallback with its own default."""
+    from scripts._compare.study_spec import exchange_flux_basis_from_study_yaml
+    y = tmp_path / "study.yaml"
+    y.write_text("comparison:\n  seeds: 4\n", encoding="utf-8")
+    assert exchange_flux_basis_from_study_yaml(y, fallback="gdcw") == "gdcw"
+    assert exchange_flux_basis_from_study_yaml(
+        tmp_path / "missing.yaml", fallback="gdcw") == "gdcw"

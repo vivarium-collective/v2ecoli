@@ -46,7 +46,8 @@ def _run_engines(spec, out: str, mode: str) -> None:
     # study so the two arms cannot report different quantities under one leaf
     # name; each engine reaches it by its own route (the candidate differences
     # its counts store, the reference reads the wrapped metabolism's own
-    # gDCW-basis listener).
+    # gDCW-basis listener, which requires a metabolism that keys that leaf by
+    # metabolite id).
     if flux_flags:
         flux_flags += ["--exchange-flux-basis",
                        str(getattr(spec, "exchange_flux_basis", None) or "counts")]

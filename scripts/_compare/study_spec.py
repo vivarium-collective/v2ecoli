@@ -103,6 +103,37 @@ def studies_root_for(inv_dir) -> Path:
         else (REPO / "workspace" / "studies")
 
 
+def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") -> str:
+    """Read `exchange_flux_basis` from a study.yaml, for the SAME reason
+    `companions_from_study_yaml` exists.
+
+    The investigation route builds specs from `comparison.configs[]` entries,
+    which do not carry study.yaml keys — so without this a study declaring
+    `gdcw` in the file the investigation NAMES would silently run on `counts`.
+    ⚠ And that failure is worse than the companion one it mirrors: a dropped
+    companion or flux map yields MISSING leaves, which is visible; a dropped
+    basis yields leaves that are present and carrying the other quantity, which
+    is not. `fallback` is whatever the configs[] entry or defaults resolved to,
+    so an investigation-level declaration still wins where the study is silent.
+    """
+    path = Path(study_path)
+    if not path.exists():
+        return fallback
+    try:
+        import yaml
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a study we cannot read keeps the fallback
+        return fallback
+    if not isinstance(doc, dict):
+        return fallback
+    comp = doc.get("comparison") if isinstance(doc.get("comparison"), dict) else {}
+    for src in (doc, comp):
+        v = src.get("exchange_flux_basis")
+        if v:
+            return str(v)
+    return fallback
+
+
 def companions_from_study_yaml(study_path) -> list:
     """Read `inject_processes` from a study.yaml — the ONE surface that declares it.
 
@@ -215,9 +246,15 @@ def specs_from_configs(ctx: dict) -> list:
                              or defaults.get("observables") or []),
             exchange_fluxes=dict(entry.get("exchange_fluxes")
                                  or defaults.get("exchange_fluxes") or {}),
-            exchange_flux_basis=str(entry.get("exchange_flux_basis")
-                                    or defaults.get("exchange_flux_basis")
-                                    or "counts"),
+            # The study.yaml gets the LAST word, via the same bridge companions
+            # use: this route builds from configs[] entries, which carry no
+            # study.yaml keys, so a study declaring the basis in the file this
+            # investigation names would otherwise silently run on the fallback.
+            exchange_flux_basis=exchange_flux_basis_from_study_yaml(
+                study_yaml,
+                fallback=str(entry.get("exchange_flux_basis")
+                             or defaults.get("exchange_flux_basis")
+                             or "counts")),
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))

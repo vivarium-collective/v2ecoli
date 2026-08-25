@@ -958,7 +958,8 @@ def main(argv=None):
                         "store and normalises, the reference reads the wrapped "
                         "metabolism's own listeners.fba_results."
                         "external_exchange_fluxes, which is already that "
-                        "quantity. Declared once so the two arms cannot end up "
+                        "quantity (and requires a metabolism that keys that leaf "
+                        "by metabolite id rather than writing a positional array). Declared once so the two arms cannot end up "
                         "carrying different measurements under one leaf name.")
     p.add_argument("--observable", action="append", default=[],
                    metavar="group.leaf",

@@ -1,0 +1,307 @@
+{
+  "arm": "trpR_withaa",
+  "cache": "out/genotype-06/cache-trpR-withaa",
+  "note": "EG11029 zeroed, AA-replete",
+  "generations": 3,
+  "gen_steps": 1500,
+  "sample_every": 120,
+  "wall_seconds": 1819.3,
+  "trace": [
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0006845403590257199,
+      "total_rna_init": 23071.0,
+      "trpR_monomer": 0.0,
+      "step": 120
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0006361009259987688,
+      "total_rna_init": 46870.0,
+      "trpR_monomer": 0.0,
+      "step": 240
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.00064374946345185,
+      "total_rna_init": 71819.0,
+      "trpR_monomer": 0.0,
+      "step": 360
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0006358627487540699,
+      "total_rna_init": 97381.0,
+      "trpR_monomer": 0.0,
+      "step": 480
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0005147533967318183,
+      "total_rna_init": 123273.0,
+      "trpR_monomer": 0.0,
+      "step": 600
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0004247754175927303,
+      "total_rna_init": 149450.0,
+      "trpR_monomer": 0.0,
+      "step": 720
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0003439405629062067,
+      "total_rna_init": 177314.0,
+      "trpR_monomer": 0.0,
+      "step": 840
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.000340396387703093,
+      "total_rna_init": 205481.0,
+      "trpR_monomer": 0.0,
+      "step": 960
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0003109744100319971,
+      "total_rna_init": 234088.0,
+      "trpR_monomer": 0.0,
+      "step": 1080
+    },
+    {
+      "agent": "0",
+      "n_agents": 1,
+      "trp_tu_synth_prob": 0.0002875376176571995,
+      "total_rna_init": 263802.0,
+      "trpR_monomer": 0.0,
+      "step": 1200
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0005428365832856895,
+      "total_rna_init": 8143.0,
+      "trpR_monomer": 0.0,
+      "step": 1320
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0005402372773725856,
+      "total_rna_init": 24940.0,
+      "trpR_monomer": 0.0,
+      "step": 1440
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0004809579274296021,
+      "total_rna_init": 42672.0,
+      "trpR_monomer": 0.0,
+      "step": 1560
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.00047670073236443205,
+      "total_rna_init": 61252.0,
+      "trpR_monomer": 0.0,
+      "step": 1680
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0004642135422562219,
+      "total_rna_init": 80673.0,
+      "trpR_monomer": 0.0,
+      "step": 1800
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0004653507625244399,
+      "total_rna_init": 100766.0,
+      "trpR_monomer": 0.0,
+      "step": 1920
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.00044907713211024834,
+      "total_rna_init": 121950.0,
+      "trpR_monomer": 0.0,
+      "step": 2040
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.000381157523888756,
+      "total_rna_init": 144361.0,
+      "trpR_monomer": 0.0,
+      "step": 2160
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.00036545787764337987,
+      "total_rna_init": 167406.0,
+      "trpR_monomer": 0.0,
+      "step": 2280
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0003185204365597423,
+      "total_rna_init": 191561.0,
+      "trpR_monomer": 0.0,
+      "step": 2400
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.00029408870875510985,
+      "total_rna_init": 217066.0,
+      "trpR_monomer": 0.0,
+      "step": 2520
+    },
+    {
+      "agent": "00",
+      "n_agents": 2,
+      "trp_tu_synth_prob": 0.0005527378945511604,
+      "total_rna_init": 244079.0,
+      "trpR_monomer": 0.0,
+      "step": 2640
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0005297196522732038,
+      "total_rna_init": 122.0,
+      "trpR_monomer": 0.0,
+      "step": 2760
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0005140786276221537,
+      "total_rna_init": 15242.0,
+      "trpR_monomer": 0.0,
+      "step": 2880
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0005112559265837619,
+      "total_rna_init": 30933.0,
+      "trpR_monomer": 0.0,
+      "step": 3000
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0004787808032619851,
+      "total_rna_init": 47633.0,
+      "trpR_monomer": 0.0,
+      "step": 3120
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0004637716773857785,
+      "total_rna_init": 65238.0,
+      "trpR_monomer": 0.0,
+      "step": 3240
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0004542616936088882,
+      "total_rna_init": 83220.0,
+      "trpR_monomer": 0.0,
+      "step": 3360
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.00044932040166781204,
+      "total_rna_init": 101904.0,
+      "trpR_monomer": 0.0,
+      "step": 3480
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.00039778880360755,
+      "total_rna_init": 121755.0,
+      "trpR_monomer": 0.0,
+      "step": 3600
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.00037236927143012685,
+      "total_rna_init": 142343.0,
+      "trpR_monomer": 0.0,
+      "step": 3720
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.00032762038059392317,
+      "total_rna_init": 163258.0,
+      "trpR_monomer": 0.0,
+      "step": 3840
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.0003136487211134198,
+      "total_rna_init": 185240.0,
+      "trpR_monomer": 0.0,
+      "step": 3960
+    },
+    {
+      "agent": "000",
+      "n_agents": 4,
+      "trp_tu_synth_prob": 0.00028572218978154733,
+      "total_rna_init": 208845.0,
+      "trpR_monomer": 0.0,
+      "step": 4080
+    },
+    {
+      "agent": "0000",
+      "n_agents": 8,
+      "trp_tu_synth_prob": 0.000539387595044081,
+      "total_rna_init": 9115.0,
+      "trpR_monomer": 0.0,
+      "step": 4200
+    },
+    {
+      "agent": "0000",
+      "n_agents": 8,
+      "trp_tu_synth_prob": 0.0005072254874164162,
+      "total_rna_init": 21810.0,
+      "trpR_monomer": 0.0,
+      "step": 4320
+    },
+    {
+      "agent": "0000",
+      "n_agents": 8,
+      "trp_tu_synth_prob": 0.0005011844763439053,
+      "total_rna_init": 34942.0,
+      "trpR_monomer": 0.0,
+      "step": 4440
+    }
+  ]
+}

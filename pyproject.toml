@@ -184,4 +184,4 @@ pbg-torch = { git = "https://github.com/vivarium-collective/viva-torch.git", bra
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }
-ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "2dfabd522003cfe62f1bc7eeee615a2041aff3ad" }
+ecoli-sources = { git = "https://github.com/vivarium-collective/ecoli-sources.git", rev = "840bc9739d25ad76841bfeaa3b97f133a84676c9" }

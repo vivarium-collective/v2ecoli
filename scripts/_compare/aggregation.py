@@ -165,12 +165,38 @@ def _aligned(pair, gpair):
     return gt.size == t.size and np.allclose(gt, t, rtol=0, atol=1e-6)
 
 
-def _window_mask(gv, lower_bound: int | None):
-    """Boolean mask of timepoints at or above `lower_bound`, or None if empty."""
+def _windowed(trace, gen_trace, lower_bound: int | None):
+    """THE single windowing implementation. Returns `(t, v, gv)` or None.
+
+    `gv` is the surviving generation labels, or None when no labels were
+    supplied and none were required. Both public windowing entry points go
+    through here: a previous version had `generation_window` and the per-cell
+    path each masking independently, and the two copies had ALREADY drifted
+    apart on what to do when `gen_trace` is None. Two implementations of "which
+    window did we apply" is the exact hazard this module exists to remove, so
+    there is one.
+    """
+    pair = _as_pair(trace)
+    if pair is None:
+        return None
+    t, v = pair
+
+    gpair = _as_pair(gen_trace)
+    if gpair is None:
+        # A window we cannot honour is a refusal, never a silently-unwindowed
+        # answer. With no window asked for, the unlabelled trace is fine.
+        return None if lower_bound is not None else (t, v, None)
+
+    if not _aligned(pair, gpair):
+        return None
+    _, gv = gpair
+
     if lower_bound is None:
-        return np.ones(gv.size, dtype=bool)
+        return t, v, gv
     mask = gv >= float(lower_bound)
-    return mask if mask.any() else None
+    if not mask.any():
+        return None
+    return t[mask], v[mask], gv[mask]
 
 
 def generation_window(trace, gen_trace, *, lower_bound: int | None):
@@ -191,22 +217,8 @@ def generation_window(trace, gen_trace, *, lower_bound: int | None):
     fractional generations. See the module docstring -- misalignment is a real
     and expected shape, not a defensive hypothetical.
     """
-    pair = _as_pair(trace)
-    if pair is None:
-        return None
-    if lower_bound is None:
-        return pair
-
-    gpair = _as_pair(gen_trace)
-    if gpair is None or not _aligned(pair, gpair):
-        return None
-
-    t, v = pair
-    _, gv = gpair
-    mask = _window_mask(gv, lower_bound)
-    if mask is None:
-        return None
-    return t[mask], v[mask]
+    got = _windowed(trace, gen_trace, lower_bound)
+    return (got[0], got[1]) if got else None
 
 
 def labelled_cell_means(trace, gen_trace, *, lower_bound: int | None = None
@@ -227,33 +239,16 @@ def labelled_cell_means(trace, gen_trace, *, lower_bound: int | None = None
     directly would pool timepoints across cells and weight each cell by its emit
     count; see the module docstring.
     """
-    pair = _as_pair(trace)
-    if pair is None:
+    got = _windowed(trace, gen_trace, lower_bound)
+    if got is None:
         return None
-    gpair = _as_pair(gen_trace)
+    _, v, gv = got
 
-    # Without generation labels there is exactly one cell we can identify -- the
-    # whole trace -- and only if no window was asked for. A window we cannot
-    # honour is a refusal, not a silently-unwindowed answer.
-    if gpair is None:
-        if lower_bound is not None:
-            return None
-        _, v = pair
+    # No labels (and none required) => the whole trace is the one cell we can
+    # identify, and its generation is unknown rather than guessed at 0.
+    if gv is None:
         finite = v[np.isfinite(v)]
-        # No labels available => the single cell's generation is unknown, which
-        # is recorded as None rather than guessed at 0.
         return [(None, float(finite.mean()))] if finite.size else None
-
-    if not _aligned(pair, gpair):
-        return None
-
-    _, v = pair
-    _, gv = gpair
-    mask = _window_mask(gv, lower_bound)
-    if mask is None:
-        return None
-    v = v[mask]
-    gv = gv[mask]
 
     cells: list[tuple[float, float]] = []
     for g in np.unique(gv):          # np.unique sorts, so cells are in gen order

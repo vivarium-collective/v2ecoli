@@ -270,3 +270,65 @@ def test_an_explicit_zero_entry_is_not_overridden_by_an_investigation_default():
     assert _first_declared(None, 5) == 5         # silent entry inherits
     assert _first_declared(None, None) == 0      # nothing declared -> no window
     assert _first_declared(None, 0) == 0
+
+
+# --------------------------------------------------------------------------- #
+# THE VARIANT DECLARATION — same two routes, same precedence trap, and a
+# consequence that is worse when it is dropped.
+#
+# ⛔ A dropped `generation_lower_bound` widens a window. A dropped `variant`
+# swaps the MODEL: for a config whose variant carries the strain plus its
+# induction schedule, the unvaried reference arm has neither and emits a
+# complete, healthy-looking result for a different organism. Nothing errors.
+# --------------------------------------------------------------------------- #
+def test_both_routes_thread_a_study_declared_variant(tmp_path):
+    """⭐ Kills 'delete the kwarg' from EITHER resolver — the failure a unit test
+    of the reader alone cannot see."""
+    from scripts._compare.study_spec import variant_from_study_yaml
+    assert _configs_route(tmp_path / "a", study="  variant: 1\n").variant == 1
+    assert _study_route(tmp_path / "b", study="  variant: 1\n").variant == 1
+    assert variant_from_study_yaml(
+        tmp_path / "a" / "studies" / "s1" / "study.yaml") == 1
+
+
+def test_an_UNDECLARED_variant_is_None_not_zero(tmp_path):
+    """⛔ None and 0 are DIFFERENT ANSWERS and must not collapse.
+
+    `None` means "the study did not say", which the runner is entitled to refuse.
+    `0` means "baseline, deliberately". Defaulting an absent key to 0 would turn
+    every silent study into an explicit request for the unvaried model — the
+    exact substitution this key exists to make impossible.
+    """
+    assert _study_route(tmp_path / "a").variant is None
+    assert _configs_route(tmp_path / "b").variant is None
+
+
+def test_a_declared_ZERO_survives_an_investigation_default(tmp_path):
+    """⛔ THE FALSY TRAP, and it is why `_first_declared` is used here.
+
+    `variant: 0` is falsy, so an `or` chain hands back the investigation-level
+    default instead — silently upgrading a study's deliberate baseline into
+    whatever the investigation happened to declare.
+    """
+    d = ", variant: 2"
+    assert _study_route(tmp_path / "a", defaults=d, study="  variant: 0\n").variant == 0
+    assert _configs_route(tmp_path / "b", defaults=d, study="  variant: 0\n").variant == 0
+    # ...and with the study silent, the investigation default still applies.
+    assert _study_route(tmp_path / "c", defaults=d).variant == 2
+
+
+def test_the_study_gets_the_LAST_word_over_an_investigation_default(tmp_path):
+    assert _configs_route(tmp_path / "a", defaults=", variant: 2",
+                          entry=", variant: 3",
+                          study="  variant: 1\n").variant == 1
+
+
+def test_a_nonsense_variant_is_refused_rather_than_coerced(tmp_path):
+    from scripts._compare.study_spec import variant_from_study_yaml
+    p = tmp_path / "s.yaml"
+    p.write_text("condition: basal\ncomparison:\n  variant: first\n", "utf-8")
+    with pytest.raises(ValueError, match="variant"):
+        variant_from_study_yaml(p)
+    p.write_text("condition: basal\ncomparison:\n  variant: -1\n", "utf-8")
+    with pytest.raises(ValueError, match=">= 0"):
+        variant_from_study_yaml(p)

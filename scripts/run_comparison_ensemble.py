@@ -78,7 +78,8 @@ def _spec_from_vecoli_config() -> str | None:
 
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
                    overrides: dict | None = None,
-                   exchange_fluxes: dict | None = None):
+                   exchange_fluxes: dict | None = None,
+                   exchange_flux_basis: str | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
 
     The condition MUST be threaded through: the v2ecoli builder selects the
@@ -221,6 +222,7 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         # Opt-in exchange_flux feature on the candidate: emit named
         # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
         kwargs["exchange_fluxes"] = dict(exchange_fluxes)
+        kwargs["exchange_flux_basis"] = str(exchange_flux_basis or "counts")
     comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
@@ -439,6 +441,44 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
     }
 
 
+def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
+                                 basis: str, *, seeds=None,
+                                 generations=None) -> None:
+    """Record, NEXT TO THE RUN, which quantity that run's exchange leaves carry.
+
+    ⚠ This exists so a consumer never has to RE-DERIVE the basis from the study
+    config. Two readers resolving the same setting from the same YAML by slightly
+    different rules is not hypothetical — it shipped, and it graded a
+    lineage-cumulative molecule total as a mmol/gDCW/h rate inside a 3% band,
+    because both arms were equally wrong so the relative delta looked fine.
+
+    The run is the ground truth for what the run computed. A card reading this
+    cannot disagree with the engine that wrote it, and a study whose declaration
+    never reached the machinery is now VISIBLE (the study says gdcw, the sidecar
+    says counts) instead of being a silent no-op.
+
+    Named ``{prefix}_exchange_flux.json`` to match the ``{prefix}_seed*.zarr`` and
+    ``{prefix}_build_config.json`` already written here, so both arms can share one
+    out_root without ambiguity.
+    ⚠ The basis alone is NOT enough to tie this file to the data beside it. Both
+    arms write into ONE out_root and nothing cleans it, so a re-run of one arm
+    leaves the other arm's sidecar and stores in place. Two sidecars agreeing on
+    "gdcw" would then pass an agreement check while describing runs from different
+    invocations. The run shape is recorded alongside so that mismatch is
+    detectable: two arms of one study share seeds and generations by construction,
+    so a disagreement means one of them is stale.
+    """
+    if not fluxes:
+        return
+    import time
+    _write_json_sidecar(
+        f"{out_root.rstrip('/')}/{prefix}_exchange_flux.json",
+        {"basis": str(basis or "counts"), "leaves": dict(fluxes),
+         "seeds": (int(seeds) if seeds is not None else None),
+         "generations": (int(generations) if generations is not None else None),
+         "written_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+
+
 def _write_json_sidecar(path: str, obj: dict) -> None:
     """Write ``obj`` as JSON to ``path`` (local or s3://) via fsspec.
 
@@ -590,7 +630,7 @@ def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
 
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
-                 out_root: str, seed_start: int = 0,
+                 out_root: str, seed_start: int = 0, n_seeds: int = 1,
                  vecoli_config: str | None = None,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
@@ -602,6 +642,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  match_vecoli_simdata: str | None = None,
                  vecoli_whole_config: str = "auto",
                  exchange_fluxes: dict | None = None,
+                 exchange_flux_basis: str = "counts",
                  observables: list | None = None,
                  observable_bulk_ids: list | None = None):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
@@ -731,8 +772,17 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
                 variant=0, lineage_seed=seed, whole_config=ve_whole_config,
-                exchange_fluxes=exchange_fluxes, observables=observables,
+                exchange_fluxes=exchange_fluxes,
+                exchange_flux_basis=exchange_flux_basis, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
+            if seed == seed_start:
+                try:
+                    _write_exchange_flux_sidecar(
+                        out_root, "vecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds, generations=max_generations)
+                except Exception as e:  # noqa: BLE001 — never block a completed run
+                    print(f"[warn] vecoli exchange-flux sidecar failed: "
+                          f"{type(e).__name__} {e}")
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
             if seed == seed_start and res.get("build_config"):
@@ -753,7 +803,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
                                        overrides=v2_overrides,
-                                       exchange_fluxes=exchange_fluxes)
+                                       exchange_fluxes=exchange_fluxes,
+                                       exchange_flux_basis=exchange_flux_basis)
             # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
             # initial bulk onto v2 so both engines start from identical molecule
             # counts — removing the stochastic low-copy sampling divergence
@@ -803,6 +854,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                                  "translated": v2_translated})
                     _write_json_sidecar(
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
+                    _write_exchange_flux_sidecar(
+                        out_root, "v2ecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds, generations=max_generations)
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001
@@ -943,6 +997,19 @@ def main(argv=None):
                         "environment.exchange[<exchange_key>] (e.g. "
                         "glucose_exchange=GLC[p]). Repeatable. The violacein card "
                         "reads these leaves.")
+    p.add_argument("--exchange-flux-basis", default="counts",
+                   choices=["counts", "gdcw"],
+                   help="WHICH QUANTITY the --exchange-flux leaves carry, on "
+                        "BOTH arms. 'counts' (default) re-homes the exchange "
+                        "store verbatim — a LINEAGE-CUMULATIVE molecule total "
+                        "whose time-average is not a rate. 'gdcw' is a per-tick "
+                        "mmol/gDCW/h rate: the candidate differences the counts "
+                        "store and normalises, the reference reads the wrapped "
+                        "metabolism's own listeners.fba_results."
+                        "external_exchange_fluxes, which is already that "
+                        "quantity (and requires a metabolism that keys that leaf "
+                        "by metabolite id rather than writing a positional array). Declared once so the two arms cannot end up "
+                        "carrying different measurements under one leaf name.")
     p.add_argument("--observable", action="append", default=[],
                    metavar="group.leaf",
                    help="Emit an arbitrary genuine-vEcoli listener leaf as a "
@@ -980,7 +1047,8 @@ def main(argv=None):
         composite_kind=args.composite, condition=args.condition,
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
-        seed_start=args.seed_start, vecoli_config=args.vecoli_config,
+        seed_start=args.seed_start, n_seeds=args.n_seeds,
+        vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
@@ -989,7 +1057,8 @@ def main(argv=None):
         match_unique_state=args.match_unique_state,
         match_vecoli_simdata=args.match_vecoli_simdata,
         vecoli_whole_config=args.vecoli_whole_config,
-        exchange_fluxes=exchange_fluxes, observables=observables,
+        exchange_fluxes=exchange_fluxes,
+        exchange_flux_basis=args.exchange_flux_basis, observables=observables,
         observable_bulk_ids=observable_bulk_ids)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen

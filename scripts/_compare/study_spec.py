@@ -63,6 +63,12 @@ class StudySpec:
     # direction.
     observables: list = dc_field(default_factory=list)  # arbitrary "group.leaf" listener
                                     # paths to emit on BOTH arms as measurements
+    exchange_flux_basis: str = "counts"   # "counts" | "gdcw" — WHICH QUANTITY
+                                    # the exchange_flux leaves carry, on BOTH
+                                    # arms. counts is a lineage-cumulative
+                                    # molecule total (its time-average is not a
+                                    # rate); gdcw is mmol/gDCW/h. Different
+                                    # measurements, not different units.
     exchange_fluxes: dict = dc_field(default_factory=dict)  # {leaf: exchange_key}
                                     # metabolic exchange fluxes to emit onto
                                     # listeners.exchange_flux.<leaf> on BOTH arms
@@ -95,6 +101,40 @@ def studies_root_for(inv_dir) -> Path:
     # any caller) repointing REPO would not reach it. Looked up at call time.
     return (Path(inv_dir).parent.parent / "studies") if inv_dir \
         else (REPO / "workspace" / "studies")
+
+
+def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") -> str:
+    """Read `exchange_flux_basis` from a study.yaml, for the SAME reason
+    `companions_from_study_yaml` exists.
+
+    The investigation route builds specs from `comparison.configs[]` entries,
+    which do not carry study.yaml keys — so without this a study declaring
+    `gdcw` in the file the investigation NAMES would silently run on `counts`.
+    ⚠ And that failure is worse than the companion one it mirrors: a dropped
+    companion or flux map yields MISSING leaves, which is visible; a dropped
+    basis yields leaves that are present and carrying the other quantity, which
+    is not. `fallback` is whatever the configs[] entry or defaults resolved to,
+    so an investigation-level declaration still wins where the study is silent.
+    """
+    path = Path(study_path)
+    if not path.exists():
+        return fallback
+    try:
+        import yaml
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a study we cannot read keeps the fallback
+        return fallback
+    if not isinstance(doc, dict):
+        return fallback
+    comp = doc.get("comparison") if isinstance(doc.get("comparison"), dict) else {}
+    # ⚠ `comparison:` ONLY — deliberately not top-level. An earlier version read
+    # top-level first, which _spec_from_study never looks at, so the two spec
+    # routes disagreed on the same file and a run could emit one quantity while
+    # the card graded another. Every other per-study measurement key
+    # (exchange_fluxes, observables, observable_bulk_ids) resolves from
+    # `comparison:`, and this now matches them.
+    v = comp.get("exchange_flux_basis")
+    return str(v) if v else fallback
 
 
 def companions_from_study_yaml(study_path) -> list:
@@ -209,6 +249,15 @@ def specs_from_configs(ctx: dict) -> list:
                              or defaults.get("observables") or []),
             exchange_fluxes=dict(entry.get("exchange_fluxes")
                                  or defaults.get("exchange_fluxes") or {}),
+            # The study.yaml gets the LAST word, via the same bridge companions
+            # use: this route builds from configs[] entries, which carry no
+            # study.yaml keys, so a study declaring the basis in the file this
+            # investigation names would otherwise silently run on the fallback.
+            exchange_flux_basis=exchange_flux_basis_from_study_yaml(
+                study_yaml,
+                fallback=str(entry.get("exchange_flux_basis")
+                             or defaults.get("exchange_flux_basis")
+                             or "counts")),
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))
@@ -261,6 +310,11 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          or (ctx.get("defaults") or {}).get("observables") or []),
         exchange_fluxes=dict(comp.get("exchange_fluxes")
                              or (ctx.get("defaults") or {}).get("exchange_fluxes") or {}),
+        # Same helper as the investigation route — one reader, one precedence.
+        exchange_flux_basis=exchange_flux_basis_from_study_yaml(
+            study_path,
+            fallback=str((ctx.get("defaults") or {}).get("exchange_flux_basis")
+                         or "counts")),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

@@ -471,28 +471,110 @@ def _select_bulk_observables(obs_bulk, ids: list) -> dict:
     return {i: float(src.get(i, 0.0)) for i in ids}
 
 
-def _select_exchange_fluxes(environment, fluxes: dict) -> dict:
-    """Pick named metabolic exchange fluxes out of the cell's environment store.
+def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
+                            listeners: dict | None = None) -> dict:
+    """Pick named metabolic exchange fluxes out of the wrapped cell, on ``basis``.
 
     ``fluxes`` maps ``leaf_name -> exchange_key`` (e.g.
     ``{"acetate_exchange": "AC[p]", "glucose_exchange": "GLC[p]"}``).
-    The exchange dmdt lives at ``environment["exchange"]`` (keyed by metabolite
-    id, uptake negative / secretion positive — the same store #547 measured with
-    175 keys). A key absent this tick yields ``0.0`` so the leaf stays a
-    continuous trace. Sign is preserved verbatim; consumers decide on ``abs``.
+    Sign is preserved verbatim; consumers decide on ``abs``.
+
+    ``basis`` selects WHICH QUANTITY the leaf carries, and therefore which store
+    it is read from. The two are not interchangeable — see
+    :mod:`v2ecoli.steps.derivers.exchange_flux_listener`, whose ``basis`` this
+    mirrors so a study declares the quantity ONCE and both engines honour it:
+
+    ``counts`` (default, unchanged behaviour)
+        ``environment["exchange"]`` — a molecule-count RUNNING TOTAL, because the
+        store accumulates (``state + update``) while metabolism writes a per-step
+        delta. Lineage-cumulative: it does not reset at division.
+
+    ``gdcw``
+        ``listeners.fba_results.external_exchange_fluxes`` — the wrapped
+        metabolism's own per-tick RATE in mmol/gDCW/h
+        (``.asNumber(GDCW_BASIS)`` at the source), which is also the leaf genuine
+        vEcoli's own bioproduction analyses read
+        (``listeners__fba_results__external_exchange_fluxes``). ⚠ Those analyses
+        index it POSITIONALLY, resolving names from emit metadata; this reads it
+        by key, which works only for a metabolism that writes it as a mapping —
+        see the TypeError below. ⚠ It is read
+        rather than derived here deliberately: differencing the counts store to
+        recover a rate would re-implement a conversion the wrapped process
+        already performs, and the two would drift.
+
+    ⚠ **The basis chooses the store, so a single declaration can never yield
+    mixed quantities across leaves of one arm.** A per-leaf or fall-back-when-
+    absent rule would: a molecule present in ``environment["exchange"]`` would
+    report a cumulative count while one absent from it reported a rate, on two
+    leaves of the same cell, with nothing to distinguish them downstream.
+
+    A key absent this tick yields ``0.0`` so the leaf stays a continuous trace.
+    ⚠ That also means an unresolvable key is indistinguishable from a true zero —
+    callers declaring a molecule should confirm it is present on the chosen
+    basis's store rather than reading 0.0 as a measurement.
 
     Deliberately generic: no molecule is special-cased here. GENERIC/pathway-
     agnostic by design — the flux map is supplied by config, so this stays out of
     the shared model's knowledge of any particular pathway."""
+    from v2ecoli.steps.derivers.exchange_flux_listener import (
+        BASIS_COUNTS, BASIS_GDCW, resolve_exchange_key)
+    # Validated BEFORE the empty-map short-circuit, so a bad basis is refused on
+    # every call rather than only when something is declared — the deriver
+    # validates in initialize() regardless of its map, and the two must agree.
+    basis = str(basis or BASIS_COUNTS)
+    if basis not in (BASIS_COUNTS, BASIS_GDCW):
+        # Refused rather than defaulted, matching the deriver: a silently
+        # defaulted basis emits a running total under a rate's name.
+        raise ValueError(
+            f"exchange-flux basis {basis!r} unknown; expected "
+            f"{BASIS_COUNTS!r} or {BASIS_GDCW!r}.")
     if not fluxes:
         return {}
-    from v2ecoli.steps.derivers.exchange_flux_listener import resolve_exchange_key
-    env = environment if isinstance(environment, dict) else {}
-    exchange = env.get("exchange")
-    exchange = exchange if isinstance(exchange, dict) else {}
+    if basis == BASIS_GDCW:
+        lst = listeners if isinstance(listeners, dict) else {}
+        fba = lst.get("fba_results")
+        source = (fba or {}).get("external_exchange_fluxes")
+        # ⚠ NOT every metabolism writes this leaf the same way, and the two
+        # shapes are not interchangeable. A process that keys it by metabolite id
+        # (a dict) can be looked up here; one that writes a POSITIONAL ARRAY
+        # cannot, because the id->index mapping lives in emit metadata and is not
+        # in this store at all. Refused rather than treated as empty: falling
+        # through to {} would emit 0.0 on every leaf of every tick — a flat zero
+        # trace that reads exactly like a cell producing none of the molecule,
+        # which is the failure this basis exists to remove.
+        # ⚠ ABSENT is refused on the SAME footing as wrong-shaped, and that
+        # symmetry is the point. Falling through to {} emitted 0.0 on every leaf
+        # of every tick — a flat zero trace indistinguishable from a cell
+        # producing none of the molecule. Measured: the public vEcoli's
+        # `metabolism_redux` does not write this leaf at all (it writes
+        # `estimated_exchange_dmdt` instead), so the configuration that failed
+        # SILENTLY was the public one, while the loud TypeError below only ever
+        # fired for stock `metabolism.py`. A leaf this basis is read from and
+        # cannot find is a refusal, not a zero.
+        if source is None:
+            raise TypeError(
+                "exchange-flux basis 'gdcw' reads "
+                "listeners.fba_results.external_exchange_fluxes, and this run's "
+                "metabolism does not write it. Refused rather than read as zero: "
+                "an absent leaf would emit 0.0 on every molecule of every tick, "
+                "which reads exactly like a cell producing none of them. Use "
+                "basis 'counts', or a metabolism that writes the leaf keyed by "
+                "metabolite id.")
+        if not isinstance(source, dict):
+            raise TypeError(
+                "exchange-flux basis 'gdcw' needs "
+                "listeners.fba_results.external_exchange_fluxes keyed by "
+                f"metabolite id, but this run's metabolism writes a "
+                f"{type(source).__name__}. Positional output cannot be resolved "
+                "by key here (the id order is emit metadata, not store content). "
+                "Use basis 'counts', or a metabolism that keys the leaf.")
+    else:
+        env = environment if isinstance(environment, dict) else {}
+        source = env.get("exchange")
+        source = source if isinstance(source, dict) else {}
     out = {}
     for leaf, key in fluxes.items():
-        v = resolve_exchange_key(exchange, key)
+        v = resolve_exchange_key(source, key)
         out[leaf] = float(v) if v is not None else 0.0
     return out
 
@@ -533,6 +615,13 @@ class VivariumEcoliProcess(Process):
         # {leaf_name: exchange_key} — metabolic exchange fluxes to emit under
         # listeners.exchange_flux.<leaf> (generic; the caller names the keys).
         "exchange_fluxes": {"_type": "map[string]", "_default": {}},
+        # WHICH QUANTITY the exchange_flux leaves carry — "counts" (a
+        # lineage-cumulative molecule total, read from environment.exchange) or
+        # "gdcw" (a per-tick mmol/gDCW/h rate, read from the wrapped
+        # metabolism's own listeners.fba_results.external_exchange_fluxes).
+        # Mirrors the deriver's `basis` so a study declares it ONCE and both
+        # engines honour it. See _select_exchange_fluxes.
+        "exchange_flux_basis": {"_type": "string", "_default": "counts"},
         # Arbitrary genuine-vEcoli listener leaves to surface, as dotted
         # "group.leaf" paths under listeners (e.g. "rna_synth_prob.total_rna_init").
         # The fully-general measurement hook — any listener leaf, no code change.
@@ -562,6 +651,8 @@ class VivariumEcoliProcess(Process):
             )
             self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
         self._exchange_fluxes = dict(self.config.get("exchange_fluxes") or {})
+        self._exchange_flux_basis = str(
+            self.config.get("exchange_flux_basis") or "counts")
         self._observables = list(self.config.get("observables") or [])
 
     def inputs(self):
@@ -595,7 +686,9 @@ class VivariumEcoliProcess(Process):
         }}
         if self._exchange_fluxes:
             upd["listeners"]["exchange_flux"] = _select_exchange_fluxes(
-                obs.get("environment"), self._exchange_fluxes)
+                obs.get("environment"), self._exchange_fluxes,
+                basis=self._exchange_flux_basis,
+                listeners=obs.get("listeners"))
         if self._observables:
             _deep_merge(upd["listeners"],
                         _select_observables(obs.get("listeners", {}), self._observables))
@@ -636,6 +729,7 @@ def build_vivarium_ecoli_composite(
     variant: int = 0,
     observable_bulk_ids: list | None = None,
     exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str = "counts",
     observables: list | None = None,
 ):
     """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
@@ -666,6 +760,7 @@ def build_vivarium_ecoli_composite(
         "variant": int(variant),
         "observable_bulk_ids": list(observable_bulk_ids or []),
         "exchange_fluxes": dict(exchange_fluxes or {}),
+        "exchange_flux_basis": str(exchange_flux_basis or "counts"),
         "observables": list(observables or []),
     }, core=core)
     iface = proc.interface()
@@ -792,6 +887,7 @@ def run_vivarium_ecoli_pbg_multigen(
     lineage_seed: int = 0,
     whole_config: str | None = None,
     exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str = "counts",
     observable_bulk_ids: list | None = None,
     observables: list | None = None,
 ) -> dict:
@@ -880,6 +976,7 @@ def run_vivarium_ecoli_pbg_multigen(
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
             initial_overlay=overlay, variant=variant,
             exchange_fluxes=exchange_fluxes,
+            exchange_flux_basis=exchange_flux_basis,
             observable_bulk_ids=observable_bulk_ids, observables=observables)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise

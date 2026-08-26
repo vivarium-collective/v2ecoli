@@ -110,6 +110,63 @@ def derive_fluxes(exchange: dict, fluxes: dict) -> dict:
     return out
 
 
+def _as_float(value) -> float:
+    """Coerce a DIMENSIONLESS reading (e.g. ``timestep``, in seconds) to a float,
+    tolerating a pint Quantity by taking its magnitude as-is.
+
+    Deliberately separate from ``_as_float_fg``: that one converts to femtograms,
+    which is meaningless for a time. ``timestep`` is declared ``float`` on this
+    step's ports, so a Quantity is not expected here — the tolerance exists so an
+    unexpected type yields "no rate is defined" rather than taking a run down.
+    """
+    if value is None:
+        return 0.0
+    magnitude = getattr(value, "magnitude", None)
+    if magnitude is not None:
+        value = magnitude
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _as_float_fg(value) -> float:
+    """Coerce a dry-mass reading to a plain float IN FEMTOGRAMS.
+
+    ⚠ ``listeners.mass.dry_mass`` arrives as a pint Quantity in femtograms on the
+    real composite, so a bare ``float()`` raises
+    ``DimensionalityError: Cannot convert from 'femtogram' to 'dimensionless'``
+    and takes the whole run down on the first tick of the gdcw basis.
+
+    This path shipped unreachable — no study could set a basis until the setting
+    was threaded — so it had never been executed against a real composite, only
+    against unit tests that pass plain floats. Unreachable and untested are the
+    same fact here: the first real run found it immediately.
+
+    ⚠ CONVERTED, not read off as-is. ``counts_to_gdcw_rate`` expects femtograms,
+    and this step's own port declares ``dry_mass`` a bare ``float`` while the
+    composite supplies a ``quantity[float,fg]`` — so nothing in the type contract
+    here guarantees the unit a Quantity arrives in. Taking ``.magnitude`` verbatim
+    off a Quantity in picograms yields 0.4 where 400.0 is meant, and the rate is
+    then 1000x too large with no error: a silently wrong QUANTITY under a correct
+    name, which is the exact failure this basis exists to remove. Delegated to
+    ``quantity_helpers.fg_magnitude``, the accessor the units-on-ports migration
+    provides for precisely this (it is a pass-through for bare floats, so nothing
+    changes while the port is still a plain number).
+
+    A value that is neither a number nor a Quantity — or a Quantity whose units
+    are not a mass — yields 0.0, which ``counts_to_gdcw_rate`` already treats as
+    "no rate is defined" rather than an infinity.
+    """
+    if value is None:
+        return 0.0
+    try:
+        from v2ecoli.library.quantity_helpers import fg_magnitude
+        return float(fg_magnitude(value))
+    except Exception:  # noqa: BLE001 — an uncoercible mass is "no rate", not a crash
+        return _as_float(value)
+
+
 def counts_to_gdcw_rate(delta_counts: float, dry_mass_fg: float,
                         timestep_s: float) -> float:
     """Molecule-count delta -> mmol/gDCW/h.
@@ -193,8 +250,8 @@ class ExchangeFluxListener(Step):
         if self.basis == BASIS_COUNTS:
             return {"listeners": {"exchange_flux": totals}}
 
-        dry_mass = float((states.get("mass") or {}).get("dry_mass") or 0.0)
-        timestep = float(states.get("timestep") or 0.0)
+        dry_mass = _as_float_fg((states.get("mass") or {}).get("dry_mass"))
+        timestep = _as_float(states.get("timestep"))
         out = {}
         for leaf, total in totals.items():
             previous = self._previous.get(leaf)

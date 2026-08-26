@@ -247,6 +247,7 @@ from v2ecoli.composites._helpers import (
     set_emitter_override,
     set_null_emitter_override,
     set_exchange_fluxes_override,
+    set_exchange_flux_basis_override,
     _find_workspace_root,
     CachedConfigLoader,
     FLUSH,
@@ -1203,6 +1204,20 @@ def _build_batch_document(
                            "XArray view carries them (e.g. "
                            "{'glucose_exchange': 'GLC[p]'}). Empty = off.",
         },
+        "exchange_flux_basis": {
+            "type": "string",
+            "choices": ["counts", "gdcw"],
+            "default": "counts",
+            "description": "WHICH QUANTITY the exchange_flux leaves carry. "
+                           "'counts' re-homes environment.exchange verbatim — a "
+                           "LINEAGE-CUMULATIVE molecule total that does not reset "
+                           "at division, so its time-average is not a rate. "
+                           "'gdcw' differences it and normalises to mmol/gDCW/h, "
+                           "which is the quantity a genuine vEcoli reports for "
+                           "its own exchanges and therefore the one that is "
+                           "comparable across engines. These are different "
+                           "measurements, not different units.",
+        },
         # --- Observation sink selection ---
         "emitter": {
             "type": "string",
@@ -1405,6 +1420,7 @@ def baseline(
     mecillinam: bool = False,
     amp_lysis: bool = False,
     exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str | None = None,
     emitter: str = "parquet",
     emitter_out_dir: str = "",
     bundle: dict | None = None,
@@ -1666,6 +1682,12 @@ def baseline(
     # exchange_fluxes (non-empty) auto-enables the exchange_flux feature; its map
     # is threaded to the feature step via the external override set below.
     _exchange_fluxes = dict(exchange_fluxes or {})
+    # WHICH QUANTITY those leaves carry. Threaded beside the map because the two
+    # are meaningless apart: "counts" is a lineage-cumulative molecule total and
+    # "gdcw" a per-tick mmol/gDCW/h rate, and a leaf carrying one under the
+    # other's name is not a unit error but a different measurement. None keeps
+    # the deriver's own default, so an undeclared build is unchanged.
+    _exchange_flux_basis = str(exchange_flux_basis or "counts")
     if _exchange_fluxes and 'exchange_flux' not in _requested_features:
         _requested_features.append('exchange_flux')
     # mecillinam (antibiotic mode) auto-enables the native cell_geometry
@@ -1897,6 +1919,7 @@ def baseline(
     # Thread the flux map to the exchange_flux_listener feature step (built via
     # _get_special_step) for the duration of this build; restored in finally.
     set_exchange_fluxes_override(_exchange_fluxes)
+    set_exchange_flux_basis_override(_exchange_flux_basis)
     try:
         for step_name in flow_order:
             config = _get_step_config(
@@ -1921,6 +1944,7 @@ def baseline(
         set_emitter_override(_ext_sqlite)
         set_null_emitter_override(_ext_null)
         set_exchange_fluxes_override({})
+        set_exchange_flux_basis_override(None)
 
     # Place shared PartitionedProcess instances in the process store
     for proc_name, proc_instance in _process_cache.items():

@@ -42,6 +42,15 @@ def _run_engines(spec, out: str, mode: str) -> None:
     flux_flags = [f
                   for leaf, key in (spec.exchange_fluxes or {}).items()
                   for f in ("--exchange-flux", f"{leaf}={key}")]
+    # The BASIS rides with the map on BOTH invocations. Declared once by the
+    # study so the two arms cannot report different quantities under one leaf
+    # name; each engine reaches it by its own route (the candidate differences
+    # its counts store, the reference reads the wrapped metabolism's own
+    # gDCW-basis listener, which requires a metabolism that keys that leaf by
+    # metabolite id).
+    if flux_flags:
+        flux_flags += ["--exchange-flux-basis",
+                       str(getattr(spec, "exchange_flux_basis", None) or "counts")]
     # Arbitrary listener leaves ("group.leaf") to emit as measurements on BOTH
     # arms — the general observable-declaration hook.
     obs_flags = [f for o in (spec.observables or [])

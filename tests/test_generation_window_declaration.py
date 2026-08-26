@@ -120,3 +120,18 @@ def test_negative_bound_is_refused():
 
 def test_default_is_no_window_and_stays_valid():
     assert _spec().generation_lower_bound == 0
+
+
+def test_an_explicit_zero_entry_is_not_overridden_by_an_investigation_default():
+    """⭐ DISCRIMINATING, and a defect I shipped once already three lines away.
+
+    `entry.get(k) or defaults.get(k) or 0` discards an explicitly-declared 0 —
+    "grade every generation, deliberately" — in favour of the investigation
+    default, because 0 is falsy. The reader guards this; the precedence chain
+    feeding it must too, or the reader's care is undone one call up.
+    """
+    from scripts._compare.study_spec import _first_declared
+    assert _first_declared(0, 5) == 0            # explicit opt-out survives
+    assert _first_declared(None, 5) == 5         # silent entry inherits
+    assert _first_declared(None, None) == 0      # nothing declared -> no window
+    assert _first_declared(None, 0) == 0

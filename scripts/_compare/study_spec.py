@@ -163,6 +163,22 @@ def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") ->
     return str(v) if v else fallback
 
 
+def _first_declared(*values, default=0):
+    """First value that was actually DECLARED, i.e. not None.
+
+    ⛔ NOT `a or b or default`. `0` is a legitimate declaration of
+    `generation_lower_bound` — "grade every generation, deliberately" — and it is
+    falsy, so an `or` chain silently discards an explicit opt-out in favour of
+    the investigation-level default. This module already guards that case in
+    `generation_lower_bound_from_study_yaml`; the precedence chain feeding its
+    `fallback` has to guard it too, or the reader's care is undone one call up.
+    """
+    for v in values:
+        if v is not None:
+            return v
+    return default
+
+
 def generation_lower_bound_from_study_yaml(study_path, fallback: int = 0) -> int:
     """Read `comparison.generation_lower_bound` from a study.yaml.
 
@@ -324,8 +340,9 @@ def specs_from_configs(ctx: dict) -> list:
                              or "counts")),
             generation_lower_bound=generation_lower_bound_from_study_yaml(
                 study_yaml,
-                fallback=int(entry.get("generation_lower_bound")
-                             or defaults.get("generation_lower_bound") or 0)),
+                fallback=int(_first_declared(
+                    entry.get("generation_lower_bound"),
+                    defaults.get("generation_lower_bound")))),
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))
@@ -385,8 +402,8 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
                          or "counts")),
         generation_lower_bound=generation_lower_bound_from_study_yaml(
             study_path,
-            fallback=int((ctx.get("defaults") or {}).get("generation_lower_bound")
-                         or 0)),
+            fallback=int(_first_declared(
+                (ctx.get("defaults") or {}).get("generation_lower_bound")))),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

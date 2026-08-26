@@ -58,13 +58,13 @@ existing ``read_pbg_local`` — same source as the metabolism/trajectory cards.
 from __future__ import annotations
 
 import html as _html
-import json
 import os
 
 from process_bigraph.composite import as_step
 
 from scripts._compare.plotly_helpers import overlay_html
 from scripts._compare.report_cards import CARD_INPUTS, CARD_OUTPUTS, REPORT_CARD_STEPS
+from scripts._compare.exchange_flux_basis import basis_from_runs
 from scripts._compare.verdict import worst
 
 # ---- defaults (overridable per study via config["bioproduction"][...]) ----- #
@@ -100,58 +100,6 @@ def _cfg(state: dict, key: str):
 def _mean(values) -> float | None:
     vals = [float(v) for v in values if v is not None]
     return sum(vals) / len(vals) if vals else None
-
-
-def _basis_from_runs(state: dict) -> tuple[str | None, str]:
-    """The basis BOTH arms actually ran with, read off the runs themselves.
-
-    ⚠ Deliberately NOT resolved from the study config. The card and the engines
-    reading the same YAML by different rules is what previously graded a
-    lineage-cumulative total as a rate: both arms were equally wrong, so the
-    relative delta looked fine and the axis went green. The run is the ground
-    truth for what the run computed.
-
-    Returns ``(basis, reason)``. ``basis`` is None whenever the two arms cannot be
-    shown to agree — a missing sidecar (a run that predates this, or an arm that
-    never emitted), or two arms that genuinely ran different quantities. All of
-    those are refusals, because a number whose quantity is unknown is worse than
-    no number.
-    """
-    found, shape = {}, {}
-    for key, prefix in (("v2_dir", "v2ecoli"), ("ve_dir", "vecoli")):
-        d = state.get(key)
-        path = os.path.join(d or "", f"{prefix}_exchange_flux.json")
-        if not d or not os.path.isfile(path):
-            return None, f"no exchange-flux sidecar for the {prefix} arm"
-        try:
-            with open(path, encoding="utf-8") as fh:
-                doc = json.load(fh) or {}
-        except Exception:  # noqa: BLE001 — an unreadable sidecar is a refusal
-            return None, f"unreadable exchange-flux sidecar for the {prefix} arm"
-        basis = doc.get("basis")
-        if not basis:
-            # ⚠ Distinct from "counts": the quantity is UNRECORDED. Two such
-            # sidecars would compare equal and slip through the agreement check
-            # below, and the caller would then describe them with counts
-            # semantics it has no evidence for.
-            return None, (f"the {prefix} arm's sidecar records no basis, so the "
-                          "quantity its leaves carry is unknown")
-        found[prefix] = str(basis)
-        shape[prefix] = (doc.get("seeds"), doc.get("generations"))
-    if found["v2ecoli"] != found["vecoli"]:
-        return None, (f"the two arms ran different bases "
-                      f"(candidate={found['v2ecoli']!r}, reference={found['vecoli']!r})")
-    # ⚠ Agreeing on the basis does NOT establish the two sidecars describe the
-    # same invocation: both arms write into one out_root and nothing cleans it,
-    # so re-running one arm leaves the other's sidecar and stores in place. Two
-    # arms of one study share seeds and generations by construction, so a
-    # disagreement here means one side is stale.
-    if shape["v2ecoli"] != shape["vecoli"] and None not in shape["v2ecoli"] + shape["vecoli"]:
-        return None, (f"the two arms' runs do not correspond — candidate ran "
-                      f"seeds={shape['v2ecoli'][0]} generations={shape['v2ecoli'][1]}, "
-                      f"reference ran seeds={shape['vecoli'][0]} "
-                      f"generations={shape['vecoli'][1]}; one of them is stale")
-    return found["v2ecoli"], ""
 
 
 def _specific_rate(flux_trace, drymass_trace, basis: str = "counts") -> float | None:
@@ -294,7 +242,7 @@ def update_violacein_report_card(state):
 
     per = _collect(state, [vio_leaf, glc_leaf, "dry_mass"])
 
-    basis, basis_reason = _basis_from_runs(state)
+    basis, basis_reason = basis_from_runs(state)
 
     def rate(arm):
         return _specific_rate(_first(per[vio_leaf][arm]),
@@ -322,6 +270,37 @@ def update_violacein_report_card(state):
         for _ax in (rate_axis, yield_axis):
             _ax["meter"] = "not computable"
             _ax["detail"]["unresolved_reason"] = why
+    # ⚠ AND ON THE SUCCESSFUL PATH TOO. The block above only fires when the BASIS
+    # is refused, but `_grade_rel` also returns `ungraded` when a value is missing
+    # or the reference has no scale — and on those an axis previously carried no
+    # reason and no banner at all. A reference arm reading exactly 0.0 therefore
+    # rendered as a table of zeros, verdict `ungraded`, meter "—", with nothing
+    # saying why, and `worst()` scores ungraded 0, so the roll-up was
+    # pass-equivalent. That is the zero-ambiguity hazard this card exists to
+    # remove, reappearing inside the fix written for it. Every ungraded axis now
+    # states its own cause.
+    for _ax in (rate_axis, yield_axis):
+        if _ax["verdict"] != "ungraded" or _ax["detail"].get("unresolved_reason"):
+            continue
+        _d = _ax["detail"]
+        _got, _ref = _d.get("got"), _d.get("reference")
+        if _got is None and _ref is None:
+            _why = "neither arm produced a value for this axis"
+        elif _ref is None:
+            _why = "the reference arm produced no value for this axis"
+        elif _got is None:
+            _why = "the candidate arm produced no value for this axis"
+        else:
+            # ⚠ Not "the arms agree at zero". An exchange leaf reads 0.0 both for
+            # a molecule genuinely not exchanged AND for one whose key could not
+            # be resolved on the chosen basis — the two are indistinguishable
+            # here, so this is reported as unmeasured rather than as agreement.
+            _why = ("the reference arm's value is exactly 0.0, so a relative "
+                    "delta has no scale — and on an exchange leaf 0.0 is also "
+                    "what an unresolvable key reads as, so this is not evidence "
+                    "the two arms agree")
+        _ax["meter"] = "not computable"
+        _d["unresolved_reason"] = _why
     axes = [rate_axis, yield_axis]
 
     have_flux = bool(per[vio_leaf]["v2"] or per[vio_leaf]["ve"])
@@ -349,8 +328,9 @@ def update_violacein_report_card(state):
     # Prepended on BOTH branches: a basis refusal is the reason the axes could not
     # grade, and that stays true when there is also no data — otherwise a reader
     # sees "no flux yet" and never learns the axes would not have graded anyway.
-    if basis != "gdcw":
-        why = rate_axis["detail"].get("unresolved_reason", "")
+    _refused = [a for a in axes if a["detail"].get("unresolved_reason")]
+    if _refused:
+        why = _refused[0]["detail"].get("unresolved_reason", "")
         html = (
             '<div style="padding:6px 10px;margin:4px 0;border-left:3px solid '
             '#b45309;background:#fffbeb;font-size:13px">'

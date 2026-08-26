@@ -107,11 +107,34 @@ def test_unknown_basis_raises_even_with_an_empty_flux_map():
         _select_exchange_fluxes(ENVIRONMENT, {}, basis="per-cell")
 
 
-def test_gdcw_with_no_fba_results_yields_zero_not_a_crash():
-    """A reference arm whose wrapped process has not populated the listener yet
-    must emit a continuous trace rather than raise mid-run."""
+def test_gdcw_with_no_fba_results_is_REFUSED_not_read_as_zero():
+    """⛔ This test previously asserted the opposite, and the opposite was the bug.
+
+    An absent `external_exchange_fluxes` fell through to `{}`, so every leaf read
+    0.0 on every tick — a flat zero trace indistinguishable from a cell producing
+    none of the molecule, and the card then graded it `ungraded`, which the shared
+    severity model scores 0, i.e. no worse than a pass.
+
+    ⚠ MEASURED, and it is why this is not hypothetical: the PUBLIC vEcoli's
+    `metabolism_redux` does not write this leaf at all (it writes
+    `estimated_exchange_dmdt`); only the fork does. So the silently-zero
+    configuration was the public one, while the loud refusal for a positional
+    array only ever fired for stock `metabolism.py`. Absent and wrong-shaped are
+    now refused on the same footing."""
+    with pytest.raises(TypeError, match="does not write it"):
+        _select_exchange_fluxes(ENVIRONMENT, FLUXES, basis="gdcw", listeners={})
+
+
+def test_gdcw_with_an_EMPTY_keyed_leaf_still_traces_rather_than_raising():
+    """The other side of that line, and it is what keeps the fork working.
+
+    A metabolism that DECLARES the leaf in its schema (default `{}`) but has not
+    populated it on this tick has written it — the key exists, the mapping is
+    simply empty. That is a real not-yet-solved tick, not an unusable metabolism,
+    so it traces 0.0 rather than taking the run down."""
     out = _select_exchange_fluxes(ENVIRONMENT, FLUXES, basis="gdcw",
-                                  listeners={})
+                                  listeners={"fba_results":
+                                             {"external_exchange_fluxes": {}}})
     assert out == {"glucose_exchange": 0.0, "product_exchange": 0.0}
 
 
@@ -381,8 +404,8 @@ def test_gdcw_deriver_tolerates_pint_quantities_for_mass_and_timestep():
 # --- the on-disk sidecar contract: the REAL writer against the REAL reader ---
 #
 # The filename, the JSON key and the two arm prefixes are a CONTRACT between
-# `run_comparison_ensemble._write_exchange_flux_sidecar` and the violacein
-# card's `_basis_from_runs`. Re-typing either side by hand in a test helper is
+# `run_comparison_ensemble._write_exchange_flux_sidecar` and the generic
+# `exchange_flux_basis.basis_from_runs`. Re-typing either side by hand is
 # how a rename stays green here and breaks every real run, so these tests call
 # both production functions and never spell the filename or the key themselves.
 
@@ -401,10 +424,10 @@ def test_the_sidecar_round_trips_from_the_real_writer_to_the_real_reader(tmp_pat
 
     Both arms write into ONE out_root, exactly as a real run does, so the arm
     PREFIXES are part of what round-trips."""
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
     _write_real_sidecar(tmp_path, "vecoli", "gdcw")
-    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path),
                                        "ve_dir": str(tmp_path)})
     assert (basis, why) == ("gdcw", "")
 
@@ -414,10 +437,10 @@ def test_the_round_trip_keeps_the_two_arms_apart_in_one_out_root(tmp_path):
     writer that dropped the prefix (or a reader that looked for the wrong one)
     would let ONE arm's basis answer for both — which is precisely the
     two-arms-disagree failure the sidecar exists to expose."""
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
     _write_real_sidecar(tmp_path, "vecoli", "counts")
-    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path),
                                        "ve_dir": str(tmp_path)})
     assert basis is None
     assert "'gdcw'" in why and "'counts'" in why, why
@@ -425,10 +448,10 @@ def test_the_round_trip_keeps_the_two_arms_apart_in_one_out_root(tmp_path):
 
 def test_the_round_trip_carries_counts_too(tmp_path):
     """So the test above cannot pass by the reader hardcoding 'gdcw'."""
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     _write_real_sidecar(tmp_path, "v2ecoli", "counts")
     _write_real_sidecar(tmp_path, "vecoli", "counts")
-    assert vio._basis_from_runs({"v2_dir": str(tmp_path),
+    assert basis_from_runs({"v2_dir": str(tmp_path),
                                  "ve_dir": str(tmp_path)}) == ("counts", "")
 
 
@@ -436,10 +459,10 @@ def test_a_run_that_declared_no_fluxes_writes_no_sidecar_and_is_refused(tmp_path
     """The writer short-circuits on an empty flux map. That is intended (nothing
     to describe), and the reader must treat the absent file as a REFUSAL rather
     than guessing — a run predating the sidecar looks identical."""
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     _write_real_sidecar(tmp_path, "v2ecoli", "gdcw", leaves={})
     _write_real_sidecar(tmp_path, "vecoli", "gdcw", leaves={})
-    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path),
                                        "ve_dir": str(tmp_path)})
     assert basis is None and "sidecar" in why
 
@@ -537,7 +560,7 @@ def test_run_one_runs_the_REFERENCE_engine_on_the_declared_basis_and_records_it(
     The assertion goes through the card's REAL reader, so the file name and key
     are not re-typed here."""
     from v2ecoli.library import vivarium_ecoli_engine as vee
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     seen = {}
 
     def _fake_engine(**kw):
@@ -554,7 +577,7 @@ def test_run_one_runs_the_REFERENCE_engine_on_the_declared_basis_and_records_it(
     # arm's sidecar stands in (written by the same production writer) so the
     # reader has the pair it requires; the reference half is the one under test.
     _write_real_sidecar(tmp_path, "v2ecoli", "gdcw")
-    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path),
                                        "ve_dir": str(tmp_path)})
     assert (basis, why) == ("gdcw", ""), why
 
@@ -570,7 +593,7 @@ def test_run_one_records_the_CANDIDATE_arm_basis_beside_its_stores(
     survive review."""
     import scripts.run_comparison_ensemble as rce
     from v2ecoli.library import xarray_run
-    from scripts._compare.report_cards import violacein as vio
+    from scripts._compare.exchange_flux_basis import basis_from_runs
 
     monkeypatch.setattr(rce, "_build_v2ecoli",
                         lambda *a, **k: SimpleNamespace(state={}))
@@ -583,7 +606,7 @@ def test_run_one_records_the_CANDIDATE_arm_basis_beside_its_stores(
                        exchange_flux_basis="gdcw")
     run_one(0)
     _write_real_sidecar(tmp_path, "vecoli", "gdcw")     # the other arm stands in
-    basis, why = vio._basis_from_runs({"v2_dir": str(tmp_path),
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path),
                                        "ve_dir": str(tmp_path)})
     assert (basis, why) == ("gdcw", ""), why
 
@@ -889,14 +912,14 @@ def test_the_writer_records_the_run_shape_the_reader_compares(tmp_path):
     because re-typing the contract in the test is how a rename stays green here
     and refuses on every real run."""
     import json
-    from scripts._compare.report_cards import violacein as card
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     _write_real_sidecar_with_shape(tmp_path, "v2ecoli", "gdcw", 4, 8)
     _write_real_sidecar_with_shape(tmp_path, "vecoli", "gdcw", 4, 8)
 
     doc = json.loads((tmp_path / "v2ecoli_exchange_flux.json").read_text())
     assert doc.get("seeds") == 4 and doc.get("generations") == 8, (
         f"the writer did not record the run shape: {doc}")
-    basis, why = card._basis_from_runs({"v2_dir": str(tmp_path), "ve_dir": str(tmp_path)})
+    basis, why = basis_from_runs({"v2_dir": str(tmp_path), "ve_dir": str(tmp_path)})
     assert (basis, why) == ("gdcw", ""), (basis, why)
 
 
@@ -905,22 +928,136 @@ def test_two_arms_with_different_run_shapes_are_refused_as_stale(tmp_path):
     nothing cleans it, so re-running one arm leaves the other's sidecar and
     stores in place. Two sidecars agreeing on 'gdcw' would otherwise pass the
     agreement check while describing different invocations."""
-    from scripts._compare.report_cards import violacein as card
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     v2, ve = tmp_path / "v2", tmp_path / "ve"
     v2.mkdir(), ve.mkdir()
     _write_real_sidecar_with_shape(v2, "v2ecoli", "gdcw", seeds=4, generations=8)
     _write_real_sidecar_with_shape(ve, "vecoli", "gdcw", seeds=1, generations=1)
 
-    basis, why = card._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    basis, why = basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
     assert basis is None, "a stale arm was accepted as a matching run"
     assert "stale" in why and "seeds=4" in why and "seeds=1" in why, why
 
 
 def test_matching_run_shapes_are_not_refused(tmp_path):
     """So the test above cannot pass by refusing everything."""
-    from scripts._compare.report_cards import violacein as card
+    from scripts._compare.exchange_flux_basis import basis_from_runs
     v2, ve = tmp_path / "v2b", tmp_path / "veb"
     v2.mkdir(), ve.mkdir()
     _write_real_sidecar_with_shape(v2, "v2ecoli", "gdcw", seeds=4, generations=8)
     _write_real_sidecar_with_shape(ve, "vecoli", "gdcw", seeds=4, generations=8)
-    assert card._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)}) == ("gdcw", "")
+    assert basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)}) == ("gdcw", "")
+
+
+# --- the REFERENCE arm's in-engine chain ------------------------------------
+#
+# ⛔ MEASURED GAP: five consecutive hops here survived mutation, and no test
+# anywhere in tests/ called `VivariumEcoliProcess.update()`. Coverage stopped at
+# `make_run_one -> run_vivarium_ecoli_pbg_multigen(exchange_flux_basis=...)` and
+# resumed only at the pure helper `_select_exchange_fluxes`. Everything between
+# was untested, which is the half of this change that is actually new — the
+# reference arm READING the wrapped metabolism's own rate instead of deriving.
+#
+# The sharpest of them: deleting `listeners=obs.get("listeners")` from the call
+# site killed nothing. The helper cannot tell "listener not populated yet" from
+# "listeners never wired at all", so that one keyword argument is the whole
+# guard against a flat-zero gdcw trace on the reference arm.
+
+_FBA_RATE = 0.129129     # a real measured mmol/gDCW/h product secretion
+
+
+def _wrapped_process(**cfg):
+    """A VivariumEcoliProcess with no real EcoliSim behind it: the pending-handle
+    branch skips the sim_data build, exactly as test_exchange_flux_observables
+    already does for outputs()."""
+    from v2ecoli.core import build_core
+    from v2ecoli.library.vivarium_ecoli_engine import VivariumEcoliProcess
+    VivariumEcoliProcess._PENDING_HANDLE = object()
+    try:
+        return VivariumEcoliProcess(config=cfg, core=build_core())
+    finally:
+        VivariumEcoliProcess._PENDING_HANDLE = None
+
+
+def _fake_observables(**listeners):
+    """What cell_observables() returns, with the seven scalar axes stubbed."""
+    from v2ecoli.library.vivarium_ecoli_engine import COUNT_OBS, MASS_OBS
+    obs = {k: 1.0 for k in MASS_OBS}
+    obs.update({k: 1.0 for k in COUNT_OBS})
+    obs["environment"] = {"exchange": {"GLC[p]": -5.0e7, "X[c]": 9.9e9}}
+    obs["listeners"] = listeners
+    return obs
+
+
+def _run_one_tick(monkeypatch, proc):
+    """Drive the REAL update(), with the engine and observables stubbed."""
+    import v2ecoli.library.vivarium_ecoli_engine as eng
+
+    class _Eng:
+        def run_for(self, _):
+            return None
+
+    monkeypatch.setattr(proc, "_handle", type("H", (), {"engine": _Eng()})())
+    monkeypatch.setattr(eng, "cell_observables", lambda _e: _fake_observables(
+        fba_results={"external_exchange_fluxes": {"X[c]": _FBA_RATE,
+                                                  "GLC[p]": -7.43}}))
+    return proc.update({}, 1.0)["listeners"]["exchange_flux"]
+
+
+def test_the_wrapped_process_reads_the_FBA_RATE_on_gdcw(monkeypatch):
+    """⚠ The hop nothing executed. On gdcw the reference arm must report the
+    wrapped metabolism's own listener value — NOT the cumulative counts store,
+    which the same stubbed observables also carry (9.9e9 vs 0.129).
+
+    Deleting `basis=` or `listeners=` from the call site both silently produce
+    the wrong one of those two numbers, and both were green."""
+    proc = _wrapped_process(exchange_fluxes={"product_exchange": "X[c]"},
+                            exchange_flux_basis="gdcw")
+    leaves = _run_one_tick(monkeypatch, proc)
+    assert leaves["product_exchange"] == pytest.approx(_FBA_RATE), (
+        f"expected the fba_results rate {_FBA_RATE}, got "
+        f"{leaves['product_exchange']} — if this is 9.9e9 the call site dropped "
+        "basis=; if it is 0.0 it dropped listeners=")
+
+
+def test_the_wrapped_process_reads_the_COUNTS_STORE_on_counts(monkeypatch):
+    """The discriminating other half: the same stubbed tick on the default basis
+    must give the cumulative store's number, so the test above cannot pass
+    against a process that ignores the basis and always reads one source."""
+    proc = _wrapped_process(exchange_fluxes={"product_exchange": "X[c]"},
+                            exchange_flux_basis="counts")
+    leaves = _run_one_tick(monkeypatch, proc)
+    assert leaves["product_exchange"] == pytest.approx(9.9e9)
+
+
+def test_the_wrapped_process_honours_an_UNDECLARED_basis_as_counts(monkeypatch):
+    """So neither test above can pass against a hardcoded literal."""
+    proc = _wrapped_process(exchange_fluxes={"product_exchange": "X[c]"})
+    leaves = _run_one_tick(monkeypatch, proc)
+    assert leaves["product_exchange"] == pytest.approx(9.9e9)
+
+
+def test_the_composite_builder_lands_the_basis_on_the_process(monkeypatch):
+    """Hop: build_vivarium_ecoli_composite(exchange_flux_basis=) -> the process
+    config. Captured at construction, so a builder that stopped passing it —
+    or hardcoded 'counts' into the config dict — is caught."""
+    import v2ecoli.library.vivarium_ecoli_engine as eng
+    seen = {}
+
+    class _Stop(Exception):
+        pass
+
+    class _Spy(eng.VivariumEcoliProcess):
+        def __init__(self, config=None, core=None):
+            seen.update(config or {})
+            raise _Stop()
+
+    monkeypatch.setattr(eng, "build_vivarium_ecoli", lambda **kw: object())
+    monkeypatch.setattr(eng, "VivariumEcoliProcess", _Spy)
+    with pytest.raises(_Stop):
+        eng.build_vivarium_ecoli_composite(
+            sim_data_path="x", condition="basal", seed=0,
+            exchange_fluxes={"product_exchange": "X[c]"},
+            exchange_flux_basis="gdcw")
+    assert seen.get("exchange_flux_basis") == "gdcw", seen
+    assert seen.get("exchange_fluxes") == {"product_exchange": "X[c]"}

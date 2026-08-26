@@ -8,6 +8,7 @@ existing read_pbg_local; when that leaf is absent (emission still off / v2ecoli#
 it degrades to a clear ungraded status naming the leaf it looked for.
 """
 from scripts._compare.report_cards import REPORT_CARD_STEPS
+from scripts._compare.exchange_flux_basis import basis_from_runs
 from scripts._compare.report_cards import violacein as vio
 from _card_helpers import _run_card, _state
 
@@ -59,7 +60,7 @@ def test_basis_is_read_from_the_RUNS_not_the_study_config(tmp_path):
     v2.mkdir(); ve.mkdir()
     _write_sidecar(v2, "v2ecoli", "gdcw")
     _write_sidecar(ve, "vecoli", "gdcw")
-    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    basis, why = basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
     assert basis == "gdcw" and why == ""
 
 
@@ -70,13 +71,13 @@ def test_basis_refused_when_the_two_arms_disagree(tmp_path):
     v2.mkdir(); ve.mkdir()
     _write_sidecar(v2, "v2ecoli", "gdcw")
     _write_sidecar(ve, "vecoli", "counts")
-    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    basis, why = basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
     assert basis is None and "different bases" in why
 
 
 def test_card_END_TO_END_takes_the_basis_from_the_run_over_the_config(tmp_path):
     """⚠ The wiring, not the helper. Every previous version of this test suite
-    tested _basis_from_runs directly, so swapping the CALL SITE back to
+    tested basis_from_runs directly, so swapping the CALL SITE back to
     state["config"] — the exact bug that shipped — stayed green three times.
 
     The state below is contradictory on purpose: the runs say gdcw, the config
@@ -90,9 +91,16 @@ def test_card_END_TO_END_takes_the_basis_from_the_run_over_the_config(tmp_path):
     st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
     out = _run_card("violacein", st)
     for ax in out["axes"]:
-        assert "unresolved_reason" not in ax["detail"], (
+        # ⚠ Asserts the absence of a BASIS refusal specifically, not the absence
+        # of any reason. This state carries no traces, so the axes are
+        # legitimately ungraded for want of data and now say so — a different
+        # refusal from the one under test. Keying on the basis wording keeps the
+        # discrimination: had the card re-derived from state["config"] it would
+        # refuse with "on the 'counts' basis".
+        why = ax["detail"].get("unresolved_reason", "")
+        assert "basis" not in why, (
             "the card refused on a basis it should have read from the run — it is "
-            "re-deriving from the study config again")
+            f"re-deriving from the study config again: {why!r}")
 
 
 def test_card_END_TO_END_refuses_when_the_runs_say_counts(tmp_path):
@@ -114,7 +122,7 @@ def test_basis_refused_when_a_sidecar_is_missing(tmp_path):
     v2, ve = tmp_path / "v2", tmp_path / "ve"
     v2.mkdir(); ve.mkdir()
     _write_sidecar(v2, "v2ecoli", "gdcw")
-    basis, why = vio._basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
+    basis, why = basis_from_runs({"v2_dir": str(v2), "ve_dir": str(ve)})
     assert basis is None and "vecoli" in why
 
 
@@ -179,3 +187,80 @@ def test_axis_grades_candidate_vs_reference():
     assert ax["verdict"] == "within_tol"
     assert ax["id"] == "bioproduction.violacein_rate"
     assert ax["value"] is not None
+
+
+# --- the zero-reference hazard, on the SUCCESSFUL gdcw path ------------------
+#
+# ⛔ MEASURED GAP: the refusal banner and `unresolved_reason` were both gated on
+# `basis != "gdcw"`. But `_grade_rel` also returns `ungraded` when `not ref` — so
+# a reference arm reading exactly 0.0 on an accepted basis rendered as a table of
+# zeros, verdict `ungraded`, meter "—", with NOTHING stating why. `worst()` scores
+# `ungraded` at 0, so that roll-up is pass-equivalent.
+#
+# A 0.0 reference is not hypothetical here: an exchange leaf reads 0.0 both for a
+# molecule genuinely not exchanged AND for one whose key cannot be resolved, and
+# this lane spent a day reading the second as the first.
+
+def _gdcw_runs(tmp_path):
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(v2, "v2ecoli", "gdcw")
+    _write_sidecar(ve, "vecoli", "gdcw")
+    return str(v2), str(ve)
+
+
+def _stub_reader(monkeypatch, v2_vals, ve_vals):
+    """Stub the zarr reader so the card's GRADING is exercised without fixtures.
+
+    `_read_seed(dir, prefix, seed, leaves) -> {leaf: (times, values)}` is the only
+    door between the card and the stores, so replacing it leaves every line under
+    test except the zarr read itself."""
+    def _fake(dir_path, prefix, seed, leaves):
+        vals = v2_vals if prefix == "v2ecoli" else ve_vals
+        t = [0.0, 1.0]
+        return {"violacein_exchange": (t, list(vals)),
+                "glucose_exchange": (t, [-8.0, -8.0]),
+                "dry_mass": (t, [400.0, 400.0])}
+    monkeypatch.setattr(vio, "_read_seed", _fake)
+
+
+def _card_on(monkeypatch, tmp_path, v2_vals, ve_vals):
+    v2, ve = _gdcw_runs(tmp_path)
+    _stub_reader(monkeypatch, v2_vals, ve_vals)
+    st = _state({}, name="t")
+    st["v2_dir"], st["ve_dir"] = v2, ve
+    return _run_card("violacein", st)
+
+
+def _rate_axis(out):
+    return next(a for a in out["axes"] if a["id"].endswith("violacein_rate"))
+
+
+def test_a_ZERO_reference_arm_is_not_silently_ungraded(monkeypatch, tmp_path):
+    """⚠ The candidate secretes, the reference reads exactly 0.0, the basis is
+    accepted. The axis cannot grade — but it must SAY so, because an ungraded
+    axis scores 0 in the shared severity model and therefore cannot fail a gate.
+    Without a stated reason this renders as a clean table with a blank meter."""
+    rate = _rate_axis(_card_on(monkeypatch, tmp_path, [0.15, 0.15], [0.0, 0.0]))
+    assert rate["verdict"] == "ungraded"
+    why = rate["detail"].get("unresolved_reason", "")
+    assert why, "a zero-reference axis was ungraded with no reason given"
+    assert "0.0" in why and "unresolvable key" in why, why
+    assert "basis" not in why, (
+        "reported as a basis refusal, but the basis was accepted: " + why)
+
+
+def test_the_zero_reference_refusal_reaches_the_reader(monkeypatch, tmp_path):
+    """The reason must reach the rendered card too, not only the axis detail —
+    the axis detail is not what a human opens."""
+    out = _card_on(monkeypatch, tmp_path, [0.15, 0.15], [0.0, 0.0])
+    html = out.get("card_html") or out.get("html") or ""
+    assert "not computed" in html.lower(), (
+        "no banner rendered for a refused axis on an accepted basis")
+
+
+def test_a_GRADEABLE_gdcw_pair_is_not_refused(monkeypatch, tmp_path):
+    """So the two tests above cannot pass by refusing everything."""
+    rate = _rate_axis(_card_on(monkeypatch, tmp_path, [0.150, 0.150], [0.149, 0.149]))
+    assert rate["verdict"] == "within_tol", rate
+    assert not rate["detail"].get("unresolved_reason")

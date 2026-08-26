@@ -542,7 +542,25 @@ def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
         # through to {} would emit 0.0 on every leaf of every tick — a flat zero
         # trace that reads exactly like a cell producing none of the molecule,
         # which is the failure this basis exists to remove.
-        if source is not None and not isinstance(source, dict):
+        # ⚠ ABSENT is refused on the SAME footing as wrong-shaped, and that
+        # symmetry is the point. Falling through to {} emitted 0.0 on every leaf
+        # of every tick — a flat zero trace indistinguishable from a cell
+        # producing none of the molecule. Measured: the public vEcoli's
+        # `metabolism_redux` does not write this leaf at all (it writes
+        # `estimated_exchange_dmdt` instead), so the configuration that failed
+        # SILENTLY was the public one, while the loud TypeError below only ever
+        # fired for stock `metabolism.py`. A leaf this basis is read from and
+        # cannot find is a refusal, not a zero.
+        if source is None:
+            raise TypeError(
+                "exchange-flux basis 'gdcw' reads "
+                "listeners.fba_results.external_exchange_fluxes, and this run's "
+                "metabolism does not write it. Refused rather than read as zero: "
+                "an absent leaf would emit 0.0 on every molecule of every tick, "
+                "which reads exactly like a cell producing none of them. Use "
+                "basis 'counts', or a metabolism that writes the leaf keyed by "
+                "metabolite id.")
+        if not isinstance(source, dict):
             raise TypeError(
                 "exchange-flux basis 'gdcw' needs "
                 "listeners.fba_results.external_exchange_fluxes keyed by "
@@ -550,7 +568,6 @@ def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
                 f"{type(source).__name__}. Positional output cannot be resolved "
                 "by key here (the id order is emit metadata, not store content). "
                 "Use basis 'counts', or a metabolism that keys the leaf.")
-        source = source if isinstance(source, dict) else {}
     else:
         env = environment if isinstance(environment, dict) else {}
         source = env.get("exchange")

@@ -187,12 +187,17 @@ def _windowed(trace, gen_trace, lower_bound: int | None):
         # answer. With no window asked for, the unlabelled trace is fine.
         return None if lower_bound is not None else (t, v, None)
 
+    # ⚠ Labels were SUPPLIED, so they are consulted — and a caller that cannot
+    # trust the cell split must not get a cell split. Misalignment refuses here
+    # even with no window, because `labelled_cell_means` uses `gv` to decide
+    # WHERE ONE CELL ENDS, not only which cells to keep.
     if not _aligned(pair, gpair):
         return None
     _, gv = gpair
 
     if lower_bound is None:
         return t, v, gv
+
     mask = gv >= float(lower_bound)
     if not mask.any():
         return None
@@ -217,6 +222,17 @@ def generation_window(trace, gen_trace, *, lower_bound: int | None):
     fractional generations. See the module docstring -- misalignment is a real
     and expected shape, not a defensive hypothetical.
     """
+    # ⚠ THE ONE PLACE THIS DIVERGES FROM `_windowed`, AND IT IS NOT AN OVERSIGHT.
+    # With `lower_bound=None` this function consults the labels for NOTHING — it
+    # returns the trace whole — so their alignment is irrelevant and refusing on
+    # it would deny an answer to a question nobody asked. `labelled_cell_means`
+    # is the opposite: it needs `gv` to place cell boundaries, so supplied-but-
+    # misaligned labels must refuse there even with no window. Same helper, two
+    # legitimately different needs; documented rather than unified away.
+    # ⇒ On the grading path a refusal is `ungraded`, which scores 0 and RELAXES a
+    # gate, so a needless refusal is the UNSAFE direction, not the cautious one.
+    if lower_bound is None:
+        return _as_pair(trace)
     got = _windowed(trace, gen_trace, lower_bound)
     return (got[0], got[1]) if got else None
 

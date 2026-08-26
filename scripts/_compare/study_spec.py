@@ -86,24 +86,6 @@ class StudySpec:
                                     # BOTH arms under listeners.observable_bulk.<id>
                                     # (violacein titer, antibiotic drug-target complex)
 
-    def __post_init__(self):
-        # ⛔ A window that admits NO generation is a silent gate-relaxer, not a
-        # narrow result. Every cell is excluded -> the card can compute nothing
-        # -> the axis goes `ungraded` -> the shared severity model scores that 0,
-        # i.e. no worse than a pass. So a study that windows itself out RELAXES
-        # the gate it was written to enforce, and does it invisibly. Refuse at
-        # declaration time, where the number is right in front of the author,
-        # rather than at grading time where it reads as "no data".
-        if int(self.generation_lower_bound) < 0:
-            raise ValueError(
-                f"{self.name}: comparison.generation_lower_bound must be >= 0 "
-                f"(got {self.generation_lower_bound})")
-        if int(self.generation_lower_bound) >= int(self.gens):
-            raise ValueError(
-                f"{self.name}: comparison.generation_lower_bound="
-                f"{self.generation_lower_bound} excludes every generation of a "
-                f"{self.gens}-generation run — nothing would be graded. Use a "
-                f"bound < generations, or raise `generations`.")
     @property
     def graded_cards(self) -> list:
         return [c for c in self.cards if c in GRADED]
@@ -163,6 +145,48 @@ def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") ->
     return str(v) if v else fallback
 
 
+def _validate_generation_window(name, lower_bound, gens, *, source: str) -> int:
+    """Refuse a window that would grade NOTHING. Returns the validated bound.
+
+    ⛔ WHY REFUSE. A bound excluding every generation leaves the card nothing to
+    compute, so the axis goes `ungraded` — which the shared severity model scores
+    0, i.e. no worse than a pass. A study that windows itself out therefore
+    SILENTLY RELAXES the gate it was written to enforce.
+
+    ⚠ WHY HERE AND NOT IN `StudySpec.__post_init__`, where this started. The rule
+    is not an invariant of a StudySpec: it is an invariant of RESOLVING TWO
+    INDEPENDENTLY-AUTHORED DECLARATIONS — an investigation-level default and a
+    per-study generation count. A constructor can see neither which file supplied
+    the bound nor whether an author supplied it at all, and enforcing it there
+    produced two bad failures:
+      * an investigation declaring `defaults.generation_lower_bound: 5` with ONE
+        member legitimately running `generations: 1` failed the ENTIRE
+        investigation load — every unrelated member included — because
+        `load_investigation` builds every spec;
+      * a `configs[]` entry with `gens: 0` raised an error naming
+        `generation_lower_bound`, a key its author had never written.
+    Resolving here also lets the message say WHERE the numbers came from.
+
+    ⚠ SCOPE, because the comment this replaces overclaimed: this compares the
+    bound against the REQUESTED generation count. A run that dies early — OOM,
+    wall-clock, step budget — still windows out every achieved cell at grading
+    time, and nothing here can see that. **This closes the arithmetic typo, not
+    the failure class.**
+    """
+    lower_bound = int(lower_bound)
+    gens = int(gens)
+    if lower_bound < 0:
+        raise ValueError(
+            f"{name}: generation_lower_bound must be >= 0 (got {lower_bound}, "
+            f"from {source})")
+    if gens >= 1 and lower_bound >= gens:
+        raise ValueError(
+            f"{name}: generation_lower_bound={lower_bound} (from {source}) "
+            f"excludes every generation of a {gens}-generation run — nothing "
+            f"would be graded. Lower the bound, or raise `generations`.")
+    return lower_bound
+
+
 def _first_declared(*values, default=0):
     """First value that was actually DECLARED, i.e. not None.
 
@@ -211,10 +235,25 @@ def generation_lower_bound_from_study_yaml(study_path, fallback: int = 0) -> int
     v = comp.get("generation_lower_bound")
     if v is None:
         return fallback
+    # ⛔ A DECLARED value that cannot be read is an ERROR, not a fallback — and
+    # this is deliberately asymmetric with the missing-file branch above. A study
+    # we cannot open declared nothing; a study that declared
+    # `generation_lower_bound: post-burn-in` DID declare, and silently grading
+    # every generation instead is the same gate-relaxing failure the validator
+    # refuses at the other end of the range. An earlier version returned the
+    # fallback here and a test PINNED that silence as intended.
+    # ⚠ bool is an int subclass: `true` would read as 1 and `false` as 0, which
+    # is never what an author meant by a generation index.
+    if isinstance(v, bool) or not isinstance(v, (int, str)):
+        raise ValueError(
+            f"{study_path}: comparison.generation_lower_bound must be an "
+            f"integer generation index (got {v!r})")
     try:
-        return int(v)
+        return int(str(v).strip())
     except (TypeError, ValueError):
-        return fallback
+        raise ValueError(
+            f"{study_path}: comparison.generation_lower_bound must be an "
+            f"integer generation index (got {v!r})") from None
 
 
 def companions_from_study_yaml(study_path) -> list:
@@ -304,6 +343,25 @@ def specs_from_configs(ctx: dict) -> list:
     out = []
     for entry in ctx["configs"]:
         name = entry["name"]
+        _gens = int(entry.get("gens", defaults.get("generations",
+                                                   defaults.get("gens", 1))))
+        # ⚠ `_spec_from_study` has always validated this; this route did not, so
+        # a `gens: 0` entry fell through to the window validator and raised an
+        # error naming `generation_lower_bound` — a key its author never wrote.
+        # Validate the number the author actually supplied, where they supplied it.
+        if _gens < 1:
+            raise ValueError(
+                f"{name}: comparison.configs[] entry has gens={_gens}; "
+                f"must be >= 1")
+        _glb = _validate_generation_window(
+            name,
+            generation_lower_bound_from_study_yaml(
+                studies_root_for(ctx.get("inv_dir")) / name / "study.yaml",
+                fallback=int(_first_declared(
+                    entry.get("generation_lower_bound"),
+                    defaults.get("generation_lower_bound")))),
+            _gens,
+            source="study.yaml / configs[] entry / investigation defaults")
         cfg = entry.get("config", name)
         study_yaml = studies_root_for(ctx.get("inv_dir")) / name / "study.yaml"
         companions = companions_from_study_yaml(study_yaml)
@@ -338,11 +396,7 @@ def specs_from_configs(ctx: dict) -> list:
                 fallback=str(entry.get("exchange_flux_basis")
                              or defaults.get("exchange_flux_basis")
                              or "counts")),
-            generation_lower_bound=generation_lower_bound_from_study_yaml(
-                study_yaml,
-                fallback=int(_first_declared(
-                    entry.get("generation_lower_bound"),
-                    defaults.get("generation_lower_bound")))),
+            generation_lower_bound=_glb,
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))
@@ -400,10 +454,14 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
             study_path,
             fallback=str((ctx.get("defaults") or {}).get("exchange_flux_basis")
                          or "counts")),
-        generation_lower_bound=generation_lower_bound_from_study_yaml(
-            study_path,
-            fallback=int(_first_declared(
-                (ctx.get("defaults") or {}).get("generation_lower_bound")))),
+        generation_lower_bound=_validate_generation_window(
+            name,
+            generation_lower_bound_from_study_yaml(
+                study_path,
+                fallback=int(_first_declared(
+                    (ctx.get("defaults") or {}).get("generation_lower_bound")))),
+            gens,
+            source=f"{study_path} / investigation defaults"),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

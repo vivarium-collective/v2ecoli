@@ -68,6 +68,7 @@ import numpy as np
 
 __all__ = [
     "generation_window",
+    "labelled_cell_means",
     "per_cell_means",
     "aggregate_cells",
     "aggregate_seeds",
@@ -94,6 +95,17 @@ class CellStats:
     equivalence or tolerance claim; the honest estimator when `n_seeds > 1` is
     the between-seed variance, which this module does not compute.
 
+    ⭐ `cell_keys` is `[(seed_index, generation_label), ...]` aligned row-for-row
+    with `per_cell`, and exists so a BETWEEN-SEED vs ACROSS-GENERATION variance
+    decomposition remains computable downstream. Those two variances mean
+    different things -- replicate spread versus drift along a lineage -- and a
+    flat list of values cannot distinguish them. This module deliberately does
+    not compute the decomposition; it just declines to destroy the information.
+    ⊕ The key mirrors `v2ecoli/library/card_vectors.py`, which keys cells
+    `(lineage_seed, generation, agent_id)`; there is no agent id on this path.
+    `generation_label` is None when labels were unavailable
+    (`single_cell_per_trace`).
+
     ⚠ `std`/`sem` are `nan` when `n == 1`: the sample standard deviation is not
     estimable from one observation, and substituting 0.0 there would hand a
     zero-width interval to the weakest possible evidence. `nan` is
@@ -101,16 +113,18 @@ class CellStats:
     when `n > 1` and every cell agrees, so it would be ambiguous.
     """
 
-    __slots__ = ("mean", "n", "std", "sem", "per_cell", "n_seeds")
+    __slots__ = ("mean", "n", "std", "sem", "per_cell", "n_seeds", "cell_keys")
 
     def __init__(self, mean: float, n: int, std: float, sem: float,
-                 per_cell: list[float], n_seeds: int | None = None):
+                 per_cell: list[float], n_seeds: int | None = None,
+                 cell_keys: list[tuple] | None = None):
         self.mean = mean
         self.n = n
         self.std = std
         self.sem = sem
         self.per_cell = per_cell
         self.n_seeds = n_seeds
+        self.cell_keys = cell_keys
 
     def __repr__(self) -> str:  # pragma: no cover - debugging aid
         return (f"CellStats(mean={self.mean!r}, n={self.n!r}, "
@@ -195,12 +209,19 @@ def generation_window(trace, gen_trace, *, lower_bound: int | None):
     return t[mask], v[mask]
 
 
-def per_cell_means(trace, gen_trace, *, lower_bound: int | None = None
-                   ) -> list[float] | None:
-    """Time-average `trace` WITHIN each generation, after applying the window.
+def labelled_cell_means(trace, gen_trace, *, lower_bound: int | None = None
+                        ) -> list[tuple[float, float]] | None:
+    """Time-average `trace` WITHIN each generation, keeping the generation label.
 
-    Returns one float per generation present, ordered by generation label, or
-    None if there is nothing to average.
+    Returns `[(generation_label, mean), ...]` ordered by label, or None if there
+    is nothing to average.
+
+    ⭐ THE LABEL IS CARRIED SO A VARIANCE DECOMPOSITION STAYS POSSIBLE. Between-
+    seed and across-generation variance mean different things -- one is replicate
+    spread, the other is drift or non-stationarity along a lineage -- and a card
+    is intended to present them separately. Flattening cells to bare values
+    destroys the only information that separates them, so this module keeps the
+    labels even though nothing here computes the decomposition.
 
     ⚠ This is the step that must not be skipped. Averaging the windowed trace
     directly would pool timepoints across cells and weight each cell by its emit
@@ -219,7 +240,9 @@ def per_cell_means(trace, gen_trace, *, lower_bound: int | None = None
             return None
         _, v = pair
         finite = v[np.isfinite(v)]
-        return [float(finite.mean())] if finite.size else None
+        # No labels available => the single cell's generation is unknown, which
+        # is recorded as None rather than guessed at 0.
+        return [(None, float(finite.mean()))] if finite.size else None
 
     if not _aligned(pair, gpair):
         return None
@@ -232,17 +255,30 @@ def per_cell_means(trace, gen_trace, *, lower_bound: int | None = None
     v = v[mask]
     gv = gv[mask]
 
-    means: list[float] = []
+    cells: list[tuple[float, float]] = []
     for g in np.unique(gv):          # np.unique sorts, so cells are in gen order
         cell = v[gv == g]
         cell = cell[np.isfinite(cell)]
         if cell.size:
-            means.append(float(cell.mean()))
-    return means or None
+            cells.append((float(g), float(cell.mean())))
+    return cells or None
+
+
+def per_cell_means(trace, gen_trace, *, lower_bound: int | None = None
+                   ) -> list[float] | None:
+    """The per-cell time-averages alone, dropping their generation labels.
+
+    See `labelled_cell_means` for the labelled form. This projection exists
+    because most callers want the values; anything computing a variance
+    DECOMPOSITION wants the labels and should use the labelled form.
+    """
+    got = labelled_cell_means(trace, gen_trace, lower_bound=lower_bound)
+    return [m for _, m in got] if got else None
 
 
 def aggregate_cells(values: Iterable[float] | None, *,
-                    n_seeds: int | None = None) -> CellStats | None:
+                    n_seeds: int | None = None,
+                    cell_keys: list[tuple] | None = None) -> CellStats | None:
     """Aggregate per-cell values into a population statistic.
 
     `std` is the SAMPLE standard deviation (ddof=1). ⚠ At `n == 1` both `std`
@@ -269,7 +305,8 @@ def aggregate_cells(values: Iterable[float] | None, *,
         std = float("nan")
         sem = float("nan")
     return CellStats(mean=mean, n=n, std=std, sem=sem, per_cell=vals,
-                     n_seeds=n_seeds)
+                     n_seeds=n_seeds,
+                     cell_keys=list(cell_keys) if cell_keys is not None else None)
 
 
 def aggregate_seeds(traces: Sequence, gen_traces: Sequence | None = None, *,
@@ -319,10 +356,13 @@ def aggregate_seeds(traces: Sequence, gen_traces: Sequence | None = None, *,
             return None
 
     cells: list[float] = []
+    keys: list[tuple] = []
     contributing = 0
-    for trace, gen_trace in zip(traces, gens):
-        got = per_cell_means(trace, gen_trace, lower_bound=lower_bound)
+    for seed_index, (trace, gen_trace) in enumerate(zip(traces, gens)):
+        got = labelled_cell_means(trace, gen_trace, lower_bound=lower_bound)
         if got:
-            cells.extend(got)
+            for gen_label, mean in got:
+                cells.append(mean)
+                keys.append((seed_index, gen_label))
             contributing += 1
-    return aggregate_cells(cells, n_seeds=contributing)
+    return aggregate_cells(cells, n_seeds=contributing, cell_keys=keys)

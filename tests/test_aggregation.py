@@ -26,6 +26,7 @@ import pytest
 
 from scripts._compare.aggregation import (
     aggregate_cells,
+    labelled_cell_means,
     aggregate_seeds,
     generation_window,
     per_cell_means,
@@ -348,3 +349,56 @@ def test_all_seeds_dead_refuses_rather_than_returning_zero():
 def test_mismatched_gen_trace_count_refuses():
     t, v = trace([1.0])
     assert aggregate_seeds([(t, v), (t, v)], [gen_trace_for(t, [0])]) is None
+
+
+# --------------------------------------------------------------------------- #
+# cell labelling -- keeps a variance DECOMPOSITION possible downstream
+# --------------------------------------------------------------------------- #
+def test_labelled_cell_means_carries_the_generation_label():
+    t, v = trace([1.0, 3.0, 10.0, 20.0])
+    g = gen_trace_for(t, [0, 0, 1, 1])
+    assert labelled_cell_means((t, v), g) == [(0.0, 2.0), (1.0, 15.0)]
+
+
+def test_unlabelled_single_cell_records_an_unknown_generation_not_zero():
+    t, v = trace([1.0, 3.0])
+    assert labelled_cell_means((t, v), None) == [(None, 2.0)]
+
+
+def test_cell_keys_align_with_per_cell_and_identify_seed_and_generation():
+    ta, va = trace([1.0, 5.0])
+    tb, vb = trace([2.0, 6.0])
+    traces = [(ta, va), (tb, vb)]
+    gens = [gen_trace_for(ta, [0, 1]), gen_trace_for(tb, [0, 1])]
+
+    stats = aggregate_seeds(traces, gens)
+    assert stats.cell_keys == [(0, 0.0), (0, 1.0), (1, 0.0), (1, 1.0)]
+    assert stats.per_cell == [1.0, 5.0, 2.0, 6.0]
+    assert len(stats.cell_keys) == len(stats.per_cell) == stats.n
+
+
+def test_between_seed_and_across_generation_variance_are_separable():
+    """⭐ THE POINT OF THE LABELS.
+
+    Constructed so the two variances are DIFFERENT and a flat list could not
+    tell them apart: both seeds drift identically 1 -> 9 across generations
+    (large across-generation spread) while agreeing exactly at every generation
+    (zero between-seed spread). A decomposition must see 0.0 and non-zero; a
+    flat list of [1,9,1,9] sees only one pooled variance.
+    """
+    ta, va = trace([1.0, 9.0])
+    tb, vb = trace([1.0, 9.0])
+    stats = aggregate_seeds([(ta, va), (tb, vb)],
+                            [gen_trace_for(ta, [0, 1]), gen_trace_for(tb, [0, 1])])
+
+    by_seed: dict = {}
+    by_gen: dict = {}
+    for (seed, gen), val in zip(stats.cell_keys, stats.per_cell):
+        by_seed.setdefault(seed, []).append(val)
+        by_gen.setdefault(gen, []).append(val)
+
+    seed_means = [np.mean(v) for v in by_seed.values()]
+    gen_means = [np.mean(v) for v in by_gen.values()]
+
+    assert np.var(seed_means) == pytest.approx(0.0)      # replicates agree
+    assert np.var(gen_means) == pytest.approx(16.0)      # lineage drifts

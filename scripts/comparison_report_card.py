@@ -1165,6 +1165,25 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
                  "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
                  # config-specific bulk KPIs the study declared (for the bulk_kpi card)
                  "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or []),
+                 # ⚠ Threaded here, UNLIKE the exchange-flux basis below, and the
+                 # difference is the point: the basis describes what the RUN
+                 # EMITTED, so a card re-deriving it can contradict the engine.
+                 # A generation window describes how the CARD AGGREGATES what was
+                 # emitted — it changes no stored value and no engine reads it —
+                 # so study state is its only reader and there is nothing to
+                 # disagree with.
+                 "generation_lower_bound": int(getattr(spec, "generation_lower_bound", 0) or 0),
+                 # ⛔ DELIBERATELY NOT IN `config`. `state["config"]` is what the
+                 # `config` card RENDERS, under a heading that calls it "the source
+                 # of truth for the run shape". Publishing the window there would
+                 # state it as APPLIED — and nothing applies it yet; the consumer is
+                 # a follow-up. An author would read `generation_lower_bound 5` in
+                 # the report and conclude burn-in was dropped from means that in
+                 # fact span every generation. Declared-and-inert is survivable;
+                 # declared-inert-and-REPORTED-AS-APPLIED is a false claim in the
+                 # one card whose job is to say what was run. It is also the wrong
+                 # block on this key's own terms: it is ANALYSIS-TIME and changes
+                 # nothing about the run's shape.
                  "config": {"condition": spec.condition, "seeds": spec.seeds,
                             "generations": spec.gens, "cards": spec.cards,
                             "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or [])},

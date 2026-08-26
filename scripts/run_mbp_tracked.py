@@ -132,6 +132,8 @@ def _build_baseline_time_varying_env(
 def _build_reactor_bird_coupled(
     core, cache_dir, *,
     seed=0,
+    single_daughters=True,
+    carbon_exhaustion_arrest=False,
     cells_per_agent=1.0e9,
     population_growth_mode="representative_doubling",
     initial_glucose_mM=None,
@@ -143,9 +145,27 @@ def _build_reactor_bird_coupled(
     reproducible without remembering flags (see VARIANT_DEFAULTS for the
     duration / generation half of that contract).
     """
+    import inspect  # noqa: PLC0415
+
     from v2ecoli.composites.reactor_bird_coupled import reactor_bird_coupled
+    # v2ecoli#591 adds the in-composite LineageBookkeeper behind the composite's
+    # own ``single_daughters`` flag. Forward it only when the composite accepts
+    # it: on a tree predating #591 there is no Step to install and the runners
+    # own the pruning, which is the correct behaviour there. This keeps the
+    # runner correct on both sides of that merge instead of imposing a
+    # landing-order constraint on #591.
+    _accepts = inspect.signature(reactor_bird_coupled).parameters
+    extra = {}
+    if "single_daughters" in _accepts:
+        extra["single_daughters"] = single_daughters
+    # v2ecoli#592: opt-in substrate-exhaustion arrest, default off. Same
+    # signature guard and the same reason as single_daughters above -- the
+    # runner must not claim a flag the composite never received.
+    if "carbon_exhaustion_arrest" in _accepts:
+        extra["carbon_exhaustion_arrest"] = carbon_exhaustion_arrest
     return reactor_bird_coupled(
         core=core, seed=seed, cache_dir=cache_dir,
+        **extra,
         cells_per_agent=cells_per_agent,
         population_growth_mode=population_growth_mode,
         initial_glucose_mM=(
@@ -434,12 +454,26 @@ def _count_parquet_rows(out_dir: Path, experiment_id: str) -> int:
 def _run_one_variant(
     *, sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths,
     duration_sec, max_generations, chunk, cache_dir, core, emitter,
-    single_daughters=True,
+    single_daughters=True, carbon_exhaustion_arrest=False,
 ) -> dict:
     # COMMON_AGENT_PATHS is shared by every variant; EXTRA_AGENT_PATHS adds
     # the observables only one variant needs (see its docstring for why
     # mbp-04 carries the gate booleans).
     agent_paths = COMMON_AGENT_PATHS + EXTRA_AGENT_PATHS.get(sim_name, [])
+    # v2ecoli#591: the in-composite LineageBookkeeper is opt-in on the COMPOSITE's
+    # own single_daughters flag. A runner run with single_daughters=True against a
+    # composite built with the default False silently gets the OLD chunk-dependent
+    # behaviour -- while run_identity still records single_daughters: true. Thread
+    # it to any builder that accepts it so the two cannot disagree.
+    import inspect as _inspect  # noqa: PLC0415
+    _params = _inspect.signature(builder_fn).parameters
+    if "single_daughters" in _params:
+        builder_kwargs = {**builder_kwargs, "single_daughters": single_daughters}
+    # v2ecoli#592: same seam, same failure mode -- run_identity must not record
+    # an arrest the composite never enabled.
+    if "carbon_exhaustion_arrest" in _params:
+        builder_kwargs = {**builder_kwargs,
+                          "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
@@ -547,6 +581,7 @@ def _run_one_variant(
                 "max_generations": max_generations,
                 "chunk": chunk,
                 "single_daughters": single_daughters,
+                "carbon_exhaustion_arrest": carbon_exhaustion_arrest,
             },
         )
 
@@ -603,6 +638,10 @@ def main():
                    help=("Continue BOTH daughters at each division. Memory "
                          "scales with active agents; cap --max-generations "
                          "to bound RSS."))
+    p.add_argument("--carbon-exhaustion-arrest", action="store_true",
+                   default=False,
+                   help=("v2ecoli#592: arrest biomass growth once the carbon "
+                         "source is exhausted (opt-in; default off)."))
     args = p.parse_args()
 
     variants = VARIANTS
@@ -640,6 +679,7 @@ def main():
             emitter=args.emitter,
             cache_dir=args.cache_dir, core=core,
             single_daughters=args.single_daughters,
+            carbon_exhaustion_arrest=args.carbon_exhaustion_arrest,
         )
         results.append(result)
     total_wall = time.time() - t_all

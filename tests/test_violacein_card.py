@@ -149,8 +149,17 @@ def test_grade_rel_bands_match_86():
     assert vio._grade_rel(1.00, 1.00, 0.03, 0.10) == "within_tol"
     assert vio._grade_rel(1.02, 1.00, 0.03, 0.10) == "within_tol"
     assert vio._grade_rel(1.05, 1.00, 0.03, 0.10) == "drift"
-    assert vio._grade_rel(1.20, 1.00, 0.03, 0.10) == "drift" or \
-        vio._grade_rel(1.20, 1.00, 0.03, 0.10) == "mismatch"
+    # ⚠ WAS `== "drift" or == "mismatch"`, which is vacuous: a 20% deviation has
+    # exactly one correct answer under bands of 3%/10%, and an assertion admitting
+    # either cannot fail.
+    assert vio._grade_rel(1.20, 1.00, 0.03, 0.10) == "mismatch"
+    # Either side of the drift/mismatch edge, deliberately NOT on it: `rel <= drift`
+    # is float-fragile at the boundary — `abs(1.10 - 1.00) / 1.00` evaluates to
+    # 0.10000000000000009, so an exactly-10% deviation grades `mismatch`, not
+    # `drift`. Asserting on that knife edge would pin a float artifact rather than
+    # the band, so the band is pinned where it is unambiguous.
+    assert vio._grade_rel(1.08, 1.00, 0.03, 0.10) == "drift"
+    assert vio._grade_rel(1.12, 1.00, 0.03, 0.10) == "mismatch"
     assert vio._grade_rel(1.50, 1.00, 0.03, 0.10) == "mismatch"
 
 
@@ -264,3 +273,109 @@ def test_a_GRADEABLE_gdcw_pair_is_not_refused(monkeypatch, tmp_path):
     rate = _rate_axis(_card_on(monkeypatch, tmp_path, [0.150, 0.150], [0.149, 0.149]))
     assert rate["verdict"] == "within_tol", rate
     assert not rate["detail"].get("unresolved_reason")
+
+
+# --- B6: the refusal MESSAGING, end to end -----------------------------------
+#
+# ⛔ MEASURED GAP: all three of basis_from_runs' documented refusal branches
+# survived mutation. Making an unrecorded basis silently become "counts", making
+# an unreadable sidecar return counts, and blanking `basis_reason` at the card all
+# left the suite green. The grading half of this path is well tested; the
+# VISIBILITY half was not — and visibility is the card's whole stated purpose here.
+#
+# M67 is the consequential one: with `basis_reason` blanked, a run refused for
+# "missing sidecar" / "arms disagree" / "runs are stale" instead reports the
+# generic "leaves are on the None basis, which is a lineage-cumulative molecule
+# total" — wrong for all three, and it sends the reader to diagnose the wrong
+# thing. The pre-existing end-to-end refusal test only drove the counts path,
+# where basis_reason is "" anyway, so it could not discriminate.
+
+def _card_with_sidecars(tmp_path, v2_basis, ve_basis, **kw):
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    if v2_basis is not None:
+        _write_sidecar(v2, "v2ecoli", v2_basis)
+    if ve_basis is not None:
+        _write_sidecar(ve, "vecoli", ve_basis)
+    st = _state({}, name="t", **kw)
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    return _run_card("violacein", st)
+
+
+def _reason(out):
+    return out["axes"][0]["detail"].get("unresolved_reason", "")
+
+
+def test_two_arms_on_DIFFERENT_bases_say_so_specifically(tmp_path):
+    """Not "on the None basis" — the reader must learn the arms disagree, and
+    which ran which, because the fix is to re-run one of them."""
+    out = _card_with_sidecars(tmp_path, "gdcw", "counts")
+    why = _reason(out)
+    assert "different bases" in why, why
+    assert "gdcw" in why and "counts" in why, why
+    # ⚠ Compared through html.escape: the banner escapes the reason, so the raw
+    # string is NOT a substring of the rendered card (the quotes around the two
+    # basis names become entities). Asserting the escaped form checks the real
+    # thing rather than a fragment that happens to survive escaping.
+    import html as _h
+    assert _h.escape(why) in (out.get("card_html") or ""), (
+        "the reason never reached the reader")
+
+
+def test_a_MISSING_sidecar_says_which_arm_is_missing_it(tmp_path):
+    """A run that predates the sidecar, or an arm that never emitted. Naming the
+    arm is the difference between a 10-second fix and a hunt."""
+    out = _card_with_sidecars(tmp_path, "gdcw", None)
+    why = _reason(out)
+    assert "sidecar" in why and "vecoli" in why, why
+    assert "lineage-cumulative" not in why, (
+        "reported as a counts refusal, which is a different diagnosis: " + why)
+
+
+def test_an_UNRECORDED_basis_is_distinguished_from_counts(tmp_path):
+    """A sidecar with no basis key is NOT 'counts' — the quantity is unknown. Two
+    such sidecars would otherwise compare equal, slip the agreement check, and be
+    described with counts semantics the card has no evidence for."""
+    import json
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    for d, prefix in ((v2, "v2ecoli"), (ve, "vecoli")):
+        (d / f"{prefix}_exchange_flux.json").write_text(
+            json.dumps({"leaves": {"product_exchange": "X[c]"}}))
+    st = _state({}, name="t")
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    out = _run_card("violacein", st)
+    why = _reason(out)
+    assert "no basis" in why or "unknown" in why, why
+    assert "lineage-cumulative" not in why, (
+        "an unrecorded basis was described with counts semantics: " + why)
+
+
+def test_an_UNREADABLE_sidecar_is_a_refusal_not_a_default(tmp_path):
+    """Corrupt JSON must refuse, not fall back to a quantity nobody recorded."""
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_sidecar(ve, "vecoli", "gdcw")
+    (v2 / "v2ecoli_exchange_flux.json").write_text("{not json at all")
+    st = _state({}, name="t")
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    out = _run_card("violacein", st)
+    why = _reason(out)
+    assert "unreadable" in why and "v2ecoli" in why, why
+    assert out["axes"][0]["verdict"] == "ungraded"
+
+
+def test_a_STALE_arm_is_reported_as_stale_and_names_both_shapes(tmp_path):
+    """Both arms write into one out_root and nothing cleans it, so a re-run of one
+    leaves the other's sidecar in place. The reason must say which is which."""
+    from scripts.run_comparison_ensemble import _write_exchange_flux_sidecar
+    v2, ve = tmp_path / "v2", tmp_path / "ve"
+    v2.mkdir(); ve.mkdir()
+    _write_exchange_flux_sidecar(str(v2), "v2ecoli", {"product_exchange": "X[c]"},
+                                 "gdcw", seeds=4, generations=8)
+    _write_exchange_flux_sidecar(str(ve), "vecoli", {"product_exchange": "X[c]"},
+                                 "gdcw", seeds=1, generations=1)
+    st = _state({}, name="t")
+    st["v2_dir"], st["ve_dir"] = str(v2), str(ve)
+    why = _reason(_run_card("violacein", st))
+    assert "stale" in why and "seeds=4" in why and "seeds=1" in why, why

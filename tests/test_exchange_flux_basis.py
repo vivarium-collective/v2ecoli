@@ -167,10 +167,23 @@ def test_deriver_is_actually_built_with_the_declared_basis():
 
 def test_deriver_defaults_to_counts_when_nothing_declared():
     """The other half: an undeclared basis must reach the step as counts, not as
-    whatever the previous build left in the module global."""
+    whatever the previous build left in the module global.
+
+    ⚠ This test USED TO PASS BY ACCIDENT OF ORDERING. It read the module global
+    without setting it, so it was really asserting whatever the previous test's
+    teardown had left there — measured: flipping the declared default to "gdcw"
+    made it fail when run ALONE and stay green when run in file order. It now
+    reloads the module so it reads the DECLARED default rather than a residue.
+    """
+    import importlib
+
     from v2ecoli.composites import _helpers
     from v2ecoli.core import build_core
+    importlib.reload(_helpers)          # ⚠ load-bearing: see the docstring
     core = build_core()
+    assert _helpers._EXCHANGE_FLUX_BASIS_OVERRIDE == "counts", (
+        "the module's DECLARED default is not counts, so an undeclared build "
+        "would silently change quantity for every existing study")
     _helpers.set_exchange_fluxes_override({"glucose_exchange": "GLC[p]"})
     loader = _StubLoader()
     try:
@@ -1061,3 +1074,96 @@ def test_the_composite_builder_lands_the_basis_on_the_process(monkeypatch):
             exchange_flux_basis="gdcw")
     assert seen.get("exchange_flux_basis") == "gdcw", seen
     assert seen.get("exchange_fluxes") == {"product_exchange": "X[c]"}
+
+
+# --- B7b: the DECLARED defaults, pinned directly -----------------------------
+#
+# ⛔ MEASURED GAP: flipping `StudySpec.exchange_flux_basis` or
+# `_helpers._EXCHANGE_FLUX_BASIS_OVERRIDE` from "counts" to "gdcw" left the whole
+# suite green. Every "the default is counts" test reached its answer through an
+# explicit `or "counts"` on some OTHER code path, so the declarations themselves
+# were never under test. They are the PR's "every existing study is byte-unchanged"
+# claim: flip either and every undeclared run silently changes quantity.
+
+def test_the_study_spec_DECLARES_counts_as_its_default():
+    from scripts._compare.study_spec import StudySpec
+    import dataclasses
+    field = {f.name: f for f in dataclasses.fields(StudySpec)}["exchange_flux_basis"]
+    assert field.default == "counts", (
+        f"StudySpec declares {field.default!r}; a study that says nothing would "
+        "run on that quantity")
+
+
+def test_the_composite_override_DECLARES_counts_as_its_default():
+    """Read after a reload so a leaked value from another test cannot supply the
+    answer — the failure mode the sibling default test above shipped with."""
+    import importlib
+
+    from v2ecoli.composites import _helpers
+    importlib.reload(_helpers)
+    assert _helpers._EXCHANGE_FLUX_BASIS_OVERRIDE == "counts"
+
+
+def test_restoring_the_override_returns_it_to_counts_not_to_whatever_was_set():
+    """`set_exchange_flux_basis_override(None)` is the restore path baseline() runs
+    in its `finally`. If None resolved to anything but counts, a single gdcw build
+    would re-base every later composite in the same process."""
+    from v2ecoli.composites import _helpers
+    _helpers.set_exchange_flux_basis_override("gdcw")
+    _helpers.set_exchange_flux_basis_override(None)
+    assert _helpers._EXCHANGE_FLUX_BASIS_OVERRIDE == "counts"
+
+
+# --- B5: the staleness guard's OWN INPUT, through the real CLI ---------------
+#
+# ⛔ MEASURED GAP: nothing checked that the real `--n-seeds` reaches the sidecar.
+# Dropping `n_seeds=args.n_seeds` from main()'s make_run_one call left the suite
+# green. If it failed, every sidecar would record seeds=1, BOTH arms would agree,
+# and the staleness guard would never fire on any run — silently inert, which is
+# the exact shape that already bit this feature twice (`seeds=len(seeds)` raising
+# NameError into a best-effort guard, and before that the sidecar never written).
+#
+# Driven end to end: the real argparse, the real make_run_one, the real writer,
+# read back through the real reader. Only the simulation is stubbed.
+
+def test_the_REAL_cli_n_seeds_reaches_the_sidecar(monkeypatch, tmp_path):
+    """`--n-seeds 4` must arrive in the sidecar as seeds=4, not as the default 1."""
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import parallel_seeds as ps
+
+    seen = {}
+    real_make_run_one = rce.make_run_one
+
+    def _spy(**kw):
+        seen.update(kw)
+        # Build the real closure, then write the sidecar the way run_one does,
+        # without running a simulation.
+        real_make_run_one(**kw)
+        rce._write_exchange_flux_sidecar(
+            kw["out_root"], "v2ecoli", kw.get("exchange_fluxes") or {},
+            kw.get("exchange_flux_basis") or "counts",
+            seeds=kw.get("n_seeds"), generations=kw.get("max_generations"))
+        rce._write_exchange_flux_sidecar(
+            kw["out_root"], "vecoli", kw.get("exchange_fluxes") or {},
+            kw.get("exchange_flux_basis") or "counts",
+            seeds=kw.get("n_seeds"), generations=kw.get("max_generations"))
+        return lambda s: {}
+
+    monkeypatch.setattr(rce, "make_run_one", _spy)
+    monkeypatch.setattr(ps, "run_seeds_parallel", lambda seeds, run_one, **kw: [])
+    rce.main(["--composite", "v2ecoli", "--condition", "basal",
+              "--cache-dir", str(tmp_path), "--n-seeds", "4",
+              "--max-generations", "3", "--out-root", str(tmp_path),
+              "--mode", "serial", "--exchange-flux", "product_exchange=X[c]",
+              "--exchange-flux-basis", "gdcw"])
+
+    assert seen.get("n_seeds") == 4, (
+        f"main() forwarded n_seeds={seen.get('n_seeds')!r} — the staleness guard "
+        "would compare a constant and never fire")
+
+    from scripts._compare.exchange_flux_basis import basis_from_runs
+    import json
+    doc = json.loads((tmp_path / "v2ecoli_exchange_flux.json").read_text())
+    assert (doc["seeds"], doc["generations"]) == (4, 3), doc
+    assert basis_from_runs({"v2_dir": str(tmp_path),
+                            "ve_dir": str(tmp_path)}) == ("gdcw", "")

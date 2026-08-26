@@ -1165,8 +1165,17 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
                  "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
                  # config-specific bulk KPIs the study declared (for the bulk_kpi card)
                  "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or []),
+                 # ⚠ Threaded here, UNLIKE the exchange-flux basis below, and the
+                 # difference is the point: the basis describes what the RUN
+                 # EMITTED, so a card re-deriving it can contradict the engine.
+                 # A generation window describes how the CARD AGGREGATES what was
+                 # emitted — it changes no stored value and no engine reads it —
+                 # so study state is its only reader and there is nothing to
+                 # disagree with.
+                 "generation_lower_bound": int(getattr(spec, "generation_lower_bound", 0) or 0),
                  "config": {"condition": spec.condition, "seeds": spec.seeds,
                             "generations": spec.gens, "cards": spec.cards,
+                            "generation_lower_bound": int(getattr(spec, "generation_lower_bound", 0) or 0),
                             "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or [])},
                  # ⚠ The exchange-flux BASIS is deliberately NOT threaded here. A
                  # card that re-derives it from the study config is a second reader

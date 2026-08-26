@@ -63,6 +63,14 @@ class StudySpec:
     # direction.
     observables: list = dc_field(default_factory=list)  # arbitrary "group.leaf" listener
                                     # paths to emit on BOTH arms as measurements
+    generation_lower_bound: int = 0  # grade only generations >= this. 0 = every
+                                    # generation, including pre-settling ones.
+                                    # ⚠ ANALYSIS-TIME, unlike exchange_flux_basis
+                                    # below: it does not change what the run
+                                    # emits, only how the card aggregates what
+                                    # was emitted, so it is threaded to the card
+                                    # through study state rather than ridden to
+                                    # the engines as a flag.
     exchange_flux_basis: str = "counts"   # "counts" | "gdcw" — WHICH QUANTITY
                                     # the exchange_flux leaves carry, on BOTH
                                     # arms. counts is a lineage-cumulative
@@ -78,6 +86,24 @@ class StudySpec:
                                     # BOTH arms under listeners.observable_bulk.<id>
                                     # (violacein titer, antibiotic drug-target complex)
 
+    def __post_init__(self):
+        # ⛔ A window that admits NO generation is a silent gate-relaxer, not a
+        # narrow result. Every cell is excluded -> the card can compute nothing
+        # -> the axis goes `ungraded` -> the shared severity model scores that 0,
+        # i.e. no worse than a pass. So a study that windows itself out RELAXES
+        # the gate it was written to enforce, and does it invisibly. Refuse at
+        # declaration time, where the number is right in front of the author,
+        # rather than at grading time where it reads as "no data".
+        if int(self.generation_lower_bound) < 0:
+            raise ValueError(
+                f"{self.name}: comparison.generation_lower_bound must be >= 0 "
+                f"(got {self.generation_lower_bound})")
+        if int(self.generation_lower_bound) >= int(self.gens):
+            raise ValueError(
+                f"{self.name}: comparison.generation_lower_bound="
+                f"{self.generation_lower_bound} excludes every generation of a "
+                f"{self.gens}-generation run — nothing would be graded. Use a "
+                f"bound < generations, or raise `generations`.")
     @property
     def graded_cards(self) -> list:
         return [c for c in self.cards if c in GRADED]
@@ -135,6 +161,44 @@ def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") ->
     # `comparison:`, and this now matches them.
     v = comp.get("exchange_flux_basis")
     return str(v) if v else fallback
+
+
+def generation_lower_bound_from_study_yaml(study_path, fallback: int = 0) -> int:
+    """Read `comparison.generation_lower_bound` from a study.yaml.
+
+    Mirrors `exchange_flux_basis_from_study_yaml` deliberately — same bridge,
+    same precedence, same `comparison:`-only rule — because the investigation
+    route builds specs from `comparison.configs[]` entries that carry no
+    study.yaml keys, and a study declaring a window in the file the
+    investigation NAMES would otherwise silently grade every generation.
+
+    ⛔ `comparison:` ONLY, never top-level. Two parse routes reading different
+    spellings of one key is not hypothetical in this file: `gens` (configs[]
+    route) and `generations` (study.yaml route) already differ, and BOTH
+    silently default. A third such split would be the same defect again.
+
+    ⚠ A window is not a cosmetic filter: it is the difference between a mean
+    over settled cells and one dragged toward the pre-settling generations. The
+    reference config's own analyses declare `generation_lower_bound: 5`.
+    """
+    path = Path(study_path)
+    if not path.exists():
+        return fallback
+    try:
+        import yaml
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a study we cannot read keeps the fallback
+        return fallback
+    if not isinstance(doc, dict):
+        return fallback
+    comp = doc.get("comparison") if isinstance(doc.get("comparison"), dict) else {}
+    v = comp.get("generation_lower_bound")
+    if v is None:
+        return fallback
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return fallback
 
 
 def companions_from_study_yaml(study_path) -> list:
@@ -258,6 +322,10 @@ def specs_from_configs(ctx: dict) -> list:
                 fallback=str(entry.get("exchange_flux_basis")
                              or defaults.get("exchange_flux_basis")
                              or "counts")),
+            generation_lower_bound=generation_lower_bound_from_study_yaml(
+                study_yaml,
+                fallback=int(entry.get("generation_lower_bound")
+                             or defaults.get("generation_lower_bound") or 0)),
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
         ))
@@ -315,6 +383,10 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
             study_path,
             fallback=str((ctx.get("defaults") or {}).get("exchange_flux_basis")
                          or "counts")),
+        generation_lower_bound=generation_lower_bound_from_study_yaml(
+            study_path,
+            fallback=int((ctx.get("defaults") or {}).get("generation_lower_bound")
+                         or 0)),
         observable_bulk_ids=list(comp.get("observable_bulk_ids")
                                  or (ctx.get("defaults") or {}).get("observable_bulk_ids") or []),
     )

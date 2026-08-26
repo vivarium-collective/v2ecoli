@@ -59,6 +59,29 @@ _UPSTREAM_SIMDATA_FALLBACK = (
     "kb/simData.cPickle")
 
 
+def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[str]:
+    """Names in the driving fork config's ``variants`` block, or ``[]``.
+
+    ⚠ READS THE JSON DIRECTLY rather than going through the fork's resolver: this
+    runs in the argument-checking path, before any fork import, and its only job
+    is to answer "did the author declare variants at all?". A config we cannot
+    read yields ``[]`` — the guard above then stays silent and the run proceeds
+    exactly as it did before this helper existed, which is the right failure
+    direction for a check that exists to catch an OMISSION.
+    """
+    if not from_vecoli_config:
+        return []
+    path = from_vecoli_config
+    if not os.path.isabs(path):
+        path = os.path.join(vecoli_dir or "", from_vecoli_config)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            cfg = json.load(fh)
+    except Exception:  # noqa: BLE001 — unreadable/absent config is not this guard's business
+        return []
+    return sorted((cfg.get("variants") or {}).keys())
+
+
 def _spec_from_vecoli_config() -> str | None:
     """``from_vecoli_config`` from the comparison_spec.json baked into the image.
 
@@ -644,7 +667,8 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  exchange_fluxes: dict | None = None,
                  exchange_flux_basis: str = "counts",
                  observables: list | None = None,
-                 observable_bulk_ids: list | None = None):
+                 observable_bulk_ids: list | None = None,
+                 variant: int = 0):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
 
     ``vecoli_whole_config`` controls the genuine-vEcoli (``--composite vecoli``)
@@ -771,7 +795,21 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
-                variant=0, lineage_seed=seed, whole_config=ve_whole_config,
+                # ⛔⛔ WAS HARDCODED `variant=0`, AND THAT IS A NO-OP THAT LOOKS
+                # LIKE A RUN. `_select_variant_params` treats `variant_index <= 0`
+                # as "baseline", so the fork's `ecoli.variants.<name>.apply_variant`
+                # was NEVER CALLED on the reference arm — no matter what the
+                # driving config declared. For a config whose variant carries the
+                # strain itself (a new-gene expression/translation-efficiency
+                # vector) plus its induction schedule, that silently ran a
+                # DIFFERENT STRAIN with induction disabled, and emitted a
+                # complete-looking reference arm for it.
+                # ⚠ `apply_variant` is also what CREATES `sim_data.internal_shift_dict`
+                # — so with variant 0 there is no induction schedule to consult at
+                # all, and a generation counter pointed at it can only ever read
+                # nothing. Any "staged induction does not fire" diagnosis has to
+                # rule this out FIRST; it is upstream of the counter.
+                variant=variant, lineage_seed=seed, whole_config=ve_whole_config,
                 exchange_fluxes=exchange_fluxes,
                 exchange_flux_basis=exchange_flux_basis, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
@@ -981,6 +1019,15 @@ def main(argv=None):
                    help="Path to the genuine vEcoli simData.cPickle used as the "
                         "matched-initial-state reference (default: the upstream "
                         "fallback). Required when that fallback is absent.")
+    p.add_argument("--variant", type=int, default=None,
+                   help="1-based index into the driving config's `variants` block, "
+                        "applied to the REFERENCE (--composite vecoli) arm via the "
+                        "fork's own ecoli.variants.<name>.apply_variant. 0 means "
+                        "baseline (no variant applied) and must be given "
+                        "EXPLICITLY: when the config declares variants and this is "
+                        "omitted, the run refuses rather than silently running the "
+                        "unvaried strain. The candidate arm takes its perturbation "
+                        "from --cache-dir instead, so this does not apply to it.")
     p.add_argument("--vecoli-whole-config", choices=["auto", "on", "off"],
                    default="auto",
                    help="Genuine-vEcoli (--composite vecoli) reference route for a "
@@ -1041,6 +1088,24 @@ def main(argv=None):
                or _spec_from_vecoli_config())
     vecoli_dir = os.environ.get("V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
+    # ⛔⛔ A DECLARED VARIANT MUST BE CHOSEN, NOT DEFAULTED. The reference arm
+    # applies `--variant` and the candidate arm does not (its perturbation is
+    # baked into --cache-dir), so an omitted flag on the reference arm is a
+    # silent substitution of the unvaried strain — the same family as the
+    # `--from-vecoli-config` resolve failure that warns and CONTINUES. The flag
+    # selects WHAT IS BEING COMPARED, so failing to choose does not degrade the
+    # comparison, it replaces it. Refuse instead; `--variant 0` is how you say
+    # "baseline, deliberately".
+    variant = int(args.variant or 0)
+    if args.composite == "vecoli" and args.variant is None:
+        _declared = _declared_variants(from_vc, vecoli_dir)
+        if _declared:
+            p.error(
+                f"{from_vc} declares variants {_declared} but --variant was not "
+                f"given, so the reference arm would run the BASELINE strain with "
+                f"any induction schedule absent. Pass --variant 1 for the first "
+                f"grid point, or --variant 0 to run baseline deliberately.")
+
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
     seeds = list(range(args.seed_start, args.seed_start + args.n_seeds))
     run_one = make_run_one(
@@ -1059,7 +1124,7 @@ def main(argv=None):
         vecoli_whole_config=args.vecoli_whole_config,
         exchange_fluxes=exchange_fluxes,
         exchange_flux_basis=args.exchange_flux_basis, observables=observables,
-        observable_bulk_ids=observable_bulk_ids)
+        observable_bulk_ids=observable_bulk_ids, variant=variant)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
     # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).

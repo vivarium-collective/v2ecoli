@@ -766,15 +766,23 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # dropped. The engine now refuses that combination outright; this is
             # what stops the refusal from firing on every study that legitimately
             # declares a variant.
-            _needs_native = bool(resolved_ve.get("add_processes")
-                                 or resolved_ve.get("spatial_environment_config")
-                                 or int(variant or 0))
+            # ⚠ The REASON is kept alongside the decision, because the message
+            # below reports it and a wrong reason sends the next reader after the
+            # wrong thing. This line previously always said "add_processes/spatial
+            # detected", which became false the moment a variant could trigger the
+            # route — observed on a real run within the hour.
+            _native_why = ("add_processes/spatial detected"
+                           if (resolved_ve.get("add_processes")
+                               or resolved_ve.get("spatial_environment_config"))
+                           else f"variant {int(variant or 0)} requested"
+                           if int(variant or 0) else "")
+            _needs_native = bool(_native_why)
             _mode = (vecoli_whole_config or "auto").lower()
             if _mode == "on" or (_mode == "auto" and _needs_native):
                 ve_whole_config = from_vecoli_config
                 print(f"[from-vecoli-config] vecoli side: WHOLE-CONFIG WCM node "
                       f"(loads {from_vecoli_config} natively"
-                      + (" — add_processes/spatial detected" if _mode == "auto" else "")
+                      + (f" — {_native_why}" if _mode == "auto" and _native_why else "")
                       + ")")
         except Exception as e:  # noqa: BLE001
             print(f"[warn] vecoli from-vecoli-config resolve failed: "

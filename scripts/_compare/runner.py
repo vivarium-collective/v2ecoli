@@ -55,8 +55,16 @@ def _run_engines(spec, out: str, mode: str) -> None:
     # STUDY DECLARED IT. Unlike the flux flags above, this is NOT symmetric: the
     # reference arm applies the config's variant through the fork's own
     # `apply_variant`, while the candidate arm takes its perturbation from
-    # `--cache-dir`. Passing it to both would apply the same perturbation twice
-    # on the candidate side.
+    # `--cache-dir`.
+    # ⚠ CORRECTED: an earlier version of this comment said passing it to both
+    # "would apply the same perturbation twice on the candidate side". That is
+    # false and checkable — `make_run_one`'s `v2ecoli` branch never reads
+    # `variant` at all. The flag would simply be inert there. The asymmetry is
+    # still right, but for the plain reason and not a scary one.
+    # ⛔ The real hazard on the candidate side is UNCHECKED and lives elsewhere:
+    # this asymmetry is only correct if `v2_cache` is a perturbation-baked cache.
+    # Nothing validates that, so a study pointing both arms at a stock cache
+    # compares perturbed-vs-baseline and reads as a clean comparison.
     # ⚠ `is not None`, not truthiness: `variant: 0` is a study saying "baseline,
     # deliberately", and it must reach the runner as an explicit choice — passing
     # nothing instead would trip the runner's own refusal, which is exactly the

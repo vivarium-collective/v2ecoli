@@ -60,14 +60,21 @@ _UPSTREAM_SIMDATA_FALLBACK = (
 
 
 def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[str]:
-    """Names in the driving fork config's ``variants`` block, or ``[]``.
+    """Names in the driving config's ``variants`` block, or ``[]``.
 
-    ⚠ READS THE JSON DIRECTLY rather than going through the fork's resolver: this
-    runs in the argument-checking path, before any fork import, and its only job
-    is to answer "did the author declare variants at all?". A config we cannot
-    read yields ``[]`` — the guard above then stays silent and the run proceeds
-    exactly as it did before this helper existed, which is the right failure
-    direction for a check that exists to catch an OMISSION.
+    ⛔⛔ RESOLVES ``inherit_from`` — reading the raw JSON is NOT equivalent, and an
+    earlier version of this docstring justified doing so by saying it "runs before
+    any fork import". That was FALSE: ``load_config_with_inheritance`` is
+    v2ecoli's own loader, no fork import is involved, and the same resolution
+    already happens on this code path. There was no import cost being avoided —
+    only a lost ``inherit_from`` branch, in which a child config that declares no
+    ``variants`` of its own inherits one from its parent. The guard would then see
+    nothing, stay silent, and let the run proceed with the variant unchosen: the
+    precise omission it exists to catch.
+
+    ⚠ A config we cannot read yields ``[]`` and the guard stays silent, which is
+    the right failure direction for a check aimed at an OMISSION — a broken config
+    should surface as the loader's own error further down, not as this guard's.
     """
     if not from_vecoli_config:
         return []
@@ -75,11 +82,17 @@ def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[
     if not os.path.isabs(path):
         path = os.path.join(vecoli_dir or "", from_vecoli_config)
     try:
-        with open(path, encoding="utf-8") as fh:
-            cfg = json.load(fh)
-    except Exception:  # noqa: BLE001 — unreadable/absent config is not this guard's business
+        from v2ecoli.workflow.config import load_config_with_inheritance
+        cfg = load_config_with_inheritance(path)
+        variants = cfg.get("variants") or {}
+        return sorted(variants.keys())
+    except Exception:  # noqa: BLE001 — unreadable config is not this guard's business
+        # ⚠ `.get`/`.keys()` are INSIDE the try on purpose. They were outside it,
+        # so a `variants` key that was a list, or a top-level JSON array, raised
+        # `AttributeError` out of a helper whose docstring promises `[]` — turning
+        # a schema typo into a bare traceback from an argument check, before the
+        # loader that would have reported it properly ever ran.
         return []
-    return sorted((cfg.get("variants") or {}).keys())
 
 
 def _spec_from_vecoli_config() -> str | None:
@@ -746,8 +759,16 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # environment can't be expressed that way, so the faithful reference is
             # that config run NATIVELY as one WCM node. Auto-enable when such content
             # is present; `on`/`off` override.
+            # ⭐ A REQUESTED VARIANT ALSO NEEDS THIS ROUTE. `apply_variant` runs
+            # only when the reference arm loaded a whole-config, so a config that
+            # declares `variants` alongside `swap_processes` — and neither of the
+            # two keys below — took the swap route and had its variant silently
+            # dropped. The engine now refuses that combination outright; this is
+            # what stops the refusal from firing on every study that legitimately
+            # declares a variant.
             _needs_native = bool(resolved_ve.get("add_processes")
-                                 or resolved_ve.get("spatial_environment_config"))
+                                 or resolved_ve.get("spatial_environment_config")
+                                 or int(variant or 0))
             _mode = (vecoli_whole_config or "auto").lower()
             if _mode == "on" or (_mode == "auto" and _needs_native):
                 ve_whole_config = from_vecoli_config
@@ -1096,6 +1117,14 @@ def main(argv=None):
     # selects WHAT IS BEING COMPARED, so failing to choose does not degrade the
     # comparison, it replaces it. Refuse instead; `--variant 0` is how you say
     # "baseline, deliberately".
+    # ⚠ `< 0` REFUSED HERE TOO. `variant_from_study_yaml` already rejects it, but
+    # argparse did not — and `_select_variant_params` treats any index <= 0 as
+    # "baseline", so a typo'd `--variant -1` silently ran the unperturbed model on
+    # the one arm this whole guard exists to protect. Two entry points must not
+    # disagree about whether the same value is valid.
+    if args.variant is not None and args.variant < 0:
+        p.error(f"--variant must be >= 0 (got {args.variant}); 0 selects the "
+                f"baseline deliberately, and >= 1 indexes the config's variants")
     variant = int(args.variant or 0)
     if args.composite == "vecoli" and args.variant is None:
         _declared = _declared_variants(from_vc, vecoli_dir)

@@ -316,6 +316,22 @@ def test_a_declared_ZERO_survives_an_investigation_default(tmp_path):
     # ...and with the study silent, the investigation default still applies.
     assert _study_route(tmp_path / "c", defaults=d).variant == 2
 
+    # ⛔⛔ AND THE FALSY TRAP AT THE *FALLBACK* LEVEL, which the assertions above
+    # cannot reach. When the study.yaml DECLARES a value, `variant_from_study_yaml`
+    # returns it directly and the `fallback=` expression is never evaluated — so
+    # every test that puts the `0` in the study.yaml leaves `_first_declared`
+    # itself unexercised, and replacing it with an `or` chain passed the whole
+    # suite. The cell that matters is: study SILENT, `0` declared one level up.
+    # Failure it admits: an investigation declares `defaults: {variant: 2}`, one
+    # entry says `variant: 0` as its deliberate baseline arm, that study's YAML is
+    # silent — and the baseline arm silently runs variant 2.
+    assert _configs_route(tmp_path / "d", defaults=", variant: 2",
+                          entry=", variant: 0").variant == 0, (
+        "an entry-level `variant: 0` was discarded in favour of the "
+        "investigation default")
+    assert _study_route(tmp_path / "e", defaults=", variant: 0").variant == 0, (
+        "an investigation-level `variant: 0` was discarded as falsy")
+
 
 def test_the_study_gets_the_LAST_word_over_an_investigation_default(tmp_path):
     assert _configs_route(tmp_path / "a", defaults=", variant: 2",

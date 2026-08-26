@@ -200,6 +200,27 @@ def build_vivarium_ecoli(
     # preload itself is best-effort — on failure EcoliSim just loads
     # sim_data_path natively — EXCEPT when a variant is requested: we must not
     # silently run the unperturbed baseline, so a preload failure there is loud.
+    # ⛔⛔ REFUSE AT THE POINT OF DISCARD. Every `apply_variant` gate below is
+    # `_cfgfile and int(variant)`, so a caller that requests a variant WITHOUT the
+    # whole-config route had it silently dropped: threaded all the way here, then
+    # ignored, and the run completed as the unperturbed baseline. That is the
+    # exact substitution the variant machinery exists to prevent, reintroduced one
+    # layer down from where anyone was looking.
+    # ⚠ It is not hypothetical and it is the DEFAULT for a config that declares
+    # `variants` alongside `swap_processes` and nothing else: `_needs_native`
+    # auto-enables on `add_processes`/`spatial_environment_config`, so such a
+    # config takes the swap route, `whole_config` stays None, and the gate can
+    # never pass. Measured on a real config: variant=1, whole_config=None,
+    # apply_variant never called.
+    # ⇒ A requested variant that cannot be applied is an ERROR, not a default.
+    if int(variant) and not _cfgfile:
+        raise ValueError(
+            f"variant {int(variant)} was requested but no whole-config was loaded, "
+            f"so the config's `variants` block is unreachable and the variant "
+            f"would be silently discarded — the run would be the unperturbed "
+            f"baseline. Pass the driving config as `whole_config` (the caller's "
+            f"`--vecoli-whole-config on` forces it), or request variant 0.")
+
     _sd_obj = None
     _variant_simdata_tmp = None   # temp pickle holding variant-mutated sim_data
     try:
@@ -949,6 +970,15 @@ def run_vivarium_ecoli_pbg_multigen(
         _view_vars["observable_bulk"] = {
             i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}
     view = [{"root": ("listeners",), "variables": _view_vars}]
+    # ⚠ `variant` here is a PROVENANCE CLAIM stamped into every zarr partition,
+    # and it is true only because `build_vivarium_ecoli` REFUSES a variant it
+    # cannot apply. Before that refusal existed, a variant could be threaded this
+    # far, recorded here, and then silently discarded at the `_cfgfile and
+    # int(variant)` gate — so the store asserted a perturbation that never ran,
+    # and every downstream reader (report card, sidecar, published artifact)
+    # would have repeated the claim.
+    # ⛔ If that refusal is ever weakened, this line starts lying again. They are
+    # one invariant in two places; do not separate them.
     metadata_base = {
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),

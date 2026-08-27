@@ -69,3 +69,39 @@ def config_to_composite(config: dict, *, fork_dir: str = "") -> dict:
         state["variants"] = _variants_node(variants)
 
     return {"schema": {}, "state": state}
+
+
+def _declared_process_names(config: dict) -> list[str]:
+    names = list(config.get("add_processes") or [])
+    names += list((config.get("swap_processes") or {}).values())
+    return names
+
+
+def register_declared_processes(core, config: dict, *, fork_dir: str = "") -> list[str]:
+    """Wrap each declared vivarium process via the adapter and register it under
+    ``local:<ClassName>`` in ``core`` so the translated document's addresses
+    resolve. Returns the list of registered class names. Best-effort per name:
+    an unresolvable/unwrappable process is skipped (kept out of the return)."""
+    import os, sys
+    from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
+    fork = fork_dir or os.environ.get("V2E_VECOLI_DIR", "")
+    if fork and fork not in sys.path:
+        sys.path.insert(0, fork)
+    try:
+        import ecoli.processes  # noqa: F401
+        from vivarium.core.registry import process_registry
+    except Exception:
+        return []
+    registered: list[str] = []
+    for name in _declared_process_names(config):
+        try:
+            v1_cls = process_registry.access(name)
+            if v1_cls is None:
+                continue
+            wrapped = wrap_vivarium_process(v1_cls, name=name)
+            cls_name = getattr(v1_cls, "__name__", name)
+            core.register_link(cls_name, wrapped)  # matches register_ecoli_core's
+            registered.append(cls_name)            # Step/Process link-registration
+        except Exception:
+            continue
+    return registered

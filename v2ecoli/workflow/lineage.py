@@ -358,13 +358,20 @@ class LineageProcess(Process):
         try:
             self._composite.run(interval)
         except Exception as e:
-            msg = str(e).lower()
-            # Division surfaces as a structural update; the message mentions it.
-            # Non-division exceptions must propagate.
-            if "divide" in msg or "division" in msg:
-                divided = True
-            else:
+            # A genuine division surfaces as a structural agents-map update that
+            # process-bigraph raises through; its message mentions divide/division.
+            # But a plain runtime error whose message merely CONTAINS that
+            # substring (e.g. ZeroDivisionError: "float division by zero") must
+            # NOT be mistaken for a division — doing so silently masks real
+            # failures as phantom divisions. Only a genuine division signal is
+            # honored, and never silently.
+            from v2ecoli.library.division import is_division_exception
+            if not is_division_exception(e):
                 raise
+            warnings.warn(
+                f"LineageProcess: treating a raised exception as a division "
+                f"signal at t={self._gen_elapsed}: {e!r}")
+            divided = True
         self._gen_elapsed += interval
 
         agents_now = self._composite.state.get("agents") or {}

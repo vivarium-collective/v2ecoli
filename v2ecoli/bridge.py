@@ -28,6 +28,7 @@ Usage in a viva_munk document::
 import math
 import os
 import traceback
+import warnings
 
 import numpy as np
 from process_bigraph import Process, Composite
@@ -292,9 +293,23 @@ class EcoliWCM(Process):
         try:
             self._composite.run(interval)
         except Exception as e:
-            err_str = str(e).lower()
-            if 'divide' in err_str or 'division' in err_str or 'DIVISION' in str(e):
+            # A builtin computation error (e.g. ZeroDivisionError, whose message
+            # contains the substring "division") is a real failure, not a
+            # division signal — surface it instead of mislabeling it as a
+            # division or swallowing it into a zero-output return that masks the
+            # bug. Only a genuine division (a structural agents-map update raised
+            # through by process-bigraph) is treated as one; other unexpected
+            # non-code exceptions keep the pre-existing zero-output colony
+            # resilience.
+            from v2ecoli.library.division import (
+                is_division_exception, NON_DIVISION_ERRORS)
+            if is_division_exception(e):
+                warnings.warn(
+                    f"EcoliBridge: treating a raised exception as a division "
+                    f"signal at interval={interval}: {e!r}")
                 division_fired = True
+            elif isinstance(e, NON_DIVISION_ERRORS):
+                raise
             if not division_fired:
                 return {'mass': 0.0, 'volume': 0.0, 'exchange': {}}
 

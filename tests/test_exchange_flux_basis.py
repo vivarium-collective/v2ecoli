@@ -1332,6 +1332,87 @@ def test_variant_ZERO_takes_the_SAME_ROUTE_as_a_variant_arm(monkeypatch, tmp_pat
         f"same model as the treatment")
 
 
+def test_a_config_that_DECLARES_variants_REFUSES_an_omitted_variant(monkeypatch, tmp_path):
+    """⛔⛔ THE REFUSAL ITSELF, which had NO coverage in any form.
+
+    Deleting `_declared_variants`' body, reverting its resolver, or removing the
+    `p.error` branch entirely all passed the full suite. The guard is the only
+    thing standing between "the study declared variants and the operator said
+    nothing" and a reference arm that silently runs the unvaried strain.
+
+    ⚠ It reads the config through the SAME resolver as the route decision. When
+    it used a stricter loader instead, the two disagreed on 10 of 86 real fork
+    configs — the route switching on variants the guard could not see — and the
+    guard failed OPEN on exactly those.
+    """
+    import scripts.run_comparison_ensemble as rce
+    import scripts._compare.config_adapter as ca
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    with pytest.raises(SystemExit):
+        rce.main(["--composite", "vecoli", "--condition", "basal",
+                  "--cache-dir", str(tmp_path), "--n-seeds", "1",
+                  "--from-vecoli-config", "configs/some_config.json",
+                  "--out-root", str(tmp_path), "--mode", "serial"])
+
+
+def test_a_config_with_NO_variants_needs_no_choice_and_stays_on_the_swap_route(
+        monkeypatch, tmp_path):
+    """⭐ THE NEGATIVE CASE, in both directions — the route rule's other corner.
+
+    Making the route unconditional (`if True`), or dropping the
+    `add_processes`/`spatial` trigger, or letting `--vecoli-whole-config off` be
+    ignored, all passed the suite: only the positive corner was pinned. A config
+    declaring NO variants must neither be refused nor switched to the native
+    route, or every unvaried study on this harness silently changes model.
+    """
+    import scripts.run_comparison_ensemble as rce
+    import scripts._compare.config_adapter as ca
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli",
+                       from_vecoli_config="configs/some_config.json")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert not seen.get("whole_config"), (
+        "a config declaring no variants was switched to the native route, which "
+        "changes the process set")
+
+
+def test_vecoli_whole_config_OFF_still_overrides_a_declared_variant(
+        monkeypatch, tmp_path):
+    """⛔ `off` is the operator's only escape back to the pre-branch swap route
+    for a variants-declaring config. Letting `_needs_native` bypass the mode
+    check passed the suite; nothing referenced `vecoli_whole_config` in tests."""
+    import scripts._compare.config_adapter as ca
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=0,
+                       from_vecoli_config="configs/some_config.json",
+                       vecoli_whole_config="off")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert not seen.get("whole_config"), "--vecoli-whole-config off was ignored"
+
+
 def test_a_NEGATIVE_variant_is_refused_at_the_CLI(monkeypatch, tmp_path):
     """⛔ TWO ENTRY POINTS MUST NOT DISAGREE ABOUT THE SAME VALUE.
 

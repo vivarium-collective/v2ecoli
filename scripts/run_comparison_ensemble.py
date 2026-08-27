@@ -82,8 +82,24 @@ def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[
     if not os.path.isabs(path):
         path = os.path.join(vecoli_dir or "", from_vecoli_config)
     try:
-        from v2ecoli.workflow.config import load_config_with_inheritance
-        cfg = load_config_with_inheritance(path)
+        # ⛔⛔ THE SAME RESOLVER THE ROUTE USES — and that is the whole point.
+        # This guard and the route decision both ask "does this config declare
+        # variants?", and they must not answer differently. An earlier version
+        # called `load_config_with_inheritance` directly while the route read
+        # `resolve_vecoli_config_local`'s output; the two disagreed on **10 of 86**
+        # real fork configs, because the adapter FALLS BACK to a flat read when the
+        # strict loader raises (`TypeError: unhashable type` out of `_merge_configs`
+        # on 8 of them, `FileNotFoundError` on a nested-directory config).
+        # ⇒ On those, the route said "config declares variants" and switched route,
+        # while this guard said it did not and let the run proceed with
+        # `variant = 0`: the reference arm ran the UNVARIED strain, healthy-looking,
+        # unrecorded — precisely the omission this guard exists to catch, in the
+        # same process that had already seen the variants.
+        # ⚠ Picking the stricter resolver was the wrong instinct: it raises on
+        # configs the adapter reads fine, and a guard that fails OPEN on a parse
+        # error is worse than one that never consulted inheritance at all.
+        from scripts._compare.config_adapter import resolve_vecoli_config_local
+        cfg = resolve_vecoli_config_local(from_vecoli_config, vecoli_dir)
         variants = cfg.get("variants") or {}
         return sorted(variants.keys())
     except Exception:  # noqa: BLE001 — unreadable config is not this guard's business

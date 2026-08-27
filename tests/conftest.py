@@ -24,9 +24,45 @@ Path overrides:
 """
 import json
 import os
+import sys
 import uuid
 
 import pytest
+
+
+# ---------------------------------------------------------------------------
+# Fork-first import race — MUST run before any test module is collected.
+#
+# Fork-enrichment tests (config_to_composite / config_bigraph "fork" tests)
+# need `sys.modules["ecoli"]` to resolve to the vEcoli-private fork checkout.
+# But `v2ecoli`'s own package `__init__` transitively imports the *site-
+# packages* `ecoli` (its own engine dependency: `v2ecoli/library/
+# unit_bridge.py` -> `from ecoli.library import bigraph_types`, and
+# `v2ecoli/processes/transcript_elongation.py` -> `from
+# ecoli.processes.unique_update import UniqueUpdate`) the moment ANYTHING
+# under `v2ecoli` is first imported — which happens as soon as any test
+# module does `from v2ecoli... import ...` at its own top level. Under
+# pytest's default alphabetical collection order, `test_config_bigraph.py`
+# collects before `test_config_to_composite.py` and would win that race,
+# permanently binding `ecoli` to the wrong install for the rest of the
+# session.
+#
+# conftest.py is imported before ANY test module, regardless of collection
+# order, so doing the fork-first import here — at conftest module-import
+# time, not inside a fixture — wins the race deterministically. Guarded and
+# best-effort: the fork tests themselves `skipif` when the fork is absent,
+# so this must never hard-fail the whole session.
+# ---------------------------------------------------------------------------
+_V2E_VECOLI_FORK = os.environ.get(
+    "V2E_VECOLI_DIR", "/Users/eranagmon/code/vEcoli-private")
+
+if os.path.isdir(_V2E_VECOLI_FORK):
+    try:
+        if _V2E_VECOLI_FORK not in sys.path:
+            sys.path.insert(0, _V2E_VECOLI_FORK)
+        import ecoli.processes  # noqa: F401 — fork registry must win the import race
+    except Exception:  # noqa: BLE001 — never block collection over this
+        pass
 
 
 @pytest.fixture(autouse=True)

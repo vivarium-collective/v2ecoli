@@ -1,20 +1,14 @@
 # tests/test_config_to_composite.py
 import os, sys, pytest
 
-FORK = "/Users/eranagmon/code/vEcoli-private"
+# NOTE: the fork-first `ecoli` import (winning the sys.modules race against
+# v2ecoli's own site-packages `ecoli` dependency) happens in tests/conftest.py,
+# at conftest-import time — before any test module (this one included) is
+# collected. That's required because conftest.py is the only place guaranteed
+# to run ahead of collection order (e.g. test_config_bigraph.py sorts before
+# this file alphabetically and would otherwise win the race first).
 
-# Fork enrichment needs the FORK's `ecoli` package to win the import race for
-# the shared `ecoli` module name. `v2ecoli`'s own package __init__ transitively
-# imports `ecoli.processes` too (its own engine dependency) the moment
-# `v2ecoli` (below) is first imported, which would otherwise permanently bind
-# `sys.modules["ecoli"]` to that *other* install before the fork-backed test
-# gets a chance to run. Doing the fork import here, before `v2ecoli` is ever
-# touched, ensures every test in this session (and this file's sibling test
-# modules, collected afterward) sees the fork's registries.
-if os.path.isdir(FORK):
-    if FORK not in sys.path:
-        sys.path.insert(0, FORK)
-    import ecoli.processes  # noqa: F401 — fork registry must win the import race
+FORK = "/Users/eranagmon/code/vEcoli-private"
 
 from v2ecoli.library.config_to_composite import config_to_composite
 

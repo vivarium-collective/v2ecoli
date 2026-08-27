@@ -119,6 +119,11 @@ v2e-compare = "scripts.compare_cli:main"
 [tool.setuptools.package-data]
 # Ship the v2ecoli override files; bulk KB data is provided by the ecoli-sources bundle.
 "v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
+# Ship the workflow config presets and the SBML model file so a pip/git install
+# (not just a source checkout) can resolve `configs/*.json` and the millard SBML
+# through the installed package. The large ParCa blob (models/parca/parca_state.pkl.gz)
+# is intentionally NOT shipped here — it is provided by ecoli-sources / the workspace.
+"v2ecoli" = ["configs/*.json", "models/sbml/*.xml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "v2ecoli/tests"]

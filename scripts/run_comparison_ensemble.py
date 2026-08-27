@@ -688,8 +688,16 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     reference route for a ``--from-vecoli-config`` run: ``auto`` (default) loads the
     fork config NATIVELY as one WCM node whenever its model content can't be
     expressed as ``swap_processes``/``flow`` (it declares ``add_processes`` or
-    ``spatial_environment_config``); ``on`` forces native whole-config; ``off`` keeps
-    the swap/flow route. Native loading is faithful-by-construction for ANY fork
+    ``spatial_environment_config``) **or it declares a ``variants`` block**, since
+    ``apply_variant`` runs only on the native route; ``on`` forces native
+    whole-config; ``off`` keeps the swap/flow route.
+    ⛔ The route CHANGES THE PROCESS SET — the native path carries
+    ``exclude_processes: ['exchange_data']``, which ``build_vivarium_ecoli`` MERGES
+    with the caller's list, so ``ExchangeData`` (metabolism's uptake bounds) is
+    absent there and present on the swap route. It is therefore chosen from the
+    CONFIG and never from the ``variant`` INDEX: keying it on the index would put a
+    ``variant 0`` baseline arm on a different model from the variant arm it exists
+    to control for. Native loading is faithful-by-construction for ANY fork
     (``$V2E_VECOLI_DIR``).
 
     ``exchange_fluxes`` ({leaf: exchange_key}) emits named environment.exchange
@@ -771,11 +779,30 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # wrong thing. This line previously always said "add_processes/spatial
             # detected", which became false the moment a variant could trigger the
             # route — observed on a real run within the hour.
+            # ⛔⛔ KEYED ON WHETHER THE CONFIG *DECLARES* VARIANTS, NOT ON WHICH
+            # INDEX WAS CHOSEN — and that distinction is the whole point.
+            # An earlier version tested `int(variant or 0)`, so `--variant 0` took
+            # the swap route while `--variant 1` took the native one. Those are NOT
+            # the same model: the native path carries
+            # `exclude_processes: ['exchange_data']`, which `build_vivarium_ecoli`
+            # MERGES with the caller's list rather than replacing it, so
+            # `ExchangeData` — the Step that writes metabolism's uptake bounds —
+            # runs on one arm and not the other. That is exactly what the
+            # exchange-flux cards grade.
+            # ⇒ `--variant 0` exists so a study can declare a DELIBERATE BASELINE
+            # reference arm, i.e. the CONTROL for the variant arm. Keying the route
+            # on the index made the control a different model from the treatment,
+            # with nothing — zarr metadata, sidecar, card — recording which route
+            # ran. Worse than the discarded-variant bug it replaced: that one
+            # merely ran the baseline; this silently confounds the perturbation
+            # with a model change.
+            # ⇒ The CONFIG selects the route; the INDEX selects only what
+            # `apply_variant` does. Both arms therefore stay on one route.
             _native_why = ("add_processes/spatial detected"
                            if (resolved_ve.get("add_processes")
                                or resolved_ve.get("spatial_environment_config"))
-                           else f"variant {int(variant or 0)} requested"
-                           if int(variant or 0) else "")
+                           else "config declares variants"
+                           if resolved_ve.get("variants") else "")
             _needs_native = bool(_native_why)
             _mode = (vecoli_whole_config or "auto").lower()
             if _mode == "on" or (_mode == "auto" and _needs_native):
@@ -1062,8 +1089,13 @@ def main(argv=None):
                    help="Genuine-vEcoli (--composite vecoli) reference route for a "
                         "--from-vecoli-config run: 'auto' (default) loads the fork "
                         "config NATIVELY as one WCM node when it declares "
-                        "add_processes or spatial_environment_config (which "
-                        "swap_processes/flow can't express); 'on' forces it; 'off' "
+                        "add_processes, spatial_environment_config (which "
+                        "swap_processes/flow can't express), OR a `variants` block "
+                        "(applying a variant requires the native route). NOTE the "
+                        "route changes the PROCESS SET (the native path excludes "
+                        "ExchangeData), so it is selected per CONFIG and never per "
+                        "--variant index — otherwise a baseline arm would not be "
+                        "comparable to a variant arm. 'on' forces it; 'off' "
                         "keeps the swap/flow route. Faithful-by-construction for any "
                         "fork ($V2E_VECOLI_DIR).")
     p.add_argument("--exchange-flux", action="append", default=[],

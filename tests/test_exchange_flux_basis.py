@@ -1261,12 +1261,16 @@ def test_a_declared_variant_AUTO_ENABLES_the_whole_config_route(monkeypatch, tmp
     from v2ecoli.library import vivarium_ecoli_engine as vee
     seen = {}
 
-    monkeypatch.setattr(
-        rce, "resolve_vecoli_config_local",
-        lambda cfg, fork: {"swap_processes": {"a": "b"}}, raising=False)
+    # ⚠ The stub MUST declare `variants` — that is what selects the route. An
+    # earlier stub omitted it and the route was keyed on the variant INDEX
+    # instead, which this test could not see. ⊕ Only the `config_adapter` patch
+    # binds: `make_run_one` imports the resolver INSIDE the function, so a
+    # module-level patch on `rce` never takes effect (it needed `raising=False`
+    # to not error, which is the tell). Removed.
     import scripts._compare.config_adapter as ca
     monkeypatch.setattr(ca, "resolve_vecoli_config_local",
-                        lambda cfg, fork: {"swap_processes": {"a": "b"}})
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
 
     def _fake(**kw):
         seen.update(kw)
@@ -1280,6 +1284,52 @@ def test_a_declared_variant_AUTO_ENABLES_the_whole_config_route(monkeypatch, tmp
     assert seen.get("whole_config"), (
         "a requested variant did not enable the whole-config route, so "
         "apply_variant could never run")
+
+
+def test_variant_ZERO_takes_the_SAME_ROUTE_as_a_variant_arm(monkeypatch, tmp_path):
+    """⛔⛔ THE BASELINE ARM AND THE VARIANT ARM MUST BE THE SAME MODEL.
+
+    `--variant 0` exists so a study can declare a DELIBERATE BASELINE reference
+    arm. That arm is the CONTROL for the variant arm, so the only thing allowed to
+    differ between them is what `apply_variant` does.
+
+    A previous fix keyed the whole-config route on `int(variant or 0)` — so
+    `variant 0` took the swap/flow route while `variant 1` took the native one.
+    Those are NOT the same model: the native path carries
+    `exclude_processes: ['exchange_data']`, which `build_vivarium_ecoli` MERGES
+    with the caller's list, so `ExchangeData` — the Step that writes metabolism's
+    uptake bounds — runs on one arm and not the other. Nothing in the zarr
+    metadata, the sidecar or the card records which route ran, so a
+    baseline-vs-variant comparison would silently confound the perturbation with a
+    model change.
+
+    ⇒ The route is selected by the CONFIG declaring `variants`, never by the index.
+    """
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    import scripts._compare.config_adapter as ca
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    routes = {}
+    for v in (0, 1):
+        seen.clear()
+        run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=v,
+                           from_vecoli_config="configs/some_config.json")
+        with pytest.raises(_Stop):
+            run_one(0)
+        routes[v] = bool(seen.get("whole_config"))
+    assert routes[0] == routes[1] is True, (
+        f"baseline and variant arms took DIFFERENT routes: variant 0 native="
+        f"{routes[0]}, variant 1 native={routes[1]} — the control is not the "
+        f"same model as the treatment")
 
 
 def test_a_NEGATIVE_variant_is_refused_at_the_CLI(monkeypatch, tmp_path):

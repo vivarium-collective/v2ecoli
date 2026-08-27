@@ -57,3 +57,38 @@ def test_register_builtin_analyses_is_idempotent():
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert r.returncode == 0, f"stdout={r.stdout!r}\nstderr={r.stderr!r}"
     assert "IDEMPOTENT_OK" in r.stdout
+
+
+def test_analyses_package_imports_without_scripts_harness():
+    """The comparison analyses import the repo-root ``scripts._compare`` harness
+    at import time, but ``scripts/`` is not shipped in the installed v2ecoli
+    wheel. So when v2ecoli is a bare dependency without that harness on the path,
+    ``import v2ecoli.workflow.analyses`` (and hence ``_register_builtin_analyses``
+    / ``run_analyses``) must still succeed — the comparison analyses just don't
+    register. Simulated in a subprocess by making ``scripts`` unimportable.
+    """
+    code = textwrap.dedent(
+        """
+        import sys
+        class _BlockScripts:
+            def find_spec(self, name, path, target=None):
+                if name == "scripts" or name.startswith("scripts."):
+                    raise ModuleNotFoundError(f"No module named {name!r}", name=name)
+                return None
+        sys.meta_path.insert(0, _BlockScripts())
+        for m in [m for m in sys.modules if m == "scripts" or m.startswith("scripts.")]:
+            del sys.modules[m]
+
+        from v2ecoli.workflow.analysis_runner import _register_builtin_analyses
+        _register_builtin_analyses()  # must NOT raise ModuleNotFoundError('scripts')
+        from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY
+        # a normal analysis registered despite scripts being blocked
+        assert "cd1_transcriptomics" in ANALYSIS_REGISTRY
+        # the scripts-dependent comparison analyses were skipped, not fatal
+        assert "comparison_summary" not in ANALYSIS_REGISTRY
+        print("IMPORTS_WITHOUT_SCRIPTS_OK")
+        """
+    )
+    r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert r.returncode == 0, f"stdout={r.stdout!r}\nstderr={r.stderr!r}"
+    assert "IMPORTS_WITHOUT_SCRIPTS_OK" in r.stdout

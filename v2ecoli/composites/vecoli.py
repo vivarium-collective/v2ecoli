@@ -207,7 +207,9 @@ def vecoli(
         fork_config: optional vEcoli config JSON path driving a process swap.
         cache_dir: directory holding the matching ParCa simData.cPickle.
         time_step: simulation time step (seconds).
-        agent_id: agent key under 'agents' the vEcoli node lives at.
+        agent_id: agent key under 'agents' the vEcoli node lives at, and the
+            lineage phylogeny key ("0" -> "00" -> ...). Its LENGTH is the
+            generation index the wrapped fork applies staged shifts on.
         whole_config: optional full fork config loaded NATIVELY by EcoliSim
             (its own add_processes / spatial_environment_config / variants
             applied) instead of the swap-only fork_config path. Empty
@@ -258,6 +260,11 @@ def vecoli(
             flow=flow,
             fork_dir=(reference_repo or None),
             variant=int(variant),
+            # ⛔ The wrapped fork reads its GENERATION INDEX off this key
+            # (``LoadSimData``: ``generation = len(agent_id)``), which is what
+            # makes a config's staged induction fire. A declared composite that
+            # dropped it here ran as the founder whatever generation it was.
+            agent_id=str(agent_id),
         )
         proc = VivariumEcoliProcess(config={
             "sim_data_path": sim_data_path,
@@ -266,6 +273,7 @@ def vecoli(
             "time_step": float(time_step),
             "fork_dir": reference_repo or "",
             "variant": int(variant),
+            "agent_id": str(agent_id),
             "observable_bulk_ids": list(observable_bulk_ids or []),
             "observables": list(observables or []),
         }, core=core)

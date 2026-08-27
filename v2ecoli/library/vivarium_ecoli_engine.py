@@ -127,6 +127,7 @@ def build_vivarium_ecoli(
     fork_dir: str | None = None,
     initial_overlay: dict | None = None,
     variant: int = 0,
+    agent_id: str = "0",
 ) -> EngineHandle:
     """Build the genuine upstream vEcoli composite and wrap its vivarium Engine.
 
@@ -136,6 +137,8 @@ def build_vivarium_ecoli(
     generation; ``None`` builds a fresh founder. ``variant`` selects a 1-based grid
     point from the loaded config's ``variants`` block (0 = baseline, no-op); only
     applies when a full config file (``set_ecolisim_config_file``) is in effect.
+    ``agent_id`` is the lineage phylogeny key ("0" -> "00" -> ...); its LENGTH is
+    the generation index the fork applies staged shifts on — see below.
     """
     if fork_dir:
         os.environ["V2E_VECOLI_DIR"] = fork_dir
@@ -189,6 +192,20 @@ def build_vivarium_ecoli(
     sim.config["seed"] = int(seed)
     sim.config["sim_data_path"] = sim_data_path
     sim.config["time_step"] = float(time_step)
+    # ⛔⛔ THE GENERATION INDEX *IS* THE AGENT ID, and the fork reads it off THIS
+    # key. ``LoadSimData`` computes ``generation = len(kwargs["agent_id"])`` and
+    # applies every ``sim_data.internal_shift_dict`` entry whose
+    # ``shift_gen <= generation`` — the ONLY mechanism by which a config's staged
+    # induction (``induction_gen``) ever fires. ``agent_id`` is an existing key in
+    # the fork's own ``configs/default.json`` and flows
+    # ``Ecoli(config) -> LoadSimData(**config)``, so setting it here is the whole
+    # hop; but leaving it at the default "0" pins EVERY generation at ``len == 1``
+    # and a scheduled shift silently never happens — the run completes as the
+    # un-induced baseline with nothing in the output to say so. The caller
+    # advances it per generation via ``daughter_phylogeny_id``.
+    # ⇒ Same species as the variant discard this module already refuses: a
+    # declared perturbation dropped one layer below where anyone was looking.
+    sim.config["agent_id"] = str(agent_id)
     # Apply the CONDITION's media. genuine vEcoli's LoadSimData defaults
     # media_timeline to ((0,'minimal'),) and `condition` alone never updates it
     # (the "have to change both" footgun), so without this the runner runs every
@@ -639,6 +656,11 @@ class VivariumEcoliProcess(Process):
         "exclude_processes": {"_type": "list[string]", "_default": []},
         "fork_dir": {"_type": "string", "_default": ""},
         "variant": {"_type": "integer", "_default": 0},
+        # The lineage phylogeny key this cell is ("0" -> "00" -> ...). NOT
+        # cosmetic: the wrapped fork derives its generation index from its LENGTH
+        # (see build_vivarium_ecoli), so a config that omits it runs every
+        # generation as the founder and no staged induction can fire.
+        "agent_id": {"_type": "string", "_default": "0"},
         "observable_bulk_ids": {"_type": "list[string]", "_default": []},
         # {leaf_name: exchange_key} — metabolic exchange fluxes to emit under
         # listeners.exchange_flux.<leaf> (generic; the caller names the keys).
@@ -676,6 +698,7 @@ class VivariumEcoliProcess(Process):
                 exclude_processes=list(self.config.get("exclude_processes") or []) or None,
                 fork_dir=(self.config.get("fork_dir") or None),
                 variant=int(self.config.get("variant") or 0),
+                agent_id=str(self.config.get("agent_id") or "0"),
             )
             self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
         self._exchange_fluxes = dict(self.config.get("exchange_fluxes") or {})
@@ -765,7 +788,9 @@ def build_vivarium_ecoli_composite(
     so the SAME ``run_multigen_xarray`` / ``XArrayEmitter`` path serves both engines.
 
     ``initial_overlay`` (a daughter's divided bulk/unique/env/boundary) seeds a non-
-    founder generation. Returns ``(composite, info)``. The process writes
+    founder generation, and ``agent_id`` is that generation's phylogeny key — the
+    wrapped fork derives its generation index from its LENGTH, so a non-founder
+    generation built with "0" runs as the founder. Returns ``(composite, info)``. The process writes
     ``listeners.mass.*`` (overwrite/set semantics) into the agent store each tick.
     """
     from process_bigraph import Composite
@@ -779,13 +804,15 @@ def build_vivarium_ecoli_composite(
         sim_data_path=sim_data_path, condition=condition, seed=int(seed),
         time_step=float(time_step), exclude_processes=list(exclude_processes or []) or None,
         swap_processes=swap_processes or None, flow=flow or None,
-        fork_dir=fork_dir or None, initial_overlay=initial_overlay, variant=int(variant))
+        fork_dir=fork_dir or None, initial_overlay=initial_overlay, variant=int(variant),
+        agent_id=str(agent_id))
     proc = VivariumEcoliProcess(config={
         "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
         "time_step": float(time_step),
         "exclude_processes": list(exclude_processes or []),
         "fork_dir": fork_dir or "",
         "variant": int(variant),
+        "agent_id": str(agent_id),
         "observable_bulk_ids": list(observable_bulk_ids or []),
         "exchange_fluxes": dict(exchange_fluxes or {}),
         "exchange_flux_basis": str(exchange_flux_basis or "counts"),
@@ -1007,10 +1034,20 @@ def run_vivarium_ecoli_pbg_multigen(
     }
 
     overlay = None
-    composite_agent_id = "0"            # the inner cell's key in the pbg agents map
-    partition_agent_id = "0"            # the emitter's phylogeny key ("0"->"00"->...),
-                                        # distinct per generation so each writes its own
-                                        # zarr partition (avoids a same-store collision).
+    # ⛔⛔ BOTH OF THESE ARE PHYLOGENY KEYS AND BOTH MUST ADVANCE — they are kept
+    # as two names because they are consumed by two different things, and that is
+    # exactly how one of them came to be pinned at "0" for the whole lineage:
+    #   · ``partition_agent_id`` — the EMITTER's key, distinct per generation so
+    #     each writes its own zarr partition (avoids a same-store collision).
+    #   · ``composite_agent_id`` — the inner cell's key in the pbg agents map AND,
+    #     via ``build_vivarium_ecoli``, the wrapped fork's GENERATION INDEX
+    #     (``LoadSimData`` reads ``len(agent_id)``). Pinned at "0" it reports
+    #     generation 1 forever, so a config's staged induction never fires and the
+    #     whole lineage runs as the un-induced baseline, silently.
+    # ⇒ v2ecoli's own native lineage already advances its agent id
+    #   (``v2ecoli/workflow/lineage.py``); only this wrapped-fork driver did not.
+    composite_agent_id = "0"
+    partition_agent_id = "0"
     done_global = 0
     divisions = 0
     gens_done = 0
@@ -1078,7 +1115,12 @@ def run_vivarium_ecoli_pbg_multigen(
         if not divided:
             break
         overlay = proc.divide()
-        partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+        # One phylogeny walk, both keys — see the block where they are declared.
+        # ⚠ If these ever diverge, the emitter's generation label and the fork's
+        # internal generation index stop describing the same cell.
+        daughter_id = daughter_phylogeny_id(partition_agent_id)[0]
+        partition_agent_id = daughter_id
+        composite_agent_id = daughter_id
         divisions += 1
 
     set_ecolisim_config_file(None)  # reset for the next run (deterministic isolation)
@@ -1122,12 +1164,16 @@ def run_vivarium_ecoli_multigen(
     steps_per_gen: list[int] = []
     t_global = 0.0
     last_obs = None
+    # The fork derives its generation index from ``len(agent_id)``; walk the same
+    # phylogeny the pbg driver does so a staged shift fires here too.
+    from v2ecoli.library.upstream_division import daughter_phylogeny_id
+    agent_id = "0"
 
     for gen in range(max_generations):
         h = build_vivarium_ecoli(
             sim_data_path=sim_data_path, condition=condition, seed=seed + gen,
             time_step=time_step, exclude_processes=exclude_processes,
-            fork_dir=fork_dir, initial_overlay=overlay)
+            fork_dir=fork_dir, initial_overlay=overlay, agent_id=agent_id)
         engine = h.engine
         threshold = None
         gen_steps = 0
@@ -1165,6 +1211,7 @@ def run_vivarium_ecoli_multigen(
             "bulk": last_obs["bulk"], "unique": last_obs["unique"],
             "environment": last_obs["environment"], "boundary": last_obs["boundary"]})
         overlay = d1
+        agent_id = daughter_phylogeny_id(agent_id)[0]
         divisions += 1
 
     return {

@@ -20,7 +20,6 @@ dependencies = [
     # These repos are renamed to viva-* (URLs below) but their PACKAGE metadata
     # is still pbg-* upstream, so the dependency name must stay pbg-* until the
     # package rename lands. (uv rejects a name that mismatches package metadata.)
-    "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
     # Transitive dep of viva-superpowers (the Actionable Investigation Graph
@@ -181,7 +180,6 @@ pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowe
 viva-copasi = { git = "https://github.com/vivarium-collective/viva-copasi.git", branch = "main" }
 # Repos renamed to viva-* (canonical URLs) but packages still build as pbg-* —
 # key must match the pbg-* package name until upstream renames the package.
-pbg-parsimony = { git = "https://github.com/vivarium-collective/viva-parsimony.git", branch = "main" }
 pbg-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/viva-ketchup.git", branch = "main" }

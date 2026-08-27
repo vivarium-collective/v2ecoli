@@ -135,12 +135,6 @@ imports:
     description: |
       COPASI ODE / steady-state Steps + composites (utc-process, utc-step,
       steady-state) used for kinetic-model comparison.
-  pbg_parsimony:
-    source: https://github.com/vivarium-collective/pbg-parsimony
-    ref: main
-    mode: reference
-    description: |
-      Capsule cell-geometry primitive used by v2ecoli.cell_shape (ShapeStep).
   pbg_bioreactordesign:
     source: https://github.com/vivarium-collective/pbg-bioreactordesign
     ref: main
@@ -168,7 +162,7 @@ dashboard:
   # DiffusionAdvection, CellFieldExchange, …) used by the colony composites —
   # first-class v2ecoli content, so it belongs in the registry alongside v2ecoli.
   registry:
-    include: [v2ecoli, viva_munk, viva_superpowers, pbg_copasi, pbg_parsimony, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
+    include: [v2ecoli, viva_munk, viva_superpowers, pbg_copasi, pbg_bioreactordesign, pbg_ketchup, pbg_emitters, pbg_torch]
   # Sources page: surface the ecoli-sources bundle (the ParCa/reconstruction
   # input files) with links — inherited files link to the pinned ecoli-sources
   # GitHub commit, local overrides to this repo. See v2ecoli/dashboard_sources.py.
@@ -199,16 +193,3 @@ ui:
   # then passes <ptools_data_dir>/<rel> as the data file. Run the container with:
   #   -v <host>/v2ecoli/workspace:/ptools-data/workspace:ro
   ptools_data_dir: "/ptools-data"
-  # External viewer URLs for Analyses-tab 3D cards, keyed by pack name. The
-  # ecoli_3d whole-cell pack is served from Cloudflare R2 (free egress, no
-  # GitHub Pages 429 rate-limiting on the heavy pack + meshes); the dashboard
-  # card links + embeds this instead of the bundled gh-pages viewer.
-  # ?models= loads a manifest so a single card switches between states in-viewer
-  # (birth — 1.8 µm rod; pre-division — 3.06 µm, 2 chromosomes + septum).
-  viz_viewer_urls:
-    ecoli_3d: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/viewer/index.html?models=https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/ecoli-3d/viz/3d/models.json"
-    # structural-ecoli s01 (ecoli_structural overhaul): birth + pre-division
-    # packs hosted on the same R2 bucket under its own structural-ecoli/ prefix
-    # (2-model dropdown). Keyed by this study's pack names.
-    initial: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html"
-    pre-division: "https://pub-eb913fbbdc584bd7add047c823570b13.r2.dev/structural-ecoli/index.html"

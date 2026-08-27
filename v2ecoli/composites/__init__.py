@@ -12,7 +12,6 @@ from viva_superpowers.composite_generator import _REGISTRY as _COMPOSITE_REGISTR
 from v2ecoli.composites import (  # noqa: F401
     ecoli_baseline,
     ecoli_millard,
-    ecoli_structural,
     ecoli_population,
     ecoli_time_varying_env,
     ecoli_colony,
@@ -53,7 +52,6 @@ def _register_clean_alias(name: str, module: str | None = None) -> None:
 for _new in (
     "ecoli_baseline",
     "ecoli_millard",
-    "ecoli_structural",
     "ecoli_population",
     "ecoli_time_varying_env",
     "ecoli_colony",
@@ -68,7 +66,6 @@ for _new in (
 __all__ = [
     "ecoli_baseline",
     "ecoli_millard",
-    "ecoli_structural",
     "ecoli_population",
     "ecoli_time_varying_env",
     "ecoli_colony",

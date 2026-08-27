@@ -183,22 +183,34 @@ def _build_reactor_bird_coupled(
     )
 
 
+def _composite_of(builder_fn):
+    """The composite a builder wraps, or None if it wraps none we track.
+
+    Kept as an explicit mapping rather than an `is` check so adding an
+    arrest-capable builder (a fed-batch coupled variant, say) is a one-line
+    registration here -- an identity test would silently refuse to run it while
+    the dispatcher forwarded the flag correctly.
+    """
+    if builder_fn is _build_reactor_bird_coupled:
+        from v2ecoli.composites.reactor_bird_coupled import (  # noqa: PLC0415
+            reactor_bird_coupled,
+        )
+        return reactor_bird_coupled
+    return None
+
+
 def _composite_accepts_arrest(builder_fn) -> bool:
     """Would this builder's COMPOSITE accept `carbon_exhaustion_arrest`?
 
     The builder accepting the kwarg is not sufficient -- `_build_reactor_bird_coupled`
     always does, and only the composite it wraps decides whether the arrest can
-    actually be applied (v2ecoli#592). Used for the pre-flight check in main() so
-    an unhonourable request fails before any compute rather than after.
+    actually be applied (v2ecoli#592). Used for the pre-flight in main() so an
+    unhonourable request fails before any compute rather than after.
     """
-    if builder_fn is not _build_reactor_bird_coupled:
+    composite = _composite_of(builder_fn)
+    if composite is None:
         return False
-    from v2ecoli.composites.reactor_bird_coupled import (  # noqa: PLC0415
-        reactor_bird_coupled,
-    )
-    return "carbon_exhaustion_arrest" in inspect.signature(
-        reactor_bird_coupled
-    ).parameters
+    return "carbon_exhaustion_arrest" in inspect.signature(composite).parameters
 
 
 # (sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths)
@@ -721,8 +733,7 @@ def main():
     if args.carbon_exhaustion_arrest:
         _honourable = [
             name for name, _slug, fn, _kw, _extra in variants
-            if "carbon_exhaustion_arrest" in inspect.signature(fn).parameters
-            and _composite_accepts_arrest(fn)
+            if _composite_accepts_arrest(fn)
         ]
         if not _honourable:
             sys.exit(
@@ -730,9 +741,10 @@ def main():
                 "variant can honour it: none of "
                 f"{[v[0] for v in variants]} builds a composite that accepts "
                 "`carbon_exhaustion_arrest`. Either this tree predates "
-                "v2ecoli#592, or the selected variant models no substrate "
-                "exhaustion. Refusing to run rather than emit sidecars that "
-                "record an arrest no run applied."
+                "v2ecoli#592, or the selection models no substrate exhaustion "
+                "(only the coupled variant does). Refusing rather than running "
+                "something other than what was asked for -- the sidecars would "
+                "record `false`, truthfully, but no run would carry the arrest."
             )
 
     core = build_core()

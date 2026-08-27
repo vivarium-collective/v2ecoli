@@ -363,8 +363,22 @@ class TestCliReachesTheDispatcher:
         The coupled variant is LAST of 15 and carries the longest window, so
         without this the run would burn 14 variants before the builder raised.
         `_run_one_variant` must never be called.
+
+        The composite is STUBBED rather than read from the tree. Reading the live
+        signature would make this test pass only until #592 lands and then red
+        main's CI -- a landing-order constraint, which is the exact thing the
+        signature guards exist to avoid. It would also leave the pre-flight with
+        no coverage on the very tree where it matters most.
         """
         mod = _runner_module()
+
+        def pre_592(core=None, **kw):  # no carbon_exhaustion_arrest parameter
+            return {"state": {}}
+
+        monkeypatch.setattr(
+            "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled",
+            pre_592,
+        )
         called = []
         monkeypatch.setattr(
             mod, "_run_one_variant", lambda **kw: called.append(kw)
@@ -394,3 +408,66 @@ class TestCliReachesTheDispatcher:
             ["--variant", "baseline-reference-multigen"],
         )
         assert seen.get("single_daughters") is True
+
+
+class TestPreflightScope:
+    """The pre-flight narrowed what the previous commit did, and that narrowing
+    is a behaviour change worth pinning rather than leaving implicit.
+    """
+
+    @staticmethod
+    def _main(mod, monkeypatch, argv, composite):
+        monkeypatch.setattr(
+            "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled",
+            composite,
+        )
+        ran = []
+        monkeypatch.setattr(
+            mod, "_run_one_variant",
+            lambda **kw: (ran.append(kw["sim_name"]) or {
+                "sim_name": kw["sim_name"], "wall_time": 0.0,
+                "result_steps": 0, "result_gens": 0, "n_history_rows": 0,
+            }),
+        )
+        monkeypatch.setattr(mod, "build_core", lambda *a, **kw: None)
+        monkeypatch.setattr(sys, "argv", ["run_mbp_tracked.py", *argv])
+        return ran
+
+    def test_selection_of_only_inapplicable_variants_refuses(self, monkeypatch):
+        """Asking for an arrest on a variant that models no substrate exhaustion
+        is a request nothing in the selection can honour, on ANY tree. Refuse
+        rather than run something that is not what was asked for.
+        """
+        mod = _runner_module()
+
+        def post_592(core=None, *, carbon_exhaustion_arrest=False, **kw):
+            return {"state": {}}
+
+        ran = self._main(
+            mod, monkeypatch,
+            ["--variant", "baseline-reference-multigen",
+             "--carbon-exhaustion-arrest"],
+            post_592,
+        )
+        with pytest.raises(SystemExit):
+            mod.main()
+        assert ran == []
+
+    def test_sweep_runs_and_notes_the_inapplicable_variants_post_592(
+        self, monkeypatch, capsys
+    ):
+        """With the coupled variant able to honour it, the sweep proceeds and the
+        other 14 are NOTEd rather than refused -- the behaviour review 2 asked
+        for, which the pre-flight must narrow without deleting.
+        """
+        mod = _runner_module()
+
+        def post_592(core=None, *, carbon_exhaustion_arrest=False, **kw):
+            return {"state": {}}
+
+        ran = self._main(
+            mod, monkeypatch, ["--carbon-exhaustion-arrest"], post_592
+        )
+        mod.main()
+        assert len(ran) == len(mod.VARIANTS)
+        assert "baseline-reference-multigen" in ran

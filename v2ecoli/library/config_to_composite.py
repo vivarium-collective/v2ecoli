@@ -83,6 +83,7 @@ def register_declared_processes(core, config: dict, *, fork_dir: str = "") -> li
     resolve. Returns the list of registered class names. Best-effort per name:
     an unresolvable/unwrappable process is skipped (kept out of the return)."""
     import os, sys
+    from v2ecoli.library.ecoli_step import set_current_core
     from v2ecoli.library.vivarium_bridge import wrap_vivarium_process
     fork = fork_dir or os.environ.get("V2E_VECOLI_DIR", "")
     if fork and fork not in sys.path:
@@ -92,6 +93,18 @@ def register_declared_processes(core, config: dict, *, fork_dir: str = "") -> li
         from vivarium.core.registry import process_registry
     except Exception:
         return []
+    # process_bigraph's realize_link instantiates the registered address
+    # positionally as ``edge_class(config, core)``. EcoliProcess/EcoliStep's
+    # signature is ``(parameters, config, core)`` (the vEcoli-style calling
+    # convention), so that positional ``core`` lands in the ``config`` slot,
+    # not ``core`` — the wrapped process's ``self.core`` would stay ``None``
+    # unless the ``_CURRENT_CORE`` fallback is primed first. Deliberately
+    # left set (not reset) past this function's return: the later
+    # ``Composite(doc, core=core)`` call that actually realizes the
+    # addresses happens outside this library's control, so the global must
+    # still be primed when it runs. Same idiom as the tight-bracket use in
+    # v2ecoli/composites/_helpers.py::_make_instance and ecoli_baseline.py.
+    set_current_core(core)
     registered: list[str] = []
     for name in _declared_process_names(config):
         try:

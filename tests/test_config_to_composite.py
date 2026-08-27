@@ -66,3 +66,20 @@ def test_register_declared_processes_makes_addresses_resolvable():
     assert "PGShape" in names
     # the registered address resolves through the core's link registry
     assert core.link_registry.get("PGShape") is not None
+
+
+@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
+def test_declared_layer_document_realizes_in_composite():
+    if FORK not in sys.path:
+        sys.path.insert(0, FORK)
+    import ecoli.processes  # noqa: F401
+    from process_bigraph import Composite
+    from v2ecoli.core import build_core
+    from v2ecoli.library.config_to_composite import (
+        config_to_composite, register_declared_processes)
+    core = build_core()
+    cfg = {"add_processes": ["pg-shape"], "topology": {}}
+    register_declared_processes(core, cfg, fork_dir=FORK)
+    doc = config_to_composite(cfg, fork_dir=FORK)
+    comp = Composite(doc, core=core)          # must not raise: address resolves + realizes
+    assert comp is not None

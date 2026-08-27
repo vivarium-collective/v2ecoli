@@ -206,6 +206,12 @@ def build_vivarium_ecoli(
     # ⇒ Same species as the variant discard this module already refuses: a
     # declared perturbation dropped one layer below where anyone was looking.
     sim.config["agent_id"] = str(agent_id)
+    # ⭐ SAY WHICH GENERATION THIS BUILD THINKS IT IS. Nothing printed it before,
+    # and that silence is precisely why a lineage pinned at generation 1 could run
+    # to completion, emit every observable, and be graded — with the un-shifted
+    # baseline in every generation and no line anywhere to contradict it.
+    print(f"[build_vivarium_ecoli] agent_id={str(agent_id)!r} "
+          f"-> generation {len(str(agent_id))}")
     # Apply the CONDITION's media. genuine vEcoli's LoadSimData defaults
     # media_timeline to ((0,'minimal'),) and `condition` alone never updates it
     # (the "have to change both" footgun), so without this the runner runs every
@@ -336,6 +342,25 @@ def build_vivarium_ecoli(
     _em.Ecoli.__init__ = _capturing_init
     try:
         sim.build_ecoli()
+    except KeyError as _ke:
+        # ⛔ A saved fork state is stored under an ``agents/<id>`` envelope, and
+        # the composer indexes it by THIS config's agent_id
+        # (``ecoli_master.py``: ``full_initial_state["agents"][agent_id]``).
+        # Those files are written by the founder, so they carry "0" — and a
+        # non-founder generation asks for "00" and gets a bare ``KeyError: '00'``
+        # from inside the composer, with nothing naming the cause.
+        # ⇒ Name it. Only when the missing key IS our agent id, so an unrelated
+        # KeyError still propagates untouched.
+        if str(agent_id) != "0" and str(_ke).strip("'\"") == str(agent_id):
+            raise KeyError(
+                f"the initial state is stored under an 'agents' envelope that has "
+                f"no key {str(agent_id)!r}. This generation's agent_id is "
+                f"{str(agent_id)!r} (generation {len(str(agent_id))}), but a saved "
+                f"state file is written by the founder and carries '0'. Seed "
+                f"non-founder generations with `initial_overlay` (what the lineage "
+                f"drivers do) rather than `initial_state_file`, or re-key the file."
+            ) from _ke
+        raise
     finally:
         _em.Ecoli.__init__ = _orig_init
         # The composer has now loaded sim_data from sim_data_path; the temp
@@ -1089,6 +1114,13 @@ def run_vivarium_ecoli_pbg_multigen(
             comp.run(chunk)
             steps += chunk
             done_global += chunk
+            # ⛔ ONE WALK, TWO CONSUMERS — a silent divergence between them is the
+            # exact shape of the defect this loop was fixed for. Assert it rather
+            # than trusting that the two assignments below stay together.
+            assert composite_agent_id == partition_agent_id, (
+                f"the cell's own key {composite_agent_id!r} and the emitter's "
+                f"partition key {partition_agent_id!r} diverged — the partition "
+                f"would be labelled with a different cell's generation")
             agent_state = comp.state["agents"][composite_agent_id]
             payload = _filter_agent_state(agent_state, view)
             # Relabel the payload to the emitter's phylogeny key (the emitter strips
@@ -1165,7 +1197,10 @@ def run_vivarium_ecoli_multigen(
     t_global = 0.0
     last_obs = None
     # The fork derives its generation index from ``len(agent_id)``; walk the same
-    # phylogeny the pbg driver does so a staged shift fires here too.
+    # phylogeny the pbg driver does, so a generation reports itself honestly.
+    # ⚠ This driver takes neither ``variant`` nor ``whole_config``, so it cannot
+    # CREATE an ``internal_shift_dict`` (only ``apply_variant`` does). A shift
+    # fires here only if the sim_data pickle handed in already carries one.
     from v2ecoli.library.upstream_division import daughter_phylogeny_id
     agent_id = "0"
 

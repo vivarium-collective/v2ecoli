@@ -127,7 +127,18 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
         "agent_id": {
             "type": "string",
             "default": "0",
-            "description": "Agent key under 'agents' the vEcoli node lives at.",
+            "description": (
+                "Agent key under 'agents' the vEcoli node lives at — AND the "
+                "wrapped fork's GENERATION INDEX, which is its LENGTH: '0' is "
+                "generation 1, '00' generation 2. Not cosmetic. A config whose "
+                "variant schedules a staged shift (`induction_gen`) fires it "
+                "when len(agent_id) reaches that generation, so two nodes named "
+                "'ref' and 'test' are generations 3 and 4, not two labels. "
+                "⚠ This composite is a SINGLE node with no lineage: the id does "
+                "not advance, so a staged shift either never fires (default '0') "
+                "or fires from a founder state (a longer id). For a lineage that "
+                "advances it per generation, use run_vivarium_ecoli_pbg_multigen."
+            ),
         },
         "whole_config": {
             "type": "string",
@@ -300,6 +311,6 @@ def vecoli(
             "interval": float(time_step),
         }
     }
-    state = {"agents": {agent_id: cell_state}, "global_time": 0.0}
+    state = {"agents": {str(agent_id): cell_state}, "global_time": 0.0}
 
     return {"schema": {}, "state": state}

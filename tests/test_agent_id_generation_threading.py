@@ -26,7 +26,22 @@ reverts to the un-induced baseline.
 """
 import inspect
 
+import pytest
+
 from v2ecoli.library import vivarium_ecoli_engine as ve
+
+
+@pytest.fixture(autouse=True)
+def _no_pending_handle_leak():
+    """``_PENDING_HANDLE`` is CLASS state, consumed once by the next
+    ``VivariumEcoliProcess.__init__``. A test that monkeypatches ``__init__``
+    never consumes it, and ``monkeypatch`` restores the method, not the class
+    attribute — so the handle survives into whatever runs next, which then
+    silently takes the injected-handle branch instead of building. Invisible in a
+    full-file run (the following test resets it); it escapes under ``-k``,
+    ``--lf``, ``-x`` or any reordering."""
+    yield
+    ve.VivariumEcoliProcess._PENDING_HANDLE = None
 
 
 def test_build_vivarium_ecoli_accepts_agent_id():
@@ -172,6 +187,11 @@ def test_the_zarr_GENERATION_LABEL_and_the_fork_GENERATION_INDEX_agree(
     a shift-by-one nobody can see in the numbers, because both sides look
     internally consistent."""
     builds, emits, _out = _drive_pbg_lineage(monkeypatch, tmp_path)
+    # ⚠ ASSERT THE LENGTHS FIRST. `zip` truncates to the shorter list, so without
+    # this an emitter built ONCE (e.g. hoisted into `if gen == 0`) collapses every
+    # generation into generation 1's partition and this loop still passes — it
+    # would compare exactly one pair and call it agreement.
+    assert len(builds) == len(emits) == 3
     for agent_id, (emit_id, generation) in zip(builds, emits):
         assert len(agent_id) == generation
         assert emit_id == agent_id, (
@@ -262,3 +282,106 @@ def test_agent_id_lands_on_the_forks_own_config_key_BEFORE_the_build(monkeypatch
     assert at_build["agent_id"] == "00", (
         "the fork was built without the caller's agent_id, so LoadSimData read "
         "generation 1 and no internal_shift_dict entry could apply")
+
+
+# ---------------------------------------------------------------------------
+# The DECLARED composite — a second, independent surface
+# ---------------------------------------------------------------------------
+
+def test_declared_vecoli_composite_forwards_agent_id(monkeypatch):
+    """⭐ The `vecoli` composite generator is a SEPARATE hop with its own callers
+    (study YAML and the workbench), and nothing above this test touches it —
+    deleting its two forwarding lines left the whole suite green."""
+    from v2ecoli.composites import vecoli as vc
+
+    seen_build, seen_cfg = {}, {}
+
+    def _fake_build(**kw):
+        seen_build.update(kw)
+        return type("_H", (), {})()
+
+    def _fake_init(self, config=None, core=None):
+        seen_cfg.update(config or {})
+
+    monkeypatch.setattr(ve, "build_vivarium_ecoli", _fake_build)
+    monkeypatch.setattr(ve.VivariumEcoliProcess, "__init__", _fake_init)
+    monkeypatch.setattr(ve.VivariumEcoliProcess, "interface",
+                        lambda self: {"inputs": {}, "outputs": {}})
+    monkeypatch.setattr(vc, "_resolve_fork_config", lambda repo, cfg: (None, None))
+
+    doc = vc.vecoli(agent_id="000")
+
+    assert seen_build["agent_id"] == "000", (
+        "the declared composite built the fork as the founder while declaring "
+        "generation 3")
+    assert seen_cfg["agent_id"] == "000"
+    assert "000" in doc["state"]["agents"]
+
+
+def test_declared_agent_id_param_states_it_is_the_generation_index():
+    """⚠ The `parameters` description — NOT the function docstring — is what a
+    study author and the workbench read. While it called the key 'the agent key
+    under agents', a study could reasonably name two nodes `ref` and `test` and
+    silently get generations 3 and 4 of a staged schedule."""
+    from viva_superpowers.composite_generator import _REGISTRY, discover_generators
+    if not _REGISTRY:
+        discover_generators()
+    import v2ecoli.composites  # noqa: F401 — force registration
+    desc = _REGISTRY["v2ecoli.composites.vecoli.vecoli"].parameters["agent_id"]["description"]
+    low = desc.lower()
+    assert "generation" in low and "length" in low, (
+        "the declared description does not say the id's LENGTH is the fork's "
+        "generation index — the one thing a caller has to know before setting it")
+
+
+# ---------------------------------------------------------------------------
+# A saved initial state is keyed by the FOUNDER's id
+# ---------------------------------------------------------------------------
+
+def test_a_state_file_keyed_for_the_founder_fails_by_NAME_not_by_KeyError(monkeypatch):
+    """The fork indexes a saved state as `full_initial_state["agents"][agent_id]`.
+    Those files are written by the founder and carry "0", so a non-founder
+    generation raises a bare `KeyError: '00'` from inside the composer with
+    nothing naming the cause. Name it — and only when the missing key IS ours, so
+    an unrelated KeyError still propagates untouched."""
+    class _FakeSim:
+        def __init__(self):
+            self.config = {"processes": {}, "emit_paths": []}
+            self.generated_initial_state = {}
+            self.ecoli = type("_C", (), {"processes": {}, "steps": {}, "flow": {},
+                                         "topology": {}})()
+
+        @classmethod
+        def from_cli(cls):
+            return cls()
+
+        def build_ecoli(self):
+            raise KeyError(self.config["agent_id"])
+
+    monkeypatch.setattr(ve, "_ensure_upstream", lambda: {"EcoliSim": _FakeSim})
+    with pytest.raises(KeyError, match="no key|founder"):
+        ve.build_vivarium_ecoli(sim_data_path="/nonexistent.cPickle", agent_id="00")
+
+
+def test_an_unrelated_KeyError_is_NOT_relabelled(monkeypatch):
+    """⚠ The other half. A rescue that swallows every KeyError would hide real
+    composer failures behind a confident, wrong explanation."""
+    class _FakeSim:
+        def __init__(self):
+            self.config = {"processes": {}, "emit_paths": []}
+            self.generated_initial_state = {}
+            self.ecoli = type("_C", (), {"processes": {}, "steps": {}, "flow": {},
+                                         "topology": {}})()
+
+        @classmethod
+        def from_cli(cls):
+            return cls()
+
+        def build_ecoli(self):
+            raise KeyError("some_other_missing_key")
+
+    monkeypatch.setattr(ve, "_ensure_upstream", lambda: {"EcoliSim": _FakeSim})
+    with pytest.raises(KeyError) as ei:
+        ve.build_vivarium_ecoli(sim_data_path="/nonexistent.cPickle", agent_id="00")
+    assert "some_other_missing_key" in str(ei.value)
+    assert "founder" not in str(ei.value)

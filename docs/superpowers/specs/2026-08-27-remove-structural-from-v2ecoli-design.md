@@ -18,11 +18,24 @@ rename churn.
 
 ## Current state (verified 2026-08-27, off `origin/main`)
 
-- The authoritative, newest structural stack lives in **v2ecoli `origin/main`**
-  (`326f42ab`). `3d-ecoli` (`main`, package `ecoli_3d`) is a **stale ancestor** —
-  it has only an early `ecoli_3d/build.py` bridge + `composite.py` + publish
-  scripts + tests, and is **not** a viva workspace (no `workspace.yaml`). Its
-  `build.py` is superseded by v2ecoli's `structural/build.py`.
+- **The two repos diverged into two paradigms — neither is simply "stale".**
+  - **3d-ecoli** (`main`, package `ecoli_3d`) is a complete, working standalone
+    3D-model repo: a **richer** `ecoli_3d/build.py` (~1440 lines: full
+    transcription/translation/septum/flagella; last touched 2026-06-27), a
+    **snapshot** composite (`parsimony-ecoli` / `EcoliStructuralStep` — reads a
+    committed `.npz` state and packs once via `build_model`), committed state
+    snapshots, a publish→R2 pipeline, and a webapp. It is **not** yet a viva
+    workspace (no `workspace.yaml`).
+  - **v2ecoli `origin/main`** (`326f42ab`) carries a **different, slimmer**
+    structural stack (`structural/build.py` ~519 lines; last committed
+    2026-07-25): `EcoliPackStep` / `baseline_parsimony` — which packs **during a
+    live baseline sim** at declared snapshot times (`pack_from_state` + live
+    extractors `bulk_to_counts`/`bulk_to_locations`/`chromosome_state_from_live`/
+    `rnaps_from_live`). This is what the `structural-ecoli` investigation runs on.
+  - The `structural-ecoli` investigation's own `findings` say its live-sim results
+    are **unverified/scaffolded** — packs were never committed, the pipeline can't
+    run in the canonical env (parsimony binary absent), and its acceptance gate is
+    wired to **SKIP**. Its real deliverable was the acceptance-gate scaffolding.
 - **The only coupling that makes the *plain* baseline pull in `pbg_parsimony`:**
   `v2ecoli/composites/ecoli_baseline.py` (~L1166–1179) unconditionally registers
   `ShapeStep` and appends a `shape_step` layer; `v2ecoli/cell_shape.py` does
@@ -45,6 +58,13 @@ rename churn.
 2. **`3d-ecoli` is promoted to a viva workspace** (add `workspace.yaml` + register
    `ecoli_3d` as the workspace package) so the `structural-ecoli` investigation and
    the `s01-birth-and-division` study move over intact and run via the workbench.
+3. **Unify on 3d-ecoli's builder.** 3d-ecoli's richer `ecoli_3d/build.py` is THE
+   single builder. v2ecoli's `structural/build.py` is **deleted**, not migrated.
+   We bring v2ecoli's `EcoliPackStep` + `baseline_parsimony` composite +
+   `acceptance.py` + the investigation/study into 3d-ecoli, and **re-point the pack
+   step at `ecoli_3d.build`** by giving that module the 5 live-state entry points
+   the step imports (`bulk_to_counts`, `bulk_to_locations`,
+   `chromosome_state_from_live`, `rnaps_from_live`, `pack_from_state`).
 
 ## Design
 
@@ -103,20 +123,59 @@ Worktree: `~/code/v2ecoli--remove-ecoli-3d` (branch `remove-structural-from-v2ec
 
 Worktree: `~/code/3d-ecoli--consolidate` (branch `consolidate-structural`).
 
-**B1. Take v2ecoli's newer structural code as source of truth.** Lift into `ecoli_3d/`:
-- `structural/build.py` → replace the stale `ecoli_3d/build.py` (envelope /
-  compartment routing, live RNAP/replication state).
-- `structural/pack_step.py` (`EcoliPackStep`), `structural/acceptance.py`, and the
-  `structural/data/` assets.
-- The `ecoli_structural` / `baseline_parsimony` composite → `ecoli_3d`, adapted:
-  it wraps `v2ecoli.composites.ecoli_baseline.baseline` (which already appends the
-  parsimony-free `ShapeStep`) and appends `EcoliPackStep`.
+**B1. Give `ecoli_3d/build.py` the live-state entry points (unify on B's builder).**
+3d-ecoli's `build.py` stays THE builder; add the 5 public symbols
+`EcoliPackStep` imports, with v2ecoli's exact signatures:
+- **Near-mechanical ports** (lift verbatim from v2ecoli `structural/build.py`):
+  `bulk_to_counts(bulk)`, `bulk_to_locations(bulk)` (+ its `_TAG_TO_COMPARTMENT`),
+  `chromosome_state_from_live(full_chromosome, active_replisome=None)`,
+  `rnaps_from_live(active_rnap, full_chromosome=None, chromosome_domain=None)`
+  (+ the `_active_rows` helper). B already has identical `classify_domains` /
+  `_descendant_domains_set` and `REPLICHORE_BP`, so these bind cleanly.
+- **The real refactor** — `pack_from_state(out_dir, name, counts, volume_fl,
+  locations=None, *, top_n=40, scale=0.3, proxy_lod=2, relax=False,
+  cache_dir="out/cache", relax_params=None, envelope=True, periplasm_gap_A=250.0,
+  rnaps=None, n_chromosomes=1, fork_fraction=0.0)`: extract B's in-memory core
+  (ingredient assembly + `Chromosome` + `build_pack`) out of `build_model` so it
+  is callable with **passed-in** `counts/volume_fl/locations/rnaps/
+  n_chromosomes/fork_fraction`. `build_model` becomes the file-reading wrapper
+  (`pack_from_state(*load_state(state_source), rnaps=…, n_chromosomes=…, …)`),
+  preserving B's snapshot path unchanged. Keep B's richer placement semantics
+  (70S/RNAP count=0 → placed via markers/chromosome stage), fed by the live
+  `rnaps` list. Thread `relax`/`relax_params` through (port B a `relax_ingredients`
+  step, or no-op when `relax=False` initially — relax is opt-in).
+- **Reconcile the routing input:** B's `select_ingredients` routes by tag LETTER
+  via `_route_envelope`; A's `pack_from_state` passes `locations` as
+  parsimony-compartment NAMES. Standardize `pack_from_state` on B's convention
+  (tag letters via `bulk_to_locations`→`_route_envelope`) so the one builder has a
+  single routing path.
 
-**B2. Own the Capsule construction.** Add the small parsimony-facing layer that A1
-removed from v2ecoli — e.g. `ecoli_3d/cell_shape.py` with
-`capsule_from_shape(shape_dict) -> Capsule` and `envelope_from_shape(...)` using
-`pbg_parsimony.Capsule`. All `from v2ecoli.cell_shape import ...` in `build.py`
-become: import `shape_from_mass` for numbers, build Capsules locally.
+**B2. Reconstruct `Capsule` locally from numeric fields.** B's only `cell_shape`
+consumption is `build_model` (B:1214–1224), which reads the Capsule OBJECTS
+`shape["capsule"]` / `shape["envelope"]["outer_membrane"|"inner_membrane"]`. After
+v2ecoli A1 makes `shape_from_mass` return plain numbers, rebuild locally:
+```python
+from pbg_parsimony import Capsule
+capsule = Capsule(half_len=shape["half_len_A"], radius=shape["radius_A"])
+inner   = Capsule(half_len=shape["inner_half_len_A"], radius=shape["inner_radius_A"])
+envelope = {"outer": capsule, "inner": inner}
+```
+(`pack_from_state`'s own in-memory path builds the envelope from
+`Capsule.from_volume_fl(volume_fl)` + `periplasm_gap_A`, as v2ecoli's A did.) These
+are B's sole `pbg_parsimony.Capsule` construction sites — the import stays in
+3d-ecoli, where parsimony belongs.
+
+**B1b. Bring `EcoliPackStep`, the composite, and `acceptance.py`** into `ecoli_3d/`:
+- `pack_step.py` → `ecoli_3d/pack_step.py`, import line changed to
+  `from ecoli_3d.build import (pack_from_state, bulk_to_counts, bulk_to_locations,
+  chromosome_state_from_live, rnaps_from_live)`; `_default_core` still uses
+  `v2ecoli.core.build_core`.
+- `ecoli_structural.py` (`baseline_parsimony`) → `ecoli_3d/`, wrapping
+  `v2ecoli.composites.ecoli_baseline.baseline` and appending the `ecoli_3d`
+  `EcoliPackStep` (registry key becomes `ecoli_3d.<module>.baseline_parsimony`).
+- `structural/acceptance.py` → `ecoli_3d/acceptance.py`.
+- 3d-ecoli keeps its existing `parsimony-ecoli` / `EcoliStructuralStep` snapshot
+  composite too — both now sit on the one `build.py`.
 
 **B3. Promote to a viva workspace.**
 - Add `workspace.yaml` registering `ecoli_3d` as the workspace package + the

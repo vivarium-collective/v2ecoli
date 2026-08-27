@@ -1,1 +1,0 @@
-{"investigation": "structural-ecoli", "studies": [{"id": "study/s01-birth-and-division", "slug": "s01-birth-and-division", "type": "study", "label": "s01-birth-and-division", "status": "gate-defined-sim-blocked", "confidence": "Planned"}], "study_edges": [], "chains": {"s01-birth-and-division": {"nodes": [], "edges": [], "violations": [], "derived": false}}}

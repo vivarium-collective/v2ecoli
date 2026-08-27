@@ -200,6 +200,34 @@ def build_vivarium_ecoli(
     # preload itself is best-effort — on failure EcoliSim just loads
     # sim_data_path natively — EXCEPT when a variant is requested: we must not
     # silently run the unperturbed baseline, so a preload failure there is loud.
+    # ⛔⛔ REFUSE AT THE POINT OF DISCARD. Every `apply_variant` gate below is
+    # `_cfgfile and int(variant)`, so a caller that requests a variant WITHOUT the
+    # whole-config route had it silently dropped: threaded all the way here, then
+    # ignored, and the run completed as the unperturbed baseline. That is the
+    # exact substitution the variant machinery exists to prevent, reintroduced one
+    # layer down from where anyone was looking.
+    # ⚠ CORRECTED, and read this before deleting the refusal as dead code. It
+    # WAS the default for a config declaring `variants` alongside `swap_processes`
+    # and nothing else — `_needs_native` auto-enabled only on
+    # `add_processes`/`spatial_environment_config`, so such a config took the swap
+    # route and the gate could never pass (measured: variant=1, whole_config=None,
+    # apply_variant never called). The caller now auto-enables the native route
+    # whenever a config DECLARES variants, so that path is no longer reachable
+    # through `run_comparison_ensemble`.
+    # ⇒ The refusal stays because it defends the INVARIANT, not that one caller:
+    # `build_vivarium_ecoli` has ~6 call sites and is importable directly. A
+    # requested variant that cannot be applied must never degrade to baseline,
+    # whoever asks. It is also what makes the `variant` stamp in `metadata_base`
+    # below true by construction.
+    # ⇒ A requested variant that cannot be applied is an ERROR, not a default.
+    if int(variant) and not _cfgfile:
+        raise ValueError(
+            f"variant {int(variant)} was requested but no whole-config was loaded, "
+            f"so the config's `variants` block is unreachable and the variant "
+            f"would be silently discarded — the run would be the unperturbed "
+            f"baseline. Pass the driving config as `whole_config` (the caller's "
+            f"`--vecoli-whole-config on` forces it), or request variant 0.")
+
     _sd_obj = None
     _variant_simdata_tmp = None   # temp pickle holding variant-mutated sim_data
     try:
@@ -897,8 +925,15 @@ def run_vivarium_ecoli_pbg_multigen(
     load that config NATIVELY instead of the default baseline — so a config whose
     model content can't be expressed as ``swap_processes``/``flow`` (one declaring
     ``add_processes`` and/or a ``spatial_environment_config``) runs faithfully as
-    one node. Scoped to this call (restored in ``finally``) for deterministic
-    isolation.
+    one node. ⊕ A config declaring a ``variants`` block also needs this route,
+    because ``apply_variant`` runs only when a whole-config was loaded.
+    ⚠ The module-level config file is set here and reset by a bare trailing
+    statement AFTER the generation loop — **not** in a ``finally``, despite what
+    an earlier version of this docstring claimed. An exception out of this
+    function therefore leaves it set process-wide. Tolerable today only because
+    no in-process caller consumes it afterwards (the sequential seed path has no
+    per-seed ``except``, and Ray gives each seed its own worker) — **not**
+    because the isolation is real.
 
     Each generation is a one-node pbg ``Composite`` (``VivariumEcoliProcess``) driven by
     ``composite.run``; a per-generation ``XArrayEmitter`` writes a ``generation=N``
@@ -949,7 +984,23 @@ def run_vivarium_ecoli_pbg_multigen(
         _view_vars["observable_bulk"] = {
             i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}
     view = [{"root": ("listeners",), "variables": _view_vars}]
+    # ⚠ `variant` here is a PROVENANCE CLAIM stamped into every zarr partition,
+    # and it is true only because `build_vivarium_ecoli` REFUSES a variant it
+    # cannot apply. Before that refusal existed, a variant could be threaded this
+    # far, recorded here, and then silently discarded at the `_cfgfile and
+    # int(variant)` gate — so the store asserted a perturbation that never ran,
+    # and every downstream reader (report card, sidecar, published artifact)
+    # would have repeated the claim.
+    # ⛔ If that refusal is ever weakened, this line starts lying again. They are
+    # one invariant in two places; do not separate them.
     metadata_base = {
+        # ⭐ THE ROUTE IS PROVENANCE. It changes the PROCESS SET — the native path
+        # carries `exclude_processes: ['exchange_data']`, so metabolism's uptake
+        # bounds are set by a Step that runs on one route and not the other — and
+        # until now nothing in the store recorded which route produced it. Two
+        # zarrs graded against each other could differ by route with no way to
+        # detect it. One key makes that confound visible.
+        "whole_config_route": bool(whole_config),
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),
         "max_duration": float(max_generations * max_steps_per_gen),

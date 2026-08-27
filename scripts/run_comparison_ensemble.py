@@ -59,6 +59,58 @@ _UPSTREAM_SIMDATA_FALLBACK = (
     "kb/simData.cPickle")
 
 
+def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[str]:
+    """Names in the driving config's ``variants`` block, or ``[]``.
+
+    ⛔⛔ RESOLVES ``inherit_from`` — reading the raw JSON is NOT equivalent, and an
+    earlier version of this docstring justified doing so by saying it "runs before
+    any fork import". That was FALSE: ``load_config_with_inheritance`` is
+    v2ecoli's own loader, no fork import is involved, and the same resolution
+    already happens on this code path. There was no import cost being avoided —
+    only a lost ``inherit_from`` branch, in which a child config that declares no
+    ``variants`` of its own inherits one from its parent. The guard would then see
+    nothing, stay silent, and let the run proceed with the variant unchosen: the
+    precise omission it exists to catch.
+
+    ⚠ A config we cannot read yields ``[]`` and the guard stays silent, which is
+    the right failure direction for a check aimed at an OMISSION — a broken config
+    should surface as the loader's own error further down, not as this guard's.
+    """
+    if not from_vecoli_config:
+        return []
+    path = from_vecoli_config
+    if not os.path.isabs(path):
+        path = os.path.join(vecoli_dir or "", from_vecoli_config)
+    try:
+        # ⛔⛔ THE SAME RESOLVER THE ROUTE USES — and that is the whole point.
+        # This guard and the route decision both ask "does this config declare
+        # variants?", and they must not answer differently. An earlier version
+        # called `load_config_with_inheritance` directly while the route read
+        # `resolve_vecoli_config_local`'s output; the two disagreed on **10 of 86**
+        # real fork configs, because the adapter FALLS BACK to a flat read when the
+        # strict loader raises (`TypeError: unhashable type` out of `_merge_configs`
+        # on 8 of them, `FileNotFoundError` on a nested-directory config).
+        # ⇒ On those, the route said "config declares variants" and switched route,
+        # while this guard said it did not and let the run proceed with
+        # `variant = 0`: the reference arm ran the UNVARIED strain, healthy-looking,
+        # unrecorded — precisely the omission this guard exists to catch, in the
+        # same process that had already seen the variants.
+        # ⚠ Picking the stricter resolver was the wrong instinct: it raises on
+        # configs the adapter reads fine, and a guard that fails OPEN on a parse
+        # error is worse than one that never consulted inheritance at all.
+        from scripts._compare.config_adapter import resolve_vecoli_config_local
+        cfg = resolve_vecoli_config_local(from_vecoli_config, vecoli_dir)
+        variants = cfg.get("variants") or {}
+        return sorted(variants.keys())
+    except Exception:  # noqa: BLE001 — unreadable config is not this guard's business
+        # ⚠ `.get`/`.keys()` are INSIDE the try on purpose. They were outside it,
+        # so a `variants` key that was a list, or a top-level JSON array, raised
+        # `AttributeError` out of a helper whose docstring promises `[]` — turning
+        # a schema typo into a bare traceback from an argument check, before the
+        # loader that would have reported it properly ever ran.
+        return []
+
+
 def _spec_from_vecoli_config() -> str | None:
     """``from_vecoli_config`` from the comparison_spec.json baked into the image.
 
@@ -644,15 +696,24 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  exchange_fluxes: dict | None = None,
                  exchange_flux_basis: str = "counts",
                  observables: list | None = None,
-                 observable_bulk_ids: list | None = None):
+                 observable_bulk_ids: list | None = None,
+                 variant: int = 0):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
 
     ``vecoli_whole_config`` controls the genuine-vEcoli (``--composite vecoli``)
     reference route for a ``--from-vecoli-config`` run: ``auto`` (default) loads the
     fork config NATIVELY as one WCM node whenever its model content can't be
     expressed as ``swap_processes``/``flow`` (it declares ``add_processes`` or
-    ``spatial_environment_config``); ``on`` forces native whole-config; ``off`` keeps
-    the swap/flow route. Native loading is faithful-by-construction for ANY fork
+    ``spatial_environment_config``) **or it declares a ``variants`` block**, since
+    ``apply_variant`` runs only on the native route; ``on`` forces native
+    whole-config; ``off`` keeps the swap/flow route.
+    ⛔ The route CHANGES THE PROCESS SET — the native path carries
+    ``exclude_processes: ['exchange_data']``, which ``build_vivarium_ecoli`` MERGES
+    with the caller's list, so ``ExchangeData`` (metabolism's uptake bounds) is
+    absent there and present on the swap route. It is therefore chosen from the
+    CONFIG and never from the ``variant`` INDEX: keying it on the index would put a
+    ``variant 0`` baseline arm on a different model from the variant arm it exists
+    to control for. Native loading is faithful-by-construction for ANY fork
     (``$V2E_VECOLI_DIR``).
 
     ``exchange_fluxes`` ({leaf: exchange_key}) emits named environment.exchange
@@ -722,14 +783,49 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # environment can't be expressed that way, so the faithful reference is
             # that config run NATIVELY as one WCM node. Auto-enable when such content
             # is present; `on`/`off` override.
-            _needs_native = bool(resolved_ve.get("add_processes")
-                                 or resolved_ve.get("spatial_environment_config"))
+            # ⭐ A REQUESTED VARIANT ALSO NEEDS THIS ROUTE. `apply_variant` runs
+            # only when the reference arm loaded a whole-config, so a config that
+            # declares `variants` alongside `swap_processes` — and neither of the
+            # two keys below — took the swap route and had its variant silently
+            # dropped. The engine now refuses that combination outright; this is
+            # what stops the refusal from firing on every study that legitimately
+            # declares a variant.
+            # ⚠ The REASON is kept alongside the decision, because the message
+            # below reports it and a wrong reason sends the next reader after the
+            # wrong thing. This line previously always said "add_processes/spatial
+            # detected", which became false the moment a variant could trigger the
+            # route — observed on a real run within the hour.
+            # ⛔⛔ KEYED ON WHETHER THE CONFIG *DECLARES* VARIANTS, NOT ON WHICH
+            # INDEX WAS CHOSEN — and that distinction is the whole point.
+            # An earlier version tested `int(variant or 0)`, so `--variant 0` took
+            # the swap route while `--variant 1` took the native one. Those are NOT
+            # the same model: the native path carries
+            # `exclude_processes: ['exchange_data']`, which `build_vivarium_ecoli`
+            # MERGES with the caller's list rather than replacing it, so
+            # `ExchangeData` — the Step that writes metabolism's uptake bounds —
+            # runs on one arm and not the other. That is exactly what the
+            # exchange-flux cards grade.
+            # ⇒ `--variant 0` exists so a study can declare a DELIBERATE BASELINE
+            # reference arm, i.e. the CONTROL for the variant arm. Keying the route
+            # on the index made the control a different model from the treatment,
+            # with nothing — zarr metadata, sidecar, card — recording which route
+            # ran. Worse than the discarded-variant bug it replaced: that one
+            # merely ran the baseline; this silently confounds the perturbation
+            # with a model change.
+            # ⇒ The CONFIG selects the route; the INDEX selects only what
+            # `apply_variant` does. Both arms therefore stay on one route.
+            _native_why = ("add_processes/spatial detected"
+                           if (resolved_ve.get("add_processes")
+                               or resolved_ve.get("spatial_environment_config"))
+                           else "config declares variants"
+                           if resolved_ve.get("variants") else "")
+            _needs_native = bool(_native_why)
             _mode = (vecoli_whole_config or "auto").lower()
             if _mode == "on" or (_mode == "auto" and _needs_native):
                 ve_whole_config = from_vecoli_config
                 print(f"[from-vecoli-config] vecoli side: WHOLE-CONFIG WCM node "
                       f"(loads {from_vecoli_config} natively"
-                      + (" — add_processes/spatial detected" if _mode == "auto" else "")
+                      + (f" — {_native_why}" if _mode == "auto" and _native_why else "")
                       + ")")
         except Exception as e:  # noqa: BLE001
             print(f"[warn] vecoli from-vecoli-config resolve failed: "
@@ -771,7 +867,21 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
-                variant=0, lineage_seed=seed, whole_config=ve_whole_config,
+                # ⛔⛔ WAS HARDCODED `variant=0`, AND THAT IS A NO-OP THAT LOOKS
+                # LIKE A RUN. `_select_variant_params` treats `variant_index <= 0`
+                # as "baseline", so the fork's `ecoli.variants.<name>.apply_variant`
+                # was NEVER CALLED on the reference arm — no matter what the
+                # driving config declared. For a config whose variant carries the
+                # strain itself (a new-gene expression/translation-efficiency
+                # vector) plus its induction schedule, that silently ran a
+                # DIFFERENT STRAIN with induction disabled, and emitted a
+                # complete-looking reference arm for it.
+                # ⚠ `apply_variant` is also what CREATES `sim_data.internal_shift_dict`
+                # — so with variant 0 there is no induction schedule to consult at
+                # all, and a generation counter pointed at it can only ever read
+                # nothing. Any "staged induction does not fire" diagnosis has to
+                # rule this out FIRST; it is upstream of the counter.
+                variant=variant, lineage_seed=seed, whole_config=ve_whole_config,
                 exchange_fluxes=exchange_fluxes,
                 exchange_flux_basis=exchange_flux_basis, observables=observables,
                 observable_bulk_ids=observable_bulk_ids)
@@ -981,13 +1091,27 @@ def main(argv=None):
                    help="Path to the genuine vEcoli simData.cPickle used as the "
                         "matched-initial-state reference (default: the upstream "
                         "fallback). Required when that fallback is absent.")
+    p.add_argument("--variant", type=int, default=None,
+                   help="1-based index into the driving config's `variants` block, "
+                        "applied to the REFERENCE (--composite vecoli) arm via the "
+                        "fork's own ecoli.variants.<name>.apply_variant. 0 means "
+                        "baseline (no variant applied) and must be given "
+                        "EXPLICITLY: when the config declares variants and this is "
+                        "omitted, the run refuses rather than silently running the "
+                        "unvaried strain. The candidate arm takes its perturbation "
+                        "from --cache-dir instead, so this does not apply to it.")
     p.add_argument("--vecoli-whole-config", choices=["auto", "on", "off"],
                    default="auto",
                    help="Genuine-vEcoli (--composite vecoli) reference route for a "
                         "--from-vecoli-config run: 'auto' (default) loads the fork "
                         "config NATIVELY as one WCM node when it declares "
-                        "add_processes or spatial_environment_config (which "
-                        "swap_processes/flow can't express); 'on' forces it; 'off' "
+                        "add_processes, spatial_environment_config (which "
+                        "swap_processes/flow can't express), OR a `variants` block "
+                        "(applying a variant requires the native route). NOTE the "
+                        "route changes the PROCESS SET (the native path excludes "
+                        "ExchangeData), so it is selected per CONFIG and never per "
+                        "--variant index — otherwise a baseline arm would not be "
+                        "comparable to a variant arm. 'on' forces it; 'off' "
                         "keeps the swap/flow route. Faithful-by-construction for any "
                         "fork ($V2E_VECOLI_DIR).")
     p.add_argument("--exchange-flux", action="append", default=[],
@@ -1041,6 +1165,32 @@ def main(argv=None):
                or _spec_from_vecoli_config())
     vecoli_dir = os.environ.get("V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
+    # ⛔⛔ A DECLARED VARIANT MUST BE CHOSEN, NOT DEFAULTED. The reference arm
+    # applies `--variant` and the candidate arm does not (its perturbation is
+    # baked into --cache-dir), so an omitted flag on the reference arm is a
+    # silent substitution of the unvaried strain — the same family as the
+    # `--from-vecoli-config` resolve failure that warns and CONTINUES. The flag
+    # selects WHAT IS BEING COMPARED, so failing to choose does not degrade the
+    # comparison, it replaces it. Refuse instead; `--variant 0` is how you say
+    # "baseline, deliberately".
+    # ⚠ `< 0` REFUSED HERE TOO. `variant_from_study_yaml` already rejects it, but
+    # argparse did not — and `_select_variant_params` treats any index <= 0 as
+    # "baseline", so a typo'd `--variant -1` silently ran the unperturbed model on
+    # the one arm this whole guard exists to protect. Two entry points must not
+    # disagree about whether the same value is valid.
+    if args.variant is not None and args.variant < 0:
+        p.error(f"--variant must be >= 0 (got {args.variant}); 0 selects the "
+                f"baseline deliberately, and >= 1 indexes the config's variants")
+    variant = int(args.variant or 0)
+    if args.composite == "vecoli" and args.variant is None:
+        _declared = _declared_variants(from_vc, vecoli_dir)
+        if _declared:
+            p.error(
+                f"{from_vc} declares variants {_declared} but --variant was not "
+                f"given, so the reference arm would run the BASELINE strain with "
+                f"any induction schedule absent. Pass --variant 1 for the first "
+                f"grid point, or --variant 0 to run baseline deliberately.")
+
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
     seeds = list(range(args.seed_start, args.seed_start + args.n_seeds))
     run_one = make_run_one(
@@ -1059,7 +1209,7 @@ def main(argv=None):
         vecoli_whole_config=args.vecoli_whole_config,
         exchange_fluxes=exchange_fluxes,
         exchange_flux_basis=args.exchange_flux_basis, observables=observables,
-        observable_bulk_ids=observable_bulk_ids)
+        observable_bulk_ids=observable_bulk_ids, variant=variant)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
     # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).

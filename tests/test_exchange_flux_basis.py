@@ -1167,3 +1167,264 @@ def test_the_REAL_cli_n_seeds_reaches_the_sidecar(monkeypatch, tmp_path):
     assert (doc["seeds"], doc["generations"]) == (4, 3), doc
     assert basis_from_runs({"v2_dir": str(tmp_path),
                             "ve_dir": str(tmp_path)}) == ("gdcw", "")
+
+
+# --------------------------------------------------------------------------- #
+# THE VARIANT'S HOPS — the ones a declaration-and-argv test cannot see.
+#
+# ⛔ WHY THESE EXIST. `--variant` was added with coverage at YAML -> StudySpec and
+# at StudySpec -> argv, and none between argv and the engine. Reverting the fix
+# outright (`variant=variant` back to `variant=0` at the engine call) left the
+# whole suite GREEN. The bug the flag was written to fix lived in exactly the
+# untested hop: the value arrived at the engine and was then discarded, because
+# `apply_variant` runs only on the whole-config route and the driving config did
+# not auto-enable it.
+# --------------------------------------------------------------------------- #
+def test_the_CLI_hands_the_parsed_variant_to_make_run_one(monkeypatch, tmp_path):
+    """Hop 1: main() -> make_run_one(variant=...)."""
+    import scripts.run_comparison_ensemble as rce
+    import v2ecoli.library.parallel_seeds as ps
+    seen = {}
+    monkeypatch.setattr(rce, "make_run_one",
+                        lambda **kw: (seen.update(kw), (lambda s: {}))[1])
+    monkeypatch.setattr(ps, "run_seeds_parallel", lambda seeds, run_one, **kw: [])
+    rce.main(["--composite", "vecoli", "--condition", "basal", "--variant", "2",
+              "--cache-dir", str(tmp_path), "--n-seeds", "1",
+              "--out-root", str(tmp_path), "--mode", "serial"])
+    assert seen["variant"] == 2
+
+
+def test_run_one_hands_the_variant_to_the_REFERENCE_engine(monkeypatch, tmp_path):
+    """⭐ Hop 2: make_run_one's closure -> run_vivarium_ecoli_pbg_multigen(variant=...).
+
+    THE HOP THAT WAS MISSING. Captured at the call, because a caller that stops
+    forwarding the keyword still satisfies every signature check while every
+    reference run silently reverts to the unperturbed baseline.
+    """
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=3)
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert seen["variant"] == 3, (
+        "the reference arm was built on a different variant than was requested")
+
+
+def test_a_requested_variant_that_CANNOT_be_applied_is_REFUSED(monkeypatch, tmp_path):
+    """⛔⛔ THE INVARIANT, at the point of discard.
+
+    Every `apply_variant` gate is `_cfgfile and int(variant)`, so without a
+    whole-config the variant is threaded to the engine and then ignored — the run
+    completes as the unperturbed baseline while its metadata records the variant
+    as applied. Measured on a real config before the fix: variant=1,
+    whole_config=None, apply_variant never called.
+
+    ⚠ The refusal and the provenance stamp in `metadata_base` are ONE invariant in
+    two places. If this test is ever deleted, that stamp starts lying.
+    """
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    with pytest.raises(ValueError, match="silently discarded|whole-config"):
+        vee.build_vivarium_ecoli(
+            sim_data_path=str(tmp_path / "nope.cPickle"), condition="basal",
+            seed=0, variant=1)
+
+
+def test_variant_zero_needs_no_whole_config(monkeypatch, tmp_path):
+    """The refusal is about a variant that would be DROPPED. Baseline drops
+    nothing, so it must not trip it — otherwise every unvaried study breaks."""
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    with pytest.raises(Exception) as ei:
+        vee.build_vivarium_ecoli(
+            sim_data_path=str(tmp_path / "nope.cPickle"), condition="basal",
+            seed=0, variant=0)
+    assert "silently discarded" not in str(ei.value), (
+        "variant 0 tripped the missing-whole-config refusal")
+
+
+def test_a_declared_variant_AUTO_ENABLES_the_whole_config_route(monkeypatch, tmp_path):
+    """⭐ The other half of the invariant: the refusal must not fire on a study
+    that legitimately declares a variant.
+
+    A config declaring `variants` alongside `swap_processes` — and neither
+    `add_processes` nor `spatial_environment_config` — took the swap route, where
+    the variant cannot be applied. Requesting one now auto-enables the route that
+    can apply it, so the refusal above stays a genuine error rather than a wall.
+    """
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    seen = {}
+
+    # ⚠ The stub MUST declare `variants` — that is what selects the route. An
+    # earlier stub omitted it and the route was keyed on the variant INDEX
+    # instead, which this test could not see. ⊕ Only the `config_adapter` patch
+    # binds: `make_run_one` imports the resolver INSIDE the function, so a
+    # module-level patch on `rce` never takes effect (it needed `raising=False`
+    # to not error, which is the tell). Removed.
+    import scripts._compare.config_adapter as ca
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=1,
+                       from_vecoli_config="configs/some_config.json")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert seen.get("whole_config"), (
+        "a requested variant did not enable the whole-config route, so "
+        "apply_variant could never run")
+
+
+def test_variant_ZERO_takes_the_SAME_ROUTE_as_a_variant_arm(monkeypatch, tmp_path):
+    """⛔⛔ THE BASELINE ARM AND THE VARIANT ARM MUST BE THE SAME MODEL.
+
+    `--variant 0` exists so a study can declare a DELIBERATE BASELINE reference
+    arm. That arm is the CONTROL for the variant arm, so the only thing allowed to
+    differ between them is what `apply_variant` does.
+
+    A previous fix keyed the whole-config route on `int(variant or 0)` — so
+    `variant 0` took the swap/flow route while `variant 1` took the native one.
+    Those are NOT the same model: the native path carries
+    `exclude_processes: ['exchange_data']`, which `build_vivarium_ecoli` MERGES
+    with the caller's list, so `ExchangeData` — the Step that writes metabolism's
+    uptake bounds — runs on one arm and not the other. Nothing in the zarr
+    metadata, the sidecar or the card records which route ran, so a
+    baseline-vs-variant comparison would silently confound the perturbation with a
+    model change.
+
+    ⇒ The route is selected by the CONFIG declaring `variants`, never by the index.
+    """
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    import scripts._compare.config_adapter as ca
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    routes = {}
+    for v in (0, 1):
+        seen.clear()
+        run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=v,
+                           from_vecoli_config="configs/some_config.json")
+        with pytest.raises(_Stop):
+            run_one(0)
+        routes[v] = bool(seen.get("whole_config"))
+    assert routes[0] == routes[1] is True, (
+        f"baseline and variant arms took DIFFERENT routes: variant 0 native="
+        f"{routes[0]}, variant 1 native={routes[1]} — the control is not the "
+        f"same model as the treatment")
+
+
+def test_a_config_that_DECLARES_variants_REFUSES_an_omitted_variant(monkeypatch, tmp_path):
+    """⛔⛔ THE REFUSAL ITSELF, which had NO coverage in any form.
+
+    Deleting `_declared_variants`' body, reverting its resolver, or removing the
+    `p.error` branch entirely all passed the full suite. The guard is the only
+    thing standing between "the study declared variants and the operator said
+    nothing" and a reference arm that silently runs the unvaried strain.
+
+    ⚠ It reads the config through the SAME resolver as the route decision. When
+    it used a stricter loader instead, the two disagreed on 10 of 86 real fork
+    configs — the route switching on variants the guard could not see — and the
+    guard failed OPEN on exactly those.
+    """
+    import scripts.run_comparison_ensemble as rce
+    import scripts._compare.config_adapter as ca
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    with pytest.raises(SystemExit):
+        rce.main(["--composite", "vecoli", "--condition", "basal",
+                  "--cache-dir", str(tmp_path), "--n-seeds", "1",
+                  "--from-vecoli-config", "configs/some_config.json",
+                  "--out-root", str(tmp_path), "--mode", "serial"])
+
+
+def test_a_config_with_NO_variants_needs_no_choice_and_stays_on_the_swap_route(
+        monkeypatch, tmp_path):
+    """⭐ THE NEGATIVE CASE, in both directions — the route rule's other corner.
+
+    Making the route unconditional (`if True`), or dropping the
+    `add_processes`/`spatial` trigger, or letting `--vecoli-whole-config off` be
+    ignored, all passed the suite: only the positive corner was pinned. A config
+    declaring NO variants must neither be refused nor switched to the native
+    route, or every unvaried study on this harness silently changes model.
+    """
+    import scripts.run_comparison_ensemble as rce
+    import scripts._compare.config_adapter as ca
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli",
+                       from_vecoli_config="configs/some_config.json")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert not seen.get("whole_config"), (
+        "a config declaring no variants was switched to the native route, which "
+        "changes the process set")
+
+
+def test_vecoli_whole_config_OFF_still_overrides_a_declared_variant(
+        monkeypatch, tmp_path):
+    """⛔ `off` is the operator's only escape back to the pre-branch swap route
+    for a variants-declaring config. Letting `_needs_native` bypass the mode
+    check passed the suite; nothing referenced `vecoli_whole_config` in tests."""
+    import scripts._compare.config_adapter as ca
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+    monkeypatch.setattr(ca, "resolve_vecoli_config_local",
+                        lambda cfg, fork: {"swap_processes": {"a": "b"},
+                                           "variants": {"some_pathway_shift": {}}})
+    seen = {}
+
+    def _fake(**kw):
+        seen.update(kw)
+        raise _Stop()
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen", _fake)
+    run_one = _run_one(monkeypatch, tmp_path, composite_kind="vecoli", variant=0,
+                       from_vecoli_config="configs/some_config.json",
+                       vecoli_whole_config="off")
+    with pytest.raises(_Stop):
+        run_one(0)
+    assert not seen.get("whole_config"), "--vecoli-whole-config off was ignored"
+
+
+def test_a_NEGATIVE_variant_is_refused_at_the_CLI(monkeypatch, tmp_path):
+    """⛔ TWO ENTRY POINTS MUST NOT DISAGREE ABOUT THE SAME VALUE.
+
+    `variant_from_study_yaml` rejects a negative index. argparse did not — and
+    `_select_variant_params` treats ANY index <= 0 as "baseline", so a typo'd
+    `--variant -1` skipped the missing-variant guard (it is not None) and then
+    silently ran the unperturbed model, on the one arm this whole flag exists to
+    protect. A study declaring `-1` errors; a command line passing it did not.
+    """
+    import scripts.run_comparison_ensemble as rce
+    with pytest.raises(SystemExit):
+        rce.main(["--composite", "vecoli", "--condition", "basal",
+                  "--variant", "-1", "--cache-dir", str(tmp_path),
+                  "--n-seeds", "1", "--out-root", str(tmp_path),
+                  "--mode", "serial"])

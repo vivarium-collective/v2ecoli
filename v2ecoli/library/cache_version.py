@@ -217,8 +217,51 @@ def _default_repo_root() -> str:
     collapses to a constant that never changes when the source changes — so the
     whole staleness check silently no-ops. Anchor to the package instead:
     this file is ``<repo>/v2ecoli/library/cache_version.py``.
+
+    Still used as the second/fallback candidate in :func:`candidate_repo_roots`,
+    and directly by any external caller that just wants "the v2ecoli source
+    root" without the installed-dependency two-root split.
     """
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def candidate_repo_roots() -> list[str]:
+    """Ordered, de-duplicated roots to search for an INPUT_FILES-style entry.
+
+    When v2ecoli is consumed as an INSTALLED dependency (e.g. sms-ecoli
+    depending on it via git), its SOURCE files live under the package
+    (``site-packages/v2ecoli/...``, anchored by :func:`_default_repo_root`)
+    but its DATA files (``models/parca/parca_state.pkl.gz``) live in the
+    consuming WORKSPACE — so no single root resolves both.
+
+    Returns the workspace root first (via ``viva_workspace.find_workspace_root``,
+    a chdir-safe upward walk to the nearest ``workspace.yaml`` — see that
+    function's docstring; it still works from inside a chdir'd ``.regen_*``
+    isolation dir as long as that dir nests under the workspace, same
+    guarantee :func:`_default_repo_root`'s docstring describes), then the
+    package/source root. Import is guarded: an environment with no
+    ``viva_workspace`` installed, or no ``workspace.yaml`` in any ancestor
+    (e.g. a bare `pip install v2ecoli` with no workspace at all), simply
+    falls back to the package root alone.
+
+    For a standalone v2ecoli checkout (this repo) both roots resolve to the
+    same directory, so this collapses to a single-entry list — identical to
+    the old single-root behavior.
+    """
+    roots: list[str] = []
+    try:
+        from viva_workspace import find_workspace_root
+        roots.append(str(find_workspace_root()))
+    except Exception:
+        pass
+    roots.append(_default_repo_root())
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for root in roots:
+        if root not in seen:
+            seen.add(root)
+            ordered.append(root)
+    return ordered
 
 
 def compute_cache_version(repo_root: str | None = None,
@@ -246,25 +289,34 @@ def compute_cache_version(repo_root: str | None = None,
     have to pass an empty list. Deliberately excluded from ``inputs_hash``
     — see the field docstring on ``CacheVersion.configs``.
     """
-    if repo_root is None:
-        repo_root = _default_repo_root()
+    # An explicit repo_root (tests, or a caller that already knows exactly
+    # where its files live) means "search only there" — the original,
+    # single-root behavior. repo_root=None means "resolve per entry against
+    # the workspace-then-package candidate roots" so a data file that only
+    # exists in the workspace (installed-dependency case) still resolves.
+    candidate_roots = [repo_root] if repo_root is not None else candidate_repo_roots()
     per_file: dict[str, str] = {}
     for rel in sorted(files):
-        path = os.path.join(repo_root, rel)
-        if not os.path.exists(path):
+        resolved_path = None
+        for root in candidate_roots:
+            path = os.path.join(root, rel)
+            if os.path.exists(path):
+                resolved_path = path
+                break
+        if resolved_path is None:
             # A vanished fingerprint input is a bug, not a state: hashing it
             # to a stable "MISSING" sentinel silently drops the file from
             # the fingerprint forever (its edits stop moving inputs_hash).
             # That is exactly how 5/11 INPUT_FILES went dead unnoticed after
             # the ecoli_* composite rename in 645fe178. Fail loudly instead.
             raise FileNotFoundError(
-                f"cache_version INPUT_FILES entry does not exist: {path!r} "
-                f"(from repo_root={repo_root!r}, rel={rel!r}). This file was "
+                f"cache_version INPUT_FILES entry does not exist: {rel!r} "
+                f"(tried roots: {candidate_roots!r}). This file was "
                 f"renamed or deleted without updating "
                 f"v2ecoli/library/cache_version.py:INPUT_FILES — see "
                 f"AGENTS.md 'Adding a new composite architecture' step 3."
             )
-        per_file[rel] = _hash_file(path)
+        per_file[rel] = _hash_file(resolved_path)
 
     if context is None:
         context = probe_context()

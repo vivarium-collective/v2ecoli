@@ -128,6 +128,104 @@ if _BaseQuantity is not Node:
 def resolve(schema: Quantity, update: Integer, path=()):
     return schema
 
+
+def _node_unit(node):
+    """Return a canonical pint ``Unit`` for a schema node, or ``None``.
+
+    A unit reaches a node in more than one representation, and they can meet at
+    a single store leaf during composite schema-merge:
+
+    * **declared** — ``float[mM]`` / ``quantity[mM]`` carry the unit as the
+      ``_units`` string (``'mM'``); a declared Quantity also has the ``units``
+      dict, a ``float[...]`` does not.
+    * **inferred** — a Quantity inferred from a pint default (``0.0 * mM``, e.g.
+      what a bridged process's ``translate_ports`` produces for a port) has an
+      EMPTY ``_units`` and only the ``units`` dict (``{'millimolar': 1}``).
+    * **units-less** — an inferred Quantity can also arrive as ``quantity[]``
+      (empty ``_units`` AND empty ``units`` dict) if it lost its unit upstream.
+
+    Normalizing through pint lets a declared ``float[mM]`` and an inferred
+    ``quantity(millimolar)`` compare equal. Returns the pint ``Unit`` (exact,
+    so mM != M — a real scale mismatch still surfaces), or ``None`` when no
+    unit is recoverable.
+    """
+    if node is None:
+        return None
+    u = getattr(node, '_units', '') or ''
+    if u:
+        try:
+            return ureg.Quantity(1, u).units
+        except Exception:
+            return None
+    d = getattr(node, 'units', None)
+    if d:
+        try:
+            return ureg.Quantity.from_tuple((1, tuple(d.items()))).units
+        except Exception:
+            return None
+    return None
+
+
+def _units_compatible(a, b) -> bool:
+    """Reconcilable unless BOTH sides carry a recoverable unit that differ.
+
+    Canonical pint units are compared (see :func:`_node_unit`) so a declared
+    ``float[mM]`` matches an inferred ``quantity(millimolar)`` despite the
+    different on-node representations. A side with NO recoverable unit — a bare
+    ``float``, or a Quantity that reached resolve as ``quantity[]`` — has
+    nothing to conflict with, so the authoritative typing wins. Only a DEFINITE
+    conflict (both units known, and different — e.g. ``uM`` vs ``mM``) is
+    unresolvable.
+    """
+    ua = _node_unit(a)
+    ub = _node_unit(b)
+    if ua is not None and ub is not None:
+        return ua == ub
+    return True
+
+
+def _unit_desc(node) -> str:
+    """Readable ``kind[unit]`` for a schema node, for diagnostics."""
+    kind = 'quantity' if isinstance(node, Quantity) else type(node).__name__.lower()
+    unit = _node_unit(node)
+    return f'{kind}[{unit if unit is not None else ""}]'
+
+
+def _unresolvable(schema, update, path) -> Exception:
+    at = f' at path {tuple(path)}' if path else ''
+    return Exception(
+        f'cannot resolve unit-incompatible schemas{at}:\n'
+        f'  {_unit_desc(schema)}\n  {_unit_desc(update)}\n')
+
+
+# A process may declare a port as ``quantity[<unit>]`` (a pint Quantity) over a
+# store v2 types as ``float[<unit>]`` (a bare magnitude) — e.g. a bridged
+# process's ``quantity[mM]`` port wiring onto ``boundary.external`` (declared
+# ``map[overwrite[float[mM]]]`` in Metabolism). The generic (Node, Node)
+# resolution has no Float<->Quantity case and raises
+# "cannot resolve types: Float[mM] vs Quantity[mM]".
+#
+# v2's ``float[<unit>]`` store is authoritative here: Metabolism reads
+# ``boundary.external`` as plain floats (see its inputs()), and EnvironmentMirror
+# strips pint at that boundary by design. So we resolve TOWARD the Float — the
+# store stays a magnitude (existing consumers unaffected) and the declaring
+# process receives that magnitude at its port (any Quantity-expecting arithmetic
+# there is a bounded, process-side magnitude fix, as done for the polypeptide
+# AA-import threshold). Only a definite unit conflict (both known, different)
+# still raises; a Quantity that arrives without a recoverable unit adopts the
+# store's Float.
+@resolve.dispatch
+def resolve(schema: Float, update: Quantity, path=()):
+    if _units_compatible(schema, update):
+        return schema
+    raise _unresolvable(schema, update, path)
+
+@resolve.dispatch
+def resolve(schema: Quantity, update: Float, path=()):
+    if _units_compatible(schema, update):
+        return update
+    raise _unresolvable(schema, update, path)
+
 @resolve.dispatch
 def resolve(schema: Tuple, update: List, path=()):
     # TODO: expand on this

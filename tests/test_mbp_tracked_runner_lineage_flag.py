@@ -169,15 +169,86 @@ class TestVariantDispatchInjectsTheFlag:
 
 
 class TestProvenanceMatchesWhatTheCompositeGot:
-    """The whole point of the change: the sidecar must never claim a flag the
-    composite did not receive. These pin the RELATIONSHIP between the two, which
-    the forwarding tests above do not -- they stop at the builder boundary.
+    """The point of the change: the sidecar must never claim a flag the composite
+    did not receive. These pin the RELATIONSHIP between the two, which the
+    forwarding tests above do not -- they stop at the builder boundary.
     """
+
+    @staticmethod
+    def _run_and_capture(mod, monkeypatch, builder_fn, **flags):
+        """Drive the real dispatcher to the point of writing provenance.
+
+        Returns the ``design`` dict handed to ``write_run_identity`` alongside the
+        kwargs the builder actually received, so a test can compare the two.
+        """
+        got = {}
+
+        def spy_builder(core, cache_dir, **kw):
+            got.update(kw)
+            return {"state": {}}
+
+        spy_builder.__signature__ = inspect.signature(builder_fn)
+        design = {}
+        monkeypatch.setattr(
+            mod, "write_run_identity",
+            lambda *a, **kw: design.update(kw.get("design", {})),
+        )
+        # Composite is imported inside the function, so patch it at the source.
+        monkeypatch.setattr(
+            "process_bigraph.Composite", lambda doc, core=None: object()
+        )
+        monkeypatch.setattr(
+            mod, "run_multigen_parquet",
+            lambda *a, **kw: {"generations": 0, "final_time": 0},
+        )
+        monkeypatch.setattr(mod, "_count_parquet_rows", lambda *a, **kw: 0)
+        mod._run_one_variant(
+            sim_name="x", study_slug="s", builder_fn=spy_builder,
+            builder_kwargs={}, extra_root_paths=[], duration_sec=1,
+            max_generations=1, chunk=1, cache_dir="out/cache", core=None,
+            emitter="parquet", **flags,
+        )
+        return design, got
+
+    def test_sidecar_never_claims_an_arrest_the_composite_did_not_get(
+        self, monkeypatch
+    ):
+        """The regression, stated behaviourally.
+
+        A builder that cannot take the arrest (14 of 15 variants) must produce a
+        sidecar recording ``false`` -- not the operator's request. Pre-fix this
+        recorded ``true`` while the composite got nothing.
+        """
+        mod = _runner_module()
+        design, got = self._run_and_capture(
+            mod, monkeypatch, mod._build_baseline,
+            single_daughters=True, carbon_exhaustion_arrest=True,
+        )
+        assert "carbon_exhaustion_arrest" not in got
+        assert design["carbon_exhaustion_arrest"] is False, (
+            "run_identity recorded an arrest the composite never received"
+        )
+
+    def test_sidecar_records_the_arrest_when_the_composite_does_get_it(
+        self, monkeypatch
+    ):
+        """The other direction, so the assertion above cannot pass vacuously by
+        the sidecar always saying False."""
+        mod = _runner_module()
+        design, got = self._run_and_capture(
+            mod, monkeypatch, mod._build_reactor_bird_coupled,
+            single_daughters=True, carbon_exhaustion_arrest=True,
+        )
+        assert got.get("carbon_exhaustion_arrest") is True
+        assert design["carbon_exhaustion_arrest"] is True
 
     def test_arrest_not_requested_builds_fine_on_a_pre_592_tree(self, monkeypatch):
         """The refusal must be scoped to an explicit True -- the default must stay
         buildable on an old tree, or the guard would impose a landing order on
         #592, which is what the signature guards exist to avoid.
+
+        Does NOT discriminate the fix (it also passes pre-fix); it guards against
+        an over-broad raise.
         """
         mod = _runner_module()
 
@@ -187,24 +258,4 @@ class TestProvenanceMatchesWhatTheCompositeGot:
         monkeypatch.setattr(
             "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled", pre_592
         )
-
         assert mod._build_reactor_bird_coupled(None, "out/cache") == {"state": {}}
-
-    def test_run_identity_records_the_effective_arrest_not_the_request(self):
-        """`run_identity` must be written from the EFFECTIVE value.
-
-        Belt-and-braces behind the refusal above: if a future edit ever softens
-        that raise, the sidecar must still not record an arrest that was dropped.
-        """
-        src = Path(mod_path()).read_text()
-        design = src.split("design={", 1)[1].split("}", 1)[0]
-        assert "carbon_exhaustion_arrest and _arrest_forwarded" in design, (
-            "run_identity must record the effective arrest value, not the "
-            "requested one"
-        )
-
-
-def mod_path():
-    return (
-        Path(__file__).resolve().parents[1] / "scripts" / "run_mbp_tracked.py"
-    )

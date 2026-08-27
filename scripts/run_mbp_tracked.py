@@ -48,8 +48,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import inspect
+import os
 import sqlite3
 import sys
 import time
@@ -484,17 +484,22 @@ def _run_one_variant(
     # the very lie this function exists to prevent. Its default is False, so an
     # explicit True that cannot be honoured is unambiguous -- fail loudly instead
     # of emitting a sidecar that claims a code path the run never took.
+    # Only the coupled variant models substrate exhaustion at all; the other 14
+    # builders have no arrest to enable and never will, on any tree. So an
+    # inapplicable variant is NOT an error -- raising here would abort the whole
+    # default sweep on variant 1 (`_build_baseline`) and blame a merge that has
+    # nothing to do with it. Skip it, say so, and let run_identity record the
+    # effective False, which is truthful. The genuine "you asked for something
+    # this tree cannot do" case is caught inside the coupled builder itself.
     _arrest_forwarded = "carbon_exhaustion_arrest" in _params
     if _arrest_forwarded:
         builder_kwargs = {**builder_kwargs,
                           "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
     elif carbon_exhaustion_arrest:
-        raise ValueError(
-            f"--carbon-exhaustion-arrest was requested but {builder_fn.__name__} "
-            "does not accept `carbon_exhaustion_arrest`, and no runner-side "
-            "fallback applies it. This tree predates v2ecoli#592. Refusing to "
-            "run: the sidecar would record an arrest the composite never "
-            "enabled."
+        print(
+            f"  NOTE: --carbon-exhaustion-arrest does not apply to {sim_name} "
+            f"({builder_fn.__name__} models no substrate exhaustion); "
+            "recording carbon_exhaustion_arrest=false for this variant."
         )
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")

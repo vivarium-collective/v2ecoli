@@ -202,6 +202,25 @@ class LineageProcess(Process):
         gen_seed = (int(self.config["seed"]) + self._generation) % (2 ** 31)
         overrides = dict(self.config.get("config_overrides") or {})
 
+        # Forward baseline()'s feature-selection kwargs from the config so an
+        # injected candidate arm actually engages the features it declares. In
+        # particular `mecillinam=True` is what appends the native cell_geometry
+        # deriver to the feature set (ecoli_baseline: it supplies
+        # periplasm/cytoplasm.global.volume + boundary.outer_surface_area); if
+        # the flag is dropped here, cell_geometry never runs, those volumes stay
+        # 0, and a downstream unit conversion (mol / (volume * N_A)) divides by
+        # zero. These default falsy/None, so forwarding is a no-op for configs
+        # that don't set them. The harness forwards them under
+        # `injected_processes`; fall back to a top-level config key.
+        _injected = self.config.get("injected_processes") or {}
+
+        def _feature_flag(key, default):
+            return _injected.get(key, self.config.get(key, default))
+
+        _mecillinam = bool(_feature_flag("mecillinam", False))
+        _amp_lysis = bool(_feature_flag("amp_lysis", False))
+        _features = _feature_flag("features", None)
+
         # The inner composite's own emitter step writes the hive parquet sweep;
         # under a pure-xarray lineage it is minimised to global_time only
         # (set_null_emitter_override) because we emit out of band instead. The
@@ -226,6 +245,9 @@ class LineageProcess(Process):
                                cache_dir=self.config["cache_dir"],
                                config_overrides=overrides,
                                media=self.config.get("media", "minimal"),
+                               mecillinam=_mecillinam,
+                               amp_lysis=_amp_lysis,
+                               features=_features,
                                injected_processes=self.config.get("injected_processes"))
             finally:
                 set_parquet_emitter_override(None)
@@ -237,6 +259,9 @@ class LineageProcess(Process):
                                cache_dir=self.config["cache_dir"],
                                config_overrides=overrides,
                                media=self.config.get("media", "minimal"),
+                               mecillinam=_mecillinam,
+                               amp_lysis=_amp_lysis,
+                               features=_features,
                                injected_processes=self.config.get("injected_processes"))
             finally:
                 set_null_emitter_override(False)

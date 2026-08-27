@@ -492,6 +492,8 @@ def run_multigen_xarray(
     max_generations: int = 3,
     chunk: int = 60,
     initial_agent_id: str = "0",
+    initial_generation: int = 1,
+    daughter_state_out_path: str = "",
     overwrite: bool = True,
     buffer_size: int = 600,
     single_daughters: bool = False,
@@ -511,7 +513,25 @@ def run_multigen_xarray(
       max_steps: stop after this many composite ticks.
       max_generations: cap on how many generations to follow.
       chunk: how many ticks between emitter updates.
-      initial_agent_id: agent_id to start following.
+      initial_agent_id: the INNER composite's agent key to start following
+        (what the built composite names its cell — "0"), NOT the phylogeny
+        label. The phylogeny/partition key is DERIVED from initial_generation.
+      initial_generation: 1-based ABSOLUTE label for this invocation's first
+        generation. 1 (the default) is a fresh lineage and changes nothing.
+        >1 RESUMES a lineage an earlier invocation began — a chain — so the
+        zarr generation labels continue instead of restarting at 1.
+        ``max_generations`` stays a COUNT for this invocation, so
+        ``initial_generation=4, max_generations=3`` runs generations 4, 5, 6.
+        ⛔ Without this a resumed stage writes a SECOND ``generation=1``
+        partition and a card windowing on generation grades the wrong cells.
+        ⚠ The stages of a chain must share a STORE: the emitter's ``colony``
+        strategy links each partition to its parent generation, so resuming
+        into a fresh store fails on the missing parent.
+      daughter_state_out_path: if set, write the daughter produced at this
+        invocation's FINAL division here — the hand-off to the next stage of a
+        chain. That daughter is otherwise discarded (the generation cap
+        deliberately does not fold it into the parent partition), so this
+        captures an existing moment rather than creating one.
       overwrite: if True, delete ``store_path`` before starting.
       buffer_size: XArrayEmitter transducer buffer size, in *emit steps*, held
         in memory before each flush to the zarr store. Default 600, matching the
@@ -531,6 +551,26 @@ def run_multigen_xarray(
     Returns: ``{"steps": int, "generations": list[int], "store": str}``.
     """
     store_path = Path(store_path)
+    # ⛔⛔ AND THE DEFAULT WOULD DELETE THE PREDECESSOR. ``overwrite=True`` (the
+    # default) rmtree's the store, so a resumed stage run with default arguments
+    # destroys the very generations its emitter must link back to — and then
+    # fails with a KeyError about a MISSING PARENT, which reads as a linkage bug
+    # rather than as "your first stage was deleted a moment ago".
+    # ⇒ Refuse. A chain appends; it never re-creates.
+    if int(initial_generation) > 1 and overwrite:
+        raise ValueError(
+            f"initial_generation={int(initial_generation)} resumes an existing "
+            f"lineage, but overwrite=True would DELETE {store_path} first — "
+            f"including the generation-{int(initial_generation) - 1} partition "
+            f"this stage's emitter links to as its parent. Pass overwrite=False "
+            f"for every stage after the first.")
+    if int(initial_generation) < 1:
+        raise ValueError(
+            f"initial_generation must be >= 1 (got {initial_generation}); "
+            f"generation labels are 1-based on both engines. A 0 here is the "
+            f"0-based convention from v2ecoli's OTHER emitting path "
+            f"(workflow/lineage.py) leaking in.")
+
     if overwrite and store_path.exists():
         shutil.rmtree(store_path)
     core = composite.core
@@ -608,9 +648,23 @@ def run_multigen_xarray(
     # division structurally (a NEW agent id appeared = an ``_add`` this chunk)
     # and carry a SEPARATE ``partition_agent_id`` along the true phylogeny
     # ("0" -> "00" -> "000") for the zarr generation/agent_id metadata.
+    # ⛔ A RESUME SEPARATES TWO THINGS A FRESH RUN CANNOT, AND THEY ARE NOT THE
+    # SAME KEY: the INNER composite's agent key (what the freshly built
+    # composite names its cell — "0", for a stage-2 build off a cache exactly as
+    # for stage 1) and the PHYLOGENY key, which labels the zarr partition and
+    # from which the emitter's ``colony`` strategy derives the generation
+    # (``generation == len(agent_id)``, with a parent). On a fresh lineage both
+    # are "0" and nothing can tell them apart.
+    # ⇒ Taking ONE parameter for both is how the wrapped-fork driver came to run
+    # every generation as the founder (fixed in ``vivarium_ecoli_engine``). Do
+    # not repeat it: the phylogeny key is DERIVED, so the two cannot disagree
+    # and no caller is left holding the invariant.
     followed = initial_agent_id
-    partition_agent_id = initial_agent_id
-    gen = 1
+    gen = int(initial_generation)
+    partition_agent_id = "0" * gen
+    # ``max_generations`` is a COUNT for this invocation, not an absolute stop —
+    # a resumed stage asks for "3 more generations", not "run until 6".
+    last_gen = gen + int(max_generations) - 1
     em = _build_emitter(
         core=core, store_path=store_path, view=view,
         metadata_base=metadata_base, generation=gen, agent_id=partition_agent_id,
@@ -653,7 +707,7 @@ def run_multigen_xarray(
             "agents": {partition_agent_id: payload},
         })
 
-    while done < max_steps and gen <= max_generations:
+    while done < max_steps and gen <= last_gen:
         try:
             composite.run(chunk)
         except Exception as e:
@@ -670,9 +724,9 @@ def run_multigen_xarray(
             # must surface as a non-zero exit, never a silent truncation.
             import traceback as _tb
             tb = _tb.format_exc()
-            reached_target = gen >= max_generations and done > 1
+            reached_target = gen >= last_gen and done > 1
             print(f"[multigen_xarray] composite raised at {done}s "
-                  f"(gen {gen}/{max_generations}, target_reached={reached_target}):\n{tb}",
+                  f"(gen {gen}/{last_gen}, target_reached={reached_target}):\n{tb}",
                   flush=True)
             if reached_target:
                 break
@@ -684,7 +738,7 @@ def run_multigen_xarray(
                 pass
             raise RuntimeError(
                 f"[multigen_xarray] composite CRASHED at {done}s in generation "
-                f"{gen} (requested {max_generations} generations) — failing loud; "
+                f"{gen} (requested generations {initial_generation}..{last_gen}) — "
                 f"see traceback above") from e
         done += chunk
         agents = (composite.state or {}).get("agents") or {}
@@ -714,14 +768,30 @@ def run_multigen_xarray(
 
         # --- DIVISION: end this generation here; the parent partition must NOT
         # receive the post-division daughter row. ---
-        if gen >= max_generations:
-            # Generation cap reached: stop (don't fold the daughter in).
-            break
-
         survivors = sorted(curr_ids)
         inner_next = next((i for i in survivors if i.endswith("0")), None)
         if inner_next is None:
             inner_next = survivors[0] if survivors else None
+
+        if gen >= last_gen:
+            # Generation cap reached: stop (don't fold the daughter in).
+            # ⭐ But that daughter is exactly the hand-off a CHAIN needs — the
+            # next stage's founder, born from this stage's last cell. It is
+            # dropped here only because this invocation has no generation left to
+            # put it in. The daughter is selected ABOVE the cap check so the
+            # carry-on and carry-out paths name the same cell by construction.
+            if daughter_state_out_path and inner_next is not None:
+                _daughter = ((composite.state or {}).get("agents") or {}).get(inner_next)
+                if _daughter is not None:
+                    from v2ecoli.cache import save_initial_state
+                    save_initial_state(dict(_daughter), daughter_state_out_path)
+                    print(f"[multigen_xarray] wrote generation-{gen + 1} carry "
+                          f"state ({inner_next!r}) -> {daughter_state_out_path}")
+                else:
+                    print(f"[multigen_xarray] carry state NOT written: daughter "
+                          f"{inner_next!r} absent from the composite.")
+            break
+
         if inner_next is None:
             break
 

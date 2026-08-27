@@ -1,5 +1,5 @@
 # tests/test_config_to_composite.py
-import os, sys, pytest
+import json, os, sys, pytest
 
 # NOTE: the fork-first `ecoli` import (winning the sys.modules race against
 # v2ecoli's own site-packages `ecoli` dependency) happens in tests/conftest.py,
@@ -82,4 +82,66 @@ def test_declared_layer_document_realizes_in_composite():
     register_declared_processes(core, cfg, fork_dir=FORK)
     doc = config_to_composite(cfg, fork_dir=FORK)
     comp = Composite(doc, core=core)          # must not raise: address resolves + realizes
+    assert comp is not None
+
+
+# ---------------------------------------------------------------------------
+# Task 6 (Spec §7 "Live" verification) as committed regression tests.
+#
+# Manual script coverage over the two real antibiotic configs is not durable —
+# it doesn't run in CI and can silently bit-rot. These turn that verification
+# into a parametrized, fork-backed pytest case per config: multiple declared
+# processes (not just one), and real WIRED topology producing non-empty
+# inputs/outputs (the earlier fork tests above use ``topology: {}``, so no
+# wire maps were ever exercised).
+# ---------------------------------------------------------------------------
+
+_LIVE_CONFIGS = {
+    "final_mec.json": 5,
+    "mecillinam_shape.json": 7,
+}
+
+
+def _load_live_config(name):
+    path = os.path.join(FORK, "configs", name)
+    with open(path) as f:
+        return json.load(f)
+
+
+@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
+@pytest.mark.parametrize("config_name,min_processes", sorted(_LIVE_CONFIGS.items()))
+def test_live_antibiotic_config_realizes_in_composite(config_name, min_processes):
+    if FORK not in sys.path:
+        sys.path.insert(0, FORK)
+    import ecoli.processes  # noqa: F401
+    from process_bigraph import Composite
+    from v2ecoli.core import build_core
+    from v2ecoli.library.config_to_composite import (
+        config_to_composite, register_declared_processes)
+
+    cfg = _load_live_config(config_name)
+
+    core = build_core()
+    register_declared_processes(core, cfg, fork_dir=FORK)
+    doc = config_to_composite(cfg, fork_dir=FORK)
+    state = doc["state"]
+
+    declared = set(cfg.get("add_processes") or []) | set(
+        (cfg.get("swap_processes") or {}).values())
+    process_nodes = {
+        name: node for name, node in state.items()
+        if isinstance(node, dict) and node.get("_type") == "process"
+    }
+    assert declared <= set(process_nodes)          # every declared process is a node
+    assert len(process_nodes) >= min_processes
+
+    # At least one process node must carry real WIRED ports (the topology
+    # tests above only ever used ``topology: {}``, so no prior test exercises
+    # a non-empty inputs wire map).
+    assert any(node.get("inputs") for node in process_nodes.values())
+
+    # The real assertion: the declared layer must realize into a runnable
+    # Composite through the registered `local:<ClassName>` addresses. Must
+    # NOT be swallowed — a raise here is a genuine regression.
+    comp = Composite(doc, core=core)
     assert comp is not None

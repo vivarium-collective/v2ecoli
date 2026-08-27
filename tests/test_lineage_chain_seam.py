@@ -38,12 +38,14 @@ def _md(exp="chain"):
             "max_duration": 900.0, "agent_id": "0"}
 
 
-def _run(tmp_path, *, name, store=None, exp=None, **kw):
+def _run(tmp_path, *, name, store=None, exp=None, comp_out=None, **kw):
     """Run one stage. ``store`` lets a second stage write into the SAME store as
     the first — which a chain must do; see the module note on parent linkage."""
     from v2ecoli.core import build_core
     comp = _FakeComposite(divide_period=200, dry0=350.0)
     comp.core = build_core()
+    if comp_out is not None:
+        comp_out.append(comp)
     # ⭐ NO re-keying: a resumed stage builds a FRESH composite, which names its
     # cell "0" exactly as stage 1 did. That is the point — the inner key and the
     # phylogeny key are different things, and only the latter advances.
@@ -66,13 +68,16 @@ def test_a_resumed_stage_CONTINUES_the_generation_labels(tmp_path):
     Before this, stage 2 restarted at generation 1 and the store held two
     `generation=1` partitions describing different cells."""
     store = tmp_path / "chain.zarr"
+    carry = tmp_path / "carry.json"
     # ⚠ SAME store AND same experiment_id — see the parent-linkage test below.
     s1 = _run(tmp_path, name="s1", store=store, exp="chain", max_steps=900,
-              max_generations=3)
+              max_generations=3, daughter_state_out_path=str(carry))
     assert s1["generations"] == [1, 2, 3]
+    assert carry.exists(), "stage 1 wrote no hand-off, so stage 2 is not a chain"
 
     s2 = _run(tmp_path, name="s2", store=store, exp="chain", max_steps=900,
-              max_generations=2, initial_generation=4, overwrite=False)
+              max_generations=2, initial_generation=4, overwrite=False,
+              initial_carry_state_path=str(carry))
     assert s2["generations"] == [4, 5], (
         "the resumed stage restarted its generation labels — the store now has "
         "a duplicate generation and the card windows the wrong cells")
@@ -94,8 +99,12 @@ def test_a_resume_needs_its_PARENT_generation_in_the_store(tmp_path):
     (or stage-per-experiment) layout and discovers this at integration.
     """
     with pytest.raises((KeyError, FileNotFoundError), match="emitstep_gen|gen="):
+        carry = tmp_path / "orphan_carry.json"
+        _run(tmp_path, name="seed-only", max_steps=900, max_generations=2,
+             daughter_state_out_path=str(carry))
         _run(tmp_path, name="orphan", max_steps=400, max_generations=1,
-             initial_generation=4, overwrite=False)
+             initial_generation=4, overwrite=False,
+             initial_carry_state_path=str(carry))
 
 
 def test_max_generations_stays_a_COUNT_not_an_absolute_stop(tmp_path):
@@ -103,10 +112,12 @@ def test_max_generations_stays_a_COUNT_not_an_absolute_stop(tmp_path):
     `max_generations` meant "run until generation N", then a stage resuming at 4
     and asking for 3 would run ZERO generations and report success."""
     store = tmp_path / "count.zarr"
+    carry = tmp_path / "count_carry.json"
     _run(tmp_path, name="c1", store=store, exp="count", max_steps=900,
-         max_generations=2)
+         max_generations=2, daughter_state_out_path=str(carry))
     res = _run(tmp_path, name="c2", store=store, exp="count", max_steps=900,
-               max_generations=2, initial_generation=3, overwrite=False)
+               max_generations=2, initial_generation=3, overwrite=False,
+               initial_carry_state_path=str(carry))
     assert res["generations"] == [3, 4], res["generations"]
     assert len(res["generations"]) == 2
 
@@ -176,7 +187,76 @@ def test_a_resume_that_would_DELETE_its_predecessor_is_REFUSED(tmp_path):
          max_generations=2)
     marker = list(store.glob("*"))
     assert marker, "stage 1 wrote nothing, so this test proves nothing"
+    carry = tmp_path / "d_carry.json"
+    carry.write_text("{}")
     with pytest.raises(ValueError, match="overwrite=False|would DELETE"):
         _run(tmp_path, name="d2", store=store, exp="d", max_steps=900,
-             max_generations=1, initial_generation=3)
+             max_generations=1, initial_generation=3,
+             initial_carry_state_path=str(carry))
     assert list(store.glob("*")), "the refusal did not happen before the rmtree"
+
+
+def test_a_resume_with_NOTHING_TO_RESUME_FROM_is_refused(tmp_path):
+    """⛔ A resume without a carry state starts a FRESH cell and labels it a later
+    generation — right partition, wrong biology, no error. The batch path already
+    refuses exactly this (`LineageProcess`: "initial_generation_index must be 0
+    when initial_carry_state_path is empty"); the two drivers must answer alike."""
+    with pytest.raises(ValueError, match="no initial_carry_state_path|resumes a lineage"):
+        _run(tmp_path, name="nostate", max_steps=400, max_generations=1,
+             initial_generation=3, overwrite=False)
+
+
+def test_the_carry_state_actually_REACHES_the_cell(tmp_path):
+    """⭐ The hop that matters: a chain is only a chain if stage 2 starts from
+    stage 1's cell. Asserted by giving the carry state a sentinel the fresh
+    composite does not have — a signature check would pass on a no-op overlay."""
+    from v2ecoli.cache import save_initial_state
+    from v2ecoli.workflow.lineage import apply_carry_state
+    fresh = {"bulk": ["FRESH"], "unique": {}, "environment": {}, "boundary": {}}
+    carried = {"bulk": ["CARRIED-SENTINEL"], "unique": {"u": 1},
+               "environment": {}, "boundary": {}}
+    apply_carry_state(fresh, carried)
+    assert fresh["bulk"] == ["CARRIED-SENTINEL"], (
+        "apply_carry_state did not overlay bulk — a chain would silently run "
+        "stage 2 on a fresh cell")
+    assert fresh["unique"] == {"u": 1}
+    path = tmp_path / "rt.json"
+    save_initial_state(carried, str(path))
+    assert path.exists() and path.stat().st_size > 0
+
+
+def test_run_multigen_xarray_ACTUALLY_SEEDS_the_composite_from_the_carry_state(tmp_path):
+    """⛔⛔ THE HOP, not the helper.
+
+    An earlier version of this file tested `apply_carry_state` in isolation and
+    called it covered. It was not: deleting the carry-in from
+    `run_multigen_xarray` entirely left every test green, because nothing
+    asserted that the driver CALLS it. A chain would then have run stage 2 on a
+    fresh cell — right generation label, right cache, wrong biology, no error.
+
+    Asserted with a sentinel the fresh composite cannot produce.
+    """
+    from v2ecoli.cache import save_initial_state
+    store = tmp_path / "seeded.zarr"
+    carry = tmp_path / "seed_carry.json"
+    save_initial_state(
+        {"bulk": [["SENTINEL-CARRIED", 4242]], "unique": {}, "environment": {},
+         "boundary": {}}, str(carry))
+
+    # Stage 1 only exists so the parent generation is present in the store.
+    _run(tmp_path, name="p1", store=store, exp="seeded", max_steps=900,
+         max_generations=2)
+
+    # ⚠ max_steps BELOW the fake's divide_period (200): at a division the fake
+    # DELETES the mother and builds daughters fresh, so a seeded mother's bulk is
+    # gone by the time the run ends. Assert on the cell that was actually seeded.
+    seen = []
+    _run(tmp_path, name="p2", store=store, exp="seeded", max_steps=100,
+         max_generations=1, initial_generation=3, overwrite=False,
+         initial_carry_state_path=str(carry), comp_out=seen)
+
+    agent = (seen[0].state or {})["agents"]
+    cell = agent.get("0") or next(iter(agent.values()))
+    assert "SENTINEL-CARRIED" in str(cell.get("bulk")), (
+        "the carry state never reached the cell — run_multigen_xarray built a "
+        "FRESH composite and labelled it a later generation")

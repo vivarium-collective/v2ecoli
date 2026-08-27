@@ -493,6 +493,7 @@ def run_multigen_xarray(
     chunk: int = 60,
     initial_agent_id: str = "0",
     initial_generation: int = 1,
+    initial_carry_state_path: str = "",
     daughter_state_out_path: str = "",
     overwrite: bool = True,
     buffer_size: int = 600,
@@ -527,6 +528,11 @@ def run_multigen_xarray(
         ⚠ The stages of a chain must share a STORE: the emitter's ``colony``
         strategy links each partition to its parent generation, so resuming
         into a fresh store fails on the missing parent.
+      initial_carry_state_path: a carry state written by a previous stage's
+        ``daughter_state_out_path``. Overlaid onto the freshly built composite's
+        followed agent before the run, so this stage continues the previous
+        stage's cell against whatever cache THIS composite was built from —
+        which is the whole point of a chain.
       daughter_state_out_path: if set, write the daughter produced at this
         invocation's FINAL division here — the hand-off to the next stage of a
         chain. That daughter is otherwise discarded (the generation cap
@@ -564,6 +570,17 @@ def run_multigen_xarray(
             f"including the generation-{int(initial_generation) - 1} partition "
             f"this stage's emitter links to as its parent. Pass overwrite=False "
             f"for every stage after the first.")
+    # ⛔ A RESUME WITH NOTHING TO RESUME FROM silently mislabels a FRESH cell as a
+    # later generation — right partition, wrong biology, no error. The batch path
+    # already refuses exactly this (``LineageProcess``: "initial_generation_index
+    # must be 0 when initial_carry_state_path is empty"); keep the two drivers
+    # answering the same way.
+    if int(initial_generation) > 1 and not initial_carry_state_path:
+        raise ValueError(
+            f"initial_generation={int(initial_generation)} resumes a lineage, but "
+            f"no initial_carry_state_path was given — the run would start a FRESH "
+            f"cell and label it generation {int(initial_generation)}. Pass the "
+            f"carry state the previous stage wrote with daughter_state_out_path.")
     if int(initial_generation) < 1:
         raise ValueError(
             f"initial_generation must be >= 1 (got {initial_generation}); "
@@ -593,6 +610,28 @@ def run_multigen_xarray(
     # so the listener vectors materialise and we can read their length.
     # Cost: we lose tick 0 from the capture, which is fine (the emit
     # predicate's subsample interval is usually > 1 anyway).
+    # ⭐ SEED THIS STAGE FROM THE PREVIOUS ONE, before the warm-up tick — the
+    # warm-up materialises listeners FROM the state, so overlaying afterwards
+    # would leave the discovered coord metadata describing the fresh cell.
+    # Reuses the batch path's own loader and overlay so a chain and a wave carry
+    # a cell forward identically (``apply_carry_state`` preserves the fresh
+    # agent's derived environment substores, which is not obvious and not ours
+    # to re-derive).
+    if initial_carry_state_path:
+        from v2ecoli.cache import load_initial_state
+        from v2ecoli.workflow.lineage import apply_carry_state
+        _agents_in = (composite.state or {}).get("agents") or {}
+        # ⚠ `followed`/`gen` are bound further down; use the parameters here.
+        _key = (initial_agent_id if initial_agent_id in _agents_in
+                else next(iter(_agents_in), None))
+        if _key is None:
+            raise ValueError(
+                f"initial_carry_state_path was given but the composite has no "
+                f"agent to seed (agents={sorted(_agents_in)}).")
+        apply_carry_state(_agents_in[_key], load_initial_state(initial_carry_state_path))
+        print(f"[multigen_xarray] seeded agent {_key!r} from carry state "
+              f"{initial_carry_state_path} (generation {int(initial_generation)})")
+
     try:
         composite.run(1)
     except Exception as _e:

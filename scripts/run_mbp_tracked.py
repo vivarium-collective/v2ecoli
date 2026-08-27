@@ -183,6 +183,24 @@ def _build_reactor_bird_coupled(
     )
 
 
+def _composite_accepts_arrest(builder_fn) -> bool:
+    """Would this builder's COMPOSITE accept `carbon_exhaustion_arrest`?
+
+    The builder accepting the kwarg is not sufficient -- `_build_reactor_bird_coupled`
+    always does, and only the composite it wraps decides whether the arrest can
+    actually be applied (v2ecoli#592). Used for the pre-flight check in main() so
+    an unhonourable request fails before any compute rather than after.
+    """
+    if builder_fn is not _build_reactor_bird_coupled:
+        return False
+    from v2ecoli.composites.reactor_bird_coupled import (  # noqa: PLC0415
+        reactor_bird_coupled,
+    )
+    return "carbon_exhaustion_arrest" in inspect.signature(
+        reactor_bird_coupled
+    ).parameters
+
+
 # (sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths)
 VARIANTS = [
     (
@@ -495,17 +513,17 @@ def _run_one_variant(
     if _arrest_forwarded:
         builder_kwargs = {**builder_kwargs,
                           "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
-    elif carbon_exhaustion_arrest:
-        print(
-            f"  NOTE: --carbon-exhaustion-arrest does not apply to {sim_name} "
-            f"({builder_fn.__name__} models no substrate exhaustion); "
-            "recording carbon_exhaustion_arrest=false for this variant."
-        )
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
     print(f"  max_generations: {max_generations}")
     print(f"  kwargs: {builder_kwargs}")
+    if carbon_exhaustion_arrest and not _arrest_forwarded:
+        print(
+            "  NOTE: --carbon-exhaustion-arrest does not apply to this variant "
+            f"({builder_fn.__name__} models no substrate exhaustion); "
+            "recording carbon_exhaustion_arrest=false."
+        )
 
     simulation_id = str(uuid.uuid4())
 
@@ -608,9 +626,12 @@ def _run_one_variant(
                 "max_generations": max_generations,
                 "chunk": chunk,
                 "single_daughters": single_daughters,
-                # The EFFECTIVE value, not the requested one: if the builder
-                # could not take the flag we raised above, so reaching here with
-                # _arrest_forwarded False means it was never asked for.
+                # The EFFECTIVE value, not the requested one. Reaching here
+                # with _arrest_forwarded False means the arrest was inapplicable
+                # to this variant (the NOTE above) -- it may well have been
+                # asked for, and recording the request is exactly the lie this
+                # threading exists to prevent. The unhonourable-request case
+                # never reaches here: the coupled builder raises.
                 "carbon_exhaustion_arrest": (
                     carbon_exhaustion_arrest and _arrest_forwarded
                 ),
@@ -690,6 +711,29 @@ def main():
         print("Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
     print(f"Per-variant: emitter={args.emitter}  chunk={args.chunk}  "
           f"(duration / max_generations resolved per variant)")
+
+    # Pre-flight: the arrest is only honoured by the coupled composite, and only
+    # once v2ecoli#592 has landed. The builder raises rather than emit a sidecar
+    # claiming an arrest it never applied -- but the coupled variant is LAST in
+    # sweep order and carries the longest window, so without this check a bare
+    # `--carbon-exhaustion-arrest` on a pre-#592 tree would burn 14 variants of
+    # compute before failing. Fail before building anything instead.
+    if args.carbon_exhaustion_arrest:
+        _honourable = [
+            name for name, _slug, fn, _kw, _extra in variants
+            if "carbon_exhaustion_arrest" in inspect.signature(fn).parameters
+            and _composite_accepts_arrest(fn)
+        ]
+        if not _honourable:
+            sys.exit(
+                "--carbon-exhaustion-arrest was requested but no selected "
+                "variant can honour it: none of "
+                f"{[v[0] for v in variants]} builds a composite that accepts "
+                "`carbon_exhaustion_arrest`. Either this tree predates "
+                "v2ecoli#592, or the selected variant models no substrate "
+                "exhaustion. Refusing to run rather than emit sidecars that "
+                "record an arrest no run applied."
+            )
 
     core = build_core()
     results = []

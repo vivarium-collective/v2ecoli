@@ -13,6 +13,7 @@ nothing raises, and the sweep reports a clean pass on the unfixed path.
 
 import importlib.util
 import inspect
+import sys
 from pathlib import Path
 
 import pytest
@@ -175,7 +176,7 @@ class TestProvenanceMatchesWhatTheCompositeGot:
     """
 
     @staticmethod
-    def _run_and_capture(mod, monkeypatch, builder_fn, **flags):
+    def _run_and_capture(mod, monkeypatch, tmp_path, builder_fn, **flags):
         """Drive the real dispatcher to the point of writing provenance.
 
         Returns the ``design`` dict handed to ``write_run_identity`` alongside the
@@ -197,11 +198,21 @@ class TestProvenanceMatchesWhatTheCompositeGot:
         monkeypatch.setattr(
             "process_bigraph.Composite", lambda doc, core=None: object()
         )
-        monkeypatch.setattr(
-            mod, "run_multigen_parquet",
-            lambda *a, **kw: {"generations": 0, "final_time": 0},
-        )
+        runner_got = {}
+
+        def spy_runner(*a, **kw):
+            runner_got.update(kw)
+            return {"generations": 0, "final_time": 0}
+
+        monkeypatch.setattr(mod, "run_multigen_parquet", spy_runner)
         monkeypatch.setattr(mod, "_count_parquet_rows", lambda *a, **kw: 0)
+        # Keep the real dispatcher from mkdir-ing into the repo. It creates only
+        # empty dirs, which git never shows -- invisible pollution. REPO_ROOT
+        # moves with it because the dispatcher renders the artifact path
+        # relative to it.
+        monkeypatch.setattr(mod, "STUDIES_ROOT", tmp_path)
+        monkeypatch.setattr(mod, "REPO_ROOT", tmp_path)
+        got["__runner__"] = runner_got
         mod._run_one_variant(
             sim_name="x", study_slug="s", builder_fn=spy_builder,
             builder_kwargs={}, extra_root_paths=[], duration_sec=1,
@@ -211,7 +222,7 @@ class TestProvenanceMatchesWhatTheCompositeGot:
         return design, got
 
     def test_sidecar_never_claims_an_arrest_the_composite_did_not_get(
-        self, monkeypatch
+        self, monkeypatch, tmp_path
     ):
         """The regression, stated behaviourally.
 
@@ -221,7 +232,7 @@ class TestProvenanceMatchesWhatTheCompositeGot:
         """
         mod = _runner_module()
         design, got = self._run_and_capture(
-            mod, monkeypatch, mod._build_baseline,
+            mod, monkeypatch, tmp_path, mod._build_baseline,
             single_daughters=True, carbon_exhaustion_arrest=True,
         )
         assert "carbon_exhaustion_arrest" not in got
@@ -230,13 +241,13 @@ class TestProvenanceMatchesWhatTheCompositeGot:
         )
 
     def test_sidecar_records_the_arrest_when_the_composite_does_get_it(
-        self, monkeypatch
+        self, monkeypatch, tmp_path
     ):
         """The other direction, so the assertion above cannot pass vacuously by
         the sidecar always saying False."""
         mod = _runner_module()
         design, got = self._run_and_capture(
-            mod, monkeypatch, mod._build_reactor_bird_coupled,
+            mod, monkeypatch, tmp_path, mod._build_reactor_bird_coupled,
             single_daughters=True, carbon_exhaustion_arrest=True,
         )
         assert got.get("carbon_exhaustion_arrest") is True
@@ -259,3 +270,127 @@ class TestProvenanceMatchesWhatTheCompositeGot:
             "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled", pre_592
         )
         assert mod._build_reactor_bird_coupled(None, "out/cache") == {"state": {}}
+
+    @pytest.mark.parametrize("requested", [True, False])
+    def test_sidecar_records_the_requested_single_daughters(
+        self, monkeypatch, tmp_path, requested
+    ):
+        """The flag this module is NAMED for, and the one its docstring calls a
+        lying artifact -- previously nothing asserted on its sidecar value at all.
+
+        Unlike the arrest, this is truthful even for a builder that cannot take
+        the flag, because the runner applies it (see the test below). So the
+        sidecar must record the request in both directions.
+        """
+        mod = _runner_module()
+        design, _got = self._run_and_capture(
+            mod, monkeypatch, tmp_path, mod._build_baseline,
+            single_daughters=requested, carbon_exhaustion_arrest=False,
+        )
+        assert design["single_daughters"] is requested
+
+    def test_single_daughters_reaches_the_runner_even_when_the_builder_cannot(
+        self, monkeypatch, tmp_path
+    ):
+        """The premise the whole design rests on, finally pinned.
+
+        `single_daughters` needs no refusal because `run_multigen_parquet` prunes
+        the sibling lineage runner-side regardless of what the composite accepts
+        (parquet_run.py:128,332). If that forwarding is ever dropped, the flag
+        silently stops being honoured while the sidecar still records it -- the
+        exact defect this module exists to prevent, on the other flag.
+        """
+        mod = _runner_module()
+        _design, got = self._run_and_capture(
+            mod, monkeypatch, tmp_path, mod._build_baseline,
+            single_daughters=True, carbon_exhaustion_arrest=False,
+        )
+        assert "single_daughters" not in got, "builder cannot take it"
+        assert got["__runner__"].get("single_daughters") is True, (
+            "run_multigen_parquet must still receive single_daughters, or the "
+            "sidecar's record of it becomes a claim nothing honours"
+        )
+
+
+class TestCliReachesTheDispatcher:
+    """The outermost wiring. Everything above calls `_run_one_variant` directly,
+    so `main()` could stop passing either flag entirely and every other test here
+    would still pass -- the CLI flag would become a silent no-op while
+    `run_identity` kept recording the request.
+    """
+
+    @staticmethod
+    def _main_with(mod, monkeypatch, argv):
+        seen = {}
+
+        def spy(**kw):
+            seen.update(kw)
+            # Shape the end-of-run summary loop consumes.
+            return {"sim_name": kw["sim_name"], "wall_time": 0.0,
+                    "result_steps": 0, "result_gens": 0, "n_history_rows": 0}
+
+        monkeypatch.setattr(mod, "_run_one_variant", spy)
+        monkeypatch.setattr(mod, "build_core", lambda *a, **kw: None)
+        monkeypatch.setattr(sys, "argv", ["run_mbp_tracked.py", *argv])
+        mod.main()
+        return seen
+
+    def test_arrest_flag_reaches_the_dispatcher_on_a_post_592_tree(
+        self, monkeypatch
+    ):
+        """With a composite that can honour it, the CLI value must arrive."""
+        mod = _runner_module()
+
+        def post_592(core=None, *, carbon_exhaustion_arrest=False, **kw):
+            return {"state": {}}
+
+        monkeypatch.setattr(
+            "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled",
+            post_592,
+        )
+        seen = self._main_with(
+            mod, monkeypatch,
+            ["--variant", "reactor-bird-coupled-batch-multigen",
+             "--carbon-exhaustion-arrest"],
+        )
+        assert seen.get("carbon_exhaustion_arrest") is True
+
+    def test_preflight_exits_before_any_compute_on_a_pre_592_tree(
+        self, monkeypatch
+    ):
+        """The pre-flight check, pinned.
+
+        The coupled variant is LAST of 15 and carries the longest window, so
+        without this the run would burn 14 variants before the builder raised.
+        `_run_one_variant` must never be called.
+        """
+        mod = _runner_module()
+        called = []
+        monkeypatch.setattr(
+            mod, "_run_one_variant", lambda **kw: called.append(kw)
+        )
+        monkeypatch.setattr(mod, "build_core", lambda *a, **kw: None)
+        monkeypatch.setattr(
+            sys, "argv",
+            ["run_mbp_tracked.py", "--carbon-exhaustion-arrest"],
+        )
+        with pytest.raises(SystemExit) as exc:
+            mod.main()
+        assert "no selected variant can honour it" in str(exc.value)
+        assert called == [], "pre-flight must fire before any variant runs"
+
+    def test_arrest_defaults_off_at_the_dispatcher(self, monkeypatch):
+        mod = _runner_module()
+        seen = self._main_with(
+            mod, monkeypatch,
+            ["--variant", "reactor-bird-coupled-batch-multigen"],
+        )
+        assert seen.get("carbon_exhaustion_arrest") is False
+
+    def test_single_daughters_reaches_the_dispatcher(self, monkeypatch):
+        mod = _runner_module()
+        seen = self._main_with(
+            mod, monkeypatch,
+            ["--variant", "baseline-reference-multigen"],
+        )
+        assert seen.get("single_daughters") is True

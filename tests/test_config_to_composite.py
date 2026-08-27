@@ -1,16 +1,13 @@
 # tests/test_config_to_composite.py
-import json, os, sys, pytest
+"""Pure-logic tests for the config→composite translator (no fork required).
 
-# NOTE: the fork-first `ecoli` import (winning the sys.modules race against
-# v2ecoli's own site-packages `ecoli` dependency) happens in tests/conftest.py,
-# at conftest-import time — before any test module (this one included) is
-# collected. That's required because conftest.py is the only place guaranteed
-# to run ahead of collection order (e.g. test_config_bigraph.py sorts before
-# this file alphabetically and would otherwise win the race first).
-
-FORK = "/Users/eranagmon/code/vEcoli-private"
-
+Fork-backed executability tests (register + Composite-realize against real
+vEcoli-fork antibiotic processes/configs) live downstream in sms-ecoli, where
+the fork and its configs are wired — they cannot run in a generic v2ecoli
+checkout and must not hardcode a private-fork path here.
+"""
 from v2ecoli.library.config_to_composite import config_to_composite
+
 
 def _cfg():
     return {
@@ -19,6 +16,7 @@ def _cfg():
         "process_configs": {"proc_a": {"rate": 3}},
         "topology": {"proc_a": {"bulk": ["bulk"]}, "new_m": {"flux": ["metabolites"]}},
     }
+
 
 def test_process_nodes_are_address_based_and_executable_shape():
     doc = config_to_composite(_cfg())
@@ -29,119 +27,14 @@ def test_process_nodes_are_address_based_and_executable_shape():
     assert node["config"] == {"rate": 3}
     assert "_draft" not in node                    # executable, not a draft view
 
+
 def test_swap_node_annotated_and_present():
     state = config_to_composite(_cfg())["state"]
     assert state["new_m"]["_type"] == "process"
     assert state["new_m"]["_contract"]["swap_replaces"] == "old_m"
 
+
 def test_store_nodes_exist_for_wire_targets():
     state = config_to_composite(_cfg())["state"]
     assert state["bulk"] == {}
     assert state["metabolites"] == {}
-
-
-@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
-def test_fork_enriches_address_and_registry_ports():
-    if FORK not in sys.path:
-        sys.path.insert(0, FORK)
-    import ecoli.processes  # noqa: F401 — fork registry must load first
-    from v2ecoli.library.config_to_composite import config_to_composite
-    cfg = {"add_processes": ["pg-shape"], "topology": {}}  # no config topology
-    node = config_to_composite(cfg, fork_dir=FORK)["state"]["pg-shape"]
-    assert node["address"] == "local:PGShape"                 # real class name
-    assert set(node["inputs"]) == {"bulk", "environment", "listeners"}  # from registry
-
-
-@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
-def test_register_declared_processes_makes_addresses_resolvable():
-    if FORK not in sys.path:
-        sys.path.insert(0, FORK)
-    import ecoli.processes  # noqa: F401
-    from v2ecoli.core import build_core
-    from v2ecoli.library.config_to_composite import (
-        config_to_composite, register_declared_processes)
-    core = build_core()
-    cfg = {"add_processes": ["pg-shape"], "topology": {}}
-    names = register_declared_processes(core, cfg, fork_dir=FORK)
-    assert "PGShape" in names
-    # the registered address resolves through the core's link registry
-    assert core.link_registry.get("PGShape") is not None
-
-
-@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
-def test_declared_layer_document_realizes_in_composite():
-    if FORK not in sys.path:
-        sys.path.insert(0, FORK)
-    import ecoli.processes  # noqa: F401
-    from process_bigraph import Composite
-    from v2ecoli.core import build_core
-    from v2ecoli.library.config_to_composite import (
-        config_to_composite, register_declared_processes)
-    core = build_core()
-    cfg = {"add_processes": ["pg-shape"], "topology": {}}
-    register_declared_processes(core, cfg, fork_dir=FORK)
-    doc = config_to_composite(cfg, fork_dir=FORK)
-    comp = Composite(doc, core=core)          # must not raise: address resolves + realizes
-    assert comp is not None
-
-
-# ---------------------------------------------------------------------------
-# Task 6 (Spec §7 "Live" verification) as committed regression tests.
-#
-# Manual script coverage over the two real antibiotic configs is not durable —
-# it doesn't run in CI and can silently bit-rot. These turn that verification
-# into a parametrized, fork-backed pytest case per config: multiple declared
-# processes (not just one), and real WIRED topology producing non-empty
-# inputs/outputs (the earlier fork tests above use ``topology: {}``, so no
-# wire maps were ever exercised).
-# ---------------------------------------------------------------------------
-
-_LIVE_CONFIGS = {
-    "final_mec.json": 5,
-    "mecillinam_shape.json": 7,
-}
-
-
-def _load_live_config(name):
-    path = os.path.join(FORK, "configs", name)
-    with open(path) as f:
-        return json.load(f)
-
-
-@pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
-@pytest.mark.parametrize("config_name,min_processes", sorted(_LIVE_CONFIGS.items()))
-def test_live_antibiotic_config_realizes_in_composite(config_name, min_processes):
-    if FORK not in sys.path:
-        sys.path.insert(0, FORK)
-    import ecoli.processes  # noqa: F401
-    from process_bigraph import Composite
-    from v2ecoli.core import build_core
-    from v2ecoli.library.config_to_composite import (
-        config_to_composite, register_declared_processes)
-
-    cfg = _load_live_config(config_name)
-
-    core = build_core()
-    register_declared_processes(core, cfg, fork_dir=FORK)
-    doc = config_to_composite(cfg, fork_dir=FORK)
-    state = doc["state"]
-
-    declared = set(cfg.get("add_processes") or []) | set(
-        (cfg.get("swap_processes") or {}).values())
-    process_nodes = {
-        name: node for name, node in state.items()
-        if isinstance(node, dict) and node.get("_type") == "process"
-    }
-    assert declared <= set(process_nodes)          # every declared process is a node
-    assert len(process_nodes) >= min_processes
-
-    # At least one process node must carry real WIRED ports (the topology
-    # tests above only ever used ``topology: {}``, so no prior test exercises
-    # a non-empty inputs wire map).
-    assert any(node.get("inputs") for node in process_nodes.values())
-
-    # The real assertion: the declared layer must realize into a runnable
-    # Composite through the registered `local:<ClassName>` addresses. Must
-    # NOT be swallowed — a raise here is a genuine regression.
-    comp = Composite(doc, core=core)
-    assert comp is not None

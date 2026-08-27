@@ -15,7 +15,7 @@
 - **Home:** all code under `v2ecoli/library/`; imported as `v2ecoli.library.*`. Reaches sms-ecoli by `scripts/sync_upstream.sh` — **no `descope/extensions.yaml` entry** (it is upstream code).
 - **Worktree:** author in `~/code/v2ecoli--config-to-composite` (branch `feat/config-to-composite-translator`, off `origin/main`). Never touch canonical `~/code/v2ecoli`.
 - **Run tests with:** `PYTHONPATH=<worktree> ~/code/sms-ecoli/.venv/bin/python -m pytest` (the worktree has no `.venv`; the sms-ecoli venv has all deps). Verify `python -c "import v2ecoli; print(v2ecoli.__file__)"` resolves to the worktree.
-- **Fork:** class-address / `topology_registry` / adapter lookups need the vEcoli fork on the path — `V2E_VECOLI_DIR=/Users/eranagmon/code/vEcoli-private`, and `import ecoli.processes` **before** importing the translator (import-order: the fork's registry must load first).
+- **Fork:** class-address / `topology_registry` / adapter lookups need the vEcoli fork on the path — `V2E_VECOLI_DIR=$V2E_VECOLI_DIR`, and `import ecoli.processes` **before** importing the translator (import-order: the fork's registry must load first).
 - **No AI attribution** in commit messages.
 - **Scope:** the config's DECLARED layer only. Do NOT reproduce baseline processes, `sim_data` configs, bulk/unique state, partitioned processes, RNG, or division — those are deferred (spec §5).
 
@@ -212,7 +212,7 @@ With the fork loaded, addresses become `local:<ClassName>` and processes the con
 ```python
 import os, sys, pytest
 
-FORK = "/Users/eranagmon/code/vEcoli-private"
+FORK = "$V2E_VECOLI_DIR"
 
 @pytest.mark.skipif(not os.path.isdir(FORK), reason="vEcoli-private fork absent")
 def test_fork_enriches_address_and_registry_ports():
@@ -396,9 +396,9 @@ Confirms real antibiotic configs translate, render (loom document shape), and re
 Run:
 ```bash
 cd ~/code/v2ecoli--config-to-composite
-V2E_VECOLI_DIR=/Users/eranagmon/code/vEcoli-private PYTHONPATH=$PWD ~/code/sms-ecoli/.venv/bin/python - <<'PY'
+V2E_VECOLI_DIR=$V2E_VECOLI_DIR PYTHONPATH=$PWD ~/code/sms-ecoli/.venv/bin/python - <<'PY'
 import sys, os, json
-FORK="/Users/eranagmon/code/vEcoli-private"; sys.path.insert(0, FORK)
+FORK="$V2E_VECOLI_DIR"; sys.path.insert(0, FORK)
 import ecoli.processes
 from process_bigraph import Composite
 from v2ecoli.core import build_core
@@ -416,7 +416,7 @@ Expected: both print `realized OK`; `final_mec.json` ≥5 procs, `mecillinam_sha
 
 - [ ] **Step 2: Full test suite green**
 
-Run: `V2E_VECOLI_DIR=/Users/eranagmon/code/vEcoli-private PYTHONPATH=$PWD ~/code/sms-ecoli/.venv/bin/python -m pytest tests/test_config_bigraph.py tests/test_config_to_composite.py -q`
+Run: `V2E_VECOLI_DIR=$V2E_VECOLI_DIR PYTHONPATH=$PWD ~/code/sms-ecoli/.venv/bin/python -m pytest tests/test_config_bigraph.py tests/test_config_to_composite.py -q`
 Expected: all PASS.
 
 - [ ] **Step 3: Open the PR**

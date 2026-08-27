@@ -78,9 +78,13 @@ class TestBuilderForwardsTheFlag:
 
 
 class TestArrestFlagForwarding:
-    """v2ecoli#592's `carbon_exhaustion_arrest` is the SECOND instance of the same
-    defect: recorded in run_identity, not forwarded. Measured 2026-08-25 -- with it
-    unthreaded, an mbp-04 run reports "the arrest does not hold at population scale"
+    """v2ecoli#592's `carbon_exhaustion_arrest` is NEW here, not a pre-existing
+    unforwarded flag -- `main`'s runner has no such flag at all. It is added with
+    forwarding wired from the start, and with the refusal below, precisely so it
+    never becomes a second instance of the `single_daughters` defect.
+
+    The failure it forecloses was measured 2026-08-25 on a #592-merged tree: an
+    mbp-04 coupled run reported "the arrest does not hold at population scale"
     from a run where the arrest was never enabled."""
 
     def test_arrest_flag_reaches_the_composite(self, monkeypatch):
@@ -99,21 +103,31 @@ class TestArrestFlagForwarding:
         )
         assert seen.get("arrest") is True
 
-    def test_arrest_flag_suppressed_when_composite_predates_it(self, monkeypatch):
-        mod = _runner_module()
-        seen = {}
+    def test_arrest_refused_when_composite_predates_it(self, monkeypatch):
+        """An explicit arrest that cannot be honoured must RAISE, not be dropped.
 
-        def fn(core=None, **kw):
-            seen.update(kw)
+        This test previously asserted the opposite -- that the flag was silently
+        suppressed on a pre-#592 composite. That is the same lying-artifact defect
+        this module exists to prevent: unlike `single_daughters`, nothing applies
+        the arrest runner-side, so a dropped flag means the run simply has no
+        arrest while the operator asked for one.
+
+        Note which guard bites: `_build_reactor_bird_coupled` ALWAYS accepts the
+        kwarg, so the dispatcher's signature check passes and only the composite's
+        fails. A caller-side guard alone does not cover this.
+        """
+        mod = _runner_module()
+
+        def fn(core=None, **kw):  # no carbon_exhaustion_arrest parameter
             return {"state": {}}
 
         monkeypatch.setattr(
             "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled", fn
         )
-        mod._build_reactor_bird_coupled(
-            None, "out/cache", carbon_exhaustion_arrest=True
-        )
-        assert "carbon_exhaustion_arrest" not in seen
+        with pytest.raises(ValueError, match="carbon_exhaustion_arrest"):
+            mod._build_reactor_bird_coupled(
+                None, "out/cache", carbon_exhaustion_arrest=True
+            )
 
 
 class _Stop(Exception):
@@ -152,3 +166,45 @@ class TestVariantDispatchInjectsTheFlag:
         mod = _runner_module()
         seen = self._call(mod, mod._build_baseline)
         assert "single_daughters" not in seen
+
+
+class TestProvenanceMatchesWhatTheCompositeGot:
+    """The whole point of the change: the sidecar must never claim a flag the
+    composite did not receive. These pin the RELATIONSHIP between the two, which
+    the forwarding tests above do not -- they stop at the builder boundary.
+    """
+
+    def test_arrest_not_requested_builds_fine_on_a_pre_592_tree(self, monkeypatch):
+        """The refusal must be scoped to an explicit True -- the default must stay
+        buildable on an old tree, or the guard would impose a landing order on
+        #592, which is what the signature guards exist to avoid.
+        """
+        mod = _runner_module()
+
+        def pre_592(core=None, **kw):
+            return {"state": {}}
+
+        monkeypatch.setattr(
+            "v2ecoli.composites.reactor_bird_coupled.reactor_bird_coupled", pre_592
+        )
+
+        assert mod._build_reactor_bird_coupled(None, "out/cache") == {"state": {}}
+
+    def test_run_identity_records_the_effective_arrest_not_the_request(self):
+        """`run_identity` must be written from the EFFECTIVE value.
+
+        Belt-and-braces behind the refusal above: if a future edit ever softens
+        that raise, the sidecar must still not record an arrest that was dropped.
+        """
+        src = Path(mod_path()).read_text()
+        design = src.split("design={", 1)[1].split("}", 1)[0]
+        assert "carbon_exhaustion_arrest and _arrest_forwarded" in design, (
+            "run_identity must record the effective arrest value, not the "
+            "requested one"
+        )
+
+
+def mod_path():
+    return (
+        Path(__file__).resolve().parents[1] / "scripts" / "run_mbp_tracked.py"
+    )

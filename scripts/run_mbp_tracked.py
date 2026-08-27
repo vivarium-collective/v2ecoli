@@ -49,6 +49,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import inspect
 import sqlite3
 import sys
 import time
@@ -145,8 +146,6 @@ def _build_reactor_bird_coupled(
     reproducible without remembering flags (see VARIANT_DEFAULTS for the
     duration / generation half of that contract).
     """
-    import inspect  # noqa: PLC0415
-
     from v2ecoli.composites.reactor_bird_coupled import reactor_bird_coupled
     # v2ecoli#591 adds the in-composite LineageBookkeeper behind the composite's
     # own ``single_daughters`` flag. Forward it only when the composite accepts
@@ -159,10 +158,19 @@ def _build_reactor_bird_coupled(
     if "single_daughters" in _accepts:
         extra["single_daughters"] = single_daughters
     # v2ecoli#592: opt-in substrate-exhaustion arrest, default off. Same
-    # signature guard and the same reason as single_daughters above -- the
-    # runner must not claim a flag the composite never received.
+    # signature guard, but NOT the same fallback -- unlike single_daughters,
+    # nothing else applies the arrest, so silently dropping it would emit a run
+    # that claims a code path it never took. This guard is the one that bites:
+    # THIS function always accepts the kwarg, so the caller's own signature check
+    # passes and only the composite's does not. Fail loudly on an explicit True.
     if "carbon_exhaustion_arrest" in _accepts:
         extra["carbon_exhaustion_arrest"] = carbon_exhaustion_arrest
+    elif carbon_exhaustion_arrest:
+        raise ValueError(
+            "carbon_exhaustion_arrest=True was requested but this tree's "
+            "reactor_bird_coupled does not accept it (predates v2ecoli#592), "
+            "and no runner-side fallback applies it. Refusing to build."
+        )
     return reactor_bird_coupled(
         core=core, seed=seed, cache_dir=cache_dir,
         **extra,
@@ -465,15 +473,29 @@ def _run_one_variant(
     # composite built with the default False silently gets the OLD chunk-dependent
     # behaviour -- while run_identity still records single_daughters: true. Thread
     # it to any builder that accepts it so the two cannot disagree.
-    import inspect as _inspect  # noqa: PLC0415
-    _params = _inspect.signature(builder_fn).parameters
+    _params = inspect.signature(builder_fn).parameters
     if "single_daughters" in _params:
         builder_kwargs = {**builder_kwargs, "single_daughters": single_daughters}
-    # v2ecoli#592: same seam, same failure mode -- run_identity must not record
-    # an arrest the composite never enabled.
-    if "carbon_exhaustion_arrest" in _params:
+    # v2ecoli#592: same seam, but NOT the same fallback. `single_daughters` is
+    # also honoured runner-side by run_multigen_{parquet,sqlite}, so a builder
+    # that cannot take it still gets the requested pruning and run_identity stays
+    # truthful. `carbon_exhaustion_arrest` has no such fallback: if the composite
+    # cannot take it, nothing else applies it, and recording the request would be
+    # the very lie this function exists to prevent. Its default is False, so an
+    # explicit True that cannot be honoured is unambiguous -- fail loudly instead
+    # of emitting a sidecar that claims a code path the run never took.
+    _arrest_forwarded = "carbon_exhaustion_arrest" in _params
+    if _arrest_forwarded:
         builder_kwargs = {**builder_kwargs,
                           "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
+    elif carbon_exhaustion_arrest:
+        raise ValueError(
+            f"--carbon-exhaustion-arrest was requested but {builder_fn.__name__} "
+            "does not accept `carbon_exhaustion_arrest`, and no runner-side "
+            "fallback applies it. This tree predates v2ecoli#592. Refusing to "
+            "run: the sidecar would record an arrest the composite never "
+            "enabled."
+        )
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
@@ -581,7 +603,12 @@ def _run_one_variant(
                 "max_generations": max_generations,
                 "chunk": chunk,
                 "single_daughters": single_daughters,
-                "carbon_exhaustion_arrest": carbon_exhaustion_arrest,
+                # The EFFECTIVE value, not the requested one: if the builder
+                # could not take the flag we raised above, so reaching here with
+                # _arrest_forwarded False means it was never asked for.
+                "carbon_exhaustion_arrest": (
+                    carbon_exhaustion_arrest and _arrest_forwarded
+                ),
             },
         )
 

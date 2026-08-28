@@ -55,3 +55,27 @@ def test_shape_from_mass_is_parsimony_free_floats():
 def test_cell_shape_module_does_not_import_pbg_parsimony():
     importlib.reload(cs)
     assert "pbg_parsimony" not in sys.modules or True  # see Task 6 for the strict env check
+
+
+def test_shape_step_address_is_self_resolving():
+    """ecoli_baseline wires its shape_step by the self-resolving module-path
+    address (`local:!v2ecoli.cell_shape.ShapeStep`), so the node realizes in ANY
+    core — including a run subprocess's workspace build_core, which never calls
+    the generator's register_link("ShapeStep") side-effect. A bare
+    `local:ShapeStep` only resolves where that side-effect ran (the server's
+    resolve core), which is why interactive Apply worked but a detached Run
+    failed with: no link found at address {'protocol':'local','data':'ShapeStep'}.
+
+    This guards both the module path (renaming ShapeStep breaks it here first)
+    and the "no bare local:ShapeStep" invariant.
+    """
+    from bigraph_schema.protocols import local_lookup
+    from v2ecoli.core import allocate_core
+
+    core = allocate_core()
+    core.link_registry.pop("ShapeStep", None)  # a core without the side-effect
+    assert core.link_registry.get("ShapeStep") is None
+
+    # The self-resolving form still resolves (via importlib), the bare name does not.
+    assert local_lookup(core, "!v2ecoli.cell_shape.ShapeStep") is cs.ShapeStep
+    assert local_lookup(core, "ShapeStep") is None

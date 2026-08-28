@@ -73,7 +73,17 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
     from scripts._compare.config_adapter import resolve_vecoli_config_local
     fork_dir = reference_repo or os.environ.get("V2E_VECOLI_DIR", "")
     resolved = resolve_vecoli_config_local(fork_config, fork_dir)
-    return resolved.get("swap_processes") or None, resolved.get("flow") or None
+    swap_processes = resolved.get("swap_processes") or None
+    flow = resolved.get("flow") or None
+    # `fork_config` only contributes swap_processes/flow. A generic vEcoli config
+    # (e.g. the stock test_installation.json) has neither, so it is discarded
+    # wholesale — warn rather than silently no-op (issue #131). To load a full
+    # vEcoli config natively, use the `whole_config` param instead.
+    if swap_processes is None and flow is None:
+        print(f"[vecoli] WARNING: fork_config {fork_config!r} has no "
+              f"'swap_processes' or 'flow' keys; nothing from it takes effect. "
+              f"Use the 'whole_config' param to load a full vEcoli config.")
+    return swap_processes, flow
 
 
 @composite_generator(
@@ -261,6 +271,16 @@ def vecoli(
         if not os.path.isabs(cfg_path):
             base = reference_repo or os.environ.get("V2E_VECOLI_DIR", "")
             cfg_path = os.path.join(base, cfg_path)
+        # Fail LOUDLY when the config can't be found rather than silently
+        # handing EcoliSim a nonexistent path and running on defaults (issue
+        # #131). A relative whole_config with no reference_repo / $V2E_VECOLI_DIR
+        # is the common way this happened.
+        if not os.path.isfile(cfg_path):
+            raise FileNotFoundError(
+                f"whole_config {whole_config!r} resolved to {cfg_path!r}, which "
+                f"does not exist. Pass an absolute path, or set reference_repo / "
+                f"$V2E_VECOLI_DIR so a relative config path resolves against your "
+                f"vEcoli checkout.")
         set_ecolisim_config_file(cfg_path)
         swap_processes, flow = None, None      # native path, not swap
     else:

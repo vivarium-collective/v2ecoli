@@ -387,10 +387,37 @@ def resolve_raw_data(manifest: "str | Path | None"):
                               "bundle_manifest": str(manifest) if manifest else ""})
 
 
-def _reference(gene_ids: list[str], mode: "str | None", deleted_bp: int) -> dict:
+def _conditions_fitted_reference(raw_data: Any) -> int:
+    """The number of conditions a full ParCa fit should produce, derived from the
+    DECLARED inputs (not the build's own output).
+
+    A full fit produces one basal spec per ``condition_defs`` row plus, for each
+    ``tf_condition`` row, an active and an inactive variant — hence
+    ``len(condition_defs) + 2 * len(tf_condition)`` (6 + 2*23 = 52 today).
+
+    Deriving from the inputs (rather than a hardcoded literal, or from
+    ``len(state["conditions"])``) means the reference tracks the ecoli-sources
+    data automatically AND stays a real check: grading a build's condition count
+    against its own output can never fail (see #584 and the guard test
+    ``test_conditions_fitted_reads_cell_specs_not_conditions``).
+    """
+    return (len(raw_data.condition.condition_defs)
+            + 2 * len(raw_data.condition.tf_condition))
+
+
+def _reference(gene_ids: list[str], mode: "str | None", deleted_bp: int,
+               conditions_fitted_ref: "int | None" = None) -> dict:
     """Axis declarations + their criteria. Kept separate from the measurement so the
-    card states what it grades independently of what any one build produced."""
+    card states what it grades independently of what any one build produced.
+
+    ``conditions_fitted_ref`` is the expected full-fit condition count derived
+    from the declared inputs (see :func:`_conditions_fitted_reference`); the
+    caller supplies it (``build`` already loads ``raw_data``). When it is omitted
+    in a graded (full) build it is loaded on demand so the function stays
+    self-sufficient for direct callers/tests."""
     graded_fit = mode == "full"
+    if graded_fit and conditions_fitted_ref is None:
+        conditions_fitted_ref = _conditions_fitted_reference(resolve_raw_data(None))
     return {
         "title": f"Genotype build integrity — knockout of {', '.join(gene_ids)}",
         "stimulus": {
@@ -434,16 +461,16 @@ def _reference(gene_ids: list[str], mode: "str | None", deleted_bp: int) -> dict
             },
             "fit.conditions_fitted": {
                 "group": "ParCa fit", "label": "Conditions fitted (len(cell_specs))",
-                # Deliberately ungraded outside full mode: a fast build fits 8 of 52
+                # Deliberately ungraded outside full mode: a fast build fits 8 of ~52
                 # by design, so grading it would report a true fact as a failure.
-                # ⚠ 52 is HAND-DERIVED and moves whenever a condition is added:
-                # it is len(condition_defs.tsv rows) + 2 * len(tf_condition.tsv rows)
-                # = 6 + 2*23. It was 51 until ecoli-sources gained basal_with_trp.
-                # A hardcoded literal here is fragile by construction -- see the
-                # follow-up issue on deriving it from the declared inputs. Do NOT
-                # "fix" it by deriving from the build's own output (len(conditions)):
-                # that grades a build against itself and can never fail.
-                "criterion": ({"type": "rel_tol", "reference": 52, "tol_rel": 0.0}
+                # The reference is DERIVED from the declared inputs (#584):
+                # len(condition_defs) + 2*len(tf_condition) -- see
+                # _conditions_fitted_reference. NOT a hardcoded literal (was 52,
+                # 51 before ecoli-sources gained basal_with_trp), and NOT the
+                # build's own output (len(conditions)), which would grade a build
+                # against itself and never fail.
+                "criterion": ({"type": "rel_tol",
+                               "reference": conditions_fitted_ref, "tol_rel": 0.0}
                               if graded_fit else {"type": "status"}),
             },
         },
@@ -476,4 +503,5 @@ def build(gene_ids: Iterable[str], *, workdir: "str | Path",
                             Path(workdir).resolve()))}
 
     deleted_bp = sum(r - l + 1 for l, r in spans.values())
-    return card, _reference(gene_ids, mode, deleted_bp)
+    return card, _reference(gene_ids, mode, deleted_bp,
+                            conditions_fitted_ref=_conditions_fitted_reference(wt))

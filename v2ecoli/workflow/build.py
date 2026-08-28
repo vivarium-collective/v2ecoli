@@ -56,11 +56,12 @@ from viva_superpowers import TestStep, ResultsStep, TestBuilder, check, value
 #: Absolute default ParCa cache directory (a pre-built bundle -- see
 #: ``ParcaBundleStep``'s module docs). Never resolved relative to cwd: the
 #: milestone integration test/CLI may run from a neutral directory.
-#: Overridable via ``V2ECOLI_PARCA_CACHE_DIR`` (e.g. on another machine/CI
-#: where the canonical checkout's ``out/cache`` doesn't exist) -- the literal
-#: path below is only the fallback when that env var is unset.
+#: Overridable via ``V2ECOLI_PARCA_CACHE_DIR`` (e.g. on another machine/CI).
+#: The default is a portable per-user cache location (not a hardcoded
+#: developer path -- issue #131), still absolute and cwd-independent.
 DEFAULT_CACHE_DIR = os.environ.get(
-    "V2ECOLI_PARCA_CACHE_DIR", "/Users/eranagmon/code/v2ecoli/out/cache")
+    "V2ECOLI_PARCA_CACHE_DIR",
+    os.path.join(os.path.expanduser("~"), ".cache", "v2ecoli", "parca_cache"))
 
 
 # ── small adapter Steps (glue between ParcaBundleStep / CompositeTask /

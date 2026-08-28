@@ -1805,6 +1805,14 @@ def baseline(
     # injected_processes=None -> daughters rebuild plain baseline unchanged.
     loader._injected_processes = injected_processes
 
+    # Same discipline for config_overrides (a variant / sensitivity perturbation)
+    # and knockouts — knockouts are already folded INTO config_overrides above, so
+    # this single stash carries both. Without it, a perturbation applied as
+    # config_overrides is correct in generation 1 and silently reverts to the
+    # unperturbed cached configs at division (#505). Empty/None -> daughters
+    # rebuild the plain baseline unchanged.
+    loader._config_overrides = config_overrides
+
     # Build execution layers for the requested feature set
     execution_layers = build_execution_layers(features)
     flow_order = [step for layer in execution_layers for step in layer]

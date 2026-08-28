@@ -183,6 +183,11 @@ class Division(V2Step):
         # (e.g. metabolism-redux) survives division. None for the normal baseline
         # -> daughters rebuild the plain FBA baseline exactly as before.
         self._injected_processes = self.parameters.get('injected_processes')
+        # A config_overrides / knockouts perturbation, threaded for the same
+        # reason: passed back into each daughter's baseline() rebuild so a
+        # variant survives division instead of reverting to the cached configs
+        # from generation 2 on (#505). None for the plain baseline.
+        self._config_overrides = self.parameters.get('config_overrides')
         # Declared exchange-flux measurements, threaded for the same reason as
         # the injected processes above: baseline() takes them via a module-level
         # override it clears in its own finally, so a daughter rebuilt without
@@ -380,6 +385,7 @@ class Division(V2Step):
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
                         injected_processes=self._injected_processes,
+                        config_overrides=self._config_overrides,
                         exchange_fluxes=self._exchange_fluxes,
                         exchange_flux_basis=self._exchange_flux_basis)
                 finally:

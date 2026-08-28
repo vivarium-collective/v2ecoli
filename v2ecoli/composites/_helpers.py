@@ -1559,6 +1559,14 @@ def _get_special_step(loader, step_name, core):
         _injected = getattr(loader, '_injected_processes', None)
         if _injected:
             div_config['injected_processes'] = _injected
+        # Same reasoning, for a config_overrides / knockouts PERTURBATION. Without
+        # this, a variant applied as config_overrides is correct in generation 1
+        # and silently reverts to the unperturbed cached configs at division
+        # (#505). Only set when non-empty so the plain baseline (None) leaves
+        # daughters byte-for-byte unchanged.
+        _overrides = getattr(loader, '_config_overrides', None)
+        if _overrides:
+            div_config['config_overrides'] = _overrides
         # Same reasoning, for DECLARED MEASUREMENTS. baseline() threads the flux
         # map through the module-level override above and CLEARS it in its
         # finally, so a daughter rebuilt mid-run is built with an empty map: the

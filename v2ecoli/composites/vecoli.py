@@ -44,20 +44,19 @@ _UPSTREAM_SIMDATA_FALLBACK = os.environ.get("V2E_UPSTREAM_SIMDATA", "")
 
 
 def _resolve_sim_data_path(cache_dir: str) -> str:
-    """<cache_dir>/simData.cPickle if present, else $V2E_UPSTREAM_SIMDATA.
+    """<cache_dir>/simData.cPickle, else $V2E_UPSTREAM_SIMDATA, else the
+    (possibly not-yet-existing) cache candidate.
 
-    Raises a clear error when neither is available, rather than returning a
-    non-portable hardcoded path that only exists on one machine.
+    Returns a path WITHOUT requiring it to exist — document construction
+    (agent-id/port wiring) does not read simData, so it must not fail here. The
+    portable cache path replaces the old hardcoded developer fallback (issue
+    #131); a downstream step that actually loads simData still fails loudly, and
+    now names a portable path rather than one developer's machine.
     """
     candidate = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
     if os.path.exists(candidate):
         return candidate
-    if _UPSTREAM_SIMDATA_FALLBACK:
-        return _UPSTREAM_SIMDATA_FALLBACK
-    raise FileNotFoundError(
-        f"vEcoli simData not found at {candidate!r} and $V2E_UPSTREAM_SIMDATA is "
-        f"unset. Run/point at a ParCa cache dir containing simData.cPickle, or "
-        f"set $V2E_UPSTREAM_SIMDATA.")
+    return _UPSTREAM_SIMDATA_FALLBACK or candidate
 
 
 def _resolve_fork_config(reference_repo: str, fork_config: str | None):

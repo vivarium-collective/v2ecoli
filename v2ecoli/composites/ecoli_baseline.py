@@ -1967,7 +1967,14 @@ def baseline(
         cell_state['shape'] = zero_shape()
         cell_state['shape_step'] = {
             '_type': 'step',
-            'address': 'local:ShapeStep',
+            # Self-resolving module-path address (the `!` form → importlib), so the
+            # node realizes in ANY core — including the run subprocess's workspace
+            # build_core, which does not call allocate_core and so has no
+            # register_link("ShapeStep"). A bare `local:ShapeStep` only resolves
+            # where that side-effect ran (e.g. the server's resolve core), which is
+            # why interactive Apply worked but a detached Run failed with
+            # "no link found at address: {'protocol': 'local', 'data': 'ShapeStep'}".
+            'address': 'local:!v2ecoli.cell_shape.ShapeStep',
             'config': {'width_um': 1.0, 'density_g_per_ml': 1.1,
                        'periplasm_fraction': 0.2},
             'inputs': {'mass': ['listeners', 'mass']},

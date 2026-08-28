@@ -163,53 +163,53 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
     # missing prerequisite rather than failing the whole tab.
     {
         'name': 'mass_fraction_summary',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass fraction summary',
                    'analysis': 'mass_fraction_summary_view'},
     },
     {
         'name': 'cell_mass',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Cell mass over time', 'analysis': 'cell_mass'},
     },
     {
         'name': 'mass_fraction_voronoi',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass composition (Voronoi)',
                    'analysis': 'mass_fraction_voronoi'},
     },
     {
         'name': 'replication',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
     },
     {
         'name': 'chromosome_state',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Chromosome state (animated)',
                    'analysis': 'chromosome_state_view'},
     },
     {
         'name': 'ribosome_components',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome components',
                    'analysis': 'ribosome_components'},
     },
     {
         'name': 'central_carbon_metabolism',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Central carbon metabolism (FBA)',
                    'analysis': 'central_carbon_metabolism_scatter'},
     },
     {
         'name': 'protein_counts_validation',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Protein counts vs. proteomics',
                    'analysis': 'protein_counts_validation'},
     },
     {
         'name': 'doubling_time',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Doubling time', 'analysis': 'doubling_time_line'},
     },
 ]
@@ -225,37 +225,37 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
 DEFAULT_BATCH_VISUALIZATIONS: list[dict] = DEFAULT_SINGLE_CELL_VISUALIZATIONS + [
     {
         'name': 'mass_growth_across_generations',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass growth across generations',
                    'analysis': 'mass_growth_across_generations'},
     },
     {
         'name': 'ribosome_usage',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome usage (lineage)',
                    'analysis': 'ribosome_usage'},
     },
     {
         'name': 'ribosome_production',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome production (lineage)',
                    'analysis': 'ribosome_production'},
     },
     {
         'name': 'new_gene_counts',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'New gene counts (lineage)',
                    'analysis': 'new_gene_counts'},
     },
     {
         'name': 'doubling_time_distribution',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Doubling time distribution (across seeds)',
                    'analysis': 'doubling_time_distribution'},
     },
     {
         'name': 'subgenerational_expression',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Subgenerational expression (across seeds)',
                    'analysis': 'subgenerational_expression_table'},
     },
@@ -271,12 +271,12 @@ def v2ecoli_default_single_cell_visualizations() -> list[dict]:
     return [
         {
             'name': 'workflow',
-            'address': 'local:WorkflowVisualization',
+            'address': 'local:!v2ecoli.visualizations.workflow.WorkflowVisualization',
             'config': {'title': 'v2ecoli — single-cell lifecycle'},
         },
         {
             'name': 'topology',
-            'address': 'local:NetworkVisualization',
+            'address': 'local:!v2ecoli.visualizations.network.NetworkVisualization',
             'config': {'title': 'Process topology'},
         },
     ]

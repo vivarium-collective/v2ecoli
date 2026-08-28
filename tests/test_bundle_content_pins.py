@@ -30,6 +30,15 @@ EXPECTED_SHA256 = {
     "rnas": "bddcd413a0ebb04b912844bde21bb189047d128a7629cbd409a7166158541f53",
     "metabolites": "b87e39d72a33954f3f564db39b75810941204f1e22ebeaf077e412460157b864",
     "sequence": "28a7167d8bab60570cd6e3ddacdde75d5c51db60e1009fb8c241f1da446b6152",
+    # Condition/media inputs — added for #584 (part 2). The docstring promises a
+    # content-different pin bump fails loudly, but #581 changed exactly these
+    # files (condition_defs, media_recipes) and the test stayed green because
+    # they were unpinned. They also drive the genotype-card condition count
+    # (len(condition_defs) + 2*len(tf_condition)); pin them so a data change is
+    # caught here rather than silently shifting graded references downstream.
+    "condition__condition_defs": "5d71324e95ef9794f130667e2d033539a3ffc7c747c5b5f7d10d5476640149cd",
+    "condition__media_recipes": "6501ea7880a2906f8cd04e5d3010e12d042efe0da653f88e08d182c3cb46b7cb",
+    "condition__tf_condition": "fbcfbefdcffde74a380b13c1cf0b4c7d2cab28b312a7cb7b841459bc18460099",
     # v2ecoli local overrides (diverged biology, must win):
     "equilibrium_reactions": "836a0acb5bb347c474e7cfc63ee3599a91baa35d7bb7e9b4da45b0f09933080a",
     "equilibrium_reaction_rates": "554add4a8e94ab2bdda0d878d0998fa62974c056e9cbbd1e99154c90bea7b7f9",

@@ -697,7 +697,11 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  exchange_flux_basis: str = "counts",
                  observables: list | None = None,
                  observable_bulk_ids: list | None = None,
-                 variant: int = 0):
+                 variant: int = 0,
+                 initial_generation: int = 1,
+                 initial_carry_state: str = "",
+                 daughter_state_out: str = "",
+                 append_store: bool = False):
     """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
 
     ``vecoli_whole_config`` controls the genuine-vEcoli (``--composite vecoli``)
@@ -845,8 +849,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     def run_one(seed: int) -> dict:
         t0 = time.time()
         store_path = f"{out_root.rstrip('/')}/{composite_kind}_seed{seed:02d}.zarr"
-        # local stores: clear stale
-        if "://" not in str(store_path) and Path(store_path).exists():
+        # local stores: clear stale — UNLESS this is a later stage of a chain,
+        # which must APPEND to the store its predecessor wrote.
+        # ⛔⛔ THIS IS A SECOND DELETION SITE, upstream of the emitter's own
+        # `overwrite`. Threading `--append-store` to `run_multigen_xarray` alone
+        # is NOT enough: this rmtree runs first, so a resumed stage deleted the
+        # generations it was about to resume from and then failed looking for the
+        # parent it had just removed — `KeyError: emitstep_gen=1`, which reads as
+        # an emitter bug rather than as "we deleted it a moment ago".
+        # ⇒ One flag, two sites. Measured: stage 1 closed with 10 data files on
+        # disk; stage 2 started, and the store was empty.
+        if (not append_store and "://" not in str(store_path)
+                and Path(store_path).exists()):
             shutil.rmtree(store_path)
 
         # The genuine vEcoli side ALWAYS runs as a SINGLE pbg node with vivarium's
@@ -1009,6 +1023,16 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # Candidate side: select declared bulk ids from the bulk record into
             # listeners.observable_bulk.<id> (the reference emits the same path).
             observable_bulk_ids=observable_bulk_ids,
+            # ⭐ CHAIN SEAM (v2ecoli answers a generation-indexed induction with a
+            # SEQUENCE OF CACHES, not a mutation schedule — see
+            # v2ecoli/perturbations/design_variant.py). A later stage resumes the
+            # previous stage's cell against a DIFFERENT cache: it continues the
+            # generation labels, seeds from the carried daughter, and appends to
+            # the same store. Defaults are a strict no-op — a fresh lineage.
+            initial_generation=int(initial_generation),
+            initial_carry_state_path=initial_carry_state or "",
+            daughter_state_out_path=daughter_state_out or "",
+            overwrite=not append_store,
             # Follow a single lineage (prune non-followed daughters each
             # division) so EVERY generation — including the last — runs to its
             # own division, matching genuine vEcoli. Without this, kept siblings
@@ -1147,7 +1171,37 @@ def main(argv=None):
                         "VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] "
                         "drug-target complex). Repeatable. Graded by the "
                         "bulk-aware comparison cards.")
+    # ⭐ CHAIN STAGE — a later stage of a staged-induction run. All four default
+    # to a strict no-op (a fresh, single-stage lineage), so an ordinary run is
+    # unaffected. v2ecoli expresses a generation-indexed induction as a SEQUENCE
+    # OF CACHES rather than a mutation schedule — see
+    # v2ecoli/perturbations/design_variant.py.
+    p.add_argument("--initial-generation", type=int, default=1,
+                   help="1-based ABSOLUTE label for this stage's first generation "
+                        "(default 1 = a fresh lineage). >1 continues the zarr "
+                        "generation labels instead of restarting at 1. Requires "
+                        "--initial-carry-state and --append-store.")
+    p.add_argument("--initial-carry-state", default="",
+                   help="carry state written by the previous stage's "
+                        "--daughter-state-out; seeds this stage's cell so the chain "
+                        "continues the SAME lineage against a different cache.")
+    p.add_argument("--daughter-state-out", default="",
+                   help="write the daughter produced at this stage's FINAL division "
+                        "here, as the hand-off to the next stage. That daughter is "
+                        "otherwise discarded.")
+    p.add_argument("--append-store", action="store_true",
+                   help="do NOT wipe --out-root's store first. Required for a "
+                        "resumed stage: the emitter links each partition to its "
+                        "PARENT generation, so a stage that re-creates the store "
+                        "deletes the very generations it needs.")
     args = p.parse_args(argv)
+    # ⛔ The stages of a chain must share a STORE and an EXPERIMENT_ID: the
+    # partition path is experiment_id=…/variant=…/lineage_seed=…/emitstep_gen=N,
+    # so a stage that changes any of that prefix looks for a parent its predecessor
+    # never wrote — and does not merely lose the linkage, it fails.
+    if args.initial_generation > 1 and not args.append_store:
+        p.error("--initial-generation > 1 resumes an existing store; pass "
+                "--append-store, or the run DELETES the generations it resumes from.")
 
     # Parse repeatable --exchange-flux leaf=key into a {leaf: key} map.
     exchange_fluxes: dict = {}
@@ -1209,7 +1263,11 @@ def main(argv=None):
         vecoli_whole_config=args.vecoli_whole_config,
         exchange_fluxes=exchange_fluxes,
         exchange_flux_basis=args.exchange_flux_basis, observables=observables,
-        observable_bulk_ids=observable_bulk_ids, variant=variant)
+        observable_bulk_ids=observable_bulk_ids, variant=variant,
+        initial_generation=args.initial_generation,
+        initial_carry_state=args.initial_carry_state,
+        daughter_state_out=args.daughter_state_out,
+        append_store=args.append_store)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
     # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).

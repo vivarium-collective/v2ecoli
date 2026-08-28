@@ -128,9 +128,9 @@ v2e-compare = "scripts.compare_cli:main"
 testpaths = ["tests", "v2ecoli/tests"]
 markers = [
     "fast: runs without simulation cache (type tests, unit tests)",
-    "slow: runs full simulations (60s+)",
+    "slow: runs full simulations (60s+). EXCLUDED FROM CI (like wcm): the fast gate selects `not slow and not sim` and the behavior job selects `sim and not slow`, so a `slow` test runs in NEITHER — including one also marked `sim`. Do not rely on CI to run a `slow` test; run it locally, or route it explicitly (see #553).",
     "behavior: model-behavior tests resumed from a saved checkpoint (seconds, not minutes)",
-    "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job.",
+    "sim: calls composite.run() — longer than pure-state tests. CI routes these to a parallel behavior-tests job — UNLESS the test is ALSO marked `slow`, which is excluded from CI (see the `slow` marker and #553).",
     "wcm: heavy full-WCM colony runs; excluded from CI",
 ]
 # Per-test wall-clock cap. Safety net for any future hang in sim code.

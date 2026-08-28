@@ -71,6 +71,15 @@ class StudySpec:
                                     # was emitted, so it is threaded to the card
                                     # through study state rather than ridden to
                                     # the engines as a flag.
+    variant: int | None = None      # 1-based index into the driving config's
+                                    # `variants` block, applied to the REFERENCE
+                                    # arm by the fork's own apply_variant.
+                                    # ⛔ None means UNDECLARED, not 0. For a
+                                    # config whose variant carries the model
+                                    # content itself, 0 is a DIFFERENT MODEL, so
+                                    # the runner refuses an undeclared variant
+                                    # rather than defaulting to it; `variant: 0`
+                                    # is how a study says "baseline, deliberately".
     exchange_flux_basis: str = "counts"   # "counts" | "gdcw" — WHICH QUANTITY
                                     # the exchange_flux leaves carry, on BOTH
                                     # arms. counts is a lineage-cumulative
@@ -143,6 +152,49 @@ def exchange_flux_basis_from_study_yaml(study_path, fallback: str = "counts") ->
     # `comparison:`, and this now matches them.
     v = comp.get("exchange_flux_basis")
     return str(v) if v else fallback
+
+
+def variant_from_study_yaml(study_path, fallback=None):
+    """Read `comparison.variant` from a study.yaml. Mirrors
+    `exchange_flux_basis_from_study_yaml` — same bridge, same reason.
+
+    ⛔ RETURNS None FOR "NOT DECLARED", AND 0 IS A REAL VALUE. `0` selects the
+    baseline deliberately and is falsy, so an `or` chain would silently discard
+    it in favour of an investigation-level default — the same trap
+    `_first_declared` exists to close for `generation_lower_bound`.
+
+    ⚠ WHY THIS BRIDGE MATTERS MORE THAN THE FLUX MAP'S. A dropped flux map
+    yields MISSING leaves, which is visible. A dropped variant yields a complete,
+    healthy-looking reference arm running a DIFFERENT MODEL: for a config whose
+    variant carries the strain (a new-gene expression and translation-efficiency
+    vector) plus its induction schedule, the unvaried run has neither, and
+    nothing about the output says so.
+    """
+    path = Path(study_path)
+    if not path.exists():
+        return fallback
+    try:
+        import yaml
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except Exception:  # noqa: BLE001 — a study we cannot read keeps the fallback
+        return fallback
+    if not isinstance(doc, dict):
+        return fallback
+    comp = doc.get("comparison") if isinstance(doc.get("comparison"), dict) else {}
+    v = comp.get("variant")
+    if v is None:
+        return fallback
+    try:
+        iv = int(v)
+    except (TypeError, ValueError):
+        raise ValueError(
+            f"{study_path}: comparison.variant must be an integer index into the "
+            f"config's `variants` block (got {v!r})")
+    if iv < 0:
+        raise ValueError(
+            f"{study_path}: comparison.variant must be >= 0 (got {iv}); 0 selects "
+            f"the baseline deliberately")
+    return iv
 
 
 def _validate_generation_window(name, lower_bound, gens, *, source: str) -> int:
@@ -396,6 +448,15 @@ def specs_from_configs(ctx: dict) -> list:
                 fallback=str(entry.get("exchange_flux_basis")
                              or defaults.get("exchange_flux_basis")
                              or "counts")),
+            # ⚠ `_first_declared`, NOT an `or` chain: `variant: 0` is a real
+            # declaration ("baseline, deliberately") and is falsy, so an `or`
+            # would discard it in favour of an investigation default — turning an
+            # explicit opt-out into whatever the investigation happened to say.
+            variant=variant_from_study_yaml(
+                study_yaml,
+                fallback=_first_declared(entry.get("variant"),
+                                         defaults.get("variant"),
+                                         default=None)),
             generation_lower_bound=_glb,
             observable_bulk_ids=list(entry.get("observable_bulk_ids")
                                      or defaults.get("observable_bulk_ids") or []),
@@ -454,6 +515,10 @@ def _spec_from_study(study_path: Path, ctx: dict) -> StudySpec:
             study_path,
             fallback=str((ctx.get("defaults") or {}).get("exchange_flux_basis")
                          or "counts")),
+        variant=variant_from_study_yaml(
+            study_path,
+            fallback=_first_declared((ctx.get("defaults") or {}).get("variant"),
+                                     default=None)),
         generation_lower_bound=_validate_generation_window(
             name,
             generation_lower_bound_from_study_yaml(

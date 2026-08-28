@@ -20,7 +20,6 @@ dependencies = [
     # These repos are renamed to viva-* (URLs below) but their PACKAGE metadata
     # is still pbg-* upstream, so the dependency name must stay pbg-* until the
     # package rename lands. (uv rejects a name that mismatches package metadata.)
-    "pbg-parsimony",
     "pbg-bioreactordesign",
     "pbg-ketchup",
     # Transitive dep of viva-superpowers (the Actionable Investigation Graph
@@ -119,6 +118,11 @@ v2e-compare = "scripts.compare_cli:main"
 [tool.setuptools.package-data]
 # Ship the v2ecoli override files; bulk KB data is provided by the ecoli-sources bundle.
 "v2ecoli.processes.parca.reconstruction.ecoli" = ["flat_overrides/*", "parca_overrides.tsv"]
+# Ship the workflow config presets and the SBML model file so a pip/git install
+# (not just a source checkout) can resolve `configs/*.json` and the millard SBML
+# through the installed package. The large ParCa blob (models/parca/parca_state.pkl.gz)
+# is intentionally NOT shipped here — it is provided by ecoli-sources / the workspace.
+"v2ecoli" = ["configs/*.json", "models/sbml/*.xml"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "v2ecoli/tests"]
@@ -176,7 +180,6 @@ pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowe
 viva-copasi = { git = "https://github.com/vivarium-collective/viva-copasi.git", branch = "main" }
 # Repos renamed to viva-* (canonical URLs) but packages still build as pbg-* —
 # key must match the pbg-* package name until upstream renames the package.
-pbg-parsimony = { git = "https://github.com/vivarium-collective/viva-parsimony.git", branch = "main" }
 pbg-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
 pbg-bioreactordesign = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git", branch = "main" }
 pbg-ketchup = { git = "https://github.com/vivarium-collective/viva-ketchup.git", branch = "main" }

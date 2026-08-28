@@ -51,6 +51,26 @@ def _run_engines(spec, out: str, mode: str) -> None:
     if flux_flags:
         flux_flags += ["--exchange-flux-basis",
                        str(getattr(spec, "exchange_flux_basis", None) or "counts")]
+    # ⛔⛔ THE VARIANT RIDES THE REFERENCE INVOCATION ONLY, AND ONLY WHEN THE
+    # STUDY DECLARED IT. Unlike the flux flags above, this is NOT symmetric: the
+    # reference arm applies the config's variant through the fork's own
+    # `apply_variant`, while the candidate arm takes its perturbation from
+    # `--cache-dir`.
+    # ⚠ CORRECTED: an earlier version of this comment said passing it to both
+    # "would apply the same perturbation twice on the candidate side". That is
+    # false and checkable — `make_run_one`'s `v2ecoli` branch never reads
+    # `variant` at all. The flag would simply be inert there. The asymmetry is
+    # still right, but for the plain reason and not a scary one.
+    # ⛔ The real hazard on the candidate side is UNCHECKED and lives elsewhere:
+    # this asymmetry is only correct if `v2_cache` is a perturbation-baked cache.
+    # Nothing validates that, so a study pointing both arms at a stock cache
+    # compares perturbed-vs-baseline and reads as a clean comparison.
+    # ⚠ `is not None`, not truthiness: `variant: 0` is a study saying "baseline,
+    # deliberately", and it must reach the runner as an explicit choice — passing
+    # nothing instead would trip the runner's own refusal, which is exactly the
+    # question the study already answered.
+    variant_flags = ([] if getattr(spec, "variant", None) is None
+                     else ["--variant", str(spec.variant)])
     # Arbitrary listener leaves ("group.leaf") to emit as measurements on BOTH
     # arms — the general observable-declaration hook.
     obs_flags = [f for o in (spec.observables or [])
@@ -73,7 +93,8 @@ def _run_engines(spec, out: str, mode: str) -> None:
                     "--max-generations", str(spec.gens), "--max-steps", str(per_gen),
                     "--chunk", "60", "--mode", mode,
                     "--vecoli-source", "vivarium-process",
-                    *swap_flags, *flux_flags, *obs_flags, *obs_bulk_flags,
+                    *swap_flags, *flux_flags, *variant_flags, *obs_flags,
+                    *obs_bulk_flags,
                     "--out-root", out_c], cwd=REPO, check=True)
 
 

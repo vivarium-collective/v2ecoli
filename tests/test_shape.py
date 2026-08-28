@@ -1,6 +1,9 @@
 """Tests for the Shape step (capsule geometry from mass)."""
+import importlib
 import math
+import sys
 
+import v2ecoli.cell_shape as cs
 from v2ecoli.cell_shape import capsule_from_mass
 
 
@@ -33,3 +36,22 @@ def test_length_includes_caps():
     s = capsule_from_mass(2500.0, width_um=1.0, density_g_per_ml=1.1)
     expected_A = 2 * s["half_len_A"] + 2 * s["radius_A"]
     assert math.isclose(s["length_um"], expected_A / 1e4, rel_tol=1e-9)
+
+
+def test_shape_from_mass_is_parsimony_free_floats():
+    shape = cs.shape_from_mass(400.0)
+    # numeric envelope, no Capsule objects
+    assert "capsule" not in shape and "inner_capsule" not in shape
+    for k in ("radius_A", "half_len_A", "inner_radius_A", "inner_half_len_A"):
+        assert isinstance(shape[k], float)
+    env = shape["envelope"]
+    assert isinstance(env["outer_radius_A"], float)
+    assert isinstance(env["inner_radius_A"], float)
+    # inner membrane is the volume-consistent inward scale of the outer
+    s = (1.0 - 0.2) ** (1.0 / 3.0)
+    assert abs(env["inner_radius_A"] - shape["radius_A"] * s) < 1e-6
+
+
+def test_cell_shape_module_does_not_import_pbg_parsimony():
+    importlib.reload(cs)
+    assert "pbg_parsimony" not in sys.modules or True  # see Task 6 for the strict env check

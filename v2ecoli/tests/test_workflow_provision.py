@@ -2,7 +2,8 @@ import os, pytest
 from process_bigraph import allocate_core, Composite
 from process_bigraph.composite_generator import _REGISTRY, apply_core_extensions, build_generator
 
-CACHE = '/Users/eranagmon/code/v2ecoli/out/cache'
+from v2ecoli.workflow.build import DEFAULT_CACHE_DIR
+CACHE = os.environ.get('V2ECOLI_PARCA_CACHE_DIR', DEFAULT_CACHE_DIR)
 
 
 @pytest.mark.skipif(not os.path.isdir(CACHE), reason='no ParCa cache')

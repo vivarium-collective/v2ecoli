@@ -38,17 +38,26 @@ from v2ecoli.core import build_core
 
 # Local fallback for the genuine-vEcoli ParCa simData when ``cache_dir`` has no
 # simData.cPickle. Mirrors scripts/run_comparison_ensemble.py's
-# ``_UPSTREAM_SIMDATA_FALLBACK`` (the same last-resort path the vivarium-process
-# vEcoli loader and matched-initial-state reference both use there).
-_UPSTREAM_SIMDATA_FALLBACK = (
-    "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
-    "kb/simData.cPickle")
+# A caller may point at an explicit simData via $V2E_UPSTREAM_SIMDATA; there is
+# no hardcoded developer-path fallback (issue #131).
+_UPSTREAM_SIMDATA_FALLBACK = os.environ.get("V2E_UPSTREAM_SIMDATA", "")
 
 
 def _resolve_sim_data_path(cache_dir: str) -> str:
-    """<cache_dir>/simData.cPickle if present, else the upstream local fallback."""
+    """<cache_dir>/simData.cPickle if present, else $V2E_UPSTREAM_SIMDATA.
+
+    Raises a clear error when neither is available, rather than returning a
+    non-portable hardcoded path that only exists on one machine.
+    """
     candidate = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
-    return candidate if os.path.exists(candidate) else _UPSTREAM_SIMDATA_FALLBACK
+    if os.path.exists(candidate):
+        return candidate
+    if _UPSTREAM_SIMDATA_FALLBACK:
+        return _UPSTREAM_SIMDATA_FALLBACK
+    raise FileNotFoundError(
+        f"vEcoli simData not found at {candidate!r} and $V2E_UPSTREAM_SIMDATA is "
+        f"unset. Run/point at a ParCa cache dir containing simData.cPickle, or "
+        f"set $V2E_UPSTREAM_SIMDATA.")
 
 
 def _resolve_fork_config(reference_repo: str, fork_config: str | None):

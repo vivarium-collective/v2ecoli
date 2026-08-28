@@ -277,6 +277,38 @@ session history.
   rate*timestep)` silently rounds to 0 forever at small per-tick
   probabilities; reused directly for NFsim's own firing cadence
   (2026-08-12 wiring plan) and every other rate-limited flagella Step since.
+- **Nucleation first-tick "free event" bug (2026-08-11)** — a second,
+  separate bug from the rounds-to-0 issue above, found the same session.
+  `next_update_time` defaults to 0.0, and `update_condition` fires whenever
+  `next_update_time <= global_time` — so at t=0, `0.0 <= 0.0` is true, and
+  the deliberately-rare nucleation Step fired immediately on its very first
+  call, skipping the intended ~600s wait entirely (every single-generation
+  run got one unintended "free" nucleation event at simulation start).
+  Fixed by special-casing the first call (detected via the same lazy
+  bulk-index-resolution check every flagella Step already does): schedule
+  `next_update_time` one full interval ahead and return, no flagellum
+  created. Verified directly: pre-fix, first nascent flagellum appeared at
+  t≈120s already 2,016 subunits grown; post-fix, `n_nascent` correctly
+  stayed 0 until t=600s. Rationale for rate-limiting nucleation at all:
+  existing structures preferentially absorb material over nucleating new
+  ones (Chang, Sung & Hong 2025).
+- **Bottleneck correction: FlhA → FliN (2026-08-11)** — overturned an
+  earlier same-session finding. Before the C-ring→export-apparatus
+  hierarchy fix (3.1 above), FlhA looked genuinely scarce (1–8 copies,
+  drawn down aggressively by ungated SSA firing). After the fix, FlhA held
+  steady at 105–190 copies (ample) because `CPLX0-7451_RXN` now only fires
+  when gated by `CPLX0-7450`, itself gated by FliN. The real bottleneck
+  moved to FliN: FliN and FliM are co-transcribed on the same operon
+  (`fliLMNOPQR`, TU0-1441, produced in lockstep), but FliN costs 111 copies
+  per C-ring event versus FliM's 34, so each event drains FliN's pool a
+  proportionally much bigger bite (observed range 10–110 vs. FliM's
+  430–660). Recommendation at the time: leave FliN alone — the
+  co-transcription fact rules out a synthesis-rate error, the stoichiometry
+  is already literature-cited (111±13, PMC10128058), and the motor-complex
+  pool it ultimately feeds stayed healthy (5–7) throughout — no evidence
+  this constrained flagella completions. Relevant context for the still-open
+  §3.3 question of what, if anything, actually limits flagella count
+  layer-by-layer.
 - **Binomial division splitting** (`divide_nascent_flagellum`,
   `v2ecoli/library/division.py`) — in-progress and complete flagella split
   binomially between daughters at division, consistent with direct
@@ -568,6 +600,10 @@ session history.
   flagellum using *flhDC* from *Escherichia coli* results in key regulatory
   and cellular differences. *Sci Rep* 8:16705.
   https://doi.org/10.1038/s41598-018-35005-2
+- Chang YR, Sung YS & Hong DF (2025). Intrinsic clustering of flagellar
+  basal body proteins in *Escherichia coli*. *Biochem Biophys Reports*
+  42:102051. (Rationale for rate-limited nucleation: existing structures
+  preferentially absorb material over nucleating new ones.)
 - Chadsey MS, Karlinsey JE & Hughes KT (1998). The flagellar anti-sigma
   factor FlgM actively dissociates *Salmonella typhimurium* sigma28 RNA
   polymerase holoenzyme. *Genes Dev* 12:3123-3136.

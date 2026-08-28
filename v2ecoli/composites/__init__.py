@@ -17,6 +17,7 @@ from v2ecoli.composites import (  # noqa: F401
     ecoli_colony,
     millard_fba_bridge_harness,
     parca,
+    parca_prep,
     reactor_bird_coupled,
     reactor_bird_coupled_millard,
     vecoli,

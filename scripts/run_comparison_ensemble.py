@@ -849,8 +849,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     def run_one(seed: int) -> dict:
         t0 = time.time()
         store_path = f"{out_root.rstrip('/')}/{composite_kind}_seed{seed:02d}.zarr"
-        # local stores: clear stale
-        if "://" not in str(store_path) and Path(store_path).exists():
+        # local stores: clear stale — UNLESS this is a later stage of a chain,
+        # which must APPEND to the store its predecessor wrote.
+        # ⛔⛔ THIS IS A SECOND DELETION SITE, upstream of the emitter's own
+        # `overwrite`. Threading `--append-store` to `run_multigen_xarray` alone
+        # is NOT enough: this rmtree runs first, so a resumed stage deleted the
+        # generations it was about to resume from and then failed looking for the
+        # parent it had just removed — `KeyError: emitstep_gen=1`, which reads as
+        # an emitter bug rather than as "we deleted it a moment ago".
+        # ⇒ One flag, two sites. Measured: stage 1 closed with 10 data files on
+        # disk; stage 2 started, and the store was empty.
+        if (not append_store and "://" not in str(store_path)
+                and Path(store_path).exists()):
             shutil.rmtree(store_path)
 
         # The genuine vEcoli side ALWAYS runs as a SINGLE pbg node with vivarium's

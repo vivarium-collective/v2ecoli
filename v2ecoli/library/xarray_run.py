@@ -714,6 +714,7 @@ def run_multigen_xarray(
     # coord-discovery warm-up so first chunk completes at done = 1 + chunk).
     done = 1
     gens_seen = [gen]
+    _closed_at_cap = False   # set when the cap-break closes this generation itself
     prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
     def _emit_followed(emitter, agents_map, key):
@@ -822,13 +823,51 @@ def run_multigen_xarray(
             if daughter_state_out_path and inner_next is not None:
                 _daughter = ((composite.state or {}).get("agents") or {}).get(inner_next)
                 if _daughter is not None:
+                    import os as _os
                     from v2ecoli.cache import save_initial_state
-                    save_initial_state(dict(_daughter), daughter_state_out_path)
+                    # ⛔ CARRY ONLY WHAT THE READ SIDE CONSUMES. `apply_carry_state`
+                    # overlays exactly bulk/unique/environment/boundary, and the
+                    # batch path's `select_carry_daughter` hands it exactly those.
+                    # Saving the WHOLE agent subtree instead drags along
+                    # `listeners`, `process_state`, `next_update_time`… — state
+                    # that was never meant to serialize. Measured: it fails on a
+                    # pint Quantity whose magnitude the JSON encoder cannot coerce
+                    # (`TypeError: float() argument must be ... not 'Float'`), and
+                    # it fails AFTER writing megabytes, so the corpse looks like a
+                    # hand-off. Project to the contract instead.
+                    _carry = {k: _daughter[k] for k in
+                              ("bulk", "unique", "environment", "boundary")
+                              if k in _daughter}
+                    # ⛔ AND WRITE IT ATOMICALLY. A partial write leaves a file that
+                    # EXISTS, so an `-f` check (and the next stage) accepts a
+                    # truncated carry state as a valid hand-off.
+                    _tmp = f"{daughter_state_out_path}.partial"
+                    save_initial_state(_carry, _tmp)
+                    _os.replace(_tmp, daughter_state_out_path)
                     print(f"[multigen_xarray] wrote generation-{gen + 1} carry "
-                          f"state ({inner_next!r}) -> {daughter_state_out_path}")
+                          f"state ({inner_next!r}, keys={sorted(_carry)}) -> "
+                          f"{daughter_state_out_path}")
                 else:
                     print(f"[multigen_xarray] carry state NOT written: daughter "
                           f"{inner_next!r} absent from the composite.")
+            # ⛔⛔ CLOSE THIS GENERATION HERE, exactly as a non-final generation
+            # does a few lines below. Falling through to the post-loop close
+            # instead writes NOTHING for this generation.
+            # `[m]` A single-generation run that ends at its DIVISION left a store
+            # holding only the group hierarchy — 8 entries, no variables — while
+            # reporting exit 0 and `generations: [1]`. The same run stopped by
+            # `max_steps` (no division) wrote all 8 partitions. The difference is
+            # exactly this close: the per-generation close writes, the post-loop
+            # close does not once the division has torn down the followed agent.
+            # ⇒ A chain's first stage is PRECISELY this shape — run generation 1,
+            # stop at its division, hand the daughter on — so without this the
+            # next stage fails on a parent generation that was never written.
+            try:
+                em.close(success=True)
+            except AssertionError:
+                print(f"[multigen_xarray] gen-{gen} cap close hit pbg-emitters "
+                      "final-flush assert; flushed data retained.")
+            _closed_at_cap = True
             break
 
         if inner_next is None:
@@ -877,7 +916,8 @@ def run_multigen_xarray(
         prev_ids = set(((composite.state or {}).get("agents") or {}).keys())
 
     try:
-        em.close(success=True)
+        if not _closed_at_cap:
+            em.close(success=True)
     except AssertionError:
         # Known pbg-emitters quirk: flush(final=True) asserts when the buffer
         # is exactly full at close. Buffers flushed mid-run are already on

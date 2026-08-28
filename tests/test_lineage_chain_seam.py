@@ -20,13 +20,20 @@ then grades the wrong cells, and both labels look internally consistent.
 *computes* its generation that way (``vivarium_ecoli_engine``), so the two
 engines only stay comparable while this holds on both.
 """
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-from test_multigen_last_generation import _FakeComposite  # noqa: E402
+# ⚠ Import the shared fake WITHOUT mutating sys.path: inserting `tests/` at the
+# front shadows same-named modules for every test that runs afterwards in the
+# same session (it broke 5 theme/narrative tests in tests/compare, which pass in
+# isolation). Load it by explicit path instead.
+import importlib.util as _ilu  # noqa: E402
+_spec = _ilu.spec_from_file_location(
+    "_chain_fake_composite", Path(__file__).parent / "test_multigen_last_generation.py")
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+_FakeComposite = _mod._FakeComposite
 
 from v2ecoli.library.xarray_run import (  # noqa: E402
     run_multigen_xarray, view_from_emit_paths)
@@ -260,3 +267,79 @@ def test_run_multigen_xarray_ACTUALLY_SEEDS_the_composite_from_the_carry_state(t
     assert "SENTINEL-CARRIED" in str(cell.get("bulk")), (
         "the carry state never reached the cell — run_multigen_xarray built a "
         "FRESH composite and labelled it a later generation")
+
+
+def test_the_carry_out_saves_ONLY_what_the_read_side_consumes(tmp_path):
+    """⛔ Found by a real run, not by a test.
+
+    The first version saved the WHOLE agent subtree. On a real candidate composite
+    that drags in `listeners`, `process_state`, `next_update_time`… — state never
+    meant to serialize — and it died in the JSON encoder on a pint Quantity
+    (`TypeError: float() argument must be ... not 'Float'`) AFTER writing 13.6 MB.
+
+    `apply_carry_state` overlays exactly four keys. Carry exactly those.
+    """
+    import json
+    out = tmp_path / "narrow.json"
+    _run(tmp_path, name="narrow", max_steps=900, max_generations=2,
+         daughter_state_out_path=str(out))
+    payload = json.loads(out.read_text())
+    assert set(payload) <= {"bulk", "unique", "environment", "boundary"}, (
+        f"the carry state carries keys the read side ignores: "
+        f"{sorted(set(payload) - {'bulk', 'unique', 'environment', 'boundary'})}")
+    assert "listeners" not in payload
+
+
+def test_a_failed_carry_write_leaves_NO_hand_off(tmp_path, monkeypatch):
+    """⛔ A partial write leaves a file that EXISTS — and an `-f` check, or the
+    next stage, accepts the corpse as a valid hand-off. The real run wrote 13.6 MB
+    and then raised; the driver only refused to continue because the exit code
+    also failed. Make the file appear only when it is complete."""
+    from v2ecoli.library import xarray_run as xr
+    out = tmp_path / "atomic.json"
+
+    real_save = xr.__dict__.get("save_initial_state")
+
+    def _explode(payload, path):
+        with open(path, "w") as f:      # write a partial file, as the encoder does
+            f.write('{"bulk": [1, 2')
+        raise TypeError("simulated encoder failure mid-write")
+
+    import v2ecoli.cache as vc
+    monkeypatch.setattr(vc, "save_initial_state", _explode)
+    with pytest.raises(TypeError):
+        _run(tmp_path, name="atomic", max_steps=900, max_generations=2,
+             daughter_state_out_path=str(out))
+    assert not out.exists(), (
+        "a failed write left a hand-off file behind — the next stage would seed "
+        "from a truncated carry state")
+    assert real_save is None or True
+
+
+def test_a_cap_break_run_writes_BOTH_its_data_and_its_hand_off(tmp_path):
+    """⛔⛔ The pairing no test asserted, and a real run failed on it.
+
+    A chain's first stage ends at its generation cap, at a division, WITH a
+    carry-out. Every existing test checked one half or the other: that the
+    hand-off appears, or that generations land. A real stage 1 wrote a valid
+    hand-off, exited 0, reported `generations: [1]` — and left a store with no
+    variables at all, so the next stage died on a missing parent generation.
+
+    Assert both together, at the exact shape a chain's first stage uses.
+
+    ⚠⚠ HONEST LIMIT: this test PASSES against the code that failed the real run.
+    The fake's daughter is a small structured array and a dict; the real cell's
+    `bulk`/`unique` are what disturb the emitter. So this is a GUARD on the
+    pairing, not a reproduction of that defect — do not read it as coverage of
+    it. The real failure is only visible to a functional run.
+    """
+    store = tmp_path / "both.zarr"
+    carry = tmp_path / "both_carry.json"
+    res = _run(tmp_path, name="both", store=store, exp="both", max_steps=900,
+               max_generations=1, daughter_state_out_path=str(carry))
+    assert res["generations"] == [1]
+    assert carry.exists(), "no hand-off"
+    gens = [d for d in store.rglob("generation=*") if d.is_dir()]
+    assert gens, (
+        "the stage wrote a hand-off but NO data — the next stage will fail on a "
+        "parent generation that was never written")

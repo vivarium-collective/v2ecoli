@@ -48,6 +48,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 import sqlite3
 import sys
@@ -132,6 +133,8 @@ def _build_baseline_time_varying_env(
 def _build_reactor_bird_coupled(
     core, cache_dir, *,
     seed=0,
+    single_daughters=True,
+    carbon_exhaustion_arrest=False,
     cells_per_agent=1.0e9,
     population_growth_mode="representative_doubling",
     initial_glucose_mM=None,
@@ -144,8 +147,33 @@ def _build_reactor_bird_coupled(
     duration / generation half of that contract).
     """
     from v2ecoli.composites.reactor_bird_coupled import reactor_bird_coupled
+    # v2ecoli#591 adds the in-composite LineageBookkeeper behind the composite's
+    # own ``single_daughters`` flag. Forward it only when the composite accepts
+    # it: on a tree predating #591 there is no Step to install and the runners
+    # own the pruning, which is the correct behaviour there. This keeps the
+    # runner correct on both sides of that merge instead of imposing a
+    # landing-order constraint on #591.
+    _accepts = inspect.signature(reactor_bird_coupled).parameters
+    extra = {}
+    if "single_daughters" in _accepts:
+        extra["single_daughters"] = single_daughters
+    # v2ecoli#592: opt-in substrate-exhaustion arrest, default off. Same
+    # signature guard, but NOT the same fallback -- unlike single_daughters,
+    # nothing else applies the arrest, so silently dropping it would emit a run
+    # that claims a code path it never took. This guard is the one that bites:
+    # THIS function always accepts the kwarg, so the caller's own signature check
+    # passes and only the composite's does not. Fail loudly on an explicit True.
+    if "carbon_exhaustion_arrest" in _accepts:
+        extra["carbon_exhaustion_arrest"] = carbon_exhaustion_arrest
+    elif carbon_exhaustion_arrest:
+        raise ValueError(
+            "carbon_exhaustion_arrest=True was requested but this tree's "
+            "reactor_bird_coupled does not accept it (predates v2ecoli#592), "
+            "and no runner-side fallback applies it. Refusing to build."
+        )
     return reactor_bird_coupled(
         core=core, seed=seed, cache_dir=cache_dir,
+        **extra,
         cells_per_agent=cells_per_agent,
         population_growth_mode=population_growth_mode,
         initial_glucose_mM=(
@@ -153,6 +181,36 @@ def _build_reactor_bird_coupled(
         ),
         bird_reactor_config=bird_reactor_config or dict(MBP_04_REACTOR_CONFIG),
     )
+
+
+def _composite_of(builder_fn):
+    """The composite a builder wraps, or None if it wraps none we track.
+
+    Kept as an explicit mapping rather than an `is` check so adding an
+    arrest-capable builder (a fed-batch coupled variant, say) is a one-line
+    registration here -- an identity test would silently refuse to run it while
+    the dispatcher forwarded the flag correctly.
+    """
+    if builder_fn is _build_reactor_bird_coupled:
+        from v2ecoli.composites.reactor_bird_coupled import (  # noqa: PLC0415
+            reactor_bird_coupled,
+        )
+        return reactor_bird_coupled
+    return None
+
+
+def _composite_accepts_arrest(builder_fn) -> bool:
+    """Would this builder's COMPOSITE accept `carbon_exhaustion_arrest`?
+
+    The builder accepting the kwarg is not sufficient -- `_build_reactor_bird_coupled`
+    always does, and only the composite it wraps decides whether the arrest can
+    actually be applied (v2ecoli#592). Used for the pre-flight in main() so an
+    unhonourable request fails before any compute rather than after.
+    """
+    composite = _composite_of(builder_fn)
+    if composite is None:
+        return False
+    return "carbon_exhaustion_arrest" in inspect.signature(composite).parameters
 
 
 # (sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths)
@@ -434,17 +492,50 @@ def _count_parquet_rows(out_dir: Path, experiment_id: str) -> int:
 def _run_one_variant(
     *, sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths,
     duration_sec, max_generations, chunk, cache_dir, core, emitter,
-    single_daughters=True,
+    single_daughters=True, carbon_exhaustion_arrest=False,
 ) -> dict:
     # COMMON_AGENT_PATHS is shared by every variant; EXTRA_AGENT_PATHS adds
     # the observables only one variant needs (see its docstring for why
     # mbp-04 carries the gate booleans).
     agent_paths = COMMON_AGENT_PATHS + EXTRA_AGENT_PATHS.get(sim_name, [])
+    # v2ecoli#591: the in-composite LineageBookkeeper is opt-in on the COMPOSITE's
+    # own single_daughters flag. A runner run with single_daughters=True against a
+    # composite built with the default False silently gets the OLD chunk-dependent
+    # behaviour -- while run_identity still records single_daughters: true. Thread
+    # it to any builder that accepts it so the two cannot disagree.
+    _params = inspect.signature(builder_fn).parameters
+    if "single_daughters" in _params:
+        builder_kwargs = {**builder_kwargs, "single_daughters": single_daughters}
+    # v2ecoli#592: same seam, but NOT the same fallback. `single_daughters` is
+    # also honoured runner-side by run_multigen_{parquet,sqlite}, so a builder
+    # that cannot take it still gets the requested pruning and run_identity stays
+    # truthful. `carbon_exhaustion_arrest` has no such fallback: if the composite
+    # cannot take it, nothing else applies it, and recording the request would be
+    # the very lie this function exists to prevent. Its default is False, so an
+    # explicit True that cannot be honoured is unambiguous -- fail loudly instead
+    # of emitting a sidecar that claims a code path the run never took.
+    # Only the coupled variant models substrate exhaustion at all; the other 14
+    # builders have no arrest to enable and never will, on any tree. So an
+    # inapplicable variant is NOT an error -- raising here would abort the whole
+    # default sweep on variant 1 (`_build_baseline`) and blame a merge that has
+    # nothing to do with it. Skip it, say so, and let run_identity record the
+    # effective False, which is truthful. The genuine "you asked for something
+    # this tree cannot do" case is caught inside the coupled builder itself.
+    _arrest_forwarded = "carbon_exhaustion_arrest" in _params
+    if _arrest_forwarded:
+        builder_kwargs = {**builder_kwargs,
+                          "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
     print(f"  max_generations: {max_generations}")
     print(f"  kwargs: {builder_kwargs}")
+    if carbon_exhaustion_arrest and not _arrest_forwarded:
+        print(
+            "  NOTE: --carbon-exhaustion-arrest does not apply to this variant "
+            f"({builder_fn.__name__} models no substrate exhaustion); "
+            "recording carbon_exhaustion_arrest=false."
+        )
 
     simulation_id = str(uuid.uuid4())
 
@@ -547,6 +638,15 @@ def _run_one_variant(
                 "max_generations": max_generations,
                 "chunk": chunk,
                 "single_daughters": single_daughters,
+                # The EFFECTIVE value, not the requested one. Reaching here
+                # with _arrest_forwarded False means the arrest was inapplicable
+                # to this variant (the NOTE above) -- it may well have been
+                # asked for, and recording the request is exactly the lie this
+                # threading exists to prevent. The unhonourable-request case
+                # never reaches here: the coupled builder raises.
+                "carbon_exhaustion_arrest": (
+                    carbon_exhaustion_arrest and _arrest_forwarded
+                ),
             },
         )
 
@@ -603,6 +703,10 @@ def main():
                    help=("Continue BOTH daughters at each division. Memory "
                          "scales with active agents; cap --max-generations "
                          "to bound RSS."))
+    p.add_argument("--carbon-exhaustion-arrest", action="store_true",
+                   default=False,
+                   help=("v2ecoli#592: arrest biomass growth once the carbon "
+                         "source is exhausted (opt-in; default off)."))
     args = p.parse_args()
 
     variants = VARIANTS
@@ -619,6 +723,29 @@ def main():
         print("Parquet roots: studies/<study_slug>/parquet-runs/<simulation_id>/history/...")
     print(f"Per-variant: emitter={args.emitter}  chunk={args.chunk}  "
           f"(duration / max_generations resolved per variant)")
+
+    # Pre-flight: the arrest is only honoured by the coupled composite, and only
+    # once v2ecoli#592 has landed. The builder raises rather than emit a sidecar
+    # claiming an arrest it never applied -- but the coupled variant is LAST in
+    # sweep order and carries the longest window, so without this check a bare
+    # `--carbon-exhaustion-arrest` on a pre-#592 tree would burn 14 variants of
+    # compute before failing. Fail before building anything instead.
+    if args.carbon_exhaustion_arrest:
+        _honourable = [
+            name for name, _slug, fn, _kw, _extra in variants
+            if _composite_accepts_arrest(fn)
+        ]
+        if not _honourable:
+            sys.exit(
+                "--carbon-exhaustion-arrest was requested but no selected "
+                "variant can honour it: none of "
+                f"{[v[0] for v in variants]} builds a composite that accepts "
+                "`carbon_exhaustion_arrest`. Either this tree predates "
+                "v2ecoli#592, or the selection models no substrate exhaustion "
+                "(only the coupled variant does). Refusing rather than running "
+                "something other than what was asked for -- the sidecars would "
+                "record `false`, truthfully, but no run would carry the arrest."
+            )
 
     core = build_core()
     results = []
@@ -640,6 +767,7 @@ def main():
             emitter=args.emitter,
             cache_dir=args.cache_dir, core=core,
             single_daughters=args.single_daughters,
+            carbon_exhaustion_arrest=args.carbon_exhaustion_arrest,
         )
         results.append(result)
     total_wall = time.time() - t_all

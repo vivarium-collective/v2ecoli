@@ -256,20 +256,36 @@ def test_o2_mass_balance_closes(consuming_run):
     (mass conservation of the additive dissolved-O2 store). The ratio
     ``consumed / (transferred - delta_dissolved)`` must sit in [0.95, 1.05].
 
-    This is a genuine check (not tautological): ``consumed`` is reconstructed
-    from the cell-side exchange counts via Avogadro's number, while
-    ``transferred`` and ``delta_dissolved`` come from the reactor-side transport
-    diagnostic and the dissolved store — three independent quantities. It
-    validates both the coupler's counts->mg/L unit conversion and that no O2
-    mass leaks across the coupling.
+    ``consumed`` is reconstructed from the cell-side exchange store via
+    Avogadro's number, while ``transferred`` and ``delta_dissolved`` come from
+    the reactor-side transport diagnostic and the dissolved store — three
+    quantities. It validates the coupler's counts->mg/L conversion and that no
+    O2 mass leaks across the coupling.
+
+    ⚠ It is only independent if BOTH sides read the cumulative store correctly.
+    Before 2026-08-29 neither did: the coupler consumed the running total and
+    this test summed it, so the ratio stayed ~1 at any magnitude and the
+    criterion could not fail. It is a genuine check now; it was not then.
     """
     run = consuming_run
     cpa = run["cells_per_agent"]
     vol = run["volume_L"]
     counts_to_mgL = cpa / AVOGADRO * 1000.0 / vol * MW_O2
 
-    # Source-side cumulative consumption (positive mg/L): -sum(uptake counts).
-    consumed = -sum(run["o2_counts"]) * counts_to_mgL
+    # Source-side cumulative consumption (positive mg/L).
+    #
+    # ⚠ `environment.exchange` is a LINEAGE-CUMULATIVE running total, not a
+    # per-step delta, so SUMMING the sampled series double-counts: it sums a
+    # series that should have been differenced, inflating by ~N/2 over N steps.
+    # Until 2026-08-29 this test did exactly that -- and PASSED, because the
+    # coupler made the same error, so both sides of the ratio were inflated by
+    # the same factor and the axis went green. That is the second catalogued
+    # instance of this error class (see scripts/_compare/exchange_flux_basis.py
+    # lines 45-51 for the first, where it also cancelled between two arms).
+    #
+    # The total consumed IS the store's total change, so difference the
+    # endpoints rather than summing the series.
+    consumed = -(run["o2_counts"][-1] - run["o2_counts"][0]) * counts_to_mgL
     # Reactor-side gas-liquid transfer (cumulative mg/L) + dissolved change.
     transferred = sum(run["o2_transport_deltas"])
     delta_dissolved = run["do_final"] - run["do0"]

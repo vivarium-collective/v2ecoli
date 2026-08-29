@@ -115,6 +115,33 @@ class EngineHandle:
     time_step: float = 1.0
 
 
+def _is_tcs_modified_molecules_skew(exc: BaseException) -> bool:
+    """True iff ``exc`` is the genuine-vEcoli fixture↔upstream skew: upstream
+    reading ``TwoComponentSystem.modified_molecules`` off a sim_data fixture
+    that predates that attribute. Kept narrow (both tokens present) so unrelated
+    AttributeErrors are not misattributed."""
+    msg = str(exc)
+    return "modified_molecules" in msg and "TwoComponentSystem" in msg
+
+
+def _fixture_skew_message(sim_data_path: str, fork_dir: str | None) -> str:
+    """Actionable message for the fixture↔upstream skew — names the cause AND
+    the two fixes (pin the checkout to match the fixture, or rebuild the
+    fixture) instead of the bare ``AttributeError`` the composer would raise."""
+    checkout = fork_dir or os.environ.get("V2E_VECOLI_DIR", "<V2E_VECOLI_DIR>")
+    return (
+        f"genuine-vEcoli build failed: the sim_data fixture at "
+        f"{sim_data_path!r} predates upstream vEcoli's `modified_proteins` "
+        f"feature (added 2026-05-01), but the vEcoli checkout at {checkout!r} "
+        f"is newer and requires `TwoComponentSystem.modified_molecules`. "
+        f"Resolve the version skew either by (a) pinning the vEcoli checkout "
+        f"to a commit before 2026-05-01 (e.g. 7bf03433) so its source matches "
+        f"this fixture, or (b) rebuilding an upstream-compatible fixture on "
+        f"Linux via `scripts/build_upstream_parca.py` and pointing "
+        f"`sim_data_path` at it."
+    )
+
+
 def build_vivarium_ecoli(
     *,
     sim_data_path: str,
@@ -360,6 +387,21 @@ def build_vivarium_ecoli(
                 f"non-founder generations with `initial_overlay` (what the lineage "
                 f"drivers do) rather than `initial_state_file`, or re-key the file."
             ) from _ke
+        raise
+    except AttributeError as _ae:
+        # ⛔ Fixture ↔ upstream skew. Upstream vEcoli's
+        # ``get_monomer_counts_listener_config`` reads
+        # ``sim_data.process.two_component_system.modified_molecules`` — a derived
+        # attribute the reconstruction only began emitting with the
+        # ``modified_proteins.tsv`` feature (upstream master, 2026-05-01). A
+        # ``simData.cPickle`` built BEFORE that predates the attribute, so the
+        # unpickled ``TwoComponentSystem`` lacks it and the composer dies deep
+        # inside ``sim_data.py`` with a bare ``AttributeError`` that names neither
+        # the cause nor the fix. ⇒ Name both. Only when it IS this exact skew, so
+        # an unrelated AttributeError still propagates untouched.
+        if _is_tcs_modified_molecules_skew(_ae):
+            raise RuntimeError(
+                _fixture_skew_message(sim_data_path, fork_dir)) from _ae
         raise
     finally:
         _em.Ecoli.__init__ = _orig_init

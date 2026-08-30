@@ -41,7 +41,7 @@ VECOLI_XARRAY_METADATA_KEYS: list[str] = [
     "single_daughters", "daughter_outdir",
     "fixed_media", "condition",
     "parca_options",
-    "mar_regulon", "amp_lysis", "mecillinam",
+    "mar_regulon",
     "divide", "d_period", "division_threshold", "division_variable",
     "chromosome_path",
 ]

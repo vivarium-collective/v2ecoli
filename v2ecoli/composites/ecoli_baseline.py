@@ -562,11 +562,12 @@ FEATURE_MODULES = {
     # Opt-in: native cell-shape geometry (periplasm/cytoplasm volume split +
     # outer surface area), ported from vEcoli ecoli/processes/shape.py.
     # Populates `periplasm.global.volume`/`cytoplasm.global.volume`/
-    # `boundary.outer_surface_area` (the vEcoli ecoli-shape store paths) for
-    # the mecillinam candidate arm's injected antibiotic_transport_odeint
-    # chain, which otherwise finds nothing writing those stores. Runs right
-    # after the mass listener so it reads this tick's `listeners.mass.volume`.
-    # Auto-enabled by `baseline(..., mecillinam=True)`; a no-op otherwise.
+    # `boundary.outer_surface_area` (the vEcoli ecoli-shape store paths) for any
+    # injected subsystem that needs the geometry split (e.g. an antibiotic
+    # transport chain), which otherwise finds nothing writing those stores. Runs
+    # right after the mass listener so it reads this tick's `listeners.mass.volume`.
+    # A general feature: enable explicitly (features=['cell_geometry']) or via an
+    # injected subsystem's `requires_features: ['cell_geometry']`; a no-op otherwise.
     'cell_geometry': {
         'insert_after': 'ecoli-mass-listener',
         'steps': ['cell_geometry_step'],
@@ -789,7 +790,7 @@ def _get_step_config(
             topology = topology()
         return instance, topology, 'step'
 
-    # mecillinam candidate arm: native cell-shape geometry deriver. No ParCa
+    # cell_geometry feature: native cell-shape geometry deriver. No ParCa
     # config; built from class defaults (width_um=1.0, matching vEcoli
     # shape.py's default width).
     if step_name == 'cell_geometry_step':
@@ -1196,33 +1197,6 @@ def _build_batch_document(
                            "(ecoli-mass-conservation step). Off by default — the "
                            "residual is not yet calibrated, so it warns each tick.",
         },
-        "mecillinam": {
-            "type": "bool",
-            "default": False,
-            "description": "Inject the mecillinam bulk species — mecillinam[p], "
-                           "mecillinam_hydrolyzed[p], and the mecillinam-PBP2 "
-                           "drug-target complex (mecillinam[p]-EG10606-MONOMER[i]) "
-                           "— into this composite's initial bulk store at generate "
-                           "time (count 0, correct submass), mirroring "
-                           "LoadSimData(mecillinam=True). The cache bundle is built "
-                           "WITHOUT these species, so an injected mecillinam "
-                           "antibiotic process (e.g. the final_mec candidate arm's "
-                           "antibiotic_transport_odeint) would otherwise raise "
-                           "'Names not found in bulk_names'. Re-injected on the "
-                           "bundle-loaded bulk store — no ParCa/cache rebuild. Off "
-                           "by default = unchanged baseline.",
-        },
-        "amp_lysis": {
-            "type": "bool",
-            "default": False,
-            "description": "Inject the ampicillin bulk species (ampicillin[p], "
-                           "ampicillin_hydrolyzed[p]) into this composite's initial "
-                           "bulk store at generate time, mirroring "
-                           "LoadSimData(amp_lysis=True). Same generate-time "
-                           "re-injection mechanism as `mecillinam` (no ParCa "
-                           "rebuild); closes the same latent gap for the ampicillin "
-                           "antibiotic path. Off by default = unchanged baseline.",
-        },
         "exchange_fluxes": {
             "type": "map",
             "default": {},
@@ -1445,8 +1419,6 @@ def baseline(
     trna_attenuation: bool = False,
     supercoiling: bool = False,
     mass_conservation: bool = False,
-    mecillinam: bool = False,
-    amp_lysis: bool = False,
     exchange_fluxes: dict | None = None,
     exchange_flux_basis: str | None = None,
     emitter: str = "parquet",
@@ -1561,17 +1533,6 @@ def baseline(
         trna_attenuation: insert the tRNA-attenuation feature module (default off).
         supercoiling: insert the DNA-supercoiling feature module (default off).
         mass_conservation: insert the mass-conservation check (default off).
-        mecillinam: re-inject the mecillinam bulk species (mecillinam[p],
-            mecillinam_hydrolyzed[p], and the mecillinam-PBP2 drug-target complex
-            mecillinam[p]-EG10606-MONOMER[i]) into the bundle-loaded initial bulk
-            store at generate time, count 0 with correct submass — the same
-            species LoadSimData(mecillinam=True) injects, applied here on the
-            pre-built cache bundle so an injected mecillinam antibiotic process
-            (e.g. the final_mec candidate arm) finds them in bulk_names without a
-            ParCa/cache rebuild. Default False = unchanged baseline.
-        amp_lysis: same generate-time re-injection for the ampicillin species
-            (ampicillin[p], ampicillin_hydrolyzed[p]); mirrors
-            LoadSimData(amp_lysis=True). Default False = unchanged baseline.
         emitter: observation sink for the internal 'emitter' step — one of
             ``parquet`` (default), ``sqlite``, ``xarray``, ``null``.
         emitter_out_dir: explicit output-directory override for the chosen
@@ -1660,20 +1621,23 @@ def baseline(
     # initial_state needs the same isolation.
     initial_state = copy.deepcopy(bundle["initial_state"])
 
-    # Antibiotic bulk-species re-injection (opt-in). The ParCa cache bundle is
-    # built WITHOUT the ampicillin / mecillinam species, so an injected
-    # antibiotic process (e.g. the final_mec candidate arm's
-    # antibiotic_transport_odeint) that reads mecillinam[p] / its PBP2 complex
-    # from the bulk store would raise "Names not found in bulk_names". The
-    # vEcoli reference arm gets these via LoadSimData(**config); the candidate
-    # here loads a pre-built bundle and never re-runs LoadSimData, so we re-apply
-    # the SAME injection (single-sourced with LoadSimData) directly onto the
+    # Injected bulk-species seeding (opt-in, drug-agnostic). The ParCa cache
+    # bundle is built without any injected subsystem's extra species, so an
+    # injected process that reads them from the bulk store would raise "Names not
+    # found in bulk_names". The candidate loads a pre-built bundle and never
+    # re-runs LoadSimData, so we seed the declared species directly onto the
     # bundle-loaded columnar bulk store — count 0, correct submass — with no
     # ParCa/cache rebuild. No-op (unchanged baseline) when both flags are False.
-    if mecillinam or amp_lysis:
-        from v2ecoli.library.sim_data import inject_antibiotic_bulk_species
-        initial_state["bulk"] = inject_antibiotic_bulk_species(
-            initial_state["bulk"], mecillinam=mecillinam, amp_lysis=amp_lysis)
+    # Drug-agnostic bulk-species seeding: an injected subsystem declares the bulk
+    # species + molar masses it needs seeded via
+    # injected_processes["seed_bulk_species"], so the engine holds no drug
+    # knowledge (e.g. an antibiotic arm seeds its drug/complex species — the
+    # ParCa cache bundle is built without them). count 0 + correct submass,
+    # idempotent, no ParCa rebuild.
+    _seed_specs = (injected_processes or {}).get("seed_bulk_species")
+    if _seed_specs:
+        from v2ecoli.library.sim_data import seed_bulk_species
+        initial_state["bulk"] = seed_bulk_species(initial_state["bulk"], _seed_specs)
 
     configs = bundle["configs"]
     if config_overrides:
@@ -1718,14 +1682,15 @@ def baseline(
     _exchange_flux_basis = str(exchange_flux_basis or "counts")
     if _exchange_fluxes and 'exchange_flux' not in _requested_features:
         _requested_features.append('exchange_flux')
-    # mecillinam (antibiotic mode) auto-enables the native cell_geometry
-    # feature: the injected antibiotic_transport_odeint divides molecule
-    # counts by periplasm.global.volume/cytoplasm.global.volume and reads
-    # boundary.outer_surface_area, which nothing else in the candidate
-    # populates. amp_lysis does not need it (that arm reads cell_wall/
-    # murein-division state, not this geometry split).
-    if mecillinam and 'cell_geometry' not in _requested_features:
-        _requested_features.append('cell_geometry')
+    # Neutral feature-dependency seam: ANY injected subsystem can declare the
+    # general features it needs by name via
+    # injected_processes["requires_features"], so the engine never hardcodes a
+    # drug->feature link. e.g. the antibiotic transport process declares
+    # cell_geometry (it divides counts by periplasm/cytoplasm volume and reads
+    # boundary.outer_surface_area, which nothing else in the candidate populates).
+    for _rf in (injected_processes or {}).get("requires_features", []) or []:
+        if _rf not in _requested_features:
+            _requested_features.append(_rf)
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)
@@ -1786,7 +1751,7 @@ def baseline(
     cell_state.setdefault('attenuation_config', {
         'enabled': False,
     })
-    # cell_geometry feature (mecillinam candidate arm): the `periplasm` /
+    # cell_geometry feature: the `periplasm` /
     # `cytoplasm` compartment stores are built entirely by the injected vEcoli
     # subsystem's own port materialization (antibiotic-transport-odeint declares
     # periplasm.global.volume / .potential + cytoplasm.global.volume;

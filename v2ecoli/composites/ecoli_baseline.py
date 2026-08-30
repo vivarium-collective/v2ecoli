@@ -1071,6 +1071,31 @@ def _build_batch_document(
     return {"state": state}
 
 
+def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> None:
+    """Enforce the composite's injection-sourcing policy.
+
+    ``native`` composites (ecoli_baseline) build injected processes fork-free off
+    their own bundle simData → a non-empty ``fork_repo`` is a caller error.
+    Fork-wrapping composites (ecoli_v1_hybrid) source injections from the vEcoli
+    fork → an add/swap injection needs a non-empty ``fork_repo``.
+    """
+    if not injected_processes:
+        return
+    has_add_swap = bool(injected_processes.get("add_processes")
+                        or injected_processes.get("swap_processes"))
+    fork_repo = injected_processes.get("fork_repo") or ""
+    if native and fork_repo:
+        raise ValueError(
+            f"ecoli_baseline is native-only but injected_processes.fork_repo="
+            f"{fork_repo!r} is set — use the ecoli_v1_hybrid composite for "
+            f"fork-wrapping injection.")
+    if (not native) and has_add_swap and not fork_repo:
+        raise ValueError(
+            "ecoli_v1_hybrid requires injected_processes.fork_repo to source "
+            "metabolism-redux from the vEcoli fork, but it is empty — use "
+            "ecoli_baseline for native (fork-free) injection.")
+
+
 @composite_generator(
     name="ecoli_baseline",
     description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",

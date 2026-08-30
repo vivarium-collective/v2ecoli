@@ -1012,6 +1012,9 @@ def run_vivarium_ecoli_pbg_multigen(
     exchange_flux_basis: str = "counts",
     observable_bulk_ids: list | None = None,
     observables: list | None = None,
+    initial_generation: int = 1,
+    initial_carry_state_path: str = "",
+    daughter_state_out_path: str = "",
 ) -> dict:
     """Single-lineage multigen for the vEcoli **pbg node**, emitting the v2ecoli-format zarr.
 
@@ -1035,11 +1038,68 @@ def run_vivarium_ecoli_pbg_multigen(
     criterion (dry_mass ≥ birth + expectedDryMassIncrease AND ≥2 chromosomes) vEcoli's own
     ``divide_cell`` splits the inner cell and the followed daughter seeds the next
     generation's Composite. No pbg ``_add`` — the division-handoff crash cannot occur.
+
+    **The chain seam** (mirrors the native driver's ``run_multigen_xarray``, v2ecoli
+    #618) lets a caller run the lineage as a SEQUENCE OF FRESH PROCESSES — one
+    generation per invocation — instead of one N-generation in-process run. This is
+    the reason it exists: running all ``max_generations`` in a single process
+    triggers v2ecoli#142's in-process degradation (birth dry_mass falls
+    monotonically gen-over-gen), which — because the bioproduction KPI is per-gDCW —
+    inflates the specific flux and confounds the candidate↔reference comparison. A
+    fresh process per generation is immune (this is what CD1's vEcoli workflow did).
+    The three params externalise the ``overlay`` this driver already carries in
+    process between generations, so a driver script can carry it across process
+    boundaries instead:
+
+      initial_generation: 1-based ABSOLUTE label for this invocation's first
+        generation. 1 (the default) is a fresh lineage and changes NOTHING —
+        the store is (re)created, the phylogeny key starts at "0". >1 RESUMES a
+        lineage a previous invocation began: the zarr ``generation`` labels
+        continue (no duplicate ``generation=1``), the phylogeny/partition key is
+        DERIVED as ``"0" * initial_generation`` (its LENGTH is the wrapped fork's
+        generation index, so a resumed generation reports itself honestly and any
+        staged induction fires), and the store is APPENDED to rather than deleted.
+        ``max_generations`` stays a COUNT for this invocation.
+      initial_carry_state_path: a carry state a previous invocation wrote with
+        ``daughter_state_out_path`` — the daughter's ``bulk``/``unique`` (the
+        divided cell's registry-free molecular content). It seeds this
+        invocation's first generation via the SAME ``initial_overlay`` path the
+        in-process loop uses for gen N>0, so a chained run and an in-process run
+        carry the cell's contents forward identically; the environment/boundary
+        come fresh (see the carry-out note below for why only two keys travel).
+      daughter_state_out_path: if set, write the daughter produced at THIS
+        invocation's final division here — the hand-off to the next stage. That
+        daughter is otherwise discarded (the generation cap does not fold it into
+        the parent partition), so this captures an existing moment rather than
+        creating one. Written atomically.
+
+    ⛔ A resume (``initial_generation > 1``) with no ``initial_carry_state_path``
+    is REFUSED: it would start a FRESH founder cell and mislabel it a later
+    generation — right partition, wrong biology, no error. The native driver
+    refuses the same way; the two answer alike.
+    ⚠ The stages of a chain must share a STORE — the emitter's ``colony`` strategy
+    links each partition to its parent generation (``generation == len(agent_id)``
+    with a parent), so resuming into a fresh store fails on the missing parent.
     """
     import shutil
     from pathlib import Path
     from v2ecoli.library.xarray_run import _build_emitter, _filter_agent_state
     from v2ecoli.library.upstream_division import daughter_phylogeny_id
+
+    # --- chain-seam validation (mirrors run_multigen_xarray, #618) -------------
+    if int(initial_generation) < 1:
+        raise ValueError(
+            f"initial_generation must be >= 1 (got {initial_generation}); "
+            f"generation labels are 1-based on both engines.")
+    # ⛔ A RESUME WITH NOTHING TO RESUME FROM would start a FRESH founder cell and
+    # label it a later generation — right partition, wrong biology, no error. The
+    # native driver refuses exactly this; keep the two drivers answering alike.
+    if int(initial_generation) > 1 and not initial_carry_state_path:
+        raise ValueError(
+            f"initial_generation={int(initial_generation)} resumes a lineage, but "
+            f"no initial_carry_state_path was given — the run would start a FRESH "
+            f"cell and label it generation {int(initial_generation)}. Pass the "
+            f"carry state a previous invocation wrote with daughter_state_out_path.")
 
     # Scope the whole-config selection to this run so every per-generation
     # ``build_vivarium_ecoli`` rebuild sees it and a later default run is unaffected.
@@ -1049,7 +1109,12 @@ def run_vivarium_ecoli_pbg_multigen(
         from v2ecoli.core import build_core
         core = build_core()
     store_path = str(store_path)
-    if Path(store_path).exists():
+    # ⛔ A resumed stage APPENDS — its emitter's ``colony`` partition links back to
+    # the generation-(N-1) partition a previous invocation wrote, so deleting the
+    # store first would destroy the parent this stage links to. Only a fresh
+    # lineage (initial_generation == 1) (re)creates the store. This keeps the
+    # default path (initial_generation == 1) byte-identical to today.
+    if int(initial_generation) <= 1 and Path(store_path).exists():
         shutil.rmtree(store_path)
 
     exchange_fluxes = dict(exchange_fluxes or {})
@@ -1100,7 +1165,17 @@ def run_vivarium_ecoli_pbg_multigen(
         "max_duration": float(max_generations * max_steps_per_gen),
     }
 
+    # Carry-IN: seed generation ``initial_generation`` from the daughter a previous
+    # invocation wrote (its bulk/unique/environment/boundary). This is the SAME
+    # ``overlay`` the in-process loop feeds to the next generation via
+    # ``initial_overlay`` — a chain and an in-process run carry a cell forward
+    # identically. For a fresh lineage (default) there is no carry-in: overlay=None.
     overlay = None
+    if initial_carry_state_path:
+        from v2ecoli.cache import load_initial_state
+        overlay = load_initial_state(initial_carry_state_path)
+        print(f"[vecoli-multigen] seeded generation {int(initial_generation)} from "
+              f"carry state {initial_carry_state_path} (keys={sorted(overlay)})")
     # ⛔⛔ BOTH OF THESE ARE PHYLOGENY KEYS AND BOTH MUST ADVANCE — they are kept
     # as two names because they are consumed by two different things, and that is
     # exactly how one of them came to be pinned at "0" for the whole lineage:
@@ -1113,19 +1188,35 @@ def run_vivarium_ecoli_pbg_multigen(
     #     whole lineage runs as the un-induced baseline, silently.
     # ⇒ v2ecoli's own native lineage already advances its agent id
     #   (``v2ecoli/workflow/lineage.py``); only this wrapped-fork driver did not.
-    composite_agent_id = "0"
-    partition_agent_id = "0"
+    # The phylogeny key is DERIVED from initial_generation: length == generation, so
+    # ``"0" * initial_generation``. For the default (initial_generation == 1) this is
+    # "0", byte-identical to today; a resumed stage starts at "00…" so its partition
+    # links to the parent generation the previous invocation wrote.
+    composite_agent_id = "0" * int(initial_generation)
+    partition_agent_id = "0" * int(initial_generation)
     done_global = 0
     divisions = 0
     gens_done = 0
     final_cell_mass = None
     build_config = None
+    # Carry-OUT candidate: the daughter of THIS invocation's last division that no
+    # local generation consumed. Reset at the top of each generation (a division
+    # whose daughter the NEXT local generation runs is not a hand-off); whatever
+    # survives the loop is the final, unconsumed daughter → the next stage's founder.
+    carry_out_daughter = None
 
     for gen in range(max_generations):
-        # gen 0 is a fresh founder (overlay=None); later generations seed the inner
-        # Engine from the previous generation's daughter (overlay set below).
+        # ``gen`` is a 0-based LOCAL index for this invocation; the ABSOLUTE
+        # generation label is ``initial_generation + gen``. For the default
+        # (initial_generation == 1) this is ``gen + 1``, byte-identical to today.
+        abs_gen = int(initial_generation) + gen
+        carry_out_daughter = None
+        # gen 0 of a fresh lineage is a founder (overlay=None); a resumed stage's
+        # gen 0 seeds from the carry-in daughter, and later local generations seed
+        # from the previous generation's daughter (overlay set below).
         comp, info = build_vivarium_ecoli_composite(
-            sim_data_path=sim_data_path, condition=condition, seed=seed + gen,
+            sim_data_path=sim_data_path, condition=condition,
+            seed=seed + abs_gen - 1,
             time_step=time_step, exclude_processes=exclude_processes,
             swap_processes=swap_processes, flow=flow,
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
@@ -1145,7 +1236,7 @@ def run_vivarium_ecoli_pbg_multigen(
                       f"{type(_cfgerr).__name__} {_cfgerr}")
         em = _build_emitter(
             core=core, store_path=store_path, view=view, metadata_base=metadata_base,
-            generation=gen + 1,  # 1-indexed to match run_multigen_xarray (v2ecoli side)
+            generation=abs_gen,  # 1-based ABSOLUTE label (matches run_multigen_xarray)
             # Inherit build_emitter_config's buffer_size default (600): flush a
             # handful of times per generation, not every few steps.
             agent_id=partition_agent_id, output_metadata={})
@@ -1189,6 +1280,11 @@ def run_vivarium_ecoli_pbg_multigen(
         if not divided:
             break
         overlay = proc.divide()
+        # This daughter is the carry-out CANDIDATE — the hand-off if this is the
+        # last local generation. If a subsequent local generation runs, it consumes
+        # this daughter as its own ``initial_overlay`` and the reset at the top of
+        # the loop clears the candidate (a consumed daughter is not a hand-off).
+        carry_out_daughter = overlay
         # One phylogeny walk, both keys — see the block where they are declared.
         # ⚠ If these ever diverge, the emitter's generation label and the fork's
         # internal generation index stop describing the same cell.
@@ -1197,10 +1293,51 @@ def run_vivarium_ecoli_pbg_multigen(
         composite_agent_id = daughter_id
         divisions += 1
 
+    # Carry-OUT: write the final, unconsumed daughter so the next invocation can
+    # RESUME from it (the chain hand-off). Written atomically — a partial file would
+    # pass an ``-f`` existence check yet be a truncated hand-off. Carries exactly the
+    # four keys ``build_vivarium_ecoli``'s ``initial_overlay`` consumes.
+    daughter_state_out = None
+    if daughter_state_out_path and carry_out_daughter is not None:
+        import os as _os
+        from v2ecoli.cache import save_initial_state
+        # ⛔ CARRY ONLY THE REGISTRY-FREE BIOLOGICAL CONTENT — ``bulk`` and
+        # ``unique``, the divided cell's molecule counts and unique molecules
+        # (chromosomes/RNAPs/ribosomes/…). Both are plain numpy (structured
+        # arrays / MetadataArrays), so they round-trip through
+        # ``save_initial_state`` cleanly and reseed the fork faithfully.
+        # ⚠ The wrapped fork's ``environment``/``boundary`` are DELIBERATELY NOT
+        # carried, and this differs from the native driver (which carries all
+        # four). ``boundary.external`` holds pint ``Quantity`` media
+        # concentrations (``0 * units.mM``); a Quantity does not survive a
+        # JSON round-trip on the SAME pint registry, so a resumed generation's
+        # ``ExchangeData.next_update`` compares carried-registry concentrations
+        # against the fresh sim's ``import_constraint_threshold`` and dies with
+        # "Cannot operate with Quantity and Quantity of different registries".
+        # The in-process lineage never hit this because it never serialized —
+        # its overlay stayed on the one live registry. For a fixed-media
+        # (basal) lineage the environment IS constant and the boundary geometry
+        # (volume/surface_area) re-derives from the overlaid mass on the warm-up
+        # tick, so letting both come FRESH from the sim build is faithful and is
+        # what makes each generation a clean fresh process to begin with.
+        _carry = {k: carry_out_daughter[k] for k in ("bulk", "unique")
+                  if k in carry_out_daughter}
+        _tmp = f"{daughter_state_out_path}.partial"
+        save_initial_state(_carry, _tmp)
+        _os.replace(_tmp, daughter_state_out_path)
+        daughter_state_out = daughter_state_out_path
+        print(f"[vecoli-multigen] wrote carry state (keys={sorted(_carry)}) -> "
+              f"{daughter_state_out_path}")
+    elif daughter_state_out_path:
+        print("[vecoli-multigen] carry state NOT written: this invocation's last "
+              "generation did not divide (no daughter to hand off).")
+
     set_ecolisim_config_file(None)  # reset for the next run (deterministic isolation)
     return {"generations": gens_done, "divisions": divisions,
             "store": store_path, "final_cell_mass": final_cell_mass,
-            "build_config": build_config}
+            "build_config": build_config,
+            "initial_generation": int(initial_generation),
+            "daughter_state_out": daughter_state_out}
 
 
 # ---------------------------------------------------------------------------

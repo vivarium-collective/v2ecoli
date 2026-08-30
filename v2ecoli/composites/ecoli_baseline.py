@@ -1096,10 +1096,7 @@ def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> 
             "ecoli_baseline for native (fork-free) injection.")
 
 
-@composite_generator(
-    name="ecoli_baseline",
-    description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
-    parameters={
+WCM_PARAMETERS = {
         "seed": {
             "type": "integer",
             "default": 0,
@@ -1404,7 +1401,13 @@ def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> 
                            "to, for the next generation's job to resume from. "
                            "Empty = no checkpoint hand-off.",
         },
-    },
+}
+
+
+@composite_generator(
+    name="ecoli_baseline",
+    description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
+    parameters=WCM_PARAMETERS,
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     # Lets a generic runner (e.g. process_bigraph.workflow.provision) provision

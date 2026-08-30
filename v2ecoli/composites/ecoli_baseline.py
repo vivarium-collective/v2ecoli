@@ -1675,6 +1675,16 @@ def baseline(
         initial_state["bulk"] = inject_antibiotic_bulk_species(
             initial_state["bulk"], mecillinam=mecillinam, amp_lysis=amp_lysis)
 
+    # Drug-agnostic bulk-species seeding (the neutral seam that supersedes the
+    # mecillinam/amp_lysis flags above): an injected subsystem declares the bulk
+    # species + molar masses it needs seeded via
+    # injected_processes["seed_bulk_species"], so the engine holds no drug
+    # knowledge. count 0 + correct submass, idempotent, no ParCa rebuild.
+    _seed_specs = (injected_processes or {}).get("seed_bulk_species")
+    if _seed_specs:
+        from v2ecoli.library.sim_data import seed_bulk_species
+        initial_state["bulk"] = seed_bulk_species(initial_state["bulk"], _seed_specs)
+
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict
@@ -1726,6 +1736,14 @@ def baseline(
     # murein-division state, not this geometry split).
     if mecillinam and 'cell_geometry' not in _requested_features:
         _requested_features.append('cell_geometry')
+    # Neutral feature-dependency seam (supersedes the mecillinam->cell_geometry
+    # auto-enable above): ANY injected subsystem can declare the general features
+    # it needs by name via injected_processes["requires_features"], so the engine
+    # never hardcodes a drug->feature link. e.g. the antibiotic transport process
+    # declares cell_geometry (it divides counts by periplasm/cytoplasm volume).
+    for _rf in (injected_processes or {}).get("requires_features", []) or []:
+        if _rf not in _requested_features:
+            _requested_features.append(_rf)
     for f in _EXTRA_FEATURES:
         if f not in features:
             features.append(f)

@@ -28,162 +28,19 @@ if TYPE_CHECKING:
 
 RAND_MAX = 2**31
 
-# --- Antibiotic bulk-species injection (single-sourced) --------------------
-# The ampicillin (``amp_lysis``) and mecillinam species are NOT in the ParCa
-# cache; they are injected at load time. Historically each injection lived
-# inline in ``LoadSimData.__init__`` (see the ``amp_lysis``/``mecillinam``
-# blocks below). The mass arithmetic is factored out here so there is ONE
-# implementation of each drug's masses, reused by both
-#   * ``LoadSimData.__init__`` (injects into ``bulk_molecules.bulk_data`` — a
-#     UnitStructArray whose ``mass`` field is a molar-mass matrix in g/mol), and
-#   * the ``ecoli_baseline`` composite generate path
-#     (``inject_antibiotic_bulk_species`` below), which re-injects into the
-#     bundle-loaded *columnar* initial-state ``bulk`` array (the
-#     ``initialize_bulk_counts`` output — per-molecule submass columns in fg)
-#     WITHOUT a ParCa/cache rebuild.
-# Both call sites therefore agree on species names and masses by construction.
-
-# Bulk-species ids (locations included).
-AMPICILLIN_SPECIES = ("ampicillin[p]", "ampicillin_hydrolyzed[p]")
-MECILLINAM_SPECIES = (
-    "mecillinam[p]",
-    "mecillinam_hydrolyzed[p]",
-    "mecillinam[p]-EG10606-MONOMER[i]",
-)
-# Free PBP2 monomer — the mecillinam drug target. Already present in the
-# baseline bulk store; the drug-target complex mass reuses its mass vector.
-PBP2_MONOMER_ID = "EG10606-MONOMER[i]"
-# Mass of water (g/mol) gained when the beta-lactam ring is hydrolysed.
-_WATER_MOLAR_MASS = 18.0
-
-
-def ampicillin_species_masses(metabolite_index, n_submass):
-    """Molar-mass (g/mol) submass vectors for the ampicillin ``amp_lysis``
-    species, keyed by bulk id.
-
-    Returns a list of ``(name, mass_vector)`` pairs where ``mass_vector`` is a
-    length-``n_submass`` numpy array carrying the drug's mass in the
-    ``metabolite_index`` slot (all other submass slots zero). The hydrolysed
-    form gains the mass of water. Single source of the ampicillin masses used
-    by both ``LoadSimData`` and the ``ecoli_baseline`` generate path.
-    """
-    amp_mass = param_store.get(("ampicillin", "molar_mass")).magnitude
-    free = np.zeros(n_submass)
-    free[metabolite_index] = amp_mass
-    hydro = free.copy()
-    hydro[metabolite_index] += _WATER_MOLAR_MASS
-    return [
-        ("ampicillin[p]", free),
-        ("ampicillin_hydrolyzed[p]", hydro),
-    ]
-
-
-def mecillinam_species_masses(metabolite_index, n_submass, pbp2_molar_submass):
-    """Molar-mass (g/mol) submass vectors for the mecillinam species, keyed by
-    bulk id.
-
-    Ports vEcoli-private ``ecoli/library/sim_data.py`` faithfully:
-      * ``mecillinam[p]`` — free drug, mass in the ``metabolite_index`` slot;
-      * ``mecillinam_hydrolyzed[p]`` — free drug + mass of water;
-      * ``mecillinam[p]-EG10606-MONOMER[i]`` — drug-target complex, whose mass
-        is the free drug mass plus the free PBP2 monomer's mass vector.
-
-    ``pbp2_molar_submass`` is the free PBP2 monomer's molar-mass (g/mol) submass
-    vector (length ``n_submass``), taken from the existing baseline bulk store.
-    Single source of the mecillinam masses used by both ``LoadSimData`` and the
-    ``ecoli_baseline`` generate path.
-    """
-    mec_mass = param_store.get(("mecillinam", "molar_mass")).to(
-        vivunits.g / vivunits.mol
-    ).magnitude
-    free = np.zeros(n_submass)
-    free[metabolite_index] = mec_mass
-    hydro = free.copy()
-    hydro[metabolite_index] += _WATER_MOLAR_MASS
-    complex_ = free + np.asarray(pbp2_molar_submass, dtype=float).reshape(-1)
-    return [
-        ("mecillinam[p]", free),
-        ("mecillinam_hydrolyzed[p]", hydro),
-        ("mecillinam[p]-EG10606-MONOMER[i]", complex_),
-    ]
-
-
-def inject_antibiotic_bulk_species(bulk_state, *, mecillinam=False,
-                                   amp_lysis=False):
-    """Re-inject antibiotic bulk species into a *columnar* initial-state ``bulk``
-    array at composite-generate time — mirroring what
-    ``LoadSimData(amp_lysis=/mecillinam=)`` injects into
-    ``bulk_molecules.bulk_data`` at load time, but applied to the pre-built
-    cache bundle's bulk store so NO ParCa/cache rebuild is needed.
-
-    ``bulk_state`` is the structured array returned by
-    ``initialize_bulk_counts`` / ``LoadSimData.generate_initial_state``: dtype
-    ``[("id", ...), ("count", int), ("<submass>_submass", float64), ...]`` with
-    per-molecule masses stored in *fg* (molar mass / N_avogadro). New species
-    start at ``count == 0`` (same as the ``LoadSimData`` injection); their
-    submass columns are the molar-mass vectors from
-    :func:`mecillinam_species_masses` / :func:`ampicillin_species_masses`
-    converted to fg with the SAME ``mass.to(fg/mol) / n_avogadro`` conversion
-    ``initialize_bulk_counts`` applies to every other molecule.
-
-    Returns a NEW array with the requested species appended (existing rows
-    untouched); a no-op (neither flag set) returns ``bulk_state`` unchanged.
-    Idempotent: species already present are not duplicated.
-    """
-    if not (mecillinam or amp_lysis):
-        return bulk_state
-
-    submass_cols = [n for n in bulk_state.dtype.names
-                    if n.endswith("_submass")]
-    n_submass = len(submass_cols)
-    metabolite_index = submass_cols.index("metabolite_submass")
-    # g/mol -> fg/molecule, exactly as initialize_bulk_counts does for every
-    # bulk molecule (mass.to(fg/mol) == *1e15; then / N_avogadro).
-    n_avogadro = (1 * units.avogadro_constant).to("1/mol").magnitude
-    molar_to_fg = 1e15 / n_avogadro
-
-    def _fg_columns(molar_vector):
-        return np.asarray(molar_vector, dtype=float).reshape(-1) * molar_to_fg
-
-    existing_ids = set(bulk_state["id"].tolist())
-    specs = []
-
-    if amp_lysis:
-        specs.extend(ampicillin_species_masses(metabolite_index, n_submass))
-    if mecillinam:
-        pbp2_rows = bulk_state[bulk_state["id"] == PBP2_MONOMER_ID]
-        if len(pbp2_rows) == 0:
-            raise ValueError(
-                f"{PBP2_MONOMER_ID} (PBP2, the mecillinam target) not found in "
-                "the bulk store; cannot build the mecillinam-PBP2 complex mass.")
-        # Recover PBP2's molar-mass (g/mol) submass vector from its fg columns
-        # so the complex mass is computed in the same molar domain as
-        # mecillinam_species_masses; converting the sum back to fg leaves the
-        # PBP2 contribution exact (N_avogadro cancels) and only the mecillinam
-        # part carries the single molar->fg conversion.
-        pbp2_fg = np.array([pbp2_rows[0][c] for c in submass_cols], dtype=float)
-        pbp2_molar = pbp2_fg / molar_to_fg
-        specs.extend(
-            mecillinam_species_masses(metabolite_index, n_submass, pbp2_molar))
-
-    new_rows = []
-    for name, molar_vector in specs:
-        if name in existing_ids:
-            continue  # idempotent — do not duplicate an already-present species
-        new_rows.append((name, 0, *_fg_columns(molar_vector)))
-
-    if not new_rows:
-        return bulk_state
-
-    appended = np.array(new_rows, dtype=bulk_state.dtype)
-    return np.append(bulk_state, appended)
+# --- Injected bulk-species seeding (drug-agnostic) -------------------------
+# Species an injected subsystem needs (e.g. an antibiotic arm's drug + complex
+# species) are NOT in the ParCa cache; they are seeded at composite-generate
+# time by :func:`seed_bulk_species` below, from a per-species molar-mass
+# declaration the fork supplies through ``injected_processes`` — so the engine
+# carries no knowledge of any particular drug.
 
 
 def seed_bulk_species(bulk_state, specs):
     """Drug-agnostic bulk-species seeding for the generic injection seam.
 
-    The engine-neutral replacement for :func:`inject_antibiotic_bulk_species`:
-    an injected subsystem (antibiotic or otherwise) declares the bulk species it
+    The engine-neutral bulk-species seeder for the injection seam: an injected
+    subsystem (antibiotic or otherwise) declares the bulk species it
     needs seeded — with their molar masses — through ``injected_processes`` /
     the run config, so the engine carries ZERO knowledge of any particular drug.
 
@@ -258,8 +115,6 @@ class LoadSimData:
         ppgpp_regulation: bool = True,
         mar_regulon: bool = False,
         process_configs: Optional[dict[str, Any]] = None,
-        amp_lysis: bool = False,
-        mecillinam: bool = False,
         initial_state_gaussian: bool = True,
         superhelical_density: bool = False,
         recycle_stalled_elongation: bool = False,
@@ -303,12 +158,6 @@ class LoadSimData:
                 of antibiotic resistance genes by the mar operon
             process_configs: Mapping of process names to config dictionaries,
                 currently only used to configure :py:class:`~ecoli.processes.rna_interference.RnaInterference`
-            amp_lysis: Enable ampicillin-induced lysis, adds ampicillin and
-                hydrolyzed ampicillin to bulk molecule store
-            mecillinam: Add mecillinam, hydrolyzed mecillinam, and the
-                mecillinam-PBP2 (``EG10606-MONOMER``) complex to the bulk
-                molecule store (parity with the ampicillin ``amp_lysis`` path;
-                required for the mecillinam antibiotic config, e.g. final_mec)
             initial_state_gaussian: If the simulation is configured to generate an
                 initial state from pickled simulation data (see option 3 in
                 :py:meth:`~ecoli.composites.ecoli_master.Ecoli.initial_state`),
@@ -767,54 +616,6 @@ class LoadSimData:
                 ts_alias.exp_ppgpp = np.concatenate(
                     [ts_alias.exp_ppgpp, [0] * n_duplex_rnas]
                 )
-
-        # NEW to vivarium-ecoli
-        # Add ampicillin to bulk molecules. Masses come from the single-sourced
-        # ``ampicillin_species_masses`` helper (also used by the ecoli_baseline
-        # generate-time re-injection) so there is one implementation of the
-        # ampicillin masses.
-        if amp_lysis:
-            bulk_mol_alias = self.sim_data.internal_state.bulk_molecules
-            bulk_data = bulk_mol_alias.bulk_data.fullArray()
-            metabolite_idx = self.sim_data.submass_name_to_index["metabolite"]
-            n_submass = bulk_data["mass"].shape[1]
-            bulk_data = np.append(
-                bulk_data,
-                np.array(
-                    ampicillin_species_masses(metabolite_idx, n_submass),
-                    dtype=bulk_data.dtype,
-                ),
-            )
-            bulk_units = bulk_mol_alias.bulk_data.fullUnits()
-            bulk_mol_alias.bulk_data = UnitStructArray(bulk_data, bulk_units)
-
-        # NEW to vivarium-ecoli / v2ecoli
-        # Add mecillinam, hydrolyzed mecillinam, and the mecillinam-PBP2 complex
-        # to bulk molecules. Mirrors the ampicillin ``amp_lysis`` block above and
-        # ports vEcoli-private ecoli/library/sim_data.py:206-240 faithfully. The
-        # free PBP2 target ``EG10606-MONOMER[i]`` already exists in the bulk
-        # store; the complex is a new combined species whose mass is the
-        # mecillinam mass plus the existing PBP2 monomer mass. No ParCa rebuild
-        # is required — species are injected at LoadSimData time. Masses come
-        # from the single-sourced ``mecillinam_species_masses`` helper (also used
-        # by the ecoli_baseline generate-time re-injection).
-        if mecillinam:
-            bulk_mol_alias = self.sim_data.internal_state.bulk_molecules
-            bulk_data = bulk_mol_alias.bulk_data.fullArray()
-            metabolite_idx = self.sim_data.submass_name_to_index["metabolite"]
-            n_submass = bulk_data["mass"].shape[1]
-            pbp2_molar_submass = bulk_data["mass"][
-                bulk_data["id"] == PBP2_MONOMER_ID]
-            bulk_data = np.append(
-                bulk_data,
-                np.array(
-                    mecillinam_species_masses(
-                        metabolite_idx, n_submass, pbp2_molar_submass),
-                    dtype=bulk_data.dtype,
-                ),
-            )
-            bulk_units = bulk_mol_alias.bulk_data.fullUnits()
-            bulk_mol_alias.bulk_data = UnitStructArray(bulk_data, bulk_units)
 
     def get_monomer_counts_indices(self, names):
         """Given a list of monomer names without location tags, this returns

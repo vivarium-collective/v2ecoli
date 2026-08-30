@@ -8,17 +8,19 @@ Native cell-shape geometry deriver, ported from vEcoli's
 
 Splits the whole-cell volume (from the mass listener) into periplasm and
 cytoplasm compartments, and derives the outer surface area via 3D capsule
-geometry (a cylinder capped with hemispheres). This exists for the mecillinam
-candidate arm: the injected ``antibiotic_transport_odeint`` chain divides
+geometry (a cylinder capped with hemispheres). A general, drug-agnostic feature:
+it exists for any injected subsystem that needs the geometry split — e.g. an
+injected ``antibiotic_transport_odeint`` chain that divides
 periplasmic/cytoplasmic molecule counts by the periplasm/cytoplasm volumes and
 reads the outer surface area. It writes the SAME store paths vEcoli's
 ``ecoli-shape`` writes (``periplasm.global.volume`` / ``cytoplasm.global.volume``
-/ ``boundary.outer_surface_area``) so that the ONE well-mixed mecillinam config
-serves BOTH arms: the reference's native ``ecoli-shape`` and this candidate step
-populate the identical topology the config's transport/permeability/gillespie/
-concentrations_deriver wiring reads (``["..","periplasm","global","volume"]`` etc).
-None of these are otherwise populated in the single-cell candidate, since nothing
-else in v2ecoli writes them.
+/ ``boundary.outer_surface_area``), so a single config can serve both a reference
+arm (native ``ecoli-shape``) and this candidate step against the identical
+topology the config's transport/permeability/concentrations_deriver wiring reads
+(``["..","periplasm","global","volume"]`` etc). None of these are otherwise
+populated in the single-cell candidate, since nothing else in v2ecoli writes them.
+Enable by name (``features=['cell_geometry']`` or an injected subsystem's
+``requires_features: ['cell_geometry']``).
 
 **Bridge-quirk guard**: vEcoli's ``Shape`` wires its ``cell_global`` port
 directly to the agent's ``boundary`` store. In the candidate's vivarium

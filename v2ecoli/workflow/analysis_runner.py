@@ -385,6 +385,24 @@ def _group_key_str(scale: str, key: tuple) -> str:
     return "all"
 
 
+def _register_builtin_analyses() -> None:
+    """Import the built-in analyses package so its ``Analysis`` subclasses
+    populate ``ANALYSIS_REGISTRY``.
+
+    ``run_analyses`` resolves every requested name against ``ANALYSIS_REGISTRY``
+    and skips (with an ``"unknown analysis"`` warning) any name that isn't
+    there. Registration happens as a side effect of importing each analysis
+    module, and ``v2ecoli.workflow.analyses.__init__`` imports the whole suite —
+    but nothing in the workflow run path imports that package. So a bare
+    ``python -m v2ecoli.workflow.run`` (as opposed to a session that already
+    imported the analyses, e.g. via a downstream workspace) finds the registry
+    empty and silently drops EVERY declared built-in analysis. Importing the
+    package here guarantees the built-ins are resolvable regardless of what the
+    caller imported. Idempotent — the import is cached after the first call.
+    """
+    import v2ecoli.workflow.analyses  # noqa: F401 — import registers the suite
+
+
 def run_analyses(sweep_dir: str, analysis_options: dict,
                  sim_data_path: str | None = None,
                  out_dir: str | None = None,
@@ -417,6 +435,11 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
+
+    # Populate ANALYSIS_REGISTRY with the built-in suite before resolving any
+    # requested name against it — otherwise a bare workflow run finds it empty
+    # and drops every declared analysis. See _register_builtin_analyses.
+    _register_builtin_analyses()
 
     # Records are built ONLY if a record-based AnalysisStep is actually
     # requested. That family consumes per-cell timeseries, so building them

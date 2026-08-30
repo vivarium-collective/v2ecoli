@@ -287,6 +287,7 @@ same biological processes and differ only in how cells are scheduled and embedde
 | `ecoli_millard` | Whole-cell E. coli composite with v2ecoli's tFBA Metabolism replaced by the Millard 2017 kinetic ODE (MillardPDMPMetabolism). The `lqr` flag selects the metabolism wiring: lqr=False (default) drops t… |
 | `ecoli_population` | v2ecoli baseline + PopulationAggregator Step. |
 | `ecoli_time_varying_env` | v2ecoli baseline + EnvironmentDriver/Mirror hooks so external physics can drive environment.external_concentrations each tick. |
+| `ecoli_v1_hybrid` | 55-process whole-cell E. coli port, injections sourced from the v1 (vEcoli) fork |
 | `millard2017_metabolism` | Standalone Millard et al. 2017 kinetic ODE of E. coli central carbon and energy metabolism (BioModels MODEL1505110000), wrapped as a process-bigraph composite via pbg-copasi's CopasiUTCProcess. |
 | `millard_fba_bridge_harness` | Whole-cell E. coli baseline (real tFBA ecoli-metabolism) with the Millard 2017 central-carbon ODE wired in as a flux SOURCE: the Millard fluxes are mapped+converted by fba-flux-coupler into pinned_fl… |
 | `parca` | ParCa parameter-calculation pipeline — the 9-step fit (initialize → input_adjustments → … → final_adjustments) that produces sim_data. |

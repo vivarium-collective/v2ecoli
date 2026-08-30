@@ -1071,10 +1071,32 @@ def _build_batch_document(
     return {"state": state}
 
 
-@composite_generator(
-    name="ecoli_baseline",
-    description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
-    parameters={
+def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> None:
+    """Enforce the composite's injection-sourcing policy.
+
+    ``native`` composites (ecoli_baseline) build injected processes fork-free off
+    their own bundle simData → a non-empty ``fork_repo`` is a caller error.
+    Fork-wrapping composites (ecoli_v1_hybrid) source injections from the vEcoli
+    fork → an add/swap injection needs a non-empty ``fork_repo``.
+    """
+    if not injected_processes:
+        return
+    has_add_swap = bool(injected_processes.get("add_processes")
+                        or injected_processes.get("swap_processes"))
+    fork_repo = injected_processes.get("fork_repo") or ""
+    if native and fork_repo:
+        raise ValueError(
+            f"ecoli_baseline is native-only but injected_processes.fork_repo="
+            f"{fork_repo!r} is set — use the ecoli_v1_hybrid composite for "
+            f"fork-wrapping injection.")
+    if (not native) and has_add_swap and not fork_repo:
+        raise ValueError(
+            "ecoli_v1_hybrid requires injected_processes.fork_repo to source "
+            "metabolism-redux from the vEcoli fork, but it is empty — use "
+            "ecoli_baseline for native (fork-free) injection.")
+
+
+WCM_PARAMETERS = {
         "seed": {
             "type": "integer",
             "default": 0,
@@ -1379,7 +1401,13 @@ def _build_batch_document(
                            "to, for the next generation's job to resume from. "
                            "Empty = no checkpoint hand-off.",
         },
-    },
+}
+
+
+@composite_generator(
+    name="ecoli_baseline",
+    description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
+    parameters=WCM_PARAMETERS,
     default_n_steps=2700,
     visualizations=DEFAULT_SINGLE_CELL_VISUALIZATIONS,
     # Lets a generic runner (e.g. process_bigraph.workflow.provision) provision
@@ -1425,6 +1453,7 @@ def baseline(
     emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
+    native: bool = True,
     n_seeds: int = 1,
     n_generations: int = 1,
     stop_at_division: bool = False,
@@ -1991,6 +2020,7 @@ def baseline(
             injected_processes.get("add_processes")
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
+        assert_injection_sourcing(native, injected_processes)
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))

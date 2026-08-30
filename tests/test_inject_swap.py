@@ -158,7 +158,7 @@ def test_baseline_swaps_and_excludes_processes():
         "time_step": 1.0,
     }
     doc = baseline(core=core, seed=0, cache_dir="out/cache",
-                   injected_processes=inj)
+                   injected_processes=inj, native=False)
     cell = doc["state"]["agents"]["0"]
     assert "example-secretion" in cell            # swap target converted + added
     assert "ecoli-mass-listener" not in cell      # swapped-out removed

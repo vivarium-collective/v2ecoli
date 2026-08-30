@@ -369,6 +369,11 @@ def add_reactor_coupling(
         # instead of building biomass from phantom internal carbon. Default off
         # -> metabolism unchanged. carbon_source_ids defaults to ["GLC[p]"].
         "carbon_exhaustion_arrest": {"type": "boolean", "default": False},
+        # Follow a single lineage past divisions (#588). Set True for the
+        # single-lineage coupled batch runs (must match the multigen runner's
+        # single_daughters); adds the in-composite LineageBookkeeper so the
+        # reactor trajectory is chunk-independent. Default False = no-op.
+        "single_daughters": {"type": "boolean", "default": False},
         # Medium glucose recipe seed (mmol/L) for the coupler's drawdown
         # accumulator (#225 req-3 substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
@@ -385,6 +390,7 @@ def reactor_bird_coupled(
     population_growth_mode: str = "fixed",
     carbon_exhaustion_arrest: bool = False,
     carbon_source_ids: list | None = None,
+    single_daughters: bool = False,
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
 ) -> dict:
     """Build the reactor_bird_coupled document.
@@ -408,6 +414,7 @@ def reactor_bird_coupled(
         population_growth_mode=population_growth_mode,
         carbon_exhaustion_arrest=carbon_exhaustion_arrest,
         carbon_source_ids=carbon_source_ids,
+        single_daughters=single_daughters,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

@@ -243,7 +243,8 @@ class LineageProcess(Process):
                                config_overrides=overrides,
                                media=self.config.get("media", "minimal"),
                                features=_features,
-                               injected_processes=self.config.get("injected_processes"))
+                               injected_processes=self.config.get("injected_processes"),
+                               native=not bool((self.config.get("injected_processes") or {}).get("fork_repo")))
             finally:
                 set_parquet_emitter_override(None)
         else:
@@ -255,7 +256,8 @@ class LineageProcess(Process):
                                config_overrides=overrides,
                                media=self.config.get("media", "minimal"),
                                features=_features,
-                               injected_processes=self.config.get("injected_processes"))
+                               injected_processes=self.config.get("injected_processes"),
+                               native=not bool((self.config.get("injected_processes") or {}).get("fork_repo")))
             finally:
                 set_null_emitter_override(False)
         if self._is_xarray():

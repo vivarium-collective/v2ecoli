@@ -385,3 +385,135 @@ def test_an_unrelated_KeyError_is_NOT_relabelled(monkeypatch):
         ve.build_vivarium_ecoli(sim_data_path="/nonexistent.cPickle", agent_id="00")
     assert "some_other_missing_key" in str(ei.value)
     assert "founder" not in str(ei.value)
+
+
+# ---------------------------------------------------------------------------
+# The chain seam: carry-in / carry-out (mirrors run_multigen_xarray, #618)
+#
+# ⭐ These lock the CONTRACT of the seam, not its effect. The empirical run
+# (1 seed x 4 gen, wrapped-vEcoli reference) showed the seam is a BYTE-IDENTICAL
+# externalisation of the in-process lineage — running each generation as a fresh
+# OS process reproduces the in-process birth-mass trajectory exactly, because
+# ``run_vivarium_ecoli_pbg_multigen`` already rebuilds a fresh EcoliSim+Engine
+# every generation (the loop calls ``build_vivarium_ecoli_composite`` per gen).
+# So the seam's value is the SAME as its native counterpart's — externalised,
+# retryable, staged-cache-chainable lineage — NOT removing a per-process decline
+# that this driver never had. What these tests guard is that the default path is
+# untouched and the resume path is safe.
+# ---------------------------------------------------------------------------
+
+def _drive_seam(monkeypatch, tmp_path, *, generations=1, **seam):
+    """Drive the real pbg lineage loop with the fork stubbed, threading the seam
+    kwargs; return (builds, emits, out)."""
+    builds, emits = [], []
+
+    def _fake_composite(**kw):
+        agent_id = kw["agent_id"]
+        builds.append(agent_id)
+        agent_state = {"listeners": {"mass": {"cell_mass": 400.0}}}
+
+        class _Comp:
+            state = {"agents": {agent_id: agent_state}}
+
+            def run(self, n):
+                return None
+
+        return _Comp(), {"process": _FakeProc(), "agent_id": agent_id}
+
+    class _FakeEmitter:
+        def __init__(self, agent_id, generation):
+            emits.append((agent_id, generation))
+
+        def update(self, payload):
+            return None
+
+        def close(self, success=True):
+            return None
+
+    import v2ecoli.library.xarray_run as xr
+    monkeypatch.setattr(xr, "_build_emitter",
+                        lambda **kw: _FakeEmitter(kw["agent_id"], kw["generation"]))
+    monkeypatch.setattr(xr, "_filter_agent_state", lambda state, view: state)
+    monkeypatch.setattr(ve, "build_vivarium_ecoli_composite", _fake_composite)
+    monkeypatch.setattr(ve, "_dperiod_should_divide", lambda handle: (True, 2))
+    monkeypatch.setattr(ve, "_vecoli_config_summary", lambda *a, **k: {})
+
+    out = ve.run_vivarium_ecoli_pbg_multigen(
+        store_path=str(tmp_path / "store.zarr"), sim_data_path="x",
+        max_generations=generations, max_steps_per_gen=40, chunk=20, **seam)
+    return builds, emits, out
+
+
+def test_seam_default_args_are_a_strict_noop(monkeypatch, tmp_path):
+    """initial_generation=1 with no carry paths is today's behaviour, unchanged:
+    founder walk "0"->"00"->"000", partitions labelled 1,2,3, no hand-off."""
+    builds, emits, out = _drive_seam(monkeypatch, tmp_path, generations=3)
+    assert builds == ["0", "00", "000"]
+    assert [g for _a, g in emits] == [1, 2, 3]
+    assert out["initial_generation"] == 1
+    assert out["daughter_state_out"] is None
+
+
+def test_resume_derives_the_phylogeny_key_and_absolute_label(monkeypatch, tmp_path):
+    """A resumed stage builds its first cell as ``"0" * initial_generation`` and
+    labels the partition ``initial_generation`` — so the fork's generation index
+    (``len(agent_id)``) and the zarr generation agree, and no duplicate
+    generation-<N> partition is written. ⚠ Tested at N=3, a non-founder value:
+    every mutant here (ignore the offset, pin the key at "0") is invisible at 1."""
+    from v2ecoli.cache import save_initial_state
+    carry = str(tmp_path / "carry.json")
+    save_initial_state({"bulk": {}, "unique": {}}, carry)
+    builds, emits, out = _drive_seam(
+        monkeypatch, tmp_path, generations=1, initial_generation=3,
+        initial_carry_state_path=carry)
+    assert builds == ["000"]              # len 3 == generation 3
+    assert emits == [("000", 3)]
+    assert out["initial_generation"] == 3
+
+
+def test_resume_without_carry_state_is_refused(monkeypatch, tmp_path):
+    """initial_generation>1 with no carry state would seed a FRESH founder and
+    label it a later generation — right partition, wrong biology, no error. The
+    native driver refuses this; the two must answer alike."""
+    with pytest.raises(ValueError, match="no initial_carry_state_path"):
+        _drive_seam(monkeypatch, tmp_path, generations=1, initial_generation=2)
+
+
+def test_initial_generation_below_one_is_refused(monkeypatch, tmp_path):
+    with pytest.raises(ValueError, match=">= 1"):
+        _drive_seam(monkeypatch, tmp_path, generations=1, initial_generation=0)
+
+
+def test_carry_out_writes_only_registry_free_bulk_and_unique(monkeypatch, tmp_path):
+    """The hand-off carries ONLY ``bulk``+``unique``. ``environment``/``boundary``
+    are dropped on purpose: ``boundary.external`` holds pint ``Quantity`` media
+    concentrations that do not survive a JSON round-trip on one registry (a
+    resumed ``ExchangeData.next_update`` then raises "different registries"), and
+    for fixed media they re-derive fresh. Carrying all four is what the in-process
+    overlay does, and it works ONLY because it never serialises."""
+    from v2ecoli.cache import load_initial_state
+    out_path = str(tmp_path / "d1.json")
+    _b, _e, out = _drive_seam(
+        monkeypatch, tmp_path, generations=1, daughter_state_out_path=out_path)
+    assert out["daughter_state_out"] == out_path
+    carried = load_initial_state(out_path)
+    assert set(carried) == {"bulk", "unique"}, (
+        "the hand-off carried environment/boundary — a pint Quantity in "
+        "boundary.external will crash the resumed generation on registry mismatch")
+
+
+def test_resume_appends_it_does_not_delete_the_store(monkeypatch, tmp_path):
+    """A resumed stage APPENDS to the shared store: the emitter's colony partition
+    links to the generation-(N-1) partition a previous invocation wrote, so a
+    startup rmtree would destroy the parent it links to. Only a fresh lineage
+    (initial_generation==1) may delete."""
+    import shutil as _sh
+    from v2ecoli.cache import save_initial_state
+    carry = str(tmp_path / "carry.json")
+    save_initial_state({"bulk": {}, "unique": {}}, carry)
+    (tmp_path / "store.zarr").mkdir()
+    calls = []
+    monkeypatch.setattr(_sh, "rmtree", lambda *a, **k: calls.append(a))
+    _drive_seam(monkeypatch, tmp_path, generations=1, initial_generation=2,
+                initial_carry_state_path=carry)
+    assert calls == [], "a resumed stage deleted the store it must append to"

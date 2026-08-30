@@ -141,6 +141,42 @@ def apply_flux_pins_with_fallback(fba, pins, *, set_hard_bound, open_bounds,
     return relaxed
 
 
+def is_carbon_starved(enabled, carbon_source_ids, importable):
+    """Substrate-exhaustion detection (#572).
+
+    True when the arrest is enabled AND at least one carbon source is configured
+    AND none of those carbon sources is importable this tick (the exchange gate
+    has closed on all of them). Pure/​unit-testable.
+
+    Args:
+        enabled: the ``carbon_exhaustion_arrest`` opt-in flag.
+        carbon_source_ids: media carbon-source ids as they appear in the gate
+            (e.g. ``{"GLC[p]"}``). Empty -> never starved (returns False).
+        importable: the set of molecule ids importable this tick
+            (unconstrained ∪ rate-constrained).
+    """
+    if not (enabled and carbon_source_ids):
+        return False
+    return not (set(carbon_source_ids) & set(importable))
+
+
+def arrest_monomer_supply(delta_metabolites_final, monomer_mask):
+    """Zero the NET SUPPLY (positive deltas) of biomass-monomer metabolites so
+    the cell cannot polymerize new dry mass at carbon exhaustion (#572).
+
+    Only positive deltas at ``monomer_mask`` positions are zeroed; consumption
+    (negative deltas) and every non-monomer metabolite are untouched. Returns
+    the same array object when nothing changed (so callers can detect a no-op),
+    else a modified copy. Pure/​unit-testable.
+    """
+    supply = monomer_mask & (delta_metabolites_final > 0)
+    if not supply.any():
+        return delta_metabolites_final
+    out = delta_metabolites_final.copy()
+    out[supply] = 0
+    return out
+
+
 class Metabolism(Step):
     """Metabolism Process
 
@@ -249,6 +285,17 @@ class Metabolism(Step):
         'amino_acid_ids': {'_type': 'map', '_default': {}},
         'avogadro': {'_type': 'quantity[float,1/mol]', '_default': 6.02214076e+23},
         'base_reaction_ids': {'_type': 'list[string]', '_default': []},
+        # Substrate-exhaustion growth arrest (#572). OPT-IN (default off) so the
+        # validated fed regime is byte-identical. When enabled, if none of
+        # ``carbon_source_ids`` is importable this tick (the exchange gate has
+        # closed on the carbon source), metabolism stops SUPPLYING net biomass
+        # monomers (amino acids + (d)NTPs) so the cell cannot build biomass from
+        # phantom internal carbon — it arrests instead of growing at zero carbon.
+        # ``carbon_source_ids`` MUST list the media's carbon source(s) as they
+        # appear in the exchange gate (e.g. ``["GLC[p]"]`` for M9 glucose); left
+        # empty the arrest never triggers.
+        'carbon_exhaustion_arrest': {'_type': 'boolean', '_default': False},
+        'carbon_source_ids': {'_type': 'list[string]', '_default': []},
         'cell_density': {'_type': 'quantity[g/L]', '_default': 1100.0},
         'cell_dry_mass_fraction': {'_type': 'float', '_default': 0.3},
         'dark_atp': {'_type': 'quantity[float,mmol/g]', '_default': 33.565052868380675},
@@ -476,6 +523,27 @@ class Metabolism(Step):
         self.outputMoleculeIDs = self.model.fba.getOutputMoleculeIDs()
         self.kineticTargetFluxNames = self.model.fba.getKineticTargetFluxNames()
         self.homeostaticTargetMolecules = self.model.fba.getHomeostaticTargetMolecules()
+
+        # --- Substrate-exhaustion growth arrest (#572, opt-in) --------------
+        # See config_schema. When enabled and the carbon source is not importable
+        # this tick, _do_update suppresses NET SUPPLY of biomass monomers so the
+        # cell arrests rather than building biomass from phantom internal carbon.
+        self.carbon_exhaustion_arrest = bool(
+            self.parameters.get("carbon_exhaustion_arrest", False))
+        self.carbon_source_ids = set(
+            self.parameters.get("carbon_source_ids", []) or [])
+        # Mask over the metabolite-delta array (which is ordered by
+        # ``metaboliteNamesFromNutrients``, same as ``metabolite_counts_init``)
+        # selecting biomass MONOMERS — amino acids + (deoxy)nucleotides, the
+        # polymerization substrates translation / transcription / replication
+        # draw on to build dry mass.
+        def _strip_loc(mid):
+            return str(mid).split("[")[0]
+        _monomer_names = {_strip_loc(a) for a in self.aa_names} | {
+            "ATP", "GTP", "CTP", "UTP", "DATP", "DGTP", "DCTP", "TTP", "DTTP"}
+        self._biomass_monomer_mask = np.array(
+            [_strip_loc(n) in _monomer_names
+             for n in self.model.metaboliteNamesFromNutrients], dtype=bool)
         fba_reaction_id_to_index = {
             rxn_id: i for (i, rxn_id) in enumerate(self.fba_reaction_ids)
         }
@@ -711,6 +779,16 @@ class Metabolism(Step):
                 q = q * constraint_unit
             constrained[mol] = q
 
+        # Substrate-exhaustion arrest (#572, opt-in): carbon is exhausted when
+        # none of the configured carbon sources is importable via the gate
+        # (unconstrained or rate-constrained). Computed from the RAW gate here,
+        # before get_import_constraints reshapes `unconstrained`/`constrained`.
+        carbon_starved = is_carbon_starved(
+            self.carbon_exhaustion_arrest,
+            self.carbon_source_ids,
+            unconstrained | set(constrained.keys()),
+        )
+
         # Determine updates to concentrations depending on the current state
         current_media_id = states["environment"]["media_id"]
         doubling_time = self.nutrientToDoublingTime.get(
@@ -826,6 +904,22 @@ class Metabolism(Step):
          converted_exchange_fluxes, reaction_fluxes) = self._fba_output_to_deltas(
             fba_out, metabolite_counts_init, counts_to_molar, coefficient,
             timestep)
+
+        # Substrate-exhaustion arrest (#572): with no importable carbon source,
+        # suppress NET SUPPLY of biomass monomers (positive deltas of amino acids
+        # + (d)NTPs) written to bulk, so translation/transcription/replication
+        # cannot polymerize new dry mass from phantom internal carbon — the cell
+        # arrests instead of growing at zero carbon. Only positive monomer deltas
+        # are zeroed: consumption and all non-monomer (maintenance / energy)
+        # metabolism are untouched. Inert unless opt-in AND carbon-starved, so
+        # the validated fed regime is byte-identical.
+        if carbon_starved:
+            _clamped = arrest_monomer_supply(
+                delta_metabolites_final, self._biomass_monomer_mask)
+            if _clamped is not delta_metabolites_final:
+                delta_metabolites_final = _clamped
+                metabolite_counts_final = (
+                    metabolite_counts_init + delta_metabolites_final)
 
         # get_import_constraints is upstream Unum-native; convert constrained
         # values back to Unum at the boundary. GDCW_BASIS is a constant —

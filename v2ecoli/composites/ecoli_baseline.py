@@ -128,6 +128,25 @@ def _listener_leaf_paths(listeners: dict, *, prefix: str = "listeners"):
             yield p
 
 
+def filter_listener_paths(listener_paths, emit_paths):
+    """Restrict discovered ``listeners.<...>`` leaf paths to an emit-path allowlist.
+
+    ``emit_paths`` entries may be dotted strings (``"listeners.mass"``) or
+    tuple/list paths (``["listeners", "mass"]``); an entry matches a leaf path
+    exactly or as a dotted prefix (``"listeners.mass"`` keeps
+    ``"listeners.mass.cell_mass"``). A falsy/empty ``emit_paths`` returns the
+    input unchanged, so the default (emit every numeric listener leaf) is
+    preserved and the feature is opt-in. This is the mechanism a study uses to
+    emit only the handful of paths it needs instead of the full listener dump.
+    """
+    if not emit_paths:
+        return list(listener_paths)
+    prefixes = [".".join(str(x) for x in p) if isinstance(p, (list, tuple)) else str(p)
+                for p in emit_paths]
+    return [lp for lp in listener_paths
+            if any(lp == pre or lp.startswith(pre + ".") for pre in prefixes)]
+
+
 def _single_cell_xarray_config(*, out_uri: str, metadata: dict | None = None,
                                 buffer_size: int = 600) -> dict:
     """Build the STATIC XArrayEmitter ``config`` skeleton for a single-cell,
@@ -340,6 +359,15 @@ class SingleCellXArrayEmitter(Emitter):
         full_state = comp.state
         cell = (full_state.get("agents") or {}).get("0") or full_state
         listener_paths = list(_listener_leaf_paths(cell.get("listeners") or {}))
+        # Optional emit-path allowlist: when the config declares ``emit_paths``,
+        # restrict the emitted listener leaves to those under the declared paths
+        # (see ``filter_listener_paths``). Absent/empty keeps the default (every
+        # numeric listener leaf), so this is backward-compatible. Declared bulk
+        # observables (below) are always kept — they are requested explicitly via
+        # ``observable_bulk_ids``, not the listener sweep. This is how a study emits
+        # only the handful of paths it needs instead of the full ~400-column dump.
+        listener_paths = filter_listener_paths(
+            listener_paths, self.config.get("emit_paths"))
         # Declared bulk observables ride under a synthetic listeners.observable_bulk
         # group so the SAME listener view captures them (both engines share the path).
         listener_paths += [f"listeners.observable_bulk.{i}" for i in self._obs_bulk_ids]

@@ -22,7 +22,7 @@ def test_baseline_injects_fork_process():
            "topology": {"example-secretion": {"counts": ["bulk"]}},
            "time_step": 1.0}
     doc = baseline(core=core, seed=0, cache_dir="out/cache",
-                   injected_processes=inj)
+                   injected_processes=inj, native=False)
     cell = doc["state"]["agents"]["0"]
     assert "example-secretion" in cell
     assert "example-secretion" in doc["flow_order"]

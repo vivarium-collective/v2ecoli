@@ -1450,6 +1450,7 @@ def baseline(
     emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
+    native: bool = True,
     n_seeds: int = 1,
     n_generations: int = 1,
     stop_at_division: bool = False,
@@ -2016,6 +2017,7 @@ def baseline(
             injected_processes.get("add_processes")
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
+        assert_injection_sourcing(native, injected_processes)
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))

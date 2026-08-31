@@ -72,6 +72,16 @@ def _run_coupled(cpa: float, gas_flow_Lpm: float, n_steps: int) -> dict:
     co2_series: list[float] = []
     o2_transport_deltas: list[float] = []
     o2_counts: list[float] = []
+    # ⚠ Anchor the exchange baseline BEFORE the loop, symmetrically with do0.
+    # The store is a lineage-cumulative total, so the balance differences its
+    # endpoints -- and if the first sample were taken AFTER tick 0 while do0 was
+    # taken before it, tick 0's consumption would be differenced out of the
+    # numerator while remaining in the denominator. That is not a rounding
+    # concern: the WCM's first FBA step is a transient ~3500x a steady tick
+    # (937,795 counts vs ~266), so the asymmetry alone read as a 5.3% mass-balance
+    # deficit (ratio 0.9466) and was mistaken for a physical leak.
+    o2_counts.append(float(
+        c.state["agents"]["0"]["environment"]["exchange"].get(O2_EXCHANGE_KEY, 0.0)))
     for _ in range(n_steps):
         c.run(1)
         r = c.state["reactor"]

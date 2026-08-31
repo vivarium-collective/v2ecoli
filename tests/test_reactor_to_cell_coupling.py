@@ -33,6 +33,8 @@ regression guards for behaviour that must NOT change.
 
 from __future__ import annotations
 
+import copy
+
 import pytest
 
 from v2ecoli.core import build_core
@@ -112,6 +114,18 @@ def test_mirror_writes_the_reactor_value_for_a_compartment_tagged_id(core):
 # --- 2. glucose reaches the environment --------------------------------------
 
 
+def _zeroed_agents(agents: dict) -> dict:
+    """Deep copy of ``agents`` with every ``environment.exchange`` value set to
+    0.0 — the priming state for _coupler_out below."""
+    out = copy.deepcopy(agents)
+    for agent in out.values():
+        exch = agent.get("environment", {}).get("exchange")
+        if isinstance(exch, dict):
+            for key in exch:
+                exch[key] = 0.0
+    return out
+
+
 def _coupler_out(core, *, reactor, agents=None, population=None, config=None):
     # track_medium must be passed EXPLICITLY: config_schema declares it a
     # boolean, so the framework fills it False on omission and the Step's
@@ -124,6 +138,20 @@ def _coupler_out(core, *, reactor, agents=None, population=None, config=None):
         states["agents"] = agents
     if population is not None:
         states["population"] = population
+    # ⚠ PRIME THE BASELINE FIRST.
+    # agents.*.environment.exchange is a lineage-CUMULATIVE running total, which
+    # the coupler differences per agent; an agent's first observation therefore
+    # yields 0.0 by design. A fresh coupler ticked exactly once would return 0.0
+    # for every exchange assertion below, which is not "no uptake" but "no
+    # baseline yet" — and several of these tests are `discriminates:` guards that
+    # would then pass VACUOUSLY (0.0 == 8 * 0.0). Seed the baseline at zero with
+    # a throwaway tick, on deep copies so nothing leaks into the tick under test,
+    # so the measured tick registers the full counts as its delta.
+    if agents is not None:
+        c.next_update(1.0, {
+            **{k: copy.deepcopy(v) for k, v in states.items()},
+            "agents": _zeroed_agents(agents),
+        })
     return c.next_update(1.0, states)
 
 

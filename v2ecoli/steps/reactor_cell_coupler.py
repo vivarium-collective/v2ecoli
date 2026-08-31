@@ -55,10 +55,13 @@ CO2 (produced) carries a positive flux and yields a POSITIVE
 ``reactor.dissolved_co2`` delta. The Step passes the signed flux straight
 through the conversion chain, so the sign is preserved without special-casing.
 
-Time base: ``BiRDTransportProcess`` works in HOURS and the exchange fluxes are
-per hour (mmol/(gDW*h)), while v2ecoli's cell sim steps in SECONDS. The Step
-therefore converts its timestep to hours (``/ SECONDS_PER_HOUR``) before scaling
-the per-hour flux into a per-interval delta.
+Time base: ``BiRDTransportProcess`` works in HOURS, while v2ecoli's cell sim
+steps in SECONDS. The metabolic-exchange path needs NO interval scaling: it
+differences ``environment.exchange``, a cumulative COUNT, and one difference
+already covers exactly one WCM step. ``SECONDS_PER_HOUR`` and ``FG_PER_GRAM``
+are retained as published constants but are not used by this Step; an earlier
+version of this docstring described a per-hour flux conversion that the code
+has never performed.
 """
 
 from __future__ import annotations
@@ -81,7 +84,7 @@ MW_CO2: float = 44.010
 O2_ID: str = "OXYGEN-MOLECULE[p]"
 CO2_ID: str = "CARBON-DIOXIDE[p]"
 
-# v2ecoli reports per-step environmental exchange as molecule COUNTS at
+# v2ecoli reports environmental exchange as CUMULATIVE molecule COUNTS at
 # agents.*.environment.exchange, keyed by the BARE molecule name (no compartment
 # suffix). Negative == uptake (removed from the environment), positive ==
 # secretion. This is the real consumption source the coupler reads (the molar
@@ -190,7 +193,13 @@ class ReactorCellCoupler(Step):
         # not a rate"). This Step needs THIS TICK's exchange, so it differences
         # the store per agent. Keyed by agent_id: at division each daughter
         # inherits the parent's total under a NEW id, so differencing the summed
-        # total across agents would double-count and read as secretion.
+        # total across agents would DOUBLE-COUNT it: with the store's
+        # negative-uptake convention, summing two daughters that each carry the
+        # parent's total doubles it in the NEGATIVE direction, i.e. a spurious
+        # extra UPTAKE of one full lineage total on the division tick -- not a
+        # sign flip, and not secretion. (An earlier version of this comment said
+        # "reads as secretion"; that was backwards, and the division test's
+        # assertion direction was derived from it.)
         self._prev_exchange: dict[str, dict[str, float]] = {}
         # A leaf's first observation for an agent yields 0.0 rather than a first
         # difference -- the same choice the gdcw deriver makes and for the same
@@ -254,8 +263,9 @@ class ReactorCellCoupler(Step):
 
         # 3. Metabolic exchange demand -> additive dissolved-gas delta (mg/L).
         #
-        # v2ecoli emits per-step environmental exchange as molecule COUNTS at
-        # agents.*.environment.exchange (negative == uptake). Convert counts/step
+        # v2ecoli emits environmental exchange as CUMULATIVE molecule COUNTS at
+        # agents.*.environment.exchange (negative == uptake), DIFFERENCED per
+        # agent above to recover this tick's exchange. Convert counts/step
         # for one agent, scaled by cells_per_agent (representative-sampling
         # population scale), to a mg/L delta on the shared dissolved store:
         #
@@ -286,8 +296,26 @@ class ReactorCellCoupler(Step):
 
             def _tick_delta(key: str) -> float:
                 """This tick's exchange for one molecule: the store is a running
-                total, so difference it. First observation for an agent -> 0.0."""
-                total = _as_float(exch.get(key, 0.0))
+                total, so difference it against this agent's previous reading.
+
+                Two cases yield 0.0 rather than a difference:
+
+                * FIRST OBSERVATION of a (agent, molecule) pair. The store
+                  carries across division, so differencing against an assumed
+                  zero would dump a whole generation's accumulation into one
+                  tick. The gdcw deriver makes the same choice for the same
+                  reason (steps/derivers/exchange_flux_listener.py).
+                * KEY ABSENT from this tick's snapshot. The emit cadence can
+                  snapshot mid-init, so ``exch`` may be missing keys it had
+                  last tick (see _extract_environment_exchange). Treating an
+                  absent key as 0.0 would overwrite the baseline with 0.0 and
+                  then emit the whole running total as a spike on the next
+                  tick -- the very spike the first-observation rule exists to
+                  prevent. Leave the baseline untouched and skip the tick.
+                """
+                if key not in exch:
+                    return 0.0
+                total = _as_float(exch[key])
                 previous = prev.get(key)
                 prev[key] = total
                 return 0.0 if previous is None else total - previous
@@ -419,12 +447,21 @@ def _extract_exchange_fluxes(agent_state: dict | Any) -> dict[str, Any]:
 
 
 def _extract_environment_exchange(agent_state: dict | Any) -> dict[str, Any]:
-    """Return ``environment.exchange`` (per-step molecule COUNTS), or {} if absent.
+    """Return ``environment.exchange`` (CUMULATIVE molecule COUNTS), or {} if absent.
 
-    This is v2ecoli's real per-step environmental exchange store — a dict keyed
-    by the bare molecule name (e.g. ``OXYGEN-MOLECULE``), value = signed molecule
-    count added to the environment this step (negative == uptake). Defensive
-    against missing intermediate keys (emit cadence can snapshot mid-init).
+    A dict keyed by the bare molecule name (e.g. ``OXYGEN-MOLECULE``), value =
+    the signed molecule count added to the environment **since the start of the
+    lineage** (negative == uptake).
+
+    ⚠ This is a RUNNING TOTAL, not a per-step delta, and it does NOT reset at
+    division — a daughter inherits the parent's total. Callers must difference
+    it per agent to recover one tick's exchange; see ``ReactorCellCoupler`` and
+    ``ecoli_baseline``'s ``exchange_flux_basis`` documentation. Reading it as a
+    per-step value was the #632 defect: it drained the reactor by elapsed time
+    rather than by cell demand, ~N/2 too much over N ticks.
+
+    Defensive against missing intermediate keys (emit cadence can snapshot
+    mid-init) — returns {} rather than raising.
     """
     try:
         env = agent_state.get("environment", {}) if hasattr(agent_state, "get") else {}

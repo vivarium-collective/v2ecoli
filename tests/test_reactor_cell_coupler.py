@@ -67,9 +67,10 @@ def _agent(*, cell_mass_fg: float = 1.0e3, o2_counts: float = 0.0,
            co2_counts: float = 0.0) -> dict:
     """Minimal agent state.
 
-    The coupler reads per-step environmental exchange as molecule COUNTS at
+    The coupler reads CUMULATIVE environmental exchange as molecule COUNTS at
     ``environment.exchange`` (keyed by the bare molecule name; negative ==
-    uptake) — v2ecoli's real exchange store. (The cell_mass listener is kept
+    uptake) — v2ecoli's real exchange store, a lineage running total that the
+    coupler differences per agent. (The cell_mass listener is kept
     for shape realism; the counts-based path does not use it.)
     """
     return {
@@ -260,10 +261,18 @@ def test_first_observation_of_a_new_agent_yields_no_exchange(core):
     assert c.first_observation_ticks == 1
 
 
-def test_division_does_not_read_as_secretion(core):
-    """At division the SUMMED total across agents doubles -- two daughters each
-    carrying the parent's total. Differencing the sum would flip the sign and
-    read as secretion; differencing PER AGENT must not.
+def test_absent_exchange_key_does_not_reset_the_baseline(core):
+    """A tick whose snapshot is MISSING the exchange key must draw nothing and
+    must leave the baseline untouched.
+
+    ``_extract_environment_exchange``'s own docstring says the emit cadence can
+    snapshot mid-init, so a key present last tick can be absent this tick.
+    Treating absent as 0.0 would overwrite the baseline with 0.0, emitting a
+    spurious SECRETION of the whole running total on that tick and then a
+    spurious UPTAKE of the whole total on the next -- reintroducing exactly the
+    spike the first-observation rule exists to prevent. The two nominally
+    cancel, but the medium and dissolved-gas paths are zero-clamped, and a
+    clamped spike does not cancel: it leaves permanent mass error.
     """
     c = ReactorCellCoupler(
         config={"cells_per_agent": 1.0e9, "reactor_volume_L": 1.0,
@@ -273,11 +282,93 @@ def test_division_does_not_read_as_secretion(core):
     base = {"reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0,
                         "volume_L": 1.0, "glucose_medium_mM": 22.2},
             "population": {"cell_count": 1.0e9}}
-    c.next_update(1.0, {**base, "agents": {"0": _glc_agent(-1.0e14)}})
-    c.next_update(1.0, {**base, "agents": {"0": _glc_agent(-2.0e14)}})
-    # Division: parent "0" retires, daughters inherit its total under new ids.
-    out = c.next_update(1.0, {**base, "agents": {"00": _glc_agent(-2.0e14),
-                                                 "01": _glc_agent(-2.0e14)}})
+    c.next_update(1.0, {**base, "agents": {"0": _glc_agent(-1.0e11)}})
+    normal = c.next_update(
+        1.0, {**base, "agents": {"0": _glc_agent(-2.0e11)}}
+    )["reactor"]["glucose_medium_mM"]
+    assert normal < 0.0, "no uptake on a normal tick -- assertions below vacuous"
+
+    # Tick 3: the agent is present but its exchange dict has no GLC key.
+    gapped = _glc_agent(-2.0e11)
+    del gapped["environment"]["exchange"]["GLC"]
+    out = c.next_update(1.0, {**base, "agents": {"0": gapped}})
+    assert out["reactor"].get("glucose_medium_mM", 0.0) == pytest.approx(0.0), (
+        "a tick missing the exchange key must draw nothing"
+    )
+
+    # Tick 4: the key is back, one tick further along. The draw must be ONE
+    # tick's worth -- not the whole running total re-differenced from zero.
+    after = c.next_update(1.0, {**base, "agents": {"0": _glc_agent(-3.0e11)}})
+    assert after["reactor"]["glucose_medium_mM"] == pytest.approx(normal), (
+        "baseline was reset by the absent key: the tick after a gap drew "
+        "the accumulated total instead of one tick's exchange"
+    )
+
+
+def test_division_does_not_double_count_the_inherited_total(core):
+    """At division each daughter inherits the parent's cumulative total under a
+    NEW id, so the SUMMED total across agents doubles. Differencing the sum
+    would charge the reactor one full lineage total on the division tick --
+    with the negative-uptake convention that is a spurious extra UPTAKE, not a
+    sign flip and not secretion.
+
+    ⚠ This test previously asserted only ``delta <= 0.0``, which is satisfied by
+    BOTH the correct 0.0 and the summed mutant's spurious uptake -- so the
+    mutation it is named for survived it. It now asserts on MAGNITUDE, against
+    a measured normal tick, with that tick doubling as the positive control so
+    a coupler that emitted 0.0 unconditionally could not pass either.
+    """
+    c = ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e9, "reactor_volume_L": 1.0,
+                "track_medium": True},
+        core=core
+    )
+    base = {"reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0,
+                        "volume_L": 1.0, "glucose_medium_mM": 22.2},
+            "population": {"cell_count": 1.0e9}}
+    # Counts sized so one tick draws ~0.17 mM of the 22.2 mM pool: the medium
+    # path is clamped at the remaining pool, and at larger counts every draw
+    # below saturates at -22.2 and the magnitude comparisons compare two clamps.
+    c.next_update(1.0, {**base, "agents": {"0": _glc_agent(-1.0e11)}})
+    normal = c.next_update(
+        1.0, {**base, "agents": {"0": _glc_agent(-2.0e11)}}
+    )["reactor"]["glucose_medium_mM"]
+    # POSITIVE CONTROL: a normal tick must register real uptake, otherwise every
+    # magnitude assertion below is vacuous.
+    assert normal < 0.0, (
+        f"no uptake on a normal tick (got {normal}) -- the assertions below "
+        f"would pass vacuously"
+    )
+    assert normal > -22.2, (
+        f"normal tick ({normal} mM) saturated the pool clamp; the magnitude "
+        f"assertions below would compare two clamped values, not two draws"
+    )
+
+    # Division: parent "0" retires, daughters "00"/"01" each inherit its total.
+    out = c.next_update(1.0, {**base, "agents": {"00": _glc_agent(-2.0e11),
+                                                 "01": _glc_agent(-2.0e11)}})
     delta = out["reactor"].get("glucose_medium_mM", 0.0)
-    assert delta <= 0.0, f"division read as SECRETION (+{delta}) -- summed total"
+    # Both daughters are first observations, so the division tick draws NOTHING.
+    # Differencing the summed total instead would draw ~2x a normal tick here.
+    assert delta == pytest.approx(0.0), (
+        f"division tick drew {delta} mM; expected 0.0 (both daughters are first "
+        f"observations). A summed-total difference draws ~{2 * normal:.4g} mM here."
+    )
+    assert abs(delta) < abs(normal), (
+        f"division-tick draw {abs(delta)} is not smaller than a normal tick "
+        f"{abs(normal)} -- the inherited total is being double-counted"
+    )
     assert "0" not in c._prev_exchange, "retired agent id must be dropped"
+
+    # And the tick AFTER division must resume at a normal draw, not carry the
+    # doubling forward. It equals ONE normal tick, not two: `cell_count` is the
+    # REPRESENTED population and covers all agents, so the per-agent scale is
+    # cell_count/n_agents (see test_scale_is_per_agent_not_per_population).
+    # Two daughters at an unchanged cell_count therefore draw between them
+    # exactly what the single parent drew -- the represented population has not
+    # grown just because the agent count did.
+    after = c.next_update(1.0, {**base, "agents": {"00": _glc_agent(-3.0e11),
+                                                   "01": _glc_agent(-3.0e11)}})
+    assert after["reactor"]["glucose_medium_mM"] == pytest.approx(normal), (
+        "post-division tick should resume at a normal per-population draw"
+    )

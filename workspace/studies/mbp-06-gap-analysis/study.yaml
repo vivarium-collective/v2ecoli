@@ -73,6 +73,51 @@ mandatory_findings_to_consider:
     what_resolves_it: metabolism-side respiration/overflow fidelity (candidate-future-study; not BPM's to fix)
     expected_priority: 1
     expected_axis: A
+  - signature: v2ecoli-no-nitrogen-exhaustion-arrest
+    source: 'BPM lane, MEASURED 2026-08-31 on the v2ecoli#638 branch (finite
+      ammonium pool). Independent adversarial review of #638; re-derived and
+      confirmed by the lane. NOT reproducible on main -- the finite pool is #638.'
+    why_still_load_bearing: 'THE CELL BUILDS BIOMASS AT ZERO NITROGEN. Seeded at
+      initial_ammonium_mM = 0.0, the agent boundary reads 2.1e-15 mM (far below
+      metabolism''s import threshold of 1e-5), the per-tick ammonium exchange
+      delta is EXACTLY 0.0 -- the cell takes up no nitrogen at all -- and dry
+      mass still climbs, 379.807 -> 380.104 fg over 5 ticks. That is a 0.0012%
+      difference from the same run with a 60 mM pool. Exhausting the nitrogen
+      source therefore produces NO nitrogen limitation; it produces a silent
+      nitrogen mass-conservation violation, with a pool readout of zero and
+      nothing raised.
+      MECHANISM, and it is already in the repo: is_carbon_starved /
+      arrest_monomer_supply (metabolism.py:143,163, v2ecoli#572/#592) exist
+      precisely because the WCM keeps polymerising after the exchange gate
+      closes. They are CARBON-ONLY, opt-in, and default off. No nitrogen
+      analogue is wired, so nitrogen has the defect carbon had before #592.
+      WHY THIS IS THE SEVERE CLASS, not an in-family limitation: the standing
+      acceptance rule for this lane distinguishes (a) a cell that stops growing
+      but cannot hold a zero-growth steady state -- understandable, documentable,
+      not a blocker -- from (b) a cell that builds mass and divides at zero
+      substrate, which is a conservation violation and is straight-up incorrect.
+      This is (b), for nitrogen.
+      SCOPE OF THE MEASUREMENT -- do not overstate it. Five ticks. Internal
+      nitrogen pools would deplete eventually, so this establishes that the
+      exhaustion CLIFF produces no limitation and breaks the balance from the
+      first tick past exhaustion. It does NOT establish that growth is never
+      N-limited on a long run.
+      ⛔ DEFERRED, NOT BLOCKING -- Chris, 2026-08-31: note it prominently as a
+      gap; it does not block the CD2 OD10 work at this point. The deferral is
+      REGIME-SCOPED and that is what makes it principled rather than a punt:
+      #638 raises the default ammonium pool to 60 mM against an OD10 nitrogen
+      demand of ~32.8 mM at the corrected 0.135 gN/gDW -- ~1.8x headroom -- so a
+      batch parameterized to OD10 never enters the exhausted regime and the
+      violation is never exercised. This is the same shape as the carbon
+      caveat: under a regime where the substrate never reaches zero, the cell
+      never enters the quiescent regime. ⚠ The corollary is the thing to carry:
+      ANY run that exhausts nitrogen -- a higher-OD target, a smaller seed, a
+      longer batch, or a fed-batch that under-feeds N -- is outside the
+      supported envelope and its post-exhaustion biomass is not physical.
+      '
+    what_resolves_it: nitrogen analogue of carbon_exhaustion_arrest (metabolism-side; candidate-future-study, not BPM's to fix)
+    expected_priority: 2
+    expected_axis: A
   - signature: v2ecoli-nitrogen-limits-before-carbon-at-target-density
     source: 'BPM lane, 2026-08-31. MEASURED against a finite ammonium pool and
       a nitrogen ledger, NEITHER of which is on main -- the finite pool is

@@ -28,9 +28,31 @@ A **cell-side engine** is a PBG sub-composite or Process satisfying:
 
 | Path | Type | Units | Consumed by |
 |---|---|---|---|
-| `agents.*.metabolism.external_exchange_fluxes.<molecule>` | `array[float]` | mmol/(gDW·h) | Reactor / coupler aggregates across agents × biomass to compute dC/dt |
+| `agents.*.listeners.fba_results.external_exchange_fluxes` | `ndarray[float]`, shape `(n_external,)` | mmol/(gDW·h) | Diagnostic exchange vector. ⚠ **A BARE ARRAY, NOT A DICT** — see the note below |
+| `agents.*.environment.exchange.<molecule>` | `map[float]` (87 keys) | counts (lineage-cumulative) | **The path the reactor coupler actually consumes.** It DIFFERENCES this store tick over tick and converts counts → concentration via Avogadro. ⚠ Keys here are **UNTAGGED** (`GLC`, `OXYGEN-MOLECULE`), unlike the compartment-tagged ids used everywhere else in this contract |
 | `agents.*.listeners.mass.cell_mass` | `float` | fg | Population aggregator sums into `population.total_biomass_gDW` |
 | `agents.*.listeners.mass.instantaneous_growth_rate` | `float` | 1/h | Diagnostics; coupler can optionally use to drive BiRD's O2 demand |
+
+⚠ **`external_exchange_fluxes` is an `ndarray`, not a mapping.** It is a bare
+array of shape `(n_external,)` — 87 entries on the current v2ecoli build —
+positionally ordered by `metabolism.externalMoleculeIDs`. **There is no
+`.GLC[p]` / `.OXYGEN-MOLECULE[p]` child key**: a path that appends a molecule
+id to it does not resolve, and a consumer must index by the molecule's POSITION
+in `externalMoleculeIDs`. (`agents.*.listeners.monomer_counts` has the same
+shape — a bare array, not a mapping.) An earlier revision of this table
+declared the path as `agents.*.metabolism.external_exchange_fluxes.<molecule>`;
+both halves of that were wrong — the store lives under
+`listeners.fba_results`, not under `metabolism`, and it takes no molecule
+child. Corrected 2026-08-31 against a built-and-ticked composite.
+
+⚠ **The reactor coupler does NOT read the flux vector.** `ReactorCellCoupler`
+(`v2ecoli/steps/reactor_cell_coupler.py`) differences `agents.*.environment.exchange`,
+a lineage-cumulative COUNT store, and converts counts → mg/L via Avogadro and
+molecular weight. Its module docstring records that the earlier
+flux × biomass description is stale: *"the code has not worked that way for some
+time … Do not reintroduce it."* An engine conforming to this contract must
+therefore populate `environment.exchange`; the flux vector is a diagnostic
+surface, not the coupling surface.
 
 ### Lifecycle hooks
 
@@ -88,6 +110,13 @@ v2ecoli's existing convention; see `v2ecoli/AGENTS.md` for the prefix table):
 | Ammonium | `AMMONIUM[p]` |
 | Acetate | `ACET[p]` |
 
+⚠ **One exception, measured 2026-08-31:** the keys of
+`agents.*.environment.exchange` are **untagged** — `GLC`, `OXYGEN-MOLECULE`,
+`CARBON-DIOXIDE`, `AMMONIUM`, `ACET` — with no `[p]` suffix. This is what
+`ReactorCellCoupler` matches on. Any engine or coupler wiring that store must
+use the untagged form; the tagged form above applies to
+`environment.external_concentrations` and the bulk stores.
+
 Engines that use other identifier schemes (e.g. BiGG IDs in iML1515)
 MUST adapt at the coupler boundary, not inside the engine.
 
@@ -103,7 +132,7 @@ engine against the contract.
 | Engine | Status | First wired in | Notes |
 |---|---|---|---|
 | Monod placeholder | planned | mbp-01 | The first study's interface-baseline engine; intentionally trivial — its role is to make the contract concrete. |
-| v2ecoli baseline (single cell + Division) | planned | mbp-03 | Already exposes the contract's surface via `media_update` / `exchange_data` / `metabolism.external_exchange_fluxes`; only the reactor-side coupler is new. |
+| v2ecoli baseline (single cell + Division) | planned | mbp-03 | Already exposes the contract's surface via `media_update` / `exchange_data` / `environment.exchange` (the counts store the coupler differences), with `listeners.fba_results.external_exchange_fluxes` as the diagnostic flux vector; only the reactor-side coupler is new. |
 | pbg-bioreactordesign `BiRDTransportProcess` | upstream-PR pending | mbp-03 | Per chris_feedback_2026_05_26 §5 + Eran's Option-B decision 2026-05-26: a transport-only sibling of `BiRDReactorProcess` (no internal biomass ODE by construction, NOT a flag-disabled variant). Tracked as candidate-future-study `pbg-bioreactor-transport-fork` in mbp-06; HARD PREREQ of mbp-03 entering Build. NOT a cell-side engine — it's the REACTOR side under this contract. |
 | **pbg-oxidizeme** (OxidizeME ME-model) | **declared (reference only)** — was "imported 2026-05-22" | mbp-06 candidate-future | Wrapper at [vivarium-collective/pbg-oxidizeme](https://github.com/vivarium-collective/pbg-oxidizeme) (live demo: [vivarium-collective.github.io/pbg-oxidizeme](https://vivarium-collective.github.io/pbg-oxidizeme/)). Process-bigraph Step bridging Yang et al. 2019 OxidizeME / cobrame / qminospy. Declared in `workspace.yaml.imports` as a `mode: reference` import. ⚠ **Corrected 2026-08-20:** this previously read *"Now installed in this workspace's venv … `OxidizeMEStep` is auto-discovered via `allocate_core()`"*. Measured, both halves are false here — `pbg_oxidizeme` is not importable and `local:OxidizeMEStep` does not resolve, against a positive control (`local:BiRDTransportProcess`) that does. Its `mode: reference` siblings (`pbg_ketchup`, `pbg_copasi`, `pbg_bioreactordesign`, `viva_munk`) ARE installed, which is what made the claim look plausible. Standing this up needs the package installed **and** the upstream proprietary solver. Real solver gated by upstream stack install (Python 2.7 / proprietary qMINOS — see wrapper README). **THE comparator engine for the v2ecoli-vs-ME-model study in mbp-06.** |
 | dFBA (iML1515) | candidate-future | mbp-06 / future | The upstream multiscale-bioprocess roadmap's Phase 3 engine. A comparator study under this contract. |
@@ -138,16 +167,23 @@ resolves (e.g. with explicit interface specs), this document syncs.
 
 ## Open questions for the first impl PR (mbp-01)
 
-- [ ] Should `agents.*.metabolism.external_exchange_fluxes` be the
-      canonical output, or should the contract publish at a higher-level
+- [ ] Should `agents.*.environment.exchange` be the canonical coupling
+      output, or should the contract publish at a higher-level
       `engine.exchange_fluxes` store that the engine writes? (Trade-off:
       transparency vs. interface stability across engines that don't
       have `agents.*` structure — e.g. a coarse-grained surrogate.)
-- [ ] How is the `metabolism.external_exchange_fluxes` aggregation across
-      agents handled when the engine doesn't expose per-agent fluxes?
-      (Likely answer: coupler always writes the aggregate to
-      `engine.exchange_fluxes_aggregate`; engines with per-agent data
-      populate that themselves.)
+      ⚠ Sharpened 2026-08-31: this question previously named
+      `agents.*.metabolism.external_exchange_fluxes`, which is not a real
+      path and is not what the coupler reads.
+- [ ] How is the exchange aggregation across agents handled when the engine
+      doesn't expose per-agent exchange? (Likely answer: coupler always
+      writes the aggregate to `engine.exchange_fluxes_aggregate`; engines
+      with per-agent data populate that themselves.)
+- [ ] Should the contract require a NAMED accessor for the positional
+      `external_exchange_fluxes` vector (molecule id → index), so consumers
+      stop hand-carrying `externalMoleculeIDs` order? Every declared path in
+      the mbp studies that tried to address it by molecule id was wrong.
+      (Raised 2026-08-31.)
 - [ ] Where does the conformance test fixture live —
       `v2ecoli/tests/`, the workspace's `tests/behavior/`, or a new
       `tests/interface/`?

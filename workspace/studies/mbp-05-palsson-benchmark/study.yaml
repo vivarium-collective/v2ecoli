@@ -243,7 +243,11 @@ comparison_overlays:
 
   # Specific GUR + byproduct surfaces (chris_feedback_2026_05_26 §10).
 
-- sim_path: "agents.0.listeners.fba_results.external_exchange_fluxes.GLC[p]"
+# `external_exchange_fluxes` is a bare ndarray of shape (87,), positionally ordered
+# by `metabolism.externalMoleculeIDs` — NOT a dict, so appending a molecule id does
+# not resolve. The entry this overlay compares is GLC[p]; selecting that position
+# out of the vector is still to be wired (no positional selector in the schema yet).
+- sim_path: "agents.0.listeners.fba_results.external_exchange_fluxes"
   published_csv: references/papers/palsson-2025-supp/reactor_gluc_upt_data.csv
   published_column: GUR
   overlay_label: "Glucose uptake rate"
@@ -612,6 +616,10 @@ regression_tests:
   - study: mbp-04-multigeneration-runs
     tests:
     - population-grows-then-flattens-at-substrate-limit
+    # ⚠ The two mass-balance residuals below are `classification: diagnostic` in
+    # mbp-04 — reported, not graded. They are inherited here to be RUN and
+    # REPORTED, not to gate: their `reduce: max_abs, window: full` cannot pass
+    # any band in [0, 1] while the ledger's startup transient is in the window.
     - carbon-mass-balance-closes-over-3-generations
     - nitrogen-mass-balance-closes-over-3-generations
   - study: mbp-03-bird-reactor-coupling

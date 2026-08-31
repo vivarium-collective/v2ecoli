@@ -366,9 +366,14 @@ behavior_tests:
   description: 'external_glucose held at 0 → glucose exchange flux ≈ 0 (numerical tolerance). Same for DO: zero external DO → O2 exchange flux ≈ 0. Universal biological floor; also confirms plumbing.'
   measure:
     kind: multi_path_max_abs
+    # `external_exchange_fluxes` is a bare ndarray of shape (87,), positionally
+    # ordered by `metabolism.externalMoleculeIDs` — NOT a dict, so appending a
+    # molecule id does not resolve. The two entries this criterion is about are GLC[p] and
+    # OXYGEN-MOLECULE[p]; selecting those positions out of the vector is still to
+    # be wired (the measure schema has no positional selector yet), so the path
+    # below names the whole vector.
     paths:
-    - agents.0.listeners.fba_results.external_exchange_fluxes.GLC[p]
-    - agents.0.listeners.fba_results.external_exchange_fluxes.OXYGEN-MOLECULE[p]
+    - agents.0.listeners.fba_results.external_exchange_fluxes
     window: full
   pass_if:
     op: at_most
@@ -382,7 +387,11 @@ behavior_tests:
   description: external_glucose held at 50 g/L (~30,000× PTS Km) → glucose exchange flux ≤ published Vmax for E. coli glucose-PTS (~10–12 mmol/gDW/h). Catches the unphysical linear-scaling implementation case.
   measure:
     kind: series
-    path: agents.0.listeners.fba_results.external_exchange_fluxes.GLC[p]
+    # `external_exchange_fluxes` is a bare ndarray of shape (87,), positionally
+    # ordered by `metabolism.externalMoleculeIDs` — NOT a dict, so appending a
+    # molecule id does not resolve. The entry this criterion is about is GLC[p]; selecting
+    # that position out of the vector is still to be wired.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
     reduce: max_abs
     window: full
   pass_if:
@@ -400,7 +409,11 @@ behavior_tests:
     runs:
     - saturating-glucose-low
     - saturating-glucose-high
-    path: agents.0.listeners.fba_results.external_exchange_fluxes.GLC[p]
+    # `external_exchange_fluxes` is a bare ndarray of shape (87,), positionally
+    # ordered by `metabolism.externalMoleculeIDs` — NOT a dict, so appending a
+    # molecule id does not resolve. The entry this criterion is about is GLC[p]; selecting
+    # that position out of the vector is still to be wired.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
     reduce: mean
     window: full
   pass_if:

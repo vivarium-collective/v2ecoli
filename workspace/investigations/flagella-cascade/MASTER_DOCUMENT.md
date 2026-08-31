@@ -112,9 +112,10 @@ by construction, at any scale.
 
 ### 1.4 Known open problems (unresolved, as of 2026-08-28)
 
-1. FliS:FliC exact-equilibrium fix is implemented and passed one clean
-   test. **Not yet validated** across a multi-seed batch (the standard
-   validation protocol used throughout this investigation).
+1. FliS:FliC exact-equilibrium fix is implemented and validated across
+   real division events at population scale (2026-08-30, see §3.1). **Not
+   yet validated** across a full multi-seed batch (the standard validation
+   protocol used throughout this investigation).
 2. FlgM:FliA remains on the shared, general ODE solver with a relaxed Kd.
    Same class of fix (dedicated exact-solve Step) has not yet been applied.
 3. `secretion_rate` (FlgM secretion) is an unverified placeholder pending
@@ -411,6 +412,34 @@ session history.
   every firing, with no tolerance to get wrong and no possible overshoot.
   Confirmed by direct testing: free FliS/FliC never go negative, by
   construction. Not yet validated across a multi-seed batch (§1.4).
+- **FliS:FliC fix validated at population scale, and a real, separate
+  elongation-side fix found in the process (2026-08-30)** — a 2-generation
+  population test first caught running against the wrong cache (`v11`,
+  predating the fix entirely) reproduced the OLD crash-prone behavior
+  (FLIS-FLIC-CPLX stuck at 0 the whole run) -- not a new bug, just the
+  wrong cache. Re-run against the properly-patched cache
+  (`cache_full_flit_v12_flisflic_test2`) confirmed the fix holds across
+  real division events: no crash, FLIS-FLIC-CPLX tracks real dynamics
+  throughout. That correct run still showed sharp, repeated
+  crash-and-recover swings in FLIS-FLIC-CPLX and free FliS, especially
+  right after division. Traced directly to `flagella_filament_elongation.py`'s
+  `MAX_COMPLEX_DRAW_FRACTION = 0.3` cap (added 2026-08-21) -- its own
+  comment says it exists to protect "ecoli-equilibrium's legacy ODE
+  solver," which no longer handles this reaction at all now that the
+  FliS:FliC Step exists. The 0.3 figure was never a biological number;
+  it was tuned around a crash mode this Step already eliminates by
+  construction. Removed the cap (old line kept per standing preserve-old-
+  code rule) -- re-run produced a single clean step-response per division
+  instead of a multi-cycle fight (complex climbing smoothly, one dip at
+  each division, smooth recovery), a qualitatively different result, not
+  just a smaller version of the same swings. Separately confirmed (finer
+  report sampling, `--sample 10` instead of the 120s default) that
+  individual filaments do reach the real 5,000-subunit target -- the
+  earlier appearance of "never completing" in population charts was a
+  120s report-sampling-cadence artifact (a completing filament's
+  `nascent_flagellum` entry is deleted the same tick it crosses target,
+  converted to +1 real `CPLX0-7452`, so a coarse sample can miss ever
+  catching it at the target value), not a real stall.
 - **FliD double-consumption fix (2026-08-21)** — found once NFsim was
   enabled: two separate consumption points fired for the same real
   flagellum, NFsim's own flagellum reaction (5× FliD, at hook-basal-body

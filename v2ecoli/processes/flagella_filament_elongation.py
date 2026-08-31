@@ -125,7 +125,18 @@ Kept in sync with CPLX0-7452_RXN's FliC coefficient in
 complexation_reactions_modified.tsv (also changed to -5,000, old value kept
 as a comment there).
 
-Ordered in the composite flow: after ecoli-flagella-filament-nucleation.
+Ordered in the composite flow: after ecoli-flagella-nfsim-complexation (the
+NFsim assembly Step that creates nascent_flagellum entries -- see that
+module's docstring). Corrected 2026-08-24: this previously said "after
+ecoli-flagella-filament-nucleation," the deterministic Step this NFsim
+pipeline replaced and archived 2026-08-21 (see
+archive/deterministic-flagella-assembly-2026-08/) -- stale after the
+switch, since that Step no longer runs at all. This ordering is enforced
+by data dependency, not just Step sequence: this Step operates on
+whatever's in the nascent_flagellum array, which starts empty and is
+populated only by the upstream assembly Step, so it's a real no-op
+(returns immediately, see update()'s n_active==0 check) until that
+happens, regardless of which specific upstream Step is wired in.
 
 FliS chaperone recycling (added 2026-08-21)
 --------------------------------------------
@@ -321,8 +332,21 @@ class FlagellaFilamentElongation(Step):
         # instant full-pool drain). Applied BEFORE the fair-share scaling
         # below so total filament growth is correctly reduced when the cap
         # binds, rather than overdrawing free FliC to compensate.
-        MAX_COMPLEX_DRAW_FRACTION = 0.3
-        complex_draw_cap = int(fliC_available_protected * MAX_COMPLEX_DRAW_FRACTION)
+        # STALE as of 2026-08-28: the legacy ODE solver this cap guarded
+        # against no longer handles FLIS-FLIC-CPLX_RXN at all -- that
+        # reaction now has its own dedicated exact closed-form Step
+        # (flagella_flis_flic_equilibrium.py), which cannot overshoot
+        # negative by construction (see that Step's module docstring).
+        # The 0.3 figure was never a biological number; it was tuned
+        # around a crash mode that no longer exists. Investigating
+        # (2026-08-28) whether removing it changes the sharp
+        # crash-and-recover shape seen in FLIS-FLIC-CPLX population
+        # dynamics, driven by this draw racing the equilibrium Step's own
+        # every-tick re-solve. Old line kept per standing preserve-old-
+        # code rule:
+        # MAX_COMPLEX_DRAW_FRACTION = 0.3
+        # complex_draw_cap = int(fliC_available_protected * MAX_COMPLEX_DRAW_FRACTION)
+        complex_draw_cap = int(fliC_available_protected)
 
         fliC_available_total = fliC_available_free + complex_draw_cap
         total_desired = int(desired.sum())

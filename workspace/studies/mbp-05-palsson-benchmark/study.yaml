@@ -348,6 +348,13 @@ readouts:
 # New surfaces per chris_feedback_2026_05_26 §10
 - name: metabolism_glucose_uptake_rate
   store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: GLC[p]

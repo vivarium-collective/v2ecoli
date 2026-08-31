@@ -21,7 +21,7 @@ A **cell-side engine** is a PBG sub-composite or Process satisfying:
 |---|---|---|---|
 | `environment.external_concentrations.<molecule>` | `map[float]` | mM | Reactor liquid-phase concentrations; written by reactor / coupler each step |
 | `reactor.volume_L` | `float` | L | Reactor liquid volume (for per-cell concentration units) |
-| `reactor.temperature_K` | `float` | K | (optional) Reactor temperature; engines that depend on T re-read |
+| ~~`reactor.temperature_K`~~ | `float` | K | ⛔ **NOT A STORE — does not resolve.** Verified 2026-08-31 against a built-and-ticked composite: the only temperature leaf is `reactor_transport.config.temperature_K`, a **process config**, not shared state. An engine cannot read temperature under this contract today. Listed as a PLANNED input; must be promoted to a real store before any engine depends on T. |
 | `reactor.dissolved_o2` | `float` | mg/L → mM | Dissolved O2 (also surfaced via `environment.external_concentrations.OXYGEN-MOLECULE[p]`) |
 
 ### Outputs (engine → reactor)
@@ -30,8 +30,8 @@ A **cell-side engine** is a PBG sub-composite or Process satisfying:
 |---|---|---|---|
 | `agents.*.listeners.fba_results.external_exchange_fluxes` | `ndarray[float]`, shape `(n_external,)` | mmol/(gDW·h) | Diagnostic exchange vector. ⚠ **A BARE ARRAY, NOT A DICT** — see the note below |
 | `agents.*.environment.exchange.<molecule>` | `map[float]` (87 keys) | counts (lineage-cumulative) | **The path the reactor coupler actually consumes.** It DIFFERENCES this store tick over tick and converts counts → concentration via Avogadro. ⚠ Keys here are **UNTAGGED** (`GLC`, `OXYGEN-MOLECULE`), unlike the compartment-tagged ids used everywhere else in this contract |
-| `agents.*.listeners.mass.cell_mass` | `float` | fg | Population aggregator sums into `population.total_biomass_gDW` |
-| `agents.*.listeners.mass.instantaneous_growth_rate` | `float` | 1/h | Diagnostics; coupler can optionally use to drive BiRD's O2 demand |
+| `agents.*.listeners.mass.cell_mass` | `Quantity` ⚠ not `float` | fg | Population aggregator sums into `population.total_biomass_gDW`. Measured 2026-08-31: `Quantity(1267.9, 'femtogram')` — unwrap before arithmetic |
+| `agents.*.listeners.mass.instantaneous_growth_rate` | `Quantity` ⚠ not `float` | **1/second** ⚠ **not 1/h** | Diagnostics; coupler can optionally use to drive BiRD's O2 demand. Measured 2026-08-31: `Quantity(-0.00214, '1/second')`. **This table said `1/h` until 2026-08-31 — a consumer trusting that was off by 3600×.** |
 
 ⚠ **`external_exchange_fluxes` is an `ndarray`, not a mapping.** It is a bare
 array of shape `(n_external,)` — 87 entries on the current v2ecoli build —
@@ -107,7 +107,7 @@ v2ecoli's existing convention; see `v2ecoli/AGENTS.md` for the prefix table):
 | Glucose (periplasmic exchange) | `GLC[p]` |
 | O2 (periplasmic) | `OXYGEN-MOLECULE[p]` |
 | CO2 (periplasmic) | `CARBON-DIOXIDE[p]` |
-| Ammonium | `AMMONIUM[p]` |
+| Ammonium | **`AMMONIUM[c]`** ⚠ **the exception — NOT `[p]`** |
 | Acetate | `ACET[p]` |
 
 ⚠ **One exception, measured 2026-08-31:** the keys of
@@ -117,13 +117,29 @@ v2ecoli's existing convention; see `v2ecoli/AGENTS.md` for the prefix table):
 use the untagged form; the tagged form above applies to
 `environment.external_concentrations` and the bulk stores.
 
+⚠⚠ **A second exception, and it is the one that bites: ammonium's tagged form is
+`AMMONIUM[c]`, NOT `AMMONIUM[p]`.** Glucose, O2, CO2 and acetate are all `[p]`;
+ammonium is the lone `[c]`. sim_data's authoritative
+`external_state.exchange_to_env_map` gives `{'AMMONIUM[c]': 'AMMONIUM'}`, and
+`v2ecoli/steps/environment_mirror.py:93-94` calls out **exactly this mistake** by
+name: *"`AMMONIUM[p]` would drive boundary `AMMONIUM` even though
+`environment_molecules.tsv` gives ammonium's exchange location as `[c]`."*
+This table said `[p]` until 2026-08-31. v2ecoli#638, which makes ammonium a
+finite pool, uses `[c]` throughout — that PR is the correct reference.
+
 Engines that use other identifier schemes (e.g. BiGG IDs in iML1515)
 MUST adapt at the coupler boundary, not inside the engine.
 
 ## Conformance
 
-An engine **conforms** if all the input/output store paths above resolve
-and types match. The mbp-03 spec PR defines a conformance test fixture
+An engine **conforms** if all input/output store paths above **that are not
+marked NOT-A-STORE or PLANNED** resolve, and types match.
+
+⚠ **The unqualified form of this rule ("all the paths above resolve") was
+unsatisfiable when written** — `reactor.temperature_K` does not resolve, so
+nothing could ever conform. Corrected 2026-08-31. If a path is added to the
+tables above without being checked against a built-and-ticked composite, this
+rule silently becomes unsatisfiable again. The mbp-03 spec PR defines a conformance test fixture
 (`tests/test_cell_side_interface.py`) that exercises a minimal mock
 engine against the contract.
 

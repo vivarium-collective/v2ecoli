@@ -132,7 +132,11 @@ readouts:
   - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
   - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
   # status: planned, NOT available. `reactor.diagnostics` is not a subtree of
-  # the built composite on main -- zero of 1222 leaves contain "diagnostic".
+  # the built composite on main: a flatten of the built-and-ticked state
+  # contains ZERO leaves matching "diagnostic". (An earlier version of this
+  # comment said "zero of 1222 leaves"; that denominator does not reproduce --
+  # an independent count gives 2415, or 1514 excluding wiring nodes -- so the
+  # convention-dependent total is dropped. The zero is the claim, and it holds.)
   # The ledger that builds it is v2ecoli#635, still in rework. Marking these
   # `available` here would assert a store path the model does not expose, which
   # is precisely the fabrication class this PR exists to remove. Flip to
@@ -160,6 +164,18 @@ behavior_tests:
       Total carbon (glucose-C + biomass-C + CO2-C + byproduct-C) is conserved
       across the run. REPORTED, NOT GRADED -- execute-and-report; the pass_if
       below is stated as the intent, not as a gate this measure can evaluate.
+
+      SIDE EFFECT OF THIS DOWNGRADE, DISCLOSED (measured 2026-08-31). Marking
+      this and the nitrogen criterion `diagnostic` FLIPS this study's audit axis
+      `sufficiency/discriminating_control` from ("drift", soft) to
+      ("within_tol", soft), because
+      viva_superpowers/test_audit.py:132-141 `has_discriminating_control()`
+      returns True for ANY test classified `diagnostic`. So the study's
+      "discriminating control present" signal improves BECAUSE two criteria were
+      marked unevaluable. The overall audit_gate is unchanged (still "fail") and
+      the severity is soft, so no verdict is laundered -- but the improvement is
+      an artefact of a weakening, not evidence of one, and is recorded here so it
+      is not mistaken for progress.
 
       WHY NOT GRADED (measured 2026-08-31, and the reason this criterion was
       downgraded from `primary`). The measure is `reduce: max_abs, window:

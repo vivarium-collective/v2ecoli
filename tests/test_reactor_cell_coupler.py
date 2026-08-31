@@ -261,9 +261,112 @@ def test_first_observation_of_a_new_agent_yields_no_exchange(core):
     assert c.first_observation_ticks == 1
 
 
-def test_absent_exchange_key_does_not_reset_the_baseline(core):
-    """A tick whose snapshot is MISSING the exchange key must draw nothing and
-    must leave the baseline untouched.
+def _byproduct_agent(acet: float, suc: float = 0.0) -> dict:
+    """Agent whose exchange store carries cumulative BYPRODUCT totals
+    (positive == secreted to the environment)."""
+    return {
+        "listeners": {"mass": {"cell_mass": 1.0e3}},
+        "environment": {"exchange": {"ACET": acet, "SUC": suc,
+                                     O2_EXCHANGE_KEY: 0.0,
+                                     CO2_EXCHANGE_KEY: 0.0}},
+    }
+
+
+def test_byproducts_are_differenced_not_consumed_as_a_running_total(core):
+    """The byproduct leaves are a running total too, and must be differenced.
+
+    ⚠ This test exists because the fix shipped WITHOUT it. Reverting
+    ``byproduct_counts[leaf] += _tick_delta(key)`` to
+    ``+= _as_float(exch.get(key, 0.0))`` -- the exact defect this change
+    corrects, applied to the six byproduct leaves -- passed the entire suite.
+    The O2/CO2/glucose arm was covered; this one was not.
+
+    Secretion accumulates monotonically, so an undifferenced read reports the
+    WHOLE lineage total as this tick's secretion: acetate would climb with
+    elapsed time rather than with what the cells actually excreted, which is
+    the same failure as the glucose side with the sign reversed.
+    """
+    c = ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e9, "reactor_volume_L": 1.0,
+                "track_medium": True},
+        core=core
+    )
+    base = {"reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0,
+                        "volume_L": 1.0, "glucose_medium_mM": 22.2},
+            "population": {"cell_count": 1.0e9}}
+
+    c.next_update(1.0, {**base, "agents": {"0": _byproduct_agent(1.0e11)}})
+    out2 = c.next_update(1.0, {**base, "agents": {"0": _byproduct_agent(2.0e11)}})
+    step = out2["reactor"]["acetate_mM"]
+    # POSITIVE CONTROL: the leaf must actually be written and be a secretion.
+    assert step > 0.0, (
+        f"no acetate secretion registered (got {step}) -- the assertions below "
+        f"would pass vacuously"
+    )
+
+    # Third tick advances the total by the SAME increment, so the per-tick
+    # secretion must be unchanged. An undifferenced read would report 3.0e11
+    # (the running total) instead of 1.0e11 -- 3x this value and climbing.
+    out3 = c.next_update(1.0, {**base, "agents": {"0": _byproduct_agent(3.0e11)}})
+    assert out3["reactor"]["acetate_mM"] == pytest.approx(step), (
+        f"acetate secretion grew with elapsed time ({out3['reactor']['acetate_mM']} "
+        f"vs {step}) -- the byproduct leaf is being read as a per-tick value when "
+        f"it is a cumulative total"
+    )
+
+    # A tick with NO further secretion must report zero, not the standing total.
+    out4 = c.next_update(1.0, {**base, "agents": {"0": _byproduct_agent(3.0e11)}})
+    assert out4["reactor"]["acetate_mM"] == pytest.approx(0.0), (
+        "a tick with no new secretion still reported acetate -- the running "
+        "total is being consumed instead of differenced"
+    )
+
+    # A second byproduct leaf, to catch a fix applied to only one of the six.
+    out5 = c.next_update(1.0, {**base, "agents": {"0": _byproduct_agent(3.0e11, suc=1.0e11)}})
+    assert out5["reactor"]["succinate_mM"] == pytest.approx(step), (
+        "succinate is not differenced the way acetate is"
+    )
+
+
+def test_first_observation_counter_counts_agents_not_ticks(core):
+    """``first_observation_ticks`` must count NEW AGENTS, not ticks.
+
+    ⚠ Regression for a defect introduced by the absent-key guard: because
+    ``_tick_delta`` returns before writing ``prev[key]``, an agent whose
+    snapshot carries none of the coupler's keys leaves ``prev`` empty, so a
+    ``not prev`` test reads it as new on EVERY tick. The counter is diagnostic
+    only -- which is exactly why a wrong value would be believed.
+    """
+    c = ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e9, "reactor_volume_L": 1.0},
+        core=core
+    )
+    base = {"reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0,
+                        "volume_L": 1.0},
+            "population": {"cell_count": 1.0e9}}
+    # An agent present for three ticks with an EMPTY exchange store.
+    empty = {"listeners": {"mass": {"cell_mass": 1.0e3}},
+             "environment": {"exchange": {}}}
+    for _ in range(3):
+        c.next_update(1.0, {**base, "agents": {"0": empty}})
+    assert c.first_observation_ticks == 1, (
+        f"counter reached {c.first_observation_ticks} for ONE agent over three "
+        f"ticks -- it is counting ticks, not new agents, so it can no longer "
+        f"distinguish many divisions from one agent with no exchange data"
+    )
+
+
+@pytest.mark.parametrize("gap_kind", ["absent", "none_valued"])
+def test_unusable_exchange_key_does_not_reset_the_baseline(core, gap_kind):
+    """A tick whose exchange reading is unusable -- key MISSING, or present but
+    ``None`` -- must draw nothing and must leave the baseline untouched.
+
+    ⚠ ``none_valued`` is parametrized in separately because the first version of
+    this guard tested ``key not in exch`` only, which lets a present ``None``
+    through to ``_as_float`` (which maps it to 0.0) and reproduces the spike
+    verbatim: measured +0.332 mM spurious secretion, then -0.498 mM spurious
+    uptake, against a -0.166 mM normal tick. The fix was made without this case
+    and the whole suite still passed.
 
     ``_extract_environment_exchange``'s own docstring says the emit cadence can
     snapshot mid-init, so a key present last tick can be absent this tick.
@@ -288,9 +391,12 @@ def test_absent_exchange_key_does_not_reset_the_baseline(core):
     )["reactor"]["glucose_medium_mM"]
     assert normal < 0.0, "no uptake on a normal tick -- assertions below vacuous"
 
-    # Tick 3: the agent is present but its exchange dict has no GLC key.
+    # Tick 3: the agent is present but its GLC reading is unusable.
     gapped = _glc_agent(-2.0e11)
-    del gapped["environment"]["exchange"]["GLC"]
+    if gap_kind == "absent":
+        del gapped["environment"]["exchange"]["GLC"]
+    else:
+        gapped["environment"]["exchange"]["GLC"] = None
     out = c.next_update(1.0, {**base, "agents": {"0": gapped}})
     assert out["reactor"].get("glucose_medium_mM", 0.0) == pytest.approx(0.0), (
         "a tick missing the exchange key must draw nothing"
@@ -352,7 +458,9 @@ def test_division_does_not_double_count_the_inherited_total(core):
     # Differencing the summed total instead would draw ~2x a normal tick here.
     assert delta == pytest.approx(0.0), (
         f"division tick drew {delta} mM; expected 0.0 (both daughters are first "
-        f"observations). A summed-total difference draws ~{2 * normal:.4g} mM here."
+        f"observations). A summed-total difference draws ~{normal:.4g} mM here "
+        f"(1x a normal tick, not 2x: cells_per_agent_effective = cell_count / "
+        f"n_agents, so the doubled counts and the halved scale cancel)."
     )
     assert abs(delta) < abs(normal), (
         f"division-tick draw {abs(delta)} is not smaller than a normal tick "

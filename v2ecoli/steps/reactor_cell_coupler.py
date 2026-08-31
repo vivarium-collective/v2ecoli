@@ -291,8 +291,14 @@ class ReactorCellCoupler(Step):
         for _agent_id, agent_state in agents.items():
             exch = _extract_environment_exchange(agent_state)
             seen_agents.add(_agent_id)
+            # F4: decide NEW-ness from whether this agent has been SEEN, before
+            # setdefault creates its entry. `not prev` was equivalent only while
+            # every tick wrote a baseline for every key; with the absent-key
+            # guard below, an agent whose snapshot carries none of our keys
+            # leaves `prev` empty forever and would count as new EVERY tick,
+            # conflating "many divisions" with "one agent with no exchange data".
+            new_agent = _agent_id not in self._prev_exchange
             prev = self._prev_exchange.setdefault(_agent_id, {})
-            new_agent = not prev
 
             def _tick_delta(key: str) -> float:
                 """This tick's exchange for one molecule: the store is a running
@@ -305,17 +311,24 @@ class ReactorCellCoupler(Step):
                   zero would dump a whole generation's accumulation into one
                   tick. The gdcw deriver makes the same choice for the same
                   reason (steps/derivers/exchange_flux_listener.py).
-                * KEY ABSENT from this tick's snapshot. The emit cadence can
-                  snapshot mid-init, so ``exch`` may be missing keys it had
-                  last tick (see _extract_environment_exchange). Treating an
-                  absent key as 0.0 would overwrite the baseline with 0.0 and
-                  then emit the whole running total as a spike on the next
-                  tick -- the very spike the first-observation rule exists to
-                  prevent. Leave the baseline untouched and skip the tick.
+                * KEY MISSING OR ``None`` in this tick's snapshot. The emit
+                  cadence can snapshot mid-init, so ``exch`` may be missing a
+                  key it had last tick, or carry it as ``None`` (see
+                  _extract_environment_exchange). Treating either as 0.0 would
+                  overwrite the baseline with 0.0 and then emit the whole
+                  running total as a spike on the next tick -- the very spike
+                  the first-observation rule exists to prevent. Leave the
+                  baseline untouched and skip the tick.
+                  ⚠ ``None`` must be tested SEPARATELY from absence: a bare
+                  ``key not in exch`` passes a present ``None`` through to
+                  ``_as_float``, which maps it to 0.0 -- measured at +0.332 mM
+                  of spurious secretion followed by -0.498 mM of spurious
+                  uptake, against a -0.166 mM normal tick.
                 """
-                if key not in exch:
+                value = exch.get(key)
+                if value is None:
                     return 0.0
-                total = _as_float(exch[key])
+                total = _as_float(value)
                 previous = prev.get(key)
                 prev[key] = total
                 return 0.0 if previous is None else total - previous

@@ -412,8 +412,12 @@ class KnowledgeBaseEcoli(object):
                 new_gene_subdir = new_genes_option_dir
                 new_gene_path = os.path.join("new_gene_data", new_gene_subdir)
                 if self._bundle is not None:
+                    # ⚠ A bundle is keyed, not pathed. ``new_gene_subdir`` is a
+                    # FILESYSTEM path and gains a separator once cassettes are
+                    # nested, so it cannot be interpolated into a key prefix --
+                    # ``relpath_to_key`` is what maps one to the other.
                     assert self._bundle.keys_with_prefix(
-                        f"new_gene_data__{new_gene_subdir}__"
+                        relpath_to_key(new_gene_path) + "__"
                     ), "This new_genes_data subdirectory is invalid."
                 else:
                     assert os.path.isdir(os.path.join(FLAT_DIR, new_gene_path)), (

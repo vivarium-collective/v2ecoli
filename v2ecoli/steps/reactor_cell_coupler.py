@@ -62,6 +62,24 @@ already covers exactly one WCM step. ``SECONDS_PER_HOUR`` and ``FG_PER_GRAM``
 are retained as published constants but are not used by this Step; an earlier
 version of this docstring described a per-hour flux conversion that the code
 has never performed.
+
+⚠ STANDING HAZARD for anything cumulative added to this Step
+------------------------------------------------------------
+The Step flow runs ONCE AT CYCLE START, before the processes and before the
+PopulationAggregator have written anything (measured: ``calls_per_tick =
+[2,1,1,...]``), so the first invocation sees an unpopulated state -- notably
+``population.biomass_concentration_gL == 0.0``.
+
+Any quantity that latches "the initial value" on its first invocation latches a
+pre-population zero. Two distinct defects have come from this:
+
+* mbp-03's O2 mass balance anchored its numerator after tick 0 while its
+  denominator was anchored before it -- a 5.3% phantom deficit read as a leak;
+* the per-agent first-observation rule exists precisely because tick 0's
+  exchange store is not yet meaningful.
+
+=> Defer the baseline until the store you depend on is live, and latch every
+related baseline together so they refer to the same instant.
 """
 
 from __future__ import annotations
@@ -126,6 +144,16 @@ GLUCOSE_MEDIUM_LEAF: str = "glucose_medium_mM"
 # the bare `GLC` boundary key).
 GLUCOSE_ID: str = "GLC[p]"
 GLUCOSE_EXCHANGE_KEY: str = "GLC"
+# Medium AMMONIUM — the nitrogen source, tracked on exactly the same footing as
+# glucose: seeded from the medium recipe and DRAWN DOWN by uptake, rather than
+# held at a static concentration the cell can never exhaust.
+# ⚠ The compartment tag is [c], NOT [p] as for glucose: measured, the importable
+# id in exchange_data is `AMMONIUM[c]`. EnvironmentMirror strips the tag either
+# way onto the bare `AMMONIUM` boundary key, but the id is not guessable from
+# the glucose case.
+AMMONIUM_MEDIUM_LEAF: str = "ammonium_medium_mM"
+AMMONIUM_ID: str = "AMMONIUM[c]"
+AMMONIUM_EXCHANGE_KEY: str = "AMMONIUM"
 # reactor leaf (mmol/L) -> bare environment.exchange byproduct key.
 BYPRODUCT_LEAVES: dict[str, str] = {
     "acetate_mM":   "ACET",
@@ -260,6 +288,9 @@ class ReactorCellCoupler(Step):
             glc_medium = reactor.get(GLUCOSE_MEDIUM_LEAF)
             if glc_medium is not None:
                 env_concs[GLUCOSE_ID] = max(_as_float(glc_medium), 0.0)
+            nh4_medium = reactor.get(AMMONIUM_MEDIUM_LEAF)
+            if nh4_medium is not None:
+                env_concs[AMMONIUM_ID] = max(_as_float(nh4_medium), 0.0)
 
         # 3. Metabolic exchange demand -> additive dissolved-gas delta (mg/L).
         #
@@ -286,6 +317,7 @@ class ReactorCellCoupler(Step):
         co2_counts = 0.0  # molecules/step, signed (positive == secretion)
         # Medium glucose + byproduct counts (signed; negative == uptake).
         glc_counts = 0.0
+        nh4_counts = 0.0
         byproduct_counts = {leaf: 0.0 for leaf in BYPRODUCT_LEAVES}
         seen_agents: set[str] = set()
         for _agent_id, agent_state in agents.items():
@@ -337,6 +369,7 @@ class ReactorCellCoupler(Step):
             co2_counts += _tick_delta(CO2_EXCHANGE_KEY)
             if self.track_medium:
                 glc_counts += _tick_delta(GLUCOSE_EXCHANGE_KEY)
+                nh4_counts += _tick_delta(AMMONIUM_EXCHANGE_KEY)
                 for leaf, key in BYPRODUCT_LEAVES.items():
                     byproduct_counts[leaf] += _tick_delta(key)
             if new_agent:
@@ -417,6 +450,15 @@ class ReactorCellCoupler(Step):
                 if glc_delta < 0.0 and (glc_now + glc_delta) < 0.0:
                     glc_delta = -glc_now
                 reactor_out[GLUCOSE_MEDIUM_LEAF] = glc_delta
+                # Ammonium: same shape and the same clamp reasoning as glucose —
+                # an exhausted medium pool has nothing to restore it, so an
+                # unclamped draw would drive the concentration negative and the
+                # cell would be told it has less than nothing.
+                nh4_delta = nh4_counts * counts_to_mM
+                nh4_now = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF))
+                if nh4_delta < 0.0 and (nh4_now + nh4_delta) < 0.0:
+                    nh4_delta = -nh4_now
+                reactor_out[AMMONIUM_MEDIUM_LEAF] = nh4_delta
                 # Byproducts: secretion (positive) -> accumulate from 0.
                 for leaf in BYPRODUCT_LEAVES:
                     reactor_out[leaf] = byproduct_counts[leaf] * counts_to_mM

@@ -60,7 +60,24 @@ BASE_INSERTION = "gfp"
 # Two invented cassettes. The LOW one is what displaces the HIGH one when the
 # splice order is wrong, so its length is the shift the regression test looks
 # for -- deliberately not a round number, so an accidental match cannot pass.
-LOW = dict(subdir="probe_low", pos=200_000, gene="NG901", length=1_259)
+#
+# ⛔ THE LOCI ARE NOT ARBITRARY, and picking round ones cost us a suite that
+# passed on a payload that could not build. Conflict resolution is SINGLE-PASS
+# (see ``_update_gene_insertion_location``): it moves past everything straddling
+# the declared point, once, and never re-checks. A declared position whose
+# RESOLVED position still lands inside a transcription unit therefore stays
+# there -- and the resulting genome shifts a gene without shifting its own TU,
+# which fails downstream in ``transcription.py`` when ParCa builds sim_data.
+# ``[m@2026-08-31]`` 10.4% of random declared positions land in that state, and
+# 200_000 -- the obvious round choice, used here originally -- is one of them:
+# it resolves to 208609, still inside two TUs. Every test in this file passed on
+# it, because they all stop at the knowledge-base layer and the failure is
+# downstream.
+#
+# ⇒ Both loci below are checked to resolve CLEAN in one pass, and both still
+# RELOCATE, so the rule-conformance test has a non-zero shift to verify rather
+# than trivially passing on a locus that never moves.
+LOW = dict(subdir="probe_low", pos=120_000, gene="NG901", length=1_259)
 HIGH = dict(subdir="probe_high", pos=400_000, gene="NG902", length=717)
 
 
@@ -71,9 +88,20 @@ def _gfp_sources():
     return {Path(p).name: Path(p) for k, p in index.items() if k.startswith(prefix)}
 
 
-def _synthetic_seq(length):
-    """A DNA string of exactly ``length`` bases."""
-    return ("ATGC" * (length // 4 + 1))[:length]
+def _synthetic_seq(length, seed=0):
+    """A deterministic, NON-REPEATING DNA string of exactly ``length`` bases.
+
+    ⚠ Deliberately not a short repeat. A cassette built from ``"ATGC" * n``
+    ends in whatever base the cycle lands on, and a boundary off-by-one that
+    swaps the cassette's last base for a host gene's first base is then
+    invisible whenever those two happen to agree -- which for a 4-cycle is a
+    quarter of the time. A previous version of this fixture used exactly that
+    and a real off-by-one compared EQUAL by coincidence.
+    """
+    import random
+
+    rng = random.Random(seed)
+    return "".join(rng.choice("ACGT") for _ in range(length))
 
 
 def _cassette_files(spec):
@@ -101,7 +129,7 @@ def _cassette_files(spec):
         ),
         "gene_sequences.tsv": (
             '"id"\t"symbol"\t"synonyms"\t"gene_seq"\n'
-            f'"{gene}"\t"{sub}"\t["{sub}"]\t"{_synthetic_seq(length)}"\n'
+            f'"{gene}"\t"{sub}"\t["{sub}"]\t"{_synthetic_seq(length, seed=spec["pos"])}"\n'
         ),
         "rnas.tsv": (
             '"id"\t"common_name"\t"synonyms"\t"type"\t"modified_forms"'
@@ -250,22 +278,28 @@ def test_new_gene_rows_are_appended_highest_locus_first(tmp_path):
     order rather than an independent choice, which is why it is pinned here: a
     change to the splice order should surface as a failure in this file.
 
-    ⛔ WHAT THIS ORDER DOES *NOT* DETERMINE, because the obvious inference is
-    wrong and was measured to be wrong. Post-ParCa induction
+    ⛔ WHAT THIS ORDER DOES *NOT* DETERMINE. Post-ParCa induction
     (``v2ecoli.perturbations.new_genes``) applies per-target expression and
     translation-efficiency vectors POSITIONALLY, against the order
-    ``new_gene_indices()`` reports. It is tempting to conclude that this append
-    order therefore decides which weight lands on which gene. It does not:
-    ``[m@2026-08-31, a real built sim_data]`` ParCa does NOT preserve
-    ``raw_data.genes`` order through to ``cistron_data``, and the rule it does
-    follow has not been identified (the observed order is neither append order
-    nor monotonic in cistron id).
+    ``new_gene_indices()`` reports. It is tempting to conclude that the append
+    order pinned here therefore decides which weight lands on which gene.
+    ⚠ IT DOES NOT FOLLOW, and the evidence is genuinely mixed:
 
-    ⇒ ⭐ THAT IS THE WORSE OUTCOME, NOT THE REASSURING ONE. Had the downstream
-    order simply been append order, it would be predictable from the splice
-    order and a positional vector could be reordered mechanically. It is not --
-    so in a COMPOSED build the position of any given gene cannot be predicted
-    from the config, from the loci, or from the splice order.
+    * ``[m]`` file order is NOT preserved into ``cistron_data`` WITHIN a
+      multi-gene cassette (measured on a five-gene payload).
+    * ``[m]`` across single-gene cassettes, order DOES appear to be preserved
+      end to end (measured on a two-cassette build).
+
+    Those were measured by different people on different payloads and are not
+    in conflict -- they are about different layers. **The general rule is not
+    established**, and the decisive experiment (an end-to-end order check on a
+    multi-gene cassette) has not been run.
+
+    ⇒ ⭐ AN UNSTATED RULE IS THE WORSE OUTCOME, NOT THE REASSURING ONE. Had the
+    downstream order simply been the append order, it would be predictable from
+    the splice order and a positional vector could be reordered mechanically.
+    As it stands the position of a given gene in a COMPOSED build cannot be
+    predicted from the config, from the loci, or from the splice order.
 
     ⇒ ⛔ ANY per-target weight vector must be resolved BY NAME, through the ids
     ``new_gene_indices()`` returns alongside its indices. A positionally ported
@@ -279,4 +313,149 @@ def test_new_gene_rows_are_appended_highest_locus_first(tmp_path):
     assert appended == [HIGH["gene"], LOW["gene"]], (
         "new-gene rows must enter the base tables highest-locus-first; "
         "downstream positional weight vectors are indexed on this order"
+    )
+
+
+# --------------------------------------------------------------------------
+# Correctness -- is the cassette where it was DECLARED, not merely where it
+# was last time
+# --------------------------------------------------------------------------
+# ⛔ WHY A SEPARATE TEST, AND WHAT IT IS AND IS NOT. The control above proves
+# INVARIANCE -- a cassette lands in the same place with or without company. It
+# does NOT prove that place is the declared one: a build that puts every
+# cassette at the same WRONG locus passes it. The two tests answer different
+# questions and neither subsumes the other:
+#
+#     correctness(alone) + invariance(alone -> composed) => correctness(composed)
+#
+# ⚠ HONEST CHARACTERISATION, because "correctness test" implies more than this
+# delivers: the check below re-applies the loader's documented relocation rule
+# to independently-sourced HOST annotation. That is a CROSS-CHECK AGAINST
+# INDEPENDENT DATA, NOT AN EXTERNAL ORACLE -- stronger than invariance, weaker
+# than a true independent reference. It would not catch a change to the
+# relocation POLICY; it would move with it. The requirement test that follows is
+# the part that does not.
+#
+# ⚠ No stronger cheap oracle exists, and it is worth recording why each
+# candidate fails: the DECLARED position is invalidated by legitimate
+# relocation; "splits no host feature" can be satisfied BY LUCK when a
+# wrong-frame position lands in an intergenic gap; and cross-checking against
+# the upstream fork is COMMON-MODE, since this code is a port of that logic --
+# agreement would show the port faithful, not the rule right.
+
+
+def _baseline_conflict_tables(manifest):
+    """Host TU + oriC/TerC rows from a build that never saw a cassette.
+
+    Sourced from ``new_genes_option="off"`` so the coordinates are in the
+    ORIGINAL frame and owe nothing to the insertion under test.
+    """
+    kb = KnowledgeBaseEcoli(
+        operons_on=True, remove_rrna_operons=False, remove_rrff=False,
+        stable_rrna=False, new_genes_option="off",
+        bundle=SourceBundle(overrides=manifest),
+    )
+    return list(kb.transcription_units) + [
+        s for s in kb.dna_sites if s["common_name"] in ("oriC", "TerC")
+    ]
+
+
+def _straddlers(rows, pos):
+    """Host rows spanning the insertion POINT (not the cassette's span).
+
+    A splice at ``pos`` divides the sequence between ``pos`` and ``pos + 1``,
+    so only a feature straddling that point is broken by it -- which is why the
+    loader tests the point rather than the cassette's extent.
+    """
+    return [
+        r for r in rows
+        if r["left_end_pos"] not in (None, "")
+        and r["right_end_pos"] not in (None, "")
+        and r["left_end_pos"] < pos
+        and r["right_end_pos"] >= pos
+    ]
+
+
+def _resolved_insert_pos(kb, gene_id):
+    """Where the cassette was actually spliced, from where its gene landed.
+
+    Gene coordinates are relative-1 within the cassette and are converted as
+    ``left + insert_pos``, so the first gene's left end is ``insert_pos + 1``.
+    """
+    return _locus(kb, gene_id) - 1
+
+
+def test_a_cassettes_resolved_position_is_explained_by_host_annotation(tmp_path):
+    """The declared position, or one base past whatever host feature blocks it.
+
+    ⛔ MUTATION TEST: change the loader's ``shift`` computation (e.g. drop the
+    ``+ 1``, or relocate to the conflict's LEFT end) and this must fail.
+    """
+    manifest = _write_payload(tmp_path, "probe_alone", [HIGH])
+    kb = _kb(manifest, "probe_alone")
+    host = _baseline_conflict_tables(manifest)
+
+    blocking = _straddlers(host, HIGH["pos"])
+    expected = (
+        max(r["right_end_pos"] for r in blocking) + 1 if blocking else HIGH["pos"]
+    )
+
+    assert _resolved_insert_pos(kb, HIGH["gene"]) == expected, (
+        "the resolved position is not explained by the host annotation at the "
+        "declared locus -- it is neither the declared position nor one base "
+        "past the feature blocking it"
+    )
+
+
+def test_no_host_transcription_unit_is_split_by_an_insertion(tmp_path):
+    """The REQUIREMENT relocation exists to satisfy, not the rule implementing it.
+
+    ⚠ SCOPED, and the scope is the point: this covers TRANSCRIPTION UNITS --
+    what the loader actually consults when ``operons_on`` is set. Gene-level
+    splitting is UNCHECKED here by design: with operons on the loader never
+    looks at ``genes``, so a cassette can split a gene belonging to no
+    transcription unit and nothing objects. That is a pre-existing
+    single-insertion defect, reported rather than encoded, so that a
+    multi-insertion change is not held hostage to it.
+
+    Unlike the rule check above this survives a change of relocation POLICY --
+    it asserts the outcome, not the mechanism.
+    """
+    manifest = _write_payload(tmp_path, "probe_pair", [LOW, HIGH])
+    kb = _kb(manifest, "probe_pair")
+
+    host_tus = [
+        t for t in kb.transcription_units
+        if not str(t.get("id", "")).startswith("NG")
+        and t["left_end_pos"] not in (None, "")
+        and t["right_end_pos"] not in (None, "")
+    ]
+    for spec in (LOW, HIGH):
+        pos = _resolved_insert_pos(kb, spec["gene"])
+        split = [t for t in host_tus
+                 if t["left_end_pos"] <= pos < t["right_end_pos"]]
+        assert not split, (
+            f"{spec['subdir']} was spliced at {pos}, inside host "
+            f"transcription unit(s) {[t['id'] for t in split][:3]} -- "
+            "relocation exists precisely to prevent this"
+        )
+
+
+def test_both_cassettes_hold_their_locus_not_only_the_upper_one(tmp_path):
+    """Symmetric to the control above, for the cassette spliced LAST.
+
+    The upper cassette is the discriminating case for splice ORDER. The lower
+    one is spliced last and nothing moves after it, so its locus is directly
+    comparable with no frame correction -- which makes it the case that would
+    expose a defect in relocation rather than in ordering.
+    """
+    alone_manifest = _write_payload(tmp_path / "alone", "probe_solo_low", [LOW])
+    composed_manifest = _write_payload(tmp_path / "composed", "probe_pair", [LOW, HIGH])
+
+    alone = _locus(_kb(alone_manifest, "probe_solo_low"), LOW["gene"])
+    composed = _locus(_kb(composed_manifest, "probe_pair"), LOW["gene"])
+
+    assert composed == alone, (
+        f"{LOW['subdir']} resolved to {alone} alone but {composed} composed; "
+        "it is spliced last, so nothing should move it"
     )

@@ -811,7 +811,14 @@ class KnowledgeBaseEcoli(object):
         demote a multi-cassette payload to a single-cassette one.
         """
         if self._bundle is not None:
-            prefix = f"new_gene_data__{new_gene_subdir}__"
+            # ⚠ Same path-vs-key hazard as the caller's presence check: build
+            # the prefix through ``relpath_to_key`` rather than interpolating.
+            # Harmless while this is only ever called with a top-level option
+            # (no separator to mangle), but it fails silently -- matching
+            # nothing -- the moment one contains a path separator.
+            prefix = relpath_to_key(
+                os.path.join("new_gene_data", new_gene_subdir)
+            ) + "__"
             subdirs = set()
             for key in self._bundle.keys_with_prefix(prefix):
                 rest = key[len(prefix) :].split("__")

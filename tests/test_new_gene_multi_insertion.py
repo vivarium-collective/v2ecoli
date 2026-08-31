@@ -245,22 +245,32 @@ def test_a_cassettes_locus_does_not_depend_on_another_insertion_below_it(tmp_pat
 def test_new_gene_rows_are_appended_highest_locus_first(tmp_path):
     """Pin the order cassette rows enter the base tables in.
 
-    ⚠ THIS IS A DOWNSTREAM CONTRACT, NOT AN INTERNAL DETAIL, and it is a
-    consequence of the descending splice order rather than an independent
-    choice. Rows are joined per cassette in splice order, so the base tables
-    receive the HIGHEST-locus cassette first.
+    Rows are joined per cassette in splice order, so the base tables receive the
+    HIGHEST-locus cassette first. That is a consequence of the descending splice
+    order rather than an independent choice, which is why it is pinned here: a
+    change to the splice order should surface as a failure in this file.
 
-    Post-ParCa induction (``v2ecoli.perturbations.new_genes``) applies
-    per-target expression and translation-efficiency vectors POSITIONALLY,
-    against the order ``new_gene_indices()`` reports. If that order derives from
-    the order rows were appended here, then the splice order decides which
-    weight lands on which gene -- and a vector written against a different
-    convention is applied silently to the wrong genes, with the counts still
-    matching so no length check can see it.
+    ⛔ WHAT THIS ORDER DOES *NOT* DETERMINE, because the obvious inference is
+    wrong and was measured to be wrong. Post-ParCa induction
+    (``v2ecoli.perturbations.new_genes``) applies per-target expression and
+    translation-efficiency vectors POSITIONALLY, against the order
+    ``new_gene_indices()`` reports. It is tempting to conclude that this append
+    order therefore decides which weight lands on which gene. It does not:
+    ``[m@2026-08-31, a real built sim_data]`` ParCa does NOT preserve
+    ``raw_data.genes`` order through to ``cistron_data``, and the rule it does
+    follow has not been identified (the observed order is neither append order
+    nor monotonic in cistron id).
 
-    ⇒ Anything pairing a weight vector against new genes must resolve targets
-    BY NAME. This test exists so that a change to the splice order shows up as
-    a failure here rather than as a plausible-looking strain downstream.
+    ⇒ ⭐ THAT IS THE WORSE OUTCOME, NOT THE REASSURING ONE. Had the downstream
+    order simply been append order, it would be predictable from the splice
+    order and a positional vector could be reordered mechanically. It is not --
+    so in a COMPOSED build the position of any given gene cannot be predicted
+    from the config, from the loci, or from the splice order.
+
+    ⇒ ⛔ ANY per-target weight vector must be resolved BY NAME, through the ids
+    ``new_gene_indices()`` returns alongside its indices. A positionally ported
+    vector may be right, wrong, or accidentally right, and the counts match
+    either way, so nothing fires.
     """
     manifest = _write_payload(tmp_path, "probe_pair", [LOW, HIGH])
     kb = _kb(manifest, "probe_pair")

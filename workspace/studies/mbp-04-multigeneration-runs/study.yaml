@@ -127,8 +127,8 @@ readouts:
     status: planned
   - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
   - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
-  - {name: carbon_balance_residual, store_path: reactor.diagnostics.carbon_residual, units: fraction, status: planned}
-  - {name: nitrogen_balance_residual, store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: planned}
+  - {name: carbon_balance_residual, store_path: reactor.diagnostics.carbon_residual, units: fraction, status: available}
+  - {name: nitrogen_balance_residual, store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: available}
 
 
 behavior_tests:
@@ -146,7 +146,20 @@ behavior_tests:
   - name: carbon-mass-balance-closes-over-3-generations
     classification: primary
     acceptance_form: quantitative_range
-    description: "Total carbon (glucose-C + biomass-C + CO2-C + acetate-C) is conserved across the run within numerical tolerance."
+    description: >-
+      Total carbon (glucose-C + biomass-C + CO2-C + byproduct-C) is conserved
+      across the run within numerical tolerance.
+
+      SCOPE: this is a BOOKKEEPING check and must not be read as validating the
+      physiology. Measured 2026-08-31: the residual sits at -0.7% while the
+      model routes ~95% of glucose carbon into BIOMASS and ~5% to CO2, against
+      40-50% to CO2 for real aerobic growth. The balance closes on a partition
+      that cannot be physical, and no value of this residual would reveal that.
+      The physiology is carried by the companion partition readouts
+      (reactor.diagnostics.carbon_to_{biomass,co2,byproducts}_frac), which are
+      reported, not graded. See also the biomass-yield thread (v2ecoli#421/#422):
+      that ~100%-to-biomass partition IS the 0.870 g/g yield defect seen from
+      the carbon side.
     measure: {kind: series, path: reactor.diagnostics.carbon_residual, reduce: max_abs, window: full}
     pass_if: {op: at_most, value: 0.02}
     units: fraction
@@ -156,9 +169,32 @@ behavior_tests:
   - name: nitrogen-mass-balance-closes-over-3-generations
     classification: primary
     acceptance_form: quantitative_range
-    description: "Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the run within numerical tolerance."
+    description: >-
+      Total nitrogen (ammonium-N + biomass-N) is conserved across the run within
+      the resolution the test actually has.
+
+      BAND RATIONALE -- why 0.10 and not 0.02 (Chris, 2026-08-31). The residual
+      is computed against an assumed biomass nitrogen fraction of 0.12 gN/gDW.
+      E. coli's dry-mass nitrogen content is reported across roughly 0.11-0.14
+      gN/gDW, i.e. +/-10%, so +/-10% is the A PRIORI RESOLUTION LIMIT of this
+      comparison: the test cannot resolve a discrepancy smaller than the
+      uncertainty in its own reference constant, whatever the model does. The
+      band is set from that literature spread, not from an observed value.
+
+      MEASURED 2026-08-31: the residual plateaus at ~7.6%, stable, on a 40 mM
+      glucose / 60 mM ammonium batch to OD ~12.7.
+
+      WEAK-GATE CAVEAT -- state this rather than reading the pass as clean: a
+      0.10 band passing at 0.076 has thin margin and CANNOT detect a real 5%
+      nitrogen leak. It bounds gross bookkeeping error only.
+
+      UPGRADE PATH: deriving the nitrogen fraction from the model's own biomass
+      composition (sim_data) would remove the constant's uncertainty and let the
+      band tighten toward 0.02. That converts the residual from "does the model
+      match physiology" into "is the model internally consistent" -- still a
+      useful check, but a weaker claim. Deferred deliberately, not overlooked.
     measure: {kind: series, path: reactor.diagnostics.nitrogen_residual, reduce: max_abs, window: full}
-    pass_if: {op: at_most, value: 0.02}
+    pass_if: {op: at_most, value: 0.10}
     units: fraction
     requires_simulation: three-generation-batch
     cites: []

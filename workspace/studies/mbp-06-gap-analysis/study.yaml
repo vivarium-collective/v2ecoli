@@ -34,6 +34,44 @@ mandatory_findings_to_consider:
     what_resolves_it: transport-kinetics-fidelity candidate-future-study
     expected_priority: 1
     expected_axis: A
+  - signature: v2ecoli-respiratory-carbon-partition
+    source: BPM lane, MEASURED 2026-08-31 (reactor.diagnostics carbon ledger)
+    why_still_load_bearing: 'The carbon balance CLOSES (residual -0.7%) on a
+      partition that cannot be physical: ~95% of glucose carbon is routed into
+      BIOMASS and ~5% to CO2, against 40-50% to CO2 for real aerobic growth.
+      Stable across an 11k-tick batch to OD ~12.7, so it is a characteristic of
+      the model rather than a transient. This is the measured MECHANISM behind
+      two things previously tracked separately: the "respiratory/fermentative
+      split is untrustworthy" caveat, and the 0.870 g/g biomass-yield defect
+      (v2ecoli#421/#422) -- at a physiological 0.54 g/g only ~62% of glucose
+      carbon reaches biomass, so the yield error and the missing CO2 are the
+      same defect seen from two sides. Consequence for grading: a mass-balance
+      residual is necessary but NOT sufficient -- it catches bookkeeping error
+      and is blind to this, which is why mbp-04 reports the partition fractions
+      beside the residual.
+      '
+    what_resolves_it: metabolism-side respiration/overflow fidelity (candidate-future-study; not BPM's to fix)
+    expected_priority: 1
+    expected_axis: A
+  - signature: v2ecoli-nitrogen-limits-before-carbon-at-target-density
+    source: BPM lane, MEASURED 2026-08-31 (finite ammonium pool + nitrogen ledger)
+    why_still_load_bearing: 'Invisible until ammonium was made a finite,
+      drawn-down pool: before that it was static from the media recipe and could
+      never limit. With a finite pool at the M9 recipe value (30.272 mM), a 40 mM
+      glucose batch EXHAUSTS NITROGEN by OD ~12.7, and nitrogen -- not carbon --
+      is the binding constraint at the OD10 working point (OD 10 needs 29.1 mM N,
+      96% of the recipe pool). Both elemental residuals break at exhaustion
+      (carbon -0.7% -> +12.3%, nitrogen +7.4% -> -11.8%) because growth continues
+      past it while the ledger inputs are capped. Directly relevant to any
+      OD10-scale demonstration: a run parameterized on carbon alone sits on a
+      knife edge. The coupled composite now defaults ammonium to 60 mM so
+      nitrogen is not the constraint at the working point. Post-exhaustion growth
+      is the same failure mode as v2ecoli#572 for carbon, with no equivalent
+      arrest wired for nitrogen.
+      '
+    what_resolves_it: nitrogen-exhaustion arrest, mirroring the #572/#592 carbon path (candidate-future-study)
+    expected_priority: 1
+    expected_axis: A
   - signature: v2ecoli-mass-balance-at-low-gur
     source: Eran (carried from prior work)
     why_still_load_bearing: 'Not exercised by any mbp-01..05 test specifically. mbp-04''s

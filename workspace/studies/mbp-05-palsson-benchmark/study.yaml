@@ -243,7 +243,7 @@ comparison_overlays:
 
   # Specific GUR + byproduct surfaces (chris_feedback_2026_05_26 §10).
 
-- sim_path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]"
+- sim_path: "agents.0.listeners.fba_results.external_exchange_fluxes.GLC[p]"
   published_csv: references/papers/palsson-2025-supp/reactor_gluc_upt_data.csv
   published_column: GUR
   overlay_label: "Glucose uptake rate"
@@ -343,7 +343,7 @@ readouts:
 - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
 # New surfaces per chris_feedback_2026_05_26 §10
 - name: metabolism_glucose_uptake_rate
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
   index_by:
     type: bulk_id
     value: GLC[p]

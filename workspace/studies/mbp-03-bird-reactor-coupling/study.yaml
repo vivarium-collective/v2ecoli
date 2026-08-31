@@ -223,14 +223,14 @@ readouts:
 - {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
 - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
 - name: metabolism_o2_uptake_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
   index_by:
     type: bulk_id
     value: OXYGEN-MOLECULE[p]
   units: "mmol/(gDW·h)"
   status: planned
 - name: metabolism_co2_production_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
   index_by:
     type: bulk_id
     value: CARBON-DIOXIDE[p]
@@ -513,7 +513,7 @@ implementation_requirements:
       - `population.biomass_concentration_gL` → writes `reactor.biomass` (BiRD biomass input)
       - `reactor.dissolved_o2`, `reactor.dissolved_co2` (mg/L) → converts to mM and writes
         `environment.external_concentrations.{OXYGEN-MOLECULE[p],CARBON-DIOXIDE[p]}`
-      - aggregated `agents.*.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]`
+      - aggregated `agents.*.listeners.fba_results.external_exchange_fluxes.OXYGEN-MOLECULE[p]`
         × population.total_biomass_gDW → writes `reactor.o2_uptake_rate` (BiRD input)
     Holds last-known reactor state between BiRD ticks (BiRD typically on 1 h interval).
   unblocks: [all mbp-03 behavior_tests]

@@ -280,7 +280,7 @@ readouts:
 - {name: population_OD600, store_path: population.OD600, units: OD600, status: planned}
 - {name: population_biomass_concentration_gL, store_path: population.biomass_concentration_gL, units: g/L, status: planned}
 - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
-- {name: dnaA_protein_count, store_path: agents.0.listeners.monomer_counts.monomerCounts, index_by: {type: monomer_id, value: "PD03831[c]"}, units: molecules/cell, status: available}
+- {name: dnaA_protein_count, store_path: agents.0.listeners.monomer_counts, index_by: {type: monomer_id, value: "PD03831[c]"}, units: molecules/cell, status: available}
 
 
 behavior_tests:

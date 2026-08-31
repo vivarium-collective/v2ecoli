@@ -95,3 +95,24 @@ def test_only_the_candidate_arm_is_even_given_a_resume_generation():
                          src, re.S)
     assert ref_call is not None
     assert "initial_generation" not in ref_call.group(1)
+
+
+def test_a_non_positive_start_is_REFUSED_not_silently_off_by_one():
+    """``--initial-generation`` is unbounded below at the CLI.
+
+    0 would yield a depth one SHORT of the truth — the same understatement this
+    function exists to prevent, re-entering through a bad input rather than a bad
+    convention. Refused rather than clamped: a stage that does not know where it
+    starts cannot record where the lineage ends.
+    """
+    import pytest as _pytest
+    for bad in (0, -1):
+        with _pytest.raises(ValueError, match="initial_generation"):
+            rce._lineage_depth(bad, 3)
+    with _pytest.raises(ValueError, match="max_generations"):
+        rce._lineage_depth(1, 0)
+
+
+def test_the_guard_did_not_break_the_valid_range():
+    assert rce._lineage_depth(1, 1) == 1
+    assert rce._lineage_depth(2, 1) == 2

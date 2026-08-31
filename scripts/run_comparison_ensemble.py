@@ -517,7 +517,23 @@ def _lineage_depth(initial_generation, max_generations) -> int:
     ⚠ Only the v2ecoli arm accepts ``initial_generation``; the wrapped-reference
     arm has no resume hook, so its sidecar records ``max_generations`` directly
     and must NOT be "fixed" to use this.
+
+    Raises:
+        ValueError: on a non-positive ``initial_generation``. ``--initial-generation``
+            is unbounded below at the CLI, and 0 would silently yield a depth ONE
+            SHORT of the truth — the very failure this function exists to prevent,
+            re-entering through a bad input instead of a bad convention. Refused
+            rather than clamped: a stage that does not know where it starts cannot
+            record where the lineage ends.
     """
+    if int(initial_generation) < 1:
+        raise ValueError(
+            f"initial_generation must be >= 1 (1-based, inclusive); got "
+            f"{initial_generation!r}. A resumed stage's first generation is its "
+            f"ABSOLUTE label, so 0 would understate the lineage depth by one.")
+    if int(max_generations) < 1:
+        raise ValueError(
+            f"max_generations must be >= 1; got {max_generations!r}.")
     return int(initial_generation) - 1 + int(max_generations)
 
 

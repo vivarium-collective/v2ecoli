@@ -498,6 +498,29 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
     }
 
 
+def _lineage_depth(initial_generation, max_generations) -> int:
+    """How many generations THE LINEAGE has, not how many THIS INVOCATION ran.
+
+    A chained run — the induction seam, where a silent stage is resumed against a
+    different cache — is SEVERAL invocations over ONE lineage, and every stage
+    rewrites the exchange-flux sidecar. A stage that reports its own
+    ``max_generations`` therefore understates the lineage: a 3-generation chain
+    whose final stage ran 2 records 2, the card's arm-correspondence check reads
+    candidate=2 against reference=3, and it refuses the whole grade as "one of
+    them is stale" while both arms have generations 1-3 sitting on disk.
+
+    Named and extracted so the convention is testable rather than inlined at one
+    call site: ``initial_generation`` is 1-based and inclusive, so a fresh run
+    (the default, ``initial_generation=1``) is exactly ``max_generations`` and
+    this is a strict no-op.
+
+    ⚠ Only the v2ecoli arm accepts ``initial_generation``; the wrapped-reference
+    arm has no resume hook, so its sidecar records ``max_generations`` directly
+    and must NOT be "fixed" to use this.
+    """
+    return int(initial_generation) - 1 + int(max_generations)
+
+
 def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
                                  basis: str, *, seeds=None,
                                  generations=None) -> None:
@@ -985,7 +1008,22 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
                     _write_exchange_flux_sidecar(
                         out_root, "v2ecoli", exchange_fluxes, exchange_flux_basis,
-                        seeds=n_seeds, generations=max_generations)
+                        seeds=n_seeds,
+                        # ⛔ LINEAGE DEPTH, not this invocation's generation count.
+                        # A chained run (the induction seam: silent stage, then a
+                        # resumed stage against a different cache) is SEVERAL
+                        # invocations over ONE lineage, and every stage rewrites
+                        # this sidecar. Recording `max_generations` makes a
+                        # 3-generation lineage whose last stage ran 2 report 2 —
+                        # and the card's arm-correspondence check then sees
+                        # candidate=2 against reference=3 and refuses the whole
+                        # grade as "one of them is stale". Measured on a real
+                        # chain: both arms had generations 1-3 on disk.
+                        # ⚠ Only the v2ecoli arm takes `initial_generation`; the
+                        # reference arm has no resume hook, so its sidecar (above)
+                        # correctly records `max_generations` as its depth.
+                        generations=_lineage_depth(initial_generation,
+                                                   max_generations))
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001

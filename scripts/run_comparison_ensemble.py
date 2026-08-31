@@ -1254,6 +1254,19 @@ def main(argv=None):
         p.error("--initial-generation > 1 resumes an existing store; pass "
                 "--append-store, or the run DELETES the generations it resumes from.")
 
+    # ⛔ The reference arm CANNOT resume: run_vivarium_ecoli_pbg_multigen takes no
+    # generation offset and always starts a fresh lineage at agent_id "0". Accepted
+    # silently, this flag would be ignored there while the candidate arm honoured
+    # it, so the two arms' sidecars would describe different lineage depths and the
+    # card would refuse the grade as "one of them is stale" — surfacing a FLAG
+    # mistake as a DATA problem, several steps downstream. Refused here rather than
+    # ignored, and at argparse so no best-effort handler can swallow it.
+    if args.composite == "vecoli" and args.initial_generation > 1:
+        p.error("--initial-generation is meaningless for --composite vecoli: the "
+                "wrapped reference engine has no resume hook, so it would re-run "
+                "generations 1..N from scratch and (with --append-store) write "
+                "them over its predecessor's. Chain the candidate arm only.")
+
     # Parse repeatable --exchange-flux leaf=key into a {leaf: key} map.
     exchange_fluxes: dict = {}
     for item in args.exchange_flux:

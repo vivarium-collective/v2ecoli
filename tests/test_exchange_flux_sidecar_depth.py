@@ -144,41 +144,38 @@ def test_the_REFERENCE_ARM_is_not_given_a_resume_generation():
 
 def test_the_REFERENCE_ARM_sidecar_records_max_generations_VERBATIM(tmp_path,
                                                                     monkeypatch):
-    """The CONSEQUENCE of the asymmetry, not just its premise.
+    """The CONSEQUENCE of the asymmetry, not only its premise.
 
     ⚠ Asserting only that the engine has no resume hook leaves the symmetric
     mistake uncaught: giving the reference sidecar ``_lineage_depth(...)`` too.
-    That one is worse than a plain miss, because ``basis_from_runs`` compares the
-    two sidecars TO EACH OTHER and never to the store — so both arms would agree
-    at depth 3 while the reference really ran 2 generations from scratch, the
-    correspondence check would pass, and the card would grade a wrong shape. That
-    is exactly the "both arms were equally wrong so the relative delta looked
-    fine" failure the sidecar exists to make visible.
+    That is worse than a plain miss, because ``basis_from_runs`` compares the two
+    sidecars TO EACH OTHER and never to the store — so both arms would agree at
+    depth 3 while the reference really ran 2 generations from scratch, the
+    correspondence check would pass, and the card would grade a shape neither arm
+    ran. That is the "both arms were equally wrong so the relative delta looked
+    fine" failure this sidecar exists to make visible.
+
+    ⊕ Driven through ``make_run_one`` rather than ``main()`` on purpose: the CLI
+    now refuses this combination (see the flag test below), so the only way to
+    reach the call-site logic is to call it. The guard protects the command line;
+    this protects the arithmetic behind it, and one is not a substitute for the
+    other — a later relaxation of the guard must not silently un-cover this.
     """
     import json
     import scripts.run_comparison_ensemble as rce
-    from v2ecoli.library import parallel_seeds as ps
     from v2ecoli.library import vivarium_ecoli_engine as vee
 
     monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen",
                         lambda *a, **k: {"generations": 2, "build_config": None})
-    monkeypatch.setattr(ps, "run_seeds_parallel",
-                        lambda seeds, run_one, **kw: [run_one(list(seeds)[0])])
 
-    # Pass a resume generation the reference arm cannot honour. Its sidecar must
-    # still record what it actually ran, not what the candidate convention would
-    # compute.
-    carry = tmp_path / "carry.json"
-    carry.write_text("{}")
-    rce.main(["--composite", "vecoli", "--condition", "basal",
-              "--cache-dir", str(tmp_path), "--n-seeds", "1",
-              "--max-generations", "2",
-              "--initial-generation", "3",
-              "--initial-carry-state", str(carry),
-              "--append-store",
-              "--out-root", str(tmp_path), "--mode", "serial",
-              "--exchange-flux", "product_exchange=X[c]",
-              "--exchange-flux-basis", "gdcw"])
+    run_one = rce.make_run_one(
+        composite_kind="vecoli", condition="basal", cache_dir=str(tmp_path),
+        max_generations=2, max_steps=10, chunk=10, out_root=str(tmp_path),
+        n_seeds=1, exchange_fluxes={"product_exchange": "X[c]"},
+        exchange_flux_basis="gdcw",
+        # A resume generation the reference arm cannot honour.
+        initial_generation=3)
+    run_one(0)
 
     doc = json.loads((tmp_path / "vecoli_exchange_flux.json").read_text())
     assert doc["generations"] == 2, (
@@ -186,3 +183,55 @@ def test_the_REFERENCE_ARM_sidecar_records_max_generations_VERBATIM(tmp_path,
         "scratch, so its sidecar must say 2. Applying the candidate arm's "
         f"lineage-depth offset here would make both arms agree on a shape "
         f"neither ran; got {doc!r}")
+
+
+def test_chaining_the_REFERENCE_ARM_is_refused_at_the_FLAG(tmp_path, capsys):
+    """A flag mistake must surface as a flag error, not as a card verdict.
+
+    The reference arm silently ignores ``--initial-generation``. Before the
+    lineage-depth change both arms recorded ``max_generations``, so passing it to
+    both produced matching (equally wrong) sidecars and a silent no-op. Now the
+    arms encode different conventions, so the same mis-invocation becomes a
+    correspondence refusal reading "one of them is stale" — which sends the
+    reader looking at their data instead of their command line.
+    """
+    import pytest as _pytest
+    import scripts.run_comparison_ensemble as rce
+
+    carry = tmp_path / "carry.json"
+    carry.write_text("{}")
+    with _pytest.raises(SystemExit):
+        rce.main(["--composite", "vecoli", "--condition", "basal",
+                  "--cache-dir", str(tmp_path), "--n-seeds", "1",
+                  "--max-generations", "2", "--initial-generation", "2",
+                  "--initial-carry-state", str(carry), "--append-store",
+                  "--out-root", str(tmp_path), "--mode", "serial"])
+    assert "no resume hook" in capsys.readouterr().err
+
+
+def test_the_candidate_arm_is_STILL_allowed_to_chain(tmp_path, monkeypatch):
+    """The guard must not refuse the invocation the seam exists for."""
+    import json
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import parallel_seeds as ps
+    from v2ecoli.library import xarray_run
+
+    monkeypatch.setattr(rce, "_build_v2ecoli", lambda *a, **k: object())
+    monkeypatch.setattr(rce, "extract_v2_build_config",
+                        lambda *a, **k: {"n_processes": 0})
+    monkeypatch.setattr(xarray_run, "run_multigen_xarray",
+                        lambda *a, **k: {"generations": 2})
+    monkeypatch.setattr(ps, "run_seeds_parallel",
+                        lambda seeds, run_one, **kw: [run_one(list(seeds)[0])])
+
+    carry = tmp_path / "carry.json"
+    carry.write_text("{}")
+    rce.main(["--composite", "v2ecoli",
+              "--condition", "basal", "--cache-dir", str(tmp_path),
+              "--n-seeds", "1", "--max-generations", "2",
+              "--initial-generation", "2", "--initial-carry-state", str(carry),
+              "--append-store", "--out-root", str(tmp_path), "--mode", "serial",
+              "--exchange-flux", "product_exchange=X[c]",
+              "--exchange-flux-basis", "gdcw"])
+    doc = json.loads((tmp_path / "v2ecoli_exchange_flux.json").read_text())
+    assert doc["generations"] == 3, doc

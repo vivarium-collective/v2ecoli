@@ -140,3 +140,49 @@ def test_the_REFERENCE_ARM_is_not_given_a_resume_generation():
                    for p in params.values()), (
         "**kwargs would let a resume generation reach the reference arm "
         "without appearing in its signature")
+
+
+def test_the_REFERENCE_ARM_sidecar_records_max_generations_VERBATIM(tmp_path,
+                                                                    monkeypatch):
+    """The CONSEQUENCE of the asymmetry, not just its premise.
+
+    ⚠ Asserting only that the engine has no resume hook leaves the symmetric
+    mistake uncaught: giving the reference sidecar ``_lineage_depth(...)`` too.
+    That one is worse than a plain miss, because ``basis_from_runs`` compares the
+    two sidecars TO EACH OTHER and never to the store — so both arms would agree
+    at depth 3 while the reference really ran 2 generations from scratch, the
+    correspondence check would pass, and the card would grade a wrong shape. That
+    is exactly the "both arms were equally wrong so the relative delta looked
+    fine" failure the sidecar exists to make visible.
+    """
+    import json
+    import scripts.run_comparison_ensemble as rce
+    from v2ecoli.library import parallel_seeds as ps
+    from v2ecoli.library import vivarium_ecoli_engine as vee
+
+    monkeypatch.setattr(vee, "run_vivarium_ecoli_pbg_multigen",
+                        lambda *a, **k: {"generations": 2, "build_config": None})
+    monkeypatch.setattr(ps, "run_seeds_parallel",
+                        lambda seeds, run_one, **kw: [run_one(list(seeds)[0])])
+
+    # Pass a resume generation the reference arm cannot honour. Its sidecar must
+    # still record what it actually ran, not what the candidate convention would
+    # compute.
+    carry = tmp_path / "carry.json"
+    carry.write_text("{}")
+    rce.main(["--composite", "vecoli", "--condition", "basal",
+              "--cache-dir", str(tmp_path), "--n-seeds", "1",
+              "--max-generations", "2",
+              "--initial-generation", "3",
+              "--initial-carry-state", str(carry),
+              "--append-store",
+              "--out-root", str(tmp_path), "--mode", "serial",
+              "--exchange-flux", "product_exchange=X[c]",
+              "--exchange-flux-basis", "gdcw"])
+
+    doc = json.loads((tmp_path / "vecoli_exchange_flux.json").read_text())
+    assert doc["generations"] == 2, (
+        "the reference arm has no resume hook — it ran generations 1-2 from "
+        "scratch, so its sidecar must say 2. Applying the candidate arm's "
+        f"lineage-depth offset here would make both arms agree on a shape "
+        f"neither ran; got {doc!r}")

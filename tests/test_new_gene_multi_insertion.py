@@ -407,6 +407,53 @@ def test_a_cassettes_resolved_position_is_explained_by_host_annotation(tmp_path)
     )
 
 
+
+def _is_split(feature, pos):
+    """Whether splicing at ``pos`` actually divides ``feature``'s bases.
+
+    ⛔ THIS DELIBERATELY DISAGREES WITH ``_straddlers`` ABOVE, AND THE
+    DISAGREEMENT IS THE POINT -- do not "unify" them.
+
+    ``_straddlers`` mirrors the LOADER's conflict predicate (``L < p <= R``),
+    because the rule-conformance test's job is to check the loader against its
+    own documented rule. This function states what a split actually IS, which is
+    what the requirement test needs: an oracle that agrees with the mechanism by
+    construction cannot catch the mechanism being wrong.
+
+    The splice is ``genome[:p] + insertion + genome[p:]``, so bases ``1..p`` stay
+    before it and ``p+1..`` move after. A feature ``[L, R]`` is therefore divided
+    exactly when it has bases on both sides -- ``L <= p < R``.
+
+    ⚠ ``p`` IS A SLICE INDEX, NOT A 1-BASED GENOME POSITION -- it is the COUNT
+    of bases preceding the insertion. Reading it as a coordinate is what makes
+    the wrong bound look right, and this file's own repo carries both
+    conventions depending on the path.
+
+    ⭐ THE CONSTRUCTION, because a conclusion invites argument and a runnable
+    table ends it. Two reviewers derived the wrong bound here by reasoning; both
+    were convinced in seconds by running this::
+
+        genome = "ABCDEFGHIJ"          # 1-based positions 1..10
+        L, R = 3, 6                    # feature "CDEF"
+        for p in range(1, 10):
+            print(p, genome[:p] + "xx" + genome[p:])
+
+          p  result         split?   L<=p<R   L<p<=R
+          2  ABxxCDEFGHIJ   False    False    False
+          3  ABCxxDEFGHIJ   True     True     False   <- loader misses it
+          4  ABCDxxEFGHIJ   True     True     True
+          5  ABCDExxFGHIJ   True     True     True
+          6  ABCDEFxxGHIJ   False    False    True    <- loader fires spuriously
+          7  ABCDEFGxxHIJ   False    False    False
+
+    ⇒ ``L <= p < R`` matches ground truth at every p. The loader's predicate is
+    wrong at BOTH ends, and each difference is a real pre-existing defect:
+      * ``p == L`` -- a genuine split the loader does NOT treat as a conflict.
+      * ``p == R`` -- no split, but the loader relocates anyway (harmless).
+    """
+    return feature["left_end_pos"] <= pos < feature["right_end_pos"]
+
+
 def test_no_host_transcription_unit_is_split_by_an_insertion(tmp_path):
     """The REQUIREMENT relocation exists to satisfy, not the rule implementing it.
 
@@ -432,8 +479,7 @@ def test_no_host_transcription_unit_is_split_by_an_insertion(tmp_path):
     ]
     for spec in (LOW, HIGH):
         pos = _resolved_insert_pos(kb, spec["gene"])
-        split = [t for t in host_tus
-                 if t["left_end_pos"] <= pos < t["right_end_pos"]]
+        split = [t for t in host_tus if _is_split(t, pos)]
         assert not split, (
             f"{spec['subdir']} was spliced at {pos}, inside host "
             f"transcription unit(s) {[t['id'] for t in split][:3]} -- "
@@ -459,3 +505,27 @@ def test_both_cassettes_hold_their_locus_not_only_the_upper_one(tmp_path):
         f"{LOW['subdir']} resolved to {alone} alone but {composed} composed; "
         "it is spliced last, so nothing should move it"
     )
+
+
+def test_the_split_predicate_is_correct_at_both_boundaries(tmp_path):
+    """Pin ``_is_split``'s edges directly; the payload tests cannot reach them.
+
+    ⛔ MUTATION TEST: flip either comparison in ``_is_split`` (``<=`` to ``<``,
+    or ``<`` to ``<=``) and this must fail. The payload-level requirement test
+    would NOT catch that -- a cassette that lands inside a transcription unit
+    lands well inside it, never on an edge -- so without this the oracle's own
+    boundaries are unverified.
+
+    Ground truth is computed here by construction rather than asserted: a
+    feature is split exactly when splicing leaves some of its bases before the
+    insertion and some after.
+    """
+    feature = {"left_end_pos": 3, "right_end_pos": 6}
+    for pos in range(1, 10):
+        before = [i for i in range(3, 7) if i <= pos]
+        after = [i for i in range(3, 7) if i > pos]
+        expected = bool(before) and bool(after)
+        assert _is_split(feature, pos) is expected, (
+            f"splicing at {pos} on feature [3,6]: _is_split said "
+            f"{_is_split(feature, pos)}, construction says {expected}"
+        )

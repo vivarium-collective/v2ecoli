@@ -131,8 +131,14 @@ readouts:
     status: planned
   - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
   - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
-  - {name: carbon_balance_residual, store_path: reactor.diagnostics.carbon_residual, units: fraction, status: available}
-  - {name: nitrogen_balance_residual, store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: available}
+  # status: planned, NOT available. `reactor.diagnostics` is not a subtree of
+  # the built composite on main -- zero of 1222 leaves contain "diagnostic".
+  # The ledger that builds it is v2ecoli#635, still in rework. Marking these
+  # `available` here would assert a store path the model does not expose, which
+  # is precisely the fabrication class this PR exists to remove. Flip to
+  # `available` in the PR that lands the ledger, not before.
+  - {name: carbon_balance_residual, store_path: reactor.diagnostics.carbon_residual, units: fraction, status: planned}
+  - {name: nitrogen_balance_residual, store_path: reactor.diagnostics.nitrogen_residual, units: fraction, status: planned}
 
 
 behavior_tests:

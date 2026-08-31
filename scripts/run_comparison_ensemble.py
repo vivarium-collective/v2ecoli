@@ -518,22 +518,14 @@ def _lineage_depth(initial_generation, max_generations) -> int:
     arm has no resume hook, so its sidecar records ``max_generations`` directly
     and must NOT be "fixed" to use this.
 
-    Raises:
-        ValueError: on a non-positive ``initial_generation``. ``--initial-generation``
-            is unbounded below at the CLI, and 0 would silently yield a depth ONE
-            SHORT of the truth — the very failure this function exists to prevent,
-            re-entering through a bad input instead of a bad convention. Refused
-            rather than clamped: a stage that does not know where it starts cannot
-            record where the lineage ends.
+    ⊕ A non-positive ``initial_generation`` is NOT guarded here, deliberately:
+    ``v2ecoli.library.xarray_run.run_multigen_xarray`` already refuses it (see
+    its ``initial_generation < 1`` check, whose message names the 0-based
+    ``workflow/lineage.py`` convention this repo also carries), and it refuses
+    BEFORE any run happens. A second guard at this call site would fire inside a
+    best-effort ``except Exception`` block and be swallowed into a warning, which
+    is worse than no guard: it would read as "refused" while the run continued.
     """
-    if int(initial_generation) < 1:
-        raise ValueError(
-            f"initial_generation must be >= 1 (1-based, inclusive); got "
-            f"{initial_generation!r}. A resumed stage's first generation is its "
-            f"ABSOLUTE label, so 0 would understate the lineage depth by one.")
-    if int(max_generations) < 1:
-        raise ValueError(
-            f"max_generations must be >= 1; got {max_generations!r}.")
     return int(initial_generation) - 1 + int(max_generations)
 
 

@@ -29,6 +29,9 @@ from v2ecoli.steps.reactor_cell_coupler import (
     O2_EXCHANGE_KEY,
     O2_ID,
     ReactorCellCoupler,
+    AMMONIUM_MEDIUM_LEAF,
+    BIOMASS_C_FRACTION,
+    MW_C,
 )
 
 
@@ -270,6 +273,133 @@ def _byproduct_agent(acet: float, suc: float = 0.0) -> dict:
                                      O2_EXCHANGE_KEY: 0.0,
                                      CO2_EXCHANGE_KEY: 0.0}},
     }
+
+
+def _ledger_coupler(core):
+    return ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e12, "reactor_volume_L": 1.0,
+                "track_medium": True},
+        core=core)
+
+
+def _ledger_states(*, glc, nh4, biomass_gL, glc_total, nh4_total, co2_total=0.0):
+    """One tick of states for the elemental ledger.
+
+    ``*_total`` are CUMULATIVE exchange counts (the store is a running total).
+    """
+    return {
+        "reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0, "volume_L": 1.0,
+                    "glucose_medium_mM": glc, "ammonium_medium_mM": nh4,
+                    "acetate_mM": 0.0, "lactate_mM": 0.0, "formate_mM": 0.0,
+                    "ethanol_mM": 0.0, "pyruvate_mM": 0.0, "succinate_mM": 0.0},
+        "population": {"cell_count": 1.0e12,
+                       "biomass_concentration_gL": biomass_gL},
+        "agents": {"0": {
+            "listeners": {"mass": {"cell_mass": 1.0e3}},
+            "environment": {"exchange": {
+                "GLC": glc_total, "AMMONIUM": nh4_total,
+                O2_EXCHANGE_KEY: 0.0, CO2_EXCHANGE_KEY: co2_total}}}},
+    }
+
+
+def test_ledger_baseline_waits_for_a_populated_population_store(core):
+    """The ledger must not latch its baseline on a pre-population tick.
+
+    ⚠ The Step flow runs once at CYCLE START, before the PopulationAggregator
+    has written anything, so the first invocation sees
+    ``biomass_concentration_gL == 0.0``. Latching there sets b0 = 0 and every
+    later tick charges the INOCULUM against consumed glucose. Measured before
+    the fix: carbon_residual -8.48 with carbon_biomass_mM (16.3) an order of
+    magnitude above carbon_in_mM (1.7) -- i.e. more carbon in cells than was
+    ever consumed, which is the shape of the bug.
+    """
+    c = _ledger_coupler(core)
+    # Tick 1: population store still empty (the pre-population tick).
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.0,
+                                      glc_total=0.0, nh4_total=0.0))
+    assert c._c_ledger_glc0 is None, (
+        "baseline latched on a tick where biomass_concentration_gL == 0.0")
+
+    # Tick 2: aggregator has run. Baselines latch together, at this instant.
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    assert c._c_ledger_glc0 == pytest.approx(40.0)
+    assert c._c_ledger_b0 == pytest.approx(0.5), (
+        "biomass baseline must be the standing inoculum, not 0.0")
+
+
+def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
+    """A hand-built tick whose carbon balances must give residual ~0.
+
+    Glucose consumed is converted to biomass at exactly BIOMASS_C_FRACTION,
+    so in == out by construction and the residual must vanish. This is the
+    positive control: without it every assertion about a FAILING residual
+    could be satisfied by a ledger that always reports failure.
+    """
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    # Consume 1 mM glucose == 6 mM carbon; convert all of it to biomass.
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12          # counts per mM at cpa=1e12
+    d_biomass_gL = 6.0 * MW_C / 1000.0 / BIOMASS_C_FRACTION
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
+        glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
+    d = out["reactor"]["diagnostics"]
+    assert d["carbon_in_mM"] == pytest.approx(6.0, rel=1e-6)
+    assert d["carbon_residual"] == pytest.approx(0.0, abs=1e-6), (
+        f"stoichiometric tick did not close: {d}")
+
+
+def test_carbon_partition_is_reported_beside_the_residual(core):
+    """Closure alone does not validate the partition, so the split is reported.
+
+    ⚠ Measured on a real run: carbon closes to within ~2% while ~95% of glucose
+    carbon goes to BIOMASS and ~4% to CO2, against 40-50% to CO2 for real
+    aerobic growth. A near-zero residual on a physically impossible split is a
+    gate that cannot see the failure -- the fractions are what make it visible.
+    """
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    # Split the tick's carbon deliberately: 4 mM C to biomass, 2 mM C to CO2.
+    # ⚠ An earlier version of this test used a tick with NO CO2, so
+    # carbon_to_co2_frac was 0.0 whether computed or hardcoded and the
+    # assertion could not fail -- the mutation "co2 fraction := 0.0" survived
+    # it. The fraction under test must be NON-ZERO for the test to discriminate.
+    d_biomass_gL = 4.0 * MW_C / 1000.0 / BIOMASS_C_FRACTION
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
+        glc_total=-1.0 * counts_per_mM, nh4_total=0.0,
+        co2_total=+2.0 * counts_per_mM))
+    d = out["reactor"]["diagnostics"]
+    fracs = (d["carbon_to_biomass_frac"], d["carbon_to_co2_frac"],
+             d["carbon_to_byproducts_frac"])
+    assert sum(fracs) == pytest.approx(1.0, abs=1e-9), (
+        f"carbon-out fractions must partition to 1.0, got {fracs}")
+    # POSITIVE CONTROL on the axis under test: CO2 must be a real share here.
+    assert d["carbon_to_co2_frac"] == pytest.approx(2.0 / 6.0, rel=1e-6), (
+        f"CO2 share should be 2 of 6 mM carbon out, got {d['carbon_to_co2_frac']}")
+    assert d["carbon_to_biomass_frac"] == pytest.approx(4.0 / 6.0, rel=1e-6)
+
+
+def test_ammonium_is_drawn_down_like_glucose(core):
+    """Ammonium must be tracked on the same footing as glucose.
+
+    Without it the nitrogen ledger has no input term and mbp-04's declared
+    nitrogen_residual criterion cannot be evaluated.
+    """
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5,
+        glc_total=0.0, nh4_total=-2.0 * counts_per_mM))
+    assert out["reactor"][AMMONIUM_MEDIUM_LEAF] == pytest.approx(-2.0, rel=1e-6), (
+        "ammonium uptake did not draw down the medium pool")
+    assert out["reactor"]["diagnostics"]["nitrogen_in_mM"] == pytest.approx(2.0, rel=1e-6)
 
 
 def test_byproducts_are_differenced_not_consumed_as_a_running_total(core):

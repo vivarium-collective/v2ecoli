@@ -172,7 +172,16 @@ GLUCOSE_CARBON_ATOMS: int = 6
 # ⚠ BOTH are overridable via config (`biomass_c_fraction` / `biomass_n_fraction`)
 # so a composite that holds sim_data can pass a MODEL-DERIVED value instead of a
 # literature one. The coupler is reactor-side and has no sim_data of its own.
-BIOMASS_C_FRACTION: float = 0.46    # gC / gDW
+# ⭐ 0.4833, RE-DERIVED on the same two routes as the nitrogen constant below.
+# ⚠ Unlike nitrogen, THE BASIS IS NEARLY INERT HERE: route A (the model's actual
+# t=0 cell) = 0.4833 and route B (ParCa's declared 9-class composition) = 0.4823,
+# 0.2% apart. So the basis was never the problem for carbon -- the shipped 0.46
+# simply is not the model's value, and is 4.8% LOW.
+# `[m@01Sep]` Impact is not cosmetic: at tick 89 the carbon residual moves
+# 0.0438 -> -0.0032, i.e. 4.7 percentage points, 2.4x mbp-04's 0.02 band, and it
+# FLIPS THE SIGN of the endpoint. A constant that is 4.8% wrong was changing
+# whether the ledger reported carbon appearing or disappearing.
+BIOMASS_C_FRACTION: float = 0.4833  # gC / gDW, route A (listeners.mass.dry_mass)
 # ⭐⭐ 0.126, and THE BASIS IS THE WHOLE POINT. sim_data yields TWO internally
 # consistent nitrogen fractions that differ by which dry mass you mean:
 #   route B  0.1356  ParCa's DECLARED composition (`mass.mass_fractions`, 9
@@ -199,9 +208,8 @@ BIOMASS_C_FRACTION: float = 0.46    # gC / gDW
 # 30.58 mM N = 101.0% of the 30.272 mM M9 recipe pool -- MARGINAL, essentially
 # exactly at the line. NOT the "already insufficient" that 0.135 implied (32.77
 # mM, 108%), and not the comfortable 96% that 0.12 implied.
-# ⛔ BIOMASS_C_FRACTION below has the IDENTICAL basis question and has NOT been
-# re-derived on either route. It is now the least-supported number in this
-# ledger. Do not assume 0.46 is basis-consistent just because 0.126 now is.
+# ⊕ BIOMASS_C_FRACTION above has now been re-derived on both routes too; unlike
+# nitrogen its two routes agree to 0.2%, so only the VALUE moved, not the basis.
 BIOMASS_N_FRACTION: float = 0.126   # gN / gDW, route A (listeners.mass.dry_mass)
 MW_C: float = 12.011
 MW_N: float = 14.007
@@ -348,6 +356,18 @@ class ReactorCellCoupler(Step):
         # residual scale with inoculum size (measured: a -15.2 residual at
         # OD~1.1, entirely from counting the seed cells as product).
         self._c_ledger_b0: float | None = None
+        # ⛔ F9. The byproduct term read the store's ABSOLUTE value while
+        # glucose, biomass and CO2 were all baselined at the latch, so anything
+        # already in the reactor at t=0 was counted as carbon the cells had
+        # produced. `[m@01Sep]` Formate is written once at tick 0 (0.007809 mM C)
+        # and never changes; at the first valid tick that was 78.6% of c_out, and
+        # at tick 299 it still moved the residual by 0.008 absolute = 40% of
+        # mbp-04's 0.02 band, always in the FLATTERING direction.
+        # ⚠ This was previously deferred as "masked by the first-observation
+        # rule". That was wrong: the tick-0 write lands on the coupler's SECOND
+        # invocation within tick 0, after the agent is observed. A claimed mask
+        # is a claim, not an observation -- check it before deferring on it.
+        self._c_ledger_byp0: float | None = None
 
     def inputs(self) -> dict[str, Any]:
         return {
@@ -593,11 +613,19 @@ class ReactorCellCoupler(Step):
                 # with carbon_biomass_mM (16.3) an order of magnitude above
                 # carbon_in_mM (1.7). All three baselines are latched together so
                 # they refer to the same instant.
+                # Absolute byproduct carbon, computed BEFORE the latch so the
+                # latch can capture it as a baseline (F9).
+                c_byp_abs = sum(
+                    (_as_float(reactor.get(leaf)) + byproduct_counts[leaf] * counts_to_mM)
+                    * atoms
+                    for leaf, atoms in CARBON_ATOMS.items()
+                )
                 latched_this_tick = False
                 if self._c_ledger_glc0 is None and biomass_now > 0.0:
                     self._c_ledger_glc0 = _as_float(reactor.get(GLUCOSE_MEDIUM_LEAF))
                     self._c_ledger_nh40 = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF))
                     self._c_ledger_b0 = biomass_now
+                    self._c_ledger_byp0 = c_byp_abs
                     latched_this_tick = True
                 # Biomass FORMED in this reactor, read from the population store
                 # (reactor.biomass is the coupler's own passthrough and reads 0.0
@@ -614,11 +642,10 @@ class ReactorCellCoupler(Step):
                     glc_now_after = nh4_now_after = 0.0
                 c_in = ((self._c_ledger_glc0 or 0.0) - glc_now_after) * GLUCOSE_CARBON_ATOMS
                 c_biomass = biomass_gL * self.biomass_c_fraction / MW_C * 1000.0
-                c_byproducts = sum(
-                    (_as_float(reactor.get(leaf)) + byproduct_counts[leaf] * counts_to_mM)
-                    * atoms
-                    for leaf, atoms in CARBON_ATOMS.items()
-                )
+                # F9: byproduct carbon FORMED since the baseline, not the
+                # store's absolute content. Baselined like glucose, biomass and
+                # CO2 so all four terms refer to the same instant.
+                c_byproducts = c_byp_abs - (self._c_ledger_byp0 or 0.0)
                 c_out = c_biomass + self._cum_co2_mM + c_byproducts
 
                 n_in = (self._c_ledger_nh40 or 0.0) - nh4_now_after

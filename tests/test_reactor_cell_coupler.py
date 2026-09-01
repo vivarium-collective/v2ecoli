@@ -550,8 +550,8 @@ def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
     # balance moved together and the residual closed for ANY value of that
     # constant. Mutating BIOMASS_C_FRACTION survived it. A positive control that
     # cannot detect a wrong constant is not a control.
-    # 6 mM C x 12.011 mg/mmol / 1000 = 0.0720660 gC/L; / 0.46 gC/gDW = 0.15666522.
-    d_biomass_gL = 0.15666521739130435
+    # 6 mM C x 12.011 mg/mmol / 1000 = 0.0720660 gC/L; / 0.4833 gC/gDW = 0.14911235.
+    d_biomass_gL = 0.14911235257603975
     out = c.next_update(1.0, _ledger_states(
         glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
         glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
@@ -561,8 +561,8 @@ def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
     assert d["carbon_residual"] == pytest.approx(0.0, abs=1e-6), (
         f"stoichiometric tick did not close: {d}")
     # Pin the constant itself, independently of the balance above.
-    assert BIOMASS_C_FRACTION == pytest.approx(0.46, abs=1e-9), (
-        "BIOMASS_C_FRACTION moved; the literal above was derived from 0.46 and "
+    assert BIOMASS_C_FRACTION == pytest.approx(0.4833, abs=1e-9), (
+        "BIOMASS_C_FRACTION moved; the literal above was derived from 0.4833 and "
         "must be recomputed, or the ledger is being graded against a constant "
         "no test pins")
 

@@ -378,6 +378,18 @@ def add_reactor_coupling(
         # accumulator (#225 req-3 substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
                                "default": DEFAULT_INITIAL_GLUCOSE_MM},
+        # Per-cell biological build kwarg, forwarded through baseline_population
+        # to baseline(). Without it a coupled run silently builds the cache's
+        # default metabolism, so a pathway cache secretes nothing into the
+        # reactor and the trajectory still looks plausible. Empty = none.
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Process-injection spec {fork_repo, add_processes, "
+                           "swap_processes, process_configs, topology, "
+                           "time_step}; empty = none. Forwarded verbatim to "
+                           "baseline_population -> baseline().",
+        },
     },
 )
 def reactor_bird_coupled(
@@ -392,6 +404,7 @@ def reactor_bird_coupled(
     carbon_source_ids: list | None = None,
     single_daughters: bool = False,
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -415,6 +428,7 @@ def reactor_bird_coupled(
         carbon_exhaustion_arrest=carbon_exhaustion_arrest,
         carbon_source_ids=carbon_source_ids,
         single_daughters=single_daughters,
+        injected_processes=injected_processes,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

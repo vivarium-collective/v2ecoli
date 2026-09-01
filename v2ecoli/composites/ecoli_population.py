@@ -210,16 +210,19 @@ def add_population_aggregator(
         # aggregator/coupler chunk-independent. Default False = no-op.
         "single_daughters": {"type": "boolean", "default": False},
         # Per-cell biological build kwarg, forwarded verbatim to baseline().
-        # Without it a population run silently builds whatever metabolism the
-        # cache defaults to, so a pathway cache produces no product and the run
-        # looks healthy -- the same shape #640 fixed one call site over, on the
-        # batch path. Empty = none, so the default is byte-identical to before.
+        # Before this parameter existed the capability was UNREACHABLE here, not
+        # silently wrong: build_generator validates override keys against the
+        # declared set, so a config naming it raised ValueError, and the Python
+        # kwarg raised TypeError. #640's batch drop WAS silent; this one was not,
+        # and the distinction matters because the fixes differ -- that was a
+        # dropped value, this is a missing parameter.
+        # Empty = none, so the default is byte-identical to before.
         "injected_processes": {
             "type": "map",
             "default": {},
             "description": "Process-injection spec {fork_repo, add_processes, "
                            "swap_processes, process_configs, topology, "
-                           "time_step}; empty = none. Passed through to "
+                           "time_step}. ⚠ fork_repo is REQUIRED even when empty (\"\" = native); baseline() indexes it directly. Omit the whole parameter for no injection. Passed through to "
                            "baseline(), which enforces the native-vs-fork "
                            "sourcing policy via assert_injection_sourcing.",
         },

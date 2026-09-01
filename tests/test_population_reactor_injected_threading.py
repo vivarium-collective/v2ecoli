@@ -6,11 +6,15 @@ forwarded ``injected_processes``: ``baseline_population`` called the builder wit
 only ``(core, seed, cache_dir, config_overrides)`` and ``reactor_bird_coupled``
 had no such parameter at all.
 
-Consequence, and it is the silent kind: a population or reactor-coupled run
-against a pathway cache built whatever metabolism the cache defaults to, so the
-heterologous product was never produced, nothing raised, and the trajectory
-still looked plausible. The single-cell path (``--inject-process``) was the only
-way to reach the injection at all.
+Consequence: the capability was UNREACHABLE at population/reactor scale. ⚠ Not
+silent -- and the distinction is deliberate, because #640's batch case WAS.
+``build_generator`` validates override keys against the declared parameter set,
+so a config naming ``injected_processes`` here raised ``ValueError``, and the
+Python kwarg raised ``TypeError``. A dropped value and a missing parameter need
+different fixes, and conflating them mis-describes both.
+⊕ Separately and still true: a CALLER that never requests injection gets a clean
+run with the cache's default metabolism and a bit-exact zero product. That is a
+real silent-zero, but its mechanism is "never asked", not "request dropped".
 
 Two axes are pinned deliberately, because each is separately sufficient to make
 the feature unreachable:
@@ -68,15 +72,32 @@ def test_baseline_population_default_is_none_not_absent(monkeypatch):
     monkeypatch.setattr(ecoli_population, "add_population_aggregator",
                         lambda document, core, **kw: document)
     ecoli_population.baseline_population(object())
-    assert seen.get("injected_processes") in (None, {})
+    # `seen.get(...) in (None, {})` would be satisfied by a key that was NEVER
+    # PASSED -- the exact condition this test denies -- so assert PRESENCE
+    # first. Mutation-checked: deleting the forward in baseline_population
+    # leaves the .get() form green and this form red.
+    assert "injected_processes" in seen, (
+        "the kwarg must be passed even when unset, so baseline() applies its "
+        "own default rather than the caller silently omitting it")
+    assert seen["injected_processes"] is None
 
 
 def test_reactor_bird_coupled_forwards_injected_processes(monkeypatch):
-    """The reactor composite must forward THROUGH baseline_population."""
-    from v2ecoli.composites import reactor_bird_coupled as rbc
+    """The reactor composite must forward THROUGH baseline_population to baseline().
 
-    seen = _capture(monkeypatch, "v2ecoli.composites.reactor_bird_coupled",
-                    "baseline_population")
+    ⚠ Capture at ``_baseline_builder``, NOT at ``baseline_population``. Patching
+    ``baseline_population`` would prove only that the reactor hands the value to
+    something of that name, and would stay GREEN if the forwarding INSIDE
+    ``baseline_population`` were deleted — i.e. it would not test the word
+    "THROUGH" in this docstring. Mutation-checked both ways.
+    """
+    from v2ecoli.composites import reactor_bird_coupled as rbc
+    from v2ecoli.composites import ecoli_population
+
+    seen = _capture(monkeypatch, "v2ecoli.composites.ecoli_population",
+                    "_baseline_builder")
+    monkeypatch.setattr(ecoli_population, "add_population_aggregator",
+                        lambda document, core, **kw: document)
     monkeypatch.setattr(rbc, "add_reactor_coupling",
                         lambda document, core, **kw: document)
     rbc.reactor_bird_coupled(object(), injected_processes=SWAP)

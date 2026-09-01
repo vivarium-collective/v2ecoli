@@ -379,15 +379,17 @@ def add_reactor_coupling(
         "initial_glucose_mM": {"type": "number",
                                "default": DEFAULT_INITIAL_GLUCOSE_MM},
         # Per-cell biological build kwarg, forwarded through baseline_population
-        # to baseline(). Without it a coupled run silently builds the cache's
-        # default metabolism, so a pathway cache secretes nothing into the
-        # reactor and the trajectory still looks plausible. Empty = none.
+        # to baseline(). Before this parameter existed there was NO WAY to put a
+        # different process in the metabolism slot on the coupled path at all --
+        # a missing capability, not a silently-wrong build: naming it in a config
+        # raised ValueError from build_generator's override validation.
+        # Empty = none, so the default is byte-identical to before.
         "injected_processes": {
             "type": "map",
             "default": {},
             "description": "Process-injection spec {fork_repo, add_processes, "
                            "swap_processes, process_configs, topology, "
-                           "time_step}; empty = none. Forwarded verbatim to "
+                           "time_step}. ⚠ fork_repo is REQUIRED even when empty (\"\" = native); baseline() indexes it directly. Omit the whole parameter for no injection. Forwarded verbatim to "
                            "baseline_population -> baseline().",
         },
     },

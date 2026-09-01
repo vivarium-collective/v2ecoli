@@ -1342,6 +1342,15 @@ WCM_PARAMETERS = {
             "description": "Batch runs only: vEcoli-style variant grid "
                            "({name: {target, value}}) crossed with the seed range.",
         },
+        "variant": {
+            "type": "integer",
+            "default": 0,
+            "description": "This cell's variant index in a multivariant sweep. "
+                           "Stamped into the parquet hive partition column "
+                           "(variant=<idx>) so each variant's rows are stored "
+                           "and analysed separately; defaults to 0 for a single "
+                           "(baseline) arm. Set per branch at fan-out time.",
+        },
         "out_dir": {
             "type": "string",
             "default": "",
@@ -1461,6 +1470,7 @@ def baseline(
     time_step: float = 1.0,
     max_duration: float = 3600.0,
     variants: dict | None = None,
+    variant: int = 0,
     out_dir: str = "",
     experiment_id: str = "baseline",
     analyses: Any = "applicable",
@@ -1857,13 +1867,23 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
-    if _default_decl is not None and emitter_out_dir:
-        # parquet default decl: pin its out_dir instead of letting the step
-        # resolve the workspace-relative default (see emitter_out_dir param).
-        _default_decl = {
-            **_default_decl,
-            "config": {**_default_decl.get("config", {}), "out_dir": emitter_out_dir},
+    if _default_decl is not None:
+        # Thread the run-identity fields into the declared default (parquet)
+        # emitter's config so its hive partition columns are correct per cell.
+        # experiment_id and variant are declared baseline() params that
+        # otherwise never reach the emitter (_build_declared_emitter would fall
+        # back to "default" / variant=0), so every variant in a multivariant
+        # sweep would collapse onto partition ``variant=0`` and the
+        # multivariant KPI analysis would see them as one. emitter_out_dir, when
+        # set, still pins out_dir instead of the workspace-relative default.
+        _decl_cfg = {
+            **_default_decl.get("config", {}),
+            "experiment_id": experiment_id,
+            "variant": int(variant),
         }
+        if emitter_out_dir:
+            _decl_cfg["out_dir"] = emitter_out_dir
+        _default_decl = {**_default_decl, "config": _decl_cfg}
 
     # Snapshot external overrides so we can detect 'caller already pinned one'
     # and restore them exactly on exit.
@@ -1918,7 +1938,7 @@ def baseline(
             out_uri=_xr_out,
             metadata={
                 "experiment_id": experiment_id,
-                "variant": 0,
+                "variant": int(variant),
                 "lineage_seed": int(seed),
             },
         )

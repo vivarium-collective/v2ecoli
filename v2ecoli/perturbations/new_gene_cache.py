@@ -150,6 +150,12 @@ def build_new_gene_cache(
         seed=seed,
         condition=condition,
         fixed_media=fixed_media,
+        # P1-6: this bundle is a NEW-GENE strain, not wild type. Record the
+        # applied expression / translation-efficiency perturbation so its
+        # cache fingerprint diverges from a WT (or differently-perturbed)
+        # bundle and verify_cache_version can reject a wrong-strain --cache-dir.
+        new_genes="on",
+        perturbations=applied,
     )
 
     return {

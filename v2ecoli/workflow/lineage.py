@@ -124,6 +124,20 @@ class LineageProcess(Process):
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
         "injected_processes": {"_default": {}},
+        # Per-cell biological build kwargs, forwarded to each generation's
+        # baseline() build so a batch/lineage run engages the SAME biology as the
+        # single-cell path (audit: batch mode dropped these -> basal FBA). `features`
+        # and the toggles also ride inside injected_processes for the injected-arm
+        # convention; _build_generation resolves both via _feature_flag.
+        "features": {"_default": []},
+        "ppgpp_regulation": {"_type": "boolean", "_default": True},
+        "trna_attenuation": {"_type": "boolean", "_default": False},
+        "supercoiling": {"_type": "boolean", "_default": False},
+        "mass_conservation": {"_type": "boolean", "_default": False},
+        "exchange_fluxes": {"_default": {}},
+        "exchange_flux_basis": {"_type": "string", "_default": ""},
+        "transcript_initiation_mode": {"_type": "string", "_default": "discrete"},
+        "polypeptide_initiation_mode": {"_type": "string", "_default": "discrete"},
     }
 
     def initialize(self, config):
@@ -218,6 +232,33 @@ class LineageProcess(Process):
 
         _features = _feature_flag("features", None)
 
+        # Per-cell biological build kwargs, shared by both emitter branches below
+        # so an injected batch/lineage run builds every generation cell with the
+        # SAME biology as the single-cell path (audit: batch mode used to drop
+        # these -> basal FBA). Each rides inside injected_processes OR a top-level
+        # config key (see _feature_flag); the toggles keep baseline()'s own
+        # defaults (ppgpp on, the rest off) when unset.
+        _bio_kwargs = dict(
+            cache_dir=self.config["cache_dir"],
+            config_overrides=overrides,
+            media=self.config.get("media", "minimal"),
+            features=_features,
+            injected_processes=self.config.get("injected_processes"),
+            native=not bool(_injected.get("fork_repo")),
+            ppgpp_regulation=bool(_feature_flag("ppgpp_regulation", True)),
+            trna_attenuation=bool(_feature_flag("trna_attenuation", False)),
+            supercoiling=bool(_feature_flag("supercoiling", False)),
+            mass_conservation=bool(_feature_flag("mass_conservation", False)),
+            exchange_fluxes=_feature_flag("exchange_fluxes", None) or None,
+            exchange_flux_basis=_feature_flag("exchange_flux_basis", None) or None,
+            transcript_initiation_mode=(
+                _feature_flag("transcript_initiation_mode", "discrete")
+                or "discrete"),
+            polypeptide_initiation_mode=(
+                _feature_flag("polypeptide_initiation_mode", "discrete")
+                or "discrete"),
+        )
+
         # The inner composite's own emitter step writes the hive parquet sweep;
         # under a pure-xarray lineage it is minimised to global_time only
         # (set_null_emitter_override) because we emit out of band instead. The
@@ -238,26 +279,14 @@ class LineageProcess(Process):
             )
             set_parquet_emitter_override(emitter_cfg)
             try:
-                doc = baseline(core=core, seed=gen_seed,
-                               cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides,
-                               media=self.config.get("media", "minimal"),
-                               features=_features,
-                               injected_processes=self.config.get("injected_processes"),
-                               native=not bool((self.config.get("injected_processes") or {}).get("fork_repo")))
+                doc = baseline(core=core, seed=gen_seed, **_bio_kwargs)
             finally:
                 set_parquet_emitter_override(None)
         else:
             from v2ecoli.composites._helpers import set_null_emitter_override
             set_null_emitter_override(True)
             try:
-                doc = baseline(core=core, seed=gen_seed,
-                               cache_dir=self.config["cache_dir"],
-                               config_overrides=overrides,
-                               media=self.config.get("media", "minimal"),
-                               features=_features,
-                               injected_processes=self.config.get("injected_processes"),
-                               native=not bool((self.config.get("injected_processes") or {}).get("fork_repo")))
+                doc = baseline(core=core, seed=gen_seed, **_bio_kwargs)
             finally:
                 set_null_emitter_override(False)
         if self._is_xarray():

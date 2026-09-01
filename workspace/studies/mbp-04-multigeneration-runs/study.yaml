@@ -318,7 +318,7 @@ implementation_requirements:
             << 2% under steady-state turnover).
           - NH4+ decrement (external pool, via EnvironmentDriver)
           - Biomass nitrogen accumulation (∫ μ × biomass × N_coefficient × dt;
-            N_coefficient ≈ 0.12 gN/gDW for E. coli)
+            N_coefficient ≈ 0.126 gN/gDW for E. coli -- sim_data's actual t=0 cell; see note below)
 
       Residual computation:
         carbon_residual = (Σ inputs - Σ outputs - Δ biomass-C) / Σ inputs
@@ -372,13 +372,13 @@ enforced_params:
     default: '{reactor_type: bubble_column, volume_L: 1.0, gas_flow_rate_Lpm: 2.0, temperature_K: 310.15}'
   - name: seed
     value: 0
-biological_summary: 'Carbon ledger: glucose-C in -> biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -> biomass-N (~0.12 gN/gDW). Both residuals expected |<0.02| at every step. Headline observable is the growth->limitation regime transition.'
+biological_summary: 'Carbon ledger: glucose-C in -> biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -> biomass-N (~0.126 gN/gDW). Both residuals expected |<0.02| at every step. Headline observable is the growth->limitation regime transition.'
 literature_anchors:
   expert_docs:
     - multiscale_bioprocess_roadmap
     - chris_feedback_2026_05_26
   bib_keys: []
-  note: C/N residual tolerances (2%) are numerical mass-conservation targets, not literature bands; biomass C/N coefficients (0.46 gC/gDW, 0.12 gN/gDW) are standard E. coli composition constants applied as parameters. Acetate overflow rationale cites Vemuri 2006 in prose (failure_modes) — not yet machine-linked as a test band.
+  note: C/N residual tolerances (2%) are numerical mass-conservation targets, not literature bands; biomass C/N coefficients (0.46 gC/gDW, 0.126 gN/gDW) are composition constants applied as parameters. ⚠ The N value is NOT the textbook 0.12: sim_data yields 0.1356 from ParCa's DECLARED 9-class composition and 0.126 from the model's ACTUAL t=0 cell, and the ledger multiplies listeners.mass.dry_mass, which is the 0.126 basis. 0.12 is the Kjeldahl 6.25 convention and is below both. ⛔ The C value has the identical basis question and has NOT been re-derived -- it is the least-supported number in the ledger. Acetate overflow rationale cites Vemuri 2006 in prose (failure_modes) — not yet machine-linked as a test band.
 design_pivot_required:
   required: false
   note: No pivot. Inherits the cells_per_agent scaling (mbp-02) and the Option-B coupling (mbp-03); MassBalanceAuditor species list made explicit (CO2 + organic acids) per chris_feedback_2026_05_26 §9.

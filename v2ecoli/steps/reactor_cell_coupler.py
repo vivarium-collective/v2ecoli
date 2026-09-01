@@ -62,10 +62,32 @@ already covers exactly one WCM step. ``SECONDS_PER_HOUR`` and ``FG_PER_GRAM``
 are retained as published constants but are not used by this Step; an earlier
 version of this docstring described a per-hour flux conversion that the code
 has never performed.
+
+⚠ STANDING HAZARD for anything cumulative added to this Step
+------------------------------------------------------------
+The Step flow runs ONCE AT CYCLE START, before the processes and before the
+PopulationAggregator have written anything (measured: ``calls_per_tick =
+[2,1,1,...]``), so the first invocation sees an unpopulated state -- notably
+``population.biomass_concentration_gL == 0.0``.
+
+Any quantity that latches "the initial value" on its first invocation latches a
+pre-population zero. Three distinct defects have come from this:
+
+* mbp-03's O2 mass balance anchored its numerator after tick 0 while its
+  denominator was anchored before it -- a 5.3% phantom deficit read as a leak;
+* the per-agent first-observation rule exists precisely because tick 0's
+  exchange store is not yet meaningful;
+* the elemental ledger below latched ``b0 = 0`` and charged the INOCULUM against
+  consumed glucose (measured carbon_residual -8.48, i.e. more carbon in cells
+  than was ever consumed).
+
+=> Defer the baseline until the store you depend on is live, and latch every
+related baseline together so they refer to the same instant.
 """
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from v2ecoli.steps.base import V2Step as Step
@@ -126,6 +148,94 @@ GLUCOSE_MEDIUM_LEAF: str = "glucose_medium_mM"
 # the bare `GLC` boundary key).
 GLUCOSE_ID: str = "GLC[p]"
 GLUCOSE_EXCHANGE_KEY: str = "GLC"
+# Medium AMMONIUM — the nitrogen source, tracked on exactly the same footing as
+# glucose so the nitrogen ledger can close (mbp-04 declares a nitrogen_residual
+# criterion). Seeded from the medium recipe and DRAWN DOWN by uptake.
+# ⚠ The compartment tag is [c], NOT [p] as for glucose: measured, the importable
+# id in exchange_data is `AMMONIUM[c]`. EnvironmentMirror strips the tag either
+# way onto the bare `AMMONIUM` boundary key, but the id is not guessable from
+# the glucose case.
+AMMONIUM_MEDIUM_LEAF: str = "ammonium_medium_mM"
+AMMONIUM_ID: str = "AMMONIUM[c]"
+AMMONIUM_EXCHANGE_KEY: str = "AMMONIUM"
+
+# --- Elemental ledger (reactor.diagnostics.{carbon,nitrogen}_residual) --------
+# Carbon/nitrogen atoms per molecule, for the closure check. Byproduct entries
+# key off the same reactor leaves the coupler already accumulates.
+CARBON_ATOMS: dict[str, int] = {
+    "acetate_mM": 2, "lactate_mM": 3, "formate_mM": 1,
+    "ethanol_mM": 2, "pyruvate_mM": 3, "succinate_mM": 4,
+}
+GLUCOSE_CARBON_ATOMS: int = 6
+# Elemental composition of E. coli dry mass. These are LITERATURE CONSTANTS, not
+# fitted: a residual computed against them tests the simulation, not the fit.
+# ⚠ BOTH are overridable via config (`biomass_c_fraction` / `biomass_n_fraction`)
+# so a composite that holds sim_data can pass a MODEL-DERIVED value instead of a
+# literature one. The coupler is reactor-side and has no sim_data of its own.
+# ⭐ 0.4833, RE-DERIVED on the same two routes as the nitrogen constant below.
+# ⚠ Unlike nitrogen, THE BASIS IS NEARLY INERT HERE: route A (the model's actual
+# t=0 cell) = 0.4833 and route B (ParCa's declared 9-class composition) = 0.4823,
+# 0.2% apart. So the basis was never the problem for carbon -- the shipped 0.46
+# simply is not the model's value, and is 4.8% LOW.
+# `[m@01Sep]` Impact is not cosmetic: at tick 89 the carbon residual moves
+# 0.0438 -> -0.0032, i.e. 4.7 percentage points, 2.4x mbp-04's 0.02 band, and it
+# FLIPS THE SIGN of the endpoint. A constant that is 4.8% wrong was changing
+# whether the ledger reported carbon appearing or disappearing.
+BIOMASS_C_FRACTION: float = 0.4833  # gC / gDW, route A (listeners.mass.dry_mass)
+# ⭐⭐ 0.126, and THE BASIS IS THE WHOLE POINT. sim_data yields TWO internally
+# consistent nitrogen fractions that differ by which dry mass you mean:
+#   route B  0.1356  ParCa's DECLARED composition (`mass.mass_fractions`, 9
+#                    classes, basal, tau=44 min)
+#   route A  0.1260  the model's ACTUAL t=0 cell (initial_state bulk + unique)
+# They differ because the initial state carries 38.6 fg -- 10.1% of dry mass --
+# of small metabolites (the 125 targets in `mass._metTargetIds`) that the 9-class
+# accounting omits, diluting protein (0.554 -> 0.481) and RNA (0.173 -> 0.126)
+# by more N than the extra pool supplies.
+# ⇒ THIS CONSTANT MULTIPLIES ROUTE A'S DENOMINATOR, so it must be route A's
+# value. `biomass_gL` <- population.biomass_concentration_gL <- total_biomass_gDW
+# <- `listeners.mass.dry_mass`. Route A is independently validated: dry/(dry+
+# water) = 380.62/(380.62+888.11) = 0.3000, exactly sim_data's
+# `cell_dry_mass_fraction`.
+# ⚠ HISTORY, because both errors are instructive. This shipped as 0.12 -- the
+# Kjeldahl 16%-N / factor-6.25 convention, and ~5% below even the lowest
+# defensible model route. It was then "fixed" to 0.135, which is the RIGHT
+# derivation on the WRONG basis: route B's value against route A's multiplicand,
+# ~7% high. Literature (0.11-0.14) brackets all three, which is exactly why none
+# of it was visible. The model's own proteome gives 17.38% N -- a protein factor
+# of 5.75, the accepted bacterial value, not a model artifact.
+# ⚠ CONSEQUENCE for the OD10 nitrogen claim, RE-DERIVED directly rather than
+# scaled: at OD10 (3.4 gDW/L via DEFAULT_OD_TO_GDW=0.34) the requirement is
+# 30.58 mM N = 101.0% of the 30.272 mM M9 recipe pool -- MARGINAL, essentially
+# exactly at the line. NOT the "already insufficient" that 0.135 implied (32.77
+# mM, 108%), and not the comfortable 96% that 0.12 implied.
+# ⊕ BIOMASS_C_FRACTION above has now been re-derived on both routes too; unlike
+# nitrogen its two routes agree to 0.2%, so only the VALUE moved, not the basis.
+BIOMASS_N_FRACTION: float = 0.126   # gN / gDW, route A (listeners.mass.dry_mass)
+MW_C: float = 12.011
+MW_N: float = 14.007
+DIAGNOSTICS_LEAF: str = "diagnostics"
+# Enumerated once here so the store seed, the coupler's output schema and the
+# writer below cannot drift apart. ⚠ A leaf absent from the output schema is
+# SILENTLY DROPPED by the InPlaceDict port (the same trap documented for the
+# *_mM medium leaves), so adding a diagnostic means adding it HERE.
+DIAGNOSTIC_LEAVES: tuple[str, ...] = (
+    # ⭐ 1.0 == this tick's ledger is meaningful; 0.0 == it is NOT, and every
+    # residual/fraction leaf below is NaN. FILTER ON THIS. It exists because the
+    # residual previously emitted 0.0 for BOTH "balanced" and "no data" -- the
+    # same value meaning two opposite things, in the instrument built to catch
+    # exactly that class of defect.
+    "ledger_valid",
+    "carbon_residual", "nitrogen_residual",
+    "carbon_in_mM", "carbon_biomass_mM", "carbon_co2_mM", "carbon_byproducts_mM",
+    "nitrogen_in_mM", "nitrogen_biomass_mM",
+    # ⭐ The PARTITION, reported beside the residual because closure alone does
+    # not validate it. `[m@31Aug]` this model closes carbon to within a few
+    # percent while routing ~98% of glucose carbon into BIOMASS and ~1% to CO2;
+    # real aerobic growth sends 40-50% to CO2. A residual near zero on a
+    # physically impossible split is exactly the "passing gate that cannot see
+    # the failure" this diagnostic exists to avoid becoming.
+    "carbon_to_biomass_frac", "carbon_to_co2_frac", "carbon_to_byproducts_frac",
+)
 # reactor leaf (mmol/L) -> bare environment.exchange byproduct key.
 BYPRODUCT_LEAVES: dict[str, str] = {
     "acetate_mM":   "ACET",
@@ -152,6 +262,11 @@ class ReactorCellCoupler(Step):
         "reactor_volume_L": "float",
         "time_step":        "float",
         "track_medium":     "boolean",
+        # Elemental composition used by the closure ledger. Optional: a caller
+        # holding sim_data can pass a model-derived value rather than the
+        # literature default (see BIOMASS_*_FRACTION).
+        "biomass_c_fraction": "float",
+        "biomass_n_fraction": "float",
     }
     topology = {
         "population":  ("population",),
@@ -179,6 +294,24 @@ class ReactorCellCoupler(Step):
         # has never shown up in a run. Left as-is rather than changed here:
         # flipping it would alter behaviour for any direct caller relying on
         # today's effective default.
+        # ⚠⚠ FALSY-CHECK ON PURPOSE. `is None` looks more correct and IS WRONG
+        # here: config_schema declares these as `float`, and the framework FILLS
+        # a declared float key with **0.0** when the caller omits it (verified,
+        # not assumed -- the same fill documented for `track_medium` above).
+        # So `cfg.get(...)` never returns None for a declared key, `is None`
+        # never fires, and an omitted fraction would be taken as 0.0 --
+        # ZEROING the entire biomass side of the ledger silently in every
+        # default-constructed coupler.
+        # ⇒ 0.0 must mean "unset" here. The cost is that a caller cannot ask for
+        # a genuine 0.0, which is the right trade: a zero elemental mass
+        # fraction is unphysical, and silently honouring one would produce a
+        # ledger that reports perfect closure by construction.
+        # ⊕ `test_an_omitted_biomass_fraction_falls_back_to_the_constant` pins
+        # this, because the falsy check reads like a bug and invites "fixing".
+        self.biomass_c_fraction = float(
+            cfg.get("biomass_c_fraction") or BIOMASS_C_FRACTION)
+        self.biomass_n_fraction = float(
+            cfg.get("biomass_n_fraction") or BIOMASS_N_FRACTION)
         track = cfg.get("track_medium")
         self.track_medium = True if track is None else bool(track)
         # How many invocations fell back to the configured `cells_per_agent`
@@ -207,6 +340,34 @@ class ReactorCellCoupler(Step):
         # assumed zero would dump a whole generation's accumulation into one
         # tick. Costs one tick of exchange per new agent; a spike would be worse.
         self.first_observation_ticks: int = 0
+        # --- elemental ledger state (reactor.diagnostics.*) ------------------
+        # The medium pools are read on the FIRST tick and held: the coupler is
+        # not told the recipe, and re-reading them each tick would compare the
+        # pool against itself and the residual could never fail.
+        self._c_ledger_glc0: float | None = None
+        self._c_ledger_nh40: float | None = None
+        # Cell-produced CO2 (mmol/L), accumulated here rather than read back off
+        # `dissolved_co2`: that store is ALSO written by transport (stripping),
+        # so the dissolved value is production MINUS what has been stripped and
+        # is not the amount produced.
+        self._cum_co2_mM: float = 0.0
+        # Standing biomass at ledger start. The inoculum was NOT built from this
+        # reactor's carbon, so charging it against consumed glucose makes the
+        # residual scale with inoculum size (measured: a -15.2 residual at
+        # OD~1.1, entirely from counting the seed cells as product).
+        self._c_ledger_b0: float | None = None
+        # ⛔ F9. The byproduct term read the store's ABSOLUTE value while
+        # glucose, biomass and CO2 were all baselined at the latch, so anything
+        # already in the reactor at t=0 was counted as carbon the cells had
+        # produced. `[m@01Sep]` Formate is written once at tick 0 (0.007809 mM C)
+        # and never changes; at the first valid tick that was 78.6% of c_out, and
+        # at tick 299 it still moved the residual by 0.008 absolute = 40% of
+        # mbp-04's 0.02 band, always in the FLATTERING direction.
+        # ⚠ This was previously deferred as "masked by the first-observation
+        # rule". That was wrong: the tick-0 write lands on the coupler's SECOND
+        # invocation within tick 0, after the agent is observed. A claimed mask
+        # is a claim, not an observation -- check it before deferring on it.
+        self._c_ledger_byp0: float | None = None
 
     def inputs(self) -> dict[str, Any]:
         return {
@@ -260,6 +421,9 @@ class ReactorCellCoupler(Step):
             glc_medium = reactor.get(GLUCOSE_MEDIUM_LEAF)
             if glc_medium is not None:
                 env_concs[GLUCOSE_ID] = max(_as_float(glc_medium), 0.0)
+            nh4_medium = reactor.get(AMMONIUM_MEDIUM_LEAF)
+            if nh4_medium is not None:
+                env_concs[AMMONIUM_ID] = max(_as_float(nh4_medium), 0.0)
 
         # 3. Metabolic exchange demand -> additive dissolved-gas delta (mg/L).
         #
@@ -286,6 +450,7 @@ class ReactorCellCoupler(Step):
         co2_counts = 0.0  # molecules/step, signed (positive == secretion)
         # Medium glucose + byproduct counts (signed; negative == uptake).
         glc_counts = 0.0
+        nh4_counts = 0.0
         byproduct_counts = {leaf: 0.0 for leaf in BYPRODUCT_LEAVES}
         seen_agents: set[str] = set()
         for _agent_id, agent_state in agents.items():
@@ -337,6 +502,7 @@ class ReactorCellCoupler(Step):
             co2_counts += _tick_delta(CO2_EXCHANGE_KEY)
             if self.track_medium:
                 glc_counts += _tick_delta(GLUCOSE_EXCHANGE_KEY)
+                nh4_counts += _tick_delta(AMMONIUM_EXCHANGE_KEY)
                 for leaf, key in BYPRODUCT_LEAVES.items():
                     byproduct_counts[leaf] += _tick_delta(key)
             if new_agent:
@@ -417,9 +583,165 @@ class ReactorCellCoupler(Step):
                 if glc_delta < 0.0 and (glc_now + glc_delta) < 0.0:
                     glc_delta = -glc_now
                 reactor_out[GLUCOSE_MEDIUM_LEAF] = glc_delta
+                # Ammonium: same shape and the same clamp reasoning as glucose —
+                # an exhausted medium pool has nothing to restore it, so an
+                # unclamped draw would drive the concentration negative and the
+                # cell would be told it has less than nothing.
+                nh4_delta = nh4_counts * counts_to_mM
+                nh4_now = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF))
+                if nh4_delta < 0.0 and (nh4_now + nh4_delta) < 0.0:
+                    nh4_delta = -nh4_now
+                reactor_out[AMMONIUM_MEDIUM_LEAF] = nh4_delta
                 # Byproducts: secretion (positive) -> accumulate from 0.
                 for leaf in BYPRODUCT_LEAVES:
                     reactor_out[leaf] = byproduct_counts[leaf] * counts_to_mM
+
+                # --- elemental closure ------------------------------------------
+                # ⚖ CONVENTION, stated because it changes the number: both residuals
+                # are a RATIO OF CUMULATIVE TOTALS (sum of in, sum of out), not a
+                # mean of per-tick ratios. On comparable data those differ by ~25%,
+                # which is wider than the bands a card would grade against, so the
+                # convention is part of the result and is recorded with it.
+                self._cum_co2_mM += co2_counts * counts_to_mM
+                biomass_now = _as_float(population.get("biomass_concentration_gL"))
+                # ⚠ Defer the ENTIRE baseline until the population store is actually
+                # populated. The Step flow runs once at CYCLE START -- before the
+                # PopulationAggregator has written anything -- so the first
+                # invocation sees biomass_concentration_gL == 0.0. Latching the
+                # baseline there sets b0 = 0 and every subsequent tick charges the
+                # INOCULUM against consumed glucose: measured C_res -8.48 at t=500,
+                # with carbon_biomass_mM (16.3) an order of magnitude above
+                # carbon_in_mM (1.7). All three baselines are latched together so
+                # they refer to the same instant.
+                # Absolute byproduct carbon, computed BEFORE the latch so the
+                # latch can capture it as a baseline (F9).
+                c_byp_abs = sum(
+                    (_as_float(reactor.get(leaf)) + byproduct_counts[leaf] * counts_to_mM)
+                    * atoms
+                    for leaf, atoms in CARBON_ATOMS.items()
+                )
+                latched_this_tick = False
+                if self._c_ledger_glc0 is None and biomass_now > 0.0:
+                    self._c_ledger_glc0 = _as_float(reactor.get(GLUCOSE_MEDIUM_LEAF))
+                    self._c_ledger_nh40 = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF))
+                    self._c_ledger_b0 = biomass_now
+                    self._c_ledger_byp0 = c_byp_abs
+                    latched_this_tick = True
+                # Biomass FORMED in this reactor, read from the population store
+                # (reactor.biomass is the coupler's own passthrough and reads 0.0
+                # until the first write, so it cannot supply the baseline).
+                biomass_gL = biomass_now - (self._c_ledger_b0 or 0.0)
+
+                glc_now_after = _as_float(reactor.get(GLUCOSE_MEDIUM_LEAF)) + glc_delta
+                nh4_now_after = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF)) + nh4_delta
+
+                if self._c_ledger_glc0 is None:
+                    # Baseline not latched yet (pre-population tick): emit nothing
+                    # rather than a residual computed against a zero baseline.
+                    self._cum_co2_mM = 0.0
+                    glc_now_after = nh4_now_after = 0.0
+                c_in = ((self._c_ledger_glc0 or 0.0) - glc_now_after) * GLUCOSE_CARBON_ATOMS
+                c_biomass = biomass_gL * self.biomass_c_fraction / MW_C * 1000.0
+                # F9: byproduct carbon FORMED since the baseline, not the
+                # store's absolute content. Baselined like glucose, biomass and
+                # CO2 so all four terms refer to the same instant.
+                c_byproducts = c_byp_abs - (self._c_ledger_byp0 or 0.0)
+                c_out = c_biomass + self._cum_co2_mM + c_byproducts
+
+                n_in = (self._c_ledger_nh40 or 0.0) - nh4_now_after
+                n_out = biomass_gL * self.biomass_n_fraction / MW_N * 1000.0
+
+                # ⭐⭐ VALIDITY. Three ways a tick carries no meaningful ledger,
+                # and ALL of them previously emitted 0.0 -- indistinguishable
+                # from "perfectly balanced".
+                #   (a) baseline not latched (pre-population tick);
+                #   (a2) ⭐ THE LATCH TICK ITSELF. `b0 = biomass_now` and then
+                #       `biomass_gL = biomass_now - b0` == EXACTLY 0.0, every
+                #       run, by construction -- so the whole "out" side is zero
+                #       while `c_in` is a real uptake. `[m@01Sep]` t=0 emitted
+                #       carbon_residual = -1.929 (293% of carbon from nowhere)
+                #       and was marked VALID, because 0.0 >= 0.0 passes.
+                #       ⛔ It is a GUARANTEED-EVERY-RUN artifact that no run
+                #       length dilutes, so max_abs over the valid series
+                #       inherited it however long you ran. A/B on one window:
+                #       max_abs 1.929 admitting it vs 0.739 excluding it,
+                #       against mbp-04's 0.02 band.
+                #       ⚠ Fixed by naming the ACTUAL defect -- no interval has
+                #       elapsed since the baseline -- NOT by tightening the
+                #       biomass test to `> 0.0`, which would also discard
+                #       legitimate zero-growth steady-state ticks later in a
+                #       run, where no net biomass change alongside real glucose
+                #       consumption is meaningful data.;
+                #   (b) no glucose consumed yet since the baseline, so the
+                #       residual's DENOMINATOR is zero or negative;
+                #   (c) ⚠ biomass BELOW its own latched baseline. `[m@31Aug]` the
+                #       population store dips early -- 0.38062 -> 0.37981, ~11
+                #       ticks to recover -- so `biomass_gL` goes NEGATIVE and
+                #       carbon_biomass_mM with it (11 of 120 ticks; at t=12
+                #       bio=-0.175, byp=+1.175). The three fractions still summed
+                #       to 1.0 throughout, which is why the unit test passed: a
+                #       partition summing to 1 is not a partition being sane.
+                valid = (
+                    self._c_ledger_glc0 is not None
+                    and not latched_this_tick
+                    and c_in > 0.0
+                    and biomass_gL >= 0.0
+                )
+                # ⚖ CONVENTION, declared here because it changes the number a
+                # criterion computes: `c_in` is glucose consumed SINCE THE
+                # BASELINE LATCHED, not this tick's flux -- so each emitted
+                # residual is already a RATIO OF CUMULATIVE AGGREGATES. Reducing
+                # the series with `mean` therefore gives a mean-of-ratios over
+                # ratios-of-aggregates, which is NOT the endpoint residual and is
+                # not what "the balance closes" means. Grade the ENDPOINT (last
+                # valid tick), or max_abs over VALID ticks only.
+                _nan = math.nan
+                diagnostics = {
+                    "ledger_valid": 1.0 if valid else 0.0,
+                    # Fractional closure error; 0.0 == the ledger balances, NaN ==
+                    # this tick carries no ledger. Sign is (in - out)/in, so
+                    # POSITIVE means carbon went missing.
+                    "carbon_residual":   ((c_in - c_out) / c_in) if valid else _nan,
+                    "nitrogen_residual": ((n_in - n_out) / n_in) if (valid and n_in > 0) else _nan,
+                    # Components, so a failing residual says WHICH term is wrong
+                    # rather than only that something is. Emitted even when the
+                    # tick is invalid -- they are what diagnose WHY it is.
+                    "carbon_in_mM":        c_in,
+                    "carbon_biomass_mM":   c_biomass,
+                    "carbon_co2_mM":       self._cum_co2_mM,
+                    "carbon_byproducts_mM": c_byproducts,
+                    "nitrogen_in_mM":      n_in,
+                    "nitrogen_biomass_mM": n_out,
+                    # Fractions of carbon OUT. These are where a physiological
+                    # violation shows up; the residual above cannot see it.
+                    "carbon_to_biomass_frac":    (c_biomass / c_out) if (valid and c_out > 0) else _nan,
+                    "carbon_to_co2_frac":        (self._cum_co2_mM / c_out) if (valid and c_out > 0) else _nan,
+                    "carbon_to_byproducts_frac": (c_byproducts / c_out) if (valid and c_out > 0) else _nan,
+                }
+                # ⚠ The writer must emit EXACTLY the enumerated leaves. A leaf in
+                # the dict but not in DIAGNOSTIC_LEAVES is SILENTLY DROPPED by the
+                # InPlaceDict port; a leaf enumerated but not written keeps its
+                # stale value forever. The constant was introduced to stop that
+                # drift and then not actually used -- so assert it here rather
+                # than trusting two hand-maintained lists to agree.
+                # ⚠ SET equality, not tuple: only membership matters to the
+                # port, and an order-sensitive check made a semantically
+                # harmless reorder of two writer keys red 14 tests. It also
+                # raises inside next_update, so keep it cheap and correct --
+                # aborting a long simulation over key ORDER would be worse than
+                # the drift it guards against.
+                # HONEST NOTE: deleting this assertion leaves the suite green
+                # (measured) -- test_the_writer_emits_exactly_the_enumerated_
+                # leaves already covers the invariant, and the dict below is a
+                # literal with no conditional branch, so today this CANNOT fire.
+                # Kept as cheap insurance for the day that dict becomes
+                # conditional, NOT because it is currently load-bearing. Do not
+                # cite it as coverage.
+                assert set(diagnostics) == set(DIAGNOSTIC_LEAVES), (
+                    "ledger writer and DIAGNOSTIC_LEAVES disagree: "
+                    f"written={sorted(diagnostics)} "
+                    f"enumerated={sorted(DIAGNOSTIC_LEAVES)}")
+                reactor_out[DIAGNOSTICS_LEAF] = diagnostics
 
         if reactor_out:
             update["reactor"] = reactor_out

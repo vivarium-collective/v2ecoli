@@ -51,6 +51,14 @@ def parse_variant_params(variant_config: dict[str, Any]) -> list[dict[str, Any]]
         if ptype == "value":
             if not isinstance(pvals, list):
                 raise ValueError(f"{param_name!r} 'value' must be a list.")
+            if not pvals:
+                # An empty value list makes this parameter (and therefore the
+                # whole variant arm it belongs to) contribute zero combinations
+                # downstream — the arm silently vanishes from the sweep with no
+                # error (CD2 audit §3.5). Reject it here instead.
+                raise ValueError(
+                    f"variant param {param_name!r} has an empty 'value' list — "
+                    "this would silently drop the variant arm from the sweep.")
             parsed[param_name] = pvals
         elif ptype == "nested":
             raise NotImplementedError("nested variants are deferred (MVP).")
@@ -87,8 +95,19 @@ def parse_variant_params(variant_config: dict[str, Any]) -> list[dict[str, Any]]
     return [{targets[name]: val for name, val in d.items()} for d in dicts]
 
 
-def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
-    """Cross the variant grid with the seed range into a flat branch list."""
+def expand_branches(config: dict[str, Any], *,
+                    expected_count: int | None = None) -> list[BranchSpec]:
+    """Cross the variant grid with the seed range into a flat branch list.
+
+    Args:
+        config: sweep config (see module docstring).
+        expected_count: if the caller independently knows how many branches
+            this config should expand to (e.g. it computed the variant x seed
+            grid size itself), pass it here — a mismatch raises with a clear
+            message instead of the caller silently proceeding with the wrong
+            number of branches (CD2 audit §3.5). When omitted, the only check
+            is that expansion is non-zero.
+    """
     n_init_sims = int(config.get("n_init_sims", 1))
     lineage_seed = int(config.get("lineage_seed", 0))
     skip_baseline = bool(config.get("skip_baseline", False))
@@ -141,4 +160,18 @@ def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
                 metadata={"variant_name": vname, **{f"override:{k}": v
                                                     for k, v in overrides.items()}},
             ))
+
+    if not branches:
+        raise ValueError(
+            "expand_branches produced zero branches — every variant arm "
+            "would silently disappear from the sweep (CD2 audit §3.5). "
+            f"config had n_init_sims={n_init_sims}, skip_baseline={skip_baseline}, "
+            f"variant names={list(variants_block.keys())!r}.")
+    if expected_count is not None and len(branches) != expected_count:
+        raise ValueError(
+            f"expand_branches produced {len(branches)} branches but the caller "
+            f"expected {expected_count} — a variant arm or seed range was "
+            "silently dropped or duplicated. "
+            f"config had n_init_sims={n_init_sims}, skip_baseline={skip_baseline}, "
+            f"variant names={list(variants_block.keys())!r}.")
     return branches

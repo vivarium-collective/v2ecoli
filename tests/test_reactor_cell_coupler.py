@@ -31,6 +31,8 @@ from v2ecoli.steps.reactor_cell_coupler import (
     ReactorCellCoupler,
     AMMONIUM_MEDIUM_LEAF,
     BIOMASS_C_FRACTION,
+    BIOMASS_N_FRACTION,
+    DIAGNOSTIC_LEAVES,
     MW_C,
 )
 
@@ -328,6 +330,73 @@ def test_ledger_baseline_waits_for_a_populated_population_store(core):
         "biomass baseline must be the standing inoculum, not 0.0")
 
 
+def test_a_tick_with_no_ledger_emits_NaN_not_zero(core):
+    """0.0 must mean "balanced", never "no data".
+
+    ⚠ THE DEFECT THIS PINS: the residual was `((c_in-c_out)/c_in) if c_in > 0
+    else 0.0`, so a tick that carried NO ledger emitted the exact value that
+    means PERFECT CLOSURE. The three partition fractions did the same. An
+    instrument built to catch "a passing gate that cannot see the failure"
+    contained one.
+    """
+    import math
+    c = _ledger_coupler(core)
+    # First tick: baseline latches here, nothing consumed yet -> no ledger.
+    out = c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                            glc_total=0.0, nh4_total=0.0))
+    d = out["reactor"]["diagnostics"]
+    assert d["ledger_valid"] == 0.0, f"tick with nothing consumed must be invalid: {d}"
+    for leaf in ("carbon_residual", "nitrogen_residual", "carbon_to_biomass_frac",
+                 "carbon_to_co2_frac", "carbon_to_byproducts_frac"):
+        assert math.isnan(d[leaf]), (
+            f"{leaf} must be NaN on an invalid tick, got {d[leaf]!r} -- a real "
+            f"number here is indistinguishable from a balanced ledger")
+    # The COMPONENTS still come through: they are what diagnose why it is invalid.
+    assert d["carbon_in_mM"] == pytest.approx(0.0, abs=1e-12)
+
+
+def test_biomass_below_its_own_baseline_invalidates_the_tick(core):
+    """A negative biomass delta must not produce a confident partition.
+
+    ⚠ `[m@31Aug]` the population store DIPS below its latched baseline early
+    (0.38062 -> 0.37981, ~11 ticks to recover), driving carbon_biomass_mM
+    negative -- 11 of 120 ticks, at t=12 bio=-0.175 against byp=+1.175. Those
+    fractions summed to 1.0 the whole time, so a sum-only assertion passed on
+    a physically impossible split.
+    """
+    import math
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    # Consume glucose, but biomass DROPS below the latched 0.5 baseline.
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.49,
+        glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
+    d = out["reactor"]["diagnostics"]
+    assert d["carbon_biomass_mM"] < 0.0, (
+        "precondition: this tick must actually have negative biomass carbon, "
+        f"else the test is not exercising the defect: {d}")
+    assert d["ledger_valid"] == 0.0, (
+        f"a tick whose biomass is below its own baseline must be invalid: {d}")
+    assert math.isnan(d["carbon_residual"])
+    assert math.isnan(d["carbon_to_biomass_frac"])
+
+
+def test_the_writer_emits_exactly_the_enumerated_leaves(core):
+    """DIAGNOSTIC_LEAVES exists to stop drift; it has to actually be checked.
+
+    A leaf written but not enumerated is SILENTLY DROPPED by the InPlaceDict
+    port; a leaf enumerated but never written keeps a stale value forever.
+    The writer previously used literal string keys, so the constant introduced
+    to prevent that drift did not prevent it.
+    """
+    c = _ledger_coupler(core)
+    out = c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                            glc_total=0.0, nh4_total=0.0))
+    assert tuple(out["reactor"]["diagnostics"]) == DIAGNOSTIC_LEAVES
+
+
 def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
     """A hand-built tick whose carbon balances must give residual ~0.
 
@@ -341,14 +410,65 @@ def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
                                       glc_total=0.0, nh4_total=0.0))
     # Consume 1 mM glucose == 6 mM carbon; convert all of it to biomass.
     counts_per_mM = AVOGADRO / 1000.0 / 1.0e12          # counts per mM at cpa=1e12
-    d_biomass_gL = 6.0 * MW_C / 1000.0 / BIOMASS_C_FRACTION
+    # ⚠⚠ THIS LITERAL IS THE POINT OF THE TEST. An earlier version computed it as
+    # `6.0 * MW_C / 1000.0 / BIOMASS_C_FRACTION` -- i.e. it derived the expected
+    # biomass FROM the very constant the ledger uses, so both sides of the
+    # balance moved together and the residual closed for ANY value of that
+    # constant. Mutating BIOMASS_C_FRACTION survived it. A positive control that
+    # cannot detect a wrong constant is not a control.
+    # 6 mM C x 12.011 mg/mmol / 1000 = 0.0720660 gC/L; / 0.46 gC/gDW = 0.15666522.
+    d_biomass_gL = 0.15666521739130435
     out = c.next_update(1.0, _ledger_states(
         glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
         glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
     d = out["reactor"]["diagnostics"]
+    assert d["ledger_valid"] == 1.0, f"stoichiometric tick should be valid: {d}"
     assert d["carbon_in_mM"] == pytest.approx(6.0, rel=1e-6)
     assert d["carbon_residual"] == pytest.approx(0.0, abs=1e-6), (
         f"stoichiometric tick did not close: {d}")
+    # Pin the constant itself, independently of the balance above.
+    assert BIOMASS_C_FRACTION == pytest.approx(0.46, abs=1e-9), (
+        "BIOMASS_C_FRACTION moved; the literal above was derived from 0.46 and "
+        "must be recomputed, or the ledger is being graded against a constant "
+        "no test pins")
+
+
+def test_nitrogen_ledger_closes_on_a_stoichiometric_tick(core):
+    """The nitrogen twin of the carbon positive control, and it was MISSING.
+
+    ⚠⚠ WHY THIS EXISTS: mutating BIOMASS_N_FRACTION from 0.135 back to the old
+    0.12 passed the ENTIRE suite (measured 2026-09-01). Nothing anywhere pinned
+    the nitrogen constant -- the same vacuous-control defect the carbon test had,
+    sitting on the constant this PR CHANGES. A value nothing tests is a value
+    nobody can trust, least of all the person who just moved it.
+
+    Consume 1 mM ammonium == 1 mM N and convert exactly that much to biomass, so
+    in == out by construction and the nitrogen residual must vanish.
+    """
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    # ⚠ LITERAL ON PURPOSE -- deriving it from BIOMASS_N_FRACTION would move both
+    # sides of the balance together and could not detect a wrong constant.
+    # 1 mM N x 14.007 mg/mmol / 1000 = 0.014007 gN/L; / 0.135 gN/gDW = 0.10375556.
+    d_biomass_gL = 0.10375555555555555
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
+        # glucose is consumed only so the tick is VALID (validity requires
+        # c_in > 0); the carbon balance is deliberately not asserted here.
+        glc_total=-1.0 * counts_per_mM, nh4_total=-1.0 * counts_per_mM))
+    d = out["reactor"]["diagnostics"]
+    assert d["ledger_valid"] == 1.0, f"tick should be valid: {d}"
+    assert d["nitrogen_in_mM"] == pytest.approx(1.0, rel=1e-6)
+    assert d["nitrogen_residual"] == pytest.approx(0.0, abs=1e-6), (
+        f"stoichiometric nitrogen tick did not close: {d}")
+    # Pin the constant independently of the balance above.
+    assert BIOMASS_N_FRACTION == pytest.approx(0.135, abs=1e-9), (
+        "BIOMASS_N_FRACTION moved; the literal above was derived from 0.135 and "
+        "must be recomputed. sim_data implies ~0.135; the 0.12 this shipped with "
+        "is ~11% low, and the literature range 0.11-0.14 brackets both, which is "
+        "exactly why the error was invisible")
 
 
 def test_carbon_partition_is_reported_beside_the_residual(core):
@@ -378,6 +498,18 @@ def test_carbon_partition_is_reported_beside_the_residual(core):
              d["carbon_to_byproducts_frac"])
     assert sum(fracs) == pytest.approx(1.0, abs=1e-9), (
         f"carbon-out fractions must partition to 1.0, got {fracs}")
+    # ⚠⚠ SUMMING TO 1.0 IS THE WRONG INVARIANT ON ITS OWN, and asserting only it
+    # is how this test passed while the split was nonsense. `[m@31Aug]` on a real
+    # run, 11 of 120 ticks emitted a NEGATIVE carbon_to_biomass_frac against a
+    # >1 byproducts frac (t=12: bio=-0.175, byp=+1.175) -- summing to exactly
+    # 1.0 the whole time. Assert the VALUES and their RANGE, not the sum.
+    assert all(0.0 <= f <= 1.0 for f in fracs), (
+        f"a carbon-out fraction is outside [0,1] -- the partition is not "
+        f"physical even if it sums to 1.0: {fracs}")
+    assert d["carbon_to_biomass_frac"] == pytest.approx(4.0 / 6.0, rel=1e-6), (
+        f"4 of 6 mM C went to biomass; got {d['carbon_to_biomass_frac']}")
+    assert d["carbon_to_co2_frac"] == pytest.approx(2.0 / 6.0, rel=1e-6), (
+        f"2 of 6 mM C went to CO2; got {d['carbon_to_co2_frac']}")
     # POSITIVE CONTROL on the axis under test: CO2 must be a real share here.
     assert d["carbon_to_co2_frac"] == pytest.approx(2.0 / 6.0, rel=1e-6), (
         f"CO2 share should be 2 of 6 mM carbon out, got {d['carbon_to_co2_frac']}")

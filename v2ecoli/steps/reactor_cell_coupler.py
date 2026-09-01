@@ -87,6 +87,7 @@ related baseline together so they refer to the same instant.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from v2ecoli.steps.base import V2Step as Step
@@ -168,9 +169,22 @@ CARBON_ATOMS: dict[str, int] = {
 GLUCOSE_CARBON_ATOMS: int = 6
 # Elemental composition of E. coli dry mass. These are LITERATURE CONSTANTS, not
 # fitted: a residual computed against them tests the simulation, not the fit.
-# Carried in mbp-04's own biological_summary (~0.46 gC/gDW, ~0.12 gN/gDW).
-BIOMASS_C_FRACTION: float = 0.46   # gC / gDW
-BIOMASS_N_FRACTION: float = 0.12   # gN / gDW
+# ⚠ BOTH are overridable via config (`biomass_c_fraction` / `biomass_n_fraction`)
+# so a composite that holds sim_data can pass a MODEL-DERIVED value instead of a
+# literature one. The coupler is reactor-side and has no sim_data of its own.
+BIOMASS_C_FRACTION: float = 0.46    # gC / gDW
+# ⭐ 0.135, NOT the 0.12 this shipped with. `[m@31Aug]` sim_data's own biomass
+# composition implies ~0.135 gN/gDW (protein N from the expression-weighted AA
+# composition, combined with the mass_fractions for RNA/DNA/lipid/LPS/murein/
+# glycogen/soluble/ions). 0.12 is ~11% LOW, so the nitrogen residual computed
+# against it was measuring a biased constant more than it was measuring the
+# model. Literature range ~0.11-0.14 brackets both, which is exactly why the
+# error was invisible.
+# ⚠ CONSEQUENCE, stated because it changes published numbers: every nitrogen
+# figure taken against 0.12 shifts by ~11%. At 0.135 the M9 recipe ammonium pool
+# (30.272 mM) is ALREADY INSUFFICIENT at OD10 (needs ~32.8 mM), where at 0.12 it
+# looked like 96% of the pool and merely tight.
+BIOMASS_N_FRACTION: float = 0.135   # gN / gDW
 MW_C: float = 12.011
 MW_N: float = 14.007
 DIAGNOSTICS_LEAF: str = "diagnostics"
@@ -179,6 +193,12 @@ DIAGNOSTICS_LEAF: str = "diagnostics"
 # SILENTLY DROPPED by the InPlaceDict port (the same trap documented for the
 # *_mM medium leaves), so adding a diagnostic means adding it HERE.
 DIAGNOSTIC_LEAVES: tuple[str, ...] = (
+    # ⭐ 1.0 == this tick's ledger is meaningful; 0.0 == it is NOT, and every
+    # residual/fraction leaf below is NaN. FILTER ON THIS. It exists because the
+    # residual previously emitted 0.0 for BOTH "balanced" and "no data" -- the
+    # same value meaning two opposite things, in the instrument built to catch
+    # exactly that class of defect.
+    "ledger_valid",
     "carbon_residual", "nitrogen_residual",
     "carbon_in_mM", "carbon_biomass_mM", "carbon_co2_mM", "carbon_byproducts_mM",
     "nitrogen_in_mM", "nitrogen_biomass_mM",
@@ -216,6 +236,11 @@ class ReactorCellCoupler(Step):
         "reactor_volume_L": "float",
         "time_step":        "float",
         "track_medium":     "boolean",
+        # Elemental composition used by the closure ledger. Optional: a caller
+        # holding sim_data can pass a model-derived value rather than the
+        # literature default (see BIOMASS_*_FRACTION).
+        "biomass_c_fraction": "float",
+        "biomass_n_fraction": "float",
     }
     topology = {
         "population":  ("population",),
@@ -243,6 +268,10 @@ class ReactorCellCoupler(Step):
         # has never shown up in a run. Left as-is rather than changed here:
         # flipping it would alter behaviour for any direct caller relying on
         # today's effective default.
+        self.biomass_c_fraction = float(
+            cfg.get("biomass_c_fraction") or BIOMASS_C_FRACTION)
+        self.biomass_n_fraction = float(
+            cfg.get("biomass_n_fraction") or BIOMASS_N_FRACTION)
         track = cfg.get("track_medium")
         self.track_medium = True if track is None else bool(track)
         # How many invocations fell back to the configured `cells_per_agent`
@@ -550,7 +579,7 @@ class ReactorCellCoupler(Step):
                     self._cum_co2_mM = 0.0
                     glc_now_after = nh4_now_after = 0.0
                 c_in = ((self._c_ledger_glc0 or 0.0) - glc_now_after) * GLUCOSE_CARBON_ATOMS
-                c_biomass = biomass_gL * BIOMASS_C_FRACTION / MW_C * 1000.0
+                c_biomass = biomass_gL * self.biomass_c_fraction / MW_C * 1000.0
                 c_byproducts = sum(
                     (_as_float(reactor.get(leaf)) + byproduct_counts[leaf] * counts_to_mM)
                     * atoms
@@ -559,15 +588,45 @@ class ReactorCellCoupler(Step):
                 c_out = c_biomass + self._cum_co2_mM + c_byproducts
 
                 n_in = (self._c_ledger_nh40 or 0.0) - nh4_now_after
-                n_out = biomass_gL * BIOMASS_N_FRACTION / MW_N * 1000.0
+                n_out = biomass_gL * self.biomass_n_fraction / MW_N * 1000.0
 
+                # ⭐⭐ VALIDITY. Three ways a tick carries no meaningful ledger,
+                # and ALL of them previously emitted 0.0 -- indistinguishable
+                # from "perfectly balanced".
+                #   (a) baseline not latched (pre-population tick);
+                #   (b) no glucose consumed yet since the baseline, so the
+                #       residual's DENOMINATOR is zero or negative;
+                #   (c) ⚠ biomass BELOW its own latched baseline. `[m@31Aug]` the
+                #       population store dips early -- 0.38062 -> 0.37981, ~11
+                #       ticks to recover -- so `biomass_gL` goes NEGATIVE and
+                #       carbon_biomass_mM with it (11 of 120 ticks; at t=12
+                #       bio=-0.175, byp=+1.175). The three fractions still summed
+                #       to 1.0 throughout, which is why the unit test passed: a
+                #       partition summing to 1 is not a partition being sane.
+                valid = (
+                    self._c_ledger_glc0 is not None
+                    and c_in > 0.0
+                    and biomass_gL >= 0.0
+                )
+                # ⚖ CONVENTION, declared here because it changes the number a
+                # criterion computes: `c_in` is glucose consumed SINCE THE
+                # BASELINE LATCHED, not this tick's flux -- so each emitted
+                # residual is already a RATIO OF CUMULATIVE AGGREGATES. Reducing
+                # the series with `mean` therefore gives a mean-of-ratios over
+                # ratios-of-aggregates, which is NOT the endpoint residual and is
+                # not what "the balance closes" means. Grade the ENDPOINT (last
+                # valid tick), or max_abs over VALID ticks only.
+                _nan = math.nan
                 diagnostics = {
-                    # Fractional closure error; 0.0 == the ledger balances. Sign is
-                    # (in - out)/in, so POSITIVE means carbon went missing.
-                    "carbon_residual":   ((c_in - c_out) / c_in) if c_in > 0 else 0.0,
-                    "nitrogen_residual": ((n_in - n_out) / n_in) if n_in > 0 else 0.0,
+                    "ledger_valid": 1.0 if valid else 0.0,
+                    # Fractional closure error; 0.0 == the ledger balances, NaN ==
+                    # this tick carries no ledger. Sign is (in - out)/in, so
+                    # POSITIVE means carbon went missing.
+                    "carbon_residual":   ((c_in - c_out) / c_in) if valid else _nan,
+                    "nitrogen_residual": ((n_in - n_out) / n_in) if (valid and n_in > 0) else _nan,
                     # Components, so a failing residual says WHICH term is wrong
-                    # rather than only that something is.
+                    # rather than only that something is. Emitted even when the
+                    # tick is invalid -- they are what diagnose WHY it is.
                     "carbon_in_mM":        c_in,
                     "carbon_biomass_mM":   c_biomass,
                     "carbon_co2_mM":       self._cum_co2_mM,
@@ -576,10 +635,19 @@ class ReactorCellCoupler(Step):
                     "nitrogen_biomass_mM": n_out,
                     # Fractions of carbon OUT. These are where a physiological
                     # violation shows up; the residual above cannot see it.
-                    "carbon_to_biomass_frac":    (c_biomass / c_out) if c_out > 0 else 0.0,
-                    "carbon_to_co2_frac":        (self._cum_co2_mM / c_out) if c_out > 0 else 0.0,
-                    "carbon_to_byproducts_frac": (c_byproducts / c_out) if c_out > 0 else 0.0,
+                    "carbon_to_biomass_frac":    (c_biomass / c_out) if (valid and c_out > 0) else _nan,
+                    "carbon_to_co2_frac":        (self._cum_co2_mM / c_out) if (valid and c_out > 0) else _nan,
+                    "carbon_to_byproducts_frac": (c_byproducts / c_out) if (valid and c_out > 0) else _nan,
                 }
+                # ⚠ The writer must emit EXACTLY the enumerated leaves. A leaf in
+                # the dict but not in DIAGNOSTIC_LEAVES is SILENTLY DROPPED by the
+                # InPlaceDict port; a leaf enumerated but not written keeps its
+                # stale value forever. The constant was introduced to stop that
+                # drift and then not actually used -- so assert it here rather
+                # than trusting two hand-maintained lists to agree.
+                assert tuple(diagnostics) == DIAGNOSTIC_LEAVES, (
+                    "ledger writer and DIAGNOSTIC_LEAVES disagree: "
+                    f"written={tuple(diagnostics)} enumerated={DIAGNOSTIC_LEAVES}")
                 reactor_out[DIAGNOSTICS_LEAF] = diagnostics
 
         if reactor_out:

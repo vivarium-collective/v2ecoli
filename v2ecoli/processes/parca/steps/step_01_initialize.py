@@ -36,10 +36,19 @@ Outputs:
 """
 
 import time
-import warnings
 from pathlib import Path
 
 from process_bigraph import Step
+
+
+class GenotypeMismatchError(RuntimeError):
+    """The ParCa step's declared genotype disagrees with the injected raw_data.
+
+    P1-6: this used to only ``warnings.warn`` — the fit then proceeded against
+    the injected raw_data and produced sim_data attributed to a genotype it was
+    not built from, the exact silent provenance failure the check exists to
+    stop. It is now fatal.
+    """
 
 from v2ecoli.processes.parca.reconstruction.ecoli.simulation_data import SimulationDataEcoli
 from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import KnowledgeBaseEcoli
@@ -228,11 +237,13 @@ class InitializeStep(Step):
     }
 
     def _check_declared_genotype(self):
-        """Warn when the declared bundle disagrees with the injected raw_data.
+        """Raise when the declared bundle disagrees with the injected raw_data.
 
         Silent divergence here is the expensive failure: the fit succeeds and
         the resulting sim_data is attributed to a genotype it was not built
         from, which is exactly the provenance claim downstream studies rest on.
+        P1-6: this is fatal (``GenotypeMismatchError``), not a warning — a fit
+        that would mislabel its own genome must not run.
         """
         raw_data = self.config.get('raw_data')
 
@@ -245,13 +256,13 @@ class InitializeStep(Step):
         declared_genes = self.config.get('new_genes', '') or 'off'
         actual_genes = getattr(raw_data, 'new_genes_option', None)
         if actual_genes is not None and declared_genes != actual_genes:
-            warnings.warn(
+            raise GenotypeMismatchError(
                 "ParCa genotype mismatch: step config declares new_genes "
                 f"{declared_genes!r} but raw_data was built with "
-                f"{actual_genes!r}. The fit proceeds against the INJECTED "
-                "raw_data, so the resulting sim_data has the latter genome "
-                "while its recorded config claims the former.",
-                stacklevel=2,
+                f"{actual_genes!r}. Refusing to fit: the resulting sim_data "
+                "would have the injected genome while its recorded config "
+                "claims the declared one. Fix the declared new_genes or inject "
+                "the matching raw_data."
             )
 
         declared = self.config.get('bundle_manifest', '')
@@ -262,12 +273,12 @@ class InitializeStep(Step):
         if actual is None:
             return
         if Path(declared).resolve() != Path(actual).resolve():
-            warnings.warn(
+            raise GenotypeMismatchError(
                 "ParCa genotype mismatch: step config declares bundle "
                 f"manifest {declared!r} but raw_data was built from "
-                f"{str(actual)!r}. The fit will proceed against the injected "
-                "raw_data; the declared manifest is provenance only.",
-                stacklevel=2,
+                f"{str(actual)!r}. Refusing to fit: the declared manifest and "
+                "the injected raw_data name different genotypes. Fix the "
+                "declared bundle_manifest or inject the matching raw_data."
             )
 
     def inputs(self):

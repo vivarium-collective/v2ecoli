@@ -99,3 +99,55 @@ def test_zip_length_mismatch_raises():
 
 def test_empty_variant_block_returns_empty():
     assert parse_variant_params({}) == []
+
+
+# --- P1-9: expand_branches must fail loudly instead of silently dropping ----
+# --- a variant arm or truncating the expected panel (CD2 audit §3.5) -------
+
+def test_empty_value_list_raises_instead_of_dropping_arm():
+    """A variant param with an empty 'value' list must raise, not silently
+    make its arm disappear from the sweep."""
+    with pytest.raises(ValueError, match="empty"):
+        parse_variant_params({"kcat": {"target": "ecoli-metabolism.kcat",
+                                        "value": []}})
+
+
+def test_expand_branches_with_empty_variant_value_raises():
+    config = {
+        "n_init_sims": 1,
+        "skip_baseline": True,
+        "variants": {"kcat": {"target": "p.k", "value": []}},
+    }
+    with pytest.raises(ValueError, match="empty"):
+        expand_branches(config)
+
+
+def test_expand_branches_zero_expansion_raises():
+    """skip_baseline=True with no variants means zero branches — must raise
+    rather than silently returning an empty (useless) sweep."""
+    config = {"n_init_sims": 1, "skip_baseline": True, "variants": {}}
+    with pytest.raises(ValueError, match="zero branches"):
+        expand_branches(config)
+
+
+def test_expand_branches_expected_count_mismatch_raises():
+    config = {
+        "n_init_sims": 2,
+        "lineage_seed": 0,
+        "variants": {"kcat": {"target": "ecoli-metabolism.kcat", "value": [1, 2]}},
+        "skip_baseline": True,
+    }
+    # actual expansion is 4 (2 variant values x 2 seeds); assert a mismatch.
+    with pytest.raises(ValueError, match="expected"):
+        expand_branches(config, expected_count=5)
+
+
+def test_expand_branches_expected_count_match_passes():
+    config = {
+        "n_init_sims": 2,
+        "lineage_seed": 0,
+        "variants": {"kcat": {"target": "ecoli-metabolism.kcat", "value": [1, 2]}},
+        "skip_baseline": True,
+    }
+    branches = expand_branches(config, expected_count=4)
+    assert len(branches) == 4

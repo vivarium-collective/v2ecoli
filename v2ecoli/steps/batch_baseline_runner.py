@@ -174,6 +174,16 @@ def build_workflow_config(
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    injected_processes: "dict | None" = None,
+    features: "list | None" = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    exchange_fluxes: "dict | None" = None,
+    exchange_flux_basis: str = "",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
     initial_carry_state_path: str = "",
     initial_generation_index: int = 0,
     daughter_state_out_path: str = "",
@@ -225,6 +235,32 @@ def build_workflow_config(
         # variant grid) — how batch_baseline's `knockouts` knocks a gene out
         # across all seeds without forking a comparison arm.
         config["base_config_overrides"] = dict(base_config_overrides)
+    # Per-cell biological build kwargs -> every generation's baseline() build via
+    # meta_composite._lineage_node -> LineageProcess. WITHOUT threading these an
+    # injected batch (metabolism-redux / violacein swap, feature toggles,
+    # exchange-flux readouts, PDMP initiation modes) silently degrades to a basal
+    # single-cell build per generation (pipeline audit). Non-empty/non-default
+    # only, so a plain baseline batch keeps a minimal config.
+    if injected_processes:
+        config["injected_processes"] = dict(injected_processes)
+    if features:
+        config["features"] = list(features)
+    if not ppgpp_regulation:  # default True; only record a deviation
+        config["ppgpp_regulation"] = False
+    if trna_attenuation:
+        config["trna_attenuation"] = True
+    if supercoiling:
+        config["supercoiling"] = True
+    if mass_conservation:
+        config["mass_conservation"] = True
+    if exchange_fluxes:
+        config["exchange_fluxes"] = dict(exchange_fluxes)
+    if exchange_flux_basis:
+        config["exchange_flux_basis"] = exchange_flux_basis
+    if transcript_initiation_mode and transcript_initiation_mode != "discrete":
+        config["transcript_initiation_mode"] = transcript_initiation_mode
+    if polypeptide_initiation_mode and polypeptide_initiation_mode != "discrete":
+        config["polypeptide_initiation_mode"] = polypeptide_initiation_mode
     if initial_carry_state_path:
         # Per-generation checkpoint/resume (backlog item 34): a wave
         # orchestrator's own resume hand-off. initial_generation_index is only
@@ -327,6 +363,16 @@ def dispatch_batch(
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    injected_processes: "dict | None" = None,
+    features: "list | None" = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    exchange_fluxes: "dict | None" = None,
+    exchange_flux_basis: str = "",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
     initial_carry_state_path: str = "",
     initial_generation_index: int = 0,
     daughter_state_out_path: str = "",
@@ -349,6 +395,12 @@ def dispatch_batch(
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
         variants=variants, analyses=analyses, study=study,
         base_config_overrides=base_config_overrides, media=media,
+        injected_processes=injected_processes, features=features,
+        ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
+        supercoiling=supercoiling, mass_conservation=mass_conservation,
+        exchange_fluxes=exchange_fluxes, exchange_flux_basis=exchange_flux_basis,
+        transcript_initiation_mode=transcript_initiation_mode,
+        polypeptide_initiation_mode=polypeptide_initiation_mode,
         initial_carry_state_path=initial_carry_state_path,
         initial_generation_index=initial_generation_index,
         daughter_state_out_path=daughter_state_out_path)
@@ -419,6 +471,21 @@ class BatchBaselineRunner(Step):
         "base_config_overrides": {"_default": {}},
         # Panel-wide media condition, threaded to every per-seed baseline() build.
         "media": {"_default": "minimal"},
+        # Per-cell biological build kwargs, threaded panel-wide to every
+        # generation's baseline() build (audit: batch mode used to drop these,
+        # degrading an injected metabolism-redux/violacein batch to basal FBA).
+        # Untyped-with-default for the maps/lists (arbitrary content) and typed
+        # for the scalar toggles/modes.
+        "injected_processes": {"_default": {}},
+        "features": {"_default": []},
+        "ppgpp_regulation": {"_type": "boolean", "_default": True},
+        "trna_attenuation": {"_type": "boolean", "_default": False},
+        "supercoiling": {"_type": "boolean", "_default": False},
+        "mass_conservation": {"_type": "boolean", "_default": False},
+        "exchange_fluxes": {"_default": {}},
+        "exchange_flux_basis": {"_type": "string", "_default": ""},
+        "transcript_initiation_mode": {"_type": "string", "_default": "discrete"},
+        "polypeptide_initiation_mode": {"_type": "string", "_default": "discrete"},
         # Per-generation checkpoint/resume (backlog item 34): a wave
         # orchestrator's own per-seed-per-generation override keys, threaded
         # unrenamed to meta_composite.py's per-branch LineageProcess config.
@@ -453,6 +520,20 @@ class BatchBaselineRunner(Step):
         self.study = cfg.get("study") or ""
         self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
         self.media = cfg.get("media") or "minimal"
+        # Per-cell biological build kwargs (audit fix — see config_schema).
+        self.injected_processes = dict(cfg.get("injected_processes") or {})
+        self.features = list(cfg.get("features") or [])
+        pg = cfg.get("ppgpp_regulation")
+        self.ppgpp_regulation = True if pg is None else bool(pg)
+        self.trna_attenuation = bool(cfg.get("trna_attenuation") or False)
+        self.supercoiling = bool(cfg.get("supercoiling") or False)
+        self.mass_conservation = bool(cfg.get("mass_conservation") or False)
+        self.exchange_fluxes = dict(cfg.get("exchange_fluxes") or {})
+        self.exchange_flux_basis = cfg.get("exchange_flux_basis") or ""
+        self.transcript_initiation_mode = (
+            cfg.get("transcript_initiation_mode") or "discrete")
+        self.polypeptide_initiation_mode = (
+            cfg.get("polypeptide_initiation_mode") or "discrete")
         self.initial_carry_state_path = cfg.get("initial_carry_state_path") or ""
         self.initial_generation_index = int(cfg.get("initial_generation_index") or 0)
         self.daughter_state_out_path = cfg.get("daughter_state_out_path") or ""
@@ -518,6 +599,16 @@ class BatchBaselineRunner(Step):
             study=self.study,
             base_config_overrides=self.base_config_overrides,
             media=self.media,
+            injected_processes=self.injected_processes,
+            features=self.features,
+            ppgpp_regulation=self.ppgpp_regulation,
+            trna_attenuation=self.trna_attenuation,
+            supercoiling=self.supercoiling,
+            mass_conservation=self.mass_conservation,
+            exchange_fluxes=self.exchange_fluxes,
+            exchange_flux_basis=self.exchange_flux_basis,
+            transcript_initiation_mode=self.transcript_initiation_mode,
+            polypeptide_initiation_mode=self.polypeptide_initiation_mode,
             initial_carry_state_path=self.initial_carry_state_path,
             initial_generation_index=self.initial_generation_index,
             daughter_state_out_path=self.daughter_state_out_path,

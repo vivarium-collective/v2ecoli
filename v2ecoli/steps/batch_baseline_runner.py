@@ -170,6 +170,7 @@ def build_workflow_config(
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
     variants: "dict | None" = None,
+    variant: int = 0,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
@@ -218,6 +219,12 @@ def build_workflow_config(
         "emitter": emitter or DEFAULT_EMITTER,
         "parallel": parallel or None,
         "variants": dict(variants or {}),
+        # Base offset applied to every branch's variant_index by expand_branches
+        # (mirrors lineage_seed offsetting seed) — baseline()'s `variant` kwarg
+        # threaded through so a batch dispatch partitions its emitter output at
+        # the caller's requested variant index instead of always starting at 0
+        # (P0-10 batch-mode coverage fix).
+        "variant": int(variant),
         "analysis_options": build_analysis_options(
             analyses, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, variants=variants),
@@ -359,6 +366,7 @@ def dispatch_batch(
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
     variants: "dict | None" = None,
+    variant: int = 0,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
@@ -393,7 +401,7 @@ def dispatch_batch(
         single_daughters=single_daughters, time_step=time_step,
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
-        variants=variants, analyses=analyses, study=study,
+        variants=variants, variant=variant, analyses=analyses, study=study,
         base_config_overrides=base_config_overrides, media=media,
         injected_processes=injected_processes, features=features,
         ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
@@ -459,6 +467,11 @@ class BatchBaselineRunner(Step):
         "emitter": "string",          # "both" (default) | "parquet" | "xarray"
         "parallel": "string",         # "ray" (default) | "" for sequential
         "variants": "map",
+        # Base offset for every branch's variant_index (mirrors base_seed's
+        # offset of seed) — baseline()'s `variant` kwarg threaded through so a
+        # batch dispatch partitions its emitter output starting at the caller's
+        # requested variant index rather than always 0 (P0-10 batch coverage fix).
+        "variant": "integer",
         # Untyped-with-default (the config_overrides pattern): the value is
         # either a string choice or a {scale: {name: params}} mapping, which no
         # single bigraph-schema type covers.
@@ -515,6 +528,7 @@ class BatchBaselineRunner(Step):
         self.experiment_id = cfg.get("experiment_id") or DEFAULT_EXPERIMENT_ID
         self.emitter = cfg.get("emitter") or DEFAULT_EMITTER
         self.variants = dict(cfg.get("variants") or {})
+        self.variant = int(cfg.get("variant") or 0)
         analyses = cfg.get("analyses")
         self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
         self.study = cfg.get("study") or ""
@@ -595,6 +609,7 @@ class BatchBaselineRunner(Step):
             emitter=self.emitter,
             parallel=self.parallel,
             variants=self.variants,
+            variant=self.variant,
             analyses=self.analyses,
             study=self.study,
             base_config_overrides=self.base_config_overrides,

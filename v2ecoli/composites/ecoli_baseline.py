@@ -968,6 +968,7 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    variant: int = 0,
     injected_processes: dict | None = None,
     features: list | None = None,
     ppgpp_regulation: bool = True,
@@ -1039,6 +1040,14 @@ def _build_batch_document(
         "time_step": float(time_step),
         "max_duration": float(max_duration),
         "variants": dict(variants or {}),
+        # Base offset for every branch's variant_index (mirrors `seed` above
+        # offsetting each seed) — threaded through runner_config ->
+        # build_workflow_config -> expand_branches -> _lineage_node so a batch
+        # dispatch partitions its emitter output starting at the caller's
+        # requested variant index instead of always colliding on variant=0
+        # (P0-10 batch-mode coverage fix; same threading pattern as
+        # injected_processes below).
+        "variant": int(variant),
         "cache_dir": cache_dir,
         "out_dir": out_dir,
         "experiment_id": experiment_id,
@@ -1455,8 +1464,8 @@ _BATCH_FORWARDED_PARAMETERS = frozenset({
     "n_seeds", "n_generations", "stop_at_division",
     # Threaded into the batch document / runner config -> workflow config.
     "seed", "cache_dir", "config_overrides", "knockouts", "media",
-    "single_daughters", "time_step", "max_duration", "variants", "out_dir",
-    "experiment_id", "analyses", "study", "parallel", "emitter",
+    "single_daughters", "time_step", "max_duration", "variants", "variant",
+    "out_dir", "experiment_id", "analyses", "study", "parallel", "emitter",
     "initial_carry_state_path", "initial_generation_index",
     "daughter_state_out_path",
     # Per-cell biological build kwargs threaded so every generation cell is built
@@ -1740,7 +1749,7 @@ def baseline(
             single_daughters=single_daughters, time_step=time_step,
             max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
-            study=study, parallel=parallel, variants=variants,
+            study=study, parallel=parallel, variants=variants, variant=variant,
             knockouts=knockouts, config_overrides=config_overrides, media=media,
             injected_processes=injected_processes, features=features,
             ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,

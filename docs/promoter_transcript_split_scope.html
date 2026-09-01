@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Promoter / transcript split — design scope</title>
+<style>
+  :root{
+    --bg:#fbfbfa; --panel:#fff; --ink:#1b1b1a; --muted:#6b6b66;
+    --rule:#e3e2dd; --accent:#7a4b17; --accent-soft:#f3ede4;
+    --bad:#8c2f22; --bad-soft:#f8ebe8; --good:#2c5f4a; --good-soft:#e8f1ec;
+    --warn:#8a6a12; --warn-soft:#faf3e0;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --bg:#15161a; --panel:#1c1e23; --ink:#e8e6e1; --muted:#9a978f;
+      --rule:#2f3239; --accent:#d2a15f; --accent-soft:#2a241b;
+      --bad:#e8897a; --bad-soft:#2e1f1c; --good:#7fc0a3; --good-soft:#1a2621;
+      --warn:#d8b45c; --warn-soft:#2a2417;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#15161a; --panel:#1c1e23; --ink:#e8e6e1; --muted:#9a978f;
+    --rule:#2f3239; --accent:#d2a15f; --accent-soft:#2a241b;
+    --bad:#e8897a; --bad-soft:#2e1f1c; --good:#7fc0a3; --good-soft:#1a2621;
+    --warn:#d8b45c; --warn-soft:#2a2417;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.62 ui-serif,Georgia,"Iowan Old Style",serif;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:60rem;margin:0 auto;padding:2.4rem 1.25rem 5rem}
+  h1{font-size:1.95rem;line-height:1.2;margin:.2rem 0 .35rem;letter-spacing:-.015em}
+  h2{font-size:1.28rem;margin:2.9rem 0 .5rem;padding-top:1.1rem;
+     border-top:1px solid var(--rule);letter-spacing:-.01em}
+  h3{font-size:1.02rem;margin:1.7rem 0 .35rem;color:var(--accent);
+     font-family:ui-sans-serif,system-ui,sans-serif;letter-spacing:.01em}
+  p,li{color:var(--ink)}
+  .lede{font-size:1.08rem;color:var(--muted);margin:.1rem 0 1.4rem}
+  code,kbd{font-family:var(--mono);font-size:.855em;
+    background:var(--accent-soft);padding:.1em .34em;border-radius:3px}
+  pre{background:var(--panel);border:1px solid var(--rule);border-radius:8px;
+    padding:.95rem 1.1rem;overflow-x:auto;font-family:var(--mono);
+    font-size:.83rem;line-height:1.5}
+  pre code{background:none;padding:0}
+  table{border-collapse:collapse;width:100%;font-size:.87rem;
+    font-family:ui-sans-serif,system-ui,sans-serif;margin:.7rem 0 .3rem}
+  th,td{text-align:left;padding:.44rem .6rem;border-bottom:1px solid var(--rule);
+    vertical-align:top}
+  th{font-weight:600;color:var(--muted);font-size:.76rem;
+    text-transform:uppercase;letter-spacing:.055em}
+  td.num{text-align:right;font-family:var(--mono)}
+  .scroll{overflow-x:auto;margin:.7rem 0 .3rem}
+  .scroll table{margin:0}
+  .banner{background:var(--panel);border:1px solid var(--rule);border-radius:10px;
+    padding:.85rem 1.05rem;font-family:ui-sans-serif,system-ui,sans-serif;
+    font-size:.78rem;color:var(--muted);margin:0 0 2rem}
+  .banner dl{display:grid;grid-template-columns:auto 1fr;gap:.2rem .9rem;margin:0}
+  .banner dt{color:var(--muted);white-space:nowrap}
+  .banner dd{margin:0;font-family:var(--mono);color:var(--ink);
+    overflow-wrap:anywhere}
+  .banner a{color:var(--accent)}
+  .pill{display:inline-block;font-family:ui-sans-serif,system-ui,sans-serif;
+    font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    padding:.13rem .46rem;border-radius:20px;vertical-align:middle}
+  .pill.dirty{background:var(--bad-soft);color:var(--bad)}
+  .pill.keep{background:var(--good-soft);color:var(--good)}
+  .pill.change{background:var(--warn-soft);color:var(--warn)}
+  .pill.del{background:var(--bad-soft);color:var(--bad)}
+  .callout{border-left:3px solid var(--accent);background:var(--panel);
+    padding:.8rem 1.05rem;margin:1.1rem 0;border-radius:0 8px 8px 0}
+  .callout.warn{border-left-color:var(--warn)}
+  .callout p{margin:.35rem 0}
+  .callout p:first-child{margin-top:0}
+  .callout p:last-child{margin-bottom:0}
+  figure{margin:1.3rem 0}
+  figcaption{font-family:ui-sans-serif,system-ui,sans-serif;font-size:.78rem;
+    color:var(--muted);margin-top:.5rem}
+  .bad{color:var(--bad);font-weight:600}
+  .good{color:var(--good);font-weight:600}
+  ul{padding-left:1.15rem}
+  li{margin:.28rem 0}
+  .footnote{color:var(--muted);font-size:.86rem}
+  svg{max-width:100%;height:auto;display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Separating promoters from transcripts</h1>
+<p class="lede">A design scope for decoupling the promoter — initiation site, TF
+binding, TSS — from the transcript — RNA species, abundance, decay, length, mass.
+Today they are one object, the transcription unit, and <code>rna_data</code> is
+keyed by TU id.</p>
+
+<div class="banner">
+  <dl>
+    <dt>Generated</dt><dd>2026-08-31T15:50:19Z</dd>
+    <dt>Commit</dt><dd><a href="https://github.com/vivarium-collective/v2ecoli/commit/8780bbf437702ee592fdebd64d064cdb9ad6d13c">8780bbf4</a>
+      <span style="color:var(--muted)">(8780bbf437702ee592fdebd64d064cdb9ad6d13c)</span></dd>
+    <dt>Branch</dt><dd>plasmids <span class="pill dirty">dirty tree</span></dd>
+    <dt>Last commit</dt><dd>docs(reports): track TU-dedup investigation reports + figures<br>
+      <span style="color:var(--muted)">RashmiKaldera · 2026-08-28T15:04:50-04:00</span></dd>
+    <dt>Source</dt><dd>hand-authored; measurements from
+      <code>out/sim_data_phaseA_full_{before,after}</code> and
+      <code>models/parca/parca_state.pkl.gz</code></dd>
+    <dt>Host</dt><dd>LT-0923651 · macOS 26.4.1 · Python 3.12.12</dd>
+  </dl>
+</div>
+
+<h2>1 · Why</h2>
+
+<h3>The identifiability argument</h3>
+<p>The data ParCa fits has a fixed resolution structure.</p>
+<div class="scroll"><table>
+<thead><tr><th>Quantity</th><th>Source</th><th>Resolution</th></tr></thead>
+<tbody>
+<tr><td>Initiation</td><td>Thomason 2015 dRNA-seq TSS step heights</td><td><strong>Per promoter</strong></td></tr>
+<tr><td>Abundance</td><td>RSEM RNA-seq TPM</td><td>Per gene</td></tr>
+<tr><td>Decay</td><td><code>rna_half_lives</code> / cistron half-life tables</td><td>Per gene / transcript</td></tr>
+</tbody></table></div>
+
+<p>Only initiation is promoter-resolved. Modelling <em>N</em> transcript species
+per operon therefore creates state variables that <strong>no measurement can
+constrain</strong>, and ParCa is forced to invent them.</p>
+
+<p>That is not hypothetical. Measured on the shipped fixture, every TU the dedup
+exemption resurrects receives a fallback:</p>
+
+<div class="scroll"><table>
+<thead><tr><th>Group</th><th class="num">Kept TU deg_rate</th><th class="num">Resurrected TUs</th><th class="num">Fallback half-life</th></tr></thead>
+<tbody>
+<tr><td>rpsU-dnaG-rpoD</td><td class="num">0.00723 <span class="footnote">(1.6 min)</span></td><td class="num">0.00013</td><td class="num bad">88.9 min</td></tr>
+<tr><td>serA</td><td class="num">0.00624</td><td class="num">0.00013</td><td class="num bad">88.9 min</td></tr>
+<tr><td>gltX</td><td class="num">0.00678</td><td class="num">0.00013</td><td class="num bad">88.9 min</td></tr>
+<tr><td>leuLABCD</td><td class="num">0.00484</td><td class="num">0.00013</td><td class="num bad">88.9 min</td></tr>
+</tbody></table></div>
+
+<p><code>Km_endoRNase</code> inherits the same corruption — kept ~5e-05, resurrected
+2.5616e-03, a 50× weaker affinity. The cause is the NNLS at
+<code>transcription.py:810</code>, degenerate for TUs of identical cistron
+composition, which pins the unsolvable ones at <code>min_deg_rates</code>: the
+global minimum mRNA rate.</p>
+
+<h3>The circularity in the current workaround</h3>
+<div class="callout">
+<p><code>per_promoter_ratios.tsv</code> uses TSS <strong>step heights</strong> —
+initiation data — to apportion <strong>abundance</strong> across TU species. That
+substitution is valid only if the variants decay identically. But the group's TUs
+also share an exact 3′ end, so if they additionally decay identically they are
+indistinguishable by any quantity in the model. The workaround must assume
+precisely the premise that makes its own extra species redundant.</p>
+</div>
+
+<h3>The transcripts differ only 5′</h3>
+<p>Verified against <code>transcription_units.tsv</code> — every dedup group shares
+an exact 3′ end:</p>
+<div class="scroll"><table>
+<thead><tr><th>Group</th><th>Span</th><th class="num">5′ spread</th><th class="num">Identity</th></tr></thead>
+<tbody>
+<tr><td>rpsU-dnaG-rpoD</td><td><code>3210646/712/735 .. 3214962</code> (+)</td><td class="num">23–89 nt</td><td class="num">98%</td></tr>
+<tr><td>gltX</td><td><code>2519208 .. 2520730/776/784</code> (−)</td><td class="num">46–54 nt</td><td class="num">97%</td></tr>
+<tr><td>ptsHI-crr</td><td><code>2533498–2533608 .. 2536380</code> (+)</td><td class="num">8–110 nt</td><td class="num">96%</td></tr>
+<tr><td>leuLABCD</td><td><code>78848 .. 83735/84024</code> (−)</td><td class="num">289 nt</td><td class="num">94%</td></tr>
+</tbody></table></div>
+
+<h2>2 · What changes conceptually</h2>
+
+<p><strong>Dedup stays.</strong> One transcript per gene tuple is what the abundance
+and decay data support, so collapsing TUs is <em>correct</em>. The original defect
+was never that dedup merged transcripts — it is that dedup <strong>discarded
+promoter identity</strong> on the way.</p>
+
+<figure>
+<svg viewBox="0 0 720 300" role="img" aria-label="Today a transcription unit is simultaneously promoter and transcript, one to one. Proposed, many promoters map to one transcript.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g font-family="ui-sans-serif,system-ui,sans-serif" font-size="12.5" fill="currentColor">
+
+    <text x="0" y="16" font-size="11" fill="var(--muted)" letter-spacing="1.2">TODAY</text>
+    <rect x="0" y="30" width="196" height="58" rx="7" fill="var(--accent-soft)" stroke="var(--rule)"/>
+    <text x="98" y="53" text-anchor="middle" font-weight="600">transcription unit</text>
+    <text x="98" y="72" text-anchor="middle" font-size="11" fill="var(--muted)">promoter + transcript, 1:1</text>
+
+    <g color="var(--muted)">
+      <line x1="200" y1="46" x2="286" y2="46" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+      <line x1="200" y1="72" x2="286" y2="72" stroke="currentColor" stroke-width="1.3" marker-end="url(#ar)"/>
+    </g>
+    <text x="294" y="50" font-size="11.5">TSS · TF binding · <tspan font-family="ui-monospace,monospace">basal_prob</tspan></text>
+    <text x="294" y="76" font-size="11.5">abundance · <tspan font-family="ui-monospace,monospace">deg_rate</tspan> · <tspan font-family="ui-monospace,monospace">Km</tspan> · length</text>
+    <text x="294" y="96" font-size="11" fill="var(--bad)">↳ N species, only 1 constrained by data</text>
+
+    <line x1="0" y1="128" x2="720" y2="128" stroke="var(--rule)"/>
+
+    <text x="0" y="156" font-size="11" fill="var(--muted)" letter-spacing="1.2">PROPOSED</text>
+    <g>
+      <rect x="0" y="172" width="150" height="30" rx="6" fill="var(--panel)" stroke="var(--accent)"/>
+      <text x="75" y="192" text-anchor="middle" font-size="11.5">promoter <tspan font-family="ui-monospace,monospace">p1</tspan></text>
+      <rect x="0" y="208" width="150" height="30" rx="6" fill="var(--panel)" stroke="var(--accent)"/>
+      <text x="75" y="228" text-anchor="middle" font-size="11.5">promoter <tspan font-family="ui-monospace,monospace">p2</tspan></text>
+      <rect x="0" y="244" width="150" height="30" rx="6" fill="var(--panel)" stroke="var(--accent)"/>
+      <text x="75" y="264" text-anchor="middle" font-size="11.5">promoter <tspan font-family="ui-monospace,monospace">p3</tspan></text>
+    </g>
+    <g color="var(--accent)">
+      <path d="M154 187 C 200 187, 210 223, 250 223" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <path d="M154 223 L 250 223" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+      <path d="M154 259 C 200 259, 210 223, 250 223" fill="none" stroke="currentColor" stroke-width="1.4" marker-end="url(#ar)"/>
+    </g>
+    <rect x="258" y="203" width="180" height="40" rx="7" fill="var(--good-soft)" stroke="var(--good)"/>
+    <text x="348" y="221" text-anchor="middle" font-weight="600">transcript</text>
+    <text x="348" y="236" text-anchor="middle" font-size="10.5" fill="var(--muted)">one per gene tuple</text>
+
+    <text x="452" y="196" font-size="11.5">each: TSS · <tspan font-family="ui-monospace,monospace">bound_TF</tspan> · init prob</text>
+    <text x="452" y="228" font-size="11.5">one: abundance · <tspan font-family="ui-monospace,monospace">deg_rate</tspan> · <tspan font-family="ui-monospace,monospace">Km</tspan></text>
+    <text x="452" y="250" font-size="11" fill="var(--good)">↳ every quantity has data behind it</text>
+  </g>
+</svg>
+<figcaption>The dedup exemption, <code>_apply_per_promoter_ratios</code>, and the
+whole class of invented-per-TU-property bugs exist to work around a problem that
+dissolves if promoters survive dedup.</figcaption>
+</figure>
+
+<div class="callout">
+<p><strong>Not lossy for elongation.</strong> <code>RNA_ARRAY</code> already carries
+<code>transcript_length</code> per molecule and RNAPs carry coordinates, so nascent
+length is a property of the initiation event. It actually improves fidelity: today
+the nascent RNA starts at <code>replication_coordinate[TU]</code>
+(<code>transcript_initiation.py:567</code>); under the split it starts at the
+promoter's own TSS, which is the real one.</p>
+</div>
+
+<h2>3 · Data-model changes</h2>
+
+<h3>Schema — <code>v2ecoli/library/schema_types.py</code></h3>
+<pre><code>:38  PROMOTER_ARRAY   TU_index → promoter_index   (keep coordinates, domain_index, bound_TF)
+:40  RNA_ARRAY        TU_index unchanged — now indexes the deduped transcript set</code></pre>
+
+<h3>ParCa arrays — which key changes</h3>
+<div class="scroll"><table>
+<thead><tr><th>Becomes promoter-keyed <span class="pill change">change</span></th><th>Stays transcript-keyed <span class="pill keep">keep</span></th></tr></thead>
+<tbody>
+<tr><td><code>basal_prob</code></td><td><code>rna_data.deg_rate</code>, <code>Km_endoRNase</code></td></tr>
+<tr><td><code>delta_prob</code> (n × n_TF)</td><td><code>rna_data.length</code>, <code>mw</code>, <code>counts_ACGU</code></td></tr>
+<tr><td><code>rna_synth_prob[condition]</code></td><td><code>rna_expression[condition]</code></td></tr>
+<tr><td>TSS coordinate, <code>is_forward</code></td><td><code>replication_coordinate</code> (genomic span)</td></tr>
+<tr><td><code>TF_to_TU_idx</code> → <code>TF_to_promoter_idx</code></td><td><code>cistron_tu_mapping_matrix</code></td></tr>
+</tbody></table></div>
+<p>New: a <code>promoter_data</code> table — <code>id</code>, <code>TU_index</code>,
+<code>coordinate</code>, <code>direction</code>, <code>initiation_share</code> — and
+the promoter → transcript map.</p>
+
+<h2>4 · Site inventory</h2>
+<p>Every site reading <code>TU_index</code> today, split by which side it belongs to.
+Promoter-side sites switch to <code>promoter_index</code>; RNA-side sites are
+semantically unchanged, though <code>n_TU</code> shrinks back to the deduped set.</p>
+
+<h3>Promoter-side — must change <span class="pill change">6 files</span></h3>
+<div class="scroll"><table>
+<thead><tr><th>File</th><th>Lines</th><th>What</th></tr></thead>
+<tbody>
+<tr><td><code>library/schema_types.py</code></td><td class="num">38</td><td><code>PROMOTER_ARRAY</code> attribute rename</td></tr>
+<tr><td rowspan="3"><code>library/initial_conditions.py</code></td><td class="num">855–878</td><td>promoter creation from <code>all_promoter_coordinates</code> — must emit one promoter per TSS, not per TU</td></tr>
+<tr><td class="num">974–996</td><td><code>initialize_transcription_factors</code>, <code>TF_to_TU_idx</code> lookup</td></tr>
+<tr><td class="num">1082–1156, 1226</td><td>RNAP activation: <code>basal_prob[TU_index]</code>, <code>delta_prob_matrix[TU_index,:]</code>, length-adjusted init probs</td></tr>
+<tr><td rowspan="5"><code>processes/transcript_initiation.py</code></td><td class="num">368, 380, 388–389</td><td>the init-probability calculation</td></tr>
+<tr><td class="num">396, 408–412, 435</td><td>RNA-class masks — resolve via promoter → TU</td></tr>
+<tr><td class="num">490–497</td><td>promoter–TU incidence matrix</td></tr>
+<tr><td class="num">563–591</td><td><strong>the bridge</strong>: creates RNAs; <code>TU_index = promoter_to_TU[promoter_index]</code>, start coordinate from the promoter</td></tr>
+<tr><td class="num">682–691</td><td><code>_rescale_initiation_probs</code></td></tr>
+<tr><td><code>processes/tf_binding.py</code></td><td class="num">257, 304, 354</td><td>promoter occupancy + <code>TF_to_TU_idx</code></td></tr>
+<tr><td><code>processes/chromosome_structure.py</code></td><td class="num">376–381, 621–636</td><td>promoter replication (<code>np.repeat(…, 2)</code>) must carry <code>promoter_index</code></td></tr>
+<tr><td><code>steps/derivers/rna_synth_prob.py</code></td><td class="num">94–95, 127</td><td><code>promoter_copy_number</code> bincount</td></tr>
+</tbody></table></div>
+
+<h3>RNA-side — unchanged semantics <span class="pill keep">8 files</span></h3>
+<p><code>transcript_elongation.py</code> (290–299, 360–382, 413–587),
+<code>rna_degradation.py</code> (318–324, 467, 531–543),
+<code>polypeptide_initiation.py</code> (246–282, 400–435),
+<code>chromosome_structure.py</code> (354–362, 481),
+<code>steps/derivers/counts_deriver.py</code> (204–214),
+<code>steps/derivers/translation_deriver.py</code> (129–185, 238),
+<code>steps/derivers/rnap_data.py</code> (107–113),
+<code>library/initial_conditions.py</code> (1235–1500 RNA creation, 1751–1863).</p>
+<p class="footnote">These keep indexing the transcript set. They need
+re-verification, not redesign — the index space shrinks from 3291 back to ~3283 and
+their arrays must be rebuilt to match.</p>
+
+<h3>ParCa</h3>
+<div class="scroll"><table>
+<thead><tr><th>File</th><th>Change</th></tr></thead>
+<tbody>
+<tr><td><code>getter_functions.py</code> (dedup loop ~277–295)</td><td><span class="pill del">delete</span> the exemption; keep dedup; emit the discarded TUs as promoters instead</td></tr>
+<tr><td rowspan="2"><code>process/transcription.py</code></td><td><code>rna_data</code> stays transcript-keyed; add <code>promoter_data</code>; <span class="pill del">delete</span> <code>_apply_per_promoter_ratios</code> and its call sites</td></tr>
+<tr><td><code>:810</code> deg-rate NNLS — degeneracy gone, identical-composition columns no longer exist</td></tr>
+<tr><td><code>process/transcription_regulation.py</code></td><td><code>basal_prob</code> / <code>delta_prob</code> → promoter-keyed</td></tr>
+<tr><td><code>relation.py</code> (114–170)</td><td>TF → promoter mapping; the <code>tf_tu_routing</code> filter becomes native</td></tr>
+<tr><td><code>steps/step_02/03/04</code></td><td>drop the four <code>_apply_per_promoter_ratios</code> re-apply calls</td></tr>
+<tr><td><code>library/sim_data.py</code></td><td>transcript-initiation + tf-binding config getters</td></tr>
+</tbody></table></div>
+
+<h3>Flat files</h3>
+<ul>
+<li><code>per_promoter_ratios.tsv</code> → <strong>initiation shares per promoter</strong>.
+Same content, and finally the meaning its name claims. The 132 rows already written —
+4 landed groups plus the 3 Phase A groups — carry over unchanged.</li>
+<li><code>tf_tu_routing.tsv</code> → <code>tf_promoter_routing.tsv</code>;
+<code>route_only</code> becomes unnecessary because a TF binds a promoter by construction.</li>
+</ul>
+
+<h2>5 · What this deletes</h2>
+<ul>
+<li>the dedup exemption and its <code>exempt_gene_tuples</code> machinery</li>
+<li><code>_apply_per_promoter_ratios</code> + 4 re-apply sites (steps 2, 3, 4×2, ppGpp)</li>
+<li>the <code>deg_rate</code> harmonization patch (currently uncommitted)</li>
+<li>the <code>Km_endoRNase</code> corruption, with no separate fix needed</li>
+<li>the ppGpp step-9 interaction documented in the 2026-08-28 audit</li>
+</ul>
+
+<h2>6 · Scale</h2>
+<p>3766 TU rows in <code>transcription_units.tsv</code> → 3129 unique gene tuples
+(428 duplicate groups, 637 TUs dropped). The promoter store grows from ~3283 to
+~3766 unique molecules per chromosome copy — <strong>~15%</strong> — and the
+transcript set shrinks back to the deduped ~3129–3283. Memory and per-tick cost
+impact is small.</p>
+
+<h2>7 · Validation</h2>
+<ol>
+<li><code>scripts/parity_check.py --seconds 120 --compare tests/golden/baseline_parity_signature.json --build-check</code> — the committed gate.</li>
+<li>The two-arm ParCa harness built 2026-08-28 (<code>run_full_both.sh</code>): full-mode before/after on identical code, ~176 s per arm.</li>
+<li><code>scripts/proteome_compare.py</code> against the four-dataset median.</li>
+<li><code>pytest -m "not sim"</code> and <code>pytest -m sim tests/test_model_behavior.py</code>.</li>
+<li>Targeted: <code>deg_rate</code> and <code>Km_endoRNase</code> must be single-valued per transcript, with no TU at the 0.00013 / 2.5616e-03 fallbacks.</li>
+</ol>
+<p class="footnote">The ParCa fixture, <code>tests/fixtures/pre_division_state.json.gz</code>,
+and <code>models/partitioned.pbg</code> all need regeneration — the unique-molecule
+schema changes.</p>
+
+<h2>8 · Risks and open questions</h2>
+<div class="callout warn">
+<p><strong>Upstream divergence.</strong> vEcoli keys everything by TU. AGENTS.md
+requires explicit justification; this qualifies, but it is the main cost and should
+be socialised before the work starts.</p>
+</div>
+<ul>
+<li><strong>Variant-specific decay.</strong> The split asserts one decay rate per
+transcript. If 5′-variant-specific stability is ever measured, the model needs an
+extension point — design one rather than assume it never comes.
+<code>leuLABCD</code>'s 289 nt 5′ spread is the case most likely to matter.</li>
+<li><strong>Translation.</strong> Ribosome binding depends on the 5′ UTR, and the
+split gives all variants one RBS. Already true today — translation is cistron-level
+with one efficiency per gene — so not a regression, but not fixed either.</li>
+<li><strong><code>get_motif_attributes</code></strong> currently derives promoters
+from TU coordinates. It needs a real TSS list;
+<code>tu_to_thomason_match.tsv</code> supplies matched positions for 594 TUs only,
+so unmatched promoters fall back to the TU's annotated start.</li>
+<li><strong>Division.</strong> <code>chromosome_structure</code> replicates
+promoters by <code>np.repeat(…, 2)</code>; the promoter index must survive that and
+the daughter split.</li>
+</ul>
+
+<h2>9 · Effort</h2>
+<div class="scroll"><table>
+<thead><tr><th class="num">Phase</th><th>Work</th><th class="num">Estimate</th></tr></thead>
+<tbody>
+<tr><td class="num">1</td><td>ParCa: promoter table, promoter-keyed <code>basal_prob</code>/<code>delta_prob</code>, dedup emits promoters</td><td class="num">2–3 days</td></tr>
+<tr><td class="num">2</td><td>Runtime: 6 promoter-side files, mechanical index swap + the initiation bridge</td><td class="num">1–2 days</td></tr>
+<tr><td class="num">3</td><td><code>initial_conditions</code>: promoter creation, TF init, RNAP activation</td><td class="num">1 day</td></tr>
+<tr><td class="num">4</td><td>Fixture + golden regeneration, parity, behavior tests</td><td class="num">1–2 days</td></tr>
+</tbody></table></div>
+<p>~1–2 weeks focused. Phases 1–3 must land together — a half-migrated index space
+will not run.</p>
+
+<p class="footnote" style="margin-top:2.6rem;padding-top:1.1rem;border-top:1px solid var(--rule)">
+Companion to <code>reports/regulation_data_pipeline_v2ecoli.html</code> §10 (the
+Path-3 plan this would supersede) and
+<code>docs/proteome_cross_dataset_comparison.md</code>.</p>
+
+</div>
+</body>
+</html>

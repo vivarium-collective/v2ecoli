@@ -113,6 +113,12 @@ class AdjustPromotersStep(Step):
         sd.process.transcription_regulation.basal_prob = basal_prob
         sd.process.transcription_regulation.delta_prob = delta_prob
 
+        # Promoter-keyed views of the two arrays above. Additive — the
+        # runtime still reads the TU-keyed versions. Phase 1 of the
+        # promoter/transcript split; see
+        # docs/promoter_transcript_split_scope.html.
+        sd.process.transcription_regulation.build_promoter_keyed_probs(sd)
+
         print(f"  Step 7 (adjust_promoters) completed in {time.time() - t0:.1f}s")
         return {
             'transcription_regulation': sd.process.transcription_regulation,

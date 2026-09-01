@@ -102,7 +102,12 @@ def build_variant_cache(
     # when the bundle is extracted, or the cache is a pre-perturbation cache
     # wearing a perturbed cache's name.
     save_sim_input(perturbed, cache_dir, seed=seed,
-                   condition=spec.condition, fixed_media=fixed_media)
+                   condition=spec.condition, fixed_media=fixed_media,
+                   # P1-6: record the baked variant perturbation (native TE
+                   # overrides + optional new-gene edit) so this strain's cache
+                   # fingerprint diverges from WT / other variants.
+                   new_genes="on" if spec.new_gene is not None else None,
+                   perturbations={"native": native, "new_gene": new_gene})
 
     return {
         "cache_dir": cache_dir,

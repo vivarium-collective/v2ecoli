@@ -19,7 +19,7 @@ import numpy as np
 
 @dataclass
 class BranchSpec:
-    variant_index: int  # position in the full ordered branch list (baseline=0 when included)
+    variant_index: int  # position in the ordered branch list, offset by config["variant"] (baseline=that offset when included)
     variant_name: str
     overrides: dict[str, Any]
     seed: int
@@ -93,6 +93,12 @@ def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
     lineage_seed = int(config.get("lineage_seed", 0))
     skip_baseline = bool(config.get("skip_baseline", False))
     different_seeds = bool(config.get("different_seeds_per_variant", False))
+    # Base offset for every branch's variant_index — baseline()'s own `variant`
+    # kwarg threaded through the batch chain (mirrors how `lineage_seed` offsets
+    # `seed`). Lets a caller driving several batch dispatches (e.g. one per
+    # comparison arm) keep each dispatch's partitions distinct instead of every
+    # one starting back at variant=0 (P0-10 batch-mode coverage fix).
+    variant_base = int(config.get("variant", 0) or 0)
 
     variants_block = config.get("variants") or {}
 
@@ -126,7 +132,7 @@ def expand_branches(config: dict[str, Any]) -> list[BranchSpec]:
         merged_overrides = {**base_overrides, **overrides}
         for s in range(n_init_sims):
             branches.append(BranchSpec(
-                variant_index=v_idx,
+                variant_index=variant_base + v_idx,
                 variant_name=vname,
                 overrides=dict(merged_overrides),
                 seed=base + s,

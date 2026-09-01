@@ -457,12 +457,24 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             ws_root = _find_workspace_root()
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
-        preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop(
-                                    "experiment_id",
-                                    os.environ.get(
-                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
-                                        "default")))
+        # Thread the run-identity fields the declaration carries into the
+        # preset so each cell writes its OWN hive partition. Without this,
+        # variant/lineage_seed/agent_id fall back to parquet_vecoli's defaults
+        # (variant=0, lineage_seed=0, agent_id="1") and every variant in a
+        # multivariant sweep collapses onto partition ``variant=0`` — the
+        # multivariant KPI analysis then sees all variants as one. experiment_id
+        # likewise defaults to the env var / "default" only when the decl does
+        # not supply it (so a declared experiment_id actually reaches the
+        # emitter instead of silently no-opping).
+        _preset_kwargs = {
+            "experiment_id": cfg_in.pop(
+                "experiment_id",
+                os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID", "default")),
+        }
+        for _idkey in ("variant", "lineage_seed", "agent_id", "generation"):
+            if _idkey in cfg_in:
+                _preset_kwargs[_idkey] = cfg_in.pop(_idkey)
+        preset = parquet_vecoli(out_dir=out_dir, **_preset_kwargs)
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",

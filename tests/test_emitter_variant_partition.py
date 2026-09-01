@@ -36,7 +36,11 @@ def _emitter_cfg(core, *, variant=None, experiment_id=None, lineage_seed=None,
     if agent_id is not None:
         cfg["agent_id"] = agent_id
     decl = {"address": "local:ParquetEmitter", "config": cfg}
-    instance, _topo = _build_declared_emitter(decl, LISTENERS_SCHEMA, core)
+    # allow_ram_fallback=True: this test only wants to skip gracefully when
+    # the [parquet] extra is genuinely absent, not exercise the P1-4 raise
+    # (see v2ecoli/composites/_helpers.py::_build_declared_emitter).
+    instance, _topo = _build_declared_emitter(
+        decl, LISTENERS_SCHEMA, core, allow_ram_fallback=True)
     if type(instance).__name__ != "ParquetEmitter":
         pytest.skip("[parquet] extra (viva_emitters) not installed; declared "
                     "default fell back to RAMEmitter")

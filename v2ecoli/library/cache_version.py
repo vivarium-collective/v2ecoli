@@ -49,6 +49,22 @@ DEFAULT_BUILD_PARAMS: dict = {
     "seed": None,
     "n_seeds": None,
     "condition_manifest_hash": None,
+    # Strain-defining genotype content (P1-6). These identify WHICH STRAIN a
+    # bundle is, not merely which nutrient condition. ``new_genes`` changes the
+    # genome the fit is built from (a heterologous insertion / KO overlay);
+    # ``bundle_overrides`` / ``bundle_manifest`` name the ecoli-sources bundle
+    # the raw_data was built from; ``perturbations`` fingerprints an in-memory
+    # sim_data perturbation baked into the cache before it was written (e.g. a
+    # new-gene expression / translation-efficiency override — see
+    # v2ecoli/perturbations/new_gene_cache.py). Two strains that differed only
+    # in these previously produced byte-identical ``cache_version.json`` and a
+    # wrong-strain cache verified clean, so they are folded into ``inputs_hash``
+    # here and compared requested-vs-stored in ``verify_cache_version``. ``None``
+    # for every key is the wild-type / unperturbed build.
+    "new_genes": None,
+    "bundle_overrides": None,
+    "bundle_manifest": None,
+    "perturbations": None,
 }
 
 #: Config names whose absence from a built bundle is fatal (PARCA_REVIEW A6).
@@ -367,22 +383,47 @@ def read_cache_version(cache_dir: str) -> CacheVersion | None:
         return CacheVersion.from_dict(json.load(f))
 
 
-def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
+def _resolve_build_params(build_params: dict | None) -> dict:
+    """Fill ``build_params`` against :data:`DEFAULT_BUILD_PARAMS`.
+
+    Same normalization ``compute_cache_version`` applies before hashing:
+    unknown keys are dropped, missing keys default to their ``None`` sentinel.
+    Sharing it here lets ``verify_cache_version`` compare a *requested*
+    build against a *stored* one on exactly the keys that shape the
+    fingerprint.
+    """
+    resolved = dict(DEFAULT_BUILD_PARAMS)
+    if build_params:
+        resolved.update(
+            {k: v for k, v in build_params.items() if k in resolved})
+    return resolved
+
+
+def verify_cache_version(cache_dir: str, repo_root: str | None = None,
+                         expected_build_params: dict | None = None) -> None:
     """Raise StaleCacheError if the cache on disk doesn't match current inputs.
 
     Called from the cache load path.  A missing ``cache_version.json`` is a
     hard error too — we can't prove a pre-versioning cache is safe, so treat
     it the same as a mismatch.
 
+    ``expected_build_params`` (P1-6) is what makes a WRONG-STRAIN cache fail.
+    A caller that knows which strain/condition it *requested* (e.g. new_genes,
+    bundle_overrides, condition) passes those here; every supplied key is
+    compared against the bundle's stored ``build_params`` and any divergence
+    raises. Without it this function has no independent notion of the request
+    and cannot tell a wild-type cache apart from a new-gene cache — the silent
+    failure this parameter closes. Left ``None`` (the load paths that don't
+    yet know the request) the comparison is skipped and behavior is unchanged.
+
     ``build_params`` (A7) describes *which artifact* the cache is (condition,
-    seed, n_seeds, ...) — it is a property of the bundle, not something
+    seed, n_seeds, strain, ...) — it is a property of the bundle, not something
     "current code" can independently re-derive, so recomputing "current"
     echoes ``stored.build_params`` back rather than defaulting them away.
     That keeps a real non-basal bundle (e.g. built with a non-default seed)
-    from failing verification against itself; the value of folding
-    build_params into inputs_hash is that two *different* bundles now hash
-    differently (inspectable via a plain diff of their cache_version.json),
-    not that this function detects a mismatched --cache-dir on its own.
+    from failing verification against *itself* on the file/context inputs_hash;
+    the requested-vs-stored strain check above is what catches a mismatched
+    ``--cache-dir``, not the echoed recompute.
     ``context`` (A9) is the opposite: it is re-probed fresh here so an
     environment change between build and load is exactly what this catches.
 
@@ -413,6 +454,34 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
             expected=current,
             actual=None,
         ))
+
+    # P1-6: compare the REQUESTED strain/condition against what the bundle was
+    # actually built for. This is the real comparison — the echoed recompute of
+    # ``current`` above deliberately folds in ``stored.build_params`` so a
+    # bundle verifies against itself on file/context hashes, which means it can
+    # never catch a wrong-strain --cache-dir on its own. Only an explicit
+    # requested-vs-stored diff can, so do it here whenever the caller knows the
+    # request.
+    if expected_build_params is not None:
+        requested = _resolve_build_params(expected_build_params)
+        stored_bp = _resolve_build_params(stored.build_params)
+        mismatched = {
+            key: (requested[key], stored_bp[key])
+            for key in requested
+            if requested[key] != stored_bp[key]
+        }
+        if mismatched:
+            detail = ", ".join(
+                f"{key}: requested {req!r} != cached {cached!r}"
+                for key, (req, cached) in sorted(mismatched.items()))
+            raise StaleCacheError(_rebuild_message(
+                cache_dir,
+                reason=f"build_params mismatch (wrong strain/condition cache): "
+                       f"{detail} — the cache at this path was built for a "
+                       f"different strain/condition than requested (P1-6)",
+                expected=current,
+                actual=stored,
+            ))
 
     if stored.schema_version != current.schema_version:
         raise StaleCacheError(_rebuild_message(

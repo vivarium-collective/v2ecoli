@@ -968,6 +968,17 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    variant: int = 0,
+    injected_processes: dict | None = None,
+    features: list | None = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str | None = None,
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
     initial_carry_state_path: str = "",
     initial_generation_index: int = 0,
     daughter_state_out_path: str = "",
@@ -1029,6 +1040,14 @@ def _build_batch_document(
         "time_step": float(time_step),
         "max_duration": float(max_duration),
         "variants": dict(variants or {}),
+        # Base offset for every branch's variant_index (mirrors `seed` above
+        # offsetting each seed) — threaded through runner_config ->
+        # build_workflow_config -> expand_branches -> _lineage_node so a batch
+        # dispatch partitions its emitter output starting at the caller's
+        # requested variant index instead of always colliding on variant=0
+        # (P0-10 batch-mode coverage fix; same threading pattern as
+        # injected_processes below).
+        "variant": int(variant),
         "cache_dir": cache_dir,
         "out_dir": out_dir,
         "experiment_id": experiment_id,
@@ -1038,6 +1057,23 @@ def _build_batch_document(
         "parallel": parallel or "",
         "base_config_overrides": base_config_overrides,
         "media": media,
+        # Per-cell biological build kwargs (metabolism-redux/violacein swap,
+        # feature toggles, exchange-flux readouts, PDMP initiation modes).
+        # WITHOUT these in the runner config they never reach build_workflow_config
+        # -> _lineage_node -> each generation's baseline() build, so an injected
+        # batch run silently degrades to basal FBA (audit: batch mode dropped
+        # injected_processes). Thread them so every generation cell is built with
+        # the SAME biological configuration the single-cell path uses.
+        "injected_processes": dict(injected_processes or {}),
+        "features": list(features or []),
+        "ppgpp_regulation": bool(ppgpp_regulation),
+        "trna_attenuation": bool(trna_attenuation),
+        "supercoiling": bool(supercoiling),
+        "mass_conservation": bool(mass_conservation),
+        "exchange_fluxes": dict(exchange_fluxes or {}),
+        "exchange_flux_basis": exchange_flux_basis or "",
+        "transcript_initiation_mode": transcript_initiation_mode or "discrete",
+        "polypeptide_initiation_mode": polypeptide_initiation_mode or "discrete",
         "initial_carry_state_path": initial_carry_state_path,
         "initial_generation_index": int(initial_generation_index),
         "daughter_state_out_path": daughter_state_out_path,
@@ -1342,6 +1378,15 @@ WCM_PARAMETERS = {
             "description": "Batch runs only: vEcoli-style variant grid "
                            "({name: {target, value}}) crossed with the seed range.",
         },
+        "variant": {
+            "type": "integer",
+            "default": 0,
+            "description": "This cell's variant index in a multivariant sweep. "
+                           "Stamped into the parquet hive partition column "
+                           "(variant=<idx>) so each variant's rows are stored "
+                           "and analysed separately; defaults to 0 for a single "
+                           "(baseline) arm. Set per branch at fan-out time.",
+        },
         "out_dir": {
             "type": "string",
             "default": "",
@@ -1404,6 +1449,82 @@ WCM_PARAMETERS = {
 }
 
 
+# --- Batch-mode parameter coverage (fail-loud guard) ------------------------
+# Every WCM_PARAMETERS key must appear in EXACTLY ONE of these two sets. The
+# batch dispatch (baseline() -> _build_batch_document) then either forwards the
+# key into the batch-orchestrator document (so it reaches every generation's
+# per-cell baseline() build via BatchBaselineRunner -> build_workflow_config ->
+# _lineage_node -> LineageProcess) or, for a single-cell-only key, refuses to run
+# a batch when it is set to a non-default value. This makes it structurally
+# impossible for a new baseline() kwarg to be silently dropped in batch mode —
+# the exact defect that dropped `injected_processes` and degraded an injected
+# metabolism-redux/violacein batch to a basal FBA lineage (pipeline audit).
+_BATCH_FORWARDED_PARAMETERS = frozenset({
+    # Dispatch switches (consumed by the batch/lineage routing itself).
+    "n_seeds", "n_generations", "stop_at_division",
+    # Threaded into the batch document / runner config -> workflow config.
+    "seed", "cache_dir", "config_overrides", "knockouts", "media",
+    "single_daughters", "time_step", "max_duration", "variants", "variant",
+    "out_dir", "experiment_id", "analyses", "study", "parallel", "emitter",
+    "initial_carry_state_path", "initial_generation_index",
+    "daughter_state_out_path",
+    # Per-cell biological build kwargs threaded so every generation cell is built
+    # with the same biology as the single-cell path (audit fix).
+    "injected_processes", "features", "ppgpp_regulation", "trna_attenuation",
+    "supercoiling", "mass_conservation", "exchange_fluxes", "exchange_flux_basis",
+    "transcript_initiation_mode", "polypeptide_initiation_mode",
+})
+# Single-cell-only knobs: build-time overlays / sinks the run-time lineage
+# fan-out has no wiring for. A non-default value in batch mode raises (mirrors
+# the match_simdata guard) rather than being silently ignored.
+_BATCH_INCOMPATIBLE_PARAMETERS = frozenset({
+    "match_simdata",     # build-time single-cell initial-state overlay
+    "match_condition",   # only consulted alongside match_simdata
+    "emitter_out_dir",   # single-cell sink dir; batch uses out_dir instead
+})
+
+
+def _assert_batch_parameter_coverage(values: dict) -> None:
+    """Enforce that every WCM parameter is classified for batch mode.
+
+    ``values`` is the caller's local namespace (name -> value). Raises a
+    developer-facing ``RuntimeError`` if a WCM_PARAMETERS key is unclassified
+    (a new kwarg was added without deciding its batch behavior), and a
+    user-facing ``ValueError`` if a batch-incompatible key is set to a
+    non-default value in batch mode.
+    """
+    classified = _BATCH_FORWARDED_PARAMETERS | _BATCH_INCOMPATIBLE_PARAMETERS
+    overlap = _BATCH_FORWARDED_PARAMETERS & _BATCH_INCOMPATIBLE_PARAMETERS
+    if overlap:
+        raise RuntimeError(
+            f"ecoli_baseline batch guard misconfigured: parameter(s) "
+            f"{sorted(overlap)} are listed as BOTH forwarded and "
+            "batch-incompatible; a WCM parameter must be in exactly one set.")
+    unclassified = set(WCM_PARAMETERS) - classified
+    if unclassified:
+        raise RuntimeError(
+            f"ecoli_baseline batch guard: WCM parameter(s) {sorted(unclassified)} "
+            "are neither forwarded into the batch document nor listed "
+            "batch-incompatible. A new baseline() kwarg was added without "
+            "deciding its batch behavior — classify it in "
+            "_BATCH_FORWARDED_PARAMETERS (and actually thread it through "
+            "_build_batch_document -> runner_config -> build_workflow_config -> "
+            "_lineage_node) or _BATCH_INCOMPATIBLE_PARAMETERS. This guard exists "
+            "so the next dropped kwarg fails loudly instead of silently "
+            "no-op'ing in batch mode (see the injected_processes audit).")
+    for key in sorted(_BATCH_INCOMPATIBLE_PARAMETERS):
+        if key not in values:
+            continue
+        default = WCM_PARAMETERS[key].get("default")
+        if values[key] != default:
+            raise ValueError(
+                f"ecoli_baseline: {key}={values[key]!r} is a single-cell-only "
+                "parameter and is not supported in batch mode (n_seeds>1 or "
+                "n_generations>1); running the batch would silently drop it. "
+                f"Pass n_seeds=1, n_generations=1, or leave {key} at its "
+                f"default ({default!r}).")
+
+
 @composite_generator(
     name="ecoli_baseline",
     description="55-process partitioned whole-cell E. coli model — upstream-parity architecture",
@@ -1461,6 +1582,7 @@ def baseline(
     time_step: float = 1.0,
     max_duration: float = 3600.0,
     variants: dict | None = None,
+    variant: int = 0,
     out_dir: str = "",
     experiment_id: str = "baseline",
     analyses: Any = "applicable",
@@ -1615,13 +1737,27 @@ def baseline(
                 "match_simdata is not yet supported with n_seeds>1 or "
                 "n_generations>1 (batch mode); pass n_seeds=1, "
                 "n_generations=1 or omit match_simdata.")
+        # Fail-loud coverage guard: every WCM_PARAMETERS key must be either
+        # forwarded into the batch document below or explicitly listed as
+        # batch-incompatible, and a set-but-unforwarded batch-incompatible key
+        # raises here rather than silently no-op'ing in batch mode (the class of
+        # bug that dropped injected_processes -> basal FBA). See
+        # _assert_batch_parameter_coverage.
+        _assert_batch_parameter_coverage(locals())
         return _build_batch_document(
             core, seed=seed, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, time_step=time_step,
             max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
-            study=study, parallel=parallel, variants=variants,
+            study=study, parallel=parallel, variants=variants, variant=variant,
             knockouts=knockouts, config_overrides=config_overrides, media=media,
+            injected_processes=injected_processes, features=features,
+            ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
+            supercoiling=supercoiling, mass_conservation=mass_conservation,
+            exchange_fluxes=exchange_fluxes,
+            exchange_flux_basis=exchange_flux_basis,
+            transcript_initiation_mode=transcript_initiation_mode,
+            polypeptide_initiation_mode=polypeptide_initiation_mode,
             initial_carry_state_path=initial_carry_state_path,
             initial_generation_index=initial_generation_index,
             daughter_state_out_path=daughter_state_out_path)
@@ -1857,13 +1993,23 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
-    if _default_decl is not None and emitter_out_dir:
-        # parquet default decl: pin its out_dir instead of letting the step
-        # resolve the workspace-relative default (see emitter_out_dir param).
-        _default_decl = {
-            **_default_decl,
-            "config": {**_default_decl.get("config", {}), "out_dir": emitter_out_dir},
+    if _default_decl is not None:
+        # Thread the run-identity fields into the declared default (parquet)
+        # emitter's config so its hive partition columns are correct per cell.
+        # experiment_id and variant are declared baseline() params that
+        # otherwise never reach the emitter (_build_declared_emitter would fall
+        # back to "default" / variant=0), so every variant in a multivariant
+        # sweep would collapse onto partition ``variant=0`` and the
+        # multivariant KPI analysis would see them as one. emitter_out_dir, when
+        # set, still pins out_dir instead of the workspace-relative default.
+        _decl_cfg = {
+            **_default_decl.get("config", {}),
+            "experiment_id": experiment_id,
+            "variant": int(variant),
         }
+        if emitter_out_dir:
+            _decl_cfg["out_dir"] = emitter_out_dir
+        _default_decl = {**_default_decl, "config": _decl_cfg}
 
     # Snapshot external overrides so we can detect 'caller already pinned one'
     # and restore them exactly on exit.
@@ -1918,7 +2064,7 @@ def baseline(
             out_uri=_xr_out,
             metadata={
                 "experiment_id": experiment_id,
-                "variant": 0,
+                "variant": int(variant),
                 "lineage_seed": int(seed),
             },
         )

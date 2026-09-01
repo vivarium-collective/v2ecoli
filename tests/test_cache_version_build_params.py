@@ -137,6 +137,11 @@ def test_build_params_default_is_none_filled():
         "seed": None,
         "n_seeds": None,
         "condition_manifest_hash": None,
+        # P1-6 strain-identity keys, all None for a wild-type / unperturbed build.
+        "new_genes": None,
+        "bundle_overrides": None,
+        "bundle_manifest": None,
+        "perturbations": None,
     }
 
 

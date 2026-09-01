@@ -276,14 +276,18 @@ def _check_genotype(declared_new_genes, raw_new_genes):
     step._check_declared_genotype()
 
 
-def test_declared_new_genes_disagreeing_with_raw_data_warns():
+def test_declared_new_genes_disagreeing_with_raw_data_raises():
     """new_genes changes the GENOME, so a mismatch is not a provenance nit.
 
     On the injected-raw_data path this step never builds the KB, so without
     this check a config declaring an insertion against a wild-type KB fits WT,
-    warns nothing, and records a genotype it does not have.
+    records a genotype it does not have, and (P1-6) that must be fatal.
     """
-    with pytest.warns(UserWarning, match="new_genes"):
+    from v2ecoli.processes.parca.steps.step_01_initialize import (
+        GenotypeMismatchError,
+    )
+
+    with pytest.raises(GenotypeMismatchError, match="new_genes"):
         _check_genotype("some_pathway_MG1655_v2", "off")
 
 

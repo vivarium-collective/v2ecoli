@@ -363,6 +363,11 @@ def test_build_scripts_do_not_clobber_configs_or_build_params(tmp_path):
         "seed": 3,
         "n_seeds": fixed.build_params["n_seeds"],  # resolved independently
         "condition_manifest_hash": None,
+        # P1-6 strain-identity keys, None for this unperturbed WT build.
+        "new_genes": None,
+        "bundle_overrides": None,
+        "bundle_manifest": None,
+        "perturbations": None,
     }
 
     # 2. Proof this is a real regression guard, not a vacuous assertion:

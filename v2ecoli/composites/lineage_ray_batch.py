@@ -39,13 +39,16 @@ from v2ecoli.workflow.batch_lineage_ray import (
         },
         "n_workers": {
             "type": "integer",
-            "default": 2,
+            "default": None,
             "description": (
-                "Real target concurrency for the ray: actor pool -- REQUIRED to be set "
-                "deliberately by the caller, never left at the protocol's own os.cpu_count() "
-                "default. See batch_lineage_ray's own module docstring: empirically confirmed "
-                "locally that a too-small pool produces a ~9x wall-time penalty, the exact "
-                "'one seed at a time' bottleneck this composite exists to avoid."
+                "Real target concurrency for the ray: actor pool. Defaults to None, which "
+                "correctly falls through to the cluster-derived RAY_SHARDS_DEFAULT env var "
+                "viva-api's own dispatch code already computes from real per-node vCPUs x real "
+                "node count -- no per-request tuning needed for the common case. See "
+                "batch_lineage_ray's own module docstring: an earlier concrete default of 2 "
+                "silently shadowed that computation, producing a ~9x wall-time penalty (the "
+                "'one seed at a time' bottleneck this composite exists to avoid). Override "
+                "explicitly only to deliberately cap concurrency below the cluster's real capacity."
             ),
         },
         "base_seed": {"type": "integer", "default": 0, "description": "First seed; seeds are contiguous."},
@@ -73,7 +76,7 @@ def lineage_ray_batch(
     *,
     n_seeds: int = 2,
     n_generations: int = 1,
-    n_workers: int = 2,
+    n_workers: int | None = None,
     base_seed: int = 0,
     cache_dir: str = "out/cache",
     out_dir: str = "",

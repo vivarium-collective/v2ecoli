@@ -14,8 +14,8 @@ already runs a lineage's own generation-to-generation progression using real str
 (``_add``/``_remove`` at each division) — that part was already pbg-native. What's new here is
 composing many of them, natively, instead of hiding the fan-out inside a Step's own Python loop.
 
-Pool sizing is NOT optional and NOT left to the ``ray:`` protocol's own default. Empirically
-confirmed (2026-09-01, local test, ``process_bigraph.protocols.ray``): the actor pool defaults to
+Pool sizing is NOT left to the ``ray:`` protocol's own bare default. Empirically confirmed
+(2026-09-01, local test, ``process_bigraph.protocols.ray``): the actor pool defaults to
 ``os.cpu_count()`` evaluated on whichever node the driver runs on -- on this ecosystem's AWS Batch
 MNP topology that is the HEAD node specifically (which itself runs with ``--num-cpus=0`` in Ray's
 own resource accounting, so it never RUNS an actor, but the pool-size CALCULATION still uses its
@@ -23,8 +23,16 @@ real hardware core count -- a number with zero relationship to how many workers/
 elsewhere in the cluster). A real local test (8 actors, 3s each) measured pool_size=2 -> 80.75s
 wall vs. pool_size=8 -> 9.09s wall, a ~9x difference from that one setting. This is the exact
 mechanism that produces a "whole seeds x generations matrix running one square at a time"
-bottleneck if left at default -- so ``n_workers`` here is a required, explicit parameter, always
-derived from real target concurrency by the caller, never a silent default.
+bottleneck if left unsized.
+
+``n_workers`` therefore defaults to ``None``, NOT a concrete small int (a real item-101 incident,
+2026-09-01: an earlier concrete default of ``2`` silently shadowed the cluster-derived value below,
+since ``RayProtocolRuntime`` only reads its env var when given ``None`` explicitly). With ``None``,
+``prewarm_lineage_pool`` passes it straight through to ``get_or_create_runtime``, which falls
+through to the ``RAY_SHARDS_DEFAULT`` env var -- viva-api's own dispatch code already computes this
+correctly from real per-node vCPUs x real node count for every multi-node dispatch. Override
+``n_workers`` explicitly only when deliberately capping concurrency below the cluster's real
+capacity (e.g. fewer lineages than available shards).
 """
 
 from __future__ import annotations
@@ -49,7 +57,7 @@ def register_ray_lineage(core: Any) -> Any:
     return core
 
 
-def prewarm_lineage_pool(core: Any, n_workers: int) -> Any:
+def prewarm_lineage_pool(core: Any, n_workers: int | None) -> Any:
     """Size the ``ray:`` actor pool BEFORE any ``ray:LineageProcess`` address is resolved.
 
     ``RayProtocolRuntime`` sizes its pool for a (class_name, config) key on FIRST creation only
@@ -59,12 +67,13 @@ def prewarm_lineage_pool(core: Any, n_workers: int) -> Any:
     (``os.cpu_count()``) before this module gets a chance to size it correctly. Calling this
     FIRST, with the real target concurrency, wins that race deliberately.
 
-    ``n_workers`` is required on purpose -- see this module's own docstring for why a default
-    here would silently reproduce the exact bottleneck this module exists to avoid.
+    ``n_workers=None`` (the recommended default -- see this module's own docstring) passes
+    straight through to ``get_or_create_runtime``, which falls through to the cluster-derived
+    ``RAY_SHARDS_DEFAULT`` env var. Pass a concrete int only to deliberately override that.
     """
     from process_bigraph.protocols.ray import get_or_create_runtime
 
-    if n_workers < 1:
+    if n_workers is not None and n_workers < 1:
         raise ValueError(f"prewarm_lineage_pool: n_workers must be >= 1, got {n_workers}")
     get_or_create_runtime(core, n_shards_default=n_workers)
     return core

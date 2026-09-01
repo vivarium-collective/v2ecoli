@@ -237,6 +237,11 @@ class GetterFunctions(object):
         }
         self._miscrna_id_to_singleton_tu_id = {}
 
+        # Record every TSS and the transcript it drives before dedup
+        # discards the duplicates. Additive — nothing reads this yet. See
+        # docs/promoter_transcript_split_scope.html.
+        self._build_promoter_records(raw_data, valid_gene_ids)
+
         for i, tu in enumerate(raw_data.transcription_units):
             # Get list of genes in TU after excluding invalid genes
             gene_tuple = tuple(
@@ -312,6 +317,140 @@ class GetterFunctions(object):
             self._sequences[rna_id] = parse_sequence(
                 rna_id, left_end_pos, right_end_pos, gene_id_to_direction[gene_id]
             )
+
+    def _build_promoter_records(self, raw_data, valid_gene_ids):
+        """
+        Record every transcription start site and the transcript it drives.
+
+        Phase 1 of the promoter/transcript split
+        (docs/promoter_transcript_split_scope.html). Purely additive: this
+        builds the promoter -> transcript mapping that the dedup loop
+        currently discards, without changing dedup itself. Nothing reads
+        it yet.
+
+        Why it exists: ``rna_data`` is keyed by transcription unit, so a
+        TU is simultaneously a promoter (TSS, TF binding, initiation
+        probability) and a transcript (abundance, decay rate, length,
+        mass). Operons with several promoters therefore need several
+        transcript species, and ParCa must invent per-species decay rates
+        that no measurement constrains. Recording promoters separately is
+        the first step to keying initiation by promoter and abundance by
+        transcript.
+
+        Mapping semantics: each row of ``transcription_units.tsv`` is one
+        promoter. Its transcript is the **canonical** TU for its gene
+        tuple — the first row with that gene set, which is exactly the TU
+        the dedup loop keeps. Dedup is correct for transcripts: one RNA
+        species per gene tuple is what the abundance and decay data
+        support. Losing promoter identity on the way is the defect this
+        table fixes.
+
+        Coordinates: ``coordinate`` is the TSS — ``left_end_pos`` on the
+        forward strand, ``right_end_pos`` on the reverse. Rows lacking
+        explicit ends fall back to the span of their genes, matching the
+        dedup loop.
+
+        Cistron-level transcripts: ``rna_data`` also holds one entry per
+        gene that is transcribed outside any transcription unit, and those
+        are transcripts too — they need a promoter or they would silently
+        stop being transcribed once initiation is keyed by promoter. Each
+        gets exactly one promoter, at the gene's own 5' end.
+
+        The rule is ``rna_data``'s own (transcription.py, where ``rna_ids``
+        is assembled): a cistron is transcribed on its own iff no
+        transcription unit covers it. Note this is *stricter* than the
+        sequence builder's rule below, which also keeps a cistron entry for
+        a covered non-mRNA gene. Those extra entries are maturation
+        products — ``aspV-tRNA``, ``6S-RNA`` and the like live in
+        ``mature_rna_data`` (99 entries, disjoint from ``rna_data``) and are
+        produced by rna_maturation from a TU precursor, not transcribed.
+        Giving them promoters would invent transcription that does not
+        happen.
+        """
+        gene_left = {g["id"]: g["left_end_pos"] for g in raw_data.genes}
+        gene_right = {g["id"]: g["right_end_pos"] for g in raw_data.genes}
+        gene_dir = {g["id"]: g["direction"] for g in raw_data.genes}
+        gene_rna_id = {g["id"]: g["rna_ids"][0] for g in raw_data.genes}
+
+        canonical_tu_id = {}
+        records = []
+        covered_gene_ids = set()
+        for tu in raw_data.transcription_units:
+            gene_tuple = tuple(
+                sorted(g for g in tu["genes"] if g in valid_gene_ids)
+            )
+            if len(gene_tuple) == 0:
+                continue
+            covered_gene_ids |= set(tu["genes"])
+            # First row wins, mirroring the dedup loop's survivor choice.
+            canonical_tu_id.setdefault(gene_tuple, tu["id"])
+
+            left = tu["left_end_pos"]
+            if not isinstance(left, int):
+                left = min(gene_left[g] for g in tu["genes"])
+            right = tu["right_end_pos"]
+            if not isinstance(right, int):
+                right = max(gene_right[g] for g in tu["genes"])
+
+            direction = tu.get("direction")
+            if direction not in ("+", "-"):
+                direction = gene_dir[tu["genes"][0]]
+
+            records.append(
+                {
+                    "id": tu["id"],
+                    "transcript_id": canonical_tu_id[gene_tuple],
+                    "coordinate": left if direction == "+" else right,
+                    "direction": direction,
+                    "gene_tuple": gene_tuple,
+                    "level": "tu",
+                }
+            )
+
+        # One promoter per cistron-level transcript: a gene transcribed on
+        # its own is one no transcription unit covers. Covered genes are
+        # transcribed as part of their TU; where a covered non-mRNA gene
+        # also has a cistron entry, that entry is a maturation product
+        # (mature_rna_data), not a transcript.
+        for gene in raw_data.genes:
+            gene_id = gene["id"]
+            if gene_id not in valid_gene_ids or gene_id in covered_gene_ids:
+                continue
+            coordinate = (gene_left[gene_id] if gene_dir[gene_id] == "+"
+                          else gene_right[gene_id])
+            if not isinstance(coordinate, int):
+                # No chromosomal position, so no promoter can be placed.
+                # valid_gene_ids already excludes these upstream; this is a
+                # guard for callers that pass a laxer set.
+                continue
+            rna_id = gene_rna_id[gene_id]
+            records.append(
+                {
+                    "id": rna_id,
+                    "transcript_id": rna_id,
+                    "coordinate": coordinate,
+                    "direction": gene_dir[gene_id],
+                    "gene_tuple": (gene_id,),
+                    "level": "cistron",
+                }
+            )
+
+        self._promoter_records = records
+        self._promoter_id_to_transcript_id = {
+            r["id"]: r["transcript_id"] for r in records
+        }
+
+    def get_promoter_records(self) -> list[dict]:
+        """
+        Returns one record per transcription start site: ``id``,
+        ``transcript_id``, ``coordinate``, ``direction``, ``gene_tuple``.
+        See :py:meth:`_build_promoter_records`.
+        """
+        return self._promoter_records
+
+    def get_transcript_id_for_promoter(self, promoter_id: str) -> str:
+        """Returns the canonical transcript driven by ``promoter_id``."""
+        return self._promoter_id_to_transcript_id[promoter_id]
 
     def _build_protein_sequences(self, raw_data):
         """

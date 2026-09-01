@@ -31,6 +31,8 @@ from v2ecoli.steps.reactor_cell_coupler import (
     ReactorCellCoupler,
     AMMONIUM_MEDIUM_LEAF,
     BIOMASS_C_FRACTION,
+    BYPRODUCT_LEAVES,
+    CARBON_ATOMS,
     BIOMASS_N_FRACTION,
     DIAGNOSTIC_LEAVES,
     MW_C,
@@ -355,6 +357,129 @@ def test_a_tick_with_no_ledger_emits_NaN_not_zero(core):
     assert d["carbon_in_mM"] == pytest.approx(0.0, abs=1e-12)
 
 
+def test_the_byproduct_leaf_sets_do_not_drift(core):
+    """Every byproduct the coupler accumulates must also carry a carbon count.
+
+    ⚠⚠ THE DEFECT THIS PINS: the byproduct leaf set is maintained by hand in
+    FOUR places -- CARBON_ATOMS, BYPRODUCT_LEAVES, the composite's
+    MEDIUM_BYPRODUCT_LEAVES, and the string literals in the coupler edge's
+    _outputs. Dropping `succinate_mM` from CARBON_ATOMS passed the entire suite
+    (measured): its carbon simply leaves the ledger while the reactor leaf keeps
+    accumulating it, so carbon appears to GO MISSING and reads as a positive
+    residual -- a physiology-shaped number produced by a bookkeeping omission.
+
+    ⭐ This is the same drift the diagnostics leaves were structurally protected
+    from in this PR (DIAGNOSTIC_LEAVES drives writer, seed and schema), left
+    open one field over. Pinning the two coupler-side sets against each other
+    closes the mutation; unifying all four is the real fix and is not attempted
+    here.
+    """
+    assert set(CARBON_ATOMS) == set(BYPRODUCT_LEAVES), (
+        "CARBON_ATOMS and BYPRODUCT_LEAVES have drifted apart. A byproduct the "
+        "coupler accumulates but does not count carbon for makes carbon appear "
+        "to vanish; one it counts but never accumulates contributes nothing. "
+        f"only-in-CARBON_ATOMS={set(CARBON_ATOMS) - set(BYPRODUCT_LEAVES)} "
+        f"only-in-BYPRODUCT_LEAVES={set(BYPRODUCT_LEAVES) - set(CARBON_ATOMS)}")
+    assert all(n > 0 for n in CARBON_ATOMS.values()), (
+        f"a byproduct with <=0 carbon atoms contributes nothing: {CARBON_ATOMS}")
+
+
+def test_an_omitted_biomass_fraction_falls_back_to_the_constant(core):
+    """An omitted elemental fraction must use the literature constant, not 0.0.
+
+    ⚠⚠ WHY THIS EXISTS. `config_schema` declares these as `float`, and the
+    framework FILLS a declared float key with **0.0** when a caller omits it --
+    it does NOT leave it None. So the falsy `or` fallback in initialize() is
+    load-bearing, and "correcting" it to `is None` (which reads as the more
+    careful idiom) sets both fractions to 0.0 in every default-constructed
+    coupler, zeroing the entire biomass side of the ledger. Measured: that
+    change reds four ledger tests with carbon_biomass_mM == 0.0.
+
+    This test exists so that the next person who tidies the `or` gets a red
+    test instead of a ledger that closes by construction.
+    """
+    c = _ledger_coupler(core)          # passes NEITHER fraction
+    assert c.biomass_c_fraction == pytest.approx(BIOMASS_C_FRACTION)
+    assert c.biomass_n_fraction == pytest.approx(BIOMASS_N_FRACTION)
+    # And an explicitly-passed value must still win.
+    c2 = ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e12, "reactor_volume_L": 1.0,
+                "track_medium": True, "biomass_n_fraction": 0.11},
+        core=core)
+    assert c2.biomass_n_fraction == pytest.approx(0.11)
+
+
+def test_the_latch_tick_is_invalid_however_much_glucose_moved(core):
+    """The tick that LATCHES the baseline can never carry a ledger.
+
+    ⚠⚠ THE DEFECT: `b0 = biomass_now`, then `biomass_gL = biomass_now - b0`,
+    so biomass_gL is EXACTLY 0.0 on that tick, every run, by construction --
+    the entire "out" side is zero while `c_in` is a real glucose uptake. The
+    first version of the validity gate admitted it, because `0.0 >= 0.0` passes.
+    `[m@01Sep]` t=0 on the real composite emitted carbon_residual = -1.929 --
+    293% of carbon appearing from nowhere -- marked VALID.
+
+    ⛔ It is a GUARANTEED-EVERY-RUN artifact that no run length dilutes, so
+    max_abs over the valid series inherited it however long the run. Measured
+    A/B on one window: max_abs 1.929 admitting it vs 0.739 excluding it,
+    against mbp-04's 0.02 band. This is the single tick that defeated the
+    "max_abs over valid ticks is a sane statistic" claim.
+
+    ⚠ Note what this does NOT assert: that biomass_gL == 0 makes a tick
+    invalid. A later steady-state tick with no net biomass change but real
+    glucose consumption is meaningful data and must stay VALID -- which is why
+    the gate names the actual defect (no interval elapsed since the baseline)
+    rather than tightening the biomass test to `> 0.0`.
+    """
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    c = _ledger_coupler(core)
+    # ⚠ Two invocations, not one, and the reason is worth recording. The FIRST
+    # observation of an agent yields a zero exchange delta by design (#632's
+    # per-agent differencing), so a first tick cannot move glucose and is
+    # already invalid via `c_in > 0`. The real composite latches on a tick that
+    # DOES move glucose, because the agent was observed earlier. Prime the agent
+    # with zero population biomass (no latch, but the exchange baseline is set),
+    # then latch on a tick that consumes -- which is the shape that slipped
+    # through.
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.0,
+                                      glc_total=0.0, nh4_total=0.0))
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5,
+        glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
+    d = out["reactor"]["diagnostics"]
+    assert d["carbon_in_mM"] > 0.0, (
+        "precondition: this tick must actually move glucose, else it is not "
+        f"exercising the defect: {d}")
+    assert d["carbon_biomass_mM"] == pytest.approx(0.0, abs=1e-12), (
+        "precondition: the latch tick's biomass delta is 0.0 by construction")
+    assert d["ledger_valid"] == 0.0, (
+        f"the latch tick must be INVALID -- no interval has elapsed since the "
+        f"baseline, so its 'out' side is structurally zero: {d}")
+
+
+def test_a_zero_growth_tick_after_the_latch_stays_valid(core):
+    """The counterpart to the test above: don't over-correct.
+
+    Tightening `biomass_gL >= 0.0` to `> 0.0` would also have fixed the latch
+    tick -- and would have thrown away every legitimate zero-growth tick. A
+    steady-state tick with no net biomass change but real glucose consumption
+    is meaningful data and must still be graded.
+    """
+    counts_per_mM = AVOGADRO / 1000.0 / 1.0e12
+    c = _ledger_coupler(core)
+    c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
+                                      glc_total=0.0, nh4_total=0.0))
+    # Second tick: glucose moves, biomass is unchanged from the baseline.
+    out = c.next_update(1.0, _ledger_states(
+        glc=40.0, nh4=30.0, biomass_gL=0.5,
+        glc_total=-1.0 * counts_per_mM, nh4_total=0.0))
+    d = out["reactor"]["diagnostics"]
+    assert d["carbon_biomass_mM"] == pytest.approx(0.0, abs=1e-12)
+    assert d["ledger_valid"] == 1.0, (
+        f"a zero-growth tick AFTER the latch carries real information and must "
+        f"stay valid: {d}")
+
+
 def test_biomass_below_its_own_baseline_invalidates_the_tick(core):
     """A negative biomass delta must not produce a confident partition.
 
@@ -394,7 +519,16 @@ def test_the_writer_emits_exactly_the_enumerated_leaves(core):
     c = _ledger_coupler(core)
     out = c.next_update(1.0, _ledger_states(glc=40.0, nh4=30.0, biomass_gL=0.5,
                                             glc_total=0.0, nh4_total=0.0))
-    assert tuple(out["reactor"]["diagnostics"]) == DIAGNOSTIC_LEAVES
+    # WARNING: sets, not tuples. Only membership matters to the InPlaceDict
+    # port, and an order-sensitive assertion made a semantically harmless
+    # reorder of two writer keys fail -- a test that reds on a no-op change
+    # trains people to ignore it. A reorder SHOULD survive; a missing or extra
+    # leaf must not.
+    written = out["reactor"]["diagnostics"]
+    assert set(written) == set(DIAGNOSTIC_LEAVES), (
+        f"only-written={set(written) - set(DIAGNOSTIC_LEAVES)} "
+        f"only-enumerated={set(DIAGNOSTIC_LEAVES) - set(written)}")
+    assert len(written) == len(DIAGNOSTIC_LEAVES)
 
 
 def test_carbon_ledger_closes_on_a_stoichiometric_tick(core):
@@ -451,8 +585,8 @@ def test_nitrogen_ledger_closes_on_a_stoichiometric_tick(core):
                                       glc_total=0.0, nh4_total=0.0))
     # ⚠ LITERAL ON PURPOSE -- deriving it from BIOMASS_N_FRACTION would move both
     # sides of the balance together and could not detect a wrong constant.
-    # 1 mM N x 14.007 mg/mmol / 1000 = 0.014007 gN/L; / 0.135 gN/gDW = 0.10375556.
-    d_biomass_gL = 0.10375555555555555
+    # 1 mM N x 14.007 mg/mmol / 1000 = 0.014007 gN/L; / 0.126 gN/gDW = 0.11116667.
+    d_biomass_gL = 0.11116666666666666
     out = c.next_update(1.0, _ledger_states(
         glc=40.0, nh4=30.0, biomass_gL=0.5 + d_biomass_gL,
         # glucose is consumed only so the tick is VALID (validity requires
@@ -464,11 +598,14 @@ def test_nitrogen_ledger_closes_on_a_stoichiometric_tick(core):
     assert d["nitrogen_residual"] == pytest.approx(0.0, abs=1e-6), (
         f"stoichiometric nitrogen tick did not close: {d}")
     # Pin the constant independently of the balance above.
-    assert BIOMASS_N_FRACTION == pytest.approx(0.135, abs=1e-9), (
-        "BIOMASS_N_FRACTION moved; the literal above was derived from 0.135 and "
-        "must be recomputed. sim_data implies ~0.135; the 0.12 this shipped with "
-        "is ~11% low, and the literature range 0.11-0.14 brackets both, which is "
-        "exactly why the error was invisible")
+    assert BIOMASS_N_FRACTION == pytest.approx(0.126, abs=1e-9), (
+        "BIOMASS_N_FRACTION moved; the literal above was derived from 0.126 and "
+        "must be recomputed. 0.126 is sim_data's ACTUAL t=0 cell (route A), which "
+        "is the basis this constant's multiplicand (listeners.mass.dry_mass) uses. "
+        "0.1356 is ParCa's DECLARED 9-class composition (route B) -- a real number "
+        "on the wrong basis, ~7% high here. 0.12 is the Kjeldahl 6.25 convention "
+        "and below both. Literature 0.11-0.14 brackets all three, which is why "
+        "none of them was visibly wrong")
 
 
 def test_carbon_partition_is_reported_beside_the_residual(core):

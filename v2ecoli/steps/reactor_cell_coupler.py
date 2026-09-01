@@ -173,18 +173,36 @@ GLUCOSE_CARBON_ATOMS: int = 6
 # so a composite that holds sim_data can pass a MODEL-DERIVED value instead of a
 # literature one. The coupler is reactor-side and has no sim_data of its own.
 BIOMASS_C_FRACTION: float = 0.46    # gC / gDW
-# ⭐ 0.135, NOT the 0.12 this shipped with. `[m@31Aug]` sim_data's own biomass
-# composition implies ~0.135 gN/gDW (protein N from the expression-weighted AA
-# composition, combined with the mass_fractions for RNA/DNA/lipid/LPS/murein/
-# glycogen/soluble/ions). 0.12 is ~11% LOW, so the nitrogen residual computed
-# against it was measuring a biased constant more than it was measuring the
-# model. Literature range ~0.11-0.14 brackets both, which is exactly why the
-# error was invisible.
-# ⚠ CONSEQUENCE, stated because it changes published numbers: every nitrogen
-# figure taken against 0.12 shifts by ~11%. At 0.135 the M9 recipe ammonium pool
-# (30.272 mM) is ALREADY INSUFFICIENT at OD10 (needs ~32.8 mM), where at 0.12 it
-# looked like 96% of the pool and merely tight.
-BIOMASS_N_FRACTION: float = 0.135   # gN / gDW
+# ⭐⭐ 0.126, and THE BASIS IS THE WHOLE POINT. sim_data yields TWO internally
+# consistent nitrogen fractions that differ by which dry mass you mean:
+#   route B  0.1356  ParCa's DECLARED composition (`mass.mass_fractions`, 9
+#                    classes, basal, tau=44 min)
+#   route A  0.1260  the model's ACTUAL t=0 cell (initial_state bulk + unique)
+# They differ because the initial state carries 38.6 fg -- 10.1% of dry mass --
+# of small metabolites (the 125 targets in `mass._metTargetIds`) that the 9-class
+# accounting omits, diluting protein (0.554 -> 0.481) and RNA (0.173 -> 0.126)
+# by more N than the extra pool supplies.
+# ⇒ THIS CONSTANT MULTIPLIES ROUTE A'S DENOMINATOR, so it must be route A's
+# value. `biomass_gL` <- population.biomass_concentration_gL <- total_biomass_gDW
+# <- `listeners.mass.dry_mass`. Route A is independently validated: dry/(dry+
+# water) = 380.62/(380.62+888.11) = 0.3000, exactly sim_data's
+# `cell_dry_mass_fraction`.
+# ⚠ HISTORY, because both errors are instructive. This shipped as 0.12 -- the
+# Kjeldahl 16%-N / factor-6.25 convention, and ~5% below even the lowest
+# defensible model route. It was then "fixed" to 0.135, which is the RIGHT
+# derivation on the WRONG basis: route B's value against route A's multiplicand,
+# ~7% high. Literature (0.11-0.14) brackets all three, which is exactly why none
+# of it was visible. The model's own proteome gives 17.38% N -- a protein factor
+# of 5.75, the accepted bacterial value, not a model artifact.
+# ⚠ CONSEQUENCE for the OD10 nitrogen claim, RE-DERIVED directly rather than
+# scaled: at OD10 (3.4 gDW/L via DEFAULT_OD_TO_GDW=0.34) the requirement is
+# 30.58 mM N = 101.0% of the 30.272 mM M9 recipe pool -- MARGINAL, essentially
+# exactly at the line. NOT the "already insufficient" that 0.135 implied (32.77
+# mM, 108%), and not the comfortable 96% that 0.12 implied.
+# ⛔ BIOMASS_C_FRACTION below has the IDENTICAL basis question and has NOT been
+# re-derived on either route. It is now the least-supported number in this
+# ledger. Do not assume 0.46 is basis-consistent just because 0.126 now is.
+BIOMASS_N_FRACTION: float = 0.126   # gN / gDW, route A (listeners.mass.dry_mass)
 MW_C: float = 12.011
 MW_N: float = 14.007
 DIAGNOSTICS_LEAF: str = "diagnostics"
@@ -268,6 +286,20 @@ class ReactorCellCoupler(Step):
         # has never shown up in a run. Left as-is rather than changed here:
         # flipping it would alter behaviour for any direct caller relying on
         # today's effective default.
+        # ⚠⚠ FALSY-CHECK ON PURPOSE. `is None` looks more correct and IS WRONG
+        # here: config_schema declares these as `float`, and the framework FILLS
+        # a declared float key with **0.0** when the caller omits it (verified,
+        # not assumed -- the same fill documented for `track_medium` above).
+        # So `cfg.get(...)` never returns None for a declared key, `is None`
+        # never fires, and an omitted fraction would be taken as 0.0 --
+        # ZEROING the entire biomass side of the ledger silently in every
+        # default-constructed coupler.
+        # ⇒ 0.0 must mean "unset" here. The cost is that a caller cannot ask for
+        # a genuine 0.0, which is the right trade: a zero elemental mass
+        # fraction is unphysical, and silently honouring one would produce a
+        # ledger that reports perfect closure by construction.
+        # ⊕ `test_an_omitted_biomass_fraction_falls_back_to_the_constant` pins
+        # this, because the falsy check reads like a bug and invites "fixing".
         self.biomass_c_fraction = float(
             cfg.get("biomass_c_fraction") or BIOMASS_C_FRACTION)
         self.biomass_n_fraction = float(
@@ -561,10 +593,12 @@ class ReactorCellCoupler(Step):
                 # with carbon_biomass_mM (16.3) an order of magnitude above
                 # carbon_in_mM (1.7). All three baselines are latched together so
                 # they refer to the same instant.
+                latched_this_tick = False
                 if self._c_ledger_glc0 is None and biomass_now > 0.0:
                     self._c_ledger_glc0 = _as_float(reactor.get(GLUCOSE_MEDIUM_LEAF))
                     self._c_ledger_nh40 = _as_float(reactor.get(AMMONIUM_MEDIUM_LEAF))
                     self._c_ledger_b0 = biomass_now
+                    latched_this_tick = True
                 # Biomass FORMED in this reactor, read from the population store
                 # (reactor.biomass is the coupler's own passthrough and reads 0.0
                 # until the first write, so it cannot supply the baseline).
@@ -594,6 +628,23 @@ class ReactorCellCoupler(Step):
                 # and ALL of them previously emitted 0.0 -- indistinguishable
                 # from "perfectly balanced".
                 #   (a) baseline not latched (pre-population tick);
+                #   (a2) ⭐ THE LATCH TICK ITSELF. `b0 = biomass_now` and then
+                #       `biomass_gL = biomass_now - b0` == EXACTLY 0.0, every
+                #       run, by construction -- so the whole "out" side is zero
+                #       while `c_in` is a real uptake. `[m@01Sep]` t=0 emitted
+                #       carbon_residual = -1.929 (293% of carbon from nowhere)
+                #       and was marked VALID, because 0.0 >= 0.0 passes.
+                #       ⛔ It is a GUARANTEED-EVERY-RUN artifact that no run
+                #       length dilutes, so max_abs over the valid series
+                #       inherited it however long you ran. A/B on one window:
+                #       max_abs 1.929 admitting it vs 0.739 excluding it,
+                #       against mbp-04's 0.02 band.
+                #       ⚠ Fixed by naming the ACTUAL defect -- no interval has
+                #       elapsed since the baseline -- NOT by tightening the
+                #       biomass test to `> 0.0`, which would also discard
+                #       legitimate zero-growth steady-state ticks later in a
+                #       run, where no net biomass change alongside real glucose
+                #       consumption is meaningful data.;
                 #   (b) no glucose consumed yet since the baseline, so the
                 #       residual's DENOMINATOR is zero or negative;
                 #   (c) ⚠ biomass BELOW its own latched baseline. `[m@31Aug]` the
@@ -605,6 +656,7 @@ class ReactorCellCoupler(Step):
                 #       partition summing to 1 is not a partition being sane.
                 valid = (
                     self._c_ledger_glc0 is not None
+                    and not latched_this_tick
                     and c_in > 0.0
                     and biomass_gL >= 0.0
                 )
@@ -645,9 +697,23 @@ class ReactorCellCoupler(Step):
                 # stale value forever. The constant was introduced to stop that
                 # drift and then not actually used -- so assert it here rather
                 # than trusting two hand-maintained lists to agree.
-                assert tuple(diagnostics) == DIAGNOSTIC_LEAVES, (
+                # ⚠ SET equality, not tuple: only membership matters to the
+                # port, and an order-sensitive check made a semantically
+                # harmless reorder of two writer keys red 14 tests. It also
+                # raises inside next_update, so keep it cheap and correct --
+                # aborting a long simulation over key ORDER would be worse than
+                # the drift it guards against.
+                # HONEST NOTE: deleting this assertion leaves the suite green
+                # (measured) -- test_the_writer_emits_exactly_the_enumerated_
+                # leaves already covers the invariant, and the dict below is a
+                # literal with no conditional branch, so today this CANNOT fire.
+                # Kept as cheap insurance for the day that dict becomes
+                # conditional, NOT because it is currently load-bearing. Do not
+                # cite it as coverage.
+                assert set(diagnostics) == set(DIAGNOSTIC_LEAVES), (
                     "ledger writer and DIAGNOSTIC_LEAVES disagree: "
-                    f"written={tuple(diagnostics)} enumerated={DIAGNOSTIC_LEAVES}")
+                    f"written={sorted(diagnostics)} "
+                    f"enumerated={sorted(DIAGNOSTIC_LEAVES)}")
                 reactor_out[DIAGNOSTICS_LEAF] = diagnostics
 
         if reactor_out:

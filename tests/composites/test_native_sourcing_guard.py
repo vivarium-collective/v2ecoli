@@ -3,7 +3,7 @@ from v2ecoli.composites.ecoli_baseline import assert_injection_sourcing
 
 
 def test_native_forbids_fork_repo():
-    with pytest.raises(ValueError, match="ecoli_v1_hybrid"):
+    with pytest.raises(ValueError, match=r"baseline\(native=False\)"):
         assert_injection_sourcing(
             native=True,
             injected_processes={"swap_processes": {"a": "b"}, "fork_repo": "/some/vEcoli"},
@@ -18,15 +18,15 @@ def test_native_allows_empty_fork_repo():
     ) is None
 
 
-def test_hybrid_requires_fork_repo():
-    with pytest.raises(ValueError, match="ecoli_baseline"):
+def test_fork_sourcing_requires_fork_repo():
+    with pytest.raises(ValueError, match=r"baseline\(native=False\) requires"):
         assert_injection_sourcing(
             native=False,
             injected_processes={"add_processes": ["p"], "fork_repo": ""},
         )
 
 
-def test_hybrid_with_fork_repo_ok():
+def test_fork_sourcing_with_fork_repo_ok():
     assert assert_injection_sourcing(
         native=False,
         injected_processes={"add_processes": ["p"], "fork_repo": "/some/vEcoli"},

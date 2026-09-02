@@ -1108,12 +1108,12 @@ def _build_batch_document(
 
 
 def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> None:
-    """Enforce the composite's injection-sourcing policy.
+    """Enforce the injection-sourcing policy for a ``baseline(native=...)`` build.
 
-    ``native`` composites (ecoli_baseline) build injected processes fork-free off
-    their own bundle simData → a non-empty ``fork_repo`` is a caller error.
-    Fork-wrapping composites (ecoli_v1_hybrid) source injections from the vEcoli
-    fork → an add/swap injection needs a non-empty ``fork_repo``.
+    ``native=True`` (the default, ecoli_baseline) builds injected processes
+    fork-free off its own bundle simData → a non-empty ``fork_repo`` is a caller
+    error. The ``native=False`` fork-sourcing path pulls injections from the
+    vEcoli fork → an add/swap injection needs a non-empty ``fork_repo``.
     """
     if not injected_processes:
         return
@@ -1122,14 +1122,14 @@ def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> 
     fork_repo = injected_processes.get("fork_repo") or ""
     if native and fork_repo:
         raise ValueError(
-            f"ecoli_baseline is native-only but injected_processes.fork_repo="
-            f"{fork_repo!r} is set — use the ecoli_v1_hybrid composite for "
+            f"baseline(native=True) is native-only but injected_processes.fork_repo="
+            f"{fork_repo!r} is set — build with baseline(native=False) for "
             f"fork-wrapping injection.")
     if (not native) and has_add_swap and not fork_repo:
         raise ValueError(
-            "ecoli_v1_hybrid requires injected_processes.fork_repo to source "
+            "baseline(native=False) requires injected_processes.fork_repo to source "
             "metabolism-redux from the vEcoli fork, but it is empty — use "
-            "ecoli_baseline for native (fork-free) injection.")
+            "baseline(native=True) for native (fork-free) injection.")
 
 
 WCM_PARAMETERS = {

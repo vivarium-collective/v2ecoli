@@ -1,0 +1,221 @@
+schema_version: 4
+name: mechanistic-replisome-arrest
+title: Mechanistic replisome — multi-generation arrest
+created: '2026-09-01'
+status: planned
+phase: Design
+
+question: >-
+  With mechanistic_replisome=True, does a 12-generation lineage arrest, and is
+  DnaG the subunit that runs out?
+
+  Scope: ONE seed (0). This study establishes whether the phenomenon exists at
+  all and what its signature is. Whether it survives across seeds — i.e. is a
+  property of the model rather than of one RNG draw — is deliberately a
+  separate study, so that a single-seed observation is never mistaken for a
+  robust one.
+
+hypothesis: >-
+  Yes. With the flag off, initiation is unconditional and the lineage runs
+  indefinitely. With it on, initiation fires only when 6 replisome trimers and
+  2 monomers are available per oriC (chromosome_replication.py:453). DnaG is
+  expected to be the binding constraint, because its transcription is
+  mis-regulated by the promoter collapse in the rpsU-dnaG-rpoD operon rather
+  than because replication consumes it faster than the others.
+
+objective: >-
+  Establish the baseline phenotype on an unmodified origin/main, from which the
+  promoter/transcript split can later be judged. This study only characterises
+  the failure — it does not attempt a fix. Two things must come out of it: the
+  generation at which the lineage arrests, and which replisome subunit is
+  exhausted when it does.
+
+description: >-
+  Paired lineages from the same seed, differing only in mechanistic_replisome.
+  The permissive arm is the control: if it also arrests, the phenotype is not
+  attributable to subunit gating and the causal chain fails at its first link.
+
+  Mechanism note: the flag is applied through the generator's declared
+  config_overrides parameter, not by building two caches. mechanistic_replisome
+  is also a LoadSimData/cache-build parameter, where it would additionally
+  affect the initial state (replisome protein mass on pre-existing replisomes);
+  that route is deliberately unused. It is also currently broken —
+  initial_conditions.py:597 converts a molar mass (g/mol) straight to fg/count
+  and raises DimensionalityError, where the correct form lives in
+  sim_data.py:729. Dead code today because nothing builds a mechanistic cache.
+
+  Why this is being re-established rather than cited: the arrest was previously
+  observed on the plasmids branch, which also carried a dedup exemption, TF
+  routing overrides and four removed Covert-lab workarounds. None of that is on
+  this branch, so the earlier generation number is not evidence here.
+
+  Instrumentation matters as much as the endpoint. Per-generation counts are
+  needed for all five subunits — DnaG (EG10239-MONOMER), pol III core
+  (CPLX0-2361), beta clamp (CPLX0-3761), DnaB helicase (CPLX0-3621) and HolA
+  (EG11412-MONOMER) — so that "DnaG ran out" is a measurement and not an
+  assumption. A run in which some other subunit is exhausted first would
+  redirect the whole investigation.
+
+expected_behavior:
+  - name: lineage-arrests-under-mechanistic-replisome
+    en: >-
+      With the mechanistic replisome engaged, the lineage fails to reach 12
+      generations.
+    observable: generations completed before the lineage stops dividing
+    condition: mechanistic_replisome=true
+    rationale: >-
+      Initiation requires 6 trimers + 2 monomers per oriC. If a subunit pool is
+      under-produced, initiation is skipped, the cell cannot finish a replication
+      round before it would divide, and the lineage terminates.
+    measure:
+      kind: derived
+      detail: >-
+        Count completed generations in the lineage. A generation counts as
+        complete when division produces a viable daughter that itself begins a
+        cycle.
+    expect:
+      op: <
+      value: 12
+
+  - name: permissive-lineage-survives
+    en: >-
+      With the permissive setting the same seed reaches 12 generations.
+    observable: generations completed before the lineage stops dividing
+    condition: mechanistic_replisome=false
+    rationale: >-
+      Control. If this arm also arrests, the cause is not subunit gating and the
+      investigation's first link is refuted.
+    measure:
+      kind: derived
+      detail: Same generation count, permissive arm.
+    expect:
+      op: '>='
+      value: 12
+
+  - name: dnag-is-the-exhausted-subunit
+    en: >-
+      At the arresting generation DnaG is the replisome subunit that is depleted,
+      not one of the other four.
+    observable: per-generation counts of the five replisome subunits
+    condition: mechanistic_replisome=true
+    rationale: >-
+      Distinguishes a DnaG-specific transcription defect from a general shortage
+      of replisome machinery. Only the former implicates the transcription-unit
+      architecture.
+    measure:
+      kind: derived
+      detail: >-
+        Minimum count per generation for EG10239-MONOMER (DnaG), CPLX0-2361 (pol
+        III core), CPLX0-3761 (beta clamp), CPLX0-3621 (DnaB hexamer) and
+        EG11412-MONOMER (HolA). DnaG must be the one that falls below what
+        initiation requires.
+    expect:
+      op: '=='
+      value: true
+
+behavior_tests:
+  - name: lineage-arrests-under-mechanistic-replisome
+    classification: primary
+    gate_class: acceptance_criterion
+    description: >-
+      The mechanistic arm terminates before generation 12. This is the
+      investigation's entry point — if it does not reproduce here, the causal
+      chain has no phenomenon to explain.
+
+      Single-seed claim: this test is evaluated at seed 0 only. It cannot
+      distinguish a model property from a seed-specific accident; that is what
+      the follow-on seed-robustness study is for.
+
+      Threshold provenance: committed to study.yaml before the run was
+      launched, and never observed on this branch — origin/main carries none
+      of the dedup exemption, TF routing overrides or removed Covert-lab
+      workarounds that were present when the arrest was first seen. So this is
+      a genuine prediction about this tree and could fail. It is however an
+      *informed* prediction rather than a naive one: the "12 generations"
+      figure comes from the author's recollection of a plasmids-branch run,
+      not from an independent source. A reviewer should weigh it accordingly —
+      weaker than the DnaG test below, which was pre-observed nowhere.
+    measure:
+      kind: derived
+      detail: Completed generations, mechanistic arm.
+    pass_if:
+      op: <
+      value: 12
+    requires_simulation: mechanistic
+
+  - name: permissive-lineage-survives
+    classification: control
+    gate_class: acceptance_criterion
+    description: >-
+      The permissive arm reaches 12 generations from the same seed, isolating
+      subunit gating as the cause.
+
+      Single-seed claim: seed 0 only.
+
+      Threshold provenance: committed before the run; never executed on this
+      branch. Genuinely able to fail — if the permissive arm also arrests, the
+      phenotype is not attributable to subunit gating and the causal chain is
+      refuted at its first link.
+    measure:
+      kind: derived
+      detail: Completed generations, permissive arm.
+    pass_if:
+      op: '>='
+      value: 12
+    requires_simulation: permissive
+
+  - name: dnag-is-the-exhausted-subunit
+    classification: primary
+    gate_class: acceptance_criterion
+    description: >-
+      DnaG, not another subunit, is the pool exhausted at the arrest. Guards
+      against attributing a general machinery shortage to a DnaG-specific defect.
+
+      Single-seed claim: seed 0 only.
+
+      Threshold provenance: committed before the run and pre-observed nowhere —
+      not on this branch and not on the plasmids branch, where the five pools
+      were never compared against each other at the arresting generation. Four
+      ways to be wrong (pol III core, beta clamp, DnaB, HolA), so a pass is the
+      strongest single piece of evidence this study can produce; a fail
+      redirects the investigation away from the transcription-unit architecture
+      entirely.
+    measure:
+      kind: derived
+      detail: Per-generation minima across the five replisome subunit pools.
+    pass_if:
+      op: '=='
+      value: true
+    requires_simulation: mechanistic
+
+canonical_runs:
+  - name: default
+    script: studies/mechanistic-replisome-arrest/sims/run.py
+    args: []
+    label: mechanistic-replisome-arrest
+    default: true
+
+visualizations: []
+conclusion:
+conditions:
+  baseline:
+    name: mechanistic
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      config_overrides:
+        ecoli-chromosome-replication.mechanistic_replisome: true
+
+  variants:
+    - name: permissive
+      composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+      params:
+        config_overrides:
+          ecoli-chromosome-replication.mechanistic_replisome: false
+      rationale: >-
+        Control. Isolates subunit gating as the cause of the arrest. Both arms
+        share ONE cache and are applied as runtime config overrides, so they start
+        from a byte-identical initial state and differ only in the gate — any
+        divergence is attributable to the gate rather than to two separately-built
+        caches.
+
+  model_settings: []

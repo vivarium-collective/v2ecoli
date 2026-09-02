@@ -90,6 +90,31 @@ def _fg(q) -> float:
     return float(getattr(q, "magnitude", q))
 
 
+def parse_config_override(spec: str) -> tuple[str, object]:
+    """Parse a ``PROCESS.KEY=VALUE`` override into ``(dotted_key, value)``.
+
+    VALUE is parsed as JSON so booleans/numbers/null arrive typed
+    (``...mechanistic_replisome=true`` -> ``True``, not ``"true"``);
+    anything JSON cannot parse is kept as a literal string.
+    """
+    if "=" not in spec:
+        raise ValueError(
+            f"--config-override {spec!r} must be PROCESS.KEY=VALUE "
+            "(e.g. 'ecoli-chromosome-replication.mechanistic_replisome=true')")
+    key, _, raw = spec.partition("=")
+    key = key.strip()
+    if not key:
+        raise ValueError(f"--config-override {spec!r}: empty KEY")
+    if "." not in key:
+        raise ValueError(
+            f"--config-override {spec!r}: KEY must be PROCESS.KEY, got {key!r}")
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        value = raw
+    return key, value
+
+
 def parse_perturbation(spec: str) -> tuple[str, float]:
     """Parse a ``KEY=VALUE`` perturbation spec into ``(rna_id, synth_prob)``.
 
@@ -333,6 +358,13 @@ def main() -> None:
                          "operon. Repeatable. OVERRIDES any value baked into "
                          "the cache; the override is recorded in the run "
                          "provenance (run_config.perturbations).")
+    ap.add_argument("--config-override", action="append", default=[],
+                    metavar="PROCESS.KEY=VALUE",
+                    help="Declarative composite config override, forwarded to "
+                         "the generator's `config_overrides` parameter, e.g. "
+                         "'ecoli-chromosome-replication.mechanistic_replisome=true'. "
+                         "Repeatable. Applied to EVERY generation. Values are "
+                         "parsed as JSON, falling back to the literal string.")
     ap.add_argument("--study-dir", default=None,
                     help="Study dir whose runs.db records this run's config "
                          "provenance (run_id = experiment_id). If omitted, "
@@ -349,6 +381,16 @@ def main() -> None:
 
     # Parse perturbations up front (fail fast on a malformed spec).
     perturbations = dict(parse_perturbation(s) for s in args.perturbation)
+
+    # Declarative composite config overrides, forwarded to the generator's
+    # `config_overrides` parameter. Kept as a kwargs dict so the three
+    # composite-construction sites below stay unchanged when no override is
+    # given (empty dict -> no kwarg -> byte-identical call).
+    config_overrides = dict(
+        parse_config_override(s) for s in args.config_override)
+    _cfg_over_kwarg = {"config_overrides": config_overrides} if config_overrides else {}
+    if config_overrides:
+        print(f"  config overrides: {config_overrides}")
 
     max_duration = int(args.max_min * 60)
     dill_dir = args.dill_dir or f"out/{args.experiment_id}/gen_dills"
@@ -451,10 +493,12 @@ def main() -> None:
                     bundle = dict(load_cache_bundle(args.cache_dir))
                     bundle["configs"] = configs  # perturbed configs
                     doc = baseline_doc(core=core, seed=args.seed,
-                                       cache_dir=args.cache_dir, bundle=bundle)
+                                       cache_dir=args.cache_dir, bundle=bundle,
+                                       **_cfg_over_kwarg)
                     comp = Composite(doc, core=core)
                 else:
-                    comp = build_composite("ecoli_baseline", cache_dir=args.cache_dir)
+                    comp = build_composite("ecoli_baseline", cache_dir=args.cache_dir,
+                                                           **_cfg_over_kwarg)
             else:
                 d1_state, _d2_state = divide_cell(prev_cell_data)
                 bundle = {
@@ -464,7 +508,8 @@ def main() -> None:
                     "dry_mass_inc_dict": dry_mass_inc,
                 }
                 doc = baseline_doc(core=core, seed=args.seed + gen_idx,
-                                   cache_dir=args.cache_dir, bundle=bundle)
+                                   cache_dir=args.cache_dir, bundle=bundle,
+                                   **_cfg_over_kwarg)
                 comp = Composite(doc, core=core)
             print(f"    composite built in {time.time()-t_build:.1f}s")
 

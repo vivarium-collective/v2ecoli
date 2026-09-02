@@ -1,0 +1,116 @@
+schema_version: 2
+name: transcription-rewiring
+title: Transcription rewiring — promoter-resolved transcription
+created: '2026-09-01'
+status: planning
+
+question: >-
+  Does resolving transcription by promoter rather than by transcription unit
+  fix DnaG production, and with it the multi-generation replication arrest that
+  appears once initiation has to acquire real replisome subunits?
+
+hypothesis: >-
+  The arrest is not a replication defect. It is a transcription defect that
+  surfaces at the replisome. ParCa deduplicates transcription units by gene
+  tuple, so the three promoters of the rpsU-dnaG-rpoD operon collapse into one
+  TU. Regulation measured at one promoter is then applied to all of them, and
+  dnaG is transcribed under the wrong regulatory context. DnaG falls far enough
+  below its true abundance that replisomes cannot be assembled, and a lineage
+  run with mechanistic_replisome=True arrests at a reproducible generation.
+  Separating promoters from transcripts should restore DnaG without
+  special-casing the operon.
+
+description: >-
+  Ordered as a causal chain, so each link is falsifiable on its own rather than
+  standing or falling with the conclusion:
+
+  1. mechanistic_replisome=True arrests a 12-generation lineage at a
+  reproducible generation; the permissive setting does not.
+  2. The arrest coincides with DnaG depletion, not with a shortage of some
+  other replisome subunit.
+  3. The model's DnaG abundance is low against independent proteomics
+  (Schmidt 2016, Soufi 2015, Mori 2021, Li 2014), not merely low against one
+  dataset.
+  4. The cause is architectural — a transcription unit serves as both promoter
+  and transcript, so operons with several promoters need several transcript
+  species whose physical properties no measurement constrains.
+  5. Promoter-resolved transcription restores DnaG and the lineage survives 12
+  generations.
+
+  Link 4 is the contribution. Links 1-3 establish that the architecture has a
+  measurable cost; link 5 is the test.
+
+studies:
+- mechanistic-replisome-arrest
+
+executive:
+  what_is_this: >-
+    v2ecoli can normally start chromosome replication whenever it is due,
+    because the model assumes the proteins that build a replisome are always on
+    hand. Turn that assumption off — require the subunits to actually be
+    present — and the cell line dies out after a few generations. This
+    investigation asks why, and the answer appears to sit upstream of
+    replication entirely: in how the model decides which stretches of DNA are
+    transcribed, and under whose regulatory control.
+  verdict: TBD — no study has been run on this branch yet.
+  verdict_status: in-progress
+  verdict_detail: >-
+    The baseline arrest has not yet been reproduced here. Earlier observations
+    of it were made in a branch that also carried unrelated regulation edits, so
+    it is deliberately being re-established from an unmodified origin/main.
+  decisions_needed:
+  - >-
+    Whether keying transcription initiation by promoter is an acceptable
+    divergence from upstream vEcoli, which keys everything by transcription
+    unit. AGENTS.md requires this to be justified explicitly rather than
+    assumed.
+
+scientific_argument:
+  main_claim: >-
+    A transcription unit cannot serve as both promoter and transcript without
+    forcing ParCa to invent per-transcript physical properties that no
+    measurement constrains; separating the two removes that class of error and
+    restores DnaG production.
+  evidence_for:
+  - >-
+    The input data has a fixed resolution structure. Only initiation is
+    promoter-resolved (Thomason 2015 dRNA-seq TSS); abundance (RNA-seq TPM) and
+    decay (half-life tables) are gene-resolved. Several transcript species per
+    operon therefore introduces state no measurement can constrain.
+  - >-
+    Splitting promoter from transcript is exactly conservative — summing
+    promoter-keyed synthesis probabilities back over each transcript reproduces
+    the TU-keyed array to 8.7e-19 — so the change can be made without
+    perturbing aggregate behaviour.
+  - >-
+    87.5% of transcripts (2881 of 3277) have exactly one promoter, so the split
+    is a no-op for most of the model and does real work only on the 417 operons
+    with more than one.
+  evidence_against:
+  - >-
+    The transcripts a multi-promoter operon produces are not strictly identical.
+    They share a 3' end but differ in 5' UTR length, by 23-289 nt in the operons
+    examined. The 5' UTR carries the ribosome binding site and can affect both
+    stability and translation, so treating them as one species is itself an
+    approximation.
+  - >-
+    Keying regulation by promoter diverges from upstream vEcoli. The divergence
+    looks defensible but it is a real cost and has not been agreed.
+  key_figures: []
+  caveats:
+  - >-
+    Every initiation share on this branch is uniform (1/N). The Thomason-derived
+    ratios exist only on the plasmids branch and were deliberately not carried
+    over; they need re-deriving as promoter data. Uniform is exactly
+    conservative, so this does not bias the conservation result, but the model
+    carries no promoter-level measurement yet.
+  - >-
+    Earlier evidence for this chain came from a branch that also removed four
+    Covert-lab regulation workarounds and added a dedup exemption. None of that
+    is present here. Anything observed on this branch is attributable to the
+    split alone — which is the point — but it also means earlier numbers cannot
+    be quoted as if they were produced here.
+
+acceptance_criteria:
+- study: mechanistic-replisome-arrest
+  behavior: lineage-arrests-under-mechanistic-replisome

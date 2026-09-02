@@ -1,0 +1,563 @@
+schema_version: 4
+name: replisome-gate-sufficiency
+title: Replisome gate sufficiency
+created: '2026-09-02'
+status: planned
+phase: Design
+study_type: confirmatory
+investigation: transcription-rewiring
+
+question: >-
+  With the initiation gate corrected from equality to sufficiency, does the
+  mechanistic lineage still stall, does it stall at a consistent generation
+  across seeds, and is a replisome subunit genuinely the limiting resource?
+
+biological_summary: |
+  Study mechanistic-replisome-arrest established that v2ecoli's replication
+  initiation gate blocked initiation for the wrong reason. The gate required
+  each replisome pool to hold EXACTLY its stoichiometric requirement
+  (== 6 * n_oriC for trimers, == 2 * n_oriC for monomers), so a surplus was
+  rejected exactly as a shortage would be. With 235 pol III cores present,
+  235 == 6 is false and initiation could essentially never fire. The arrest
+  that study recorded was therefore an artefact of a comparison operator and
+  said nothing about subunit availability.
+
+  This study asks the original question again, now that it can be asked. The
+  operator is corrected to >=, so the gate finally tests what it was meant to
+  test: whether the cell holds ENOUGH subunits to build two replisomes per
+  origin. If the model's replisome subunit supply is genuinely insufficient at
+  physiological origin counts, the lineage should still stall, but for a real
+  reason and at a generation set by when the cell runs short rather than by
+  the first generation that must initiate from scratch.
+
+  There is a specific reason to expect DnaG to be the pool that binds. In the
+  permissive arm of the previous study the origin count is never 1: it sits at
+  2 or 4 (mean 2.35), because cells initiate the next round before dividing.
+  The gate's demand scales with that count, so a monomer pool must hold up to
+  8 copies. DnaG ranges 0 to 11 copies over that trajectory and is the only
+  pool that spends substantial time below its own demand. HolA is the next
+  closest and is almost exactly marginal. Every other pool has an order of
+  magnitude of headroom.
+
+  DnaG is also where this investigation started. Its abundance in the model is
+  far below the multi-dataset proteomics consensus, and its only transcript,
+  TU00352, is polycistronic with rpsU and rpoD, so the model cannot regulate
+  DnaG independently of a ribosomal protein and sigma-70. That coupling is the
+  transcription-unit architecture problem this investigation exists to address.
+  Establishing that DnaG is the resource that limits replication initiation is
+  what would make that architectural problem consequential rather than merely
+  untidy.
+
+# ─── Framing ──────────────────────────────────────────────────────────
+assumptions:
+- text: >-
+    Requiring at least the stoichiometric subunit count (>=) rather than
+    exactly that count (==) is the intended reading of the initiation gate.
+    The upstream wcEcoli comment says "there are enough replisome subunits to
+    assemble two replisomes per existing OriC", which describes sufficiency.
+  verified_in_v2ecoli: true
+- text: >-
+    Generation duration is capped at 200 simulated minutes. A generation that
+    runs the full cap without dividing is treated as a stall.
+  verified_in_v2ecoli: true
+
+pipeline_gate:
+  prerequisites:
+  - study: mechanistic-replisome-arrest
+    condition: tests-passed
+    relation: leads-to
+    outputs_used:
+    - The measured per-pool subunit margins at the arrest
+    - The identification of == as the operator responsible for that arrest
+  enables: []
+  proceed_condition: >-
+    The stall is characterised (present or absent, and at which generation) and
+    the limiting resource is identified or excluded.
+
+model_change:
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  modified_processes:
+  - v2ecoli/processes/chromosome_replication.py
+  representational_claims:
+  - store: replisome subunit availability
+    role: boundary-crossing
+    rationale: >-
+      The gate reads bulk subunit counts and compares them to a demand set by
+      the origin count. Corrected to >= so the comparison expresses
+      sufficiency, which is what an assembly constraint means.
+    alternatives_excluded:
+    - >-
+      A config flag carrying both operators, which would have let one cache
+      serve an ==/>= contrast. Rejected in favour of an unconditional patch;
+      the contrast is made against the recorded == result of the previous
+      study instead.
+
+# ─── Conditions ───────────────────────────────────────────────────────
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      config_overrides:
+        ecoli-chromosome-replication.mechanistic_replisome: true
+  variants:
+  - name: permissive
+    diff_from_baseline: >-
+      mechanistic_replisome=false. Positive control: initiation is
+      unconditional, so the lineage should complete regardless of subunit
+      supply.
+  - name: dnag-ablation
+    diff_from_baseline: >-
+      mechanistic_replisome=true, with EG10239-MONOMER[c] removed from
+      replisome_monomers_subunits so the gate no longer requires DnaG.
+      Discriminating control for the limiting-resource claim.
+  model_settings: []
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+variants:
+- name: permissive
+  base_composite: baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: false
+- name: dnag-ablation
+  base_composite: baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+      ecoli-chromosome-replication.replisome_monomers_subunits:
+      - CPLX0-3621[c]
+      - EG11500-MONOMER[c]
+      - EG11412-MONOMER[c]
+
+units_and_time:
+  tick: >-
+    1 tick = 1 s of simulated time (composite time_step=1; the runner sets
+    max_duration = max_min * 60)
+  quantities:
+    generation duration: minutes of simulated time (summary duration_min)
+    dry mass: femtograms (fg)
+    subunit counts: molecule copies per cell (integer bulk counts)
+    subunit margin: copies (observed count minus the gate's demand)
+
+# ─── Validation ───────────────────────────────────────────────────────
+behavior_tests:
+- name: lineage-stalls-under-sufficiency-gate
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the mechanistic lineage still stall once the gate tests sufficiency?
+  description: |
+    Every mechanistic seed stops short of 12 generations. Measured as the
+    MAXIMUM divided-generation count across the 8 seeds, so a single seed
+    surviving to 12 fails the test.
+
+    Threshold provenance: committed before the 8-seed sweep, which has not
+    been run. It is NOT naive, and the exact extent of what was known at
+    registration matters. A 3-generation smoke run at seed 0 was IN PROGRESS
+    when these criteria were registered; at that moment generation 2 was
+    already known to have divided under >=, so the generation-2 stall of the
+    previous study was known to be gone. Generation 3's outcome was NOT known
+    at registration. The test can still fail outright: if subunit supply is
+    adequate at physiological origin counts, every seed reaches 12 and there
+    is no stall to explain.
+  measure:
+    kind: derived
+    detail: Maximum divided-generation count across the 8 mechanistic seeds.
+  pass_if:
+    op: <
+    value: 12
+    provenance:
+      kind: theory
+      note: >-
+        12 is the study's chosen run length, not a measured quantity. Long
+        enough that a stall cannot be mistaken for a slow start.
+  requires_simulation: mechanistic
+  status: pending
+
+- name: stall-generation-is-seed-consistent
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the stall a model property rather than a seed-specific accident?
+  description: >-
+    The spread of the stall generation across the 8 mechanistic seeds
+    (maximum minus minimum) is at most 3 generations.
+
+    Threshold provenance: theory, committed before the sweep. 3 generations is
+    an authored bound on what counts as "consistent", not a measured or cited
+    value; a reviewer should weigh it as a judgement. It can fail: if the
+    model stalls at generation 3 in one seed and generation 11 in another, the
+    stall is seed-dependent and the seed-independence claim collapses.
+
+    Scope: 8 seeds supports a robustness claim, not powered inference. The
+    rigor checklist asks n>=20 for a causal stochastic claim, and this study
+    does not meet that bar by design.
+  measure:
+    kind: derived
+    detail: max(stall_generation) - min(stall_generation) across the 8 mechanistic seeds.
+  pass_if:
+    op: <=
+    value: 3
+    provenance:
+      kind: theory
+      note: Authored bound on "consistent"; not measured, not cited.
+  requires_simulation: mechanistic
+  status: pending
+
+- name: some-pool-is-short-at-the-stall
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is a replisome subunit genuinely limiting, or is the stall mass-gated?
+  description: >-
+    At the stalling generation at least one replisome pool has a NEGATIVE
+    margin (observed count below the gate's demand of 6x or 2x the origin
+    count). This is the test the == operator made impossible to run: under
+    equality every pool failed the comparison regardless of supply, so
+    "short" could not be distinguished from "in surplus".
+
+    Threshold provenance: 0 is not a tunable threshold; it is the definition
+    of a shortfall, fixed by the gate's own arithmetic. Committed before the
+    sweep and pre-observed nowhere.
+
+    This test can fail in an informative way. If every margin is positive at
+    the stall, the stall is gated by criticalMassPerOriC rather than by
+    subunit supply, and the limiting-resource question moves to cell mass.
+  measure:
+    kind: derived
+    detail: >-
+      Worst (minimum) margin across the six replisome pools at the stalling
+      generation, plus criticalMassPerOriC, so a mass-gated stall is
+      distinguishable from a subunit-gated one.
+  pass_if:
+    op: <
+    value: 0
+    provenance:
+      kind: theory
+      note: Definitional, not tuned. A negative margin IS a shortfall.
+  requires_simulation: mechanistic
+  status: pending
+
+- name: dnag-is-the-limiting-pool
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Which pool binds first?
+  description: >-
+    The pool with the worst margin at the stall is DnaG (EG10239-MONOMER[c]).
+
+    Threshold provenance: INFORMED PRIOR, and a reviewer should weigh it as
+    such. It is derived from the previous study's PERMISSIVE arm, where origin
+    count is 2 or 4 and applying a >= gate to that trajectory gives DnaG a
+    worst margin of -8, HolA exactly 0, and beta clamp +36. A mechanistic arm
+    under >= will NOT reproduce that trajectory, because blocked initiations
+    change both the origin count and growth, so this is an extrapolation
+    rather than a measurement of the arm being tested.
+
+    Five ways to be wrong (pol III core, beta clamp, DnaB, HolA, HolB), and
+    HolA is close enough to marginal that it is a live alternative.
+  measure:
+    kind: derived
+    detail: Identity of the pool holding the worst margin at the stalling generation.
+  pass_if:
+    op: '=='
+    value: true
+    provenance:
+      kind: exploratory
+      note: >-
+        Extrapolated from the permissive arm of mechanistic-replisome-arrest,
+        not from the arm under test.
+  requires_simulation: mechanistic
+  status: pending
+
+- name: permissive-completes-all-seeds
+  classification: control
+  gate_class: acceptance_criterion
+  question: Does the stall depend on the gate at all?
+  description: >-
+    Every permissive seed reaches 12 generations, isolating subunit gating as
+    the cause of any stall in the mechanistic arm. A failure here refutes the
+    causal chain at its first link, because the lineage would then be dying
+    for a reason unrelated to the gate.
+
+    Threshold provenance: committed before the sweep. Held at seed 0 in the
+    previous study; this extends it to 3 seeds.
+  measure:
+    kind: derived
+    detail: Minimum divided-generation count across the 3 permissive seeds.
+  pass_if:
+    op: '>='
+    value: 12
+    provenance:
+      kind: theory
+      note: The run length; a control that completes the run is the control passing.
+  requires_simulation: permissive
+  status: pending
+
+- name: dropping-dnag-relieves-the-stall
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is DnaG the binding constraint, or a bystander that merely looks scarce?
+  description: >-
+    Removing DnaG from the gate's requirement list lets the lineage survive
+    strictly longer than the mechanistic arm at the same seed. This converts
+    "DnaG has the worst margin" from a correlation into a causal claim: if
+    DnaG is what the gate is waiting for, not requiring it should relieve the
+    stall; if the stall persists unchanged, DnaG was a bystander and another
+    pool or the mass criterion binds.
+
+    Note the scope. This tests whether DnaG GATES initiation in the model, not
+    whether DnaG abundance is physiologically limiting in E. coli.
+
+    Threshold provenance: committed before the sweep, pre-observed nowhere.
+  measure:
+    kind: derived
+    detail: >-
+      (divided generations, dnag-ablation arm) minus (divided generations,
+      mechanistic arm), paired by seed.
+  pass_if:
+    op: '>'
+    value: 0
+    provenance:
+      kind: theory
+      note: >-
+        Any strict improvement counts. Not tuned to an expected effect size,
+        which is unknown.
+  requires_simulation: dnag-ablation
+  status: pending
+
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-02T19:12:58Z'
+  criteria:
+  - test: lineage-stalls-under-sufficiency-gate
+    prior: >-
+      With the gate corrected to >=, the mechanistic lineage still fails to
+      reach 12 generations in every seed.
+  - test: stall-generation-is-seed-consistent
+    prior: >-
+      The stall generation varies by at most 3 generations across seeds.
+  - test: some-pool-is-short-at-the-stall
+    prior: >-
+      At the stall at least one replisome pool is genuinely below the gate's
+      demand.
+  - test: dnag-is-the-limiting-pool
+    prior: >-
+      DnaG holds the worst margin; HolA is the most likely alternative.
+  - test: permissive-completes-all-seeds
+    prior: The permissive control reaches 12 generations in every seed.
+  - test: dropping-dnag-relieves-the-stall
+    prior: >-
+      Removing DnaG from the gate's requirement list extends lineage survival.
+  predictions:
+  - The stall, if present, is at generation 3 or later. At registration a 3-generation smoke run at seed 0 had shown generation 2 dividing under >=, so the generation-2 stall of the previous study was already excluded. Generation 3's outcome was not yet known.
+  - The mechanistic arm reaches a higher origin count than it did under ==, where it never initiated and the count stayed at 1.
+  controls:
+  - permissive-completes-all-seeds
+  - dropping-dnag-relieves-the-stall
+
+readouts:
+- name: number-of-oric
+  store_path: listeners.replication_data.number_of_oric
+  description: >-
+    Origin count, which sets the gate's per-pool demand (6x per trimer, 2x per
+    monomer). Central to this study because the previous one showed the count
+    is 2 or 4 under normal growth, not 1.
+  units: origins
+  status: available
+- name: replisome-subunit-counts
+  store_path: bulk.count
+  description: >-
+    Per-timestep copy counts of the six pools the gate reads: CPLX0-2361 (pol
+    III core), CPLX0-3761 (beta clamp), CPLX0-3621 (DnaB hexamer),
+    EG10239-MONOMER (DnaG), EG11500-MONOMER (HolB), EG11412-MONOMER (HolA).
+  units: molecule copies per cell
+  status: available
+  selector:
+    kind: element
+    path: bulk.count
+- name: critical-mass-per-oric
+  store_path: listeners.replication_data.critical_mass_per_oriC
+  description: >-
+    The gate's other precondition. Required to distinguish a mass-gated stall
+    from a subunit-gated one; without it a stall with all-positive margins is
+    uninterpretable.
+  units: dimensionless
+  status: derived-needed
+- name: generation-summary
+  store_path: derived
+  description: >-
+    Per-generation division outcome, duration and final dry mass per arm and
+    seed. Derived from the runner's *_summary.json gens[], not an emitter leaf.
+  units: min / fg
+  status: derived-needed
+
+# ─── Rigor ────────────────────────────────────────────────────────────
+robustness:
+  n_replicates: 8
+  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  parameter_sweep: false
+  note: >-
+    8 mechanistic seeds, 3 permissive (0-2), 5 dnag-ablation (0-4). Supports a
+    robustness claim about the stall, NOT powered causal inference; the rigor
+    checklist asks n>=20 for that and this study does not meet it by design.
+
+controls:
+- name: permissive-completes-all-seeds
+  kind: positive
+  hypothesis: >-
+    With gating off, initiation is unconditional, so the lineage should
+    complete regardless of subunit supply.
+  expected: 12 of 12 generations in each of 3 seeds.
+  observed: ''
+  result: PENDING
+- name: dropping-dnag-relieves-the-stall
+  kind: negative
+  hypothesis: >-
+    A gate that no longer requires DnaG should NOT stall for want of DnaG. If
+    it stalls identically, the DnaG attribution is wrong.
+  expected: Strictly more divided generations than the mechanistic arm at the same seed.
+  observed: ''
+  result: PENDING
+
+alternative_hypotheses:
+- claim: >-
+    The stall is gated by cell mass (criticalMassPerOriC), not by subunit
+    supply.
+  discriminated_by: >-
+    some-pool-is-short-at-the-stall, which measures criticalMassPerOriC
+    alongside the six margins. All-positive margins at the stall points here.
+  status: untested
+- claim: >-
+    HolA, not DnaG, is the pool that binds. Under the permissive trajectory
+    its margin is exactly 0, so it is a live alternative rather than a
+    formality.
+  discriminated_by: dnag-is-the-limiting-pool and dropping-dnag-relieves-the-stall.
+  status: untested
+- claim: >-
+    There is no stall under >=. Subunit supply is adequate at physiological
+    origin counts and the previous arrest was entirely an operator artefact.
+  discriminated_by: >-
+    lineage-stalls-under-sufficiency-gate. This is the outcome in which the
+    study's primary hypothesis is simply wrong, and it is a real possibility.
+  status: untested
+
+falsifiability: >-
+  The central claim is overturned if all 8 mechanistic seeds reach 12
+  generations, which would show the corrected gate imposes no constraint at
+  physiological origin counts. It is weakened if a stall occurs with every
+  subunit margin positive (a mass-gated stall), or if removing DnaG from the
+  requirement list leaves the stall unchanged (DnaG a bystander).
+
+limitations:
+- >-
+  8 seeds supports robustness, not powered causal inference. No rank test and
+  no drift-null control are planned.
+- >-
+  The ablation arm tests whether DnaG GATES initiation in the model, not
+  whether DnaG abundance is physiologically limiting in E. coli.
+- >-
+  A clean DnaG-only rescue is impossible in the current architecture: DnaG's
+  only transcript, TU00352, is polycistronic with rpsU and rpoD, so raising it
+  also raises a ribosomal protein and sigma-70. The confound is the reason the
+  causal arm is an ablation rather than a rescue.
+- >-
+  Single medium and single condition. Nothing here speaks to whether the
+  stall appears under other growth conditions.
+- >-
+  The == to >= patch is unconditional on this branch, so this study cannot run
+  an ==/>= contrast within one cache. The contrast is against the recorded
+  result of mechanistic-replisome-arrest.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    Subunit supply genuinely limits replication initiation, DnaG is the pool
+    that binds, and the transcription-unit architecture that couples dnaG to
+    rpsU and rpoD becomes the consequential next target.
+  if_primary_tests_fail: >-
+    If there is no stall, the previous arrest was entirely an operator artefact
+    and the investigation's motivating phenomenon dissolves; the DnaG abundance
+    anomaly would then have to be pursued on its own merits rather than through
+    replication. If there is a stall but no pool is short, the constraint is
+    cell mass and the limiting-resource question moves away from subunits.
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties:
+  - Whether the stall generalises beyond this medium and condition.
+  - >-
+    Whether DnaG's low abundance is itself a consequence of the TU00352
+    dedup, which is the investigation's original thread.
+  followup_study_proposals: []
+
+canonical_runs:
+- name: default
+  script: studies/replisome-gate-sufficiency/sims/run.py
+  args: []
+  label: replisome-gate-sufficiency
+  default: true
+
+visualizations: []
+
+design_status: complete
+implementation_status: in_progress
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+planned_runs:
+- name: mechanistic-sweep
+  status: planned
+  n_steps: 144000
+  details: 12 generations, 200 min/gen cap, seeds [0-7]; tests ['lineage-stalls-under-sufficiency-gate', 'stall-generation-is-seed-consistent', 'some-pool-is-short-at-the-stall', 'dnag-is-the-limiting-pool']
+- name: permissive-control
+  status: planned
+  n_steps: 144000
+  details: 12 generations, 200 min/gen cap, seeds [0-2]; tests ['permissive-completes-all-seeds']
+- name: dnag-ablation
+  status: planned
+  n_steps: 144000
+  details: 12 generations, 200 min/gen cap, seeds [0-4]; tests ['dropping-dnag-relieves-the-stall']
+simulation_set:
+- name: mechanistic
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  is_baseline: true
+  status: planned
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+- name: permissive
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  status: planned
+  perturbation:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: false
+- name: dnag-ablation
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  status: planned
+  perturbation:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+      ecoli-chromosome-replication.replisome_monomers_subunits:
+      - CPLX0-3621[c]
+      - EG11500-MONOMER[c]
+      - EG11412-MONOMER[c]
+patch_validation:
+  source: out/smoke-gte/smoke-gte-mech_summary.json
+  recorded_at: 2026-09-02, ~2 minutes AFTER preregistered.registered_at
+  note: |
+    Validation that the == -> >= patch changes behaviour, not evidence for any
+    pre-registered criterion. 3-generation smoke, seed 0, mechanistic arm:
+    all 3 generations divided (tau 43.0 / 46.0 / 54.0 min; final dry mass
+    722.6 / 634.4 / 574.4 fg). Under == the same arm stalled at generation 2,
+    burning the full 200 min cap at 4156.5 fg.
+
+    So the patch works and the profile matches the permissive control's band
+    (43-59 min, 592-732 fg). It gives NO evidence of an imminent stall: tau
+    drifts up and mass drifts down at roughly the rate the permissive arm shows
+    over 12 generations. If a stall exists it is at generation 4 or later, which
+    is what the sweep is for.

@@ -43,6 +43,7 @@ description: >-
 studies:
 - mechanistic-replisome-arrest
 
+- replisome-gate-sufficiency
 executive:
   what_is_this: >-
     v2ecoli can normally start chromosome replication whenever it is due,

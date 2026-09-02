@@ -18,7 +18,10 @@ import pytest
 
 from v2ecoli.composites.parca import parca
 from v2ecoli.processes.parca.composite import build_parca_document
-from v2ecoli.processes.parca.steps.step_01_initialize import InitializeStep
+from v2ecoli.processes.parca.steps.step_01_initialize import (
+    GenotypeMismatchError,
+    InitializeStep,
+)
 
 MANIFEST = "/tmp/genotype-ko-EG10526/bundle.tsv"
 OVERRIDES = "/tmp/genotype-ko-EG10526/overrides.tsv"
@@ -105,12 +108,12 @@ def _check(declared, raw_data):
     step._check_declared_genotype()
 
 
-def test_mismatched_genotype_warns():
+def test_mismatched_genotype_raises():
     """
     The expensive failure this guards: the fit succeeds and its sim_data is
-    attributed to a genotype it was not built from.
+    attributed to a genotype it was not built from. P1-6 makes it fatal.
     """
-    with pytest.warns(UserWarning, match="genotype mismatch"):
+    with pytest.raises(GenotypeMismatchError, match="genotype mismatch"):
         _check(MANIFEST, _FakeRawData("/tmp/some-other-genotype/bundle.tsv"))
 
 

@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import json
 import os
 import warnings
 from typing import Any
@@ -253,6 +254,29 @@ def _hash_file(path: str) -> str:
     return h.hexdigest()
 
 
+def _fingerprint_perturbations(perturbations) -> str | None:
+    """Stable, JSON-safe fingerprint of an in-memory sim_data perturbation.
+
+    ``perturbations`` is whatever strain-defining mutation was baked into the
+    sim_data before the bundle was written (e.g. new_gene_cache's ``applied``
+    dict of ids / indices / per-target values). It becomes a
+    ``build_params['perturbations']`` value that folds into ``inputs_hash`` and
+    is compared requested-vs-stored, so two perturbed strains no longer share a
+    cache fingerprint (P1-6). Returns ``None`` for a falsy/absent perturbation
+    (the wild-type build), a short hex digest otherwise. Never raises —
+    numpy scalars / non-serializable leaves fall back to ``repr`` rather than
+    crashing bundle-saving.
+    """
+    if not perturbations:
+        return None
+    if isinstance(perturbations, str):
+        payload = perturbations.encode()
+    else:
+        payload = json.dumps(
+            perturbations, sort_keys=True, default=repr).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _resolve_n_seeds() -> int | None:
     """The fit's actual V2PARCA_N_SEEDS, for recording into build_params.
 
@@ -273,7 +297,9 @@ def _resolve_n_seeds() -> int | None:
 
 
 def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
-                            fixed_media=None, condition_manifest_hash=None):
+                            fixed_media=None, condition_manifest_hash=None,
+                            new_genes=None, bundle_overrides=None,
+                            bundle_manifest=None, perturbations=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
@@ -288,6 +314,14 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
     ``n_seeds`` is resolved independently (A8) since it isn't a parameter of
     ``LoadSimData`` — it governs the *fit* upstream of this bundle-writing
     step, not sim-data hydration.
+
+    ``new_genes``/``bundle_overrides``/``bundle_manifest``/``perturbations``
+    (P1-6) identify WHICH STRAIN this bundle is, so a wild-type cache and a
+    new-gene / knockout / perturbed cache no longer share a fingerprint and a
+    wrong-strain ``--cache-dir`` is caught by ``verify_cache_version`` instead
+    of silently mis-calibrating the sim. ``perturbations`` is fingerprinted to
+    a stable digest (see ``_fingerprint_perturbations``); the other three are
+    recorded verbatim.
     """
     os.makedirs(bundle_dir, exist_ok=True)
 
@@ -400,6 +434,11 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
         'seed': seed,
         'n_seeds': _resolve_n_seeds(),
         'condition_manifest_hash': resolved_manifest_hash,
+        # P1-6 strain identity.
+        'new_genes': new_genes,
+        'bundle_overrides': bundle_overrides,
+        'bundle_manifest': bundle_manifest,
+        'perturbations': _fingerprint_perturbations(perturbations),
     }
     write_cache_version(bundle_dir, build_params=build_params,
                         configs=sorted(configs.keys()))
@@ -420,7 +459,9 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
                    condition=None, fixed_media=None,
-                   condition_manifest_hash=None):
+                   condition_manifest_hash=None,
+                   new_genes=None, bundle_overrides=None,
+                   bundle_manifest=None, perturbations=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -451,4 +492,8 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir, seed=seed, condition=condition,
                             fixed_media=fixed_media,
-                            condition_manifest_hash=condition_manifest_hash)
+                            condition_manifest_hash=condition_manifest_hash,
+                            new_genes=new_genes,
+                            bundle_overrides=bundle_overrides,
+                            bundle_manifest=bundle_manifest,
+                            perturbations=perturbations)

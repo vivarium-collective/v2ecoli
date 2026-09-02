@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import warnings
 from pathlib import Path
 from typing import Any, Callable
 
@@ -501,6 +502,7 @@ def run_multigen_xarray(
     division_detector: Callable[[set[str], set[str]], tuple[bool, str | None]] | None = None,
     provenance: dict | None = None,
     observable_bulk_ids: list | None = None,
+    raise_on_zero_daughters: bool = False,
 ) -> dict:
     """Run a v2ecoli composite past divisions, swapping XArrayEmitters per generation.
 
@@ -553,6 +555,14 @@ def run_multigen_xarray(
       division_detector: optional ``(prev_ids, curr_ids) -> (divided?, daughter_id|None)``.
         Default: detect division when ``len(curr) > len(prev)`` and pick the
         first new agent_id sorted.
+      raise_on_zero_daughters: a division that yields zero survivors (e.g. a
+        custom ``division_detector`` flags division but every daughter died or
+        was pruned elsewhere) stops this generation early instead of running
+        the requested ``max_generations`` — a silent lineage truncation (CD2
+        audit §3.6). By default this only warns (``RuntimeWarning``) and
+        returns the partial result; pass ``True`` to raise a ``RuntimeError``
+        instead so a batch job fails loudly rather than reporting exit 0 with
+        fewer generations than requested.
 
     Returns: ``{"steps": int, "generations": list[int], "store": str}``.
     """
@@ -871,6 +881,27 @@ def run_multigen_xarray(
             break
 
         if inner_next is None:
+            # A division was detected but left ZERO survivors to follow — this
+            # generation ends here even though `gen < last_gen` (the requested
+            # generation count is not reached). Falling through to `break`
+            # silently truncates the lineage: the process still exits 0 and
+            # `gens_seen` just looks shorter, with no signal that this stopped
+            # early rather than by design (CD2 audit §3.6). Surface it.
+            _msg = (
+                f"[multigen_xarray] zero-daughter division: generation {gen} "
+                f"(followed={followed!r}, lineage_seed="
+                f"{metadata_base.get('lineage_seed')!r}, experiment_id="
+                f"{metadata_base.get('experiment_id')!r}, variant="
+                f"{metadata_base.get('variant')!r}) produced no survivors at "
+                f"tick {done} — stopping at generation {gen} instead of the "
+                f"requested {last_gen} ({last_gen - gen} generation(s) not run).")
+            if raise_on_zero_daughters:
+                try:
+                    em.close(success=False)
+                except Exception:
+                    pass
+                raise RuntimeError(_msg)
+            warnings.warn(_msg, RuntimeWarning, stacklevel=2)
             break
 
         # Same pbg-emitters quirk as the final close below: flush(final=True)

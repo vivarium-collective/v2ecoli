@@ -968,6 +968,7 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    variant: int = 0,
     injected_processes: dict | None = None,
     features: list | None = None,
     ppgpp_regulation: bool = True,
@@ -1039,6 +1040,14 @@ def _build_batch_document(
         "time_step": float(time_step),
         "max_duration": float(max_duration),
         "variants": dict(variants or {}),
+        # Base offset for every branch's variant_index (mirrors `seed` above
+        # offsetting each seed) — threaded through runner_config ->
+        # build_workflow_config -> expand_branches -> _lineage_node so a batch
+        # dispatch partitions its emitter output starting at the caller's
+        # requested variant index instead of always colliding on variant=0
+        # (P0-10 batch-mode coverage fix; same threading pattern as
+        # injected_processes below).
+        "variant": int(variant),
         "cache_dir": cache_dir,
         "out_dir": out_dir,
         "experiment_id": experiment_id,
@@ -1369,6 +1378,15 @@ WCM_PARAMETERS = {
             "description": "Batch runs only: vEcoli-style variant grid "
                            "({name: {target, value}}) crossed with the seed range.",
         },
+        "variant": {
+            "type": "integer",
+            "default": 0,
+            "description": "This cell's variant index in a multivariant sweep. "
+                           "Stamped into the parquet hive partition column "
+                           "(variant=<idx>) so each variant's rows are stored "
+                           "and analysed separately; defaults to 0 for a single "
+                           "(baseline) arm. Set per branch at fan-out time.",
+        },
         "out_dir": {
             "type": "string",
             "default": "",
@@ -1446,8 +1464,8 @@ _BATCH_FORWARDED_PARAMETERS = frozenset({
     "n_seeds", "n_generations", "stop_at_division",
     # Threaded into the batch document / runner config -> workflow config.
     "seed", "cache_dir", "config_overrides", "knockouts", "media",
-    "single_daughters", "time_step", "max_duration", "variants", "out_dir",
-    "experiment_id", "analyses", "study", "parallel", "emitter",
+    "single_daughters", "time_step", "max_duration", "variants", "variant",
+    "out_dir", "experiment_id", "analyses", "study", "parallel", "emitter",
     "initial_carry_state_path", "initial_generation_index",
     "daughter_state_out_path",
     # Per-cell biological build kwargs threaded so every generation cell is built
@@ -1564,6 +1582,7 @@ def baseline(
     time_step: float = 1.0,
     max_duration: float = 3600.0,
     variants: dict | None = None,
+    variant: int = 0,
     out_dir: str = "",
     experiment_id: str = "baseline",
     analyses: Any = "applicable",
@@ -1730,7 +1749,7 @@ def baseline(
             single_daughters=single_daughters, time_step=time_step,
             max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
-            study=study, parallel=parallel, variants=variants,
+            study=study, parallel=parallel, variants=variants, variant=variant,
             knockouts=knockouts, config_overrides=config_overrides, media=media,
             injected_processes=injected_processes, features=features,
             ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
@@ -1974,13 +1993,23 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
-    if _default_decl is not None and emitter_out_dir:
-        # parquet default decl: pin its out_dir instead of letting the step
-        # resolve the workspace-relative default (see emitter_out_dir param).
-        _default_decl = {
-            **_default_decl,
-            "config": {**_default_decl.get("config", {}), "out_dir": emitter_out_dir},
+    if _default_decl is not None:
+        # Thread the run-identity fields into the declared default (parquet)
+        # emitter's config so its hive partition columns are correct per cell.
+        # experiment_id and variant are declared baseline() params that
+        # otherwise never reach the emitter (_build_declared_emitter would fall
+        # back to "default" / variant=0), so every variant in a multivariant
+        # sweep would collapse onto partition ``variant=0`` and the
+        # multivariant KPI analysis would see them as one. emitter_out_dir, when
+        # set, still pins out_dir instead of the workspace-relative default.
+        _decl_cfg = {
+            **_default_decl.get("config", {}),
+            "experiment_id": experiment_id,
+            "variant": int(variant),
         }
+        if emitter_out_dir:
+            _decl_cfg["out_dir"] = emitter_out_dir
+        _default_decl = {**_default_decl, "config": _decl_cfg}
 
     # Snapshot external overrides so we can detect 'caller already pinned one'
     # and restore them exactly on exit.
@@ -2035,7 +2064,7 @@ def baseline(
             out_uri=_xr_out,
             metadata={
                 "experiment_id": experiment_id,
-                "variant": 0,
+                "variant": int(variant),
                 "lineage_seed": int(seed),
             },
         )

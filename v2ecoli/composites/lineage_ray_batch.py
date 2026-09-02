@@ -1,0 +1,122 @@
+"""Registers ``v2ecoli.workflow.batch_lineage_ray`` as a process-bigraph ``@composite_generator``
+(item 101) so it resolves through compose/v1's EXISTING ``--composite-id`` mechanism the same way
+``baseline``/``ecoli_colony`` already do — zero new viva-api/dispatch code needed, matching this
+project's own "reuse existing patterns first" rule.
+
+Thin registration shim, mirroring ``v2ecoli/composites/ecoli_colony.py``'s own shape exactly.
+"""
+from __future__ import annotations
+
+from typing import Any
+
+from viva_superpowers.composite_generator import composite_generator
+
+from v2ecoli.workflow.batch_lineage_ray import (
+    build_lineage_ray_batch_document,
+    prewarm_lineage_pool,
+    register_ray_lineage,
+)
+
+
+@composite_generator(
+    name="lineage_ray_batch",
+    description=(
+        "Process-bigraph-native multiseed batch: N real LineageProcess nodes, one per seed, "
+        "wired directly into the composite's own state tree and addressed via the ray: protocol "
+        "-- unlike batch_baseline's BatchBaselineRunner, which fans seeds out via raw Ray calls "
+        "hidden inside one opaque Step."
+    ),
+    parameters={
+        "n_seeds": {
+            "type": "integer",
+            "default": 2,
+            "description": "Number of independent seed-lineages.",
+        },
+        "n_generations": {
+            "type": "integer",
+            "default": 1,
+            "description": "Generations to run per lineage.",
+        },
+        "n_workers": {
+            "type": "integer",
+            "default": None,
+            "description": (
+                "Real target concurrency for the ray: actor pool. Defaults to None, which "
+                "correctly falls through to the cluster-derived RAY_SHARDS_DEFAULT env var "
+                "viva-api's own dispatch code already computes from real per-node vCPUs x real "
+                "node count -- no per-request tuning needed for the common case. See "
+                "batch_lineage_ray's own module docstring: an earlier concrete default of 2 "
+                "silently shadowed that computation, producing a ~9x wall-time penalty (the "
+                "'one seed at a time' bottleneck this composite exists to avoid). Override "
+                "explicitly only to deliberately cap concurrency below the cluster's real capacity."
+            ),
+        },
+        "base_seed": {"type": "integer", "default": 0, "description": "First seed; seeds are contiguous."},
+        "cache_dir": {"type": "string", "default": "out/cache", "description": "Path to the ParCa cache directory."},
+        "out_dir": {"type": "string", "default": "", "description": "Output dir; resolved at run time if empty."},
+        "experiment_id": {"type": "string", "default": "lineage_ray_batch", "description": "Experiment id."},
+        "emitter": {"type": "string", "default": "both", "description": "'parquet' | 'xarray' | 'both'."},
+        "max_duration_per_gen": {
+            "type": "number",
+            "default": 3600.0,
+            "description": (
+                "Per-generation sim-time cap (seconds). Caller must run the resulting composite "
+                "for n_generations * max_duration_per_gen of TOTAL SIMULATED TIME -- "
+                "Composite.run(interval) takes total time to advance, not a tick count."
+            ),
+        },
+        "time_step": {"type": "number", "default": 1.0, "description": "Integration timestep (seconds)."},
+        "media": {"type": "string", "default": "minimal", "description": "Media condition."},
+    },
+    visualizations=[],
+    core_extensions=[register_ray_lineage],
+)
+def lineage_ray_batch(
+    core: Any = None,
+    *,
+    n_seeds: int = 2,
+    n_generations: int = 1,
+    n_workers: int | None = None,
+    base_seed: int = 0,
+    cache_dir: str = "out/cache",
+    out_dir: str = "",
+    experiment_id: str = "lineage_ray_batch",
+    emitter: str = "both",
+    max_duration_per_gen: float = 3600.0,
+    time_step: float = 1.0,
+    media: str = "minimal",
+) -> dict:
+    """Build the lineage_ray_batch composite document.
+
+    ``core_extensions`` (``register_ray_lineage``) already ran by the time this function's body
+    executes -- ``core`` arrives with the ray: protocol's own types and ``LineageProcess``
+    registered. This function's own job is the ONE piece ``core_extensions`` cannot do (it takes
+    no parameters): size the actor pool to the real, caller-supplied ``n_workers`` BEFORE
+    returning a document any ``ray:`` address in it could be resolved from -- see
+    ``prewarm_lineage_pool``'s own docstring for why this ordering is load-bearing, not
+    incidental.
+
+    Falls back to building its own core (same registration ``core_extensions`` would have done)
+    when called directly with no core, matching ``ecoli_colony.colony``'s own fallback shape.
+    """
+    if core is None:
+        from v2ecoli.core import build_core
+
+        core = build_core()
+        register_ray_lineage(core)
+
+    prewarm_lineage_pool(core, n_workers)
+
+    doc = build_lineage_ray_batch_document(
+        n_seeds=n_seeds,
+        n_generations=n_generations,
+        base_seed=base_seed,
+        cache_dir=cache_dir,
+        out_dir=out_dir,
+        experiment_id=experiment_id,
+        emitter=emitter,
+        max_duration_per_gen=max_duration_per_gen,
+        time_step=time_step,
+        media=media,
+    )
+    return doc

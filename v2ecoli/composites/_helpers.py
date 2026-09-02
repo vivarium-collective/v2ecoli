@@ -405,7 +405,8 @@ def set_default_emitter_decl(decl: dict | None) -> None:
     _DEFAULT_EMITTER_DECL = decl
 
 
-def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
+def _build_declared_emitter(decl: dict, listeners_schema: dict, core,
+                             *, allow_ram_fallback: bool = False):
     """Materialise the generator-declared default emitter step.
 
     Maps ``decl['address']`` (the registered emitter link, with or without a
@@ -416,6 +417,18 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
     Only the emitters v2ecoli actually ships are recognised; an unknown
     address raises rather than silently falling back, so a typo in a
     generator's ``emitters=`` declaration surfaces at build time.
+
+    ``allow_ram_fallback`` (default ``False``): when the declared address is
+    ``ParquetEmitter`` but ``viva_emitters`` fails to import, the historical
+    behavior degraded to an in-memory RAMEmitter with only a warning — a run
+    that believed it was persisting parquet to disk would silently keep
+    everything in RAM and lose ALL of it on exit, with no error anywhere
+    (CD2 pipeline audit finding P1-4, §2.10). ``viva-emitters[parquet,xarray]``
+    is a BASE v2ecoli dependency today, so this import failing normally means
+    the active environment is stale/incomplete (e.g. ``uv sync`` needed), not
+    a genuinely absent optional extra — exactly the case that must not fail
+    silently. Set ``allow_ram_fallback=True`` to opt into the old degrade-and-
+    warn behavior (tests/debug only).
     """
     from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
 
@@ -425,15 +438,30 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
     if address == "ParquetEmitter":
         try:
             from viva_emitters import ParquetEmitter
-        except ImportError:
-            # A generator-declared *default* must not hard-fail the build when
-            # the optional [parquet] extra is absent (e.g. CI behavior-tests
-            # install only the dev extra). Degrade to the historical full-capture
+        except ImportError as exc:
+            if not allow_ram_fallback:
+                raise RuntimeError(
+                    "generator declared a ParquetEmitter default but "
+                    f"`from viva_emitters import ParquetEmitter` failed "
+                    f"({exc}). viva-emitters[parquet,xarray] is a BASE "
+                    "v2ecoli dependency, so this usually means the active "
+                    "venv is stale/incomplete — run `uv sync` — rather than "
+                    "a genuinely missing optional extra. Refusing to "
+                    "silently degrade to an in-memory RAMEmitter: that would "
+                    "let the run complete and exit having persisted NOTHING "
+                    "to disk (CD2 pipeline audit finding P1-4). If you "
+                    "really want the degraded in-memory behavior (tests/"
+                    "debug only), pass allow_ram_fallback=True to "
+                    "_build_declared_emitter()."
+                ) from exc
+            # Explicit opt-in: degrade to the historical full-capture
             # in-memory RAMEmitter — the pre-declaration default — and warn.
             warnings.warn(
-                "generator declared a ParquetEmitter default but the [parquet] "
-                "extra is not installed; falling back to in-memory RAMEmitter. "
-                "Install with: pip install 'v2ecoli[parquet]' to persist parquet.")
+                "generator declared a ParquetEmitter default but "
+                f"`from viva_emitters import ParquetEmitter` failed ({exc}); "
+                "falling back to in-memory RAMEmitter because "
+                "allow_ram_fallback=True was passed explicitly. ALL output "
+                "will be lost on exit instead of persisted to parquet.")
             emit_schema = {
                 "global_time": "float", "bulk": "array",
                 "listeners": listeners_schema,
@@ -457,12 +485,24 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             ws_root = _find_workspace_root()
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
-        preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop(
-                                    "experiment_id",
-                                    os.environ.get(
-                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
-                                        "default")))
+        # Thread the run-identity fields the declaration carries into the
+        # preset so each cell writes its OWN hive partition. Without this,
+        # variant/lineage_seed/agent_id fall back to parquet_vecoli's defaults
+        # (variant=0, lineage_seed=0, agent_id="1") and every variant in a
+        # multivariant sweep collapses onto partition ``variant=0`` — the
+        # multivariant KPI analysis then sees all variants as one. experiment_id
+        # likewise defaults to the env var / "default" only when the decl does
+        # not supply it (so a declared experiment_id actually reaches the
+        # emitter instead of silently no-opping).
+        _preset_kwargs = {
+            "experiment_id": cfg_in.pop(
+                "experiment_id",
+                os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID", "default")),
+        }
+        for _idkey in ("variant", "lineage_seed", "agent_id", "generation"):
+            if _idkey in cfg_in:
+                _preset_kwargs[_idkey] = cfg_in.pop(_idkey)
+        preset = parquet_vecoli(out_dir=out_dir, **_preset_kwargs)
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",
@@ -1406,6 +1446,11 @@ def _get_special_step(loader, step_name, core):
             # priority than every external override above; higher than the bare
             # RAMEmitter fallback below. The composite's own default emitter
             # thus travels with the generator for standalone runs.
+            #
+            # allow_ram_fallback defaults to False here: a run that declares
+            # ParquetEmitter as its default sink expects to persist to disk,
+            # so a failed build must raise rather than silently keep
+            # everything in RAM and lose it all on exit (P1-4, §2.10).
             instance, topo = _build_declared_emitter(
                 default_decl, listeners_schema, core)
         else:

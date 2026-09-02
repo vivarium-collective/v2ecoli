@@ -373,6 +373,47 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     return records
 
 
+_MISSING_COLUMN_RE = re.compile(
+    r'[Cc]olumn(?: named)?\s+"([^"]+)"\s+(?:not found|does not exist)')
+
+
+def _extract_missing_column(exc: Exception) -> str | None:
+    """Best-effort extraction of a missing-column name from a DuckDB binder
+    error, e.g. ``duckdb.BinderException: Binder Error: Referenced column
+    "listeners__mass__dry_mass" not found in FROM clause!`` (confirmed live
+    against a real DuckDB missing-column query 2026-09-01). Returns ``None``
+    when the message doesn't name a column explicitly -- the caller still
+    records the raw exception text either way, so nothing is lost.
+    """
+    m = _MISSING_COLUMN_RE.search(str(exc))
+    return m.group(1) if m else None
+
+
+def _name_status(per_group: dict) -> str:
+    """Roll one named analysis's per-group results up into a single status --
+    ``ok`` / ``partial`` / ``error`` / ``missing_column`` -- so ``run_analyses``
+    can report a structured pass/fail summary (P1-10) instead of leaving a
+    per-group ``{"error": ...}`` entry as the only signal a caller could act
+    on. ``missing_column`` is distinct from ``error`` precisely so a zero/empty
+    panel caused by an absent KPI column is never indistinguishable from a
+    genuine null result (CD2 audit §3.7)."""
+    if not per_group:
+        return "ok"
+    statuses = set()
+    for v in per_group.values():
+        if isinstance(v, dict) and "error" in v:
+            statuses.add(v.get("status") or "error")
+        else:
+            statuses.add("ok")
+    if statuses <= {"ok"}:
+        return "ok"
+    if statuses == {"missing_column"}:
+        return "missing_column"
+    if "ok" in statuses:
+        return "partial"
+    return "error"
+
+
 def _group_key_str(scale: str, key: tuple) -> str:
     if scale == "single":
         return f"variant={key[0]}/seed={key[1]}/gen={key[2]}/agent={key[3]}"
@@ -409,6 +450,31 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                  max_workers: int | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results.
+
+    The returned dict is ``{scale: {name: {group: data}}}`` (unchanged shape)
+    PLUS three structured-summary keys a caller can check without walking
+    every group of every named analysis (P1-10 / CD2 audit §3.7 -- an
+    analysis failure, or a KPI column the emitter dropped, must never look
+    like a clean `{"n": 0, "mean": 0.0}` result):
+
+      ``status``   -- ``"OK"`` if every requested analysis/group succeeded,
+                       else ``"PARTIAL"``.
+      ``summary``  -- ``{scale: {name: "ok"|"partial"|"error"|"missing_column"}}``.
+                       ``missing_column`` means the underlying per-cell record
+                       lacked a column this analysis needed (see
+                       ``build_cell_records``) -- distinct from ``error``
+                       (the analysis itself raised) and never silently
+                       collapsed into a zero-valued result.
+      ``errors``   -- flat list of ``{"scale", "name", "group", "error",
+                       "missing_column"}`` entries for every failure, plus one
+                       ``scale=None`` entry if the per-cell record build
+                       itself failed (see ``records_error`` below).
+
+    This function never raises over an analysis-level failure or a missing
+    KPI column -- both degrade to ``status: "PARTIAL"`` so the rest of the
+    sweep's analyses still run and land in ``analysis.json``. It still
+    raises for setup failures outside any single analysis's control (an
+    unresolvable sim_data pickle, an s3:// sweep with no ``out_dir``, ...).
 
     Parameters
     ----------
@@ -465,8 +531,28 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 "out_dir is required for an s3:// sweep (the sweep is read-only)")
         out_dir = sweep_dir
 
+    # P1-10 (CD2 audit §3.7): build_cell_records() hard-codes 15+ columns in
+    # one query; if the emitter dropped one, the query raises OUTSIDE any
+    # per-group guard -- previously that propagated straight out of
+    # run_analyses and every analysis (including ones on scales that never
+    # needed the timeseries) was lost, reduced to one error string by the
+    # flush's broad catch. Instead: catch it here, extract the missing column
+    # name when the error names one, and fall back to the cheap partition-key
+    # listing so DuckDB-backed analyses (which read columns from DuckDB
+    # directly, not from these Python records) are unaffected. Record-based
+    # analyses are flagged explicitly below (never silently computing a
+    # hollow {"n": 0, "mean": 0.0, ...} over key-only records).
+    records_error: dict[str, Any] | None = None
     if _needs_timeseries():
-        records = list(build_cell_records(sweep_dir).values())
+        try:
+            records = list(build_cell_records(sweep_dir).values())
+        except Exception as e:  # noqa: BLE001 -- converted into an explicit,
+            # per-analysis "missing_column" signal below, not swallowed.
+            records_error = {
+                "error": f"{type(e).__name__}: {e}",
+                "missing_column": _extract_missing_column(e),
+            }
+            records = cell_keys(sweep_dir)
     else:
         records = cell_keys(sweep_dir)
     core = allocate_core()
@@ -601,6 +687,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
         for name in record_names:
             step_cls = ANALYSIS_REGISTRY[name]
+            if records_error is not None:
+                # The per-cell records this family needs failed to build (see
+                # above) -- flag every group explicitly rather than running
+                # analyze() over key-only records and returning a zero panel
+                # that looks like a real (if boring) result.
+                col = records_error.get("missing_column")
+                msg = (f"missing KPI column {col!r} ({records_error['error']})"
+                       if col else f"cell records unavailable ({records_error['error']})")
+                flagged = {"error": msg, "status": "missing_column",
+                          "missing_column": col}
+                per_group = {_group_key_str(scale, gkey): dict(flagged)
+                            for gkey in groups} or {"_all": flagged}
+                results_by_name[name] = per_group
+                continue
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
             for gkey, grp in groups.items():
@@ -641,6 +741,39 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
     if _ctx.get("conn") is not None:
         _ctx["conn"].close()
+
+    # P1-10: a structured pass/fail summary, not just the nested per-group
+    # results -- a caller (the post-sim flush, a batch summary, ...) can check
+    # results["status"] instead of having to walk every group of every named
+    # analysis looking for an "error" key to know whether anything failed.
+    summary: dict[str, dict] = {}
+    for scale_key, scale_result in results.items():
+        scale_summary = {name: _name_status(per_group)
+                         for name, per_group in scale_result.items()}
+        if scale_summary:
+            summary[scale_key] = scale_summary
+
+    errors: list[dict] = []
+    if records_error is not None:
+        errors.append({"scale": None, "name": None, "group": None, **records_error})
+    for scale_key, scale_summary in summary.items():
+        for name, status in scale_summary.items():
+            if status == "ok":
+                continue
+            for gkey, gval in results[scale_key][name].items():
+                if isinstance(gval, dict) and "error" in gval:
+                    errors.append({
+                        "scale": scale_key, "name": name, "group": gkey,
+                        "error": gval["error"],
+                        "missing_column": gval.get("missing_column"),
+                    })
+
+    overall_bad = records_error is not None or any(
+        status != "ok" for scale_summary in summary.values()
+        for status in scale_summary.values())
+    results["status"] = "PARTIAL" if overall_bad else "OK"
+    results["summary"] = summary
+    results["errors"] = errors
 
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "analysis.json"), "w") as f:

@@ -450,9 +450,16 @@ class ChromosomeReplication(Step):
             # 2) If mechanistic replisome option is on, there are enough
             # replisome subunits to assemble two replisomes per existing OriC.
             # Note that we assume asynchronous initiation does not happen.
+            # Sufficiency, not equality. This read `==`, which required each pool
+            # to hold EXACTLY its requirement, so a surplus blocked initiation
+            # exactly as a shortage would: with 235 pol III cores present,
+            # `235 == 6` is False and initiation could essentially never fire
+            # under mechanistic_replisome=True. Study mechanistic-replisome-arrest
+            # measured every pool in surplus at an arrest (worst margin DnaG +2)
+            # and traced the arrest to this operator rather than to depletion.
             initiate_replication = not self.mechanistic_replisome or (
-                np.all(n_replisome_trimers == 6 * n_oriC)
-                and np.all(n_replisome_monomers == 2 * n_oriC)
+                np.all(n_replisome_trimers >= 6 * n_oriC)
+                and np.all(n_replisome_monomers >= 2 * n_oriC)
             )
 
         # If all conditions are met, initiate a round of replication on every

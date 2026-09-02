@@ -40,6 +40,8 @@ import pytest
 from v2ecoli.core import build_core
 from v2ecoli.steps.environment_mirror import EnvironmentMirror, _resolve_boundary_keys
 from v2ecoli.steps.reactor_cell_coupler import (
+    AMMONIUM_ID,
+    AMMONIUM_MEDIUM_LEAF,
     AVOGADRO,
     GLUCOSE_EXCHANGE_KEY,
     GLUCOSE_ID,
@@ -172,6 +174,78 @@ def test_an_exhausted_pool_reads_as_zero_not_negative(core):
         core, reactor={GLUCOSE_MEDIUM_LEAF: -3.0, "volume_L": 1.0}
     )
     assert out["environment"]["external_concentrations"][GLUCOSE_ID] == 0.0
+
+
+def test_the_default_ammonium_seed_covers_the_od10_nitrogen_demand():
+    """The 60 mM default is load-bearing, and nothing else pins it.
+
+    ⚠ WHY: `DEFAULT_INITIAL_AMMONIUM_MM` exists solely so nitrogen is not the
+    binding constraint at the OD10 working point. Setting it to 0.0 passed the
+    entire suite (measured 2026-08-31) — including a composite test that watches
+    the pool move, because the tick-1 ammonium exchange transient is POSITIVE, so
+    a zero pool still moves off its seed. And by measurement a zero pool does not
+    even produce nitrogen limitation: the cell keeps building mass with no N
+    uptake at all. So a silently-zeroed default would degrade EVERY default run
+    of reactor_bird_coupled / _millard into a nitrogen-mass-conservation
+    violation from tick 1, with nothing red.
+
+    This asserts the REQUIREMENT rather than the literal, so re-tuning the value
+    for a good reason stays free while zeroing or under-sizing it fails.
+    """
+    from v2ecoli.composites.reactor_bird_coupled import DEFAULT_INITIAL_AMMONIUM_MM
+
+    OD_TARGET = 10.0
+    GDW_PER_OD = 0.34          # population_aggregator.DEFAULT_OD_TO_GDW
+    MW_N = 14.007              # g/mol
+
+    # Demand at the hardcoded fraction, and at the value sim_data actually
+    # implies (~0.135; the 0.12 constant is ~11% low — see mbp-04). The default
+    # must cover the CORRECTED demand, which is the stricter and more defensible
+    # bar: at 0.135 the M9 recipe pool (30.272 mM) is already insufficient.
+    demand_012 = OD_TARGET * GDW_PER_OD * 0.12 / MW_N * 1000.0   # ~29.1 mM
+    demand_0135 = OD_TARGET * GDW_PER_OD * 0.135 / MW_N * 1000.0  # ~32.8 mM
+
+    assert DEFAULT_INITIAL_AMMONIUM_MM > demand_012, (
+        f"default ammonium {DEFAULT_INITIAL_AMMONIUM_MM} mM does not cover the "
+        f"OD{OD_TARGET:.0f} nitrogen demand of {demand_012:.1f} mM at 0.12 gN/gDW")
+    assert DEFAULT_INITIAL_AMMONIUM_MM > demand_0135, (
+        f"default ammonium {DEFAULT_INITIAL_AMMONIUM_MM} mM does not cover the "
+        f"OD{OD_TARGET:.0f} demand of {demand_0135:.1f} mM at the corrected "
+        f"0.135 gN/gDW — the M9 recipe value (30.272) fails this bar, which is "
+        f"the whole reason a raised default exists")
+
+
+def test_medium_ammonium_is_published_to_the_environment(core):
+    """The ammonium analogue of test_medium_glucose_is_published_to_the_environment.
+
+    ⚠ WHY THIS EXISTS AS A PURE UNIT TEST. The only coverage the ammonium env
+    write had was an end-to-end composite test marked `slow` — and per
+    pyproject.toml:131 a `slow` test runs in NEITHER CI job, so deleting
+    `env_concs[AMMONIUM_ID] = ...` was green in CI. This costs no cache, no
+    composite build and ~milliseconds, so it runs in the fast gate where the
+    guard is actually needed.
+
+    discriminates: delete the coupler's ammonium env write and no AMMONIUM key
+    appears here at all.
+    """
+    out = _coupler_out(
+        core, reactor={AMMONIUM_MEDIUM_LEAF: 30.272, "volume_L": 1.0}
+    )
+    assert out["environment"]["external_concentrations"][AMMONIUM_ID] == pytest.approx(30.272)
+
+
+def test_an_exhausted_ammonium_pool_reads_as_zero_not_negative(core):
+    """The ammonium analogue of test_an_exhausted_pool_reads_as_zero_not_negative.
+
+    Glucose's identical `max(..., 0.0)` guard is tested; ammonium's was added in
+    the same shape and was not. A negative concentration is not a physical
+    state, and metabolism's import threshold would read it as merely 'below
+    threshold' rather than impossible.
+    """
+    out = _coupler_out(
+        core, reactor={AMMONIUM_MEDIUM_LEAF: -3.0, "volume_L": 1.0}
+    )
+    assert out["environment"]["external_concentrations"][AMMONIUM_ID] == 0.0
 
 
 def test_glucose_draw_is_clamped_at_the_remaining_pool(core):

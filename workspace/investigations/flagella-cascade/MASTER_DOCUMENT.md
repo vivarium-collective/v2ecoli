@@ -1,14 +1,14 @@
 # Flagella-Cascade Investigation — Master Document
 
-*Living document. Started 2026-08-28. Current State, Parameters, History
-Appendix, and References sections are all up to date as of this date —
-this consolidates and supersedes the older per-date (`CHANGES_*.md`) and
-per-study (`study.yaml`) notes. Those files, along with
-`NFSIM_WCM_WIRING_PLAN.md` and the `feedback/` notes, have been removed
-from the working tree (2026-08-28) now that their content lives here —
-all still fully recoverable from git history if ever needed.
-`investigation.yaml` was trimmed the same day to a short pointer back to
-this file; it is no longer the working record.*
+*Living document. Started 2026-08-28, last updated 2026-09-01. Current
+State, Parameters, History Appendix, and References sections are all up
+to date as of this date — this consolidates and supersedes the older
+per-date (`CHANGES_*.md`) and per-study (`study.yaml`) notes. Those
+files, along with `NFSIM_WCM_WIRING_PLAN.md` and the `feedback/` notes,
+have been removed from the working tree (2026-08-28) now that their
+content lives here — all still fully recoverable from git history if
+ever needed. `investigation.yaml` was trimmed the same day to a short
+pointer back to this file; it is no longer the working record.*
 
 ---
 
@@ -30,9 +30,13 @@ this file; it is no longer the working record.*
 (`FLGM-FLIA-CPLX_RXN`), still solved by the shared, general-purpose
 equilibrium Step (numerical ODE, not yet moved to a dedicated exact-solve
 Step). Current model Kd = 2×10⁻⁷ M — a **known, deliberate relaxation**
-from the real, measured value (see §2). Not yet corrected — two attempts to
-tighten it toward the real Kd both failed in testing (see History
-Appendix, once written).
+from the real, measured value (see §2). Not yet corrected — two earlier
+attempts to tighten it toward the real Kd both failed in testing, and a
+third attempt (2026-09-01, a dedicated exact-solve Step, same pattern as
+FliS:FliC) technically ran without crashing but was reverted after
+population-level dynamics were judged not correct on review (see History
+§3.2 — the real Kd itself is not in question, but something about the
+resulting dynamics is not yet understood).
 
 **FlgM secretion** — its own dedicated Step
 (`flagella_flgm_secretion.py`). As of 2026-08-27, the trigger is
@@ -87,6 +91,25 @@ was a direct fix for a repeated division-triggered crash (see §1.3, §2).
 Confirmed by direct testing: free FliS/FliC never overshoot negative,
 by construction, at any scale.
 
+**Stoichiometry corrected 2026-08-31**: FliS binds FliC as a homodimer,
+not as a single monomer — confirmed directly against the primary
+literature (Auvray et al. 2001: "FliS homodimers bind to FliC monomers";
+consistent with Sajó et al. 2016 characterizing FliS's own structural
+plasticity without ever describing a loose monomer/dimer equilibrium, the
+usual signature of tight, fast self-association). Modeled via the
+standard fast-pre-equilibrium approximation (no published FliS
+self-dimerization Kd exists — searched directly, not found): dimer count
+read directly off the raw monomer bulk count (`free_fliS // 2`). Each
+unit of complex formed or dissociated now moves 2 raw FliS monomers, not
+1 — fixed in both the equilibrium Step and in `flagella_filament_
+elongation.py`'s chaperone-release-on-consumption logic, kept
+consistent. Kd itself (5.26e-8 M, Muskotal et al. 2006) is unchanged —
+now understood to be on a dimer:FliC basis, not raw-monomer:FliC.
+Confirmed via population-scale test: halves the sustainable protected
+(FLIS-FLIC-CPLX) pool for the same FliS synthesis rate, exactly as
+predicted, since forming the same amount of complex now costs twice as
+much raw FliS (see History §3.1).
+
 ### 1.3 Division handling
 
 - Division splits all bulk species, including complete flagella and
@@ -123,9 +146,8 @@ by construction, at any scale.
 4. `complexation_reactions_modified.tsv` (a separate, ParCa-facing static
    file) may still record the old motor-complex stoichiometry, stator
    included — not yet checked against the new rod/P-ring/L-ring order.
-5. NFsim's own internal random seed is not controlled by this codebase's
-   outer `--seed` — confirmed, real, unfixed. Lives in a separate sibling
-   package (`pbg-nfsim`), not this repository.
+5. ~~NFsim's own internal random seed is not controlled by this codebase's
+   outer `--seed`~~ — **resolved 2026-09-01**, see History §3.1.
 6. The generated `.bngl` model file is not automatically rebuilt when its
    generator script changes — a real, already-encountered footgun. No
    permanent safeguard yet.
@@ -165,11 +187,11 @@ is therefore a bookkeeping choice, not a biology-accuracy question.
 | Parameter | Value | Source |
 |---|---|---|
 | Kd, FlgM:FliA (real) | ~1.8–2.0×10⁻¹⁰ M | Chadsey, Karlinsey & Hughes 1998, *Genes Dev* 12:3123 (*Salmonella*, SPR: ka=8.9×10⁵ M⁻¹s⁻¹, kd=1.6×10⁻⁴ s⁻¹) |
-| Kd, FlgM:FliA (current model) | 2.0×10⁻⁷ M | Deliberately relaxed from the real value above, for solver stability. Not yet corrected. |
+| Kd, FlgM:FliA (current model) | 2.0×10⁻⁷ M | Deliberately relaxed from the real value above, for solver stability. Attempted switch to the real Kd via a dedicated exact-solve Step (2026-09-01) reverted after review — see History §3.2. |
 | Kd, FliS:FliC | 5.26×10⁻⁸ M | Muskotal et al. 2006, *FEBS Lett* 580:3916 (ITC, Ka=1.9×10⁷ M⁻¹, 1:1 stoichiometry) — real value, unchanged by the 2026-08-28 Step move |
 | k_bind (generic proxy rate) | 8.5×10⁴ M⁻¹s⁻¹ (→ ~1.412×10⁻⁴ /molecule/s) | McMurry et al. 2015 (real, measured FlhA:FlhB rate — used as a borrowed proxy for ~30 other reactions lacking their own measured kinetics) |
 | Nucleation rate (C-ring, FlhDC) | 1.67×10⁻³ /s | Sim et al. 2017, *Sci Rep* 7:41189 (*E. coli* RP437, chemostat growth-rate study) |
-| Filament elongation rate_a | 26,450 subunit²/s | Renault et al. 2017, *eLife* 6:e23136 (*Salmonella*, injection-diffusion model). Literature does not cleanly resolve to one value; kept deliberately (Maya's call, 2026-08-21). |
+| Filament elongation rate_a | 15,556 subunit²/s | Renault et al. 2017, *eLife* 6:e23136. Corrected 2026-09-01 by re-deriving the paper's own equations (kon=a/b) and matching directly to their Figure 3 dataset specifically (kon≈27.09/s, 291 filaments/1276 points — their stronger, six-color-labeling dataset), rather than an earlier, less-anchored value (26,450, kept as a comment in code). rate_b (575) already matched Fig 3 and is unchanged. |
 | Filament elongation rate_b | 575 subunits | Same source as rate_a |
 | Filament target_length | 5,000 subunits | Short end of real 20,000–40,000 range, PMC7696725 — a modeling simplification, not a claimed real value |
 | P-ring (FlgI) copy number | 26 | Real, confirmed structural literature |
@@ -457,6 +479,47 @@ session history.
   from 32). **Not yet re-run** through a live NFsim test to confirm the
   corrected behavior (§1.4).
 
+- **Filament elongation rate_a re-derivation (2026-09-01)** — the prior
+  26,450 subunit²/s figure did not cleanly reproduce Renault et al. 2017's
+  own reported dynamics when re-checked directly. Re-derived the paper's
+  equations from first principles (`dL/dt = a/(b+L)`, `a = βD/l`,
+  `b = D/(kon·l)`) and found the clean identity `kon = a/b` holds in
+  subunit-count units. Renault et al. report two independently-measured
+  kon values from two datasets (Fig 2: ≈33.35/s, triple-color labeling;
+  Fig 3: ≈27.09/s, six-color labeling, 291 filaments/1276 points — the
+  stronger dataset). Anchored to Fig 3 (Maya's call), giving rate_a =
+  15,556 (rate_b=575 was already correct for Fig 3 and unchanged). Old
+  value kept as a comment in `flagella_filament_elongation.py` and
+  `sim_data.py`, not deleted.
+- **NFsim internal random-seed pinning (2026-09-01)** — NFsim's own BNGL
+  `simulate({method=>"nf",...})` call previously drew its own internal
+  random seed independent of this codebase's outer `--seed`, breaking
+  reproducibility of any run using the NFsim complexation feature. Fixed
+  across two repositories: this repo's `flagella_nfsim_complexation.py`
+  now derives and passes a `seed` config value (via the existing
+  `_derive_process_seed` CRC32 convention already used by every other
+  process); the separate sibling package `pbg-nfsim`
+  (`pbg_nfsim/processes.py`) now accepts that seed and passes
+  `seed=>{value}` into the BNGL simulate action, incrementing it once per
+  chunk firing so repeated firings within one run don't all reuse the
+  same seed. Verified byte-identical trajectories across a full
+  92-minute, multi-generation run at a fixed seed.
+- **Cumulative ("ever formed") tracker fix for C-ring/export
+  apparatus/rod/hook (2026-09-01)** — population charts were showing a
+  flat 0 for several intermediate assembly stages despite real completions
+  happening. Root cause: `pbg-nfsim`'s existing net-delta computation
+  (`final − initial` over each ~1200s chunk) is blind to any species
+  produced and then fully consumed again within the same chunk — exactly
+  what happens to a fast-turnover intermediate. Fixed by adding a
+  separate, non-destructive `gross_positive_deltas` computation (sum of
+  positive jumps across the chunk's own internal sub-steps) used only for
+  new diagnostic `__cumulative` keys — the real net-delta values that feed
+  back into NFsim's next firing were left untouched to avoid
+  double-counting. Increasing NFsim's `n_steps` (50→500, cheap — more I/O
+  resolution on an already-computed trajectory, not more compute) closed
+  most of the remaining gap; Hook's own gap was left unchased (Maya's
+  call — display-only, not a real dynamics issue).
+
 ### 3.2 Tried and dropped
 
 - **Artificial nucleation cap** (a hard ceiling on flagella count, applied
@@ -509,6 +572,25 @@ session history.
   secretion.py`, and `flagella_transcription_regulation.py` were NOT
   archived — shared infrastructure reused as-is by the NFsim pipeline.
   Archived at `archive/deterministic-flagella-assembly-2026-08/`.
+- **FlgM:FliA exact closed-form equilibrium Step, real Kd
+  (2026-09-01)** — built a dedicated Step (`flagella_flgm_flia_
+  equilibrium.py`), mirroring FliS:FliC's exact-quadratic solve, using
+  the real Kd (1.8×10⁻¹⁰ M, Chadsey et al. 1998) instead of the shared
+  solver's relaxed 2×10⁻⁷ M. First test crashed in the *shared* solver on
+  exactly FlgM/FliA — root-caused to an infra gap worth noting generally:
+  the shared equilibrium Step does not re-read `simData.cPickle` at
+  runtime, it reads a separate copy of `rates_fwd`/`rates_rev` pre-baked
+  into `sim_data_cache.dill`'s cached config at build time; zeroing only
+  `simData.cPickle` left that reaction's original rates live in the
+  actually-used baked copy. Fixed by patching both. Once fixed, the new
+  Step ran a full 92-min/2-generation test cleanly, no crash. **Reverted
+  the same day**: the resulting population dynamics were judged not
+  correct on review (specifics not yet pinned down). Reverted the wiring
+  in `core.py`/`ecoli_baseline.py` (commented out, not deleted) and
+  restored the shared solver's original relaxed Kd in both cache
+  locations above; the Step's code is kept on disk, unwired, for future
+  reference. The real Kd itself is not believed to be the problem — what
+  specifically makes the dynamics wrong is an open question (§3.3).
 - **FlgM:FliA rate-constant slowdown, two attempts** (2026-08 division-
   crash investigation) — tried scaling FLGM-FLIA-CPLX's rate constants down
   1000x, then another 100x on top (Kd preserved both times), to try to
@@ -603,9 +685,16 @@ session history.
   audit** — this ParCa-facing static file may still record the pre-2026-
   08-27/28 motor-complex stoichiometry (stator included); not yet checked
   against the new rod/P-ring/L-ring order (§1.4).
-- **NFsim's own internal random seed** — not controlled by this
-  codebase's outer `--seed`; lives in a separate sibling package
-  (`pbg-nfsim`), confirmed real and unfixed (§1.4).
+- **Why FlgM:FliA's real-Kd dynamics looked wrong** — the 2026-09-01
+  exact-solve Step ran without crashing using the real, tighter Kd
+  (1.8×10⁻¹⁰ M), but was reverted after the resulting population dynamics
+  were judged not correct on review (History §3.2). Not yet root-caused —
+  candidates not yet checked: the same-tick ordering (right after
+  FlgM-secretion, vs. the shared solver's earlier position), some
+  interaction with the Class II/III transcription-regulation Step
+  immediately downstream, or a real biological effect that just looks
+  surprising against the old relaxed-Kd baseline everyone is used to
+  reading charts against.
 - **Report-study visual differentiation** — Maya's request for more
   detail / bigger font to differentiate studies in the generated report is
   a vivarium-workbench report-template change, out of scope for this

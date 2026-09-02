@@ -31,6 +31,7 @@ Usage:
 """
 import argparse
 import os
+import re
 
 import numpy as np
 
@@ -87,7 +88,38 @@ def _agent_stats(cell, idx):
         "hook_internal": float(internal.get("flagellar_hook", 0.0)),
         "export_apparatus_subunit_internal": float(
             internal.get("flagellar_export_apparatus_subunit", 0.0)),
+        # Rod and rod+P-ring (added 2026-09-01): both real reaction stages
+        # since the 2026-08-27/28 hook/rod/ring hierarchy fix, both already
+        # tracked by _INTERNAL_ONLY_OBSERVABLES in
+        # flagella_nfsim_complexation.py, but never previously surfaced in
+        # any chart -- see MASTER_DOCUMENT.md for the full reaction list.
+        "rod_internal": float(internal.get("flagellar_rod", 0.0)),
+        "rod_p_ring_internal": float(
+            internal.get("flagellar_rod_with_p_ring", 0.0)),
+        # Cumulative "ever formed" for the same 4 internal-only stages
+        # (added 2026-09-01, see flagella_nfsim_complexation.py's new
+        # gross-positive-delta cumulative block) -- these read flat 0
+        # otherwise, same net-delta-within-one-chunk blind spot already
+        # fixed for C-ring/export apparatus/motor complex.
+        "hook_internal_cumulative": float(
+            internal.get("flagellar_hook__cumulative", 0.0)),
+        "export_apparatus_subunit_cumulative": float(
+            internal.get("flagellar_export_apparatus_subunit__cumulative", 0.0)),
+        "rod_cumulative": float(internal.get("flagellar_rod__cumulative", 0.0)),
+        "rod_p_ring_cumulative": float(
+            internal.get("flagellar_rod_with_p_ring__cumulative", 0.0)),
         "flagella_internal_cumulative": float(internal.get("flagella", 0.0)),
+        # Cumulative "total ever formed" for C-ring/export apparatus/motor
+        # complex (2026-08-27) -- see flagella_nfsim_complexation.py's
+        # _CUMULATIVE_TRACKED_REAL_IDS. Piggybacked on the same
+        # internal_observables dict as the 3 no-real-bulk-ID species above,
+        # under a distinct "__cumulative" key so it doesn't collide with
+        # those species' real, live bulk count (tracked separately below).
+        "cring_cumulative": float(internal.get("CPLX0-7450[i]__cumulative", 0.0)),
+        "export_apparatus_cumulative": float(
+            internal.get("CPLX0-7451[j]__cumulative", 0.0)),
+        "motor_complex_cumulative": float(
+            internal.get("FLAGELLAR-MOTOR-COMPLEX[j]__cumulative", 0.0)),
         "filaments": list(zip(uids.tolist(), lengths.tolist())),
     }
     for real_id in TRACK_IDS:
@@ -105,7 +137,11 @@ def _snap_population(comp, idx, t_cum):
     row = {"t_cum": t_cum, "n_agents": n}
     scalar_keys = (
         list(TRACK_IDS.keys()) + ["flag", "flic", "n_nascent", "max_len", "dry_mass",
-        "hook_internal", "export_apparatus_subunit_internal", "flagella_internal_cumulative"]
+        "hook_internal", "export_apparatus_subunit_internal", "flagella_internal_cumulative",
+        "rod_internal", "rod_p_ring_internal",
+        "hook_internal_cumulative", "export_apparatus_subunit_cumulative",
+        "rod_cumulative", "rod_p_ring_cumulative",
+        "cring_cumulative", "export_apparatus_cumulative", "motor_complex_cumulative"]
     )
     for key in scalar_keys:
         vals = [v[key] for v in per_agent.values()]
@@ -194,6 +230,8 @@ COLORS = {
     "CPLX0-7451[j]": "#ff7f0e",
     "FLAGELLAR-MOTOR-COMPLEX[j]": "#2ca02c",
     "hook_internal": "#8c564b",
+    "rod_internal": "#9467bd",
+    "rod_p_ring_internal": "#17becf",
     "flagella_internal_cumulative": "#9467bd",
     "n_nascent": "black",
     "EG10321-MONOMER[e]": "#8c564b",
@@ -265,7 +303,16 @@ def figure(rows, n_gens, media="minimal"):
         ("C-ring, population total", "CPLX0-7450[i]"),
         ("Export apparatus subunit (internal), population total", "export_apparatus_subunit_internal"),
         ("Export apparatus, population total", "CPLX0-7451[j]"),
-        ("Motor complex, population total", "FLAGELLAR-MOTOR-COMPLEX[j]"),
+        # Motor complex removed 2026-09-01 (Maya's request) -- FLAGELLAR-
+        # MOTOR-COMPLEX[j] is real (it's L-ring's own product, same
+        # species, not a separate stage), but its cumulative tracker was
+        # still stuck flat and rod/P-ring -- two real reaction stages
+        # added 2026-08-27/28 -- were never plotted anywhere at all. Swap
+        # in the two that were actually missing. Old line kept per
+        # standing preserve-old-code rule:
+        # ("Motor complex, population total", "FLAGELLAR-MOTOR-COMPLEX[j]"),
+        ("Rod (internal), population total", "rod_internal"),
+        ("Rod+P-ring (internal), population total", "rod_p_ring_internal"),
         ("Hook (internal), population total", "hook_internal"),
         ("Hook-basal-body complete (internal), population total", "flagella_internal_cumulative"),
         ("nascent_flagellum, population total", "n_nascent"),
@@ -274,17 +321,43 @@ def figure(rows, n_gens, media="minimal"):
         ("__complete_flagella__", None),
     ]
 
+    # Added 2026-08-27 (Maya's request): C-ring/export apparatus/motor
+    # complex are fast-flowing real bulk intermediates whose LIVE count is
+    # usually 0-1 even when real throughput is happening -- overlay each
+    # with its cumulative "total ever formed" counter (see
+    # flagella_nfsim_complexation.py's _CUMULATIVE_TRACKED_REAL_IDS) so a
+    # flat live-count line doesn't read as "nothing happened here."
+    _cumulative_overlay = {
+        "CPLX0-7450[i]": "cring_cumulative",
+        "CPLX0-7451[j]": "export_apparatus_cumulative",
+        # "FLAGELLAR-MOTOR-COMPLEX[j]": "motor_complex_cumulative",  -- no
+        # panel uses this key anymore (Motor complex removed 2026-09-01),
+        # dead per standing preserve-old-code rule.
+        # Added 2026-09-01: same overlay for the 4 internal-only (no real
+        # bulk ID) stages, using the new gross-positive-delta cumulative
+        # keys from flagella_nfsim_complexation.py.
+        "rod_internal": "rod_cumulative",
+        "rod_p_ring_internal": "rod_p_ring_cumulative",
+        "export_apparatus_subunit_internal": "export_apparatus_subunit_cumulative",
+        "hook_internal": "hook_internal_cumulative",
+    }
+
     overlay_regulatory = ("EG11355-MONOMER[c]", "G369-MONOMER[c]")
     overlay_cascade = ["CPLX0-7450[i]", "export_apparatus_subunit_internal", "CPLX0-7451[j]",
-                        "FLAGELLAR-MOTOR-COMPLEX[j]", "hook_internal",
+                        "rod_internal", "rod_p_ring_internal", "hook_internal",
                         "flagella_internal_cumulative", "n_nascent", "CPLX0-7452[j]"]
 
     n_cols = 4
     n_rows = -(-len(panels) // n_cols)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=(4.2 * n_cols, 3.0 * n_rows), sharex=True)
     axes_flat = np.atleast_1d(axes).flat
+    # Captured as a plain list BEFORE the main loop below consumes axes_flat
+    # (a stateful iterator -- reusing axes_flat again after zip() has walked
+    # it returns whatever's left, not the same 22 axes again). used_axes is
+    # the real, independent list of the panels actually being plotted.
+    used_axes = list(axes_flat)[:len(panels)]
 
-    for ax, (panel_title, key) in zip(axes_flat, panels):
+    for ax, (panel_title, key) in zip(used_axes, panels):
         if key == "__agents__":
             ax.plot(t, n_agents, "-o", ms=2, color="#2ca02c")
             ax.set_ylabel("n_agents")
@@ -299,6 +372,8 @@ def figure(rows, n_gens, media="minimal"):
         elif panel_title == "__overlay_cascade__":
             for k in overlay_cascade:
                 label = {"export_apparatus_subunit_internal": "export apparatus subunit (internal)",
+                         "rod_internal": "rod (internal)",
+                         "rod_p_ring_internal": "rod+P-ring (internal)",
                          "hook_internal": "hook (internal)",
                          "flagella_internal_cumulative": "hook-basal-body complete (internal)",
                          "n_nascent": "nascent_flagellum"}.get(k, TRACK_IDS.get(k, k))
@@ -309,32 +384,78 @@ def figure(rows, n_gens, media="minimal"):
             _plot_filament_panel(ax, rows)
             panel_title = "Per-filament elongation (population-wide, one line per filament)"
         elif panel_title == "__complete_flagella__":
-            ax.plot(t, tot("CPLX0-7452[j]"), "-o", ms=2, color="#d62728", label="total (all agents)")
-            ax.plot(t, np.array([r["flag_mean"] for r in rows]), "-s", ms=2, color="#9467bd",
-                    label="mean per agent")
-            ax.set_ylabel("count"); ax.legend(fontsize=7)
+            # "mean per agent" line removed 2026-08-27 (Maya's request) -- kept
+            # per standing preserve-old-code rule:
+            # ax.plot(t, np.array([r["flag_mean"] for r in rows]), "-s", ms=2,
+            #         color="#9467bd", label="mean per agent")
+            ax.plot(t, tot("CPLX0-7452[j]"), "-o", ms=2, color="#d62728")
+            ax.set_ylabel("count")
             panel_title = "Complete flagella — population aggregate"
+        elif key in _cumulative_overlay:
+            ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"), label="live count")
+            ax.plot(t, tot(_cumulative_overlay[key]), "-o", ms=2, color="#7f7f7f",
+                    ls="--", label="cumulative (ever formed)")
+            ax.set_ylabel("count"); ax.legend(fontsize=6)
         else:
             ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"))
             ax.set_ylabel("count")
         ax.set_title(panel_title, fontsize=9)
 
-    for ax in list(axes_flat)[len(panels):]:
-        ax.axis("off")
+    # Division markers (added 2026-09-01, Maya's request): a vertical
+    # dashed line on every panel at each real division event, so
+    # population-level jumps/dips can be read directly against when a
+    # division actually happened rather than inferred from the
+    # "Live agent count" panel alone. Division detected as any row where
+    # n_agents increases over the previous row; marked at that row's own
+    # t_cum (the first sample AFTER the division, not an interpolated
+    # estimate of the exact tick it happened on).
+    division_times = t[1:][n_agents[1:] > n_agents[:-1]]
+    for ax in used_axes:
+        for dt_div in division_times:
+            ax.axvline(dt_div, color="#555555", ls=":", lw=1, alpha=0.6, zorder=0)
+
+    # Unused trailing grid slots (panels doesn't evenly fill n_rows*n_cols):
+    # used to just hide them (ax.axis("off")), still leaving an empty boxed
+    # subplot visible. Changed 2026-08-27 (Maya's request) to actually remove
+    # them from the figure instead. Old version kept per standing
+    # preserve-old-code rule:
+    # for ax in list(np.atleast_1d(axes).flat)[len(panels):]:
+    #     ax.axis("off")
+    # axes_flat was already fully consumed capturing used_axes above -- get
+    # the trailing (unused) axes fresh from axes itself, not from the
+    # exhausted iterator.
+    for ax in list(np.atleast_1d(axes).flat)[len(panels):]:
+        fig.delaxes(ax)
     last_row = (len(panels) - 1) // n_cols
     axes_2d = np.atleast_2d(axes)
     for col in range(n_cols):
         if last_row * n_cols + col < len(panels):
             axes_2d[last_row, col].set_xlabel("time (min)")
-    for ax in list(axes_flat)[:len(panels)]:
-        ax.label_outer()
+    # label_outer() removed 2026-09-01: it strips BOTH x and y tick labels
+    # on interior-grid axes, correct only when both axes are shared. Only
+    # x (time) is shared here (sharex=True) -- every panel has its own
+    # independent y-scale, so label_outer() was silently deleting y-axis
+    # numbers from every panel except the leftmost column. sharex's own
+    # default behavior already suppresses x-tick labels on non-bottom-row
+    # axes; removing label_outer() leaves that intact while restoring
+    # every panel's own y-axis numbers.
 
     fig.suptitle(f"NFsim-driven population test, target {n_gens} generations, media={media} "
                  f"(real division, BOTH daughters kept) — does completion keep up at the "
                  f"population level?")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    out = f"{STUDY_DIR}/charts/26_nfsim_population_multigen_{n_gens}gen_{media}.svg"
-    os.makedirs(os.path.dirname(out), exist_ok=True)
+    # Auto-number the output (added 2026-08-25): this used to be a fixed
+    # "26_..." path regardless of seed/cache/media, so every run silently
+    # clobbered whatever the last run wrote (confirmed: a 6-seed stress test
+    # overwrote its own plot 5 times, and separately clobbered a
+    # git-committed chart with the same name). Every run now gets its own
+    # never-reused chart number instead.
+    charts_dir = f"{STUDY_DIR}/charts"
+    os.makedirs(charts_dir, exist_ok=True)
+    existing = [int(m.group(1)) for f in os.listdir(charts_dir)
+                if (m := re.match(r"^(\d+)_", f))]
+    next_n = max(existing, default=0) + 1
+    out = f"{charts_dir}/{next_n}_nfsim_population_multigen_{n_gens}gen_{media}.svg"
     fig.savefig(out, format="svg", bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)

@@ -268,19 +268,36 @@ def divide_internal_observables(state):
     machinery (divide_cell only ever produced 'bulk'/'unique'/'environment'/
     'boundary'), so daughters were silently rebuilt with baseline()'s
     schema default ({}) -- discarding all accumulated progress at every
-    division, not a physically-motivated reset. Real bacterial flagellar
-    assembly genuinely spans more than one division cycle (Sisti et al.
-    2017 PMC5259725; Sun et al. Mol Microbiol 2020, PMC pending -- basal
-    bodies assemble in <5 min but motility-capable filaments take >40 min,
-    exceeding a fast-growth doubling time), so silently losing this state
-    at every division is not defensible.
+    division, not a physically-motivated reset.
 
-    Citation correction (2026-08-21): the two citations above were
-    previously misattributed as "Sisti et al. 2017" and "Sun et al. Mol
-    Microbiol 2020" -- verified against the actual papers. PMC5259725 /
-    Sci Rep 7:41189 (2017) is Sim, Koirala, Picton et al., not Sisti.
-    Mol Microbiol 114:279-291 (2020) is Zhuang et al. (doi
-    10.1111/mmi.14511), not Sun.
+    Real flagellar assembly timing (revised 2026-08-24, see CORRECTION
+    below): no direct E. coli measurement of total flagellum assembly time
+    exists in the literature (checked directly, dedicated search). The
+    closest real data is in Salmonella typhimurium -- a close relative with
+    a near-identical peritrichous flagellar apparatus, routinely used
+    interchangeably with E. coli in this exact research area (e.g. Renault
+    et al. 2017, cited below, is already this codebase's own source for
+    flagella_filament_elongation.py's elongation rate law): hook-basal-body
+    completion takes ~30 min (Karlinsey et al. 2000, Mol Microbiol 37:1220),
+    while full filament growth to ~10 um (~21,300 subunits) takes over 180
+    minutes / 3+ hours (Renault et al. 2017, eLife 6:e23136). Since a
+    fast-growing E. coli's own division cycle is ~40-44 min, if E. coli's
+    kinetics are broadly similar to Salmonella's, full filament completion
+    would typically NOT finish within a single division -- real, if
+    cross-species, grounds for this port's design (carry state across
+    divisions rather than discard it).
+
+    CORRECTION (2026-08-24): a previous version of this docstring instead
+    claimed "basal bodies assemble in <5 min but motility-capable filaments
+    take >40 min," citing Sim et al. 2017 (PMC5259725, real E. coli) and
+    Zhuang et al. 2020 (Mol Microbiol 114:279-291, Vibrio alginolyticus) for
+    those specific numbers. Checked directly (Maya's request): Sim et al.
+    2017 measures flagella COUNT vs. growth rate, not assembly timing, and
+    Zhuang et al. 2020 is cited correctly elsewhere in this docstring for a
+    DIFFERENT claim (old-pole inheritance) -- neither paper actually
+    supports the timing numbers they were attached to. Replaced with the
+    Salmonella data above, which is real and honestly cross-species rather
+    than misattributed to the wrong E. coli papers.
 
     True biology has a documented old-pole inheritance bias for flagellar
     structures. Zhuang et al. 2020 (Mol Microbiol 114:279-291) is the

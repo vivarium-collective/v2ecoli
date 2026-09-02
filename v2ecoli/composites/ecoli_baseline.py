@@ -522,8 +522,30 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-initiation',
         'before_steps': [
             'ecoli-flagella-nfsim-complexation',
+            # Added 2026-08-28: exact closed-form FliS:FliC equilibrium,
+            # replacing that one reaction's role in the shared
+            # ecoli-equilibrium Step (see flagella_flis_flic_equilibrium.py
+            # module docstring for why). Ordered right before elongation,
+            # matching where the shared equilibrium Step used to sit
+            # relative to it, so elongation always reads an up-to-date
+            # FLIS-FLIC-CPLX balance.
+            'ecoli-flagella-flis-flic-equilibrium',
             'ecoli-flagella-filament-elongation',
             'ecoli-flagella-flgm-secretion',
+            # Added 2026-09-01: exact closed-form FlgM:FliA equilibrium,
+            # replacing that reaction's role in the shared ecoli-equilibrium
+            # Step (see flagella_flgm_flia_equilibrium.py module docstring).
+            # Ordered right after flgm-secretion (not matching the shared
+            # equilibrium Step's old position, layer 2, well before
+            # secretion runs) so this Step's re-solve reflects THIS tick's
+            # fresh FlgM level, matching secretion's own docstring ("as FlgM
+            # drops, equilibrium shifts") as same-tick causation. Confirmed
+            # this ordering difference is real but very unlikely to matter
+            # in practice -- FlgM changes little per 2s tick either way.
+            # REVERTED 2026-09-01: population dynamics from this Step judged
+            # not correct on review; reverted to the shared ecoli-equilibrium
+            # Step's relaxed-Kd treatment pending further biology review.
+            # 'ecoli-flagella-flgm-flia-equilibrium',
             'ecoli-flagella-transcription-regulation',
         ],
     },
@@ -647,6 +669,11 @@ def _get_step_config(
     )
     from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
     from v2ecoli.processes.flagella_filament_elongation import FlagellaFilamentElongation
+    from v2ecoli.processes.flagella_flis_flic_equilibrium import FlagellaFliSFliCEquilibrium
+    # FlagellaFlgMFliAEquilibrium (2026-09-01) reverted -- population
+    # dynamics judged not correct on review. Import left commented rather
+    # than deleted; see flagella_flgm_flia_equilibrium.py.
+    # from v2ecoli.processes.flagella_flgm_flia_equilibrium import FlagellaFlgMFliAEquilibrium
     from v2ecoli.processes.flagella_nfsim_complexation import FlagellaNFsimComplexation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
@@ -788,6 +815,8 @@ def _get_step_config(
         'ecoli-flagella-transcription-regulation': FlagellaTranscriptionRegulation,
         'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
         'ecoli-flagella-filament-elongation': FlagellaFilamentElongation,
+        'ecoli-flagella-flis-flic-equilibrium': FlagellaFliSFliCEquilibrium,
+        # 'ecoli-flagella-flgm-flia-equilibrium': FlagellaFlgMFliAEquilibrium,  # reverted 2026-09-01
         'ecoli-flagella-nfsim-complexation': FlagellaNFsimComplexation,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,

@@ -229,35 +229,90 @@ COMPLEXATION_STOICHIOMETRY = {
         'flagellar export apparatus subunit': -1.0,  # no real bulk ID -- generator-internal
         'EG11656-MONOMER[c]': -12.0,  # was fliH
     },
-    'flagellar motor reaction': {
-        'FLAGELLAR-MOTOR-COMPLEX[j]': 1.0,   # was 'flagellar motor'
+    # OLD single-step version (pre-2026-08-27), kept per standing
+    # preserve-old-code rule. This step built the rod, the L-ring, and the
+    # stator (MotA/MotB) all at once, straight off the export apparatus, and
+    # skipped the P-ring entirely. Real biology (see module docstring's
+    # 2026-08-27 "HOOK DEPENDENCY FIX" note) says: (1) the rod finishes
+    # first, (2) the P-ring (FlgI) forms next, (3) the L-ring (FlgH) forms
+    # last and is what actually opens the door for the hook, and (4) the
+    # stator is NOT required to finish the structure at all -- a cell can
+    # build a complete, non-motile flagellum with no MotA/MotB. Bundling the
+    # stator into this step wrongly made structural completion depend on
+    # genes that real biology says are only needed for movement, not
+    # building.
+    # 'flagellar motor reaction': {
+    #     'FLAGELLAR-MOTOR-COMPLEX[j]': 1.0,   # was 'flagellar motor'
+    #     'CPLX0-7451[j]': -1.0,               # was 'flagellar export apparatus'
+    #     'EG10322-MONOMER[j]': -2.0,          # was fliL
+    #     'FLGH-FLAGELLAR-L-RING[j]': -26.0,   # was flgH
+    #     'MOTA-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -55.0,  # was motA
+    #     'MOTB-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -22.0,  # was motB
+    #     'FLGB-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgB
+    #     'FLGC-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -6.0,   # was flgC
+    #     'FLGF-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgF
+    #     'FLGG-FLAGELLAR-MOTOR-ROD-PROTEIN[o]': -24.0,  # was flgG
+    #     # 'FLGI-FLAGELLAR-P-RING[j]': -26.0,  # REMOVED 2026-08-17 -- matches
+    #     # flagella_motor_complex_assembly.py's actual (real-bug) omission,
+    #     # see "REAL BUG FOUND" / "REVISED 2026-08-17" notes above
+    #     'EG11346-MONOMER[p]': -6.0,          # was fliE
+    # },
+
+    # NEW 2026-08-27, three real, ordered steps replacing the one above.
+    # HOOK DEPENDENCY FIX -- see module docstring. Real order: rod, then
+    # P-ring, then L-ring (Cohen & Hughes 2014, J Bacteriol 196:2387 for the
+    # L-ring step specifically triggering rod-to-hook transition; FlgA/FlgI
+    # P-ring literature for P-ring forming before L-ring). Stator (MotA,
+    # MotB) removed entirely from this chain -- real biology says it is not
+    # required for structural completion, only for movement, so it is left
+    # untouched as free bulk pool, tracked separately if ever needed.
+    'flagellar rod reaction': {
+        'flagellar rod': 1.0,   # no real bulk ID -- new intermediate
         'CPLX0-7451[j]': -1.0,               # was 'flagellar export apparatus'
         'EG10322-MONOMER[j]': -2.0,          # was fliL
-        'FLGH-FLAGELLAR-L-RING[j]': -26.0,   # was flgH
-        'MOTA-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -55.0,  # was motA
-        'MOTB-FLAGELLAR-MOTOR-STATOR-PROTEIN[i]': -22.0,  # was motB
         'FLGB-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgB
         'FLGC-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -6.0,   # was flgC
         'FLGF-FLAGELLAR-MOTOR-ROD-PROTEIN[j]': -5.0,   # was flgF
         'FLGG-FLAGELLAR-MOTOR-ROD-PROTEIN[o]': -24.0,  # was flgG
-        # 'FLGI-FLAGELLAR-P-RING[j]': -26.0,  # REMOVED 2026-08-17 -- matches
-        # flagella_motor_complex_assembly.py's actual (real-bug) omission,
-        # see "REAL BUG FOUND" / "REVISED 2026-08-17" notes above
         'EG11346-MONOMER[p]': -6.0,          # was fliE
+    },
+    'flagellar p-ring reaction': {
+        'flagellar rod with p-ring': 1.0,   # no real bulk ID -- new intermediate
+        'flagellar rod': -1.0,
+        'FLGI-FLAGELLAR-P-RING[j]': -26.0,   # was flgI, 26 copies (real,
+        # confirmed via literature search 2026-08-27 -- same 26-fold
+        # symmetry as the L-ring). Previously omitted entirely (see removed
+        # line above); now included as a real, separate, ordered step.
+    },
+    'flagellar l-ring reaction': {
+        'FLAGELLAR-MOTOR-COMPLEX[j]': 1.0,   # real bulk ID -- now represents
+        # the finished rod+P-ring+L-ring base, ready for the hook (NOT the
+        # stator -- see note above).
+        'flagellar rod with p-ring': -1.0,
+        'FLGH-FLAGELLAR-L-RING[j]': -26.0,   # was flgH
     },
     'flagellar hook reaction': {
         'flagellar hook': 1,           # no real bulk ID -- see note above
+        # NEW 2026-08-27: hook now requires the finished base (see module
+        # docstring's "HOOK DEPENDENCY FIX"), not just free FlgE alone.
+        'FLAGELLAR-MOTOR-COMPLEX[j]': -1.0,
         'G361-MONOMER[c]': -120.0,     # was flgE
     },
     'flagellum reaction': {
         'flagella': 1.0,   # no real bulk ID (maps to nascent_flagellum creation) -- see note above
-        'FLAGELLAR-MOTOR-COMPLEX[j]': -1.0,  # was 'flagellar motor'
+        # OLD (pre-2026-08-27): this step, not the hook step, used to consume
+        # FLAGELLAR-MOTOR-COMPLEX[j] directly. Moved to the hook step above
+        # so hook -> flagellum is one continuous, non-conflicting chain
+        # (each item consumed exactly once by the next real step), kept per
+        # standing preserve-old-code rule:
+        # 'FLAGELLAR-MOTOR-COMPLEX[j]': -1.0,  # was 'flagellar motor'
         'EG11545-MONOMER[e]': -11.0,   # was flgL
         'EG11967-MONOMER[e]': -11.0,   # was flgK
         # 'EG10841-MONOMER[e]': -5.0,    # was fliD -- REMOVED 2026-08-21, see
         # "FLID DOUBLE-CONSUMPTION" note below. Kept per standing
         # preserve-old-code rule.
-        'flagellar hook': -1,          # no real bulk ID -- see note above
+        'flagellar hook': -1,          # no real bulk ID -- see note above,
+        # now carries the whole rod+P-ring+L-ring+hook history forward.
     },
 }
 
@@ -476,6 +531,45 @@ REAL_AMBIENT_MONOMER_COUNTS = {
     'MONOMER0-2488[c]': 649,            # FlhC, flhDC nucleating species
 }
 
+# NOT CONDITION-AWARE -- FLAGGED FOR REVISIT (2026-08-21, Maya's explicit
+# call after tracing a real acetate-condition test). These three counts are
+# a single snapshot from the BASAL condition (diagnostic_real_bulk_seeding.py,
+# 2026-08-12/17) -- they are NOT the cell's actual current ambient count
+# under any other growth condition. Since nucleation propensity scales with
+# count^2 (this is a homodimer-type binding reaction: propensity = rate *
+# n*(n-1)/2, i.e. the number of possible pairs among n identical molecules)
+# while the calibrated `rate` constant below is fixed once against these
+# hardcoded numbers, a cell with a genuinely different ambient monomer count
+# (e.g. a smaller, slower-growing cell under a different media condition --
+# real biology, not a bug) gets a propensity that no longer matches
+# REAL_NUCLEATION_RATE_PER_S, even though the rate LAW itself is still
+# correctly derived.
+#
+# Confirmed directly, not hypothetical: a real acetate-condition test
+# (out/cache_full_flit_v12_acetate, media_condition='acetate', doubling_time
+# 136min) has FliF=206 vs this dict's hardcoded 657 (~3.2x smaller, a real,
+# correctly-scaled smaller cell) and FlgE=1050 vs 3508 (~3.3x smaller). Using
+# the SAME rate constant calibrated for 657/3508 against these actual, much
+# smaller counts gives propensity = rate * 206*205/2 = rate * 21,115, vs the
+# rate * 657*656/2 = rate * 215,496 it was calibrated for -- ~9.8% of the
+# intended REAL_NUCLEATION_RATE_PER_S. Result: under that acetate cache, the
+# ENTIRE upstream assembly chain (C-ring through motor-complex) never fired
+# even once across a full 120-minute run -- not because acetate-grown cells
+# should nucleate 10x slower (no such claim exists in the literature this
+# investigation has cited), but because the rate constant was calibrated
+# against a monomer count this smaller cell doesn't have.
+#
+# NOT FIXED HERE: this module now accepts an optional
+# `real_ambient_monomer_counts` override (see generate_bngl/write_bngl/
+# get_model_path below) so a caller building a condition-specific model CAN
+# pass the cell's actual live counts instead of this hardcoded snapshot --
+# but nothing currently DOES that automatically. The real fix -- having
+# flagella_nfsim_complexation.py's initialize() read the live/cached ambient
+# counts for whatever condition it's actually running under and pass them
+# through before calling get_model_path() -- is not yet built. Revisit
+# before trusting any non-basal-condition NFsim result quantitatively.
+_DEFAULT_REAL_AMBIENT_MONOMER_COUNTS = REAL_AMBIENT_MONOMER_COUNTS
+
 
 def _nucleating_species(consumed):
     """Return (nuc_species_1, nuc_species_2) for a reaction's consumed dict
@@ -491,14 +585,23 @@ def _nucleating_species(consumed):
     return nuc_species_1, nuc_species_2
 
 
-def _calibrated_nucleation_rate(consumed, k_bind):
+def _calibrated_nucleation_rate(consumed, k_bind, real_ambient_monomer_counts=None):
     """Real, per-reaction nucleation rate: if the nucleating species has a
-    known real ambient count (REAL_AMBIENT_MONOMER_COUNTS), calibrate so
-    propensity matches REAL_NUCLEATION_RATE_PER_S at that real count.
-    Otherwise (nucleating from a scarce, dynamically-produced precursor),
-    plain k_bind -- no artificial suppression needed."""
+    known real ambient count, calibrate so propensity matches
+    REAL_NUCLEATION_RATE_PER_S at that real count. Otherwise (nucleating
+    from a scarce, dynamically-produced precursor), plain k_bind -- no
+    artificial suppression needed.
+
+    `real_ambient_monomer_counts` defaults to the module-level (basal-only)
+    REAL_AMBIENT_MONOMER_COUNTS snapshot -- see that dict's own "NOT
+    CONDITION-AWARE" comment. Pass a condition-specific dict here (same keys,
+    real live counts) to calibrate correctly for a non-basal cell; nothing
+    does this automatically yet.
+    """
+    if real_ambient_monomer_counts is None:
+        real_ambient_monomer_counts = _DEFAULT_REAL_AMBIENT_MONOMER_COUNTS
     nuc_species_1, _ = _nucleating_species(consumed)
-    real_count = REAL_AMBIENT_MONOMER_COUNTS.get(nuc_species_1)
+    real_count = real_ambient_monomer_counts.get(nuc_species_1)
     if real_count is None:
         return k_bind
     return REAL_NUCLEATION_RATE_PER_S / (real_count * (real_count - 1) / 2)
@@ -528,7 +631,13 @@ def _safe_name(name):
 # 'flagellar hook', 'flagella'). Added 2026-08-12 for the future wrapper
 # Step (NFSIM_WCM_WIRING_PLAN.md step 3) to build its safe-name -> real-ID
 # lookup from, rather than guessing/inverting _safe_name()'s output.
-_NON_BULK_SPECIES = {'flagellar export apparatus subunit', 'flagellar hook', 'flagella'}
+_NON_BULK_SPECIES = {
+    'flagellar export apparatus subunit', 'flagellar hook', 'flagella',
+    # New 2026-08-27 (HOOK DEPENDENCY FIX): the two new in-between items on
+    # the way to a finished base -- rod alone, then rod with the P-ring.
+    # Neither has a real bulk ID, same as the three above.
+    'flagellar rod', 'flagellar rod with p-ring',
+}
 
 
 def real_bulk_ids():
@@ -583,7 +692,12 @@ REACTION_ORDER = [
     'flagellar motor switch reaction',
     'flagellar export apparatus reaction 1',
     'flagellar export apparatus reaction 2',
-    'flagellar motor reaction',
+    # 'flagellar motor reaction',  # REPLACED 2026-08-27 by the 3 real,
+    # ordered steps below -- see COMPLEXATION_STOICHIOMETRY's "HOOK
+    # DEPENDENCY FIX" note. Kept per standing preserve-old-code rule.
+    'flagellar rod reaction',
+    'flagellar p-ring reaction',
+    'flagellar l-ring reaction',
     'flagellar hook reaction',
     'flagellum reaction',
 ]
@@ -634,8 +748,17 @@ def bulk_id_to_observable_name():
     return mapping
 
 
-def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATION, k_completion=K_COMPLETION):
-    """Generate the complete BNGL model string."""
+def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATION,
+                   k_completion=K_COMPLETION, real_ambient_monomer_counts=None):
+    """Generate the complete BNGL model string.
+
+    `real_ambient_monomer_counts`: optional override for
+    REAL_AMBIENT_MONOMER_COUNTS (same keys: real bulk IDs -> real ambient
+    count), forwarded to _calibrated_nucleation_rate. Defaults to the
+    basal-only hardcoded snapshot -- see that dict's "NOT CONDITION-AWARE"
+    comment. Pass the cell's actual live counts here to get a correctly
+    calibrated nucleation rate for a non-basal condition.
+    """
 
     reaction_order = REACTION_ORDER
     reactions, monomer_names, complex_names_ordered, complex_names, all_consumed = _parse_all_reactions()
@@ -696,7 +819,8 @@ def generate_bngl(n_flagella=N_FLAGELLA, k_bind=K_BIND, k_nucleation=K_NUCLEATIO
         total = sum(consumed.values())
         if total > 2:
             safe_product = _safe_name(product)
-            this_rate = _calibrated_nucleation_rate(consumed, k_bind)
+            this_rate = _calibrated_nucleation_rate(
+                consumed, k_bind, real_ambient_monomer_counts)
             lines.append(f'    k_nuc_{safe_product}  {this_rate:.6e}')
     lines.append('')
 
@@ -880,12 +1004,23 @@ def write_bngl(output_path=None, **kwargs):
     return output_path
 
 
-def get_model_path():
-    """Return path to the generated BNGL model, generating it if needed."""
+def get_model_path(real_ambient_monomer_counts=None):
+    """Return path to the generated BNGL model, generating it if needed.
+
+    `real_ambient_monomer_counts`: forwarded to generate_bngl -- see that
+    function's docstring and REAL_AMBIENT_MONOMER_COUNTS's "NOT
+    CONDITION-AWARE" comment. NOTE: if the file already exists on disk (the
+    common case -- flagella_nfsim_complexation.py calls this with no
+    arguments), it is reused AS-IS regardless of this argument -- passing a
+    condition-specific override here only takes effect when the file doesn't
+    exist yet, or the caller deletes it first / calls write_bngl directly.
+    Nothing currently regenerates a condition-specific model automatically;
+    this is the wiring gap flagged in REAL_AMBIENT_MONOMER_COUNTS's comment.
+    """
     path = os.path.join(
         os.path.dirname(__file__), 'flagella_complexation.bngl')
     if not os.path.exists(path):
-        write_bngl(path)
+        write_bngl(path, real_ambient_monomer_counts=real_ambient_monomer_counts)
     return path
 
 

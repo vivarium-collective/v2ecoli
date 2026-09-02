@@ -196,7 +196,56 @@ canonical_runs:
     default: true
 
 visualizations: []
-conclusion:
+
+conclusion: >-
+  The arrest reproduces and is caused by the initiation gate — but NOT by
+  subunit exhaustion, and NOT by DnaG. Tests 1 and 2 pass; test 3 FAILS, and
+  that failure is the study's most important result.
+
+  Seed 0, one cache, byte-identical initial state, differing only in the
+  runtime gate. Mechanistic: gen 1 divided (tau 43.0 min, 718.7 fg), gen 2 ran
+  the full 200 min cap without dividing while dry mass reached 4156.5 fg.
+  Permissive: 12/12 generations divided, tau 43-59 min, dry mass 592-732 fg.
+  So subunit gating does cause the arrest — link 1 of the investigation's
+  causal chain holds at n=1.
+
+  Test 3 asked WHICH pool was exhausted. Answer: none of them. At the arrest
+  (gen 2, n_oriC=1, so the gate wants 6 trimers / 2 monomers) every pool sat
+  far above its requirement — pol III core min 235, beta clamp 137, DnaB 137,
+  HolB 339, HolA 17, DnaG 4. DnaG is by far the scarcest in absolute terms
+  but still never dips below what the gate asks for.
+
+  The cause is the comparison operator in chromosome_replication.py:453-456:
+
+      np.all(n_replisome_trimers == 6 * n_oriC)
+      and np.all(n_replisome_monomers == 2 * n_oriC)
+
+  It requires EXACTLY 6 and 2, not at least. With 235 pol III cores present,
+  `235 == 6` is False, so initiation can essentially never fire under
+  mechanistic_replisome=True on this branch. Generation 1 divides only because
+  it inherits an initial state with forks already in progress — it finishes a
+  round it never had to start. Generation 2 must initiate from scratch, cannot,
+  and inflates without dividing.
+
+  Consequence for the investigation: link 2 (the arrest coincides with DnaG
+  depletion) is REFUTED as stated. The arrest on this branch is an artefact of
+  the operator, so it does not yet implicate the transcription-unit
+  architecture. Prior observations of this arrest were made on the plasmids
+  branch, where the operator was patched `==` -> `>=`; that arrest was
+  therefore a different phenomenon and cannot be cited in support of this one.
+
+  DnaG at 4 copies against a four-dataset literature median of ~59 remains a
+  standing anomaly worth pursuing — it is simply not what stopped this lineage.
+
+  Spec defect found while evaluating: this study listed FIVE replisome
+  subunits; there are SIX. EG11500-MONOMER[c] (HolB, delta-prime) was missing
+  from expected_behavior and behavior_tests. The evaluation above covers all
+  six; the test text still says five and needs correcting.
+
+  Next: patch `==` -> `>=` on this branch and re-run, so the mechanistic arm
+  tests subunit availability rather than an operator bug. Only then is the
+  DnaG question testable here.
+
 conditions:
   baseline:
     name: mechanistic

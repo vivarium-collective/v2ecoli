@@ -1107,29 +1107,22 @@ def _build_batch_document(
     return {"state": state}
 
 
-def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> None:
-    """Enforce the injection-sourcing policy for a ``baseline(native=...)`` build.
+def assert_injection_sourcing(injected_processes: dict | None) -> None:
+    """Enforce v2ecoli's native-only injection policy.
 
-    ``native=True`` (the default, ecoli_baseline) builds injected processes
-    fork-free off its own bundle simData → a non-empty ``fork_repo`` is a caller
-    error. The ``native=False`` fork-sourcing path pulls injections from the
-    vEcoli fork → an add/swap injection needs a non-empty ``fork_repo``.
+    v2ecoli builds injected processes fork-free off its OWN bundle simData.
+    Fork-sourcing has been removed, so a non-empty ``injected_processes.fork_repo``
+    is now a hard error — inject native pbg processes (with ``fork_repo`` empty)
+    instead.
     """
     if not injected_processes:
         return
-    has_add_swap = bool(injected_processes.get("add_processes")
-                        or injected_processes.get("swap_processes"))
     fork_repo = injected_processes.get("fork_repo") or ""
-    if native and fork_repo:
+    if fork_repo:
         raise ValueError(
-            f"baseline(native=True) is native-only but injected_processes.fork_repo="
-            f"{fork_repo!r} is set — build with baseline(native=False) for "
-            f"fork-wrapping injection.")
-    if (not native) and has_add_swap and not fork_repo:
-        raise ValueError(
-            "baseline(native=False) requires injected_processes.fork_repo to source "
-            "metabolism-redux from the vEcoli fork, but it is empty — use "
-            "baseline(native=True) for native (fork-free) injection.")
+            f"injected_processes.fork_repo={fork_repo!r} is set, but fork-sourcing "
+            f"has been removed — v2ecoli is native-only. Use native pbg processes "
+            f"(fork_repo empty) for injected add/swap.")
 
 
 WCM_PARAMETERS = {
@@ -1310,9 +1303,10 @@ WCM_PARAMETERS = {
         "injected_processes": {
             "type": "map",
             "default": {},
-            "description": "Fork process-injection spec "
-                           "{fork_repo, add_processes, swap_processes, "
-                           "process_configs, topology, time_step}; empty = none.",
+            "description": "Native process-injection spec "
+                           "{add_processes, swap_processes, process_configs, "
+                           "topology, time_step}; empty = none. fork_repo must be "
+                           "empty — fork-sourcing is removed, v2ecoli is native-only.",
         },
         # --- Batch / lineage knobs (absorbed from the former batch_baseline) ----
         # n_seeds>1 OR n_generations>1 switches baseline from a single 55-process
@@ -1574,7 +1568,6 @@ def baseline(
     emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
-    native: bool = True,
     n_seeds: int = 1,
     n_generations: int = 1,
     stop_at_division: bool = False,
@@ -2166,7 +2159,7 @@ def baseline(
             injected_processes.get("add_processes")
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
-        assert_injection_sourcing(native, injected_processes)
+        assert_injection_sourcing(injected_processes)
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))
@@ -2177,7 +2170,10 @@ def baseline(
         # when there is something to add.
         if (injected_processes.get("add_processes")
                 or injected_processes.get("swap_processes")):
-            specs = resolve_injections(injected_processes["fork_repo"],
+            # fork_repo is guaranteed empty here (assert_injection_sourcing raises
+            # on a non-empty one — fork-sourcing is removed). resolve_injections'
+            # native path builds specs off the candidate's own bundle simData.
+            specs = resolve_injections(injected_processes.get("fork_repo") or "",
                                        injected_processes)
             apply_injected_processes(cell_state, flow_order, core, specs)
         # Remove half: drop the swapped-out SOURCES and any exclude_processes, so

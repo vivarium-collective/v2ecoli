@@ -244,7 +244,6 @@ class LineageProcess(Process):
             media=self.config.get("media", "minimal"),
             features=_features,
             injected_processes=self.config.get("injected_processes"),
-            native=not bool(_injected.get("fork_repo")),
             ppgpp_regulation=bool(_feature_flag("ppgpp_regulation", True)),
             trna_attenuation=bool(_feature_flag("trna_attenuation", False)),
             supercoiling=bool(_feature_flag("supercoiling", False)),

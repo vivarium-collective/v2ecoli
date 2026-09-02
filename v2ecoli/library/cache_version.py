@@ -165,8 +165,11 @@ INPUT_FILES: tuple[str, ...] = (
     # ``v2ecoli/steps/`` is not represented here at all) is tracked in
     # #650 and is deliberately NOT closed piecemeal from here.
     "v2ecoli/composites/reactor_bird_coupled.py",
-    # Steps instantiated by the composite above whose configs shift the
-    # built document's shape exactly as the composite file's own bytes do.
+    # The two steps THIS CHANGE EDITS. They are here because this diff
+    # touches them, not because a structural rule now covers steps --
+    # environment_driver.py is instantiated by the same lines of
+    # add_reactor_coupling and shifts the document identically, and is
+    # deliberately NOT added here. The general rule is #650's.
     "v2ecoli/steps/reactor_cell_coupler.py",
     "v2ecoli/steps/environment_mirror.py",
     # Shared builders imported by the composites above (make_edge,

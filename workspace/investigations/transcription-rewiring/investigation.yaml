@@ -52,12 +52,16 @@ executive:
     investigation asks why, and the answer appears to sit upstream of
     replication entirely: in how the model decides which stretches of DNA are
     transcribed, and under whose regulatory control.
-  verdict: TBD — no study has been run on this branch yet.
+  verdict: The arrest reproduces on origin/main, but it is caused by the initiation gate's equality test rather than by DnaG depletion, so it does not yet implicate the transcription-unit architecture.
   verdict_status: in-progress
   verdict_detail: >-
-    The baseline arrest has not yet been reproduced here. Earlier observations
-    of it were made in a branch that also carried unrelated regulation edits, so
-    it is deliberately being re-established from an unmodified origin/main.
+    Study mechanistic-replisome-arrest re-established the phenomenon from an unmodified origin/main: with subunit gating on, the lineage arrests at generation 2; the permissive control from the same seed and the same cache completes all 12. So link 1 of the causal chain — that subunit gating causes the arrest — holds at n=1.
+
+
+    Link 2 is refuted as stated. The arrest does not coincide with exhaustion of DnaG or of any other pool: at the arresting generation every subunit sat above its requirement, the worst margin being DnaG at +2 copies. The cause is that chromosome_replication.py:453-455 gates initiation on == rather than >=, so a surplus blocks initiation exactly as a shortage would.
+
+
+    Consequence for this investigation: the arrest on this branch is an artefact of that operator and cannot currently be used as evidence for the transcription-unit architecture. Earlier observations came from the plasmids branch, where the operator was patched to >=, so that arrest was a different phenomenon and cannot be cited in support of this one. DnaG at 4 copies against a four-dataset literature median of ~59 remains a standing anomaly worth pursuing — it is simply not what stopped this lineage.
   decisions_needed:
   - >-
     Whether keying transcription initiation by promoter is an acceptable
@@ -65,6 +69,7 @@ executive:
     unit. AGENTS.md requires this to be justified explicitly rather than
     assumed.
 
+  - Whether to patch the initiation gate from == to >= on this branch and re-run the paired arms before pursuing the transcription-unit link. Until the operator is fixed, the mechanistic arm tests the operator rather than subunit availability, so the DnaG question is not testable here.
 scientific_argument:
   main_claim: >-
     A transcription unit cannot serve as both promoter and transcript without

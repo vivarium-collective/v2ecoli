@@ -24,6 +24,8 @@ investigation turns on.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from viva_superpowers import TestBuilder, check, band, value
 
 from v2ecoli.library import replisome_arrest as ra
@@ -47,11 +49,20 @@ class ReplisomeArrestCard(ReportCardStep):
         if cfg is None:
             return None
 
-        root = study.ws_root.parent
+        # StudyContext.load takes the REPO root (it appends workspace/studies/),
+        # and report_card_refs paths are repo-relative, so resolve against
+        # ws_root itself. Using .parent silently resolved one level too high;
+        # TestStep.invoke swallows the resulting error, so the card just went
+        # missing rather than failing loudly.
+        root = study.ws_root
 
         def _p(key):
             v = cfg[key]
-            return v if str(v).startswith("/") else (root / v)
+            p = Path(v) if str(v).startswith("/") else (root / v)
+            if not p.exists():
+                raise FileNotFoundError(
+                    f"report_card_refs.{self.name}.{key} does not exist: {p}")
+            return p
 
         m = ra.measure(_p("mechanistic_dir"), _p("permissive_dir"), _p("cache_dir"))
         expected_gens = int(cfg.get("expected_generations", 12))

@@ -275,12 +275,12 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
         kwargs["exchange_fluxes"] = dict(exchange_fluxes)
         kwargs["exchange_flux_basis"] = str(exchange_flux_basis or "counts")
-    # ecoli_baseline is native-only and rejects a non-empty injected_processes
-    # fork_repo; route fork-wrapping builds to ecoli_v1_hybrid (same body,
-    # native=False) instead, keyed on whether a fork_repo is present.
-    _inj = kwargs.get("injected_processes") or {}
-    _cid = "ecoli_v1_hybrid" if _inj.get("fork_repo") else "ecoli_baseline"
-    comp = build_composite(_cid, **kwargs)
+    # v2ecoli is native-only: ecoli_baseline builds injected processes fork-free
+    # off its own bundle simData. Fork-sourcing has been removed, so a run with a
+    # non-empty injected_processes.fork_repo now RAISES inside the composite build
+    # (assert_injection_sourcing) rather than silently fork-wrapping. All runs go
+    # through build_composite("ecoli_baseline").
+    comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
     # on the media the condition requires. Anything else silently mis-models the

@@ -387,8 +387,7 @@ class Division(V2Step):
                         injected_processes=self._injected_processes,
                         config_overrides=self._config_overrides,
                         exchange_fluxes=self._exchange_fluxes,
-                        exchange_flux_basis=self._exchange_flux_basis,
-                        native=not bool((self._injected_processes or {}).get("fork_repo")))
+                        exchange_flux_basis=self._exchange_flux_basis)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

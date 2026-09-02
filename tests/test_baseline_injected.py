@@ -1,4 +1,9 @@
-"""Tests for baseline() injected_processes hook (Task 4)."""
+"""Tests for baseline() injected_processes hook (Task 4).
+
+Fork-sourcing has been REMOVED — v2ecoli is native-only. A fork-sourced
+injection (non-empty ``fork_repo``) must now raise, and a plain build must
+still work. (The native fork-free injection path is covered by test_inject_swap.)
+"""
 import os
 
 import pytest
@@ -12,7 +17,9 @@ pytestmark = pytest.mark.sim
 FORK = os.path.join(os.path.dirname(__file__), "fixtures", "fork_example")
 
 
-def test_baseline_injects_fork_process():
+def test_baseline_rejects_fork_sourced_injection():
+    """A fork-sourced injection (non-empty fork_repo) is no longer buildable:
+    fork-sourcing was removed and v2ecoli is native-only, so baseline() raises."""
     from v2ecoli.core import build_core
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
@@ -21,11 +28,9 @@ def test_baseline_injects_fork_process():
            "process_configs": {"example-secretion": {"rate": 2.0}},
            "topology": {"example-secretion": {"counts": ["bulk"]}},
            "time_step": 1.0}
-    doc = baseline(core=core, seed=0, cache_dir="out/cache",
-                   injected_processes=inj, native=False)
-    cell = doc["state"]["agents"]["0"]
-    assert "example-secretion" in cell
-    assert "example-secretion" in doc["flow_order"]
+    with pytest.raises(ValueError, match="fork-sourcing has been removed"):
+        baseline(core=core, seed=0, cache_dir="out/cache",
+                 injected_processes=inj)
 
 
 def test_baseline_noop_without_injection_keeps_process_set():

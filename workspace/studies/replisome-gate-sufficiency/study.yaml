@@ -357,6 +357,49 @@ preregistered:
   - permissive-completes-all-seeds
   - dropping-dnag-relieves-the-stall
 
+  thresholds:
+    lineage-stalls-under-sufficiency-gate:
+      op: <
+      value: 12
+      provenance:
+        kind: theory
+        note: >-
+          12 is the study's chosen run length, not a measured quantity. Long
+          enough that a stall cannot be mistaken for a slow start.
+    stall-generation-is-seed-consistent:
+      op: <=
+      value: 3
+      provenance:
+        kind: theory
+        note: Authored bound on "consistent"; not measured, not cited.
+    some-pool-is-short-at-the-stall:
+      op: <
+      value: 0
+      provenance:
+        kind: theory
+        note: Definitional, not tuned. A negative margin IS a shortfall.
+    dnag-is-the-limiting-pool:
+      op: '=='
+      value: true
+      provenance:
+        kind: exploratory
+        note: >-
+          Extrapolated from the permissive arm of mechanistic-replisome-arrest,
+          not from the arm under test.
+    permissive-completes-all-seeds:
+      op: '>='
+      value: 12
+      provenance:
+        kind: theory
+        note: The run length; a control that completes the run is the control passing.
+    dropping-dnag-relieves-the-stall:
+      op: '>'
+      value: 0
+      provenance:
+        kind: theory
+        note: >-
+          Any strict improvement counts. Not tuned to an expected effect size,
+          which is unknown.
 readouts:
 - name: number-of-oric
   store_path: listeners.replication_data.number_of_oric

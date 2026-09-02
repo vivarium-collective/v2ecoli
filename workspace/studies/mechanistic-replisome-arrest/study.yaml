@@ -212,6 +212,8 @@ pipeline_gate:
     - replisome_arrest
     evaluated_by: code
     diverges_from_authored: false
+  enables:
+  - replisome-gate-sufficiency
 report_card_refs:
   replisome_arrest:
     mechanistic_dir: out/mechanistic-replisome-arrest/mechanistic
@@ -285,6 +287,8 @@ findings:
 
     This refutes the study's own primary hypothesis, and it is the study's most informative result. The test had four other ways to come out (pol III core, beta clamp, DnaB, HolA); instead of naming a different limiting pool it found none limiting at all. Note what this does NOT say: it does not show the model is miscalibrated, and it does not overturn the DnaG transcription-unit work. It says subunit availability is not the step that blocks initiation here.
   next_action_type: retire_hypothesis
+  seeded_study: replisome-gate-sufficiency
+  seeded_rationale: Retiring the subunit-depletion hypothesis is exactly what study 2 tests, by re-asking the question with a gate that measures supply.
 - id: F-04
   kind: biological
   status: contradicts
@@ -305,6 +309,8 @@ findings:
 
     The card gate therefore reads fail, and that is recorded honestly rather than reframed: a pre-registered acceptance criterion predicted a negative subunit margin and the measurement came back positive. A failing acceptance criterion is how a refutation is supposed to look. The gate failing does not mean the run, the model or the control is broken -- the other four axes all passed.
   next_action_type: retire_hypothesis
+  seeded_study: replisome-gate-sufficiency
+  seeded_rationale: The refuted acceptance criterion is re-posed in study 2 as some-pool-is-short-at-the-stall, now that == no longer masks supply.
 - id: F-05
   kind: computational
   tier: interpretation
@@ -330,6 +336,8 @@ findings:
   provenance:
     run_ids:
     - mechanistic-replisome-arrest__mechanistic__seed0
+  seeded_study: replisome-gate-sufficiency
+  seeded_rationale: 'The == mechanism is ablated in study 2: the operator is corrected and the paired arms measure what it alone changed.'
 conclusion_verdicts:
   regression_compatibility:
     verdict: confirmed
@@ -343,7 +351,15 @@ conclusion_verdicts:
 claim: 'Replisome subunit gating does arrest the lineage, but not by exhausting a subunit: every pool was in surplus at the arrest, and the initiation gate blocks because it tests equality rather than sufficiency.'
 conclusion_logic:
   if_primary_tests_pass: If the mechanistic arm arrests, the permissive control completes, and a subunit pool is genuinely short at the arrest, then subunit availability gates initiation and DnaG is implicated — the transcription-unit architecture becomes the next thing to test.
-  if_primary_tests_fail: If the arrest reproduces but no pool is short, the arrest is not a depletion phenomenon and the DnaG link is refuted as stated; the gate's own condition becomes the object of study before any transcription-unit claim can rest on this arrest. This is the branch that was taken.
+  if_primary_tests_fail:
+    summary: If the arrest reproduces but no pool is short, the arrest is not a depletion phenomenon and the DnaG link is refuted as stated; the gate's own condition becomes the object of study before any transcription-unit claim can rest on this arrest. This is the branch that was taken.
+    diagnose:
+    - question: Does the lineage still stall once the gate tests sufficiency (>=) rather than equality?
+      seeded_study: replisome-gate-sufficiency
+      note: Study 2's lineage-stalls-under-sufficiency-gate.
+    - question: With the operator corrected, is a replisome subunit genuinely short at the stall, and is it DnaG?
+      seeded_study: replisome-gate-sufficiency
+      note: Study 2's some-pool-is-short-at-the-stall + dnag-is-the-limiting-pool.
 readouts:
 - name: listeners.replication_data.number_of_oric
   description: Origin count, which sets the initiation gate's per-pool requirement (6x per trimer, 2x per monomer). Read from the emitted parquet.
@@ -361,3 +377,14 @@ units_and_time:
     generation duration: minutes of simulated time (summary duration_min)
     dry mass: femtograms (fg)
     subunit counts: molecule copies per cell (integer bulk counts)
+discovery_implications:
+  followup_study_proposals:
+  - id: FU-01
+    title: Replisome gate sufficiency
+    motivation: |
+      This study could not test whether subunit supply limits initiation,
+      because the == operator rejected every pool regardless of supply. With
+      the operator corrected to >=, the question becomes answerable for the
+      first time: does the lineage still stall, at which generation, and is a
+      subunit genuinely short? Seeded as replisome-gate-sufficiency.
+    seeded_study: replisome-gate-sufficiency

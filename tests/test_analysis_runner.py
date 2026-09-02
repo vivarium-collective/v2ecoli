@@ -383,6 +383,109 @@ def test_parallel_analyses_use_distinct_cursors_not_shared_connection(monkeypatc
         "DuckDB connection are not safe")
 
 
+# ---------------------------------------------------------------------------
+# P1-10 (CD2 audit §3.7): an analysis failure or a missing KPI column must
+# surface as a structured, explicit signal -- never a silent completed:True /
+# a {"n": 0, "mean": 0.0}-shaped panel indistinguishable from a real result.
+# ---------------------------------------------------------------------------
+
+
+def test_analysis_error_marks_run_partial_with_structured_summary(monkeypatch, tmp_path):
+    """One named analysis raising must flip the overall status to PARTIAL and
+    name exactly which analysis failed in `summary`/`errors` -- not just
+    leave an {"error": ...} buried in a per-group dict for the caller to find
+    by walking every group of every analysis."""
+    ar = _duckdb_test_ctx(monkeypatch, tmp_path)
+    from v2ecoli.workflow.analysis import Analysis
+
+    class _Boom(Analysis):
+        scale = "multiseed"
+
+        def update(self, state, interval=None):
+            raise RuntimeError("synthetic failure")
+
+    class _Fine(Analysis):
+        scale = "multiseed"
+
+        def update(self, state, interval=None):
+            return {"data": {"ok": True}}
+
+    _register_fake(monkeypatch, ar, "boom", _Boom)
+    _register_fake(monkeypatch, ar, "fine", _Fine)
+
+    results = ar.run_analyses(str(tmp_path), {"multiseed": {"boom": {}, "fine": {}}})
+
+    assert results["status"] == "PARTIAL"
+    assert results["summary"]["multiseed"]["boom"] == "error"
+    assert results["summary"]["multiseed"]["fine"] == "ok"
+    assert any(e["scale"] == "multiseed" and e["name"] == "boom"
+               and "synthetic failure" in e["error"] for e in results["errors"])
+    # the failing analysis's own per-group data is untouched (unchanged shape)
+    boom_group = next(iter(results["multiseed"]["boom"].values()))
+    assert "error" in boom_group and "synthetic failure" in boom_group["error"]
+
+
+def test_all_passing_analyses_report_ok_status(monkeypatch, tmp_path):
+    """The positive case: nothing failed -> status OK, and every requested
+    analysis is named "ok" in the structured summary."""
+    import v2ecoli.workflow.analysis_runner as ar
+    recs = {
+        (0, 0, 0, "0"): {"variant": 0, "lineage_seed": 0, "generation": 0, "agent_id": "0",
+                        "divided": True, "division_time": 2400.0,
+                        "newborn_dry_mass": 380.0, "final_dry_mass": 700.0,
+                        "timeseries": [{"listeners": {"mass": {"dry_mass": 380.0,
+                           "protein_mass": 180.0, "rRna_mass": 38.0, "dna_mass": 7.0}}}]},
+    }
+    monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: recs)
+    options = {"single": {"mass_fraction_summary": {}},
+              "multiseed": {"doubling_time_distribution": {}}}
+    results = ar.run_analyses(str(tmp_path), options)
+
+    assert results["status"] == "OK"
+    assert results["summary"] == {
+        "single": {"mass_fraction_summary": "ok"},
+        "multiseed": {"doubling_time_distribution": "ok"},
+    }
+    assert results["errors"] == []
+    # existing shape is untouched
+    assert len(results["single"]["mass_fraction_summary"]) == 1
+
+
+def test_missing_kpi_column_flags_partial_not_zero_panel(monkeypatch, tmp_path):
+    """build_cell_records() raising over a column the emitter dropped must
+    become an explicit missing_column signal -- never a hollow
+    {"n": 0, "mean": 0.0}-shaped result an analysis would otherwise happily
+    compute over key-only records and report as a clean (if empty) success."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    def _boom(sweep_dir):
+        raise Exception(
+            'Binder Error: Referenced column "listeners__mass__dry_mass" '
+            'not found in FROM clause!')
+
+    monkeypatch.setattr(ar, "build_cell_records", _boom)
+    results = ar.run_analyses(
+        str(tmp_path), {"multiseed": {"doubling_time_distribution": {}}})
+
+    assert results["status"] == "PARTIAL"
+    assert results["summary"]["multiseed"]["doubling_time_distribution"] == "missing_column"
+    group = next(iter(results["multiseed"]["doubling_time_distribution"].values()))
+    assert group["missing_column"] == "listeners__mass__dry_mass"
+    assert "listeners__mass__dry_mass" in group["error"]
+    # never the masquerading-zero shape a real (record-based) analyze() call
+    # would have produced over bogus key-only records
+    assert group != {"n": 0, "mean": 0.0}
+    assert "n_cells" not in group and "doubling_time_mean" not in group
+
+    err = next(e for e in results["errors"]
+              if e["name"] == "doubling_time_distribution")
+    assert err["missing_column"] == "listeners__mass__dry_mass"
+    assert os.path.isfile(os.path.join(str(tmp_path), "analysis.json"))
+    with open(os.path.join(str(tmp_path), "analysis.json")) as f:
+        on_disk = json.load(f)
+    assert on_disk["status"] == "PARTIAL"
+
+
 def test_s3_secret_refresh_is_thread_safe_not_a_catalog_race(monkeypatch, tmp_path):
     """Item 79 regression: concurrent modules each calling the REAL
     configure_duckdb_s3() (not mocked) on their own cursor must not race on

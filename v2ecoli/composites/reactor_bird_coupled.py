@@ -409,8 +409,24 @@ def add_reactor_coupling(
         # accumulator (#225 req-3 substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
                                "default": DEFAULT_INITIAL_GLUCOSE_MM},
+        # Medium ammonium recipe seed (mmol/L) -- a finite, drawn-down pool
+        # rather than a static concentration.
         "initial_ammonium_mM": {"type": "number",
                                 "default": DEFAULT_INITIAL_AMMONIUM_MM},
+        # Per-cell biological build kwarg, forwarded through baseline_population
+        # to baseline(). Before this parameter existed there was NO WAY to put a
+        # different process in the metabolism slot on the coupled path at all --
+        # a missing capability, not a silently-wrong build: naming it in a config
+        # raised ValueError from build_generator's override validation.
+        # Empty = none, so the default is byte-identical to before.
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Process-injection spec {fork_repo, add_processes, "
+                           "swap_processes, process_configs, topology, "
+                           "time_step}. ⚠ fork_repo is REQUIRED even when empty (\"\" = native); baseline() indexes it directly. Omit the whole parameter for no injection. Forwarded verbatim to "
+                           "baseline_population -> baseline().",
+        },
     },
 )
 def reactor_bird_coupled(
@@ -426,6 +442,7 @@ def reactor_bird_coupled(
     single_daughters: bool = False,
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
     initial_ammonium_mM: float = DEFAULT_INITIAL_AMMONIUM_MM,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -449,6 +466,7 @@ def reactor_bird_coupled(
         carbon_exhaustion_arrest=carbon_exhaustion_arrest,
         carbon_source_ids=carbon_source_ids,
         single_daughters=single_daughters,
+        injected_processes=injected_processes,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

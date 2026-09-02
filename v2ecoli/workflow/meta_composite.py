@@ -51,6 +51,22 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
                 "emitter": config.get("emitter", "parquet"),
                 "emitter_arg": dict(config.get("emitter_arg") or {}),
                 "injected_processes": config.get("injected_processes") or {},
+                # Per-cell biological build kwargs — forwarded so every
+                # generation's baseline() build engages the SAME biology as the
+                # single-cell path (audit: batch mode dropped these, degrading an
+                # injected metabolism-redux/violacein batch to basal FBA).
+                # LineageProcess.config_schema supplies the defaults when absent.
+                "features": list(config.get("features") or []),
+                "ppgpp_regulation": bool(config.get("ppgpp_regulation", True)),
+                "trna_attenuation": bool(config.get("trna_attenuation", False)),
+                "supercoiling": bool(config.get("supercoiling", False)),
+                "mass_conservation": bool(config.get("mass_conservation", False)),
+                "exchange_fluxes": dict(config.get("exchange_fluxes") or {}),
+                "exchange_flux_basis": config.get("exchange_flux_basis") or "",
+                "transcript_initiation_mode": (
+                    config.get("transcript_initiation_mode") or "discrete"),
+                "polypeptide_initiation_mode": (
+                    config.get("polypeptide_initiation_mode") or "discrete"),
             },
             "inputs": {},
             "outputs": {

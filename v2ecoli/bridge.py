@@ -148,21 +148,25 @@ class EcoliWCM(Process):
         # tick into an unbounded, never-read history). That full capture is a
         # ~7.7 MB/sim-s per-cell RSS leak that OOM-kills a growing colony — found
         # in the colonies investigation and localized to this inner emitter.
-        # Save/restore the flag so it never leaks into a non-embedded caller that
-        # builds a composite later in the same process.
-        from v2ecoli.composites import _helpers as _helpers_mod
-        _prev_null_emitter = _helpers_mod._NULL_EMITTER_OVERRIDE
-        _helpers_mod.set_null_emitter_override(True)
-        try:
-            document = baseline(core=internal_core, seed=seed, cache_dir=cache_dir)
+        #
+        # This selection is threaded through baseline()'s own ``emitter="null"``
+        # parameter rather than by mutating the module-global
+        # ``_NULL_EMITTER_OVERRIDE`` flag directly: baseline() already owns that
+        # global's full set/restore lifecycle, scoped to this single call (see
+        # ecoli_baseline.py's ``elif emitter == "null"`` branch + its
+        # ``finally``). A caller-managed save/restore around a raw global
+        # mutation (the previous approach here) has no such guarantee — any new
+        # embedding path that forgets the restore step silently re-inherits the
+        # full-state RAMEmitter default (CD2 pipeline audit, P2-8).
+        document = baseline(
+            core=internal_core, seed=seed, cache_dir=cache_dir,
+            emitter="null")
 
-            # Use the full document directly — preserves agents wrapper.
-            # The division step's '..' wire to parent agents will resolve to
-            # the empty agents dict when there's no outer container, which is
-            # safe because division won't trigger until t=~2500s.
-            self._composite = Composite(document, core=internal_core)
-        finally:
-            _helpers_mod.set_null_emitter_override(_prev_null_emitter)
+        # Use the full document directly — preserves agents wrapper.
+        # The division step's '..' wire to parent agents will resolve to
+        # the empty agents dict when there's no outer container, which is
+        # safe because division won't trigger until t=~2500s.
+        self._composite = Composite(document, core=internal_core)
 
         # Seed previous values for delta computation
         cell_state = self._composite.state.get('agents', {}).get('0', {})

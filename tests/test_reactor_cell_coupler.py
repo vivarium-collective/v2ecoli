@@ -21,6 +21,8 @@ from process_bigraph import Composite
 
 from v2ecoli.core import build_core
 from v2ecoli.steps.reactor_cell_coupler import (
+    AMMONIUM_EXCHANGE_KEY,
+    AMMONIUM_MEDIUM_LEAF,
     AVOGADRO,
     CO2_EXCHANGE_KEY,
     CO2_ID,
@@ -270,6 +272,90 @@ def _byproduct_agent(acet: float, suc: float = 0.0) -> dict:
                                      O2_EXCHANGE_KEY: 0.0,
                                      CO2_EXCHANGE_KEY: 0.0}},
     }
+
+
+# --- medium AMMONIUM: a finite nitrogen pool ---------------------------------
+# Ammonium was previously held at a static concentration the cell could never
+# exhaust. It is now seeded on the reactor store and drawn down by uptake, on
+# exactly the same footing as glucose. Two things need pinning: the draw-down
+# itself, and the zero-clamp that keeps an exhausted pool from going negative.
+
+def _nh4_coupler(core):
+    return ReactorCellCoupler(
+        config={"cells_per_agent": 1.0e12, "reactor_volume_L": 1.0,
+                "track_medium": True},
+        core=core)
+
+
+# counts per mM at cells_per_agent = 1e12 in 1 L (the inverse of the Step's
+# counts_to_mM = cells_per_agent / N_A * 1000 / volume_L).
+NH4_COUNTS_PER_MM = AVOGADRO / 1000.0 / 1.0e12
+
+
+def _nh4_states(*, nh4_mM: float, nh4_total: float) -> dict:
+    """One tick of states. ``nh4_total`` is the CUMULATIVE exchange count."""
+    return {
+        "reactor": {"dissolved_o2": 100.0, "dissolved_co2": 0.0,
+                    "volume_L": 1.0, "glucose_medium_mM": 40.0,
+                    AMMONIUM_MEDIUM_LEAF: nh4_mM},
+        "population": {"cell_count": 1.0e12},
+        "agents": {"0": {
+            "listeners": {"mass": {"cell_mass": 1.0e3}},
+            "environment": {"exchange": {
+                "GLC": 0.0, AMMONIUM_EXCHANGE_KEY: nh4_total,
+                O2_EXCHANGE_KEY: 0.0, CO2_EXCHANGE_KEY: 0.0}}}},
+    }
+
+
+def test_ammonium_is_drawn_down_like_glucose(core):
+    """Ammonium uptake must reduce the medium pool.
+
+    Held static, the nitrogen source is an infinite reservoir and
+    nitrogen-limited growth is unreachable however the reactor is configured --
+    the same defect the glucose pool was fixed for.
+    """
+    c = _nh4_coupler(core)
+    # Tick 1 establishes the per-agent baseline (first observation yields no
+    # exchange), so the draw must be read off tick 2.
+    c.next_update(1.0, _nh4_states(nh4_mM=30.0, nh4_total=0.0))
+    out = c.next_update(
+        1.0, _nh4_states(nh4_mM=30.0, nh4_total=-2.0 * NH4_COUNTS_PER_MM))
+    assert out["reactor"][AMMONIUM_MEDIUM_LEAF] == pytest.approx(-2.0, rel=1e-6), (
+        "ammonium uptake did not draw down the medium pool")
+
+
+def test_ammonium_draw_is_clamped_at_the_remaining_pool(core):
+    """An exhausting draw writes exactly ``-pool``, never past it.
+
+    Unlike the dissolved gases (replenished by transport) an exhausted medium
+    pool has nothing to restore it, so an unclamped delta drives the
+    concentration negative and the cell is told it has less than nothing --
+    and, because the leaf is ADDITIVE, the error is permanent.
+    """
+    c = _nh4_coupler(core)
+    pool = 1.5
+    c.next_update(1.0, _nh4_states(nh4_mM=pool, nh4_total=0.0))
+    # Demand 5 mM out of a 1.5 mM pool.
+    out = c.next_update(
+        1.0, _nh4_states(nh4_mM=pool, nh4_total=-5.0 * NH4_COUNTS_PER_MM))
+    delta = out["reactor"][AMMONIUM_MEDIUM_LEAF]
+    assert delta == pytest.approx(-pool, rel=1e-9), (
+        f"an over-draw must be clamped at the remaining pool, got {delta}")
+    assert pool + delta == pytest.approx(0.0, abs=1e-12), (
+        f"clamped draw left the pool at {pool + delta}, not empty")
+
+
+def test_ammonium_draw_below_the_pool_is_not_clamped(core):
+    """Control for the clamp test: a draw the pool can cover passes through.
+
+    Without this, a clamp that fired on EVERY tick would still satisfy the
+    assertion above whenever the demand happened to equal the pool.
+    """
+    c = _nh4_coupler(core)
+    c.next_update(1.0, _nh4_states(nh4_mM=30.0, nh4_total=0.0))
+    out = c.next_update(
+        1.0, _nh4_states(nh4_mM=30.0, nh4_total=-4.0 * NH4_COUNTS_PER_MM))
+    assert out["reactor"][AMMONIUM_MEDIUM_LEAF] == pytest.approx(-4.0, rel=1e-6)
 
 
 def test_byproducts_are_differenced_not_consumed_as_a_running_total(core):

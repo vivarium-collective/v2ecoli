@@ -209,6 +209,23 @@ def add_population_aggregator(
         # sibling-prune + doublings advance ON the division tick, making the
         # aggregator/coupler chunk-independent. Default False = no-op.
         "single_daughters": {"type": "boolean", "default": False},
+        # Per-cell biological build kwarg, forwarded verbatim to baseline().
+        # Before this parameter existed the capability was UNREACHABLE here, not
+        # silently wrong: build_generator validates override keys against the
+        # declared set, so a config naming it raised ValueError, and the Python
+        # kwarg raised TypeError. #640's batch drop WAS silent; this one was not,
+        # and the distinction matters because the fixes differ -- that was a
+        # dropped value, this is a missing parameter.
+        # Empty = none, so the default is byte-identical to before.
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Process-injection spec {fork_repo, add_processes, "
+                           "swap_processes, process_configs, topology, "
+                           "time_step}. ⚠ fork_repo is REQUIRED even when empty (\"\" = native); baseline() indexes it directly. Omit the whole parameter for no injection. Passed through to "
+                           "baseline(), which enforces the native-vs-fork "
+                           "sourcing policy via assert_injection_sourcing.",
+        },
     },
 )
 def baseline_population(
@@ -223,6 +240,7 @@ def baseline_population(
     carbon_exhaustion_arrest: bool = False,
     carbon_source_ids: list | None = None,
     single_daughters: bool = False,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the baseline_population document.
 
@@ -239,7 +257,8 @@ def baseline_population(
     config_overrides = _carbon_arrest_overrides(
         carbon_exhaustion_arrest, carbon_source_ids)
     document = _baseline_builder(
-        core, seed=seed, cache_dir=cache_dir, config_overrides=config_overrides)
+        core, seed=seed, cache_dir=cache_dir, config_overrides=config_overrides,
+        injected_processes=injected_processes)
 
     # Add the top-level population store + aggregator Step (shared helper, also
     # used by the Millard cell base in reactor_bird_coupled_millard).

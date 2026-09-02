@@ -243,7 +243,11 @@ comparison_overlays:
 
   # Specific GUR + byproduct surfaces (chris_feedback_2026_05_26 §10).
 
-- sim_path: "agents.0.metabolism.external_exchange_fluxes.GLC[p]"
+# `external_exchange_fluxes` is a bare ndarray of shape (87,), positionally ordered
+# by `metabolism.externalMoleculeIDs` — NOT a dict, so appending a molecule id does
+# not resolve. The entry this overlay compares is GLC[p]; selecting that position
+# out of the vector is still to be wired (no positional selector in the schema yet).
+- sim_path: "agents.0.listeners.fba_results.external_exchange_fluxes"
   published_csv: references/papers/palsson-2025-supp/reactor_gluc_upt_data.csv
   published_column: GUR
   overlay_label: "Glucose uptake rate"
@@ -343,7 +347,14 @@ readouts:
 - {name: reactor_dissolved_o2, store_path: reactor.dissolved_o2, units: mg/L, status: planned}
 # New surfaces per chris_feedback_2026_05_26 §10
 - name: metabolism_glucose_uptake_rate
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: GLC[p]
@@ -612,6 +623,10 @@ regression_tests:
   - study: mbp-04-multigeneration-runs
     tests:
     - population-grows-then-flattens-at-substrate-limit
+    # ⚠ The two mass-balance residuals below are `classification: diagnostic` in
+    # mbp-04 — reported, not graded. They are inherited here to be RUN and
+    # REPORTED, not to gate: their `reduce: max_abs, window: full` cannot pass
+    # any band in [0, 1] while the ledger's startup transient is in the window.
     - carbon-mass-balance-closes-over-3-generations
     - nitrogen-mass-balance-closes-over-3-generations
   - study: mbp-03-bird-reactor-coupling

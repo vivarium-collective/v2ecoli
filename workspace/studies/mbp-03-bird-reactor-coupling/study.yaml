@@ -63,12 +63,14 @@ purpose:
           v2ecoli's `environment.external_concentrations.OXYGEN-MOLECULE[p]`
           / `CARBON-DIOXIDE[p]` (units conversion mg/L → mM).
       (3) **Drive BiRD's O2 demand with v2ecoli's metabolism**: coupler
-          aggregates v2ecoli's `external_exchange_fluxes.OXYGEN-MOLECULE[p]`
-          across agents × biomass and writes it as BiRD's `o2_uptake_rate`
-          input.
-      (4) **Drive BiRD's CO2 demand with v2ecoli's metabolism**: symmetric
-          to (3) — `external_exchange_fluxes.CARBON-DIOXIDE[p]` →
-          `co2_production_rate`.
+          DIFFERENCES each agent's `environment.exchange` (a lineage-
+          cumulative COUNT store, not a flux) tick over tick, scales by
+          `cells_per_agent` / Avogadro / volume, and writes an ADDITIVE
+          mg/L delta back to `reactor.dissolved_o2`.
+          ⛔ NOT a flux × biomass aggregate, and there is no
+          `reactor.o2_uptake_rate` store — see req-2-cell-coupler.
+      (4) **Drive BiRD's CO2 balance with v2ecoli's metabolism**: symmetric
+          to (3), same COUNT-difference path → `reactor.dissolved_co2`.
 
     Result: BiRDTransportProcess = transport-only physics; v2ecoli =
     biology + biomass. The coupling is the minimal adapter on the v2ecoli
@@ -223,14 +225,28 @@ readouts:
 - {name: population_total_biomass_gDW, store_path: population.total_biomass_gDW, units: gDW, status: planned}
 - {name: cell_mu_per_h, store_path: agents.0.listeners.mass.instantaneous_growth_rate, units: "1/h", status: planned}
 - name: metabolism_o2_uptake_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: OXYGEN-MOLECULE[p]
   units: "mmol/(gDW·h)"
   status: planned
 - name: metabolism_co2_production_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: CARBON-DIOXIDE[p]
@@ -397,7 +413,13 @@ required_knowledge:
       place for this, or should it be a Step in the interface contract?
     blocks: [coupler implementation]
     asked_to: unassigned
-    status: open
+    # RESOLVED-BY-IMPLEMENTATION 2026-08-31, but not as asked: the question
+    # presumes a flux→rate conversion into a `reactor.o2_uptake_rate` input.
+    # That store does not exist. The implemented coupler differences
+    # `agents.*.environment.exchange` (counts) and converts counts → mg/L via
+    # Avogadro and MW, in the coupler. See req-2-cell-coupler. Left recorded
+    # rather than deleted so the premise shift is visible.
+    status: resolved
   - id: bird-o2-saturation-temperature-sign-bug
     question: 'RESOLVED UPSTREAM 2026-06-15 (pbg-bioreactordesign PR #3, commit a06709b; closes issue #2). transport.saturation_concentration HAD applied the Henry temperature correction with the WRONG SIGN: T_factor = exp(-DH*(1/T - 1/298.15)) made O2 solubility INCREASE with temperature, but O2 solubility physically DECREASES with temperature. Masked at 298.15 K (T_factor == 1) but biased saturation at the mbp-03 310.15 K target: cstar_o2 was reported ~10.2 mg/L where the correct 37 C value is ~6.6 mg/L (below the 25 C value of ~8.2, not above). The fix flips the sign to T_factor = exp(+DH*(1/T - 1/298.15)), consistent with henry_constant() in the same module, and adds a regression test (test_o2_saturation_decreases_with_temperature) asserting c*(O2,310K) < c*(O2,298K) and landing in the 6.5-7.5 mg/L literature band. VERIFIED in mbp-03 2026-07-27 against pbg-bioreactordesign origin/main (a360f92): saturation_concentration(O2,310.15K)=6.55 mg/L standalone, and the full coupled composite reports cstar_o2=6.58 mg/L at 310.15 K (was the biased ~10.2). All mbp-03 dissolved-O2 magnitudes now inherit the corrected calibration; the coupling-DIRECTION tests were already sign-agnostic (they compare against the same cstar) and remain green.'
     blocks: []
@@ -450,10 +472,10 @@ failure_modes:
 - signature: "no-cells-do-converges-to-henry-saturation FAILS"
   candidate_causes:
   - "force_zero_population didn't actually zero out cells (aggregator returning >0)"
-  - "Coupler still writing a non-zero o2_uptake_rate to BiRD"
+  - "Coupler still writing a non-zero dissolved-O2 delta to the reactor (with no agents there is nothing to difference, so it must be 0)"
   - "Initial DO set far from saturation + sim too short to converge"
   checks:
-  - "Print population.cell_count and reactor.o2_uptake_rate — should both be 0"
+  - "Print population.cell_count and the coupler's dissolved-O2 delta — should both be 0"
   - "Compare reactor.dissolved_o2 to reactor.o2_saturation final values"
 
 
@@ -513,8 +535,28 @@ implementation_requirements:
       - `population.biomass_concentration_gL` → writes `reactor.biomass` (BiRD biomass input)
       - `reactor.dissolved_o2`, `reactor.dissolved_co2` (mg/L) → converts to mM and writes
         `environment.external_concentrations.{OXYGEN-MOLECULE[p],CARBON-DIOXIDE[p]}`
-      - aggregated `agents.*.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]`
-        × population.total_biomass_gDW → writes `reactor.o2_uptake_rate` (BiRD input)
+      - per-agent `agents.*.environment.exchange` — a LINEAGE-CUMULATIVE COUNT store,
+        NOT a flux — DIFFERENCED against this Step's own previous reading for that
+        agent, then converted to an ADDITIVE dissolved-gas delta and written back to
+        `reactor.dissolved_o2` / `reactor.dissolved_co2` (mg/L):
+
+            delta[mg/L] = counts × cells_per_agent / N_A[1/mol]
+                          × MW[g/mol] × 1000[mg/g] / volume_L
+
+        Sign follows metabolism's convention (positive = secreted, negative = uptake),
+        so O2 yields a negative dissolved-O2 delta and CO2 a positive one. One
+        difference already covers exactly one WCM step, so NO per-hour interval scaling
+        is applied. First observation of an (agent, molecule) pair contributes 0.0 —
+        the store carries across division, so differencing against an assumed zero
+        would dump a whole generation's accumulation into one tick.
+      ⛔ NOT the flux × biomass form. There is no `reactor.o2_uptake_rate` store
+      anywhere in the codebase, and `agents.*.listeners.fba_results.external_exchange_fluxes`
+      is a bare ndarray of shape (87,) positionally ordered by
+      `metabolism.externalMoleculeIDs` — appending `.OXYGEN-MOLECULE[p]` does not
+      resolve against it. `v2ecoli/steps/reactor_cell_coupler.py`'s module docstring
+      says of the flux × biomass description: "the code has not worked that way for
+      some time … Do not reintroduce it." Corrected here 2026-08-31 after reading the
+      implementation.
     Holds last-known reactor state between BiRD ticks (BiRD typically on 1 h interval).
   unblocks: [all mbp-03 behavior_tests]
 

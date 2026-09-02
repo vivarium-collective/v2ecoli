@@ -283,21 +283,42 @@ readouts:
   units: mM
   status: planned
 - name: metabolism_glucose_uptake_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: GLC[p]
   units: mmol/(gDW·h)
   status: planned
 - name: metabolism_o2_uptake_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: OXYGEN-MOLECULE[p]
   units: mmol/(gDW·h)
   status: planned
 - name: metabolism_acetate_flux
-  store_path: agents.0.metabolism.external_exchange_fluxes
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
   index_by:
     type: bulk_id
     value: ACET[p]
@@ -312,7 +333,7 @@ readouts:
   units: fg
   status: planned
 - name: dnaA_protein_count
-  store_path: agents.0.listeners.monomer_counts.monomerCounts
+  store_path: agents.0.listeners.monomer_counts
   index_by:
     type: monomer_id
     value: PD03831[c]
@@ -362,13 +383,29 @@ behavior_tests:
   cites: []
 - name: zero-substrate-blocks-uptake
   classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
   acceptance_form: qualitative_direction
   description: 'external_glucose held at 0 → glucose exchange flux ≈ 0 (numerical tolerance). Same for DO: zero external DO → O2 exchange flux ≈ 0. Universal biological floor; also confirms plumbing.'
   measure:
     kind: multi_path_max_abs
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
     paths:
-    - agents.0.metabolism.external_exchange_fluxes.GLC[p]
-    - agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]
+    - agents.0.listeners.fba_results.external_exchange_fluxes
     window: full
   pass_if:
     op: at_most
@@ -378,11 +415,28 @@ behavior_tests:
   cites: []
 - name: saturating-substrate-respects-vmax
   classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
   acceptance_form: quantitative_range
   description: external_glucose held at 50 g/L (~30,000× PTS Km) → glucose exchange flux ≤ published Vmax for E. coli glucose-PTS (~10–12 mmol/gDW/h). Catches the unphysical linear-scaling implementation case.
   measure:
     kind: series
-    path: agents.0.metabolism.external_exchange_fluxes.GLC[p]
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
     reduce: max_abs
     window: full
   pass_if:
@@ -393,6 +447,7 @@ behavior_tests:
   cites: []
 - name: plateau-across-saturating-range
   classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
   acceptance_form: quantitative_range
   description: Two runs at 5 g/L and 50 g/L (both far above PTS Km) → GUR within a tight ratio tolerance. Both above Km, so saturable and constant-bound models predict matching GUR; linear scaling would predict ~10× difference. Direct discriminator between physical and unphysical implementations.
   measure:
@@ -400,7 +455,23 @@ behavior_tests:
     runs:
     - saturating-glucose-low
     - saturating-glucose-high
-    path: agents.0.metabolism.external_exchange_fluxes.GLC[p]
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
     reduce: mean
     window: full
   pass_if:

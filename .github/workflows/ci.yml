@@ -107,6 +107,9 @@ jobs:
               'v2ecoli/composites/ecoli_time_varying_env.py',
               'v2ecoli/composites/ecoli_colony.py',
               'v2ecoli/composites/ecoli_millard.py',
+              'v2ecoli/composites/reactor_bird_coupled.py',
+              'v2ecoli/steps/reactor_cell_coupler.py',
+              'v2ecoli/steps/environment_mirror.py',
               'v2ecoli/composites/_helpers.py',
               'v2ecoli/composites/_millard_helpers.py'
             ) }}

@@ -154,6 +154,24 @@ INPUT_FILES: tuple[str, ...] = (
     "v2ecoli/composites/ecoli_time_varying_env.py",
     "v2ecoli/composites/ecoli_colony.py",
     "v2ecoli/composites/ecoli_millard.py",
+    # This PR adds two leaves to the reactor-coupled document
+    # (``reactor.kla_co2``, ``reactor.ammonium_medium_mM``), and the
+    # composite was not listed here — so the change that shifts the
+    # document shape would have busted no cache. A cache built against
+    # the old reactor architecture would have verified clean against the
+    # new one, which is the failure this module exists to prevent.
+    # Only the three files this change touches are added; the wider gap
+    # (the remaining unlisted composites, and the fact that
+    # ``v2ecoli/steps/`` is not represented here at all) is tracked in
+    # #650 and is deliberately NOT closed piecemeal from here.
+    "v2ecoli/composites/reactor_bird_coupled.py",
+    # The two steps THIS CHANGE EDITS. They are here because this diff
+    # touches them, not because a structural rule now covers steps --
+    # environment_driver.py is instantiated by the same lines of
+    # add_reactor_coupling and shifts the document identically, and is
+    # deliberately NOT added here. The general rule is #650's.
+    "v2ecoli/steps/reactor_cell_coupler.py",
+    "v2ecoli/steps/environment_mirror.py",
     # Shared builders imported by the composites above (make_edge,
     # _make_instance, _get_special_step, per-step config dispatch, ...).
     # A change here shifts document shape for every composite that imports

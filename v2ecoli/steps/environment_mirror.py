@@ -96,7 +96,7 @@ def _resolve_boundary_keys(external: dict, boundary_ext: dict) -> dict[str, str]
     substance onto another — the cost is a missed error, not a mis-route, and
     no in-repo producer emits a wrong tag today (the only two writers of the
     top-level store are EnvironmentDriver, which emits bare ids everywhere in
-    `tests/` and `workspace/`, and ReactorCellCoupler, whose three ids are
+    `tests/` and `workspace/`, and ReactorCellCoupler, whose four ids are
     correctly tagged).
 
     The authoritative fix is `sim_data.external_state.exchange_to_env_map`,

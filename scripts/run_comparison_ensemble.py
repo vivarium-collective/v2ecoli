@@ -498,6 +498,37 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
     }
 
 
+def _lineage_depth(initial_generation, max_generations) -> int:
+    """How many generations THE LINEAGE has, not how many THIS INVOCATION ran.
+
+    A chained run — the induction seam, where a silent stage is resumed against a
+    different cache — is SEVERAL invocations over ONE lineage, and every stage
+    rewrites the exchange-flux sidecar. A stage that reports its own
+    ``max_generations`` therefore understates the lineage: a 3-generation chain
+    whose final stage ran 2 records 2, the card's arm-correspondence check reads
+    candidate=2 against reference=3, and it refuses the whole grade as "one of
+    them is stale" while both arms have generations 1-3 sitting on disk.
+
+    Named and extracted so the convention is testable rather than inlined at one
+    call site: ``initial_generation`` is 1-based and inclusive, so a fresh run
+    (the default, ``initial_generation=1``) is exactly ``max_generations`` and
+    this is a strict no-op.
+
+    ⚠ Only the v2ecoli arm accepts ``initial_generation``; the wrapped-reference
+    arm has no resume hook, so its sidecar records ``max_generations`` directly
+    and must NOT be "fixed" to use this.
+
+    ⊕ A non-positive ``initial_generation`` is NOT guarded here, deliberately:
+    ``v2ecoli.library.xarray_run.run_multigen_xarray`` already refuses it (see
+    its ``initial_generation < 1`` check, whose message names the 0-based
+    ``workflow/lineage.py`` convention this repo also carries), and it refuses
+    BEFORE any run happens. A second guard at this call site would fire inside a
+    best-effort ``except Exception`` block and be swallowed into a warning, which
+    is worse than no guard: it would read as "refused" while the run continued.
+    """
+    return int(initial_generation) - 1 + int(max_generations)
+
+
 def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
                                  basis: str, *, seeds=None,
                                  generations=None) -> None:
@@ -985,7 +1016,22 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
                     _write_exchange_flux_sidecar(
                         out_root, "v2ecoli", exchange_fluxes, exchange_flux_basis,
-                        seeds=n_seeds, generations=max_generations)
+                        seeds=n_seeds,
+                        # ⛔ LINEAGE DEPTH, not this invocation's generation count.
+                        # A chained run (the induction seam: silent stage, then a
+                        # resumed stage against a different cache) is SEVERAL
+                        # invocations over ONE lineage, and every stage rewrites
+                        # this sidecar. Recording `max_generations` makes a
+                        # 3-generation lineage whose last stage ran 2 report 2 —
+                        # and the card's arm-correspondence check then sees
+                        # candidate=2 against reference=3 and refuses the whole
+                        # grade as "one of them is stale". Measured on a real
+                        # chain: both arms had generations 1-3 on disk.
+                        # ⚠ Only the v2ecoli arm takes `initial_generation`; the
+                        # reference arm has no resume hook, so its sidecar (above)
+                        # correctly records `max_generations` as its depth.
+                        generations=_lineage_depth(initial_generation,
+                                                   max_generations))
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001
@@ -1207,6 +1253,19 @@ def main(argv=None):
     if args.initial_generation > 1 and not args.append_store:
         p.error("--initial-generation > 1 resumes an existing store; pass "
                 "--append-store, or the run DELETES the generations it resumes from.")
+
+    # ⛔ The reference arm CANNOT resume: run_vivarium_ecoli_pbg_multigen takes no
+    # generation offset and always starts a fresh lineage at agent_id "0". Accepted
+    # silently, this flag would be ignored there while the candidate arm honoured
+    # it, so the two arms' sidecars would describe different lineage depths and the
+    # card would refuse the grade as "one of them is stale" — surfacing a FLAG
+    # mistake as a DATA problem, several steps downstream. Refused here rather than
+    # ignored, and at argparse so no best-effort handler can swallow it.
+    if args.composite == "vecoli" and args.initial_generation > 1:
+        p.error("--initial-generation is meaningless for --composite vecoli: the "
+                "wrapped reference engine has no resume hook, so it would re-run "
+                "generations 1..N from scratch and (with --append-store) write "
+                "them over its predecessor's. Chain the candidate arm only.")
 
     # Parse repeatable --exchange-flux leaf=key into a {leaf: key} map.
     exchange_fluxes: dict = {}

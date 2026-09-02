@@ -720,6 +720,138 @@ def _merge_missing(dst: dict, src: dict) -> None:
             dst[k] = v
 
 
+def _overlay_config_initial_state(cell_state: dict, initial_state: dict | None,
+                                  protected: set) -> list:
+    """Deep-merge a config-resolved ``initial_state`` onto ``cell_state`` (config
+    wins over schema defaults / declared store types), skipping ``protected``
+    baseline roots (whose representation differs from a config's plain-dict
+    counts, and whose bulk is seeded separately by --match-initial-state).
+    Returns the list of skipped (protected) roots.
+
+    Shared by the ``vivarium_1`` (:func:`_materialize_declared_state`) and
+    ``pbg_native`` (:func:`_materialize_native_declared_state`) injection paths so
+    a config-declared ``initial_state`` seeds an injected NEW store the SAME way
+    regardless of the process kind."""
+    skipped = []
+    for root, value in (initial_state or {}).items():
+        if root in protected:
+            skipped.append(root)
+            continue
+        if isinstance(value, dict) and isinstance(cell_state.get(root), dict):
+            cell_state[root] = _deep_merge(cell_state[root], value)
+        else:
+            cell_state[root] = value
+    return skipped
+
+
+def _native_port_schemas(cls, config: dict | None, core) -> dict:
+    """Best-effort: instantiate a pbg-native process and return its merged
+    ``inputs()`` + ``outputs()`` port schemas, OUTPUTS winning at each leaf.
+
+    An OUTPUT port's declared type is the one that must compose FORWARD onto the
+    store it wires (a downstream reader then sees the written value), so it takes
+    precedence over a same-named input port's type. Returns ``{}`` if the process
+    cannot be probed — typing is then skipped and the store falls back to the
+    pre-fix create-empty behavior (no worse than before)."""
+    inst = None
+    try:
+        inst = cls(config or {}, core=core)
+    except Exception:  # noqa: BLE001 — try the core-less signature
+        try:
+            inst = cls(config or {})
+        except Exception as e:  # noqa: BLE001 — never block injection on the probe
+            print(f"[inject] native port-schema probe skipped "
+                  f"({type(e).__name__}: {e})")
+            return {}
+    schemas: dict = {}
+    for meth in ("inputs", "outputs"):  # outputs merged 2nd -> win at the leaf
+        fn = getattr(inst, meth, None)
+        if fn is None:
+            continue
+        try:
+            got = fn() or {}
+        except Exception:  # noqa: BLE001
+            got = {}
+        if isinstance(got, dict):
+            schemas = _deep_merge(schemas, got)
+    return schemas
+
+
+def _leaf_port_type(schemas: dict, port_keys: tuple):
+    """Walk a (nested) port-schema by ``port_keys`` and return the leaf's pbg type
+    (a bare-string type like ``map[overwrite[array[float]]]`` or a ``{_type: ...}``
+    entry's ``_type``), or None when the leaf declares no concrete type."""
+    node = schemas
+    for k in port_keys:
+        if not isinstance(node, dict):
+            return None
+        node = node.get(k)
+    if isinstance(node, str):
+        return node
+    if isinstance(node, dict) and "_type" in node:
+        return node["_type"]
+    return None
+
+
+def _materialize_native_declared_state(cell_state: dict, cls, config: dict | None,
+                                       topology: dict, name: str, core,
+                                       initial_state: dict | None = None,
+                                       protected_roots: set | None = None) -> None:
+    """pbg_native analog of :func:`_materialize_declared_state`.
+
+    Two jobs the pre-fix ``cell_state[root] = {}`` branch did NOT do:
+
+    1. **Type each injected store from the process's own declared port.** A bare
+       ``{}`` pre-seed makes bigraph-schema infer a plain ADDITIVE map for the new
+       store, which then WINS over a wrapped Step's ``overwrite[...]`` /
+       ``map[overwrite[...]]`` output — so the write never composes forward. Here
+       each FRESH root store is created carrying the ``_type`` its wiring port
+       declares (respecting the same guard's intent as the vivarium_1 path: give
+       the overwrite store its real type instead of letting a plain-value pre-seed
+       clobber it). This is what makes the environmental field chain
+       (``field_timeline`` -> ``fields`` -> ``well_mixed_field`` ->
+       ``boundary.external``) actually deliver a dose: ``field_timeline``'s
+       ``fields: map[overwrite[array[float]]]`` output now composes to
+       ``well_mixed_field``'s read instead of being dropped.
+    2. **Overlay the config's per-process ``initial_state``.** The native branch
+       previously consumed no ``initial_state`` at all, silently dropping a
+       config-declared seed (e.g. a static ``fields`` dose). Now the same overlay
+       the vivarium_1 path uses applies here, config winning.
+
+    Baseline roots (``protected_roots`` — e.g. the structured ``bulk`` array and
+    the shared ``boundary`` store) are never re-typed or clobbered: they keep
+    their real composite-owned type, and a config ``initial_state`` targeting them
+    is skipped (logged), exactly as on the vivarium_1 path."""
+    protected = protected_roots or set()
+    schemas = _native_port_schemas(cls, config, core)
+    typed: list[str] = []
+    for port_keys, path in _iter_leaf_paths(topology):
+        if not path:
+            continue
+        root = path[0]
+        # Ensure every wired root store exists (the pre-fix behavior).
+        store = cell_state.setdefault(root, {})
+        # Type only a FRESH, single-level root store from its port's declared
+        # type. A baseline root keeps its composite-owned type; a leaf nested
+        # BELOW a fresh root keeps the plain create-empty behavior (none arise in
+        # the native antibiotic chain, whose fresh stores — `fields`,
+        # `<drug>_env`, `<drug>_exchange` — are all single-level roots).
+        if root in protected or len(path) != 1 or not isinstance(store, dict):
+            continue
+        leaf_type = _leaf_port_type(schemas, port_keys)
+        if leaf_type and "_type" not in store:
+            store["_type"] = leaf_type
+            typed.append(f"{root}: {leaf_type}")
+    skipped = _overlay_config_initial_state(cell_state, initial_state, protected)
+    seeded = sorted(r for r in (initial_state or {}) if r not in protected)
+    if typed:
+        print(f"[inject] {name}: native store(s) typed ({'; '.join(typed)})"
+              + (f"; config initial_state → {', '.join(seeded)}" if seeded else ""))
+    if skipped:
+        print(f"[inject] {name}: config initial_state for baseline store(s) "
+              f"{', '.join(sorted(skipped))} skipped (owned by v2 / --match-initial-state)")
+
+
 def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
                                 topology: dict, name: str,
                                 initial_state: dict | None = None,
@@ -787,15 +919,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
     # --match-initial-state. So a config bulk override is skipped (logged), while
     # the subsystem's own stores (murein_state / wall_state / pbp_state) seed.
     protected = protected_roots or set()
-    skipped = []
-    for root, value in (initial_state or {}).items():
-        if root in protected:
-            skipped.append(root)
-            continue
-        if isinstance(value, dict) and isinstance(cell_state.get(root), dict):
-            cell_state[root] = _deep_merge(cell_state[root], value)
-        else:
-            cell_state[root] = value
+    skipped = _overlay_config_initial_state(cell_state, initial_state, protected)
     # Surface what top-level stores this process introduced / seeded.
     intro = sorted({r for r in _topology_store_roots(topology) if r in cell_state})
     seeded = sorted(r for r in (initial_state or {}) if r not in protected)
@@ -924,9 +1048,19 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
                                             attach_pint_ports=spec.get("attach_pint_ports"))
         else:  # pbg_native
             wrapped = cls
-            for root in _topology_store_roots(spec["topology"]):
-                if root not in cell_state:
-                    cell_state[root] = {}
+            # Create + TYPE this native process's injected stores from its own
+            # declared ports, and overlay the config's initial_state (config
+            # wins). Without the typing, a freshly-created store (e.g. `fields`)
+            # is inferred as a plain additive map that clobbers a Step's
+            # overwrite output, so the field-delivery chain never propagates a
+            # dose; without the overlay, a config-declared seed was dropped. Both
+            # done here, before make_edge, so the store exists + is typed when the
+            # edge wires — the pbg_native counterpart to the vivarium_1 branch's
+            # _materialize_declared_state call above.
+            _materialize_native_declared_state(
+                cell_state, cls, spec["config"], spec["topology"], spec["name"],
+                core, initial_state=spec.get("initial_state"),
+                protected_roots=baseline_roots)
         core.register_link(spec["name"], wrapped)
         # ALSO register under the exact address make_edge() will stamp on this
         # edge (f'{type(instance).__module__}.{type(instance).__qualname__}').
@@ -1018,6 +1152,28 @@ def apply_injected_processes(cell_state: dict, flow_order: list, core,
     if shape_seed:
         print(f"[inject] seeded {len(shape_seed)} shape store(s): "
               f"{', '.join('.'.join(map(str, p)) for p in shape_seed)}")
+    # Re-normalize boundary.external to PLAIN mM floats after seeding. The
+    # baseline runs _normalize_boundary_units at build time, but injection (and
+    # its shape_seed_literal pass) runs AFTER that — so a shape_seed writing a
+    # per-drug dose to boundary.external.<drug> lands as a pint Quantity
+    # (magnitude * units, from _resolve_literal_seeds). boundary.external is
+    # `map[overwrite[float[mM]]]` — it holds PLAIN floats (metabolism/
+    # well_mixed_field write bare mM floats; the unit lives in the SCHEMA, not the
+    # value). A pint Quantity in that store silently realizes to None at composite
+    # build (directly verified), so the antibiotic transport reads
+    # boundary.external[<drug>] == None -> NaN -> solve_ivp "y0 must be finite" at
+    # the first tick. Normalizing here (the same contract the baseline applies)
+    # keeps the STATIC shape_seed dose finite, mirroring the DYNAMIC field-chain
+    # fix above. Only boundary.external is touched — Quantity-typed shape stores
+    # (volumes, kinetic_parameters, potential) are untouched and keep their pint
+    # values, which their (quantity-typed) stores accept.
+    if isinstance(cell_state.get("boundary"), dict):
+        try:
+            from v2ecoli.composites._helpers import _normalize_boundary_units
+            _normalize_boundary_units(cell_state)
+        except Exception as e:  # noqa: BLE001 — never block injection on normalize
+            print(f"[inject] boundary.external normalize skipped "
+                  f"({type(e).__name__}: {e})")
     return added
 
 

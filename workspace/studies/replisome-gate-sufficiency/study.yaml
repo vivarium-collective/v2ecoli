@@ -2,8 +2,8 @@ schema_version: 4
 name: replisome-gate-sufficiency
 title: Replisome gate sufficiency
 created: '2026-09-02'
-status: planned
-phase: Design
+status: running
+phase: Simulate
 study_type: confirmatory
 investigation: transcription-rewiring
 
@@ -544,22 +544,22 @@ canonical_runs:
 visualizations: []
 
 design_status: complete
-implementation_status: in_progress
-simulation_status: not_run
+implementation_status: complete
+simulation_status: running
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
 planned_runs:
 - name: mechanistic-sweep
-  status: planned
+  status: running
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-7]; tests ['lineage-stalls-under-sufficiency-gate', 'stall-generation-is-seed-consistent', 'some-pool-is-short-at-the-stall', 'dnag-is-the-limiting-pool']
 - name: permissive-control
-  status: planned
+  status: running
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-2]; tests ['permissive-completes-all-seeds']
 - name: dnag-ablation
-  status: planned
+  status: running
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-4]; tests ['dropping-dnag-relieves-the-stall']
 simulation_set:
@@ -567,21 +567,21 @@ simulation_set:
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   is_baseline: true
-  status: planned
+  status: running
   params:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: true
 - name: permissive
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  status: planned
+  status: running
   perturbation:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: false
 - name: dnag-ablation
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  status: planned
+  status: running
   perturbation:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: true

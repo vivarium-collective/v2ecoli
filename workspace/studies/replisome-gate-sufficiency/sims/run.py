@@ -42,7 +42,9 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[4]
@@ -77,6 +79,10 @@ def main(argv=None) -> int:
     ap.add_argument("--max-min", type=float, default=200.0)
     ap.add_argument("--skip-existing", action="store_true",
                     help="skip an (arm, seed) whose summary json already exists")
+    ap.add_argument("--jobs", "-j", type=int, default=1,
+                    help="run this many simulations concurrently (default 1). "
+                         "Each run is single-threaded and holds ~1 GB RSS, so "
+                         "the practical ceiling is min(cores, free_GB - 2).")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the commands without running them")
     args = ap.parse_args(argv)
@@ -90,20 +96,21 @@ def main(argv=None) -> int:
     print(f"{len(jobs)} run(s): {', '.join(f'{a}/s{s}' for a, s in jobs)}")
     print(f"cache: {CACHE}")
     t0 = time.time()
-    failures = []
+    failures: list[str] = []
+    lock = threading.Lock()
+    done = [0]
 
-    for i, (arm, seed) in enumerate(jobs, 1):
+    def build(arm, seed):
+        """(cmd, out_dir) for one job, or None when it should be skipped."""
         out_dir = OUT_ROOT / arm / f"seed{seed}"
-        exp_id = f"{STUDY}__{arm}__seed{seed}"
         if args.skip_existing and list(out_dir.glob("*_summary.json")):
-            print(f"\n[{i}/{len(jobs)}] {arm}/seed{seed} — already done, skipped")
-            continue
+            return None
         out_dir.mkdir(parents=True, exist_ok=True)
         cmd = [
             sys.executable, str(RUNNER),
             "--cache-dir", str(CACHE),
             "--out-dir", str(out_dir),
-            "--experiment-id", exp_id,
+            "--experiment-id", f"{STUDY}__{arm}__seed{seed}",
             "--generations", str(args.generations),
             "--max-min", str(args.max_min),
             "--seed", str(seed),
@@ -111,15 +118,45 @@ def main(argv=None) -> int:
         ]
         for ov in ARMS[arm]["overrides"]:
             cmd += ["--config-override", ov]
+        return cmd, out_dir
 
-        print(f"\n[{i}/{len(jobs)}] {arm}/seed{seed}")
-        print("$ " + " ".join(cmd), flush=True)
+    def execute(job):
+        arm, seed = job
+        built = build(arm, seed)
+        if built is None:
+            with lock:
+                done[0] += 1
+                print(f"[{done[0]}/{len(jobs)}] {arm}/seed{seed} — already done, skipped",
+                      flush=True)
+            return
+        cmd, out_dir = built
         if args.dry_run:
-            continue
-        r = subprocess.run(cmd, cwd=REPO)
-        if r.returncode != 0:
-            print(f"  FAILED (exit {r.returncode})", file=sys.stderr)
-            failures.append(f"{arm}/seed{seed}")
+            with lock:
+                done[0] += 1
+                print(f"[{done[0]}/{len(jobs)}] {arm}/seed{seed}\n$ " + " ".join(cmd),
+                      flush=True)
+            return
+        # Stagger starts so the best-effort runs.db registration (which happens
+        # at the START of each run) does not collide across workers.
+        with lock:
+            time.sleep(2.0)
+        log = out_dir / "run.log"
+        t = time.time()
+        with open(log, "w") as fh:
+            r = subprocess.run(cmd, cwd=REPO, stdout=fh, stderr=subprocess.STDOUT)
+        with lock:
+            done[0] += 1
+            mark = "ok " if r.returncode == 0 else "FAIL"
+            print(f"[{done[0]}/{len(jobs)}] {mark} {arm}/seed{seed} "
+                  f"({(time.time()-t)/60:.1f} min)  log: {log.relative_to(REPO)}",
+                  flush=True)
+            if r.returncode != 0:
+                failures.append(f"{arm}/seed{seed}")
+
+    n = max(1, args.jobs)
+    print(f"running with --jobs {n}\n", flush=True)
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        list(pool.map(execute, jobs))
 
     mins = (time.time() - t0) / 60
     print(f"\ndone in {mins:.1f} min; {len(failures)} failure(s)"

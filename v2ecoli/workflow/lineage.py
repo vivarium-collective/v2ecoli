@@ -123,7 +123,17 @@ class LineageProcess(Process):
         # the internal parquet emitter AND drives the external XArrayEmitter.
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
-        "injected_processes": {"_default": {}},
+        # `quote` (NOT a bare {"_default": {}}): the injected-processes block is a
+        # heterogeneous, config-shaped dict — it carries a fork's antibiotic
+        # `process_configs` whose `field_timeline.timeline` is list-shaped
+        # (`[[time, {drug: conc}]]`). Without an explicit `_type`, bigraph-schema
+        # infers a schema for this key from its `{}` default and coerces the value
+        # against it, mangling the nested timeline (`[[100, {"drug": 1.0}]]` ->
+        # `[[100, 100]]`) — which then crashes the generation-1 composite rebuild
+        # that re-realizes this config. `quote` stores the block verbatim (the same
+        # reason antibiotic_transport_odeint's own `reactions`/`initial_reaction_
+        # parameters` config keys are quoted), so a dynamic dose survives realize.
+        "injected_processes": {"_type": "quote", "_default": {}},
         # Per-cell biological build kwargs, forwarded to each generation's
         # baseline() build so a batch/lineage run engages the SAME biology as the
         # single-cell path (audit: batch mode dropped these -> basal FBA). `features`

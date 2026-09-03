@@ -782,3 +782,19 @@ magnitude_correction: |
   magnitude quoted here is overstated roughly ninefold and should be read as ~6x.
 
   Specific to this study: The 93x in-force depression and the 25x below-basal_prob figure both use the wrong reference.
+observable_correction: |
+  OBSERVABLE CORRECTION 2026-09-03 from dnag-protein-mass-balance.
+
+  This study used DnaG protein = 1.76 copies. That figure is the FREE-MONOMER bulk
+  count sampled from the permissive arm of a different sweep. The correct observable is
+  listeners.monomer_counts (total protein), which gives 7.996 copies on the
+  silent-transcription-units sweep.
+
+  Consequence: the gap against ParCa's fitted 38 is 4.75x, not 21.6x. Combined with the
+  corrected 5.40x transcription deficit, the arithmetic closes with no residual -- a
+  held-out mass balance predicts DnaG at 0.694 of observed.
+
+  Separately: mRNA measured from the BULK store is not a valid discriminator; 3220 of
+  3277 transcripts read zero there. The rna_counts listener is the correct source, and
+  measured properly TU00352 is still at zero mRNA 100% of the time while 1844 of 3134
+  TUs carry mRNA -- so that finding survives and is stronger than when it was made.

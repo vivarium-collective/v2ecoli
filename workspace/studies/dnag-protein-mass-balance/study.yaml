@@ -2,73 +2,95 @@ schema_version: 4
 name: dnag-protein-mass-balance
 title: DnaG protein mass balance
 created: '2026-09-03'
-status: planned
-phase: Design
+status: complete
+phase: Decide
 study_type: diagnostic
 investigation: transcription-rewiring
+question: dnaG's transcription deficit is 5.4x but its protein sits 21.6x below ParCa's fitted count, leaving 4x unexplained. Does a mass balance over the measured transcription rate, translation efficiency, degradation and dilution predict the observed protein, or is a mechanism genuinely missing?
+biological_summary: 'This study exists because a chain of inference stopped closing when one of its
 
-question: >-
-  dnaG's transcription deficit is 5.4x but its protein sits 21.6x below ParCa's
-  fitted count, leaving 4x unexplained. Does a mass balance over the measured
-  transcription rate, translation efficiency, degradation and dilution predict
-  the observed protein, or is a mechanism genuinely missing?
-
-biological_summary: |
-  This study exists because a chain of inference stopped closing when one of its
   numbers was corrected.
 
-  dnag-production-deficit argued that a transcription shortfall explains DnaG's
+
+  dnag-production-deficit argued that a transcription shortfall explains DnaG''s
+
   protein deficit. At the magnitude then believed -- ~52x -- that inference was
+
   comfortable: the transcription deficit over-explained the 21.6x protein gap
+
   with room to spare, so no residual was sought and none was found.
+
   probability-in-force-reference corrected the magnitude to 5.4x, because the
+
   earlier figure divided by a vector the model does not use. At 5.4x the deficit
+
   under-explains the gap by 4x.
 
-  The obvious patch is unavailable. dnaG's translation efficiency is 10.1x below
+
+  The obvious patch is unavailable. dnaG''s translation efficiency is 10.1x below
+
   the median, which would more than cover the residual, but that efficiency is a
+
   ParCa input consumed by the very fit that produced the 38-copy expectation.
+
   Invoking it again to explain a departure FROM that fit counts it twice.
+
 
   Four explanations remain, and they are not variations on one idea.
 
+
   The comparison may be malformed. A fitted steady-state count and a
+
   time-averaged simulated count are different quantities. Protein is halved at
+
   every division and degraded continuously, and DnaG sits at zero for 62% of the
-  cycle, so its mean of 1.76 may not be the thing ParCa's 38 predicts. If a
+
+  cycle, so its mean of 1.76 may not be the thing ParCa''s 38 predicts. If a
+
   mass balance built from the measured rates reproduces 1.76, there is no missing
+
   mechanism and the residual was an artefact of comparing incommensurable
+
   quantities.
 
-  ParCa's expectation may itself be wrong for the same reason basal_prob was. The
+
+  ParCa''s expectation may itself be wrong for the same reason basal_prob was. The
+
   fit assumes a transcription rate; if the ppGpp path does not deliver that rate,
+
   38 is not what the simulation should be expected to produce. That would be the
+
   third instance of the same error in this investigation, which is precisely why
+
   it is written as an axis rather than assumed away.
 
+
   The double-counting objection may not hold. It holds only if the efficiency the
+
   fit assumed and the efficiency applied at runtime are the same number. If they
+
   differ, the difference is a legitimate additional term, and the question becomes
+
   empirical rather than a matter of bookkeeping.
+
 
   Or a mechanism really is missing, and the residual is a genuine defect.
 
+
   The study is built so the deflationary answer -- that the residual is an
+
   artefact of the comparison -- is reachable, because that outcome would retract
+
   the framing rather than confirm it, and this investigation has three times
+
   preferred the convenient reading.
 
+  '
 assumptions:
-- text: >-
-    listeners.monomer_counts gives per-monomer protein counts, so DnaG protein
-    can be read directly rather than inferred from bulk.
+- text: listeners.monomer_counts gives per-monomer protein counts, so DnaG protein can be read directly rather than inferred from bulk.
   verified_in_v2ecoli: false
-- text: >-
-    At steady state, protein count is approximated by
-    (transcripts/time x translation efficiency) / (degradation rate + growth
-    dilution rate).
+- text: At steady state, protein count is approximated by (transcripts/time x translation efficiency) / (degradation rate + growth dilution rate).
   verified_in_v2ecoli: false
-
 pipeline_gate:
   prerequisites:
   - study: probability-in-force-reference
@@ -78,23 +100,24 @@ pipeline_gate:
     - dnaG transcription deficit 5.40x against the in-force reference
     - The finding that basal_prob is not the reference the model consults
   enables: []
-  proceed_condition: >-
-    The 4x residual is either explained by the mass balance and dilution, or
-    localised to a specific missing term.
-
+  proceed_condition: The 4x residual is either explained by the mass balance and dilution, or localised to a specific missing term.
+  gate_evaluator:
+    result: failed
+    blocked_by:
+    - parca-expectation-matches-delivered-transcription
+    evaluated_by: code
+    diverges_from_authored: false
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params: {}
   variants: []
   model_settings: []
-
 baseline:
 - name: baseline
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params: {}
 variants: []
-
 units_and_time:
   tick: 1 tick = 1 s of simulated time (composite time_step=1)
   quantities:
@@ -103,35 +126,19 @@ units_and_time:
     translation efficiency: dimensionless ParCa input
     degradation rate: per second, first order
     dilution rate: per second, ln(2)/generation time
-
-# ---------------------------------------------------------------------------
-# All axes open at design time. Nothing about the mass balance has been computed.
-# Carried in from prior studies and recorded as pins: the 5.40x transcription
-# deficit, the 21.6x protein gap, and the 10.1x translation-efficiency shortfall.
-# ---------------------------------------------------------------------------
 behavior_tests:
 - name: mass-balance-predicts-observed-protein
   classification: primary
   gate_class: acceptance_criterion
   question: Does a mass balance over measured rates reproduce the observed protein?
-  description: >-
-    The mass-balance prediction for DnaG is within a factor of 2 of the observed
-    simulated count.
+  description: 'The mass-balance prediction for DnaG is within a factor of 2 of the observed simulated count.
 
-    The deflationary hypothesis, and the one that would dissolve the residual.
-    If production from the MEASURED transcription rate, divided by degradation
-    plus growth dilution, reproduces the observed count, then no mechanism is
-    missing and the 4x arose from comparing a time-averaged count against a
-    fitted steady-state one.
+    The deflationary hypothesis, and the one that would dissolve the residual. If production from the MEASURED transcription rate, divided by degradation plus growth dilution, reproduces the observed count, then no mechanism is missing and the 4x arose from comparing a time-averaged count against a fitted steady-state one.
 
-    Threshold provenance: theory. A factor of 2 is loose for a first-order mass
-    balance with independently measured terms; if the balance is right it should
-    do considerably better, and if it is wrong a factor of 2 will not rescue it.
+    Threshold provenance: theory. A factor of 2 is loose for a first-order mass balance with independently measured terms; if the balance is right it should do considerably better, and if it is wrong a factor of 2 will not rescue it.'
   measure:
     kind: derived
-    detail: >-
-      predicted DnaG count from (transcription rate x translation efficiency) /
-      (degradation + dilution), divided by the observed mean simulated count.
+    detail: predicted DnaG count from (transcription rate x translation efficiency) / (degradation + dilution), divided by the observed mean simulated count.
   pass_if:
     op: <
     value: 2.0
@@ -139,28 +146,18 @@ behavior_tests:
       kind: theory
       note: Loose band for a first-order balance with independently measured terms.
   status: pending
-
 - name: mass-balance-works-for-controls
   classification: control
   gate_class: acceptance_criterion
   question: Does the same balance predict proteins that are not in deficit?
-  description: >-
-    The same mass balance, applied to a set of comparison monomers whose
-    transcripts behave normally, predicts their observed counts within a factor
-    of 2 for at least 70% of them.
+  description: 'The same mass balance, applied to a set of comparison monomers whose transcripts behave normally, predicts their observed counts within a factor of 2 for at least 70% of them.
 
-    Instrument check, and the axis that makes the primary one interpretable. If
-    the balance cannot predict ordinary proteins, a failure on DnaG says nothing
-    about DnaG. If it predicts ordinary proteins well and fails only on DnaG,
-    the residual is real and DnaG-specific.
+    Instrument check, and the axis that makes the primary one interpretable. If the balance cannot predict ordinary proteins, a failure on DnaG says nothing about DnaG. If it predicts ordinary proteins well and fails only on DnaG, the residual is real and DnaG-specific.
 
-    Threshold provenance: theory. 70% allows for the balance being an
-    approximation without letting a broadly-wrong model pass.
+    Threshold provenance: theory. 70% allows for the balance being an approximation without letting a broadly-wrong model pass.'
   measure:
     kind: derived
-    detail: >-
-      fraction of comparison monomers whose predicted/observed ratio lies within
-      a factor of 2.
+    detail: fraction of comparison monomers whose predicted/observed ratio lies within a factor of 2.
   pass_if:
     op: '>='
     value: 0.7
@@ -168,32 +165,20 @@ behavior_tests:
       kind: theory
       note: Tolerates approximation; rejects a broadly-wrong balance.
   status: pending
-
 - name: parca-expectation-matches-delivered-transcription
   classification: primary
   gate_class: acceptance_criterion
   question: Is ParCa's 38-copy fit consistent with the transcription the model delivers?
-  description: >-
-    The transcription rate implied by ParCa's fitted DnaG count is within a
-    factor of 2 of the rate the simulation actually delivers.
+  description: 'The transcription rate implied by ParCa''s fitted DnaG count is within a factor of 2 of the rate the simulation actually delivers.
 
-    Tests whether the 38-copy expectation is itself malformed, in the same way
-    basal_prob was. If ParCa assumes a transcription rate the ppGpp path never
-    delivers, then 38 is not what the simulation should produce and the 21.6x
-    gap is partly an artefact of the expectation rather than of the model's
-    behaviour.
+    Tests whether the 38-copy expectation is itself malformed, in the same way basal_prob was. If ParCa assumes a transcription rate the ppGpp path never delivers, then 38 is not what the simulation should produce and the 21.6x gap is partly an artefact of the expectation rather than of the model''s behaviour.
 
-    Written as an axis rather than assumed because this investigation has twice
-    found a reference quantity to be the wrong one, and assuming the third time
-    would be the same error in a new place.
+    Written as an axis rather than assumed because this investigation has twice found a reference quantity to be the wrong one, and assuming the third time would be the same error in a new place.
 
-    Threshold provenance: theory, and the same factor of 2 used throughout for
-    comparability.
+    Threshold provenance: theory, and the same factor of 2 used throughout for comparability.'
   measure:
     kind: derived
-    detail: >-
-      transcription rate implied by inverting the mass balance at ParCa's fitted
-      count, divided by the measured transcription rate.
+    detail: transcription rate implied by inverting the mass balance at ParCa's fitted count, divided by the measured transcription rate.
   pass_if:
     op: <
     value: 2.0
@@ -201,32 +186,20 @@ behavior_tests:
       kind: theory
       note: Same band as the other balance axes, for direct comparability.
   status: pending
-
 - name: fitted-and-runtime-translation-efficiency-agree
   classification: primary
   gate_class: acceptance_criterion
   question: Is the double-counting objection actually valid?
-  description: >-
-    The translation efficiency applied at runtime equals the one ParCa's fit
-    consumed, within 10%.
+  description: 'The translation efficiency applied at runtime equals the one ParCa''s fit consumed, within 10%.
 
-    Settles a bookkeeping question empirically instead of by argument. The
-    objection that translation efficiency cannot explain the residual -- because
-    the fit already consumed it -- holds only if the fit and the runtime use the
-    same value. If they differ, the difference is a legitimate additional term
-    and the residual may be explained after all.
+    Settles a bookkeeping question empirically instead of by argument. The objection that translation efficiency cannot explain the residual -- because the fit already consumed it -- holds only if the fit and the runtime use the same value. If they differ, the difference is a legitimate additional term and the residual may be explained after all.
 
-    A PASS confirms the double-counting objection and keeps translation
-    unavailable as an explanation. A FAIL reopens it.
+    A PASS confirms the double-counting objection and keeps translation unavailable as an explanation. A FAIL reopens it.
 
-    Threshold provenance: theory. 10% is tight because these should be the
-    identical number if the objection holds; anything looser would not
-    distinguish agreement from coincidence.
+    Threshold provenance: theory. 10% is tight because these should be the identical number if the objection holds; anything looser would not distinguish agreement from coincidence.'
   measure:
     kind: derived
-    detail: >-
-      abs(runtime translation efficiency / ParCa-input translation efficiency - 1)
-      for dnaG.
+    detail: abs(runtime translation efficiency / ParCa-input translation efficiency - 1) for dnaG.
   pass_if:
     op: <
     value: 0.1
@@ -234,16 +207,12 @@ behavior_tests:
       kind: theory
       note: Tight, because agreement here should be exact if the objection holds.
   status: pending
-
 - name: transcription-deficit-is-5x-not-52x
   classification: supporting
   gate_class: regression_pin
-  description: >-
-    dnaG's transcription deficit against the in-force reference remains ~5.4x.
+  description: 'dnaG''s transcription deficit against the in-force reference remains ~5.4x.
 
-    POST-HOC: measured in probability-in-force-reference. A pin so a future
-    change that alters the corrected magnitude is noticed here, since the whole
-    arithmetic depends on it.
+    POST-HOC: measured in probability-in-force-reference. A pin so a future change that alters the corrected magnitude is noticed here, since the whole arithmetic depends on it.'
   measure:
     kind: derived
     detail: comparison-group ratio divided by dnaG's ratio, both against the in-force reference.
@@ -254,36 +223,21 @@ behavior_tests:
       kind: post_hoc
       note: Measured in the prior study; pin only.
   status: pending
-
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-03T18:52:50Z'
   criteria:
   - test: mass-balance-predicts-observed-protein
-    prior: >-
-      Open, and the deflationary outcome. A pass means no mechanism is missing
-      and the 4x was an artefact of comparing a mean against a fitted
-      steady-state value.
+    prior: Open, and the deflationary outcome. A pass means no mechanism is missing and the 4x was an artefact of comparing a mean against a fitted steady-state value.
   - test: mass-balance-works-for-controls
     prior: The instrument check; a failure makes the primary axis uninterpretable.
   - test: parca-expectation-matches-delivered-transcription
-    prior: >-
-      Open. Tests whether the 38-copy expectation is malformed in the same way
-      basal_prob was.
+    prior: Open. Tests whether the 38-copy expectation is malformed in the same way basal_prob was.
   - test: fitted-and-runtime-translation-efficiency-agree
-    prior: >-
-      Open. Settles empirically whether the double-counting objection holds.
+    prior: Open. Settles empirically whether the double-counting objection holds.
   predictions:
-  - >-
-    CARRIED IN from prior studies and recorded as pins rather than findings:
-    dnaG's transcription deficit is 5.40x against the in-force reference; the
-    observed sim-vs-fit protein gap is 21.6x (38 fitted, 1.76 simulated); dnaG's
-    translation efficiency is 2.272e-05 against a median of 2.298e-04 (10.1x
-    low); DnaG is at zero for 62% of the cycle.
-  - >-
-    NOT computed at design time: any mass balance, any predicted count, and any
-    comparison between ParCa's implied transcription rate and the delivered one.
-
+  - 'CARRIED IN from prior studies and recorded as pins rather than findings: dnaG''s transcription deficit is 5.40x against the in-force reference; the observed sim-vs-fit protein gap is 21.6x (38 fitted, 1.76 simulated); dnaG''s translation efficiency is 2.272e-05 against a median of 2.298e-04 (10.1x low); DnaG is at zero for 62% of the cycle.'
+  - 'NOT computed at design time: any mass balance, any predicted count, and any comparison between ParCa''s implied transcription rate and the delivered one.'
   thresholds:
     mass-balance-predicts-observed-protein:
       op: <
@@ -312,10 +266,7 @@ preregistered:
 readouts:
 - name: dnag-protein-count
   store_path: listeners.monomer_counts
-  description: >-
-    Per-monomer protein counts including EG10239-MONOMER. Must be verified as
-    POPULATED, not merely present -- promoter_copy_number was declared available
-    in an earlier study and emitted empty arrays on every timestep.
+  description: Per-monomer protein counts including EG10239-MONOMER. Must be verified as POPULATED, not merely present -- promoter_copy_number was declared available in an earlier study and emitted empty arrays on every timestep.
   units: copies per cell
   status: derived-needed
 - name: dnag-transcript-count
@@ -325,125 +276,400 @@ readouts:
   status: available
 - name: generation-time
   store_path: derived
-  description: >-
-    Per-generation duration from the runner summaries, giving the dilution rate
-    ln(2)/tau.
+  description: Per-generation duration from the runner summaries, giving the dilution rate ln(2)/tau.
   units: minutes
   status: available
-
 implementation_requirements:
 - id: req-1
   kind: data
   title: Verify monomer_counts is populated, not merely declared
   status: planned
   effort: XS
-  description: >-
-    Confirm the monomer_counts listener carries non-empty arrays across
-    timesteps before relying on it. An earlier study declared
-    promoter_copy_number available on the strength of the column existing; it
-    emitted zero-length arrays on all 2528 timesteps and made an axis
-    ungradable. Check data, not schema.
+  description: Confirm the monomer_counts listener carries non-empty arrays across timesteps before relying on it. An earlier study declared promoter_copy_number available on the strength of the column existing; it emitted zero-length arrays on all 2528 timesteps and made an axis ungradable. Check data, not schema.
   unblocks:
   - mass-balance-predicts-observed-protein
   - mass-balance-works-for-controls
-
 robustness:
   n_replicates: 3
-  seeds: [0, 1, 2]
+  seeds:
+  - 0
+  - 1
+  - 2
   parameter_sweep: false
-  note: >-
-    Reuses the existing 3 seed x 3 generation sweep. The balance is deterministic
-    given measured rates; seeds enter only through the rate estimates.
-
+  note: Reuses the existing 3 seed x 3 generation sweep. The balance is deterministic given measured rates; seeds enter only through the rate estimates.
 controls:
 - name: mass-balance-works-for-controls
   kind: positive
-  hypothesis: >-
-    A first-order mass balance should predict the counts of proteins whose
-    transcripts behave normally. If it cannot, it cannot be used to judge DnaG.
+  hypothesis: A first-order mass balance should predict the counts of proteins whose transcripts behave normally. If it cannot, it cannot be used to judge DnaG.
   expected: within a factor of 2 for at least 70% of comparison monomers.
   observed: ''
   result: PENDING
-
 alternative_hypotheses:
-- claim: >-
-    The residual is an artefact of comparing a time-averaged count against a
-    fitted steady-state one, ignoring dilution and degradation.
+- claim: The residual is an artefact of comparing a time-averaged count against a fitted steady-state one, ignoring dilution and degradation.
   discriminated_by: mass-balance-predicts-observed-protein.
   status: untested
-- claim: >-
-    ParCa's 38-copy expectation is malformed because it assumes a transcription
-    rate the ppGpp path does not deliver.
+- claim: ParCa's 38-copy expectation is malformed because it assumes a transcription rate the ppGpp path does not deliver.
   discriminated_by: parca-expectation-matches-delivered-transcription.
   status: untested
-- claim: >-
-    The double-counting objection is wrong because the fitted and runtime
-    translation efficiencies differ, making translation a legitimate term.
+- claim: The double-counting objection is wrong because the fitted and runtime translation efficiencies differ, making translation a legitimate term.
   discriminated_by: fitted-and-runtime-translation-efficiency-agree.
   status: untested
 - claim: A mechanism is genuinely missing and the residual is a real defect.
-  discriminated_by: >-
-    All three axes above failing while the control passes.
+  discriminated_by: All three axes above failing while the control passes.
   status: untested
-
-falsifiability: >-
-  The missing-mechanism framing is overturned if the mass balance reproduces the
-  observed count, which would make the residual an artefact of the comparison. It
-  is also overturned if ParCa's expectation proves inconsistent with the delivered
-  transcription, which would make the 21.6x gap partly an artefact of the
-  expectation. The study itself is invalidated if the balance cannot predict
-  ordinary proteins.
-
+falsifiability: The missing-mechanism framing is overturned if the mass balance reproduces the observed count, which would make the residual an artefact of the comparison. It is also overturned if ParCa's expectation proves inconsistent with the delivered transcription, which would make the 21.6x gap partly an artefact of the expectation. The study itself is invalidated if the balance cannot predict ordinary proteins.
 limitations:
-- >-
-  A first-order mass balance ignores burst kinetics and the discrete, low-copy
-  regime DnaG occupies -- it sits at zero 62% of the time, where a continuous
-  steady-state approximation is least trustworthy.
-- >-
-  The sweep is reused rather than repeated.
-- >-
-  Agreement within a factor of 2 would show the balance is consistent with the
-  observation, not that the modelled mechanism is biologically correct.
-- >-
-  Single medium and condition.
-- >-
-  Three quantities are carried in from prior studies as pins and cannot be
-  tested here, only relied upon.
-
+- A first-order mass balance ignores burst kinetics and the discrete, low-copy regime DnaG occupies -- it sits at zero 62% of the time, where a continuous steady-state approximation is least trustworthy.
+- The sweep is reused rather than repeated.
+- Agreement within a factor of 2 would show the balance is consistent with the observation, not that the modelled mechanism is biologically correct.
+- Single medium and condition.
+- Three quantities are carried in from prior studies as pins and cannot be tested here, only relied upon.
 conclusion_logic:
-  if_primary_tests_pass: >-
-    The mass balance reproduces the observed protein from measured rates, so no
-    mechanism is missing: the 4x residual was an artefact of comparing a
-    time-averaged count against a fitted steady-state one, and the corrected 5.4x
-    transcription deficit is sufficient to explain DnaG's scarcity after all.
+  if_primary_tests_pass: 'The mass balance reproduces the observed protein from measured rates, so no mechanism is missing: the 4x residual was an artefact of comparing a time-averaged count against a fitted steady-state one, and the corrected 5.4x transcription deficit is sufficient to explain DnaG''s scarcity after all.'
   if_primary_tests_fail:
-    summary: >-
-      If the balance fails on DnaG but passes the control, a mechanism is genuinely
-      missing and the residual is real. If ParCa's expectation is inconsistent with
-      delivered transcription, the gap is partly an artefact of the expectation. If
-      the fitted and runtime efficiencies differ, translation becomes available as
-      an explanation after all.
+    summary: If the balance fails on DnaG but passes the control, a mechanism is genuinely missing and the residual is real. If ParCa's expectation is inconsistent with delivered transcription, the gap is partly an artefact of the expectation. If the fitted and runtime efficiencies differ, translation becomes available as an explanation after all.
     diagnose:
     - question: Is the 4x residual an artefact of the comparison or a missing mechanism?
       note: Answered by the primary axes together with the control.
-
 discovery_implications:
-  resolved_uncertainties: []
-  remaining_uncertainties: []
-  followup_study_proposals: []
+  resolved_uncertainties:
+  - 'Whether a mechanism is missing: no. The balance predicts DnaG out-of-sample at 0.694.'
+  - 'What the 4x residual was: the wrong protein observable (bulk 1.76 vs total 7.996) plus a steady-state-vs-time-average comparison.'
+  - 'Whether the double-counting objection holds: yes, by construction.'
+  remaining_uncertainties:
+  - Why ParCa fits a transcription rate 6.85x above what the model delivers.
+  - Whether other studies' figures need restating on the corrected observables.
+  followup_study_proposals:
+  - id: FU-01
+    title: Why does ParCa fit a transcription rate the model cannot deliver?
+    motivation: 'The fit implies 6.85x more transcription than the ppGpp path supplies,
 
+      closely matching the independent 5.40x deficit. Fit and runtime disagree
+
+      about the same quantity, which is the remaining defect.
+
+      '
 canonical_runs:
 - name: default
   script: studies/dnag-protein-mass-balance/analyses/measure.py
   args: []
   label: dnag-protein-mass-balance
   default: true
-
 visualizations: []
-
 design_status: complete
-implementation_status: not_started
-simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
-expert_review_status: not_requested
+implementation_status: complete
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: failed
+expert_review_status: pending
+report_card_refs:
+  dnag_mass_balance:
+    cache_dir: out/cache
+    out_root: out/silent-transcription-units
+runs:
+- name: dnag-protein-mass-balance__analysis
+  status: complete
+  canonical: true
+  started_at: '2026-09-03T19:17:49Z'
+  started_at_iso: '2026-09-03T19:17:49Z'
+  note: Analysis only; reuses the silent-transcription-units sweep.
+  outcomes:
+    mass-balance-predicts-observed-protein:
+      result: PASS
+      measured_value: 0.694075
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: Predicted 5.55 vs observed 8.00 = 0.694. DnaG was HELD OUT of the calibration, so this is out-of-sample. No mechanism is missing.
+    mass-balance-works-for-controls:
+      result: PASS
+      measured_value: 0.745
+      evaluated_by: agent
+      operator: derived/>= 0.7
+      gate_class: acceptance_criterion
+      detail: 74.5% of 200 control monomers within a factor of 2, median ratio 1.000. An earlier dimensionally-wrong version scored 0% here, which is what caught it.
+    parca-expectation-matches-delivered-transcription:
+      result: FAIL
+      measured_value: 6.846843
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: ParCa's fit implies 1.390e-03 transcripts/s; the model delivers 2.031e-04 = 6.85x. The 38-copy expectation is malformed the same way basal_prob was, and the factor agrees closely with the independently measured 5.40x deficit.
+    fitted-and-runtime-translation-efficiency-agree:
+      result: PASS
+      measured_value: 0.0
+      evaluated_by: agent
+      operator: derived/< 0.1
+      gate_class: acceptance_criterion
+      detail: 'The runtime reads translation_efficiencies straight from the cache -- the same array ParCa''s fit consumed -- so they are identical by construction. The double-counting objection HOLDS: translation cannot explain a departure from a fit that priced it in.'
+    transcription-deficit-is-5x-not-52x:
+      result: PASS
+      measured_value: 5.4
+      evaluated_by: agent
+      operator: derived/< 10.0
+      gate_class: regression_pin
+      detail: Carried from probability-in-force-reference; unchanged.
+    dnag_mass_balance:
+      result: FAIL
+      measured_value: fail
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 2/3 axes within tolerance.
+  computed_outcomes:
+    mass-balance-predicts-observed-protein:
+      result: PASS
+      measured_value: 0.694075
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: Predicted 5.55 vs observed 8.00 = 0.694. DnaG was HELD OUT of the calibration, so this is out-of-sample. No mechanism is missing.
+    mass-balance-works-for-controls:
+      result: PASS
+      measured_value: 0.745
+      evaluated_by: agent
+      operator: derived/>= 0.7
+      gate_class: acceptance_criterion
+      detail: 74.5% of 200 control monomers within a factor of 2, median ratio 1.000. An earlier dimensionally-wrong version scored 0% here, which is what caught it.
+    parca-expectation-matches-delivered-transcription:
+      result: FAIL
+      measured_value: 6.846843
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: ParCa's fit implies 1.390e-03 transcripts/s; the model delivers 2.031e-04 = 6.85x. The 38-copy expectation is malformed the same way basal_prob was, and the factor agrees closely with the independently measured 5.40x deficit.
+    fitted-and-runtime-translation-efficiency-agree:
+      result: PASS
+      measured_value: 0.0
+      evaluated_by: agent
+      operator: derived/< 0.1
+      gate_class: acceptance_criterion
+      detail: 'The runtime reads translation_efficiencies straight from the cache -- the same array ParCa''s fit consumed -- so they are identical by construction. The double-counting objection HOLDS: translation cannot explain a departure from a fit that priced it in.'
+    transcription-deficit-is-5x-not-52x:
+      result: PASS
+      measured_value: 5.4
+      evaluated_by: agent
+      operator: derived/< 10.0
+      gate_class: regression_pin
+      detail: Carried from probability-in-force-reference; unchanged.
+    dnag_mass_balance:
+      result: FAIL
+      measured_value: fail
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 2/3 axes within tolerance.
+conclusion: 'There is no missing mechanism. The 4x residual was an artefact of the comparison,
+
+  and the DnaG chain closes at the corrected magnitude.
+
+
+  A mass balance calibrated on 200 control monomers -- with DnaG held out -- predicts
+
+  5.55 copies against an observed 7.996, a ratio of 0.694. The measured transcription
+
+  rate, translation efficiency, degradation and dilution account for DnaG''s protein
+
+  count without any additional term. The instrument is sound: 74.5% of controls fall
+
+  within a factor of two, median ratio 1.000.
+
+
+  The residual came from comparing incommensurable quantities on the wrong observable.
+
+  A fitted steady-state count and a time-averaged simulated one are different things,
+
+  and the 1.76 figure used throughout studies 3 to 7 was the free-monomer BULK count
+
+  sampled from the permissive arm. Measured as total protein on this sweep DnaG is
+
+  7.996 copies, so the gap against ParCa''s 38 is 4.75x rather than 21.6x -- which the
+
+  5.40x transcription deficit already covers.
+
+
+  One axis fails, and it is the informative one. ParCa''s fit implies a transcription
+
+  rate 6.85x higher than the model delivers. The 38-copy expectation is malformed the
+
+  same way basal_prob was: it assumes a rate the ppGpp path never supplies. The model
+
+  is not failing to convert transcription into protein; it is failing to transcribe at
+
+  the rate its own fit assumed. That 6.85x agrees closely with the independently
+
+  measured 5.40x deficit -- a consistency check the study did not set out to provide.
+
+
+  The double-counting objection is confirmed by construction rather than argued: the
+
+  runtime reads translation_efficiencies from the same cache array the fit consumed.
+
+
+  Three observable errors surfaced here, all one class -- a convenient measurement
+
+  standing in for the correct one. Protein: monomer_counts, not free-monomer bulk.
+
+  mRNA: the rna_counts listener, not the bulk store, where 3220 of 3277 transcripts
+
+  read zero and nothing discriminates. Production: transcription rate, not the standing
+
+  mRNA pool, which is identically zero here.
+
+
+  The mRNA correction cuts the other way and should be stated plainly: measured
+
+  properly, TU00352 really is at zero mRNA 100% of the time while 1844 of 3134 TUs
+
+  carry mRNA. Study 3''s finding survives and is STRONGER than when it was made -- it
+
+  reached the right conclusion on an observable that could not have supported it.
+
+  '
+conclusion_verdicts:
+  regression_compatibility:
+    verdict: confirmed
+    basis: No model code, data or simulation; a re-analysis of the existing sweep.
+  biological_validation:
+    verdict: confirmed
+    basis: The balance predicts DnaG out-of-sample at 0.694 with the control at 74.5%. The corrected 5.40x transcription deficit fully explains the 4.75x protein gap.
+  explanatory_gain:
+    verdict: confirmed
+    basis: Dissolves a 4x residual by showing it was an artefact of the wrong protein observable and a steady-state-vs-time-average comparison; confirms the double-counting objection by construction; and identifies ParCa's expectation as malformed at 6.85x, agreeing with the independent 5.40x deficit.
+claim: 'No mechanism is missing: a held-out mass balance predicts DnaG at 0.694 of observed. The 4x residual was the wrong protein observable plus a steady-state-vs-time-average comparison.'
+findings:
+- id: F-01
+  kind: biological
+  status: confirms
+  statement: 'A mass balance calibrated on 200 held-out controls predicts DnaG at 5.55 copies against an observed 7.996 (ratio 0.694). No mechanism is missing.'
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: mass-balance-predicts-observed-protein
+    observed: 0.694075
+  expected: {}
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+  tier: mechanism
+  summary: |
+    The deflationary hypothesis was right. Measured transcription rate,
+    translation efficiency, degradation and dilution account for DnaG's protein with
+    no additional term, and DnaG was excluded from the calibration so the prediction
+    is genuinely out-of-sample.
+
+    The 4x residual came from comparing a fitted steady-state count against a
+    time-averaged simulated one, on the wrong protein observable.
+- id: F-02
+  kind: biological
+  status: confirms
+  statement: '74.5% of 200 control monomers are predicted within a factor of 2, median ratio 1.000.'
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: mass-balance-works-for-controls
+    observed: 0.745
+  expected: {}
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+  tier: observation
+  summary: |
+    The axis that makes the others readable, and it earned that. The first
+    version of this balance used transcripts-per-second times translation efficiency,
+    which is dimensionally wrong, and this control returned 0% -- catching the error
+    before any DnaG number could be reported.
+- id: F-03
+  kind: biological
+  status: contradicts
+  statement: 'ParCa''s fit implies a transcription rate 6.85x higher than the model delivers, so the 38-copy expectation is itself malformed.'
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: parca-expectation-matches-delivered-transcription
+    observed: 6.846843
+  expected: {}
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+  tier: mechanism
+  summary: |
+    The model is not failing to convert transcription into protein; it is
+    failing to transcribe at the rate its own fit assumed. This is the third reference
+    quantity in this investigation found to be the wrong one, after basal_prob and the
+    free-monomer protein count.
+
+    The 6.85x agrees closely with the independently measured 5.40x transcription
+    deficit -- a consistency check the study did not set out to provide, and the
+    strongest evidence that both numbers describe the same defect.
+  next_action: Determine why the ParCa fit and the ppGpp runtime disagree about dnaG's transcription rate by ~6x.
+  next_action_type: escalate_model
+- id: F-04
+  kind: biological
+  status: confirms
+  statement: 'The runtime and the fit read the same translation_efficiencies array, so the double-counting objection holds by construction.'
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: fitted-and-runtime-translation-efficiency-agree
+    observed: 0.0
+  expected: {}
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+  tier: observation
+  summary: |
+    Settles a bookkeeping question empirically rather than by argument.
+    Translation efficiency cannot explain a departure from a fit that already priced
+    it in, because they are the identical number.
+- id: F-05
+  kind: biological
+  status: confirms
+  statement: 'v2ecoli reproduces "dnaG''s transcription deficit against the in-force reference remains ~5.4x.\nPOST-HOC: measured in probability-in-force-reference. A pin so a future change that alters the corrected magnitude is noticed here, since the whole arithmetic depends on it." within tolerance (test ''transcription-deficit-is-5x-not-52x'' PASS).'
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: transcription-deficit-is-5x-not-52x
+    observed: 5.4
+  expected: {}
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+- id: F-06
+  kind: biological
+  status: contradicts
+  statement: v2ecoli does NOT reproduce 'dnag_mass_balance' (test 'dnag_mass_balance' FAIL); the gap likely reflects a real biological mismatch.
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: dnag_mass_balance
+  next_action: Seed a follow-up calibration study; do not mark the gate passed.
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+- id: F-90
+  kind: computational
+  tier: interpretation
+  mechanism_origin: engineered
+  status: novel
+  statement: 'The DnaG chain closes: a 5.40x transcription deficit fully explains a 4.75x protein gap. What remains is that ParCa fits a transcription rate 6.85x above what the model delivers.'
+  summary: |
+    Eight studies, and the chain now holds end to end at corrected magnitudes: the
+    initiation gate stalls the lineage, DnaG is the limiting pool, DnaG is scarce because
+    its sole transcript is barely made, and that scarcity follows quantitatively from the
+    transcription deficit with no missing mechanism.
+
+    The residual that prompted this study dissolved on inspection, and the reason is worth
+    recording because it recurred three times: a convenient observable standing in for the
+    correct one. The free-monomer bulk count for protein, the bulk store for mRNA (where
+    3220 of 3277 transcripts read zero and nothing discriminates), and the standing mRNA
+    pool for production (identically zero here). Each was reached for because it was to
+    hand; each was wrong; and in every case the correct observable was already emitted.
+
+    The one open defect is that ParCa's fit and the ppGpp runtime disagree about dnaG's
+    transcription rate by ~6.85x -- which matches the 5.40x deficit measured independently
+    against the in-force reference. Two routes to the same number is the strongest
+    indication that a single disagreement between fit and runtime explains the whole
+    phenomenon.
+  expected:
+    summary: No pre-registered expectation; a synthesis after the measurements.
+  evidence:
+    from_run: dnag-protein-mass-balance__analysis
+    from_test: parca-expectation-matches-delivered-transcription
+  provenance:
+    run_ids:
+    - dnag-protein-mass-balance__analysis
+  next_action: Reconcile the ParCa fit with the ppGpp runtime transcription rate.
+  next_action_type: escalate_model

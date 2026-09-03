@@ -1,0 +1,178 @@
+# multiscale-complexity-showcase/investigation.yaml — schema v2
+#
+# A biological-discovery showcase: three flavors of multiscale complexity in the
+# v2ecoli whole-cell model, each an arc that runs a gap -> fix -> validate ->
+# insight loop, converging on one capstone. Where the model diverges from cited
+# biology, the smallest principled correction is applied and its improvement
+# demonstrated. "No gap found" is a valid, honest outcome.
+
+schema_version: 2
+name: multiscale-complexity-showcase
+title: "Multiscale Complexity in a Whole-Cell E. coli"
+created: '2026-09-03'
+status: planning
+
+object_of_evaluation: model
+
+runtime:
+  default_emitter: sqlite
+
+question: |
+  What emergent biological phenomena does v2ecoli produce that are invisible at any
+  single scale, and appear only when molecular, cellular, and population scales are
+  coupled? And where the model diverges from known biology, what is the smallest
+  principled correction that closes the gap and what biological insight does it expose?
+
+hypothesis: |
+  The whole-cell model expresses genuine multiscale complexity in three distinct
+  flavors: (1) cross-scale CONTROL — a single molecular signal (ppGpp) coordinates
+  ribosome allocation, replication initiation, and growth across scales; (2) nonlinear
+  FLUX REALLOCATION — central-carbon metabolism reroutes under stress with emergent
+  energetic consequences; (3) ORDER FROM NOISE — stochastic molecular events produce
+  statistically lawful single-cell and population heterogeneity. Each arc will reveal
+  at least one place where the model matches biology natively and, where it does not,
+  a small correction (cited, held-out-validated) will move it toward the literature.
+
+lead: |
+  A whole-cell model is only interesting where its parts add up to something no part
+  predicts. This investigation tours three such places — signaling that runs the whole
+  cell, metabolism that reroutes under stress, and heterogeneity that emerges from
+  noise — and at each one it does more than look: it finds where v2ecoli falls short
+  of known biology, makes the smallest defensible correction, and shows the improvement
+  and the insight the fix exposes.
+
+executive:
+  what_is_this: >-
+    A biology-forward discovery showcase across three scales of the v2ecoli whole-cell
+    model. Each of three arcs runs a gap -> fix -> validate -> insight loop on real
+    native composites (ecoli_baseline, ecoli_millard, ecoli_population); a capstone
+    fires all three phenomena in one nutrient-downshift run; an adversarial control
+    disables the coupling to test whether the emergent coordination is causal.
+  verdict: >-
+    Not yet run. Arcs and the capstone are designed against cited biological
+    expectations; corrections will be applied only where a real, cited divergence is
+    confirmed and will be validated on a held-out observable.
+  verdict_status: in-progress
+  decisions_needed: []
+
+scientific_argument:
+  main_claim: >-
+    v2ecoli produces emergent, cross-scale biology that is invisible at any single
+    scale; where it diverges from cited expectations, small principled corrections
+    move it measurably toward the literature without breaking held-out observables.
+  evidence_for: []
+  evidence_against: []
+  key_figures: []
+  caveats:
+    - >-
+      "Improvement" is only credible if validated on an observable the fix was NOT
+      tuned to; every correction carries a held-out check.
+    - >-
+      A study whose observable already matches biology reports "no gap" — that is a
+      success (native correctness), not a failure, and no fix is fabricated.
+    - >-
+      Single-seed runs are stochastic; heterogeneity and capstone claims use seed
+      ensembles, not point estimates.
+
+biological_story: |
+  Life is organized in nested scales — molecules, cells, populations — and its most
+  interesting behavior lives in the coupling between them. A ribosome-allocation
+  decision made by a single alarmone reshapes how fast a cell grows and when it copies
+  its chromosome; a metabolic flux constraint felt by one enzyme sets the yield of an
+  entire bioreactor; the stochastic firing of a few genes becomes a lawful distribution
+  of division times across millions of cells. A whole-cell model earns its complexity
+  only if these couplings emerge from the mechanism rather than being imposed by hand.
+
+  Arc 1 follows the stringent-response alarmone ppGpp, the cell's master coordinator.
+  As nutrients change, ppGpp rises and falls, and in real E. coli this single signal
+  simultaneously sets ribosome/rRNA synthesis, restrains DnaA-driven replication
+  initiation, and tunes growth rate. The classic Cooper-Helmstetter/Donachie result is
+  that origins per cell scale with growth rate at a nearly constant initiation mass.
+  The arc asks whether v2ecoli reproduces that scaling natively, and if the ppGpp ->
+  initiation coupling is off, corrects it.
+
+  Arc 2 follows carbon and energy through central metabolism. Sibling work has already
+  confirmed and localized a real defect: the baseline builds ~1.5x more biomass per
+  gram of glucose than carbon and energy balance permit — an ENERGETIC failure (RQ 3.4
+  vs ~1, almost no respiration), the cell building biomass without paying its ATP cost.
+  The arc applies the maintenance-ATP / respiratory correction that prior work scoped
+  but never landed, and shows biomass yield falling into the measured band while
+  overflow behavior and growth are preserved.
+
+  Arc 3 follows noise upward. Stochastic gene expression and stochastic replication
+  initiation make no two simulated cells identical; across a seed ensemble those
+  molecular fluctuations should produce an interdivision-time CV of ~10-30% and
+  adder-like size homeostasis. The arc measures whether the model's heterogeneity is
+  lawful in that sense, and traces which molecular noise sources dominate.
+
+  The capstone fires one nutrient downshift and watches all three at once: the ppGpp
+  spike (signaling), the flux reallocation and acetate change (metabolism), and the
+  shift in the heterogeneity distribution (population) — the payoff that the model
+  integrates its scales. The adversarial control then disables the coupling to confirm
+  the coordination is causal, not coincidental.
+
+at_a_glance:
+  - {study: mcs-01-ppgpp-replication-coupling, role: "Arc 1 — ppGpp coordinates growth & replication (origins-per-cell scaling)"}
+  - {study: mcs-02-metabolism-energy-balance, role: "Arc 2 — fix the energetic/biomass-yield defect (respiration & maintenance ATP)"}
+  - {study: mcs-03-single-cell-heterogeneity, role: "Arc 3 — division-time CV & adder homeostasis from molecular noise"}
+  - {study: mcs-04-capstone-downshift, role: "Capstone — one downshift, three complexities fire together"}
+  - {study: mcs-05-decoupling-control, role: "Adversarial — disable coupling; emergent coordination must collapse"}
+
+how_to_read: |
+  Start with the capstone (mcs-04) for the payoff, then read the three arcs for the
+  mechanism and each correction. mcs-05 is the falsification control — if the emergent
+  coordination survives disabling the coupling, the thesis is wrong.
+
+glossary:
+  - {term: "ppGpp", definition: "Guanosine tetra/pentaphosphate; the stringent-response alarmone that coordinates ribosome synthesis, replication, and growth."}
+  - {term: "Initiation mass", definition: "The cell mass per origin at which replication initiates; ~constant across growth rates (Donachie)."}
+  - {term: "RQ", definition: "Respiratory quotient, CO2 produced / O2 consumed; ~1 for glucose respiration."}
+  - {term: "Overflow metabolism", definition: "Secretion of acetate above a growth-rate threshold despite available O2 (Basan 2015)."}
+  - {term: "Adder", definition: "Size-homeostasis strategy in which a cell adds a constant volume per generation regardless of birth size."}
+  - {term: "Interdivision-time CV", definition: "Coefficient of variation of the time between divisions across a cell population; ~10-30% in E. coli."}
+
+competing_frameworks:
+  - name: "Imposed coordination (no emergent coupling)"
+    prediction: "Cross-scale correlations are hard-wired constants, so disabling the molecular coupling leaves them unchanged."
+    discriminated_by: "mcs-05-decoupling-control — disabling ppGpp coupling must abolish the growth/replication coordination if it is emergent."
+  - name: "Pure bookkeeping defect (mass non-conservation)"
+    prediction: "The biomass-yield violation is a mass-accounting bug that breaks carbon conservation everywhere."
+    discriminated_by: "mcs-02 — carbon conserves at baseline (implied biomass C ~0.455 gC/gDW); the defect is energetic, not bookkeeping."
+
+hypotheses:
+  - id: H1
+    statement: "ppGpp is the emergent coordinator of growth and replication in v2ecoli."
+    predictions:
+      - observable: origins_per_cell
+        expected: "increases with growth_rate at ~constant initiation mass"
+      - observable: ppgpp_conc
+        expected: "rises under nutrient downshift, anti-correlated with growth_rate"
+    required_controls: [decoupling-control]
+    failure_modes: ["origins_per_cell flat across growth rates", "coordination persists when coupling is disabled"]
+    status: open
+  - id: H2
+    statement: "The baseline biomass-yield violation is energetic (unpaid ATP/respiration), not mass bookkeeping."
+    predictions:
+      - observable: respiratory_quotient
+        expected: "~3.4 at baseline (defect); ~1 after the maintenance-ATP correction"
+      - observable: biomass_yield
+        expected: "0.83 gDW/g glucose at baseline; falls into 0.355-0.444 band after fix"
+    required_controls: [carbon-closure]
+    failure_modes: ["carbon closure breaks at baseline (would indicate bookkeeping)"]
+    status: open
+
+studies:
+  - mcs-01-ppgpp-replication-coupling
+  - mcs-02-metabolism-energy-balance
+  - mcs-03-single-cell-heterogeneity
+  - mcs-04-capstone-downshift
+  - mcs-05-decoupling-control
+
+expert_docs: []
+
+acceptance_criteria:
+  - {study: mcs-01-ppgpp-replication-coupling, behavior: origins-scale-with-growth-rate}
+  - {study: mcs-02-metabolism-energy-balance, behavior: biomass-yield-in-measured-band}
+  - {study: mcs-03-single-cell-heterogeneity, behavior: division-time-cv-in-band}
+  - {study: mcs-04-capstone-downshift, behavior: three-complexities-co-occur}
+  - {study: mcs-05-decoupling-control, behavior: coordination-collapses-when-decoupled}

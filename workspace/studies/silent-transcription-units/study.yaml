@@ -1,0 +1,499 @@
+schema_version: 4
+name: silent-transcription-units
+title: Silent transcription units
+created: '2026-09-03'
+status: planned
+phase: Design
+study_type: diagnostic
+investigation: transcription-rewiring
+
+question: >-
+  Six transcription units in the top 300 by assigned synthesis probability
+  received zero transcripts in a generation, against a peer median of 56. Is
+  that reproducible rather than stochastic, what do the six share that the other
+  294 do not, and does it explain why dnaG gets no mRNA?
+
+biological_summary: |
+  Study dnag-production-deficit established that DnaG is absent because its only
+  transcript, TU00352, is never synthesised. That finding raised a sharper
+  question than the one it answered: TU00352 is not an obscure transcript. It
+  ranks 267th of 3277 by assigned synthesis probability, and transcripts in that
+  band are made about 56 times per generation. It was made zero times.
+
+  Zero on its own proves nothing. Across all 3277 transcription units, 43.3%
+  received zero synthesis in that generation, because most transcripts are
+  low-probability and a generation is a finite number of draws. The observation
+  only becomes interesting inside a peer group: among the top 300 by assigned
+  probability, only six received nothing. TU00352 is one of them. The others are
+  TU0-13121, TU00062, TU00216, TU0-14047 and TU0-6686.
+
+  That converts a single-gene curiosity into a cohort with a built-in control.
+  Six transcripts behave anomalously and 294 comparable ones do not, so the
+  question becomes what the six share. Candidate explanations are all testable
+  against that contrast: the ribosomal-protein override, which replaces
+  basal_prob with a fixed probability for TUs in idx_rprotein; regulatory delta
+  probabilities driving them toward zero; exclusion by an upstream filter;
+  unusual length or replication coordinate; or ordinary stochastic sampling that
+  a longer run would wash out.
+
+  The last of those is the null and is treated as a real possibility, not a
+  formality. A single generation of a single seed cannot distinguish "never
+  transcribed" from "not transcribed this time", and the whole cohort framing
+  collapses if the zeros move around between runs.
+
+  If the cohort is real and shares a mechanism, the consequence reaches past
+  dnaG. Any gene whose only transcript sits in this set receives no mRNA at all,
+  and would show the same silent collapse that made DnaG limit replication --
+  discovered here only because a replication gate happened to make it visible.
+
+assumptions:
+- text: >-
+    count_rna_synthesized in the transcript elongation listener records every
+    transcript the simulation actually initiates, per transcription unit.
+  verified_in_v2ecoli: true
+- text: >-
+    basal_prob does NOT govern TUs in idx_rprotein; TranscriptInitiation
+    overrides it with the fixed ribosomal-protein probability
+    (transcript_initiation.py:618-621). Any claim about assigned probability
+    for those TUs must use the value actually in force.
+  verified_in_v2ecoli: true
+
+pipeline_gate:
+  prerequisites:
+  - study: dnag-production-deficit
+    condition: ran
+    relation: leads-to
+    outputs_used:
+    - TU00352 measured at zero synthesis with mRNA absent at 100% of timesteps
+    - The realized_transcription measurement in v2ecoli/library/dnag_deficit.py
+  enables: []
+  proceed_condition: >-
+    The cohort is either confirmed as reproducible with a shared mechanism, or
+    dissolved as stochastic. Either outcome determines whether the
+    transcription-unit repair is a general fix or a dnaG-specific one.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants: []
+  model_settings: []
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params: {}
+variants: []
+
+units_and_time:
+  tick: 1 tick = 1 s of simulated time (composite time_step=1)
+  quantities:
+    transcripts synthesized: count of initiation events per transcription unit per generation
+    synthesis probability: dimensionless per-transcript probability actually in force
+    transcript length: nucleotides
+    replication coordinate: base pairs relative to oriC
+
+# ---------------------------------------------------------------------------
+# All five acceptance criteria below are GENUINELY OPEN at design time. The
+# cohort's identity is known (it came from the prior study's run); nothing about
+# WHY these six are silent, nor whether the zeros reproduce, has been measured.
+# Deliberately not checked while designing: whether the other five are in
+# idx_rprotein. That is the study's finding, not a design input.
+# ---------------------------------------------------------------------------
+behavior_tests:
+- name: zero-synthesis-is-reproducible
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Are the six reproducibly silent, or was this one unlucky generation?
+  description: >-
+    Every one of the six cohort TUs receives zero transcripts in every
+    generation of every seed. Graded as the MAXIMUM synthesis count any cohort
+    TU reaches across the whole sweep, so a single transcript anywhere fails it.
+
+    This is the null test and it can dissolve the study. 43.3% of all TUs got
+    zero in the observed generation, so a finite number of draws explains a
+    zero easily. If the cohort's zeros move between runs, there is no cohort
+    and the dnaG finding weakens to "rarely transcribed" rather than "never".
+
+    Threshold provenance: theory. Zero is definitional, not tuned.
+  measure:
+    kind: derived
+    detail: >-
+      max transcripts synthesized across the 6 cohort TUs over 3 seeds x 3
+      generations.
+  pass_if:
+    op: '=='
+    value: 0
+    provenance:
+      kind: theory
+      note: Definitional. Any transcript at all refutes "never synthesised".
+  status: pending
+
+- name: comparison-group-is-synthesized
+  classification: control
+  gate_class: acceptance_criterion
+  question: Is the comparison group actually transcribed, or is the run broken?
+  description: >-
+    The other 294 top-300 transcription units have a median synthesis count
+    above zero across the same runs.
+
+    Positive control. If the comparison group is also silent, the run or the
+    listener is at fault and no contrast can be drawn from it. A failure here
+    invalidates every other axis in this study rather than being interesting.
+
+    Threshold provenance: theory; a working transcription process must
+    transcribe its highest-probability units.
+  measure:
+    kind: derived
+    detail: median transcripts synthesized across the 294 non-cohort top-300 TUs.
+  pass_if:
+    op: '>'
+    value: 0
+    provenance:
+      kind: theory
+      note: Sanity floor for a functioning transcription process.
+  status: pending
+
+- name: cohort-shares-a-distinguishing-attribute
+  classification: primary
+  gate_class: acceptance_criterion
+  question: What do the six share that the 294 do not?
+  description: >-
+    At least one measured attribute is present in all six cohort TUs and in
+    under 10% of the 294 comparison TUs. Attributes examined: membership of
+    idx_rprotein, idx_rnap, idx_rRNA and idx_tRNA; a delta_prob contribution
+    driving effective probability toward zero; transcript length; replication
+    coordinate; attenuation membership; and whether the effective probability
+    in force differs from basal_prob.
+
+    Genuinely open. The six may share nothing, in which case the zeros have
+    separate causes and the cohort is a coincidence of the ranking rather than
+    a mechanism.
+
+    Threshold provenance: theory. 10% is the conventional bar for an attribute
+    being characteristic of a group rather than common background; it is an
+    authored cutoff and nothing is cited for it.
+  measure:
+    kind: derived
+    detail: >-
+      minimum, over candidate attributes present in all 6 cohort TUs, of that
+      attribute's prevalence among the 294 comparison TUs.
+  pass_if:
+    op: <
+    value: 0.10
+    provenance:
+      kind: theory
+      note: Authored cutoff for "characteristic of the cohort", not a cited value.
+  status: pending
+
+- name: effective-probability-explains-silence
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Are the six silent because the probability actually in force is ~zero?
+  description: >-
+    The effective synthesis probability in force for the cohort -- after the
+    ribosomal-protein override, delta_prob and any other adjustment -- is below
+    one percent of their assigned basal_prob.
+
+    This separates two very different defects. If the effective probability is
+    near zero, the transcripts are silent by construction and the bug is in how
+    that probability is assigned. If the effective probability is normal and
+    they are still never selected, the bug is downstream in the sampling or
+    allocation, which is a different repair entirely.
+
+    Threshold provenance: theory. One percent is an authored bar for "the
+    probability in force does not resemble the one assigned".
+  measure:
+    kind: derived
+    detail: >-
+      max over the 6 cohort TUs of (effective probability in force) /
+      (assigned basal_prob).
+  pass_if:
+    op: <
+    value: 0.01
+    provenance:
+      kind: theory
+      note: Authored bar for a probability that has been effectively zeroed.
+  status: pending
+
+- name: silence-generalises-beyond-dnag
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does any other gene depend solely on a silent transcript?
+  description: >-
+    At least one cistron other than dnaG has ALL of its transcripts inside the
+    silent cohort, and therefore receives no mRNA at all.
+
+    This decides the scope of the repair. dnaG was found only because a
+    replication gate made its absence visible; a second stranded gene would
+    show the defect is general and that other proteins are silently absent for
+    the same reason.
+
+    Genuinely open and able to fail: dnaG may be the only cistron unlucky
+    enough to have no alternative transcript.
+
+    Threshold provenance: theory; one other gene is the minimum that
+    distinguishes "general" from "dnaG-specific".
+  measure:
+    kind: derived
+    detail: >-
+      count of cistrons, excluding dnaG, whose every transcript is in the
+      silent cohort.
+  pass_if:
+    op: '>='
+    value: 1
+    provenance:
+      kind: theory
+      note: One counterexample distinguishes a general defect from a single accident.
+  status: pending
+
+- name: dnag-remains-stranded
+  classification: supporting
+  gate_class: regression_pin
+  description: >-
+    dnaG receives zero transcripts across the sweep, as observed in
+    dnag-production-deficit.
+
+    POST-HOC: already measured in the prior study. A pin against drift, not
+    acceptance evidence. It is carried so that a future change which silently
+    restores dnaG transcription is noticed here.
+  measure:
+    kind: derived
+    detail: total transcripts synthesized for cistron EG10239 across the sweep.
+  pass_if:
+    op: '=='
+    value: 0
+    provenance:
+      kind: post_hoc
+      note: Observed in the prior study; pin only.
+  status: pending
+
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-03T17:18:33Z'
+  criteria:
+  - test: zero-synthesis-is-reproducible
+    prior: >-
+      The six remain at zero in every generation of every seed. This is the
+      null test; if it fails the cohort is stochastic and the study dissolves.
+  - test: comparison-group-is-synthesized
+    prior: The 294 comparison TUs are transcribed normally.
+  - test: cohort-shares-a-distinguishing-attribute
+    prior: >-
+      The six share at least one attribute rare among the comparison group.
+      They may share nothing.
+  - test: effective-probability-explains-silence
+    prior: >-
+      The probability in force for the cohort is effectively zero, making the
+      defect one of probability assignment rather than of sampling.
+  - test: silence-generalises-beyond-dnag
+    prior: >-
+      At least one other cistron is stranded entirely on silent transcripts.
+  predictions:
+  - >-
+    RECONNAISSANCE ALREADY PERFORMED, recorded so it is not mistaken for a
+    prediction. From one generation of one seed in the prior study: 1418 of
+    3277 TUs (43.3%) had zero synthesis; among the top 300 by basal_prob only
+    6 did, against a peer median of 56; the six are TU00352, TU0-13121,
+    TU00062, TU00216, TU0-14047 and TU0-6686; 8 of the 42 idx_rprotein TUs had
+    zero synthesis. The cohort's IDENTITY therefore comes from observation, and
+    dnag-remains-stranded is classified as a regression pin for that reason.
+  - >-
+    DELIBERATELY NOT MEASURED while designing: whether the other five cohort
+    members are in idx_rprotein, what effective probability any of them
+    carries, and whether any other cistron is stranded. Those are the study's
+    findings and checking them first would have converted three acceptance
+    criteria into pins, which is the error this study's predecessor made.
+  controls:
+  - comparison-group-is-synthesized
+
+  thresholds:
+    zero-synthesis-is-reproducible:
+      op: '=='
+      value: 0
+      provenance:
+        kind: theory
+        note: Definitional. Any transcript at all refutes "never synthesised".
+    comparison-group-is-synthesized:
+      op: '>'
+      value: 0
+      provenance:
+        kind: theory
+        note: Sanity floor for a functioning transcription process.
+    cohort-shares-a-distinguishing-attribute:
+      op: <
+      value: 0.10
+      provenance:
+        kind: theory
+        note: Authored cutoff for "characteristic of the cohort", not a cited value.
+    effective-probability-explains-silence:
+      op: <
+      value: 0.01
+      provenance:
+        kind: theory
+        note: Authored bar for a probability that has been effectively zeroed.
+    silence-generalises-beyond-dnag:
+      op: '>='
+      value: 1
+      provenance:
+        kind: theory
+        note: One counterexample distinguishes a general defect from a single accident.
+readouts:
+- name: transcripts-synthesized-per-tu
+  store_path: listeners.transcript_elongation_listener.count_rna_synthesized
+  description: >-
+    Per-transcription-unit initiation counts, summed per generation. The
+    primary observable; it is the only one that answers whether a TU is
+    transcribed, since basal_prob is overridden for idx_rprotein TUs.
+  units: transcripts per generation
+  status: available
+- name: transcript-mrna-counts
+  store_path: bulk.count
+  description: >-
+    Bulk counts of the cohort's TU species, confirming absence of mRNA rather
+    than merely absence of new initiation.
+  units: molecule copies per cell
+  status: available
+- name: effective-synthesis-probability
+  store_path: derived
+  description: >-
+    The probability actually in force per TU after the ribosomal-protein
+    override and delta_prob, read from the cache and the process logic rather
+    than from basal_prob.
+  units: dimensionless
+  status: derived-needed
+
+planned_runs:
+- name: cohort-reproducibility-sweep
+  status: planned
+  n_steps: 32400
+  details: >-
+    3 seeds x 3 generations, 200 min/gen cap, default (permissive) settings,
+    emitting the transcript elongation listener. Tests
+    zero-synthesis-is-reproducible, comparison-group-is-synthesized,
+    dnag-remains-stranded. ~36 min wall at 3 concurrent jobs.
+
+simulation_set:
+- name: baseline-transcription
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  is_baseline: true
+  status: planned
+  params: {}
+
+robustness:
+  n_replicates: 3
+  seeds: [0, 1, 2]
+  parameter_sweep: false
+  note: >-
+    3 seeds x 3 generations is a smoke-level replication floor, chosen because
+    the null test only needs to observe a single non-zero transcript to fail. It
+    does NOT support a powered claim about rates; no rank test is planned and
+    none should be inferred.
+
+controls:
+- name: comparison-group-is-synthesized
+  kind: positive
+  hypothesis: >-
+    The 294 other top-300 transcription units should be transcribed normally.
+    If they are silent too, the run or the listener is broken and no contrast
+    can be drawn.
+  expected: median synthesis above zero across the comparison group.
+  observed: ''
+  result: PENDING
+
+alternative_hypotheses:
+- claim: >-
+    The zeros are ordinary stochastic sampling; a generation is a finite number
+    of draws and 43.3% of all TUs got zero.
+  discriminated_by: >-
+    zero-synthesis-is-reproducible, across 3 seeds x 3 generations. This is the
+    null and the study dissolves if it holds.
+  status: untested
+- claim: >-
+    The ribosomal-protein override assigns these TUs an effectively zero
+    probability, so they are silent by construction.
+  discriminated_by: >-
+    cohort-shares-a-distinguishing-attribute and
+    effective-probability-explains-silence.
+  status: untested
+- claim: >-
+    The probability in force is normal and the TUs are simply never selected,
+    making this a sampling or allocation defect rather than an assignment one.
+  discriminated_by: >-
+    effective-probability-explains-silence, which fails in that case and
+    redirects the repair downstream.
+  status: untested
+- claim: >-
+    The six share nothing; their zeros have separate causes and the cohort is
+    an artefact of ranking by a probability that is not in force.
+  discriminated_by: cohort-shares-a-distinguishing-attribute.
+  status: untested
+
+falsifiability: >-
+  The study is overturned if any cohort TU is transcribed in any generation of
+  any seed, which would make the zeros stochastic; if the comparison group is
+  also silent, which would indict the run rather than the cohort; or if the six
+  share no attribute rarer than 10% in the comparison group, which would mean
+  there is no common mechanism to repair.
+
+limitations:
+- >-
+  The cohort's identity comes from one generation of one seed, so membership
+  may be incomplete; other TUs could be silent without having appeared in that
+  observation.
+- >-
+  3 seeds x 3 generations is a replication floor sufficient to falsify "never
+  transcribed", not to estimate a transcription rate.
+- >-
+  Single medium and condition. A TU silent under these conditions may be
+  transcribed under others, and nothing here speaks to that.
+- >-
+  Identifying a shared attribute establishes association, not cause. Showing
+  the attribute is what silences the cohort would need an intervention, which
+  is deliberately left to a follow-up rather than claimed here.
+- >-
+  The study does not address whether these TUs SHOULD be transcribed
+  biologically; it asks only why the model does not transcribe units it assigns
+  a high probability.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    A reproducible cohort of high-probability transcription units is silent by
+    construction, at least one other gene is stranded on them, and the repair is
+    in how effective synthesis probability is assigned -- a general fix rather
+    than a dnaG-specific one.
+  if_primary_tests_fail:
+    summary: >-
+      If the zeros do not reproduce, the cohort is stochastic and dnaG's finding
+      weakens from "never transcribed" to "rarely transcribed", which is a
+      materially different and much smaller claim. If they reproduce but share no
+      attribute, the silences have separate causes and each needs its own
+      diagnosis. If the effective probability is normal, the defect is in
+      sampling rather than assignment.
+    diagnose:
+    - question: >-
+        Is the silence an artefact of probability assignment or of transcript
+        selection?
+      note: Answered by effective-probability-explains-silence within this study.
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties: []
+  followup_study_proposals: []
+
+canonical_runs:
+- name: default
+  script: studies/silent-transcription-units/sims/run.py
+  args: []
+  label: silent-transcription-units
+  default: true
+
+visualizations: []
+
+design_status: complete
+implementation_status: complete
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested

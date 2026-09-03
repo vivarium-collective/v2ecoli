@@ -72,7 +72,8 @@ pipeline_gate:
     outputs_used:
     - DnaG identified as the limiting pool, unanimously across 8 seeds
     - The distilled evidence bundles, reused here as the multi-generation record
-  enables: []
+  enables:
+  - silent-transcription-units
   proceed_condition: The lossy step is identified and the experiment-vs-own-target distinction is resolved, so a repair can be aimed at the right parameter.
   gate_evaluator:
     result: failed

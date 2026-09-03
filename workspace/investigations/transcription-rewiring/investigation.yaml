@@ -44,6 +44,7 @@ studies:
 - mechanistic-replisome-arrest
 - replisome-gate-sufficiency
 - dnag-production-deficit
+- silent-transcription-units
 executive:
   what_is_this: >-
     v2ecoli can normally start chromosome replication whenever it is due,

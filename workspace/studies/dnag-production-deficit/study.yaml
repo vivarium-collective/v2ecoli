@@ -777,3 +777,21 @@ superseded_note: |
   The deficit itself stands: ~0.5 transcripts per generation against a peer median of
   55 amply explains a protein at zero 62% of the time. Only the DESCRIPTION changes,
   from 'never transcribed' to 'transcribed ~51x below its assigned rate'.
+magnitude_correction: |
+  MAGNITUDE CORRECTED 2026-09-03 by probability-in-force-reference.
+
+  Every ratio in this study divided by the cache's basal_prob. That is NOT the vector
+  the model consults: ppgpp_regulation is in DEFAULT_FEATURES and defaults True,
+  PpgppInitiation writes a replacement, and transcript_initiation.py:547-556
+  substitutes it. The two differ by a median |log ratio| of 0.683 across the top 300,
+  and the cache vector sums to 0.5307 against the in-force 1.0000.
+
+  Measured against the correct reference the cohort deficit is 0.165 (~6x), not the
+  ~52x that basal_prob produced. The corrected reconstruction is validated: the 294
+  comparison transcripts transcribe at 0.944 of the in-force vector, versus 1.85 of
+  basal_prob.
+
+  THE PHENOMENON SURVIVES -- these transcripts are genuinely under-supplied -- but the
+  magnitude quoted here is overstated roughly ninefold and should be read as ~6x.
+
+  Specific to this study: The 25x gap between ParCa's fit and the simulation, and the 91.9th-percentile basal_prob ranking, both use the wrong reference.

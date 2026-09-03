@@ -441,10 +441,16 @@ class LineageProcess(Process):
 
         # DEBUG (item 105 fast-division investigation, disposable): unconditional,
         # logs which of the two structural signals actually fired this call.
-        warnings.warn(
+        # print(flush=True), not warnings.warn() -- the warn() version of this
+        # line never appeared in any of 3 real generation logs on a prior real
+        # dispatch (database_id=278) despite the code being confirmed present
+        # in the built image; root cause not found, switching mechanism instead
+        # of continuing to chase it blind.
+        print(
             f"LineageProcess DIVISION-SIGNAL-DEBUG t={self._gen_elapsed}: "
             f"agents_before={agents_before!r} agents_after={agents_after!r} "
-            f"divide_flag={survivor.get('divide') if isinstance(survivor, dict) else None!r}"
+            f"divide_flag={survivor.get('divide') if isinstance(survivor, dict) else None!r}",
+            flush=True,
         )
 
         cell = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})

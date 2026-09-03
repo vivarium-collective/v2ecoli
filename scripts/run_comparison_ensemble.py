@@ -700,6 +700,14 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         "extra_bulk_species": resolved.get("extra_bulk_species") or [],
         "shape_seed_param_store": resolved.get("shape_seed_param_store") or {},
         "shape_seed_literal": resolved.get("shape_seed_literal") or {},
+        # Exchange-store keys baseline() must create so an injected process's
+        # secretion has somewhere to land (environment.exchange accumulates onto
+        # existing keys and never adds one). Forwarded here for the same reason
+        # extra_bulk_species is: this assembly is an ALLOWLIST, so a key it does
+        # not name is silently dropped one layer above baseline()'s own guard —
+        # and the symptom would be a clean run with a zero product, which is the
+        # failure this key exists to prevent.
+        "seed_exchange_species": resolved.get("seed_exchange_species") or [],
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data

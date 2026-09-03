@@ -1107,6 +1107,54 @@ def _build_batch_document(
     return {"state": state}
 
 
+def validate_seed_exchange_species(injected_processes: dict | None) -> list:
+    """Validate ``injected_processes["seed_exchange_species"]`` and return it.
+
+    Returns ``[]`` when the key is absent. Raises ``ValueError`` on a shape that
+    would seed the WRONG keys or none at all -- which in this store means a run
+    that completes clean and reads zero, so every case here fails loud.
+
+    ⚠ Called BEFORE the batch/lineage branch as well as on the single-cell path.
+    The seeding itself can only happen where the initial state is assembled, but
+    the *validation* must not: ``n_seeds>1`` / ``n_generations>1`` /
+    ``stop_at_division`` return a batch document early, and a malformed
+    declaration would otherwise be stored verbatim and only raise inside each
+    worker after dispatch. Multi-seed is the production shape, so the guard has
+    to hold there first.
+
+    ⚠ Presence, not truthiness: an explicitly empty/None/false value is a
+    distinct thing from a mistyped one and must not skip the type check.
+    """
+    if injected_processes is None:
+        return []
+    if "seed_exchange_species" not in injected_processes:
+        return []
+    declared = injected_processes["seed_exchange_species"]
+    if declared is None:
+        return []
+    # A bare string is iterable, so `seed_exchange_species: "MY-PRODUCT"` -- the
+    # natural single-item form in a config -- would otherwise seed one key per
+    # CHARACTER and never the declared species. A dict would iterate keys and
+    # silently discard its values.
+    if not isinstance(declared, (list, tuple, set, frozenset)):
+        raise ValueError(
+            "injected_processes['seed_exchange_species'] takes a LIST of "
+            f"exchange species ids; got {type(declared).__name__}. "
+            "A single species must still be a list: ['MY-PRODUCT'].")
+    for species in declared:
+        if not isinstance(species, str) or not species:
+            raise ValueError(
+                "injected_processes['seed_exchange_species'] takes exchange "
+                f"species ids (non-empty strings); got {species!r}.")
+        if species.endswith("]"):
+            raise ValueError(
+                "injected_processes['seed_exchange_species'] takes BARE "
+                f"species ids without a compartment suffix; got {species!r}. "
+                "Writers of environment.exchange strip the compartment, so a "
+                "tagged id would seed a key nothing ever writes to.")
+    return list(declared)
+
+
 def assert_injection_sourcing(injected_processes: dict | None) -> None:
     """Enforce v2ecoli's native-only injection policy.
 
@@ -1306,7 +1354,14 @@ WCM_PARAMETERS = {
             "description": "Native process-injection spec "
                            "{add_processes, swap_processes, process_configs, "
                            "topology, time_step}; empty = none. fork_repo must be "
-                           "empty — fork-sourcing is removed, v2ecoli is native-only.",
+                           "empty — fork-sourcing is removed, v2ecoli is native-only. "
+                           "Also honoured: seed_bulk_species (a list of "
+                           "{id, molar_mass_g_per_mol} SPEC DICTS, ids "
+                           "compartment-TAGGED) and seed_exchange_species (a LIST "
+                           "of BARE environment.exchange id strings, seeded at 0.0 "
+                           "so an injected process's secretion has a key to land "
+                           "in). Note the two differ in BOTH shape and id "
+                           "convention.",
         },
         # --- Batch / lineage knobs (absorbed from the former batch_baseline) ----
         # n_seeds>1 OR n_generations>1 switches baseline from a single 55-process
@@ -1721,6 +1776,11 @@ def baseline(
     # for n_seeds==1, n_generations==1, stop_at_division=False (bit-identical to
     # plain baseline).
     if int(n_seeds) > 1 or int(n_generations) > 1 or stop_at_division:
+        # Validate the injected seeding declaration BEFORE dispatching: the
+        # batch document is built here but each cell's baseline() runs inside a
+        # worker, so a malformed value would otherwise ride through and raise
+        # once per lineage after dispatch, in the shape production actually uses.
+        validate_seed_exchange_species(injected_processes)
         if match_simdata:
             # Batch mode builds per-seed lineages via BatchBaselineRunner at
             # RUN time, outside this document-building call, so match_simdata
@@ -1796,6 +1856,37 @@ def baseline(
     if _seed_specs:
         from v2ecoli.library.sim_data import seed_bulk_species
         initial_state["bulk"] = seed_bulk_species(initial_state["bulk"], _seed_specs)
+
+    # Product-agnostic EXCHANGE-store seeding, the environment.exchange sibling of
+    # the bulk seeding above: an injected subsystem declares the exchange keys it
+    # needs present via injected_processes["seed_exchange_species"], so the engine
+    # holds no pathway knowledge (the caller supplies the ids).
+    #
+    # Why it is needed at all: environment.exchange is a map[float] store
+    # initialised from the cache bundle with only the media's external molecules.
+    # A bare-float map leaf ACCUMULATES (state + update) -- it updates keys that
+    # already exist and never ADDS one. So an injected metabolism that secretes a
+    # species the ParCa bundle never registered writes into a key nobody created,
+    # and every downstream reader (exchange-flux listeners, a coupled environment)
+    # sees nothing. The process runs, the run completes clean, and the product
+    # reads bit-exact zero with nothing raising.
+    #
+    # setdefault, not assignment: a species the bundle already carries keeps its
+    # real initial value. Opt-in -- absent or empty leaves the built document
+    # byte-identical to today.
+    #
+    # ⚠ BARE names, no compartment suffix. Every writer of this store strips the
+    # compartment (metabolism.py emits `str(molecule[:-3])`), so a compartment-
+    # tagged id would seed a key no writer ever touches -- a clean build with a
+    # zero product, i.e. the very failure this seam closes. NOTE this differs
+    # from the `seed_bulk_species` sibling above, whose ids ARE compartment-
+    # tagged ("X[c]"); the two stores use different id conventions.
+    _exchange_seed = validate_seed_exchange_species(injected_processes)
+    if _exchange_seed:
+        _exchange = initial_state.setdefault("environment", {}).setdefault(
+            "exchange", {})
+        for _species in _exchange_seed:
+            _exchange.setdefault(_species, 0.0)
 
     configs = bundle["configs"]
     if config_overrides:

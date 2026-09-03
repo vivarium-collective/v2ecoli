@@ -401,3 +401,25 @@ def test_a_single_injected_process_is_no_longer_tied_with_the_last_baseline_step
     # at 1.0, exactly equal to the final baseline step.
     cell_state, _ = _apply(_cell_state_with_baseline(), ["the-consumer"])
     assert cell_state["the-consumer"]["priority"] < cell_state["base-last"]["priority"]
+
+
+def test_seed_exchange_species_survives_the_config_to_baseline_assembly():
+    """⛔ `_injected_from_resolved` is an ALLOWLIST, so a key it does not name is
+    dropped one layer above baseline()'s own guard — and the symptom is a clean
+    run with a zero product, never an error.
+
+    This pins the forwarding so the next refactor of that dict cannot silently
+    remove it with a green suite.
+    """
+    inj = _injected_from_resolved(
+        {"swap_processes": {"a": "b"},
+         "seed_exchange_species": ["MY-PRODUCT"]}, FORK, None)
+    assert inj["seed_exchange_species"] == ["MY-PRODUCT"]
+
+
+def test_seed_exchange_species_defaults_to_empty_rather_than_missing():
+    """Absent in the config => present-and-empty in the block, so a downstream
+    reader never has to distinguish 'not declared' from 'declared empty'."""
+    inj = _injected_from_resolved(
+        {"swap_processes": {"a": "b"}}, FORK, None)
+    assert inj["seed_exchange_species"] == []

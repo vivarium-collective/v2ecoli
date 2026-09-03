@@ -38,6 +38,7 @@ studies:
 - fit-runtime-reconciliation
 - ppgpp-off-rescue
 - dnag-generational-decay
+- dnag-promoter-availability
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -211,3 +212,12 @@ decisions_needed:
     negative in 3 of 30 sampled generations. Min-margin is not a limiting-factor test -- initiation is
     mass-triggered and the gate is a veto, so a pool is limiting only if it blocks an initiation mass
     would have fired. replisome-gate-sufficiency's original claim stands unamended.
+- question: 'Repair the rna_synth_prob deriver: ten observables are empty on every timestep ever emitted.'
+  raised_by: dnag-promoter-availability
+  status: open
+  why: 'Every field written by the rna_synth_prob_listener deriver is empty on 100% of timesteps: promoter_copy_number,
+    gene_copy_number, bound_TF_indexes/coordinates/domains, n_bound_TF_per_TU, n_bound_TF_per_cistron,
+    and the three _per_cistron probability arrays. Fields written by transcript_initiation itself are
+    populated, so the emitter is fine and the fault is specific to this deriver. This is investigation-wide:
+    silent-transcription-units already left an axis ungraded because of it, and any prior reading that
+    treated one of these as absent-because-zero needs revisiting.'

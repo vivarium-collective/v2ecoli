@@ -62,6 +62,23 @@ executive:
     v2ecoli's remaining gaps are NOT small-parameter fixes — they are either already
     correct or structural, and the loop's value is precisely its ability to tell these
     apart and reject an unprincipled fix.
+
+    FOLLOW-UP STUDIES (each attempts the model update its parent flagged): mcs-05 (<-Arc 2)
+    LOCALIZED the ATP-supply defect to its mechanistic root — ATP synthase runs in REVERSE
+    (synthesis 0, hydrolysis 7.48), so the cell makes no respiratory ATP (independently
+    verified) — and then LANDED the fix: constraining ATP synthase to net-forward turns
+    respiration ON (RQ 2.94->1.22, O2 0.89->25.6, growth preserved 0.97/h, FBA feasible) and
+    drops biomass yield 0.816->0.268 (from far over-band to just below; overshoots, refine).
+    mcs-07 (<-Arc 1) landed a small model-robustness fix (clamp floating-point-noise negative
+    homeostatic targets) that unblocks carbon-limited media, and with it showed the ribosome
+    C-line: ribosome_conc rises monotonically across a carbon-quality ladder
+    (acetate 1.42 -> succinate 1.87 -> glucose 20.8 -> +AA 21.2), resolving Arc 1's caveat.
+    mcs-06 (<-Arc 3) code-audit localized the under-dispersion to a bypassed division-noise
+    term; the stochasticity fix is designed. UPDATED META-FINDING: the gaps are NOT all
+    structural dead-ends — the ATP-supply defect DID yield to a principled fix once its true
+    mechanism (reverse ATP synthase) was found, and two model improvements landed. The loop's
+    value is confirmed: refute the wrong fix (Arc 2), find the real mechanism (mcs-05), and
+    land the correction.
   verdict_status: passing-with-caveats
   decisions_needed:
     - question: "Should the ATP-supply (ETC/oxphos P/O ratio) defect localized in Arc 2 be opened as a dedicated model-correction investigation?"

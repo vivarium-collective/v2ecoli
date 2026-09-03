@@ -3,8 +3,8 @@ name: mcs-07-ribosome-allocation-law
 investigation: multiscale-complexity-showcase
 title: "Follow-up (Arc 1) — the ribosome allocation growth law"
 created: '2026-09-03'
-status: planned
-confidence: Planned
+status: evaluated
+confidence: Accepted
 
 cites:
   - {key: Scott2010, claim: "ribosomal protein fraction increases linearly with growth rate (the R-line/C-line)"}
@@ -98,19 +98,16 @@ runs:
       ribosome-fraction-rises-with-growth:
         result: PASS
         detail: >-
-          ribosome_conc rises MONOTONICALLY with growth rate: acetate 1.45 -> succinate
-          1.90 -> glucose 20.8 -> with_aa 21.2. Reproduces the Scott-Hwa C-line direction.
+          ribosome_conc rises MONOTONICALLY with growth rate: acetate 1.42 -> succinate 1.87 -> glucose 20.8 -> with_aa 21.2. Reproduces the Scott-Hwa C-line direction.
       biotin-clamp-unblocks-conditions:
         result: PASS
         detail: "acetate/succinate previously crashed (Homeostatic target -1.5e-6 for BIOTIN[c]); the clamp fix lets them run."
 
-status: evaluated
-confidence: Accepted
 claim: >-
   A landed model fix (clamp numerical-noise negative homeostatic targets) unblocks the
   acetate/succinate conditions, and with them v2ecoli reproduces the Scott-Hwa ribosome
   growth law: ribosome concentration rises monotonically with growth rate across the
-  carbon-quality ladder (1.45 -> 1.90 -> 20.8 -> 21.2). The absolute slope is not
+  carbon-quality ladder (1.42 -> 1.87 -> 20.8 -> 21.2). The absolute slope is not
   quantified (acetate/succinate are gen-1 transient + numerically unstable), but the
   positive C-line direction is robust.
 
@@ -127,14 +124,16 @@ findings:
       leaving genuinely-negative targets to still error. This is a real, landed
       model-robustness improvement. (2) With the conditions unblocked, v2ecoli reproduces
       the Scott et al. 2010 ribosome growth law: ribosome concentration rises monotonically
-      with growth rate across the carbon ladder — acetate 1.45, succinate 1.90, glucose
-      20.8, +AA 21.2. This resolves the caveat Arc 1 flagged (that amino-acid supplementation
+      with growth rate across the carbon ladder — acetate 1.42, succinate 1.87, glucose
+      20.8, +AA 21.2 (acetate/succinate ribosome values independently re-read from the run
+      parquets). This resolves the caveat Arc 1 flagged (that amino-acid supplementation
       left ribosome_conc flat on the R-line): on the carbon-limitation C-line the ribosomal
       fraction does track growth, as biology requires.
     evidence:
       from_test: ribosome-fraction-rises-with-growth
       from_run: mcs07-carbon-quality-ladder
-      ladder: {acetate: {growth_per_h: 0.014, ribosome_conc: 1.45}, succinate: {growth_per_h: 0.042, ribosome_conc: 1.90}, glucose: {growth_per_h: 0.896, ribosome_conc: 20.78}, with_aa: {growth_per_h: 1.284, ribosome_conc: 21.17}}
+      ladder: {acetate: {growth_per_h: 0.023, ribosome_conc: 1.42}, succinate: {growth_per_h: 0.051, ribosome_conc: 1.87}, glucose: {growth_per_h: 0.896, ribosome_conc: 20.78}, with_aa: {growth_per_h: 1.284, ribosome_conc: 21.17}}
+      independently_verified: "acetate/succinate ribosome_conc re-read from the run parquets (1.42, 1.87); glucose/with_aa from Arc 1"
       fix_file: v2ecoli/processes/parca/wholecell/utils/modular_fba.py
     expected:
       summary: >-

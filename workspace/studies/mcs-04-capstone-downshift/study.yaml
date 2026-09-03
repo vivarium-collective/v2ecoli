@@ -6,6 +6,10 @@ created: '2026-09-03'
 status: planned
 confidence: Planned
 
+cites:
+  - {key: CooperHelmstetter1968, claim: "replication scales with growth across the nutrient axis"}
+  - {key: Scott2010, claim: "coordinated growth-rate dependence of gene expression and physiology"}
+
 question: >-
   In a single nutrient downshift (rich -> minimal), do all three flavors of multiscale
   complexity fire together — a ppGpp spike (signaling), central-carbon flux reallocation

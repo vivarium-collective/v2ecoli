@@ -6,6 +6,9 @@ created: '2026-09-03'
 status: planned
 confidence: Planned
 
+cites:
+  - {key: TaheriAraghi2015, claim: "interdivision-time CV ~10-30% and the adder principle in E. coli"}
+
 question: >-
   Across a seed ensemble, does v2ecoli produce lawful single-cell heterogeneity —
   an interdivision-time coefficient of variation in the ~10-30% E. coli range and

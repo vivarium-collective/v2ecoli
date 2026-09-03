@@ -7,6 +7,10 @@ status: planned
 confidence: Planned
 kind: adversarial   # falsification study: it PASSES by refuting the scoped maintenance-ATP fix
 
+cites:
+  - {key: Feist2007iAF1260, claim: "GAM 59.81 and NGAM 8.39 mmol ATP/gDW literature maintenance values"}
+  - {key: Basan2015Nature, claim: "aerobic acetate overflow / proteome-allocation energetic tradeoff"}
+
 question: >-
   The v2ecoli baseline builds ~1.5x more biomass per gram of glucose than carbon and
   energy balance permit — an ENERGETIC defect (RQ 3.43 vs ~1, O2:glucose 0.096, 94.5%

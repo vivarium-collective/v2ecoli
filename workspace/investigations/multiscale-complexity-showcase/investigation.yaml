@@ -190,6 +190,17 @@ hypotheses:
     failure_modes: ["carbon closure breaks at baseline (would indicate bookkeeping)"]
     status: excluded
 
+inputs:
+  datasets: []
+  references:
+    - CooperHelmstetter1968   # origins scale with growth (mcs-01)
+    - Donachie1968            # constant initiation mass (mcs-01)
+    - Scott2010               # ribosome allocation growth law (mcs-01, mcs-07)
+    - Feist2007iAF1260        # GAM/NGAM literature values (mcs-02)
+    - Basan2015Nature         # acetate overflow / proteome tradeoff (mcs-02)
+    - TaheriAraghi2015        # adder principle; interdivision CV band (mcs-03)
+  expert_docs: []
+
 studies:
   - mcs-01-ppgpp-replication-coupling
   - mcs-02-metabolism-energy-balance

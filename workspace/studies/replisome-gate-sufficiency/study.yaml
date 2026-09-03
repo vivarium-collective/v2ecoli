@@ -86,7 +86,8 @@ pipeline_gate:
     outputs_used:
     - The measured per-pool subunit margins at the arrest
     - The identification of == as the operator responsible for that arrest
-  enables: []
+  enables:
+  - dnag-production-deficit
   proceed_condition: The stall is characterised (present or absent, and at which generation) and the limiting resource is identified or excluded.
   gate_evaluator:
     result: passed

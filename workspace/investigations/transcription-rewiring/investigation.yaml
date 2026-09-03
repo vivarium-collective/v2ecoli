@@ -37,6 +37,7 @@ studies:
 - dnag-protein-mass-balance
 - fit-runtime-reconciliation
 - ppgpp-off-rescue
+- dnag-generational-decay
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require

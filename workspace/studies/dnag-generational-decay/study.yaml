@@ -1,0 +1,412 @@
+schema_version: 4
+name: dnag-generational-decay
+title: Why dnaG's transcription decays across generations
+investigation: transcription-rewiring
+study_type: mechanism_localisation
+phase: Design
+created: '2026-09-03'
+status: planned
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+question: 'dnaG''s transcription falls generation over generation while its ribosomal-protein class-mates
+  hold steady. ppgpp-off-rescue explained the LEVEL -- removing ppGpp regulation recovers 16.6x of the
+  deficit -- but nothing explains the TRAJECTORY. Where does the generational decay originate: in the
+  ppGpp basal vector, or downstream of it?'
+parent_studies:
+- study: ppgpp-off-rescue
+  condition: complete
+  relation: leads-to
+- study: dnag-protein-mass-balance
+  condition: tests-passed
+  relation: supports
+units_and_time:
+  tick: 1 s of simulated time; generations are variable-length and delimited by division events.
+  quantities:
+    actual_rna_synth_prob: dimensionless per-TU probability, per timestep
+    ppgpp_conc: uM (micromol/L), derived as ppGpp_count / (n_avogadro * cell_volume)
+    basal_prob: dimensionless per-TU probability
+    deficit: dimensionless fold-ratio against the idx_rprotein peer median
+behavior_tests:
+- name: decay-is-real-per-generation
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does dnaG's transcription actually fall generation over generation?
+  description: 'dnaG''s per-generation mean actual_rna_synth_prob at generation 4 is below half its generation-1
+    value.
+
+
+    Establishes the phenomenon before explaining it. The figures motivating this study (0.045 / 0.023
+    / 0.016) are CUMULATIVE windows over generations 1, 1-2 and 1-3, not per-generation values. A cumulative
+    mean can only fall that way if later generations are lower, so a decline exists, but its shape is
+    unestablished and no explanation should be fitted to an unmeasured curve.
+
+
+    Threshold provenance: theory. Half is a deliberately loose reading of a decline that the cumulative
+    windows imply is far steeper; if the decay is not even twofold across four generations there is nothing
+    to explain.
+
+
+    NOTE: the same de-convolution is NON-MONOTONIC (g3 > g2), so this axis deliberately tests the generation-4-over-generation-1
+    endpoint ratio and does NOT require a monotonic decline; a mechanism that predicts monotonicity would
+    be over-claiming against the prior data.'
+  measure:
+    kind: derived
+    detail: per-generation mean of dnaG's actual_rna_synth_prob, generation 4 divided by generation 1,
+      median over seeds.
+    path: dnaG actual_rna_synth_prob per generation, gen4/gen1
+  pass_if:
+    low: 0.04
+    high: 0.12
+    provenance:
+      kind: theory
+      note: Derived, not chosen. De-convolving ppgpp-off-rescue's ALREADY-PUBLISHED cumulative windows
+        (0.045 / 0.023 / 0.016 over generations 1, 1-2, 1-3) with that arm's recorded durations (tau 43/46/54
+        min) implies per-generation ratios of g2/g1=0.054 and g3/g1=0.099. The band brackets both implied
+        points and spans exactly 3x, the widest the discrimination check permits. Uses prior published
+        numbers only -- no per-generation value has been measured, which is what keeps this an acceptance
+        criterion rather than a pin.
+  status: pending
+- name: peers-do-not-decay
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the decay specific to dnaG rather than to its whole allocation class?
+  description: 'The 41 other idx_rprotein TUs'' median per-generation synthesis changes by less than 1.5x
+    over the same generations 1-4 window.
+
+
+    The discriminating control. If dnaG''s class-mates decay alongside it, the phenomenon is class-level
+    and every dnaG-specific hypothesis below is misdirected. Peers measured at 2.12 -> 2.23 of basal across
+    generations 1-3 in study 10, which is why this is expected to hold, but that was a cumulative window
+    and is not evidence about the per-generation shape.
+
+
+    Threshold provenance: theory. 1.5x is well inside the 2x agreement band this investigation uses throughout.'
+  measure:
+    kind: derived
+    detail: ratio of the idx_rprotein peer median per-generation synthesis at generation 4 to generation
+      1.
+    path: idx_rprotein peer median actual_rna_synth_prob per generation, gen4/gen1
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: 'Two-sided, and the change matters: the original one-sided ''< 1.5'' would have PASSED if
+        the peers collapsed to 0.01, i.e. the control could be satisfied by exactly the pathology it exists
+        to exclude. The band requires the peers to be steady in BOTH directions.'
+  status: pending
+  control: negative
+- name: ppgpp-conc-rises-across-generations
+  classification: supporting
+  gate_class: acceptance_criterion
+  question: Does the only per-generation-varying input to the ppGpp vector actually move?
+  description: 'Mean ppgpp_conc rises by at least 1.2x from generation 1 to generation 4.
+
+
+    A necessary precondition for H1. ppgpp_conc = ppGpp_count / (n_avogadro * cell_volume) with cell_volume
+    = cell_mass / cell_density, so in a stalling lineage where mass runs to 2267 fg the concentration
+    could as easily FALL as rise; whether it rises is an empirical question, not an assumption. If it
+    does not rise, H1 is dead regardless of the prediction test.
+
+
+    Threshold provenance: theory. 1.2x is the smallest rise that could plausibly drive a twofold-plus
+    decay through the Hill term f_bound = conc^2 / (km_sq + conc^2).'
+  measure:
+    kind: derived
+    detail: mean listeners__growth_limits__ppgpp_conc at generation 4 divided by generation 1.
+    path: mean ppGpp_conc listener per generation, gen4/gen1
+  pass_if:
+    op: '>='
+    value: 1.2
+    provenance:
+      kind: theory
+      note: Smallest rise that could drive the observed decay through the squared Hill term.
+  status: pending
+- name: ppgpp-predicts-the-decay
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the measured ppGpp concentration alone reproduce the observed decay?
+  description: 'Feeding each generation''s MEASURED mean ppgpp_conc through the fitted synth_prob callable
+    predicts dnaG''s generation-4-over-generation-1 decay ratio to within 1.5x of the observed ratio.
+
+
+    The decisive discriminator, and it is a held-out prediction rather than a correlation: synth_prob
+    is a fitted function this study does not touch, and its only per-generation-varying argument is ppgpp_conc,
+    because copy_number is a static scalar (''integer{1}'', the expected gene copy number at the reference
+    doubling time). So if the decay originates in the ppGpp basal vector, the measured concentration must
+    reproduce it with zero free parameters. A PASS localises the decay to ppGpp; a FAIL localises it downstream
+    of basal_prob -- in transcript_initiation''s class rescaling, the delta_prob/TF term, or promoter
+    copy number -- and refutes H1 outright rather than leaving it open.
+
+
+    Threshold provenance: theory. 1.5x is inside the standing 2x band, appropriate for a zero-parameter
+    prediction of a ratio.'
+  measure:
+    kind: derived
+    detail: predicted dnaG basal_prob ratio (gen4/gen1) from synth_prob(measured ppgpp_conc, copy_number),
+      divided by the observed actual ratio; scored as |log| distance from 1.
+    path: synth_prob(measured ppGpp_conc, copy_number) predicted dnaG ratio over observed dnaG ratio
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: 'Two-sided on predicted/observed. A one-sided bound would let a prediction that grossly UNDER-shoots
+        the decay count as agreement. Zero free parameters: synth_prob is fitted and untouched, and ppGpp_conc
+        is measured.'
+  status: pending
+- name: decay-survives-within-class-normalisation
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the decay upstream of the class rescaling, or produced by it?
+  description: 'dnaG''s within-class decay is at least two-thirds of its absolute decay.
+
+
+    Separates H1 from H4. transcript_initiation assigns the rProtein class a FIXED fraction and rescales
+    the rest, so an absolute decay could be produced entirely by the class denominator moving while dnaG''s
+    share within its own class never changes. A value near 1 means the class total was steady and the
+    decay is genuinely dnaG''s own (H1 or H5 live, H4 dead); a value near 0 means the decay is class bookkeeping
+    (H4) and no dnaG-specific mechanism is needed.
+
+
+    Threshold provenance: theory. Mirrors the 0.67-1.5 band used by the other discriminators.'
+  measure:
+    kind: derived
+    path: (dnaG within-class share gen1/gen4) divided by (dnaG absolute gen1/gen4)
+    detail: dnaG's decay after dividing by the idx_rprotein class total, expressed as a fraction of its
+      undivided decay. 1.0 means the class total was flat and the decay is entirely dnaG's own; 0.0 means
+      dnaG's within-class share never moved and the absolute decay was produced by the class denominator.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Reframed from an absolute ratio to a RATIO-OF-RATIOS so it reads on the same 0.67-1.5 scale
+        as the other discriminators and spans 3x. The absolute form ([1.5, 100]) was both unbounded in
+        practice and 3x wider than the audit permits, and it conflated 'dnaG decayed' with 'dnaG decayed
+        relative to its class' -- which is precisely the H1-vs-H4 distinction this axis exists to make.
+  status: pending
+- name: dnag-deficit-vs-rprotein-peers-at-gen1
+  classification: supporting
+  gate_class: regression_pin
+  question: Does the generation-1 baseline still measure what study 10 recorded?
+  description: 'dnaG''s generation-1 deficit against its idx_rprotein peers stays at 47.4x within a factor
+    of 2.
+
+
+    POST-HOC: measured in study 10 after the runs. A pin so that a drift in the baseline is caught before
+    it is read as a change in the decay. Not evidence that 47.4x is correct.'
+  measure:
+    kind: derived
+    detail: dnaG's generation-1 deficit against the idx_rprotein peer median, ppGpp-on arm.
+    path: dnaG deficit vs idx_rprotein peer median at generation 1
+  pass_if:
+    op: <=
+    value: 94.8
+    provenance:
+      kind: post_hoc
+      note: Measured in ppgpp-off-rescue; pin only, at 2x tolerance.
+  status: pending
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-03T21:40:00Z'
+  date: '2026-09-03'
+  thresholds:
+    decay-is-real-per-generation:
+      low: 0.04
+      high: 0.12
+      provenance:
+        kind: theory
+        note: Derived, not chosen. De-convolving ppgpp-off-rescue's ALREADY-PUBLISHED cumulative windows
+          (0.045 / 0.023 / 0.016 over generations 1, 1-2, 1-3) with that arm's recorded durations (tau
+          43/46/54 min) implies per-generation ratios of g2/g1=0.054 and g3/g1=0.099. The band brackets
+          both implied points and spans exactly 3x, the widest the discrimination check permits. Uses
+          prior published numbers only -- no per-generation value has been measured, which is what keeps
+          this an acceptance criterion rather than a pin.
+    peers-do-not-decay:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: 'Two-sided, and the change matters: the original one-sided ''< 1.5'' would have PASSED if
+          the peers collapsed to 0.01, i.e. the control could be satisfied by exactly the pathology it
+          exists to exclude. The band requires the peers to be steady in BOTH directions.'
+    ppgpp-conc-rises-across-generations:
+      op: '>='
+      value: 1.2
+      provenance:
+        kind: theory
+        note: Smallest rise that could drive the observed decay through the squared Hill term.
+    ppgpp-predicts-the-decay:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: 'Two-sided on predicted/observed. A one-sided bound would let a prediction that grossly
+          UNDER-shoots the decay count as agreement. Zero free parameters: synth_prob is fitted and untouched,
+          and ppGpp_conc is measured.'
+    decay-survives-within-class-normalisation:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Reframed from an absolute ratio to a RATIO-OF-RATIOS so it reads on the same 0.67-1.5 scale
+          as the other discriminators and spans 3x. The absolute form ([1.5, 100]) was both unbounded
+          in practice and 3x wider than the audit permits, and it conflated 'dnaG decayed' with 'dnaG
+          decayed relative to its class' -- which is precisely the H1-vs-H4 distinction this axis exists
+          to make.
+    dnag-deficit-vs-rprotein-peers-at-gen1:
+      op: <=
+      value: 94.8
+      provenance:
+        kind: post_hoc
+        note: Measured in ppgpp-off-rescue; pin only, at 2x tolerance.
+  criteria:
+  - test: decay-is-real-per-generation
+    prior: Does dnaG's transcription actually fall generation over generation?
+  - test: peers-do-not-decay
+    prior: Is the decay specific to dnaG rather than to its whole allocation class?
+  - test: ppgpp-conc-rises-across-generations
+    prior: Does the only per-generation-varying input to the ppGpp vector actually move?
+  - test: ppgpp-predicts-the-decay
+    prior: Does the measured ppGpp concentration alone reproduce the observed decay?
+  - test: decay-survives-within-class-normalisation
+    prior: Is the decay upstream of the class rescaling, or produced by it?
+assumptions:
+- assumption: Gene dosage cannot drive the decay through the ppGpp basal vector.
+  basis: 'Ruled out a priori from source, not assumed. ppgpp_initiation computes basal_prob = synth_prob(ppgpp_conc,
+    copy_number), and copy_number is declared ''integer{1}'' -- a static scalar, ''the expected gene copy
+    number at the reference doubling time'', supplied once at build time via _helpers.py:1491. It is not
+    a per-gene, per-generation array, so it carries no dosage information and cannot vary across a lineage.
+    Independently, dnaG is oriC-PROXIMAL: 70% of all TUs sit farther from oriC than its 715 kb, and its
+    rProtein peers average 548 kb, so under-replication would hurt most other genes more. Dosage may still
+    act elsewhere (e.g. promoter copy number reaching transcript_initiation directly) and decay-survives-within-class-normalisation
+    would surface that.'
+  risk: low
+- assumption: The idx_rprotein TUs are a valid comparison class for dnaG.
+  basis: 'TU00352[c] is itself in idx_rprotein, so these are its actual class-mates under transcript_initiation''s
+    fixed-fraction rescaling. They measured 1.95-2.23 of basal across BOTH arms of ppgpp-off-rescue, i.e.
+    stable under a drastic intervention. The investigation''s usual top-300 mRNA group is NOT valid here:
+    it removes fixed-allocation classes and therefore excludes dnaG itself.'
+  risk: low
+alternative_hypotheses:
+- name: H1 ppGpp feedback spiral
+  statement: ppGpp rises as the lineage stalls and mass accumulates; the squared Hill term suppresses
+    dnaG further each generation; less DnaG worsens the stall. Predicts ppgpp-predicts-the-decay PASSES.
+  discriminator: ppgpp-predicts-the-decay
+- name: H4 class-bookkeeping artefact
+  statement: dnaG's absolute synthesis falls only because the rProtein class denominator moves; its within-class
+    share is flat. Predicts decay-survives-within-class-normalisation FAILS.
+  discriminator: decay-survives-within-class-normalisation
+- name: H5 downstream of basal_prob
+  statement: The decay originates in the delta_prob/TF term or in promoter copy number, not in the ppGpp
+    vector. Predicts ppgpp-predicts-the-decay FAILS while decay-is-real-per-generation PASSES; the next
+    study would then target transcript_initiation's promoter path.
+  discriminator: ppgpp-predicts-the-decay
+- name: H6 no decay at all
+  statement: The apparent decline is an artefact of reading cumulative windows. Predicts decay-is-real-per-generation
+    FAILS, which closes the question.
+  discriminator: decay-is-real-per-generation
+falsifiability: 'Every hypothesis above is refuted by a specific named axis, and the two primary discriminators
+  are independent: ppgpp-predicts-the-decay is a zero-parameter held-out prediction from a fitted function
+  this study does not touch, and decay-survives-within-class-normalisation is a pure renormalisation of
+  the same data. H6 is checked FIRST so no mechanism is fitted to a phenomenon that does not exist.'
+implementation_requirements:
+- id: req-1
+  status: not_started
+  blocking: true
+  summary: Fix the generation-1 seed defect before any new run.
+  detail: 'run_condition_multigen_parquet.py''s no-perturbation generation-1 path calls build_composite
+    without seed=, so generation 1 always executes at baseline()''s default seed 0. Confirmed empirically:
+    replisome-gate-sufficiency''s four mechanistic seeds are bit-identical in generation 1. This study
+    reads a PER-GENERATION trajectory across seeds, so correlated generation-1 states would bias the very
+    quantity being measured. One line: pass seed=args.seed. The separate question of whether generation
+    2+ should use hash(seed, gen) rather than seed+gen_idx -- whose streams overlap across seeds -- is
+    a behaviour change affecting prior studies and is NOT in scope here.'
+- id: req-2
+  status: not_started
+  blocking: false
+  summary: Recompute the 5.40x deficit against idx_rprotein peers.
+  detail: inforce_reference's comparison group excludes fixed-allocation classes and therefore excludes
+    TU00352[c] itself. The 5.40x figure carried through studies 8-10 compares dnaG against a class it
+    does not belong to; against its actual peers the ppGpp-on deficit measures 47.4x. Not blocking for
+    this study, which uses the peer group throughout, but the older figure must not be cited beside these
+    results.
+- id: req-3
+  status: not_started
+  blocking: true
+  summary: Per-generation extraction helper in v2ecoli/library/generational_decay.py.
+  detail: 'All six axes read per-generation aggregates; every existing helper returns a single pooled
+    average across a window, which is exactly the conflation that produced the cumulative figures motivating
+    this study. One module returning {seed: {generation: {dnag, peer_median, class_total, ppgpp_conc}}},
+    reused by every axis so no axis re-derives its own aggregation.'
+simulation_set:
+- name: ppgpp-on-mechanistic
+  kind: single
+  is_baseline: true
+  status: planned
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+  note: 'The decay is a ppGpp-ON phenomenon, so this is the only arm needed. No ppGpp-off arm: ppgpp-off-rescue
+    established that it destroys growth homeostasis, so it cannot serve as a control for a generational
+    trajectory.'
+planned_runs:
+- name: phase-A-reuse
+  status: planned
+  n_steps: 0
+  details: 'NO NEW SIMULATION. Axes are first evaluated on ppgpp-off-rescue''s ppGpp-on control arm, which
+    already carries actual_rna_synth_prob and ppgpp_conc for 3 seeds x generations 1-4. Study 2''s mechanistic
+    arm CANNOT be reused: its raw history was distilled to bundles during the 76 GB reclaim and the per-TU
+    synthesis columns are gone. Phase A is fully determined by existing data and settles H6 and the two
+    discriminators.'
+- name: phase-B-confirm
+  status: planned
+  n_steps: 6
+  details: 6 seeds x 5 generations, mechanistic gate ON, AFTER req-1 lands so the seeds are genuine replicates.
+    Runs stall at generation 4-5 by construction, so each is ~30 min; ~1.5 h at 2 concurrent (one sim
+    costs ~5.5 GB RSS; a 16 GB machine fits 2). Phase B exists to replicate Phase A's verdict on properly
+    seeded runs, not to discover it.
+robustness:
+  n_replicates: 6
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  parameter_sweep: false
+  note: Phase A has only 3 correlated seeds (generation 1 identical, see req-1), sufficient to discriminate
+    the hypotheses -- the discriminators are within-lineage trajectory comparisons, not cross-seed contrasts
+    -- but NOT to state a decay rate. Phase B's 6 properly seeded replicates carry any quantitative claim.
+controls:
+- name: peers-do-not-decay
+  kind: negative
+  hypothesis: If dnaG's class-mates decay alongside it, the phenomenon is class-level and not dnaG-specific.
+  expected: idx_rprotein peer median changes by less than 1.5x over generations 1-4.
+  observed: ''
+  result: PENDING
+- name: decay-is-real-per-generation
+  kind: positive
+  hypothesis: The decay must be shown to exist per-generation before any mechanism is fitted to it.
+  expected: generation-4 dnaG synthesis below half of generation 1.
+  observed: ''
+  result: PENDING
+limitations:
+- Phase A's 3 seeds are correlated by the generation-1 seed defect; no quantitative decay rate may be
+  quoted from Phase A alone.
+- The lineage stalls at generation 4-5, so the trajectory is only ever 4-5 points long and cannot distinguish
+  an exponential decay from a saturating one.
+- ppgpp_conc is read from a listener as a per-generation mean; if the decay is driven by transient excursions
+  rather than the mean, the prediction axis could fail for a reason unrelated to H1's truth.
+- Phase A measures a stalling lineage. Every quantity is read from cells that are already failing, so
+  a mechanism found here is a mechanism of the failure and may not describe healthy growth.
+claim: ''
+conclusion: ''
+confidence: Planned

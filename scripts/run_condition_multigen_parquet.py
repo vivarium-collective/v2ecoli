@@ -115,6 +115,39 @@ def parse_config_override(spec: str) -> tuple[str, object]:
     return key, value
 
 
+def parse_generator_param(spec: str) -> tuple[str, object]:
+    """Parse a ``KEY=VALUE`` generator parameter into ``(key, value)``.
+
+    Distinct from ``--config-override``: that targets ONE process's config via
+    a dotted ``PROCESS.KEY``, whereas these are top-level keyword arguments of
+    the composite generator itself (``ecoli_baseline.baseline``) -- the build
+    switches that decide which biology is assembled at all, e.g.
+    ``ppgpp_regulation=false``. A dotted key is therefore rejected as a
+    probable ``--config-override`` typed into the wrong flag.
+
+    VALUE is parsed as JSON so booleans/numbers/null arrive typed
+    (``ppgpp_regulation=false`` -> ``False``, not the truthy string
+    ``"false"``); anything JSON cannot parse is kept as a literal string.
+    """
+    if "=" not in spec:
+        raise ValueError(
+            f"--generator-param {spec!r} must be KEY=VALUE "
+            "(e.g. 'ppgpp_regulation=false')")
+    key, _, raw = spec.partition("=")
+    key = key.strip()
+    if not key:
+        raise ValueError(f"--generator-param {spec!r}: empty KEY")
+    if "." in key:
+        raise ValueError(
+            f"--generator-param {spec!r}: KEY must be a bare generator kwarg, "
+            f"got dotted {key!r} -- did you mean --config-override?")
+    try:
+        value = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        value = raw
+    return key, value
+
+
 def parse_perturbation(spec: str) -> tuple[str, float]:
     """Parse a ``KEY=VALUE`` perturbation spec into ``(rna_id, synth_prob)``.
 
@@ -206,7 +239,8 @@ def read_synth_probs(cache: dict, rna_ids: list[str]) -> dict[str, float | None]
 
 
 def build_run_config(args, *, perturbations: dict[str, float],
-                     applied_record: dict, cache: dict) -> dict:
+                     applied_record: dict, cache: dict,
+                     generator_params: dict | None = None) -> dict:
     """Assemble the decision-relevant run-config provenance dict.
 
     Captures the knobs that determine what the run actually computed:
@@ -231,6 +265,11 @@ def build_run_config(args, *, perturbations: dict[str, float],
         "perturbations": dict(perturbations),
         "perturbations_detail": applied_record,
         "cache_dir": args.cache_dir,
+        # Generator build switches (e.g. ppgpp_regulation=False). Recorded
+        # because they change WHICH biology was assembled, not merely a
+        # parameter value -- two runs sharing a cache fingerprint are still
+        # different models if these differ.
+        "generator_params": dict(generator_params or {}),
         "cache_fingerprint": cache_fp.get("fingerprint"),
         "cache_fingerprint_detail": cache_fp,
         "seed": args.seed,
@@ -365,6 +404,15 @@ def main() -> None:
                          "'ecoli-chromosome-replication.mechanistic_replisome=true'. "
                          "Repeatable. Applied to EVERY generation. Values are "
                          "parsed as JSON, falling back to the literal string.")
+    ap.add_argument("--generator-param", action="append", default=[],
+                    metavar="KEY=VALUE",
+                    help="Top-level composite-generator keyword argument, e.g. "
+                         "'ppgpp_regulation=false' to build the lineage WITHOUT "
+                         "ppGpp-dependent transcription regulation. Unlike "
+                         "--config-override (which targets one process's "
+                         "config), these select which biology is assembled. "
+                         "Repeatable; applied to EVERY generation. Values are "
+                         "parsed as JSON, falling back to the literal string.")
     ap.add_argument("--study-dir", default=None,
                     help="Study dir whose runs.db records this run's config "
                          "provenance (run_id = experiment_id). If omitted, "
@@ -391,6 +439,17 @@ def main() -> None:
     _cfg_over_kwarg = {"config_overrides": config_overrides} if config_overrides else {}
     if config_overrides:
         print(f"  config overrides: {config_overrides}")
+
+    # Generator build switches, merged into the SAME kwargs dict so all three
+    # composite-construction sites (gen-1 perturbed, gen-1 plain, gen-2+
+    # daughter) receive them identically -- ppgpp_regulation et al. are in
+    # ecoli_baseline's per-cell threaded kwarg set, so the switch holds across
+    # division rather than silently reverting after generation 1.
+    generator_params = dict(
+        parse_generator_param(s) for s in args.generator_param)
+    _cfg_over_kwarg.update(generator_params)
+    if generator_params:
+        print(f"  generator params: {generator_params}")
 
     max_duration = int(args.max_min * 60)
     dill_dir = args.dill_dir or f"out/{args.experiment_id}/gen_dills"
@@ -431,7 +490,8 @@ def main() -> None:
     # Assemble + register the run-config provenance (run_id = experiment_id).
     run_config = build_run_config(
         args, perturbations=perturbations,
-        applied_record=applied_record, cache=cache)
+        applied_record=applied_record, cache=cache,
+        generator_params=generator_params)
     registered_db = register_run_config(
         args, run_config, status="dry-run" if args.dry_run else "running")
     run_config["registered_runs_db"] = registered_db

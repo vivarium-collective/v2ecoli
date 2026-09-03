@@ -2,7 +2,7 @@ schema_version: 4
 name: ppgpp-off-rescue
 title: ppGpp-off rescue
 created: '2026-09-03'
-status: planned
+status: running
 phase: Design
 study_type: confirmatory
 investigation: transcription-rewiring
@@ -406,7 +406,8 @@ planned_runs:
   n_steps: 144000
   details: >-
     3 seeds x 12 generations, mechanistic gate ON, ppgpp_regulation=False.
-    ~2.5 h at 3 concurrent.
+    ~3 h at 2 concurrent (one sim costs ~5.5 GB RSS; 16 GB machine
+    fits 2).
 - name: ppgpp-on-control
   status: planned
   n_steps: 144000
@@ -419,6 +420,9 @@ simulation_set:
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   status: planned
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
   perturbation:
     generator_params:
       ppgpp_regulation: false
@@ -543,8 +547,9 @@ canonical_runs:
 visualizations: []
 
 design_status: complete
-implementation_status: not_started
-simulation_status: not_run
+implementation_status: complete
+simulation_status: running
+sweep_started_at: '2026-09-03T20:11:18Z'
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested

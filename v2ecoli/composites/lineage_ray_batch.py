@@ -101,7 +101,19 @@ from v2ecoli.workflow.batch_lineage_ray import (
                 "XArrayEmitter view override (e.g. {'view': [...dotted paths...]}). Without it "
                 "every lineage falls back to LineageProcess.DEFAULT_XARRAY_VIEW (mass only) -- "
                 "a document that needs a specific KPI column (e.g. a product exchange flux) "
-                "cannot get it without this."
+                "cannot get it without this. Add 'required_leaves': [<dotted leaf paths>] to "
+                "make a declared-but-absent KPI leaf raise instead of silently emitting."
+            ),
+        },
+        "variant_grid": {
+            "type": "array",
+            "default": None,
+            "description": (
+                "One entry per variant to sweep, each a dict of LineageProcess config keys "
+                "(any of variant_index, variant_name, config_overrides). Crossed with every seed "
+                "-> real (variant, seed) ray:LineageProcess nodes. Empty/None = one implicit "
+                "variant (the seeds-only shape). The genuine multi-variant sweep the older "
+                "single-shared 'variants' override could not express."
             ),
         },
         "seed_overrides": {
@@ -165,6 +177,7 @@ def lineage_ray_batch(
     seed_overrides: dict | None = None,
     exchange_fluxes: dict | None = None,
     exchange_flux_basis: str | None = None,
+    variant_grid: list[dict] | None = None,
 ) -> dict:
     """Build the lineage_ray_batch composite document.
 
@@ -205,5 +218,6 @@ def lineage_ray_batch(
         seed_overrides=seed_overrides,
         exchange_fluxes=exchange_fluxes,
         exchange_flux_basis=exchange_flux_basis,
+        variant_grid=variant_grid,
     )
     return doc

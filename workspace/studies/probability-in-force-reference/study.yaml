@@ -357,7 +357,7 @@ implementation_requirements:
 - id: req-2
   kind: data
   title: Emit ppgpp_state in a short run
-  status: planned
+  status: blocked
   effort: S
   description: |
     Add ppgpp_state to the emitted stores and run 1 seed x 2 generations. That yields
@@ -367,6 +367,7 @@ implementation_requirements:
   - in-force-reference-differs-from-basal
   - deficit-survives-correct-reference
   - suppression-is-not-explained-by-configured-regulators
+  outcome: Emitting requires editing a cache-hashed source file, which invalidates the cache and breaks comparability with six prior studies. Reconstruction needs the composite's schema deserializer, unavailable standalone.
 robustness:
   n_replicates: 3
   seeds: [0, 1, 2]
@@ -464,7 +465,7 @@ canonical_runs:
 visualizations: []
 
 design_status: complete
-implementation_status: in_progress
+implementation_status: blocked
 simulation_status: not_run
 evaluation_status: not_evaluated
 gate_status: pending
@@ -499,3 +500,39 @@ capability_check: |
 
   Route (a) is preferred: it reads what the model actually used rather than
   recomputing it, so it cannot silently diverge from the real value.
+blocker: |
+  req-2 BLOCKED 2026-09-03. Both routes to the in-force vector are obstructed, and
+  the obstruction is structural rather than a matter of effort.
+
+  ROUTE (a) emit ppgpp_state. The ParquetEmitter's emit schema is hardcoded in
+  v2ecoli/composites/_helpers.py:506-517. Adding ppgpp_state there works, but that
+  file is in the cache's hashed input set, so the edit immediately invalidated the
+  cache:
+      StaleCacheError: inputs_hash mismatch; files differ: ['_helpers.py']
+  Rebuilding would change the cache fingerprint away from ea05ac9b23b1d843, which
+  every one of the six prior studies ran against. That breaks comparability across
+  the whole investigation for the sake of one observation. The edit was REVERTED and
+  the cache verified loadable again.
+
+  ROUTE (b) reconstruct via PpgppInitiation. The step instantiates from the
+  ecoli-transcript-initiation config, but its initialize() only assigns
+  self.synth_prob = parameters['synth_prob']; the {_function, _data} wrapper is
+  resolved to a callable by the SCHEMA deserializer when the composite builds the
+  step, not by initialize(). Instantiating the step directly bypasses that, so
+  synth_prob stays a dict. core.deserialize does not exist; core.call_method did not
+  resolve it either.
+
+  REMAINING VIABLE ROUTE, untried: build the composite through the same path the
+  runner uses, then read the resolved synth_prob off the constructed PpgppInitiation
+  instance. That needs no source change and no cache rebuild, but it is more than a
+  few lines of scripting and was not attempted.
+
+  Until one of these lands, three of four axes are UNGRADABLE. They are left ungraded
+  rather than substituted with a basal_prob proxy -- the proxy IS the error this study
+  exists to correct.
+
+  What is NOT blocked, and stands on source inspection alone: ppgpp_regulation is in
+  DEFAULT_FEATURES and defaults True, PpgppInitiation is wired into ecoli_baseline,
+  and transcript_initiation.py:547-556 replaces basal_prob when ppgpp_state is
+  non-empty. So the cache's basal_prob was not the reference in force in any prior
+  run, independent of whether the replacement vector can be read.

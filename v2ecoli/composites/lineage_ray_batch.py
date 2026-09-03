@@ -67,6 +67,33 @@ from v2ecoli.workflow.batch_lineage_ray import (
         },
         "time_step": {"type": "number", "default": 1.0, "description": "Integration timestep (seconds)."},
         "media": {"type": "string", "default": "minimal", "description": "Media condition."},
+        "variants": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Strain/variant overrides, quote-typed and threaded verbatim into "
+                "build_lineage_ray_batch_document -> each LineageProcess's own config -- "
+                "already-correct plumbing (item109/#653), only unexposed at this thin wrapper "
+                "until now."
+            ),
+        },
+        "injected_processes": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Process swap/add/exclude block, same shape "
+                "viva_api.simulation.simulation_service_ray.injected_processes_from_config "
+                "already builds for chain-dispatch's own ecoli_baseline path -- "
+                "{'swap_processes':..., 'add_processes':..., 'exclude_processes':..., "
+                "'fork_repo':''}. Threaded verbatim; LineageProcess._build_generation already "
+                "consumes it per-generation."
+            ),
+        },
+        "config_overrides": {
+            "type": "object",
+            "default": None,
+            "description": "Raw per-generation config overrides, threaded verbatim.",
+        },
     },
     visualizations=[],
     core_extensions=[register_ray_lineage],
@@ -85,6 +112,9 @@ def lineage_ray_batch(
     max_duration_per_gen: float = 3600.0,
     time_step: float = 1.0,
     media: str = "minimal",
+    variants: dict | None = None,
+    injected_processes: dict | None = None,
+    config_overrides: dict | None = None,
 ) -> dict:
     """Build the lineage_ray_batch composite document.
 
@@ -118,5 +148,8 @@ def lineage_ray_batch(
         max_duration_per_gen=max_duration_per_gen,
         time_step=time_step,
         media=media,
+        variants=variants,
+        injected_processes=injected_processes,
+        config_overrides=config_overrides,
     )
     return doc

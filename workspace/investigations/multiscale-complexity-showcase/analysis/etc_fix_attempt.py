@@ -27,7 +27,7 @@ def get_met(state):
     return None
 
 
-def run(cache_dir, minutes, burn_in, step_s=10.0, apply_fix=True):
+def run(cache_dir, minutes, burn_in, step_s=10.0, apply_fix=True, reverse_max=0.0):
     from v2ecoli.composites._helpers import set_null_emitter_override
     set_null_emitter_override(True)
     from v2ecoli import build_composite
@@ -42,10 +42,12 @@ def run(cache_dir, minutes, burn_in, step_s=10.0, apply_fix=True):
     if apply_fix and REV_RXN in list(met.fba_reaction_ids):
         orig_solve = fba.solve
         def patched_solve(*a, **k):
+            # Cap the reverse (ATPase / hydrolysis) direction of ATP synthase to a small
+            # physiological maximum instead of letting it dissipate the ATP surplus freely.
             try:
-                fba.setReactionFluxBounds([REV_RXN], lowerBounds=[0.0], upperBounds=[0.0])
+                fba.setReactionFluxBounds([REV_RXN], lowerBounds=[0.0], upperBounds=[reverse_max])
             except Exception:
-                fba.setReactionFluxBounds(REV_RXN, lowerBounds=0.0, upperBounds=0.0)
+                fba.setReactionFluxBounds(REV_RXN, lowerBounds=0.0, upperBounds=reverse_max)
             return orig_solve(*a, **k)
         fba.solve = patched_solve
         applied = True
@@ -87,6 +89,7 @@ def run(cache_dir, minutes, burn_in, step_s=10.0, apply_fix=True):
     q_glc, q_o2, q_co2 = mean("q_glucose"), mean("q_o2"), mean("q_co2")
     return {
         "cache_dir": cache_dir, "fix_applied": applied, "fix_reaction": REV_RXN,
+        "reverse_max": reverse_max,
         "infeasible_ticks": infeasible_ticks, "n_post": len(post),
         "exchange_mmol_gDW_h": {"glucose": q_glc, "o2": q_o2, "co2": q_co2},
         "RQ": (q_co2/q_o2) if (q_o2 and q_o2 > 1e-9) else None,
@@ -103,9 +106,11 @@ if __name__ == "__main__":
     ap.add_argument("--minutes", type=float, default=25.0)
     ap.add_argument("--burn-in", type=float, default=8.0)
     ap.add_argument("--no-fix", action="store_true")
+    ap.add_argument("--reverse-max", type=float, default=0.0,
+                    help="upper bound on the reverse (ATPase) ATP-synthase flux")
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
-    res = run(a.cache_dir, a.minutes, a.burn_in, apply_fix=not a.no_fix)
+    res = run(a.cache_dir, a.minutes, a.burn_in, apply_fix=not a.no_fix, reverse_max=a.reverse_max)
     print(json.dumps(res, indent=2))
     if a.out:
         json.dump(res, open(os.path.join(HERE, a.out), "w"), indent=2)

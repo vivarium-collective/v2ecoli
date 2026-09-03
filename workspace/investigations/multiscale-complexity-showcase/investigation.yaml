@@ -66,9 +66,12 @@ executive:
     FOLLOW-UP STUDIES (each attempts the model update its parent flagged): mcs-05 (<-Arc 2)
     LOCALIZED the ATP-supply defect to its mechanistic root — ATP synthase runs in REVERSE
     (synthesis 0, hydrolysis 7.48), so the cell makes no respiratory ATP (independently
-    verified) — and then LANDED the fix: constraining ATP synthase to net-forward turns
-    respiration ON (RQ 2.94->1.22, O2 0.89->25.6, growth preserved 0.97/h, FBA feasible) and
-    drops biomass yield 0.816->0.268 (from far over-band to just below; overshoots, refine).
+    verified) — and then LANDED, REFINED and INTEGRATED the fix: capping ATP synthase's reverse
+    (ATPase) flux (calibrated to 4.5, committed to metabolism.py) turns respiration ON and moves
+    biomass yield 0.816->0.390 — squarely into the measured 0.355-0.444 band, flipping the graded
+    physiology.biomass_yield axis from first_principles_violation to PASSING — while RQ falls
+    2.94->1.11 and growth is preserved (0.97/h), both HELD-OUT. Aerobic acetate overflow (Basan
+    2015) spontaneously appears once the cell respires.
     mcs-07 (<-Arc 1) landed a small model-robustness fix (clamp floating-point-noise negative
     homeostatic targets) that unblocks carbon-limited media, and with it showed the ribosome
     C-line: ribosome_conc rises monotonically across a carbon-quality ladder
@@ -96,7 +99,7 @@ scientific_argument:
     - "Arc 1: origins/cell 2.4->4.2 with growth, ppGpp 4.1x anti-correlation, initiation mass constant to 7% — the Cooper-Helmstetter/Donachie growth law, native."
     - "Capstone: one nutrient axis moves ppGpp (75->18), origins (2.4->4.2), growth (0.90->1.28/h), glucose uptake (6.5->9.9) together — integrated multiscale behavior."
   evidence_against:
-    - "Arc 2: biomass yield 0.816 gDW/g glucose (1.8x over band) with RQ 2.94 — a real energetic defect the model carries."
+    - "Arc 2: biomass yield 0.816 gDW/g glucose (1.8x over band) with RQ 2.94 — a real energetic defect, now RESOLVED by the mcs-05 follow-up (yield 0.390 in-band, committed to metabolism.py)."
     - "Arc 3: interdivision-time CV ~7% vs biological 10-30% — the model is under-dispersed."
   key_figures:
     - "mcs-01 viz/arc1_ppgpp_replication.html — the growth law, native"

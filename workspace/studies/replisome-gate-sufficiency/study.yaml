@@ -2,65 +2,82 @@ schema_version: 4
 name: replisome-gate-sufficiency
 title: Replisome gate sufficiency
 created: '2026-09-02'
-status: running
-phase: Simulate
+status: complete
+phase: Decide
 study_type: confirmatory
 investigation: transcription-rewiring
+question: With the initiation gate corrected from equality to sufficiency, does the mechanistic lineage still stall, does it stall at a consistent generation across seeds, and is a replisome subunit genuinely the limiting resource?
+biological_summary: 'Study mechanistic-replisome-arrest established that v2ecoli''s replication
 
-question: >-
-  With the initiation gate corrected from equality to sufficiency, does the
-  mechanistic lineage still stall, does it stall at a consistent generation
-  across seeds, and is a replisome subunit genuinely the limiting resource?
-
-biological_summary: |
-  Study mechanistic-replisome-arrest established that v2ecoli's replication
   initiation gate blocked initiation for the wrong reason. The gate required
+
   each replisome pool to hold EXACTLY its stoichiometric requirement
+
   (== 6 * n_oriC for trimers, == 2 * n_oriC for monomers), so a surplus was
+
   rejected exactly as a shortage would be. With 235 pol III cores present,
+
   235 == 6 is false and initiation could essentially never fire. The arrest
+
   that study recorded was therefore an artefact of a comparison operator and
+
   said nothing about subunit availability.
 
+
   This study asks the original question again, now that it can be asked. The
+
   operator is corrected to >=, so the gate finally tests what it was meant to
+
   test: whether the cell holds ENOUGH subunits to build two replisomes per
-  origin. If the model's replisome subunit supply is genuinely insufficient at
+
+  origin. If the model''s replisome subunit supply is genuinely insufficient at
+
   physiological origin counts, the lineage should still stall, but for a real
+
   reason and at a generation set by when the cell runs short rather than by
+
   the first generation that must initiate from scratch.
 
+
   There is a specific reason to expect DnaG to be the pool that binds. In the
+
   permissive arm of the previous study the origin count is never 1: it sits at
+
   2 or 4 (mean 2.35), because cells initiate the next round before dividing.
-  The gate's demand scales with that count, so a monomer pool must hold up to
+
+  The gate''s demand scales with that count, so a monomer pool must hold up to
+
   8 copies. DnaG ranges 0 to 11 copies over that trajectory and is the only
+
   pool that spends substantial time below its own demand. HolA is the next
+
   closest and is almost exactly marginal. Every other pool has an order of
+
   magnitude of headroom.
 
+
   DnaG is also where this investigation started. Its abundance in the model is
+
   far below the multi-dataset proteomics consensus, and its only transcript,
+
   TU00352, is polycistronic with rpsU and rpoD, so the model cannot regulate
+
   DnaG independently of a ribosomal protein and sigma-70. That coupling is the
+
   transcription-unit architecture problem this investigation exists to address.
+
   Establishing that DnaG is the resource that limits replication initiation is
+
   what would make that architectural problem consequential rather than merely
+
   untidy.
 
-# ─── Framing ──────────────────────────────────────────────────────────
+  '
 assumptions:
-- text: >-
-    Requiring at least the stoichiometric subunit count (>=) rather than
-    exactly that count (==) is the intended reading of the initiation gate.
-    The upstream wcEcoli comment says "there are enough replisome subunits to
-    assemble two replisomes per existing OriC", which describes sufficiency.
+- text: Requiring at least the stoichiometric subunit count (>=) rather than exactly that count (==) is the intended reading of the initiation gate. The upstream wcEcoli comment says "there are enough replisome subunits to assemble two replisomes per existing OriC", which describes sufficiency.
   verified_in_v2ecoli: true
-- text: >-
-    Generation duration is capped at 200 simulated minutes. A generation that
-    runs the full cap without dividing is treated as a stall.
+- text: Generation duration is capped at 200 simulated minutes. A generation that runs the full cap without dividing is treated as a stall.
   verified_in_v2ecoli: true
-
 pipeline_gate:
   prerequisites:
   - study: mechanistic-replisome-arrest
@@ -70,10 +87,12 @@ pipeline_gate:
     - The measured per-pool subunit margins at the arrest
     - The identification of == as the operator responsible for that arrest
   enables: []
-  proceed_condition: >-
-    The stall is characterised (present or absent, and at which generation) and
-    the limiting resource is identified or excluded.
-
+  proceed_condition: The stall is characterised (present or absent, and at which generation) and the limiting resource is identified or excluded.
+  gate_evaluator:
+    result: passed
+    blocked_by: []
+    evaluated_by: code
+    diverges_from_authored: false
 model_change:
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   modified_processes:
@@ -81,18 +100,9 @@ model_change:
   representational_claims:
   - store: replisome subunit availability
     role: boundary-crossing
-    rationale: >-
-      The gate reads bulk subunit counts and compares them to a demand set by
-      the origin count. Corrected to >= so the comparison expresses
-      sufficiency, which is what an assembly constraint means.
+    rationale: The gate reads bulk subunit counts and compares them to a demand set by the origin count. Corrected to >= so the comparison expresses sufficiency, which is what an assembly constraint means.
     alternatives_excluded:
-    - >-
-      A config flag carrying both operators, which would have let one cache
-      serve an ==/>= contrast. Rejected in favour of an unconditional patch;
-      the contrast is made against the recorded == result of the previous
-      study instead.
-
-# ─── Conditions ───────────────────────────────────────────────────────
+    - A config flag carrying both operators, which would have let one cache serve an ==/>= contrast. Rejected in favour of an unconditional patch; the contrast is made against the recorded == result of the previous study instead.
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -101,17 +111,10 @@ conditions:
         ecoli-chromosome-replication.mechanistic_replisome: true
   variants:
   - name: permissive
-    diff_from_baseline: >-
-      mechanistic_replisome=false. Positive control: initiation is
-      unconditional, so the lineage should complete regardless of subunit
-      supply.
+    diff_from_baseline: 'mechanistic_replisome=false. Positive control: initiation is unconditional, so the lineage should complete regardless of subunit supply.'
   - name: dnag-ablation
-    diff_from_baseline: >-
-      mechanistic_replisome=true, with EG10239-MONOMER[c] removed from
-      replisome_monomers_subunits so the gate no longer requires DnaG.
-      Discriminating control for the limiting-resource claim.
+    diff_from_baseline: mechanistic_replisome=true, with EG10239-MONOMER[c] removed from replisome_monomers_subunits so the gate no longer requires DnaG. Discriminating control for the limiting-resource claim.
   model_settings: []
-
 baseline:
 - name: baseline
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -133,37 +136,44 @@ variants:
       - CPLX0-3621[c]
       - EG11500-MONOMER[c]
       - EG11412-MONOMER[c]
-
 units_and_time:
-  tick: >-
-    1 tick = 1 s of simulated time (composite time_step=1; the runner sets
-    max_duration = max_min * 60)
+  tick: 1 tick = 1 s of simulated time (composite time_step=1; the runner sets max_duration = max_min * 60)
   quantities:
     generation duration: minutes of simulated time (summary duration_min)
     dry mass: femtograms (fg)
     subunit counts: molecule copies per cell (integer bulk counts)
     subunit margin: copies (observed count minus the gate's demand)
-
-# ─── Validation ───────────────────────────────────────────────────────
 behavior_tests:
 - name: lineage-stalls-under-sufficiency-gate
   classification: primary
   gate_class: acceptance_criterion
   question: Does the mechanistic lineage still stall once the gate tests sufficiency?
-  description: |
-    Every mechanistic seed stops short of 12 generations. Measured as the
+  description: 'Every mechanistic seed stops short of 12 generations. Measured as the
+
     MAXIMUM divided-generation count across the 8 seeds, so a single seed
+
     surviving to 12 fails the test.
 
+
     Threshold provenance: committed before the 8-seed sweep, which has not
+
     been run. It is NOT naive, and the exact extent of what was known at
+
     registration matters. A 3-generation smoke run at seed 0 was IN PROGRESS
+
     when these criteria were registered; at that moment generation 2 was
+
     already known to have divided under >=, so the generation-2 stall of the
-    previous study was known to be gone. Generation 3's outcome was NOT known
+
+    previous study was known to be gone. Generation 3''s outcome was NOT known
+
     at registration. The test can still fail outright: if subunit supply is
+
     adequate at physiological origin counts, every seed reaches 12 and there
+
     is no stall to explain.
+
+    '
   measure:
     kind: derived
     detail: Maximum divided-generation count across the 8 mechanistic seeds.
@@ -172,29 +182,18 @@ behavior_tests:
     value: 12
     provenance:
       kind: theory
-      note: >-
-        12 is the study's chosen run length, not a measured quantity. Long
-        enough that a stall cannot be mistaken for a slow start.
+      note: 12 is the study's chosen run length, not a measured quantity. Long enough that a stall cannot be mistaken for a slow start.
   requires_simulation: mechanistic
   status: pending
-
 - name: stall-generation-is-seed-consistent
   classification: primary
   gate_class: acceptance_criterion
   question: Is the stall a model property rather than a seed-specific accident?
-  description: >-
-    The spread of the stall generation across the 8 mechanistic seeds
-    (maximum minus minimum) is at most 3 generations.
+  description: 'The spread of the stall generation across the 8 mechanistic seeds (maximum minus minimum) is at most 3 generations.
 
-    Threshold provenance: theory, committed before the sweep. 3 generations is
-    an authored bound on what counts as "consistent", not a measured or cited
-    value; a reviewer should weigh it as a judgement. It can fail: if the
-    model stalls at generation 3 in one seed and generation 11 in another, the
-    stall is seed-dependent and the seed-independence claim collapses.
+    Threshold provenance: theory, committed before the sweep. 3 generations is an authored bound on what counts as "consistent", not a measured or cited value; a reviewer should weigh it as a judgement. It can fail: if the model stalls at generation 3 in one seed and generation 11 in another, the stall is seed-dependent and the seed-independence claim collapses.
 
-    Scope: 8 seeds supports a robustness claim, not powered inference. The
-    rigor checklist asks n>=20 for a causal stochastic claim, and this study
-    does not meet that bar by design.
+    Scope: 8 seeds supports a robustness claim, not powered inference. The rigor checklist asks n>=20 for a causal stochastic claim, and this study does not meet that bar by design.'
   measure:
     kind: derived
     detail: max(stall_generation) - min(stall_generation) across the 8 mechanistic seeds.
@@ -206,31 +205,18 @@ behavior_tests:
       note: Authored bound on "consistent"; not measured, not cited.
   requires_simulation: mechanistic
   status: pending
-
 - name: some-pool-is-short-at-the-stall
   classification: primary
   gate_class: acceptance_criterion
   question: Is a replisome subunit genuinely limiting, or is the stall mass-gated?
-  description: >-
-    At the stalling generation at least one replisome pool has a NEGATIVE
-    margin (observed count below the gate's demand of 6x or 2x the origin
-    count). This is the test the == operator made impossible to run: under
-    equality every pool failed the comparison regardless of supply, so
-    "short" could not be distinguished from "in surplus".
+  description: 'At the stalling generation at least one replisome pool has a NEGATIVE margin (observed count below the gate''s demand of 6x or 2x the origin count). This is the test the == operator made impossible to run: under equality every pool failed the comparison regardless of supply, so "short" could not be distinguished from "in surplus".
 
-    Threshold provenance: 0 is not a tunable threshold; it is the definition
-    of a shortfall, fixed by the gate's own arithmetic. Committed before the
-    sweep and pre-observed nowhere.
+    Threshold provenance: 0 is not a tunable threshold; it is the definition of a shortfall, fixed by the gate''s own arithmetic. Committed before the sweep and pre-observed nowhere.
 
-    This test can fail in an informative way. If every margin is positive at
-    the stall, the stall is gated by criticalMassPerOriC rather than by
-    subunit supply, and the limiting-resource question moves to cell mass.
+    This test can fail in an informative way. If every margin is positive at the stall, the stall is gated by criticalMassPerOriC rather than by subunit supply, and the limiting-resource question moves to cell mass.'
   measure:
     kind: derived
-    detail: >-
-      Worst (minimum) margin across the six replisome pools at the stalling
-      generation, plus criticalMassPerOriC, so a mass-gated stall is
-      distinguishable from a subunit-gated one.
+    detail: Worst (minimum) margin across the six replisome pools at the stalling generation, plus criticalMassPerOriC, so a mass-gated stall is distinguishable from a subunit-gated one.
   pass_if:
     op: <
     value: 0
@@ -239,50 +225,33 @@ behavior_tests:
       note: Definitional, not tuned. A negative margin IS a shortfall.
   requires_simulation: mechanistic
   status: pending
-
 - name: dnag-is-the-limiting-pool
   classification: primary
   gate_class: acceptance_criterion
   question: Which pool binds first?
-  description: >-
-    The pool with the worst margin at the stall is DnaG (EG10239-MONOMER[c]).
+  description: 'The pool with the worst margin at the stall is DnaG (EG10239-MONOMER[c]).
 
-    Threshold provenance: INFORMED PRIOR, and a reviewer should weigh it as
-    such. It is derived from the previous study's PERMISSIVE arm, where origin
-    count is 2 or 4 and applying a >= gate to that trajectory gives DnaG a
-    worst margin of -8, HolA exactly 0, and beta clamp +36. A mechanistic arm
-    under >= will NOT reproduce that trajectory, because blocked initiations
-    change both the origin count and growth, so this is an extrapolation
-    rather than a measurement of the arm being tested.
+    Threshold provenance: INFORMED PRIOR, and a reviewer should weigh it as such. It is derived from the previous study''s PERMISSIVE arm, where origin count is 2 or 4 and applying a >= gate to that trajectory gives DnaG a worst margin of -8, HolA exactly 0, and beta clamp +36. A mechanistic arm under >= will NOT reproduce that trajectory, because blocked initiations change both the origin count and growth, so this is an extrapolation rather than a measurement of the arm being tested.
 
-    Five ways to be wrong (pol III core, beta clamp, DnaB, HolA, HolB), and
-    HolA is close enough to marginal that it is a live alternative.
+    Five ways to be wrong (pol III core, beta clamp, DnaB, HolA, HolB), and HolA is close enough to marginal that it is a live alternative.'
   measure:
     kind: derived
     detail: Identity of the pool holding the worst margin at the stalling generation.
   pass_if:
-    op: '=='
+    op: ==
     value: true
     provenance:
       kind: exploratory
-      note: >-
-        Extrapolated from the permissive arm of mechanistic-replisome-arrest,
-        not from the arm under test.
+      note: Extrapolated from the permissive arm of mechanistic-replisome-arrest, not from the arm under test.
   requires_simulation: mechanistic
   status: pending
-
 - name: permissive-completes-all-seeds
   classification: control
   gate_class: acceptance_criterion
   question: Does the stall depend on the gate at all?
-  description: >-
-    Every permissive seed reaches 12 generations, isolating subunit gating as
-    the cause of any stall in the mechanistic arm. A failure here refutes the
-    causal chain at its first link, because the lineage would then be dying
-    for a reason unrelated to the gate.
+  description: 'Every permissive seed reaches 12 generations, isolating subunit gating as the cause of any stall in the mechanistic arm. A failure here refutes the causal chain at its first link, because the lineage would then be dying for a reason unrelated to the gate.
 
-    Threshold provenance: committed before the sweep. Held at seed 0 in the
-    previous study; this extends it to 3 seeds.
+    Threshold provenance: committed before the sweep. Held at seed 0 in the previous study; this extends it to 3 seeds.'
   measure:
     kind: derived
     detail: Minimum divided-generation count across the 3 permissive seeds.
@@ -294,78 +263,55 @@ behavior_tests:
       note: The run length; a control that completes the run is the control passing.
   requires_simulation: permissive
   status: pending
-
 - name: dropping-dnag-relieves-the-stall
   classification: primary
   gate_class: acceptance_criterion
   question: Is DnaG the binding constraint, or a bystander that merely looks scarce?
-  description: >-
-    Removing DnaG from the gate's requirement list lets the lineage survive
-    strictly longer than the mechanistic arm at the same seed. This converts
-    "DnaG has the worst margin" from a correlation into a causal claim: if
-    DnaG is what the gate is waiting for, not requiring it should relieve the
-    stall; if the stall persists unchanged, DnaG was a bystander and another
-    pool or the mass criterion binds.
+  description: 'Removing DnaG from the gate''s requirement list lets the lineage survive strictly longer than the mechanistic arm at the same seed. This converts "DnaG has the worst margin" from a correlation into a causal claim: if DnaG is what the gate is waiting for, not requiring it should relieve the stall; if the stall persists unchanged, DnaG was a bystander and another pool or the mass criterion binds.
 
-    Note the scope. This tests whether DnaG GATES initiation in the model, not
-    whether DnaG abundance is physiologically limiting in E. coli.
+    Note the scope. This tests whether DnaG GATES initiation in the model, not whether DnaG abundance is physiologically limiting in E. coli.
 
-    Threshold provenance: committed before the sweep, pre-observed nowhere.
+    Threshold provenance: committed before the sweep, pre-observed nowhere.'
   measure:
     kind: derived
-    detail: >-
-      (divided generations, dnag-ablation arm) minus (divided generations,
-      mechanistic arm), paired by seed.
+    detail: (divided generations, dnag-ablation arm) minus (divided generations, mechanistic arm), paired by seed.
   pass_if:
     op: '>'
     value: 0
     provenance:
       kind: theory
-      note: >-
-        Any strict improvement counts. Not tuned to an expected effect size,
-        which is unknown.
+      note: Any strict improvement counts. Not tuned to an expected effect size, which is unknown.
   requires_simulation: dnag-ablation
   status: pending
-
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-02T19:12:58Z'
   criteria:
   - test: lineage-stalls-under-sufficiency-gate
-    prior: >-
-      With the gate corrected to >=, the mechanistic lineage still fails to
-      reach 12 generations in every seed.
+    prior: With the gate corrected to >=, the mechanistic lineage still fails to reach 12 generations in every seed.
   - test: stall-generation-is-seed-consistent
-    prior: >-
-      The stall generation varies by at most 3 generations across seeds.
+    prior: The stall generation varies by at most 3 generations across seeds.
   - test: some-pool-is-short-at-the-stall
-    prior: >-
-      At the stall at least one replisome pool is genuinely below the gate's
-      demand.
+    prior: At the stall at least one replisome pool is genuinely below the gate's demand.
   - test: dnag-is-the-limiting-pool
-    prior: >-
-      DnaG holds the worst margin; HolA is the most likely alternative.
+    prior: DnaG holds the worst margin; HolA is the most likely alternative.
   - test: permissive-completes-all-seeds
     prior: The permissive control reaches 12 generations in every seed.
   - test: dropping-dnag-relieves-the-stall
-    prior: >-
-      Removing DnaG from the gate's requirement list extends lineage survival.
+    prior: Removing DnaG from the gate's requirement list extends lineage survival.
   predictions:
   - The stall, if present, is at generation 3 or later. At registration a 3-generation smoke run at seed 0 had shown generation 2 dividing under >=, so the generation-2 stall of the previous study was already excluded. Generation 3's outcome was not yet known.
   - The mechanistic arm reaches a higher origin count than it did under ==, where it never initiated and the count stayed at 1.
   controls:
   - permissive-completes-all-seeds
   - dropping-dnag-relieves-the-stall
-
   thresholds:
     lineage-stalls-under-sufficiency-gate:
       op: <
       value: 12
       provenance:
         kind: theory
-        note: >-
-          12 is the study's chosen run length, not a measured quantity. Long
-          enough that a stall cannot be mistaken for a slow start.
+        note: 12 is the study's chosen run length, not a measured quantity. Long enough that a stall cannot be mistaken for a slow start.
     stall-generation-is-seed-consistent:
       op: <=
       value: 3
@@ -379,13 +325,11 @@ preregistered:
         kind: theory
         note: Definitional, not tuned. A negative margin IS a shortfall.
     dnag-is-the-limiting-pool:
-      op: '=='
+      op: ==
       value: true
       provenance:
         kind: exploratory
-        note: >-
-          Extrapolated from the permissive arm of mechanistic-replisome-arrest,
-          not from the arm under test.
+        note: Extrapolated from the permissive arm of mechanistic-replisome-arrest, not from the arm under test.
     permissive-completes-all-seeds:
       op: '>='
       value: 12
@@ -397,24 +341,16 @@ preregistered:
       value: 0
       provenance:
         kind: theory
-        note: >-
-          Any strict improvement counts. Not tuned to an expected effect size,
-          which is unknown.
+        note: Any strict improvement counts. Not tuned to an expected effect size, which is unknown.
 readouts:
 - name: number-of-oric
   store_path: listeners.replication_data.number_of_oric
-  description: >-
-    Origin count, which sets the gate's per-pool demand (6x per trimer, 2x per
-    monomer). Central to this study because the previous one showed the count
-    is 2 or 4 under normal growth, not 1.
+  description: Origin count, which sets the gate's per-pool demand (6x per trimer, 2x per monomer). Central to this study because the previous one showed the count is 2 or 4 under normal growth, not 1.
   units: origins
   status: available
 - name: replisome-subunit-counts
   store_path: bulk.count
-  description: >-
-    Per-timestep copy counts of the six pools the gate reads: CPLX0-2361 (pol
-    III core), CPLX0-3761 (beta clamp), CPLX0-3621 (DnaB hexamer),
-    EG10239-MONOMER (DnaG), EG11500-MONOMER (HolB), EG11412-MONOMER (HolA).
+  description: 'Per-timestep copy counts of the six pools the gate reads: CPLX0-2361 (pol III core), CPLX0-3761 (beta clamp), CPLX0-3621 (DnaB hexamer), EG10239-MONOMER (DnaG), EG11500-MONOMER (HolB), EG11412-MONOMER (HolA).'
   units: molecule copies per cell
   status: available
   selector:
@@ -422,144 +358,112 @@ readouts:
     path: bulk.count
 - name: critical-mass-per-oric
   store_path: listeners.replication_data.critical_mass_per_oriC
-  description: >-
-    The gate's other precondition. Required to distinguish a mass-gated stall
-    from a subunit-gated one; without it a stall with all-positive margins is
-    uninterpretable.
+  description: The gate's other precondition. Required to distinguish a mass-gated stall from a subunit-gated one; without it a stall with all-positive margins is uninterpretable.
   units: dimensionless
   status: derived-needed
 - name: generation-summary
   store_path: derived
-  description: >-
-    Per-generation division outcome, duration and final dry mass per arm and
-    seed. Derived from the runner's *_summary.json gens[], not an emitter leaf.
+  description: Per-generation division outcome, duration and final dry mass per arm and seed. Derived from the runner's *_summary.json gens[], not an emitter leaf.
   units: min / fg
   status: derived-needed
-
-# ─── Rigor ────────────────────────────────────────────────────────────
 robustness:
   n_replicates: 8
-  seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
   parameter_sweep: false
-  note: >-
-    8 mechanistic seeds, 3 permissive (0-2), 5 dnag-ablation (0-4). Supports a
-    robustness claim about the stall, NOT powered causal inference; the rigor
-    checklist asks n>=20 for that and this study does not meet it by design.
-
+  note: 8 mechanistic seeds, 3 permissive (0-2), 5 dnag-ablation (0-4). Supports a robustness claim about the stall, NOT powered causal inference; the rigor checklist asks n>=20 for that and this study does not meet it by design.
 controls:
 - name: permissive-completes-all-seeds
   kind: positive
-  hypothesis: >-
-    With gating off, initiation is unconditional, so the lineage should
-    complete regardless of subunit supply.
+  hypothesis: With gating off, initiation is unconditional, so the lineage should complete regardless of subunit supply.
   expected: 12 of 12 generations in each of 3 seeds.
   observed: ''
   result: PENDING
 - name: dropping-dnag-relieves-the-stall
   kind: negative
-  hypothesis: >-
-    A gate that no longer requires DnaG should NOT stall for want of DnaG. If
-    it stalls identically, the DnaG attribution is wrong.
+  hypothesis: A gate that no longer requires DnaG should NOT stall for want of DnaG. If it stalls identically, the DnaG attribution is wrong.
   expected: Strictly more divided generations than the mechanistic arm at the same seed.
   observed: ''
   result: PENDING
-
 alternative_hypotheses:
-- claim: >-
-    The stall is gated by cell mass (criticalMassPerOriC), not by subunit
-    supply.
-  discriminated_by: >-
-    some-pool-is-short-at-the-stall, which measures criticalMassPerOriC
-    alongside the six margins. All-positive margins at the stall points here.
+- claim: The stall is gated by cell mass (criticalMassPerOriC), not by subunit supply.
+  discriminated_by: some-pool-is-short-at-the-stall, which measures criticalMassPerOriC alongside the six margins. All-positive margins at the stall points here.
   status: untested
-- claim: >-
-    HolA, not DnaG, is the pool that binds. Under the permissive trajectory
-    its margin is exactly 0, so it is a live alternative rather than a
-    formality.
+- claim: HolA, not DnaG, is the pool that binds. Under the permissive trajectory its margin is exactly 0, so it is a live alternative rather than a formality.
   discriminated_by: dnag-is-the-limiting-pool and dropping-dnag-relieves-the-stall.
   status: untested
-- claim: >-
-    There is no stall under >=. Subunit supply is adequate at physiological
-    origin counts and the previous arrest was entirely an operator artefact.
-  discriminated_by: >-
-    lineage-stalls-under-sufficiency-gate. This is the outcome in which the
-    study's primary hypothesis is simply wrong, and it is a real possibility.
+- claim: There is no stall under >=. Subunit supply is adequate at physiological origin counts and the previous arrest was entirely an operator artefact.
+  discriminated_by: lineage-stalls-under-sufficiency-gate. This is the outcome in which the study's primary hypothesis is simply wrong, and it is a real possibility.
   status: untested
-
-falsifiability: >-
-  The central claim is overturned if all 8 mechanistic seeds reach 12
-  generations, which would show the corrected gate imposes no constraint at
-  physiological origin counts. It is weakened if a stall occurs with every
-  subunit margin positive (a mass-gated stall), or if removing DnaG from the
-  requirement list leaves the stall unchanged (DnaG a bystander).
-
+falsifiability: The central claim is overturned if all 8 mechanistic seeds reach 12 generations, which would show the corrected gate imposes no constraint at physiological origin counts. It is weakened if a stall occurs with every subunit margin positive (a mass-gated stall), or if removing DnaG from the requirement list leaves the stall unchanged (DnaG a bystander).
 limitations:
-- >-
-  8 seeds supports robustness, not powered causal inference. No rank test and
-  no drift-null control are planned.
-- >-
-  The ablation arm tests whether DnaG GATES initiation in the model, not
-  whether DnaG abundance is physiologically limiting in E. coli.
-- >-
-  A clean DnaG-only rescue is impossible in the current architecture: DnaG's
-  only transcript, TU00352, is polycistronic with rpsU and rpoD, so raising it
-  also raises a ribosomal protein and sigma-70. The confound is the reason the
-  causal arm is an ablation rather than a rescue.
-- >-
-  Single medium and single condition. Nothing here speaks to whether the
-  stall appears under other growth conditions.
-- >-
-  The == to >= patch is unconditional on this branch, so this study cannot run
-  an ==/>= contrast within one cache. The contrast is against the recorded
-  result of mechanistic-replisome-arrest.
-
+- 8 seeds supports robustness, not powered causal inference. No rank test and no drift-null control are planned.
+- The ablation arm tests whether DnaG GATES initiation in the model, not whether DnaG abundance is physiologically limiting in E. coli.
+- 'A clean DnaG-only rescue is impossible in the current architecture: DnaG''s only transcript, TU00352, is polycistronic with rpsU and rpoD, so raising it also raises a ribosomal protein and sigma-70. The confound is the reason the causal arm is an ablation rather than a rescue.'
+- Single medium and single condition. Nothing here speaks to whether the stall appears under other growth conditions.
+- The == to >= patch is unconditional on this branch, so this study cannot run an ==/>= contrast within one cache. The contrast is against the recorded result of mechanistic-replisome-arrest.
 conclusion_logic:
-  if_primary_tests_pass: >-
-    Subunit supply genuinely limits replication initiation, DnaG is the pool
-    that binds, and the transcription-unit architecture that couples dnaG to
-    rpsU and rpoD becomes the consequential next target.
-  if_primary_tests_fail: >-
-    If there is no stall, the previous arrest was entirely an operator artefact
-    and the investigation's motivating phenomenon dissolves; the DnaG abundance
-    anomaly would then have to be pursued on its own merits rather than through
-    replication. If there is a stall but no pool is short, the constraint is
-    cell mass and the limiting-resource question moves away from subunits.
-
+  if_primary_tests_pass: Subunit supply genuinely limits replication initiation, DnaG is the pool that binds, and the transcription-unit architecture that couples dnaG to rpsU and rpoD becomes the consequential next target.
+  if_primary_tests_fail: If there is no stall, the previous arrest was entirely an operator artefact and the investigation's motivating phenomenon dissolves; the DnaG abundance anomaly would then have to be pursued on its own merits rather than through replication. If there is a stall but no pool is short, the constraint is cell mass and the limiting-resource question moves away from subunits.
 discovery_implications:
-  resolved_uncertainties: []
+  resolved_uncertainties:
+  - 'Whether the arrest survives correcting the gate operator. It does: 8/8 seeds stall at generation 4-5.'
+  - Whether a replisome subunit is genuinely limiting, or the stall is mass-gated. A subunit is short (worst margin -4).
+  - 'Which pool binds. DnaG, unanimously across 8 seeds, and causally: removing it from the gate lifts the stall completely.'
   remaining_uncertainties:
+  - Whether DnaG's modelled abundance is an artefact of the TU dedup that collapses the rpsU promoters into TU00352 -- the investigation's original question.
+  - Whether DnaG abundance is physiologically limiting in E. coli, as opposed to gating initiation in this model.
   - Whether the stall generalises beyond this medium and condition.
-  - >-
-    Whether DnaG's low abundance is itself a consequence of the TU00352
-    dedup, which is the investigation's original thread.
-  followup_study_proposals: []
-
+  - Whether the stall would survive a powered design (n>=20, rank test, drift-null control); n=8 supports robustness only.
+  followup_study_proposals:
+  - id: FU-01
+    title: Is DnaG's abundance an artefact of the TU00352 dedup?
+    motivation: |
+      DnaG is now established as the limiting resource for replication initiation,
+      so the question of why it is this scarce stops being cosmetic. Its only
+      transcript is polycistronic with rpsU and rpoD, and the dedup that collapses
+      the rpsU promoters into TU00352 is the suspected cause of the low modelled
+      abundance. This is the investigation's original thread, now with a measured
+      consequence attached to it.
+  - id: FU-02
+    title: Does the DnaG stall survive a powered design?
+    motivation: |
+      The seed-consistency claim rests on 8 seeds with no rank test and no
+      drift-null control, which the rigor checklist treats as robustness rather
+      than powered inference. Generation 1 is also identical across seeds, so the
+      arm shares more early trajectory than the label implies. A design at n>=20
+      with a rank test on the stall generation would settle it.
 canonical_runs:
 - name: default
   script: studies/replisome-gate-sufficiency/sims/run.py
   args: []
   label: replisome-gate-sufficiency
   default: true
-
 visualizations: []
-
 design_status: complete
 implementation_status: complete
-simulation_status: running
-evaluation_status: not_evaluated
-gate_status: pending
-expert_review_status: not_requested
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: passed
+expert_review_status: pending
 planned_runs:
 - name: mechanistic-sweep
-  status: running
+  status: complete
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-7]; tests ['lineage-stalls-under-sufficiency-gate', 'stall-generation-is-seed-consistent', 'some-pool-is-short-at-the-stall', 'dnag-is-the-limiting-pool']
 - name: permissive-control
-  status: running
+  status: complete
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-2]; tests ['permissive-completes-all-seeds']
 - name: dnag-ablation
-  status: running
+  status: complete
   n_steps: 144000
   details: 12 generations, 200 min/gen cap, seeds [0-4]; tests ['dropping-dnag-relieves-the-stall']
 simulation_set:
@@ -567,21 +471,26 @@ simulation_set:
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   is_baseline: true
-  status: running
+  status: ran
   params:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: true
 - name: permissive
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  status: running
+  status: ran
   perturbation:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: false
+  metrics: &id001
+  - number-of-oric
+  - replisome-subunit-counts
+  - critical-mass-per-oric
+  - generation-summary
 - name: dnag-ablation
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-  status: running
+  status: ran
   perturbation:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: true
@@ -589,18 +498,542 @@ simulation_set:
       - CPLX0-3621[c]
       - EG11500-MONOMER[c]
       - EG11412-MONOMER[c]
+  metrics: *id001
+- name: replisome-gate-sufficiency-baseline
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  is_baseline: true
+  status: ran
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+  metrics: *id001
 patch_validation:
   source: out/smoke-gte/smoke-gte-mech_summary.json
   recorded_at: 2026-09-02, ~2 minutes AFTER preregistered.registered_at
-  note: |
-    Validation that the == -> >= patch changes behaviour, not evidence for any
+  note: 'Validation that the == -> >= patch changes behaviour, not evidence for any
+
     pre-registered criterion. 3-generation smoke, seed 0, mechanistic arm:
+
     all 3 generations divided (tau 43.0 / 46.0 / 54.0 min; final dry mass
+
     722.6 / 634.4 / 574.4 fg). Under == the same arm stalled at generation 2,
+
     burning the full 200 min cap at 4156.5 fg.
 
-    So the patch works and the profile matches the permissive control's band
+
+    So the patch works and the profile matches the permissive control''s band
+
     (43-59 min, 592-732 fg). It gives NO evidence of an imminent stall: tau
+
     drifts up and mass drifts down at roughly the rate the permissive arm shows
+
     over 12 generations. If a stall exists it is at generation 4 or later, which
+
     is what the sweep is for.
+
+    '
+report_card_refs:
+  gate_sufficiency:
+    out_root: out/replisome-gate-sufficiency
+    bundle_dir: workspace/studies/replisome-gate-sufficiency/evidence
+    expected_generations: 12
+runs:
+- name: replisome-gate-sufficiency__dnag-ablation__seed4
+  status: complete
+  timestamp: 1788388201.711901
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed4", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/dnag-ablation/seed4", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed4", "generations": 12, "perturbations": {}, "seed": 4, "start_gen": 1}}, "seed": 4, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T22:30:01Z'
+  started_at_iso: '2026-09-02T22:30:01Z'
+- name: replisome-gate-sufficiency__dnag-ablation__seed3
+  status: complete
+  timestamp: 1788387485.7975821
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed3", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/dnag-ablation/seed3", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed3", "generations": 12, "perturbations": {}, "seed": 3, "start_gen": 1}}, "seed": 3, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T22:18:05Z'
+  started_at_iso: '2026-09-02T22:18:05Z'
+- name: replisome-gate-sufficiency__dnag-ablation__seed2
+  status: complete
+  timestamp: 1788387418.2138398
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed2", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/dnag-ablation/seed2", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed2", "generations": 12, "perturbations": {}, "seed": 2, "start_gen": 1}}, "seed": 2, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T22:16:58Z'
+  started_at_iso: '2026-09-02T22:16:58Z'
+- name: replisome-gate-sufficiency__dnag-ablation__seed1
+  status: complete
+  timestamp: 1788386109.382776
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed1", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/dnag-ablation/seed1", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed1", "generations": 12, "perturbations": {}, "seed": 1, "start_gen": 1}}, "seed": 1, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T21:55:09Z'
+  started_at_iso: '2026-09-02T21:55:09Z'
+- name: replisome-gate-sufficiency__dnag-ablation__seed0
+  status: complete
+  timestamp: 1788383626.3164558
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed0", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/dnag-ablation/seed0", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__dnag-ablation__seed0", "generations": 12, "perturbations": {}, "seed": 0, "start_gen": 1}}, "seed": 0, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T21:13:46Z'
+  started_at_iso: '2026-09-02T21:13:46Z'
+- name: replisome-gate-sufficiency__permissive__seed2
+  status: complete
+  timestamp: 1788382700.399828
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__permissive__seed2", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/permissive/seed2", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__permissive__seed2", "generations": 12, "perturbations": {}, "seed": 2, "start_gen": 1}}, "seed": 2, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:58:20Z'
+  started_at_iso: '2026-09-02T20:58:20Z'
+- name: replisome-gate-sufficiency__permissive__seed1
+  status: complete
+  timestamp: 1788382557.59107
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__permissive__seed1", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/permissive/seed1", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__permissive__seed1", "generations": 12, "perturbations": {}, "seed": 1, "start_gen": 1}}, "seed": 1, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:55:57Z'
+  started_at_iso: '2026-09-02T20:55:57Z'
+- name: replisome-gate-sufficiency__permissive__seed0
+  status: complete
+  timestamp: 1788382217.004052
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__permissive__seed0", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/permissive/seed0", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__permissive__seed0", "generations": 12, "perturbations": {}, "seed": 0, "start_gen": 1}}, "seed": 0, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:50:17Z'
+  started_at_iso: '2026-09-02T20:50:17Z'
+- name: replisome-gate-sufficiency__mechanistic__seed7
+  status: complete
+  timestamp: 1788380260.331049
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed7", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed7", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed7", "generations": 12, "perturbations": {}, "seed": 7, "start_gen": 1}}, "seed": 7, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:17:40Z'
+  started_at_iso: '2026-09-02T20:17:40Z'
+- name: replisome-gate-sufficiency__mechanistic__seed6
+  status: complete
+  timestamp: 1788379666.1586208
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed6", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed6", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed6", "generations": 12, "perturbations": {}, "seed": 6, "start_gen": 1}}, "seed": 6, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:07:46Z'
+  started_at_iso: '2026-09-02T20:07:46Z'
+- name: replisome-gate-sufficiency__mechanistic__seed5
+  status: complete
+  timestamp: 1788379605.1226082
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed5", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed5", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed5", "generations": 12, "perturbations": {}, "seed": 5, "start_gen": 1}}, "seed": 5, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:06:45Z'
+  started_at_iso: '2026-09-02T20:06:45Z'
+- name: replisome-gate-sufficiency__mechanistic__seed4
+  status: complete
+  timestamp: 1788379501.723684
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed4", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed4", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "45cefc59b1fd74b69e854aeb86f9663a68694ee5", "diff_sha256": "05b27d54cbebde5d1af067ac84748e2f0be4c03b55c3120e1b13ae24456fb387", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed4", "generations": 12, "perturbations": {}, "seed": 4, "start_gen": 1}}, "seed": 4, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T20:05:01Z'
+  started_at_iso: '2026-09-02T20:05:01Z'
+- name: replisome-gate-sufficiency__mechanistic__seed3
+  status: complete
+  timestamp: 1788377318.792352
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed3", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed3", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "365843059371888fb4ee9e7a5793a50e47d5107a", "diff_sha256": "1b1af12659d5dd43ad9a0fada5cbba84fa3662c923f1474b715a35f4e1f4fd88", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed3", "generations": 12, "perturbations": {}, "seed": 3, "start_gen": 1}}, "seed": 3, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T19:28:38Z'
+  started_at_iso: '2026-09-02T19:28:38Z'
+- name: replisome-gate-sufficiency__mechanistic__seed2
+  status: complete
+  timestamp: 1788377316.7718668
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed2", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed2", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "365843059371888fb4ee9e7a5793a50e47d5107a", "diff_sha256": "1b1af12659d5dd43ad9a0fada5cbba84fa3662c923f1474b715a35f4e1f4fd88", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed2", "generations": 12, "perturbations": {}, "seed": 2, "start_gen": 1}}, "seed": 2, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T19:28:36Z'
+  started_at_iso: '2026-09-02T19:28:36Z'
+- name: replisome-gate-sufficiency__mechanistic__seed1
+  status: complete
+  timestamp: 1788377314.548547
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed1", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed1", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "365843059371888fb4ee9e7a5793a50e47d5107a", "diff_sha256": "1b1af12659d5dd43ad9a0fada5cbba84fa3662c923f1474b715a35f4e1f4fd88", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed1", "generations": 12, "perturbations": {}, "seed": 1, "start_gen": 1}}, "seed": 1, "start_gen": 1}'
+  computed_outcomes:
+    _status: store_unresolved
+  started_at: '2026-09-02T19:28:34Z'
+  started_at_iso: '2026-09-02T19:28:34Z'
+- name: replisome-gate-sufficiency__mechanistic__seed0
+  status: complete
+  timestamp: 1788377119.6923661
+  emitter:
+    kind: unknown
+  params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "replisome-gate-sufficiency__mechanistic__seed0", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed0", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "365843059371888fb4ee9e7a5793a50e47d5107a", "diff_sha256": "1b1af12659d5dd43ad9a0fada5cbba84fa3662c923f1474b715a35f4e1f4fd88", "dirty": true, "untracked": 0}, "design": {"experiment_id": "replisome-gate-sufficiency__mechanistic__seed0", "generations": 12, "perturbations": {}, "seed": 0, "start_gen": 1}}, "seed": 0, "start_gen": 1}'
+  computed_outcomes:
+    lineage-stalls-under-sufficiency-gate:
+      result: PASS
+      measured_value: 4
+      evaluated_by: agent
+      operator: derived/< 12
+      detail: 8/8 mechanistic seeds stalled; maximum divided-generation count 4 of 12. Stall generations [4, 4, 4, 5, 5, 5, 5, 5].
+    stall-generation-is-seed-consistent:
+      result: PASS
+      measured_value: 1
+      evaluated_by: agent
+      operator: derived/<= 3
+      detail: Stall generation 4-5 across 8 seeds; spread 1.
+    some-pool-is-short-at-the-stall:
+      result: PASS
+      measured_value: -4
+      evaluated_by: agent
+      operator: derived/< 0
+      detail: 'Worst margin -4 copies. Per seed: seed 0 DnaG -2, seed 1 DnaG -4, seed 2 DnaG -4, seed 3 DnaG -1, seed 4 DnaG -1, seed 5 DnaG -1, seed 6 DnaG -4, seed 7 DnaG -1.'
+    dnag-is-the-limiting-pool:
+      result: PASS
+      measured_value: true
+      evaluated_by: agent
+      operator: derived/== True
+      detail: 'Worst-margin pool is DnaG in every stalled seed (pools seen: DnaG).'
+    permissive-completes-all-seeds:
+      result: PASS
+      measured_value: 12
+      evaluated_by: agent
+      operator: derived/>= 12
+      detail: Permissive control divided 12-12 generations across 3 seeds; 0 stalls.
+    dropping-dnag-relieves-the-stall:
+      result: PASS
+      measured_value: 8
+      evaluated_by: agent
+      operator: derived/> 0
+      detail: 'Ablation arm divided 12-12 vs mechanistic 3-4. Paired relief: seed 0 +9, seed 1 +9, seed 2 +8, seed 3 +9, seed 4 +8.'
+    gate_sufficiency:
+      result: PASS
+      measured_value: pass
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 6/6 axes within tolerance; 0 hard mismatch. See viz/report_card/gate_sufficiency.html.
+  canonical: true
+  outcomes:
+    lineage-stalls-under-sufficiency-gate:
+      result: PASS
+      measured_value: 4
+      evaluated_by: agent
+      operator: derived/< 12
+      detail: 8/8 mechanistic seeds stalled; maximum divided-generation count 4 of 12. Stall generations [4, 4, 4, 5, 5, 5, 5, 5].
+    stall-generation-is-seed-consistent:
+      result: PASS
+      measured_value: 1
+      evaluated_by: agent
+      operator: derived/<= 3
+      detail: Stall generation 4-5 across 8 seeds; spread 1.
+    some-pool-is-short-at-the-stall:
+      result: PASS
+      measured_value: -4
+      evaluated_by: agent
+      operator: derived/< 0
+      detail: 'Worst margin -4 copies. Per seed: seed 0 DnaG -2, seed 1 DnaG -4, seed 2 DnaG -4, seed 3 DnaG -1, seed 4 DnaG -1, seed 5 DnaG -1, seed 6 DnaG -4, seed 7 DnaG -1.'
+    dnag-is-the-limiting-pool:
+      result: PASS
+      measured_value: true
+      evaluated_by: agent
+      operator: derived/== True
+      detail: 'Worst-margin pool is DnaG in every stalled seed (pools seen: DnaG).'
+    permissive-completes-all-seeds:
+      result: PASS
+      measured_value: 12
+      evaluated_by: agent
+      operator: derived/>= 12
+      detail: Permissive control divided 12-12 generations across 3 seeds; 0 stalls.
+    dropping-dnag-relieves-the-stall:
+      result: PASS
+      measured_value: 8
+      evaluated_by: agent
+      operator: derived/> 0
+      detail: 'Ablation arm divided 12-12 vs mechanistic 3-4. Paired relief: seed 0 +9, seed 1 +9, seed 2 +8, seed 3 +9, seed 4 +8.'
+    gate_sufficiency:
+      result: PASS
+      measured_value: pass
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 6/6 axes within tolerance; 0 hard mismatch. See viz/report_card/gate_sufficiency.html.
+  started_at: '2026-09-02T19:25:19Z'
+  started_at_iso: '2026-09-02T19:25:19Z'
+findings:
+- id: F-01
+  kind: biological
+  status: confirms
+  statement: 'With the gate corrected to sufficiency, the lineage still stalls: all 8 mechanistic seeds stopped at generation 4 or 5 of 12.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: lineage-stalls-under-sufficiency-gate
+    observed: 4
+  expected:
+    summary: The mechanistic arm should stop short of 12 generations.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: observation
+  summary: |
+    The stall survives the fix, so it was never only an artefact of the
+    comparison operator. Under == the arrest came one generation into the run,
+    at the first generation that had to initiate from scratch. Under >= the
+    lineage initiates normally for three or four generations and then stops,
+    which is the signature of a resource being consumed rather than a
+    condition that can never be met.
+
+    Graded on the maximum divided count across seeds, so one surviving seed
+    would have failed it. None survived.
+- id: F-02
+  kind: biological
+  status: confirms
+  statement: 'The stall generation is 4 or 5 across all 8 seeds, a spread of 1 against a pre-registered bound of 3.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: stall-generation-is-seed-consistent
+    observed: 1
+  expected:
+    summary: Stall generation should vary by at most 3 generations across seeds.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: observation
+  summary: |
+    Three seeds stall at generation 4 and five at generation 5. The stall
+    is a property of the model rather than a seed-specific accident.
+
+    Scope: this is robustness at n=8, not powered inference. No rank test and
+    no drift-null control were planned, and the rigor checklist asks n>=20 for
+    a causal stochastic claim. Note also that generation 1 is identical across
+    seeds (tau 43.0 min, 722.6 fg); divergence begins at generation 2, so the
+    seeds share more early trajectory than the word independent suggests.
+- id: F-03
+  kind: biological
+  status: confirms
+  statement: 'At the stall a replisome pool is genuinely short: the worst margin is -4 copies, so the stall is subunit-gated, not mass-gated.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: some-pool-is-short-at-the-stall
+    observed: -4
+  expected:
+    summary: At least one pool should be below the gate's demand at the stall.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: mechanism
+  summary: |
+    This is the measurement the == operator made impossible. Under equality
+    every pool failed the comparison whether it was short or in surplus, so
+    'which pool limits' could not be asked. Under >= the margins are
+    informative, and exactly one pool goes negative while the rest keep an
+    order of magnitude of headroom.
+
+    The alternative this excludes is a mass-gated stall. criticalMassPerOriC is
+    not emitted by this build, so cell and dry mass were carried in the
+    evidence bundle as the available proxy; the negative subunit margin is
+    direct evidence that the subunit branch of the gate is the one failing.
+- id: F-04
+  kind: biological
+  status: confirms
+  statement: 'DnaG holds the worst margin in every one of the 8 stalled seeds (margins -1 to -4); no other pool is ever the limiting one.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: dnag-is-the-limiting-pool
+    observed: true
+  expected:
+    summary: DnaG, rather than another subunit, should hold the worst margin.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: mechanism
+  summary: |
+    Unanimous across seeds, not a single-seed identification. Five other
+    pools could have held the worst margin, and HolA was close to marginal in
+    the pre-registered prior, so this had real ways to come out otherwise.
+
+    The prior was right about the pool but partly wrong about the reason. It
+    extrapolated from study 1's permissive arm, where oriC is 2 or 4 and DnaG
+    would fail a high multi-fork demand. At the actual stall oriC is 1 or 2 and
+    DnaG simply runs out, reaching literal zero in several seeds. The pool is
+    the same; the mechanism is depletion rather than an unmet multi-fork demand.
+  next_action: "Separate the two DnaG claims: that it gates initiation in the model (settled here) and that its modelled abundance is too low against proteomics (open, and the investigation's original thread)."
+  next_action_type: split_hypothesis
+- id: F-05
+  kind: biological
+  status: confirms
+  statement: 'The permissive control completed all 12 generations in 3 of 3 seeds, so the stall is attributable to the gate.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: permissive-completes-all-seeds
+    observed: 12
+  expected:
+    summary: The permissive arm should reach 12 generations in every seed.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: observation
+  summary: |
+    With gating off, initiation is unconditional and the lineage runs the
+    full length from the same cache and the same seeds. This rules out the run
+    length, the initial state and the cache as explanations. Had this arm also
+    stalled, the causal chain would have been refuted at its first link.
+- id: F-06
+  kind: biological
+  status: confirms
+  statement: 'Removing DnaG from the gate''s requirement list lifts the stall entirely: 5 of 5 ablation seeds reach 12 generations, a paired gain of 8 to 9 generations.'
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: dropping-dnag-relieves-the-stall
+    observed: 8
+  expected:
+    summary: Dropping DnaG from the requirement should extend lineage survival.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: mechanism
+  summary: |
+    This is the causal axis, and it is what separates DnaG being the
+    binding constraint from DnaG merely looking scarce. A correlation cannot
+    pass it: the intervention removes DnaG from what the gate demands, changes
+    nothing else, and the lineage that stalled at generation 4 or 5 now runs
+    the full 12.
+
+    The relief is complete rather than partial, which also says no second pool
+    is waiting behind DnaG at these origin counts -- consistent with HolA's
+    margin being positive but small at the stall.
+
+    Scope: this shows DnaG gates initiation IN THE MODEL. It does not show that
+    DnaG abundance is physiologically limiting in E. coli.
+  next_action: 'The limiting resource is identified and the causal test is closed. The actionable follow-up is upstream: why DnaG is this scarce, which is the TU00352 transcription-unit question the investigation started from.'
+  next_action_type: escalate_model
+- id: F-07
+  kind: biological
+  status: confirms
+  statement: All six graded axes are within tolerance; the card gate passes with 0 hard mismatches.
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: gate_sufficiency
+    observed: pass
+  expected:
+    summary: Every graded axis should be within tolerance.
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  tier: mechanism
+  summary: |
+    Every axis is an acceptance_criterion pre-registered before the sweep,
+    with criteria_match verified against these exact pass_if values. There are
+    no regression pins in this card: nothing was chosen after seeing a number.
+- id: F-08
+  kind: biological
+  tier: interpretation
+  mechanism_origin: emergent
+  status: novel
+  statement: DnaG is the resource that limits replication initiation in v2ecoli, which makes the transcription-unit architecture that couples dnaG to rpsU and rpoD consequential rather than untidy.
+  summary: |
+    Taken together the six axes close a chain: the lineage stalls, exactly one pool
+    is short, that pool is DnaG in every seed, and removing DnaG from the gate lifts
+    the stall completely. DnaG is therefore not an incidental scarcity but the
+    binding constraint on replication initiation in this model.
+
+    That matters because of where DnaG's supply comes from. Its only transcript is
+    TU00352, polycistronic with rpsU and rpoD, so the model cannot raise DnaG
+    without also raising a ribosomal protein and sigma-70. This is why the causal
+    arm here had to be an ablation rather than a rescue. An architecture that
+    cannot regulate the cell's limiting replication factor independently is a
+    modelling defect with a measurable consequence, not a cosmetic one.
+
+    Marked emergent: nothing was tuned to make DnaG limiting. It follows from the
+    modelled abundance, the gate's stoichiometry and the origin count at the stall.
+    The open question this hands back to the investigation is whether DnaG's
+    abundance is itself an artefact of the TU dedup that collapses the rpsU
+    promoters, which is where the investigation began.
+  expected:
+    summary: No pre-registered expectation; this is a synthesis across the six axes, formed after the sweep, and is a hypothesis for the next study rather than evidence from this one.
+  evidence:
+    from_run: replisome-gate-sufficiency__mechanistic__seed0
+    from_test: dnag-is-the-limiting-pool
+  provenance:
+    run_ids:
+    - replisome-gate-sufficiency__mechanistic__seed0
+  next_action: Test whether DnaG's modelled abundance is an artefact of the TU dedup collapsing the rpsU promoters into TU00352.
+  next_action_type: refine_representation
+conclusion: |
+  The lineage still stalls once the gate tests sufficiency, and the resource that
+  limits it is DnaG. All six pre-registered criteria confirm.
+
+  Eight mechanistic seeds, three permissive, five ablation; 12 generations, one
+  cache, arms differing only in runtime config_overrides. Every mechanistic seed
+  stalled, at generation 4 (three seeds) or 5 (five seeds), a spread of 1 against
+  a pre-registered bound of 3. The permissive control reached 12 of 12 in every
+  seed, so the stall is attributable to the gate and not to the run length, the
+  initial state or the cache.
+
+  At each stall exactly one pool is below the gate's demand, and it is DnaG in all
+  eight seeds (margins -1 to -4, reaching a count of zero in several). The other
+  five pools keep an order of magnitude of headroom. Removing DnaG from the gate's
+  requirement list lifts the stall completely: 5 of 5 ablation seeds reach 12
+  generations, a paired gain of 8 to 9. That intervention is what turns the
+  correlation into a causal claim, and the relief being complete rather than
+  partial says no second pool is waiting behind DnaG at these origin counts.
+
+  This closes the question study 1 could not ask. There the arrest came from the
+  gate testing equality, so every pool failed the comparison whether short or in
+  surplus and the subunit-depletion hypothesis was refuted as unmeasurable rather
+  than as false. With the operator corrected the hypothesis is testable, and it
+  holds: subunit supply does limit initiation, and DnaG is the subunit.
+
+  The prior was right about the pool and partly wrong about the mechanism. It
+  extrapolated from study 1's permissive arm, where oriC is 2 or 4, and predicted
+  DnaG would fail a high multi-fork demand. At the actual stall oriC is 1 or 2 and
+  DnaG simply runs out. Same pool, different reason, and the difference matters
+  for what to fix.
+
+  What this does not show: that DnaG abundance is physiologically limiting in
+  E. coli. The ablation tests what the gate demands in the model, not the biology.
+  Eight seeds is robustness, not powered inference, and generation 1 is identical
+  across seeds, so the arm shares more early trajectory than seed-independent
+  implies. Single medium, single condition.
+
+  Next: DnaG's only transcript is TU00352, polycistronic with rpsU and rpoD, so
+  the model cannot raise DnaG without also raising a ribosomal protein and
+  sigma-70 -- which is why the causal arm had to be an ablation rather than a
+  rescue. Whether DnaG's modelled abundance is itself an artefact of the TU dedup
+  that collapses the rpsU promoters into TU00352 is the investigation's original
+  question, and it is now the consequential one.
+conclusion_verdicts:
+  regression_compatibility:
+    verdict: confirmed
+    basis: The only model change is the == to >= correction in the initiation gate, committed as db3986f3 and validated by a 3-generation smoke before the sweep. All three arms run stock v2ecoli from one cache; the arm differences are runtime config_overrides, so no arm required a separately fitted cache.
+  biological_validation:
+    verdict: confirmed
+    basis: 'All six pre-registered acceptance criteria pass, including the two that could have failed independently: exactly one pool is short at the stall (worst margin -4), and it is DnaG unanimously across 8 seeds when five other pools were available and HolA was near-marginal in the prior. The permissive control isolates the gate as the cause.'
+  explanatory_gain:
+    verdict: confirmed
+    basis: "The study converts a refuted-because-unmeasurable hypothesis into a closed causal chain. Study 1 could not distinguish a short pool from a pool in surplus because the gate tested equality. Here the chain is: the lineage stalls, one pool is short, that pool is DnaG in every seed, and removing DnaG from the gate's requirement lifts the stall completely (5/5 to 12 generations, +8 to +9 paired). It also identifies the architectural consequence: DnaG cannot be regulated independently of rpsU and rpoD, which is why the causal arm had to be an ablation rather than a rescue."
+claim: "With the initiation gate testing sufficiency, the lineage still stalls, and DnaG is the resource that limits it: it is the only pool short at the stall in all 8 seeds, and removing it from the gate's requirement restores full 12-generation survival."

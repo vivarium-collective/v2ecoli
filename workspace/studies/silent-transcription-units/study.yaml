@@ -79,7 +79,8 @@ pipeline_gate:
     outputs_used:
     - TU00352 measured at zero synthesis with mRNA absent at 100% of timesteps
     - The realized_transcription measurement in v2ecoli/library/dnag_deficit.py
-  enables: []
+  enables:
+  - runtime-synthesis-probability
   proceed_condition: The cohort is either confirmed as reproducible with a shared mechanism, or dissolved as stochastic. Either outcome determines whether the transcription-unit repair is a general fix or a dnaG-specific one.
   gate_evaluator:
     result: failed

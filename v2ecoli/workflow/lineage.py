@@ -333,7 +333,17 @@ class LineageProcess(Process):
         # requires buffer.size > 2.
         buf = max(3, int(buf or 600))
         predicate = transducer.get("predicate")
-        writer = arg.get("writer")
+        # buffers_per_chunk defaults to 1 here (not the shared build_emitter_config
+        # default of 10) -- Boyan Beronov's own documented guidance (his pending
+        # vEcoli doc commit, CovertLab/vEcoli@febe3817): for immutable object
+        # storage (S3 Standard -- our own backend for this dispatch path), a value
+        # >1 means each chunk flush re-copies previously-written objects rather
+        # than appending cleanly. ecoli_baseline.py's own single-cell path already
+        # makes this same override explicitly; this path silently inherited the
+        # shared default instead. setdefault, not assignment, so an explicit
+        # caller-supplied value still wins.
+        writer = dict(arg.get("writer") or {})
+        writer.setdefault("buffers_per_chunk", 1)
         out_dir = arg.get("out_dir") or self.config["out_dir"]
         out_is_s3 = is_s3_uri(out_dir)
 

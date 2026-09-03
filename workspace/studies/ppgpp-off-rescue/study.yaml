@@ -453,6 +453,9 @@ limitations:
 - The 2.85x residual is measured against idx_rprotein peers, a group of 41. It has not been checked whether
   that residual is dnaG-specific or shared with other rProtein TUs whose operons carry a non-rProtein
   cistron.
+- 'The free-dnag-pool-clears-the-gate axis is a min-margin measure and inherits the same caveat: a negative
+  margin does not by itself prove the pool vetoed an initiation. For DnaG the limiting claim is nonetheless
+  supported causally by the ablation arm; no such evidence exists for any other pool.'
 conclusion_logic:
   if_primary_tests_pass: Removing the fit-runtime substitution restores dnaG transcription, the free pool
     clears the gate, and the lineage completes -- closing the causal chain by intervention, with the growth
@@ -578,15 +581,28 @@ findings:
     ppGpp regulation is therefore not an optional overlay on the fitted basal_prob: the model depends
     on it for growth homeostasis, which removes ''revert to basal_prob'' as an available fix for the fit-runtime
     mismatch.'
-- summary: DnaG is limiting first, not uniquely -- relieving it exposes HolA (delta) as the next bottleneck.
+- summary: 'RETRACTED: HolA''s negative gate margin does not make it limiting. A margin is not a binding
+    constraint.'
   status: novel
   evidence:
-    from_test: free-dnag-pool-clears-the-gate
-    observed: -3
-    units: molecules of margin
-  explanation: The free-DnaG shortfall roughly halves (-7/-6/-6 in the control to -3/-2/-1) but never
-    clears the gate. In off-arm generations 3-4 the worst pool is no longer DnaG but HolA (delta) at -2/0/-4.
-    Study 2's 'DnaG is the limiting resource' holds only as 'limiting first'.
+    from_run: replisome-gate-sufficiency__dnag-ablation
+    observed: 12
+    units: generations completed with HolA still gated
+  explanation: 'RETRACTED 2026-09-03 on the user''s challenge, and the retraction is evidenced. The original
+    claim read ''DnaG is limiting first, not uniquely'' from HolA (delta) having the worst min-margin
+    in off-arm generations 3-4. That inference is invalid: min-over-generation margin is pool depth sampled
+    at arbitrary times, including times when no initiation was attempted. Initiation is triggered by MASS;
+    the subunit gate is only a veto consulted at the moment mass fires. A pool is limiting only if it
+    vetoes an initiation that would otherwise have occurred.
+
+    Refuted directly by replisome-gate-sufficiency''s dnag-ablation arm, which dropped ONLY EG10239-MONOMER[c]
+    and left HolA and HolB in the gate: 5 of 5 seeds completed 12 generations at tau 52-60 min, and HolA''s
+    margin still went negative in 3 of 30 sampled generations without blocking anything.
+
+    The correct test is causal, and it separates the two cleanly: removing DnaG''s requirement rescues
+    the lineage, so DnaG IS limiting; HolA remained required across that same rescue, so it is not. To
+    establish any future limiting claim, measure which pool is short at the timesteps where initiation
+    was attempted and vetoed -- not the minimum margin over a generation.'
 - summary: The comparison group used across this investigation excludes dnaG's own allocation class, so
     the 5.40x deficit is measured against the wrong peers.
   status: novel

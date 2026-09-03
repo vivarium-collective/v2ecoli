@@ -204,4 +204,9 @@ decisions_needed:
   why: With DnaG partly relieved, HolA (delta) becomes the worst gate pool in off-arm generations 3-4.
     replisome-gate-sufficiency's limiting-resource claim may need narrowing to 'limiting first'.
   raised_by: ppgpp-off-rescue
-  status: open
+  status: resolved
+  resolution: Resolved without new runs. DnaG is limiting; HolA is not. The dnag-ablation arm dropped
+    only DnaG and left HolA gated, yet 5/5 seeds completed 12 generations while HolA's margin still went
+    negative in 3 of 30 sampled generations. Min-margin is not a limiting-factor test -- initiation is
+    mass-triggered and the gate is a veto, so a pool is limiting only if it blocks an initiation mass
+    would have fired. replisome-gate-sufficiency's original claim stands unamended.

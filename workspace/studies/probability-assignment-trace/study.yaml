@@ -1,0 +1,486 @@
+schema_version: 4
+name: probability-assignment-trace
+title: Probability assignment trace
+created: '2026-09-03'
+status: planned
+phase: Design
+study_type: diagnostic
+investigation: transcription-rewiring
+
+question: >-
+  Study 5 showed the synthesis probability in force is 93x below peers and 25x
+  below the advertised basal_prob, with regulation excluded. Which step of the
+  probability-assignment path removes it, and is the depression specific to these
+  transcripts or general to their whole class?
+
+biological_summary: |
+  Reading transcript_initiation.py (lines 560-640) enumerates every place a
+  transcript's synthesis probability can be reduced between basal_prob and the
+  value actually used:
+
+      promoter_init_probs = basal_prob[TU_index] + delta_prob . bound_TF
+      promoter_init_probs /= sum()
+      promoter_init_probs[is_mrna] *= mRna_fraction / sum(mrna)
+      _rescale_initiation_probs(rprotein, rnap, fixed values)
+      promoter_init_probs[~is_fixed] *= scaleTheRestBy
+
+  Two structural facts follow. First, the vector is indexed by PROMOTER, not by
+  transcription unit: ``basal_prob[TU_index]`` gives every promoter copy its TU's
+  probability, so a TU's total is its basal_prob multiplied by however many
+  promoter copies exist. A transcript present in fewer copies receives
+  proportionally less, however high its basal_prob. Second, the three rescaling
+  steps act on whole CLASSES -- all mRNA, the fixed ribosomal-protein and RNAP
+  set, and everything not fixed. A class-level rescale cannot single out six
+  transcripts within a class; it moves them all together.
+
+  That yields a sharp fork. If the depression is uniform across mRNA, the cohort
+  is not special at all: it is simply mRNA, and the comparison group's apparent
+  advantage comes from containing tRNA, rRNA and ribosomal-protein transcripts
+  that receive fixed or separately-scaled probabilities. The "cohort" would
+  dissolve for the second time in this investigation, having already survived one
+  such test in silent-transcription-units.
+
+  If instead the depression is specific to these transcripts within mRNA, a
+  class-level rescale cannot be responsible and the per-TU term -- promoter copy
+  number -- becomes the candidate that can.
+
+  The study is built to take that fork honestly rather than to confirm either
+  branch, because the dissolving branch would retract a finding this
+  investigation has already built three studies on.
+
+assumptions:
+- text: >-
+    listeners.rna_synth_prob.promoter_copy_number is the per-TU count of
+    promoter copies the transcription process indexes when building
+    promoter_init_probs.
+  verified_in_v2ecoli: false
+- text: >-
+    actual_rna_synth_prob is the per-TU probability in force after every
+    rescaling step in transcript_initiation.py.
+  verified_in_v2ecoli: true
+
+pipeline_gate:
+  prerequisites:
+  - study: runtime-synthesis-probability
+    condition: ran
+    relation: leads-to
+    outputs_used:
+    - The 93x in-force depression and the 25x gap against basal_prob
+    - Regulation excluded (zero TFs bound; actual tracks target to 0.1%)
+  enables: []
+  proceed_condition: >-
+    The depression is attributed to a class-level rescale or to a per-TU term, so
+    a repair can be aimed at one line of the assignment path.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants: []
+  model_settings: []
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params: {}
+variants: []
+
+units_and_time:
+  tick: 1 tick = 1 s of simulated time (composite time_step=1)
+  quantities:
+    actual_rna_synth_prob: dimensionless per-TU probability in force
+    basal_prob: dimensionless per-TU assigned probability from the ParCa cache
+    promoter_copy_number: promoter copies present per TU
+    depression ratio: actual_rna_synth_prob / basal_prob, normalised per group
+
+# ---------------------------------------------------------------------------
+# Confirmed before writing these axes: only WHICH columns are emitted
+# (promoter_copy_number, gene_copy_number, actual_rna_synth_prob) -- a capability
+# question. None of their values were inspected. The two hypotheses already
+# tested during the code trace (transcript length, replication coordinate) are
+# recorded below as regression pins, NOT as acceptance criteria, because they
+# were measured before this study existed.
+# ---------------------------------------------------------------------------
+behavior_tests:
+- name: depression-is-cohort-specific
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the depression specific to these transcripts, or general to mRNA?
+  description: >-
+    The cohort's median actual/basal ratio is below half the median of the
+    mRNA-ONLY subset of the comparison group.
+
+    The fork the study exists to take. Comparing against mRNA only removes the
+    class-level rescalings, which act identically on every mRNA and therefore
+    cannot distinguish six transcripts within the class. A PASS means something
+    per-TU is responsible. A FAIL means the depression is a general mRNA effect,
+    the cohort is not special, and the finding this investigation has built
+    three studies on dissolves.
+
+    Threshold provenance: theory. Half is a generous separator; the observed
+    in-force gap against the full comparison group is 93x, so a genuinely
+    cohort-specific effect should clear it easily and a class-wide effect should
+    fail it clearly. Nothing is cited for it.
+  measure:
+    kind: derived
+    detail: >-
+      median(actual/basal) over the 6 cohort TUs divided by median(actual/basal)
+      over comparison TUs with is_mRNA true.
+  pass_if:
+    op: <
+    value: 0.5
+    provenance:
+      kind: theory
+      note: Generous separator between a per-TU effect and a class-wide one.
+  status: pending
+
+- name: promoter-copy-number-explains-depression
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does promoter copy count account for the per-TU shortfall?
+  description: >-
+    The cohort's median promoter_copy_number is below half the mRNA-only
+    comparison median.
+
+    promoter_init_probs is indexed by promoter, so a TU's total probability
+    scales with its copy count. This is the only per-TU term in the assignment
+    path that can single out individual transcripts, which makes it the
+    candidate of record -- and it is falsifiable: if the cohort holds a normal
+    number of promoter copies, the per-TU explanation fails and the shortfall
+    must enter somewhere the code trace has not yet identified.
+
+    Threshold provenance: theory. Half; a copy-count explanation for a 25x
+    shortfall would need a substantial deficit, not a marginal one.
+  measure:
+    kind: derived
+    detail: >-
+      median promoter_copy_number over the cohort divided by the median over
+      mRNA-only comparison TUs.
+  pass_if:
+    op: <
+    value: 0.5
+    provenance:
+      kind: theory
+      note: A copy-count explanation for 25x requires a substantial deficit.
+  status: pending
+
+- name: class-rescaling-is-uniform
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Do the class-level rescalings move every mRNA together, as the code implies?
+  description: >-
+    Among mRNA-only comparison TUs the actual/basal ratio has an interquartile
+    range below its own median, i.e. the class rescale is tight rather than
+    dispersed.
+
+    A mechanism check on the code reading rather than on the cohort. The three
+    rescaling steps multiply whole classes by a scalar, so within a class the
+    actual/basal ratio should be nearly constant. If it is dispersed instead,
+    something per-TU is already acting inside the class and the neat
+    class-versus-per-TU fork above is not clean.
+
+    Threshold provenance: theory. IQR below the median is a loose dispersion
+    bound; nothing is cited for it.
+  measure:
+    kind: derived
+    detail: IQR(actual/basal) / median(actual/basal) over mRNA-only comparison TUs.
+  pass_if:
+    op: <
+    value: 1.0
+    provenance:
+      kind: theory
+      note: Loose dispersion bound expected of a scalar class multiplier.
+  status: pending
+
+- name: fixed-classes-differ-from-mrna
+  classification: control
+  gate_class: acceptance_criterion
+  question: Does the emitted data show the class structure the code describes?
+  description: >-
+    The median actual/basal ratio for fixed-class TUs (ribosomal protein, RNAP,
+    tRNA, rRNA) differs from the mRNA-only median by at least 20%.
+
+    Positive control on the instrument. transcript_initiation.py gives those
+    classes fixed or separately-scaled probabilities, so their ratios should be
+    visibly different from mRNA's. If the emitted data shows no class structure
+    at all, the columns do not mean what this study assumes and no other axis
+    is interpretable.
+
+    Threshold provenance: theory. 20% is a low bar deliberately, because the
+    axis tests that a documented code path is visible in the data, not that the
+    effect is large.
+  measure:
+    kind: derived
+    detail: >-
+      abs(median fixed-class actual/basal - median mRNA actual/basal) divided
+      by the mRNA median.
+  pass_if:
+    op: '>='
+    value: 0.2
+    provenance:
+      kind: theory
+      note: Low bar; tests visibility of a documented code path, not effect size.
+  status: pending
+
+- name: length-does-not-explain-depression
+  classification: supporting
+  gate_class: regression_pin
+  description: >-
+    Transcript length does not predict the depression.
+
+    POST-HOC: measured during silent-transcription-units, where one cohort
+    member sat at the 32nd percentile of comparison lengths and
+    corr(log length, log realized/assigned) across the top 300 was -0.106.
+    Carried as a pin so a future change cannot quietly revive it.
+  measure:
+    kind: derived
+    detail: abs correlation between log transcript length and log(actual/basal) over top-300.
+  pass_if:
+    op: <
+    value: 0.3
+    provenance:
+      kind: post_hoc
+      note: Measured before this study existed; pin only.
+  status: pending
+
+- name: replication-coordinate-does-not-explain-depression
+  classification: supporting
+  gate_class: regression_pin
+  description: >-
+    Distance from oriC does not predict the depression.
+
+    POST-HOC: measured during the code trace that preceded this study, where
+    cohort and comparison median |coordinate| differed by 1.05x and
+    corr(|coord|, log basal_prob) across the top 300 was -0.128. Recorded as a
+    pin rather than an acceptance criterion precisely because it was measured
+    before the study was designed.
+  measure:
+    kind: derived
+    detail: abs correlation between abs replication coordinate and log(actual/basal) over top-300.
+  pass_if:
+    op: <
+    value: 0.3
+    provenance:
+      kind: post_hoc
+      note: Measured during the code trace, before design; pin only.
+  status: pending
+
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-03T18:05:16Z'
+  criteria:
+  - test: depression-is-cohort-specific
+    prior: >-
+      Open, and able to dissolve the cohort. If the depression is uniform across
+      mRNA then the cohort is simply mRNA and three studies rest on an artefact
+      of comparing mRNA against a mixed-class group.
+  - test: promoter-copy-number-explains-depression
+    prior: >-
+      Open. The only per-TU term in the assignment path, and falsifiable: a
+      normal copy count means the shortfall enters somewhere not yet identified.
+  - test: class-rescaling-is-uniform
+    prior: >-
+      Open. Checks that the class rescalings behave as the source implies.
+  - test: fixed-classes-differ-from-mrna
+    prior: The control; a failure invalidates the instrument, not the cohort.
+  predictions:
+  - >-
+    Confirmed before writing these axes: that promoter_copy_number,
+    gene_copy_number and actual_rna_synth_prob are emitted by the existing
+    sweep. A CAPABILITY check only; their values were not inspected.
+  - >-
+    ALREADY MEASURED before this study existed, and recorded as regression pins
+    rather than as findings: transcript length does not predict the depression
+    (r = -0.106) and neither does replication coordinate (cohort/comparison
+    median |coord| ratio 1.05x, r = -0.128). Both were measured during the code
+    trace, which is why neither can serve as acceptance evidence here.
+  controls:
+  - fixed-classes-differ-from-mrna
+
+  thresholds:
+    depression-is-cohort-specific:
+      op: <
+      value: 0.5
+      provenance:
+        kind: theory
+        note: Generous separator between a per-TU effect and a class-wide one.
+    promoter-copy-number-explains-depression:
+      op: <
+      value: 0.5
+      provenance:
+        kind: theory
+        note: A copy-count explanation for 25x requires a substantial deficit.
+    class-rescaling-is-uniform:
+      op: <
+      value: 1.0
+      provenance:
+        kind: theory
+        note: Loose dispersion bound expected of a scalar class multiplier.
+    fixed-classes-differ-from-mrna:
+      op: '>='
+      value: 0.2
+      provenance:
+        kind: theory
+        note: Low bar; tests visibility of a documented code path, not effect size.
+readouts:
+- name: actual-synthesis-probability
+  store_path: listeners.rna_synth_prob.actual_rna_synth_prob
+  description: Per-TU probability in force, the numerator of every ratio here.
+  units: dimensionless
+  status: available
+- name: promoter-copy-number
+  store_path: listeners.rna_synth_prob.promoter_copy_number
+  description: >-
+    Per-TU promoter copies. The only per-TU term in the assignment path capable
+    of distinguishing individual transcripts within a class.
+  units: copies
+  status: available
+- name: gene-copy-number
+  store_path: listeners.rna_synth_prob.gene_copy_number
+  description: Per-TU gene copies, recorded as context alongside promoter copies.
+  units: copies
+  status: available
+
+planned_runs:
+- name: reuse-silent-tu-sweep
+  status: complete
+  n_steps: 0
+  details: >-
+    No new simulation. Reuses the 3 seed x 3 generation sweep from
+    silent-transcription-units, which already emits all three readouts.
+
+simulation_set:
+- name: baseline-transcription
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  is_baseline: true
+  status: ran
+  params: {}
+
+robustness:
+  n_replicates: 3
+  seeds: [0, 1, 2]
+  parameter_sweep: false
+  note: >-
+    3 seeds x 3 generations, reused. Sufficient for median comparisons between a
+    6-member cohort and a class-matched comparison group; not a powered estimate
+    for any single transcript.
+
+controls:
+- name: fixed-classes-differ-from-mrna
+  kind: positive
+  hypothesis: >-
+    transcript_initiation.py gives ribosomal-protein, RNAP, tRNA and rRNA
+    transcripts fixed or separately-scaled probabilities, so their actual/basal
+    ratios should differ visibly from mRNA's. If no class structure appears,
+    the emitted columns do not mean what this study assumes.
+  expected: at least a 20% difference between fixed-class and mRNA medians.
+  observed: ''
+  result: PENDING
+
+alternative_hypotheses:
+- claim: >-
+    The depression is a general mRNA effect from the class-level rescalings, and
+    the cohort is not special.
+  discriminated_by: >-
+    depression-is-cohort-specific, comparing against mRNA only. This branch
+    retracts a finding three studies rest on.
+  status: untested
+- claim: >-
+    The cohort holds fewer promoter copies, so the per-promoter indexing gives
+    it proportionally less probability.
+  discriminated_by: promoter-copy-number-explains-depression.
+  status: untested
+- claim: >-
+    Something per-TU acts inside the class that the code trace has not
+    identified, so neither the class rescale nor copy count accounts for it.
+  discriminated_by: >-
+    both primary axes failing while class-rescaling-is-uniform passes.
+  status: untested
+- claim: Transcript length or distance from oriC explains it.
+  discriminated_by: >-
+    The two regression pins. Both were measured before this study and are
+    recorded as pins, so they are excluded but not credited as acceptance
+    evidence.
+  status: excluded
+
+falsifiability: >-
+  The per-TU explanation is overturned if the cohort's actual/basal ratio is
+  comparable to other mRNAs, which would make the depression a class artefact and
+  dissolve the cohort. The copy-count explanation is overturned if the cohort
+  holds a normal number of promoter copies. The whole decomposition is invalidated
+  if the control shows no class structure in the emitted data.
+
+limitations:
+- >-
+  The sweep is reused rather than repeated; same cache and composite, but reuse
+  rather than independent replication.
+- >-
+  Six cohort members is small for a median comparison, and cohort membership was
+  defined from realized counts in a single generation.
+- >-
+  Attributing the shortfall to a term in the assignment path does not prove that
+  term is wrong. Whether per-promoter indexing is the intended semantics is a
+  modelling question this study does not settle.
+- >-
+  Single medium and condition; the class fractions are media-dependent.
+- >-
+  Two candidate explanations were measured before this study existed and can
+  only be excluded here, not tested.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The depression is specific to these transcripts and tracks promoter copy
+    number, so the shortfall enters through the per-promoter indexing of
+    basal_prob and the repair belongs there.
+  if_primary_tests_fail:
+    summary: >-
+      If the depression is not cohort-specific, it is a class-level artefact of
+      comparing mRNA against a mixed-class group and the cohort dissolves. If it
+      is specific but copy count is normal, the shortfall enters at a step the
+      code trace has not yet identified and the assignment path needs
+      instrumenting term by term.
+    diagnose:
+    - question: >-
+        Is the shortfall a class artefact, a copy-count effect, or an
+        unidentified per-TU term?
+      note: Answered by this study's two primary axes taken together.
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties: []
+  followup_study_proposals: []
+
+canonical_runs:
+- name: default
+  script: studies/probability-assignment-trace/analyses/measure.py
+  args: []
+  label: probability-assignment-trace
+  default: true
+
+visualizations: []
+
+report_card_refs:
+  probability_assignment:
+    cache_dir: out/cache
+    out_root: out/silent-transcription-units
+
+design_status: complete
+implementation_status: in_progress
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+reference_vector_caveat: |
+  Every ratio in this study is actual / basal_prob. If the vector in force is the
+  ppGpp-adjusted basal rather than basal_prob (ppgpp_regulation is TRUE in this
+  cache), that denominator is wrong.
+
+  The cohort-specificity result is PARTIALLY insulated: it compares the cohort's ratio
+  against other mRNAs' ratios, and both use the same denominator, so a uniform
+  replacement of basal_prob would cancel. It is NOT insulated if the ppGpp adjustment
+  is per-TU, which is exactly what it is designed to be.
+
+  So A1 (0.0192, cohort-specific) stands only under the assumption that the ppGpp
+  adjustment does not itself single out these six transcripts -- and that assumption
+  is untested. Study probability-in-force-reference settles it.

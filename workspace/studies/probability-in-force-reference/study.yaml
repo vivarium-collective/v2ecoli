@@ -1,0 +1,459 @@
+schema_version: 4
+name: probability-in-force-reference
+title: Probability in-force reference
+created: '2026-09-03'
+status: planned
+phase: Design
+study_type: diagnostic
+investigation: transcription-rewiring
+
+question: >-
+  Three studies have measured the transcription deficit as a ratio against
+  basal_prob. ppgpp_regulation is active in this cache, and when it is,
+  transcript_initiation.py replaces basal_prob with a ppGpp-adjusted vector. Is
+  basal_prob the reference the process actually uses, and if not, does the
+  deficit survive against the correct one?
+
+biological_summary: |
+  This study exists because a claim was overstated and the correction has wider
+  reach than the claim did.
+
+  runtime-synthesis-probability concluded that regulation was excluded, on two
+  grounds. One holds: no transcription factor is bound, re-checked as mean
+  0.0000, max 0.0000 and any-binding on 0.0% of 7584 timesteps for both the
+  cohort and the comparison group, so the additive TF path cannot be firing. The
+  other does not. It argued that the in-force probability tracks its target to
+  0.1%, so nothing between them removes probability -- but target_TU_synth_probs
+  is returned by _synthesis_probabilities, which contains the whole assignment
+  path including the TF term. Both quantities are post-regulation and differ only
+  by RNAP crowding. That comparison never tested regulation.
+
+  What it left unexamined is now the leading hypothesis. With ppgpp_regulation
+  true, lines 547-556 replace basal_prob with the ppGpp-adjusted vector and make
+  the TF effect multiplicative through an accessibility gain b^2/(b+K) whose own
+  comment states it goes smoothly to zero for silent genes. That path needs no TF
+  binding, so zero bound factors does not exclude it.
+
+  There is a second reason to suspect regulation rather than a defect. The
+  configured delta_prob sum for these transcripts is almost exactly minus their
+  basal_prob -- TU00352 has basal 1.213e-04 against delta -1.213e-04, TU00062
+  1.631e-04 against -1.631e-04. Those are regulators wired to null the gene. A
+  transcript carrying such a regulator is one the model intends to be
+  suppressible, which is the opposite of an accident.
+
+  The stakes are that a whole chain of measurements may have used the wrong
+  denominator. If the ppGpp-adjusted vector is what the process consults, then
+  "25x below basal_prob" compares against a number the model does not use, and
+  the deficit could be ppGpp regulation working exactly as designed rather than a
+  defect at all. That would retract a mechanism three studies have built on --
+  which is why the axes below are written so that outcome is reachable rather
+  than avoided.
+
+assumptions:
+- text: >-
+    ppgpp_state.basal_prob, when present and non-empty, is the vector
+    transcript_initiation.py uses in place of the cache's basal_prob.
+  verified_in_v2ecoli: false
+- text: >-
+    actual_rna_synth_prob is the per-TU probability in force after the whole
+    assignment path.
+  verified_in_v2ecoli: true
+
+pipeline_gate:
+  prerequisites:
+  - study: runtime-synthesis-probability
+    condition: ran
+    relation: refutes
+    outputs_used:
+    - The 93x in-force depression, which is reference-independent
+    - The invalidated actual-tracks-target argument this study replaces
+  enables: []
+  proceed_condition: >-
+    The correct reference vector is identified and the deficit is either
+    confirmed against it or shown to be an artefact of comparing against
+    basal_prob.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants: []
+  model_settings: []
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params: {}
+variants: []
+
+units_and_time:
+  tick: 1 tick = 1 s of simulated time (composite time_step=1)
+  quantities:
+    basal_prob: dimensionless per-TU probability from the ParCa cache
+    ppgpp-adjusted basal: dimensionless per-TU probability written by the ppGpp module
+    actual_rna_synth_prob: dimensionless per-TU probability in force
+    delta_prob: dimensionless additive TF effect configured per TU
+
+# ---------------------------------------------------------------------------
+# Confirmed before writing these axes, from SOURCE only: that ppgpp_regulation is
+# True in the cache config and which code branch that selects. No runtime values
+# were inspected. The TF-binding re-check (0.0000 mean/max, 0.0% of timesteps)
+# was measured while answering the challenge that prompted this study, so the
+# axis carrying it is a regression pin, not acceptance evidence.
+# ---------------------------------------------------------------------------
+behavior_tests:
+- name: ppgpp-branch-is-active-at-runtime
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the run actually take the ppGpp branch?
+  description: >-
+    The ppgpp_state basal vector is present and non-empty for at least 90% of
+    timesteps, which is the condition transcript_initiation.py tests before
+    replacing basal_prob.
+
+    ppgpp_regulation being True in the config only means the branch CAN be
+    taken; the code additionally requires ppgpp_state to carry a non-empty
+    vector at that tick. If it does not, basal_prob remains the reference, the
+    prior studies' denominator was right, and this study's premise collapses.
+
+    Threshold provenance: theory. 90% distinguishes a branch that is genuinely
+    in force from one taken occasionally; nothing is cited for it.
+  measure:
+    kind: derived
+    detail: >-
+      fraction of timesteps where the ppGpp-adjusted basal vector is present
+      and non-empty.
+  pass_if:
+    op: '>='
+    value: 0.9
+    provenance:
+      kind: theory
+      note: Separates a branch in force from one taken occasionally.
+  status: pending
+
+- name: in-force-reference-differs-from-basal
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the vector in force materially different from the cache's basal_prob?
+  description: >-
+    The median absolute log-ratio between the ppGpp-adjusted vector and
+    basal_prob, across the top-300 transcripts, exceeds 0.1 (about 10%).
+
+    If the two vectors agree, basal_prob is a fine proxy however the branch is
+    taken, and every prior measurement stands unchanged. If they differ, the
+    prior studies used the wrong denominator and their ratios need restating.
+
+    Threshold provenance: theory. 10% is a low bar deliberately: the question is
+    whether the reference is materially different at all, not whether the
+    difference is large.
+  measure:
+    kind: derived
+    detail: >-
+      median over top-300 TUs of abs(log(ppgpp_adjusted / basal_prob)).
+  pass_if:
+    op: '>'
+    value: 0.1
+    provenance:
+      kind: theory
+      note: Low bar; tests materiality, not magnitude.
+  status: pending
+
+- name: deficit-survives-correct-reference
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the cohort still depressed against the vector actually in force?
+  description: >-
+    The cohort's median (actual / in-force reference) is below half the
+    mRNA-only comparison group's same ratio.
+
+    The axis the whole investigation now turns on. Measured against whichever
+    vector the previous two axes establish as correct. A PASS means the deficit
+    is real and reference-independent, and the mechanism work stands. A FAIL
+    means the deficit was an artefact of dividing by basal_prob, the transcripts
+    are being suppressed as ppGpp regulation intends, and three studies'
+    mechanism claims must be retracted.
+
+    Deliberately written so the retracting outcome is reachable. The
+    investigation has already reversed twice by measuring the convenient
+    quantity, and this axis is the one that would catch a third.
+
+    Threshold provenance: theory, and identical to the bar used in
+    probability-assignment-trace so the two are directly comparable.
+  measure:
+    kind: derived
+    detail: >-
+      median(actual / in-force reference) over the cohort divided by the same
+      over mRNA-only comparison TUs.
+  pass_if:
+    op: <
+    value: 0.5
+    provenance:
+      kind: theory
+      note: Same bar as probability-assignment-trace, for direct comparability.
+  status: pending
+
+- name: suppression-is-not-explained-by-configured-regulators
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the depression what the configured regulators would produce if applied?
+  description: >-
+    The cohort's in-force probability is NOT approximated by
+    (basal_prob + delta_prob_sum), i.e. the ratio between them differs from 1
+    by more than 50%.
+
+    The delta_prob sums for these transcripts sit at almost exactly minus their
+    basal_prob, so applying them fully would drive the probability to nearly
+    zero. If the in-force value matches that prediction, the suppression IS the
+    configured regulation being applied -- through the multiplicative ppGpp path
+    rather than the additive one -- and the deficit is intended behaviour. If it
+    does not match, the suppression comes from somewhere else and the regulators
+    are a coincidence.
+
+    Threshold provenance: theory. A 50% band is loose enough that a rough match
+    still counts as a match, which is the conservative direction here: it makes
+    "regulation explains it" easier to conclude and so guards against the
+    investigation defending its own prior finding.
+  measure:
+    kind: derived
+    detail: >-
+      median over the cohort of abs(actual / max(basal_prob + delta_prob_sum,
+      floor) - 1), with a small floor to keep the ratio defined.
+  pass_if:
+    op: '>'
+    value: 0.5
+    provenance:
+      kind: theory
+      note: >-
+        Loose band, deliberately biased toward concluding regulation explains
+        the deficit rather than defending the prior mechanism claim.
+  status: pending
+
+- name: no-tf-is-bound
+  classification: supporting
+  gate_class: regression_pin
+  description: >-
+    No transcription factor is bound for either group, so the ADDITIVE TF path
+    is not firing.
+
+    POST-HOC: measured while answering the challenge that prompted this study
+    (mean 0.0000, max 0.0000, any-binding 0.0% of 7584 timesteps, both groups).
+    A pin, not acceptance evidence. It excludes only the additive path and
+    explicitly does NOT exclude the multiplicative ppGpp path, which was the
+    error being corrected.
+  measure:
+    kind: derived
+    detail: max mean bound-TF count across cohort and comparison TUs.
+  pass_if:
+    op: '=='
+    value: 0
+    provenance:
+      kind: post_hoc
+      note: Measured before this study existed; pin only.
+  status: pending
+
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-03T18:16:22Z'
+  criteria:
+  - test: ppgpp-branch-is-active-at-runtime
+    prior: >-
+      Open. ppgpp_regulation True only means the branch CAN be taken; if
+      ppgpp_state is empty at runtime the premise of this study collapses.
+  - test: in-force-reference-differs-from-basal
+    prior: >-
+      Open. If the vectors agree, every prior measurement stands unchanged.
+  - test: deficit-survives-correct-reference
+    prior: >-
+      Open, and able to retract three studies' mechanism claims. Written so
+      that outcome is reachable rather than avoided.
+  - test: suppression-is-not-explained-by-configured-regulators
+    prior: >-
+      Open. If the in-force value matches basal + delta, the suppression is
+      configured regulation and the deficit is intended behaviour.
+  predictions:
+  - >-
+    Confirmed before writing these axes, from SOURCE ONLY: ppgpp_regulation is
+    True in the cache config; transcript_initiation.py:547-556 replaces
+    basal_prob with the ppGpp vector and makes the TF effect multiplicative via
+    b^2/(b+K); target_TU_synth_probs is post-regulation. No runtime values were
+    inspected.
+  - >-
+    ALREADY MEASURED before this study existed and recorded as a pin: no TF is
+    bound (0.0000 mean and max, 0.0% of 7584 timesteps, both groups). Also
+    already observed from the cache: delta_prob sums sit at almost exactly
+    minus basal_prob for these transcripts. That observation MOTIVATES the
+    fourth axis but is not itself evidence for it, since the axis tests the
+    runtime consequence rather than the configured value.
+  controls:
+  - no-tf-is-bound
+
+  thresholds:
+    ppgpp-branch-is-active-at-runtime:
+      op: '>='
+      value: 0.9
+      provenance:
+        kind: theory
+        note: Separates a branch in force from one taken occasionally.
+    in-force-reference-differs-from-basal:
+      op: '>'
+      value: 0.1
+      provenance:
+        kind: theory
+        note: Low bar; tests materiality, not magnitude.
+    deficit-survives-correct-reference:
+      op: <
+      value: 0.5
+      provenance:
+        kind: theory
+        note: Same bar as probability-assignment-trace, for direct comparability.
+    suppression-is-not-explained-by-configured-regulators:
+      op: '>'
+      value: 0.5
+      provenance:
+        kind: theory
+        note: >-
+          Loose band, deliberately biased toward concluding regulation explains
+          the deficit rather than defending the prior mechanism claim.
+readouts:
+- name: ppgpp-adjusted-basal
+  store_path: derived
+  description: >-
+    The basal vector the ppGpp module writes into ppgpp_state, which replaces
+    the cache's basal_prob when present. NOT known to be emitted; may require
+    instrumenting the ppGpp module or reconstructing it from the process.
+  units: dimensionless
+  status: aspirational
+- name: actual-synthesis-probability
+  store_path: listeners.rna_synth_prob.actual_rna_synth_prob
+  description: Per-TU probability in force; the numerator throughout.
+  units: dimensionless
+  status: available
+- name: tf-bound-per-tu
+  store_path: listeners.rna_synth_prob.n_bound_TF_per_TU
+  description: Bound transcription factors per TU, for the additive-path pin.
+  units: count
+  status: available
+
+implementation_requirements:
+- id: req-1
+  kind: listener
+  title: Determine whether the ppGpp-adjusted basal vector is observable
+  status: planned
+  effort: S
+  description: >-
+    The whole study depends on reading the vector in force. It is not known to
+    be emitted; two of the three readouts above are available but this one is
+    aspirational. Establish whether it can be read from an existing emission,
+    recovered from ppgpp_state, or requires instrumenting the ppGpp module --
+    BEFORE running, since an unobservable reference makes three of four axes
+    ungradable.
+  steps:
+  - Check whether ppgpp_state is emitted in existing runs.
+  - If not, determine whether the ppGpp module can be made to emit its basal vector.
+  - If neither, mark the dependent axes ungraded rather than substituting a proxy.
+  unblocks:
+  - in-force-reference-differs-from-basal
+  - deficit-survives-correct-reference
+
+robustness:
+  n_replicates: 3
+  seeds: [0, 1, 2]
+  parameter_sweep: false
+  note: >-
+    Reuses the existing 3 seed x 3 generation sweep if the reference vector turns
+    out to be observable in it; otherwise a fresh instrumented run is required and
+    this block must be revised before use.
+
+controls:
+- name: no-tf-is-bound
+  kind: negative
+  hypothesis: >-
+    If no TF is bound, the additive path cannot be firing, so any regulatory
+    effect must arrive through the multiplicative ppGpp route.
+  expected: zero bound TFs for both groups.
+  observed: ''
+  result: PENDING
+
+alternative_hypotheses:
+- claim: >-
+    basal_prob is the reference in force and the prior measurements stand.
+  discriminated_by: >-
+    ppgpp-branch-is-active-at-runtime and in-force-reference-differs-from-basal.
+  status: untested
+- claim: >-
+    The deficit is ppGpp regulation working as designed, and comparing against
+    basal_prob measured a number the model does not use.
+  discriminated_by: deficit-survives-correct-reference.
+  status: untested
+- claim: >-
+    The configured delta_prob regulators, applied through the multiplicative
+    path, produce exactly this suppression.
+  discriminated_by: suppression-is-not-explained-by-configured-regulators.
+  status: untested
+- claim: >-
+    The deficit is real against any reference and the mechanism work stands.
+  discriminated_by: deficit-survives-correct-reference passing.
+  status: untested
+
+falsifiability: >-
+  The investigation's mechanism claims are overturned if the cohort is NOT
+  depressed against the vector actually in force, which would make the deficit an
+  artefact of dividing by basal_prob. They are also overturned if the in-force
+  probability matches basal_prob plus the configured delta_prob, which would make
+  the suppression intended regulation rather than a defect.
+
+limitations:
+- >-
+  The primary readout is aspirational: the ppGpp-adjusted vector is not known to
+  be emitted, and three of four axes are ungradable until that is resolved.
+- >-
+  Six cohort members is small for a median comparison.
+- >-
+  Establishing which vector is in force does not establish whether the ppGpp
+  adjustment is biologically correct; that is a separate question.
+- >-
+  Single medium and condition. ppGpp regulation is condition-dependent by
+  construction, so a result here may not transfer.
+- >-
+  Two facts were measured before this study existed (TF binding, delta_prob
+  sums) and can only be excluded or motivate here, not tested.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    The ppGpp branch is in force, its vector differs materially from basal_prob,
+    the cohort is still depressed against the correct reference, and the
+    suppression is not what the configured regulators would produce -- so the
+    deficit is real, reference-independent, and the mechanism work stands with its
+    denominator corrected.
+  if_primary_tests_fail:
+    summary: >-
+      If the deficit does not survive the correct reference, three studies'
+      mechanism claims are retracted and the transcripts are being suppressed as
+      designed. If the in-force value matches basal plus delta, the suppression is
+      configured regulation applied through the multiplicative path.
+    diagnose:
+    - question: >-
+        Is the deficit an artefact of the reference vector, or intended ppGpp
+        regulation, or a real defect?
+      note: Answered by this study's four primary axes taken together.
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties: []
+  followup_study_proposals: []
+
+canonical_runs:
+- name: default
+  script: studies/probability-in-force-reference/analyses/measure.py
+  args: []
+  label: probability-in-force-reference
+  default: true
+
+visualizations: []
+
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested

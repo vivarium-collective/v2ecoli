@@ -152,7 +152,40 @@ behavior_tests:
     provenance:
       kind: theory
       note: Distinguishes tracking from suppression; mechanism-agnostic.
-  status: pending
+  status: invalidated_by_correction
+  review_note: |
+    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+    The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+    invalid one.
+
+    VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+    the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+    timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
+
+    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
+    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+    (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+    including the delta_prob . bound_TF term. Both quantities are therefore
+    POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+    1.001 ratio shows crowding does not affect these transcripts; it says nothing
+    whatever about regulation. The study's own assumptions block flagged this as
+    verified_in_v2ecoli: false and the conclusion leaned on it anyway.
+
+    UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+    When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+    basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
+    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
+    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+    it.
+
+    Also newly noted: the configured delta_prob sum for these transcripts is almost
+    exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+    -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+    evidence that regulation is irrelevant here.
+
+    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+    reference vector entirely. Study probability-in-force-reference is designed to settle
+    which vector is in force.
 - name: comparison-group-behaves-normally
   classification: control
   gate_class: acceptance_criterion
@@ -484,7 +517,7 @@ findings:
     the honest reading is that it needs a larger cohort before it can carry weight.
 - id: F-03
   kind: computational
-  status: confirms
+  status: partial
   statement: 'The in-force probability tracks its target exactly (1.001) with zero transcription factors bound, so the suppression is already in the target and regulation is not responsible.'
   evidence:
     from_run: runtime-synthesis-probability__sweep
@@ -505,6 +538,39 @@ findings:
     so delta_prob and TF binding cannot be what distinguishes them. Combined with F-01
     this places the defect squarely in how target synthesis probabilities are
     computed.
+  review_note: |
+    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+    The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+    invalid one.
+
+    VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+    the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+    timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
+
+    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
+    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+    (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+    including the delta_prob . bound_TF term. Both quantities are therefore
+    POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+    1.001 ratio shows crowding does not affect these transcripts; it says nothing
+    whatever about regulation. The study's own assumptions block flagged this as
+    verified_in_v2ecoli: false and the conclusion leaned on it anyway.
+
+    UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+    When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+    basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
+    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
+    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+    it.
+
+    Also newly noted: the configured delta_prob sum for these transcripts is almost
+    exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+    -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+    evidence that regulation is irrelevant here.
+
+    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+    reference vector entirely. Study probability-in-force-reference is designed to settle
+    which vector is in force.
 - id: F-04
   kind: computational
   status: confirms
@@ -560,7 +626,7 @@ findings:
   kind: computational
   tier: interpretation
   mechanism_origin: engineered
-  status: novel
+  status: partial
   statement: "The transcription deficit originates in how target synthesis probabilities are computed: the value in force is 93x depressed, 25x below the cohort's own basal_prob, with regulation excluded."
   summary: |
     Five studies converge here. A replication arrest led to DnaG, DnaG led to a
@@ -590,6 +656,39 @@ findings:
     - runtime-synthesis-probability__sweep
   next_action: Trace where target_rna_synth_prob is computed and find what reduces it ~25x below basal_prob for these transcripts.
   next_action_type: escalate_model
+  review_note: |
+    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+    The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+    invalid one.
+
+    VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+    the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+    timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
+
+    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
+    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+    (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+    including the delta_prob . bound_TF term. Both quantities are therefore
+    POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+    1.001 ratio shows crowding does not affect these transcripts; it says nothing
+    whatever about regulation. The study's own assumptions block flagged this as
+    verified_in_v2ecoli: false and the conclusion leaned on it anyway.
+
+    UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+    When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+    basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
+    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
+    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+    it.
+
+    Also newly noted: the configured delta_prob sum for these transcripts is almost
+    exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+    -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+    evidence that regulation is irrelevant here.
+
+    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+    reference vector entirely. Study probability-in-force-reference is designed to settle
+    which vector is in force.
 conclusion: |
   The deficit is an assignment defect, and it is located upstream of regulation.
 
@@ -631,4 +730,37 @@ conclusion_verdicts:
   explanatory_gain:
     verdict: confirmed
     basis: "Resolves a question four prior studies could not: the deficit is in probability assignment, not selection, and not regulation (zero TFs bound; actual tracks target to 0.1%). It also explains the investigation's own methodological failure by showing the in-force probability is 25x below basal_prob, so every diagnosis that read basal_prob read a number the process never uses."
-claim: 'The transcription deficit is an assignment defect: the probability in force is 93x below peers and 25x below the advertised basal_prob, tracking its target exactly with no TF involvement.'
+claim: 'The probability in force is 93x below peers and 25x below basal_prob. Whether regulation is responsible is UNRESOLVED: no TF is bound, but the actual-tracks-target evidence was invalid and the active ppGpp path was not examined.'
+correction_note: |
+  CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+  The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+  invalid one.
+
+  VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+  the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+  timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
+
+  INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
+  the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+  (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+  including the delta_prob . bound_TF term. Both quantities are therefore
+  POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+  1.001 ratio shows crowding does not affect these transcripts; it says nothing
+  whatever about regulation. The study's own assumptions block flagged this as
+  verified_in_v2ecoli: false and the conclusion leaned on it anyway.
+
+  UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+  When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+  basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
+  an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
+  silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+  it.
+
+  Also newly noted: the configured delta_prob sum for these transcripts is almost
+  exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+  -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+  evidence that regulation is irrelevant here.
+
+  Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+  reference vector entirely. Study probability-in-force-reference is designed to settle
+  which vector is in force.

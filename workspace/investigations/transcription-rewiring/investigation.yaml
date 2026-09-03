@@ -46,6 +46,8 @@ studies:
 - dnag-production-deficit
 - silent-transcription-units
 - runtime-synthesis-probability
+- probability-assignment-trace
+- probability-in-force-reference
 executive:
   what_is_this: >-
     v2ecoli can normally start chromosome replication whenever it is due,

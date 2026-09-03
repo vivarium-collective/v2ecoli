@@ -412,3 +412,52 @@ def test_agent_id_depth_matches_resumed_generation(monkeypatch, gen_index):
                   "initial_generation_index": gen_index}
     lp, _ = _make(monkeypatch, generations=1, divide_after=1, **kwargs)
     assert lp._agent_id == "0" * (gen_index + 1)
+
+
+def _stub_xarray_run(monkeypatch, captured):
+    """Stub the three v2ecoli.library.xarray_run symbols _open_xarray_emitter
+    imports locally, isolating its own writer-defaulting logic (the thing
+    under test) from the rest of the real emitter-building pipeline."""
+    import v2ecoli.library.xarray_run as xarray_run_mod
+
+    def fake_build_emitter(**kwargs):
+        captured["kwargs"] = kwargs
+        return object()
+
+    monkeypatch.setattr(xarray_run_mod, "_build_emitter", fake_build_emitter)
+    monkeypatch.setattr(xarray_run_mod, "filter_view_to_existing_leaves",
+                         lambda wrapped, raw_view: raw_view)
+    monkeypatch.setattr(xarray_run_mod, "extract_output_metadata_from_state",
+                         lambda wrapped, view: {})
+
+
+def test_xarray_emitter_defaults_buffers_per_chunk_to_one(monkeypatch):
+    """Backlog item 105 / Boyan Beronov's report: build_emitter_config's own
+    shared default (buffers_per_chunk=10) is wrong for immutable object
+    storage (S3 Standard, our backend for this dispatch path) -- it means
+    every chunk flush re-copies previously-written objects instead of
+    appending cleanly. ecoli_baseline.py's single-cell path already overrides
+    this to 1; this path silently inherited the shared default of 10 instead.
+    """
+    lp, _ = _make(monkeypatch, generations=1, divide_after=1)
+    lp._core = object()
+    captured: dict = {}
+    _stub_xarray_run(monkeypatch, captured)
+
+    lp._open_xarray_emitter(emit_cell={"bulk": {}})
+
+    assert captured["kwargs"]["writer"] == {"buffers_per_chunk": 1}
+
+
+def test_xarray_emitter_caller_writer_override_still_wins(monkeypatch):
+    """setdefault, not assignment: an explicit caller-supplied buffers_per_chunk
+    (or any other writer key) must not be silently clobbered by the new default."""
+    lp, _ = _make(monkeypatch, generations=1, divide_after=1)
+    lp._core = object()
+    lp.config["emitter_arg"] = {"writer": {"buffers_per_chunk": 4, "backend": "zarr"}}
+    captured: dict = {}
+    _stub_xarray_run(monkeypatch, captured)
+
+    lp._open_xarray_emitter(emit_cell={"bulk": {}})
+
+    assert captured["kwargs"]["writer"] == {"buffers_per_chunk": 4, "backend": "zarr"}

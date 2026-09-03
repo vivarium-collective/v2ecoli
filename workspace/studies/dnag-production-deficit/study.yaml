@@ -78,6 +78,8 @@ pipeline_gate:
     result: failed
     blocked_by:
     - simulation-reproduces-parca-target
+    - dnag-transcript-is-synthesized
+    - operon-partners-share-transcription
     evaluated_by: code
     diverges_from_authored: false
 conditions:
@@ -117,62 +119,61 @@ behavior_tests:
       kind: theory
       note: Generous 2x band; a model reproducing its own fit should clear it easily.
   status: pending
-- name: transcription-is-not-the-lossy-step
+- name: dnag-transcript-is-synthesized
   classification: primary
   gate_class: acceptance_criterion
-  question: Is the dedup hypothesis right that dnaG is starved of transcription?
-  description: 'TU00352''s basal synthesis probability sits ABOVE the median transcript (percentile > 50). The investigation''s standing hypothesis is that collapsing the rpsU promoters into one transcription unit starves dnaG of transcription; that hypothesis predicts this test FAILS.
+  question: Is dnaG's transcript actually made during a simulation?
+  description: |
+    dnaG's transcripts synthesised per generation is greater than zero,
+    measured from count_rna_synthesized DURING a run.
 
-    Stated in the direction that makes the dedup hypothesis falsifiable rather than in the direction that confirms it. A pass refutes the transcription story and redirects the investigation downstream.
+    REPLACES 'transcription-is-not-the-lossy-step', which ranked basal_prob and
+    concluded dnaG was not starved. That axis was invalid twice over: basal_prob
+    is OVERRIDDEN for idx_rprotein TUs like TU00352, and a static parameter
+    cannot establish what a simulation does -- in a study whose own headline is a
+    22x parameter-vs-behaviour gap.
 
-    Threshold provenance: theory. The median is the natural dividing line between "starved" and "not starved" and requires no tuning.'
+    Threshold provenance: zero is definitional, not tuned. A gene whose only
+    transcript is never synthesised receives no mRNA at all.
   measure:
     kind: derived
-    detail: percentile of TU00352 basal_prob among all 3277 transcripts.
+    detail: Transcripts synthesised for dnaG across all its TUs during one generation.
   pass_if:
     op: '>'
-    value: 50
+    value: 0
     provenance:
       kind: theory
-      note: The median transcript is the non-arbitrary boundary for "starved".
-  status: refuted_by_correction
-  review_note: |
-    CORRECTED 2026-09-03 after an expert challenge: 'without checking if it is
-    actually being actively transcribed throughout, how do you invalidate the
-    hypothesis?'
-
-    The original axis measured basal_prob, a STATIC ParCa parameter, and concluded
-    dnaG is not starved of transcription. Measuring what the simulation actually does
-    reverses that completely. Over a full generation (2528 timesteps):
-      TU00352 mRNA count            0 at 100% of timesteps
-      TU00352 synthesis events      0
-      realized / assigned           0.000x
-    TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
-    with the fixed ribosomal-protein probability -- basal_prob never governed it.
-- name: operon-partners-diverge
-  classification: supporting
-  gate_class: acceptance_criterion
-  question: Do cistrons on one transcript reach different protein levels?
-  description: 'rpsU, dnaG and rpoD share TU00352, so they draw on one mRNA pool. If their model/literature ratios differ by more than 2x, the divergence cannot come from transcription and must come from a per-cistron step downstream. This is the study''s internal control: it localises the loss without relying on any absolute count being right.
-
-    Threshold provenance: theory, and can fail. If all three partners track together, the loss is shared and the per-cistron explanation is wrong.'
-  measure:
-    kind: derived
-    detail: max/min of the model-to-literature ratio across rpsU, dnaG, rpoD.
-  pass_if:
-    op: '>'
-    value: 2.0
-    provenance:
-      kind: theory
-      note: A 2x spread is the smallest divergence that a shared mRNA pool cannot explain.
+      note: 'Definitional: zero synthesis means no mRNA, not a tuned cutoff.'
   status: pending
-  review_note: |
-    PREMISE FALSIFIED. This axis assumed rpsU, dnaG and rpoD 'share one mRNA
-    pool, so divergence cannot come from transcription'. They do not: rpsU has
-    TU0-14460 and rpoD has TU00472 in addition to TU00352. dnaG has TU00352
-    alone. Per generation: dnaG 0 transcripts, rpsU 1, rpoD 461. The divergence
-    is therefore TRANSCRIPTIONAL, not per-cistron translational, and the axis
-    cannot support the localisation it was written to provide.
+- name: operon-partners-share-transcription
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Do the cistrons on TU00352 receive comparable transcription?
+  description: |
+    Transcripts made for dnaG, rpsU and rpoD differ by less than 10-fold.
+
+    REPLACES 'operon-partners-diverge', whose premise was false. That axis assumed
+    the three cistrons 'share one mRNA pool, so divergence cannot come from
+    transcription'. They do not share one pool: rpsU also has TU0-14460 and rpoD
+    also has TU00472, while dnaG has TU00352 alone. The false premise is what made
+    a transcriptional divergence look translational.
+
+    Restated on TRANSCRIPTS ACTUALLY MADE, which needs no shared-pool assumption.
+    A FAIL means the partners are supplied while dnaG is not -- the stranding this
+    study is about.
+
+    Threshold provenance: theory. 10-fold is generous for cistrons nominally on one
+    operon; ratios are computed on counts+1 so a zero is well defined.
+  measure:
+    kind: derived
+    detail: max/min of (transcripts synthesised + 1) across dnaG, rpsU and rpoD in one generation.
+  pass_if:
+    op: <
+    value: 10.0
+    provenance:
+      kind: theory
+      note: Generous band for cistrons nominally sharing an operon.
+  status: pending
 - name: dnag-below-literature
   classification: supporting
   gate_class: regression_pin
@@ -235,6 +236,16 @@ preregistered:
   - Reconnaissance during scoping had already measured the simulated counts (median 0, mean 1.76, 61.6% of timesteps at zero) and the chain percentiles. Those observations are recorded as regression_pin axes, NOT as acceptance criteria, because a threshold set after seeing a number cannot confirm it.
   controls:
   - operon-partners-diverge
+  amended: |
+    AMENDED 2026-09-03 after an expert challenge. Two acceptance axes were replaced
+    because they measured a static ParCa parameter rather than simulated behaviour and
+    reached the opposite conclusion. The replacements are graded on transcripts actually
+    synthesised during a run.
+
+    The amendment is recorded rather than silently applied: these two axes are NOT
+    pre-registered in the original sense, because the replacement was written after the
+    correcting measurement was seen. They are honest tests of the right quantity, but a
+    reviewer should weigh them as post-hoc.
 readouts:
 - name: dnag-monomer-counts
   store_path: bulk.count
@@ -334,6 +345,7 @@ report_card_refs:
     bundle_glob: workspace/studies/replisome-gate-sufficiency/evidence/permissive__seed*.parquet
     proteome_script: /Users/rashmidissasekara/Documents/code/v2ecoli/scripts/proteome_compare.py
     fixture: models/parca/parca_state.pkl.gz
+    transcription_run_glob: out/tu00352-check/**/history/**/generation=1/**/*.pq
 design_status: complete
 implementation_status: complete
 simulation_status: ran
@@ -356,20 +368,20 @@ runs:
       operator: derived/>= 0.5
       gate_class: acceptance_criterion
       detail: Simulation mean 1.76 vs ParCa's fitted 38 copies = 0.0463 (22x below its own target).
-    transcription-is-not-the-lossy-step:
-      result: PASS
-      measured_value: 91.852304
+    dnag-transcript-is-synthesized:
+      result: FAIL
+      measured_value: 0.0
       evaluated_by: agent
-      operator: derived/> 50
+      operator: derived/> 0
       gate_class: acceptance_criterion
-      detail: TU00352 basal_prob 1.213e-04 is at the 91.9th percentile of 3277 transcripts (median 4.009e-06); 30x the median.
-    operon-partners-diverge:
-      result: PASS
-      measured_value: 3.554638
+      detail: dnaG received 0 transcripts in one generation (2,528 timesteps). TU00352 mRNA absent at 100% of timesteps. basal_prob is overridden for idx_rprotein TUs and cannot answer this.
+    operon-partners-share-transcription:
+      result: FAIL
+      measured_value: 462.0
       evaluated_by: agent
-      operator: derived/> 2.0
+      operator: derived/< 10.0
       gate_class: acceptance_criterion
-      detail: 'model/literature ratios on the shared transcript TU00352: rpoD 0.51x, dnaG 0.64x, rpsU 1.81x -> 3.55x spread.'
+      detail: 'transcripts made in one generation: dnaG 0, rpsU 1, rpoD 461 -> 462x spread. dnaG has one transcript (never made); rpsU and rpoD each have an alternative that is.'
     dnag-below-literature:
       result: PASS
       measured_value: 0.644068
@@ -396,7 +408,7 @@ runs:
       measured_value: fail
       evaluated_by: code
       operator: report_card/severity_gate
-      detail: 5/6 axes within tolerance; 1 hard mismatch.
+      detail: 3/6 axes within tolerance; 3 hard mismatch.
   computed_outcomes:
     simulation-reproduces-parca-target:
       result: FAIL
@@ -405,20 +417,20 @@ runs:
       operator: derived/>= 0.5
       gate_class: acceptance_criterion
       detail: Simulation mean 1.76 vs ParCa's fitted 38 copies = 0.0463 (22x below its own target).
-    transcription-is-not-the-lossy-step:
-      result: PASS
-      measured_value: 91.852304
+    dnag-transcript-is-synthesized:
+      result: FAIL
+      measured_value: 0.0
       evaluated_by: agent
-      operator: derived/> 50
+      operator: derived/> 0
       gate_class: acceptance_criterion
-      detail: TU00352 basal_prob 1.213e-04 is at the 91.9th percentile of 3277 transcripts (median 4.009e-06); 30x the median.
-    operon-partners-diverge:
-      result: PASS
-      measured_value: 3.554638
+      detail: dnaG received 0 transcripts in one generation (2,528 timesteps). TU00352 mRNA absent at 100% of timesteps. basal_prob is overridden for idx_rprotein TUs and cannot answer this.
+    operon-partners-share-transcription:
+      result: FAIL
+      measured_value: 462.0
       evaluated_by: agent
-      operator: derived/> 2.0
+      operator: derived/< 10.0
       gate_class: acceptance_criterion
-      detail: 'model/literature ratios on the shared transcript TU00352: rpoD 0.51x, dnaG 0.64x, rpsU 1.81x -> 3.55x spread.'
+      detail: 'transcripts made in one generation: dnaG 0, rpsU 1, rpoD 461 -> 462x spread. dnaG has one transcript (never made); rpsU and rpoD each have an alternative that is.'
     dnag-below-literature:
       result: PASS
       measured_value: 0.644068
@@ -445,7 +457,7 @@ runs:
       measured_value: fail
       evaluated_by: code
       operator: report_card/severity_gate
-      detail: 5/6 axes within tolerance; 1 hard mismatch.
+      detail: 3/6 axes within tolerance; 3 hard mismatch.
 findings:
 - id: F-01
   kind: computational

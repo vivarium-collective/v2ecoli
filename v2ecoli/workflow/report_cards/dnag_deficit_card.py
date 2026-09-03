@@ -53,6 +53,9 @@ class DnaGDeficitCard(ReportCardStep):
 
         m = dd.measure(_p("cache_dir"), _p("bundle_glob"), _p("proteome_script"),
                        fixture=_p("fixture"))
+        # Realized transcription: what the simulation ACTUALLY made. basal_prob is
+        # overridden for idx_rprotein TUs and cannot answer this.
+        rt = dd.realized_transcription(_p("cache_dir"), cfg["transcription_run_glob"])
         b = TestBuilder(model_ref=study.study_name)
 
         b.add("Execution", check(
@@ -70,30 +73,33 @@ class DnaGDeficitCard(ReportCardStep):
                         "and an execution gap cannot hide behind one."}))
 
         b.add("Localisation", check(
-            "transcription_not_lossy",
-            "dnaG's transcript is above the median (dedup hypothesis predicts FAIL)",
-            m["transcription_percentile"], value(50, op=">"),
-            severity="hard", units="percentile",
+            "dnag_transcript_is_synthesized",
+            "dnaG's transcript is actually synthesised during a run",
+            rt.get("dnag_total_synthesized"), value(0, op=">"),
+            severity="hard", units="transcripts/generation",
             detail={"gate_class": "acceptance_criterion",
-                    "basal_prob": m["chain"]["transcription"]["value"],
-                    "median_all": m["chain"]["transcription"]["median_all"],
+                    "per_transcript": (rt.get("genes") or {}).get("dnaG"),
+                    "tu00352_mrna": rt.get("tu00352_mrna"),
                     "discrimination":
-                        "Written so the investigation's own dedup hypothesis is "
-                        "falsifiable. A PASS refutes the transcription story."}))
+                        "Measured from count_rna_synthesized DURING a run. Replaces an "
+                        "axis that ranked basal_prob -- a parameter that is OVERRIDDEN "
+                        "for idx_rprotein TUs and reached the opposite conclusion."}))
 
-        ratios = [r for r in (m.get("operon_ratios") or {}).values() if r]
-        spread = (max(ratios) / min(ratios)) if len(ratios) > 1 else None
         b.add("Localisation", check(
-            "operon_partners_diverge",
-            "Cistrons sharing one transcript reach different protein levels",
-            spread, value(2.0, op=">"),
+            "operon_partners_share_transcription",
+            "Cistrons on TU00352 receive comparable transcription",
+            rt.get("operon_transcript_spread"), value(10.0, op="<"),
             severity="hard", units="fold",
             detail={"gate_class": "acceptance_criterion",
-                    "ratios_model_over_literature": m.get("operon_ratios"),
+                    "transcripts_made": {g: v["total_synthesized"]
+                                         for g, v in (rt.get("genes") or {}).items()},
+                    "per_transcript": {g: v["per_transcript"]
+                                       for g, v in (rt.get("genes") or {}).items()},
                     "discrimination":
-                        "rpsU, dnaG and rpoD share TU00352 and one mRNA pool, so "
-                        "divergence localises the loss downstream of transcription "
-                        "without relying on any absolute count."}))
+                        "Graded on transcripts actually made, so it needs no shared-mRNA-"
+                        "pool assumption -- the false premise that made a transcriptional "
+                        "divergence look translational. A FAIL means the partners are "
+                        "supplied via alternative transcripts while dnaG is not."}))
 
         lit = m["literature"]
         pin = (m["parca_expected"] or {}).get("count")
@@ -129,10 +135,10 @@ class DnaGDeficitCard(ReportCardStep):
                     "note": "POST-HOC relative to study 2, which already showed the "
                             "stall. Mechanical reason the option cannot be enabled."}))
 
-        return b.build(), _render(m)
+        return b.build(), _render(m, rt)
 
 
-def _render(m: dict) -> str:
+def _render(m: dict, rt: dict | None = None) -> str:
     lit = m["literature"]
     chain = m["chain"]
     rows = "".join(
@@ -161,9 +167,14 @@ def _render(m: dict) -> str:
         <th>median</th><th>percentile</th></tr>
     {rows}
   </table>
-  <p style="margin-top:12px">Transcription is <b>not</b> the lossy step. The
-     bottleneck is <b>{m['bottleneck_step']}</b> at the
-     {m['bottleneck_percentile']:.1f}th percentile.</p>
+  <p style="margin-top:12px"><b>Transcription IS the lossy step.</b> Measured during a
+     run, dnaG receives {(rt or {}).get('dnag_total_synthesized', '?')} transcripts per
+     generation; TU00352 mRNA is absent at
+     {(((rt or {}).get('tu00352_mrna') or {}).get('frac_zero', 0))*100:.0f}% of timesteps.
+     Its operon partners escape via alternative transcripts:
+     {', '.join(f"{g} {v['total_synthesized']:.0f}" for g, v in ((rt or {}).get('genes') or {}).items())}.
+     The translation-efficiency percentile below is DOWNSTREAM of this block &mdash; an
+     mRNA that is never made cannot be translated.</p>
   <div style="display:flex;gap:28px;margin-top:10px">
     <div><b>Literature (copies)</b>
       <table style="border-collapse:collapse;font-size:13px">{ds}</table></div>

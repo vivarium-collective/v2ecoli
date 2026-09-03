@@ -251,3 +251,84 @@ def measure(cache_dir, bundle_glob, proteome_script,
         "gate_demand_per_oric": demand,
         "frac_below_gate_demand": sim.get("frac_zero"),
     }
+
+
+# ---------------------------------------------------------------------------
+# Realized transcription (added 2026-09-03 after the basal_prob correction)
+# ---------------------------------------------------------------------------
+#
+# basal_prob is a STATIC parameter and does NOT govern TU00352: that transcript
+# is in ``idx_rprotein``, and TranscriptInitiation overrides basal_prob with the
+# fixed ribosomal-protein probability for those TUs
+# (transcript_initiation.py:618-621). Ranking basal_prob therefore measured a
+# number that is never in force, and concluded the opposite of the truth.
+#
+# These read what the simulation ACTUALLY transcribed, per transcription unit,
+# from a run's parquet. Any claim about whether a gene is transcribed must come
+# from here, not from the cache.
+
+SYNTH_COL = "listeners__transcript_elongation_listener__count_rna_synthesized"
+
+
+def realized_transcription(cache_dir, run_glob, generation=1) -> dict:
+    """Transcripts actually synthesised per TU during one generation.
+
+    Returns per-gene totals for the TU00352 operon plus the raw per-TU vector,
+    so "is this gene transcribed at all" is answerable directly.
+    """
+    import glob
+    import numpy as np
+    import polars as pl
+
+    sd = _cache(cache_dir)
+    cfgs = sd["configs"]
+    ids = [str(x) for x in cfgs["ecoli-transcript-initiation"]["rna_data"]["id"]]
+    c = cfgs["rna_synth_prob_listener"]
+    cis = [str(x) for x in c["cistron_ids"]]
+    M = c["cistron_tu_mapping_matrix"]
+    Md = M.toarray() if hasattr(M, "toarray") else np.asarray(M)
+
+    files = sorted(glob.glob(str(run_glob), recursive=True))
+    if not files:
+        return {"error": f"no parquet under {run_glob}"}
+    df = pl.concat([pl.read_parquet(f) for f in files], how="diagonal")
+    if SYNTH_COL not in df.columns:
+        return {"error": f"{SYNTH_COL} not emitted in this run"}
+
+    tot = np.zeros(len(ids))
+    for row in df[SYNTH_COL].to_list():
+        tot[: len(row)] += np.asarray(row, dtype=float)
+
+    genes = {}
+    for gene, name in (("EG10239", "dnaG"), ("EG10896", "rpsU"), ("EG10920", "rpoD")):
+        if gene not in cis:
+            continue
+        tus = np.nonzero(Md[cis.index(gene)])[0]
+        genes[name] = {
+            "n_transcripts": int(len(tus)),
+            "per_transcript": {ids[t]: float(tot[t]) for t in tus},
+            "total_synthesized": float(sum(tot[t] for t in tus)),
+        }
+
+    tu = ids.index(DNAG_TU)
+    mrna = None
+    b_ids = df["bulk__id"][0].to_list() if "bulk__id" in df.columns else []
+    if DNAG_TU in b_ids:
+        counts = df["bulk__count"].list.get(b_ids.index(DNAG_TU))
+        mrna = {"min": int(counts.min()), "max": int(counts.max()),
+                "mean": float(counts.mean()),
+                "frac_zero": float((counts == 0).sum() / len(counts))}
+
+    return {
+        "generation": generation,
+        "n_timesteps": int(df.height),
+        "genes": genes,
+        "tu00352_synthesized": float(tot[tu]),
+        "tu00352_mrna": mrna,
+        "dnag_total_synthesized": genes.get("dnaG", {}).get("total_synthesized"),
+        # Divergence measured on TRANSCRIPTS MADE, not on an assumed shared pool.
+        "operon_transcript_spread": (
+            (max(g["total_synthesized"] for g in genes.values()) + 1.0)
+            / (min(g["total_synthesized"] for g in genes.values()) + 1.0)
+            if genes else None),
+    }

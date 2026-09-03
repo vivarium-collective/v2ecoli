@@ -45,7 +45,7 @@ def _apply(measured, pass_if: dict) -> bool:
     return bool(ops[op](measured, want))
 
 
-def measure_tests(m: dict) -> dict:
+def measure_tests(m: dict, rt: dict) -> dict:
     sim, lit = m["simulated"], m["literature"]
     parca = (m["parca_expected"] or {}).get("count")
     ratios = {g: r for g, r in (m.get("operon_ratios") or {}).items() if r}
@@ -56,16 +56,19 @@ def measure_tests(m: dict) -> dict:
             m["sim_vs_parca"],
             f"Simulation mean {sim['mean']:.2f} vs ParCa's fitted {parca:,.0f} copies "
             f"= {m['sim_vs_parca']:.4f} ({1/m['sim_vs_parca']:.0f}x below its own target)."),
-        "transcription-is-not-the-lossy-step": (
-            tx["percentile"],
-            f"TU00352 basal_prob {tx['value']:.3e} is at the {tx['percentile']:.1f}th "
-            f"percentile of {tx['n']} transcripts (median {tx['median_all']:.3e}); "
-            f"{tx['value']/tx['median_all']:.0f}x the median."),
-        "operon-partners-diverge": (
-            spread,
-            "model/literature ratios on the shared transcript TU00352: "
-            + ", ".join(f"{g} {r:.2f}x" for g, r in ratios.items())
-            + f" -> {spread:.2f}x spread."),
+        "dnag-transcript-is-synthesized": (
+            rt.get("dnag_total_synthesized"),
+            f"dnaG received {rt.get('dnag_total_synthesized'):.0f} transcripts in one "
+            f"generation ({rt.get('n_timesteps'):,} timesteps). TU00352 mRNA absent at "
+            f"{(rt.get('tu00352_mrna') or {}).get('frac_zero', 0):.0%} of timesteps. "
+            f"basal_prob is overridden for idx_rprotein TUs and cannot answer this."),
+        "operon-partners-share-transcription": (
+            rt.get("operon_transcript_spread"),
+            "transcripts made in one generation: "
+            + ", ".join(f"{g} {v['total_synthesized']:.0f}"
+                        for g, v in (rt.get("genes") or {}).items())
+            + f" -> {rt.get('operon_transcript_spread'):.0f}x spread. dnaG has one "
+              "transcript (never made); rpsU and rpoD each have an alternative that is."),
         "dnag-below-literature": (
             m["parca_vs_lit"],
             f"ParCa {parca:,.0f} vs 4-dataset median {lit['median']:,.0f} "
@@ -120,7 +123,8 @@ def main() -> int:
 
     m = dd.measure(_p("cache_dir"), _p("bundle_glob"), _p("proteome_script"),
                    fixture=_p("fixture"))
-    measured = measure_tests(m)
+    rt = dd.realized_transcription(_p("cache_dir"), cfg["transcription_run_glob"])
+    measured = measure_tests(m, rt)
 
     outcomes = {}
     for t in spec.get("behavior_tests") or []:
@@ -184,8 +188,9 @@ def main() -> int:
     print(f"\noutcomes ({CANONICAL_RUN}):")
     for k, o in outcomes.items():
         print(f"  {o['result']:4} [{str(o.get('gate_class') or 'code')[:20]:20}] {k} = {o['measured_value']}")
-    print(f"\ngate_status: {spec['gate_status']}  bottleneck: {m['bottleneck_step']} "
-          f"({m['bottleneck_percentile']:.1f} pct)")
+    print(f"\ngate_status: {spec['gate_status']}")
+    print(f"dnaG transcripts made per generation: {rt.get('dnag_total_synthesized')}  "
+          f"(the block; the translation percentile is downstream of it)")
     return 0
 
 

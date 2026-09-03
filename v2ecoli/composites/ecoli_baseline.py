@@ -2251,6 +2251,23 @@ def baseline(
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
         assert_injection_sourcing(injected_processes)
+        # ⛔ THREAD OUR OWN cache_dir INTO THE SPEC. An injected process whose
+        # config must be built from the ParCa bundle needs a path to it, and the
+        # resolver looks for it on the injection spec — not in baseline()'s
+        # arguments, which it cannot see. A caller that declares only
+        # `swap_processes` therefore gets a process built with NO config: every
+        # config_schema default fires, and the failure surfaces far away and
+        # unrecognisably (an empty stoich_dict yields empty float64 index arrays,
+        # which raise `IndexError: arrays used as indices must be of integer (or
+        # boolean) type` inside the solver, ~700 lines and one call layer from
+        # the cause).
+        # ⇒ setdefault, not overwrite: an explicit cache_dir on the spec is a
+        #   deliberate override (a run pointing an injected process at a
+        #   different bundle from the one the document is built from) and must win.
+        injected_processes = {
+            **injected_processes,
+            "cache_dir": injected_processes.get("cache_dir") or cache_dir,
+        }
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))

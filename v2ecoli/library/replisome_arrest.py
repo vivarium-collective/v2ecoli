@@ -86,6 +86,77 @@ def arrest_generation(summary: dict) -> "int | None":
     return None
 
 
+
+# ---------------------------------------------------------------------------
+# Distilled-bundle fallback
+# ---------------------------------------------------------------------------
+#
+# A finished study's bulk parquet is ~4 GB per run and gets deleted once the
+# study is closed out; the seven columns every graded axis reads are distilled
+# into workspace/studies/<study>/evidence/<label>.parquet first (see
+# analyses/distill_evidence.py, whose --verify pass checks the distilled
+# margins against the parquet before anything is removed).
+#
+# subunit_margins therefore prefers the parquet and falls back to that bundle,
+# so a report card still rebuilds after the raw history is gone. Without this
+# the deletion would silently turn every margin into an empty dict, and the card
+# would report "0 pools graded" rather than failing.
+
+_BUNDLE_LABELS = {
+    "CPLX0-2361[c]": "pol_III_core",
+    "CPLX0-3761[c]": "beta_clamp",
+    "CPLX0-3621[c]": "DnaB_hexamer",
+    "EG10239-MONOMER[c]": "DnaG",
+    "EG11500-MONOMER[c]": "HolB",
+    "EG11412-MONOMER[c]": "HolA",
+}
+
+
+def bundle_path(arm_dir: str | Path) -> "Path | None":
+    """The distilled bundle for an arm dir, or None.
+
+    ``out/<study>/<arm>[/<seed>]`` maps to
+    ``workspace/studies/<study>/evidence/<arm>[__<seed>].parquet``.
+    """
+    arm_dir = Path(arm_dir).resolve()
+    parts = list(arm_dir.parts)
+    if "out" not in parts:
+        return None
+    i = parts.index("out")
+    tail = parts[i + 1:]
+    if len(tail) < 2:
+        return None
+    study, rest = tail[0], tail[1:]
+    repo = Path(*parts[:i])
+    cand = repo / "workspace" / "studies" / study / "evidence" / ("__".join(rest) + ".parquet")
+    return cand if cand.is_file() else None
+
+
+def _margins_from_bundle(path: Path, generation: int,
+                         trimers: list[str], monomers: list[str]) -> dict:
+    import polars as pl
+    df = pl.read_parquet(path)
+    df = df.filter(df["generation"] == generation)
+    if df.height == 0:
+        return {}
+    oric = df["listeners__replication_data__number_of_oric"]
+    out: dict[str, dict] = {}
+    for mol, mult in [(m, TRIMER_MULT) for m in trimers] + \
+                     [(m, MONOMER_MULT) for m in monomers]:
+        col = _BUNDLE_LABELS.get(mol)
+        if col is None or col not in df.columns:
+            continue
+        counts = df[col]
+        out[mol] = {
+            "label": SUBUNIT_LABELS.get(mol, mol),
+            "requirement_per_oric": mult,
+            "min_count": int(counts.min()),
+            "margin": int((counts - oric * mult).min()),
+            "source": "distilled bundle",
+        }
+    return out
+
+
 def subunit_margins(arm_dir: str | Path, generation: int,
                     trimers: list[str], monomers: list[str]) -> dict:
     """Worst (count - requirement) per pool over one generation.
@@ -98,6 +169,10 @@ def subunit_margins(arm_dir: str | Path, generation: int,
 
     files = _history_files(arm_dir, generation)
     if not files:
+        # Raw history deleted after close-out: fall back to the distilled bundle.
+        bp = bundle_path(arm_dir)
+        if bp is not None:
+            return _margins_from_bundle(bp, generation, trimers, monomers)
         return {}
     df = pl.read_parquet(files)
     if "time" in df.columns:

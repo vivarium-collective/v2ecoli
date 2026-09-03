@@ -66,8 +66,13 @@ NAME_MAP = {"pol III core": "pol_III_core", "beta clamp": "beta_clamp",
             "HolB (delta')": "HolB", "HolA (delta)": "HolA"}
 
 
-def run_dirs() -> list[Path]:
-    return sorted(p.parent for p in OUT_ROOT.glob("*/seed*/*_summary.json"))
+def run_dirs(out_root: Path) -> list[Path]:
+    """Every directory under *out_root* holding a runner summary.
+
+    rglob rather than a fixed depth: study 2 nests arm/seedN, study 1 nests only
+    arm, and a fixed glob silently returns nothing for the other layout.
+    """
+    return sorted({p.parent for p in out_root.rglob("*_summary.json")})
 
 
 def distil(run_dir: Path):
@@ -110,28 +115,40 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--verify", action="store_true",
                     help="cross-check distilled margins against the full parquet")
+    ap.add_argument("--out-root", default=None,
+                    help="simulation output root (default: this study's out/ dir)")
+    ap.add_argument("--bundle-dir", default=None,
+                    help="where to write the bundle (default: this study's evidence/)")
     args = ap.parse_args()
 
-    BUNDLE_DIR.mkdir(parents=True, exist_ok=True)
-    dirs = run_dirs()
+    out_root = Path(args.out_root) if args.out_root else OUT_ROOT
+    bundle_dir = Path(args.bundle_dir) if args.bundle_dir else BUNDLE_DIR
+    if not out_root.is_absolute():
+        out_root = REPO / out_root
+    if not bundle_dir.is_absolute():
+        bundle_dir = REPO / bundle_dir
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    dirs = run_dirs(out_root)
     if not dirs:
-        print(f"no completed runs under {OUT_ROOT}", file=sys.stderr)
+        print(f"no completed runs under {out_root}", file=sys.stderr)
         return 1
 
     total_in = total_out = 0
     mismatches, checked = [], 0
     for d in dirs:
-        arm, seed = d.parent.name, d.name
+        # study 2 is out/<study>/<arm>/seedN; study 1 is out/<study>/<arm>.
+        rel = d.relative_to(out_root)
+        label = "__".join(rel.parts) if rel.parts else d.name
         bundle = distil(d)
         if bundle is None:
-            print(f"  {arm}/{seed}: no history parquet, skipped")
+            print(f"  {label}: no history parquet, skipped")
             continue
-        target = BUNDLE_DIR / f"{arm}__{seed}.parquet"
+        target = bundle_dir / f"{label}.parquet"
         bundle.write_parquet(target, compression="zstd")
         src = sum(f.stat().st_size for f in d.rglob("*.pq"))
         total_in += src
         total_out += target.stat().st_size
-        print(f"  {arm}/{seed}: {bundle.height:6} rows  "
+        print(f"  {label}: {bundle.height:6} rows  "
               f"{src/2**30:5.2f} GB -> {target.stat().st_size/2**20:6.2f} MB")
 
         if args.verify:
@@ -149,7 +166,7 @@ def main() -> int:
                 if key in got:
                     checked += 1
                     if got[key] != m:
-                        mismatches.append(f"{arm}/{seed} gen{stall} {lab}: "
+                        mismatches.append(f"{label} gen{stall} {lab}: "
                                           f"parquet {m:+d} vs bundle {got[key]:+d}")
 
     print(f"\n{len(dirs)} run(s): {total_in/2**30:.1f} GB -> {total_out/2**20:.1f} MB "

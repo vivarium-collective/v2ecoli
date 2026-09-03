@@ -49,7 +49,13 @@ def _write(tmp_path, cells, cols=None):
     import pyarrow.parquet
 
     cols = list(card_vectors._VECTOR_COLS) if cols is None else list(cols)
-    d = tmp_path / "exp" / "history" / "part"
+    # ⚠ REAL hive layout, not a flat "part" directory. `extract_vectors` reads
+    # with `hive_partitioning=true`, and `history_files` globs
+    # `<sweep>/**/history/**/*.pq` — a fixture that skips the `key=value`
+    # directories exercises neither. Matching the shape a runner actually emits
+    # is what makes a green fixture evidence about real sweeps.
+    d = (tmp_path / "exp" / "history" / "experiment_id=exp" / "variant=0"
+         / "lineage_seed=0" / "generation=2" / "agent_id=00")
     d.mkdir(parents=True)
     rows = {"lineage_seed": [], "generation": [], "agent_id": []}
     for c in cols:
@@ -62,7 +68,17 @@ def _write(tmp_path, cells, cols=None):
             for c in cols:
                 rows[c].append([float(value)] * 3)
     pyarrow.parquet.write_table(pq.table(rows), d / "0.pq")
-    return str(tmp_path / "exp")
+    sweep = str(tmp_path / "exp")
+    # ⛔ THE FIXTURE ASSERTS ITSELF. Without this, a fixture whose files the
+    # reader cannot find produces `{}` — which every test below then reports as
+    # a wrong RESULT rather than an absent INPUT. Three tests failed that way in
+    # CI while passing locally, and the messages (`AssertionError: {}`,
+    # `KeyError: 'omics'`) pointed at the code under test rather than at the
+    # fixture. A fixture that cannot prove it built something is not a fixture.
+    from v2ecoli.library.sweep_io import history_files
+    found = history_files(sweep)
+    assert found, f"fixture wrote no discoverable history parquet under {sweep}"
+    return sweep
 
 
 # --------------------------------------------------------------------------
@@ -112,7 +128,8 @@ def test_a_column_missing_from_only_the_FIRST_file_is_still_found(tmp_path):
     pq = pytest.importorskip("pyarrow")
     import pyarrow.parquet
 
-    d = tmp_path / "exp" / "history" / "part"
+    d = (tmp_path / "exp" / "history" / "experiment_id=exp" / "variant=0"
+         / "lineage_seed=0" / "generation=2" / "agent_id=00")
     d.mkdir(parents=True)
     n = 20
     base = {"lineage_seed": [0]*n, "generation": [2]*n, "agent_id": ["00"]*n}
@@ -125,6 +142,8 @@ def test_a_column_missing_from_only_the_FIRST_file_is_still_found(tmp_path):
     pyarrow.parquet.write_table(pq.table(narrow), d / "0.pq")
     pyarrow.parquet.write_table(pq.table(wide), d / "1.pq")
 
+    from v2ecoli.library.sweep_io import history_files
+    assert len(history_files(str(tmp_path / "exp"))) == 2, "fixture wrote <2 files"
     out = card_vectors.extract_vectors(str(tmp_path / "exp"))
     assert "fluxes" in out, (
         "the exchange group vanished because only the first file was inspected")

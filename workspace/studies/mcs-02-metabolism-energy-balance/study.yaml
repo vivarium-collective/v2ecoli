@@ -1,0 +1,111 @@
+schema_version: 4
+name: mcs-02-metabolism-energy-balance
+investigation: multiscale-complexity-showcase
+title: "Arc 2 — fix the energetic biomass-yield defect"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+question: >-
+  The v2ecoli baseline builds ~1.5x more biomass per gram of glucose than carbon and
+  energy balance permit — an ENERGETIC defect (RQ 3.43 vs ~1, O2:glucose 0.096, 94.5%
+  of glucose carbon retained as biomass): the cell builds biomass without paying its
+  ATP cost. Does the maintenance-ATP / respiratory correction that prior work scoped,
+  but never landed, bring biomass yield into the measured band (0.355-0.444 gDW/g
+  glucose) and RQ toward ~1 — WITHOUT breaking growth rate or carbon conservation?
+
+hypothesis: >-
+  Correcting non-growth-associated (NGAM) / growth-associated (GAM) maintenance ATP
+  and/or respiratory capacity forces the model to burn glucose for energy, dropping
+  biomass yield into the measured band and lifting RQ toward 1, while growth_rate and
+  carbon closure stay physiological.
+
+objective: >-
+  Take the diagnosed energetic defect (metabolism-biomass-yield-s1-diagnostic), apply
+  the smallest principled maintenance-ATP/respiration correction to ecoli_baseline's
+  metabolism, and measure biomass_yield, RQ, O2:glucose, and growth_rate before/after.
+
+# Multiscale role: a molecular energetic constraint (ATP maintenance) that sets a
+# whole-cell physiological quantity (biomass yield) — nonlinear FLUX REALLOCATION.
+
+parent_studies:
+  - {study: mcs-01-ppgpp-replication-coupling, relation: supports, condition: tests-passed}
+
+seeded_from:
+  study: metabolism-biomass-yield-s1-diagnostic
+  finding: baseline-yield-violation-is-energetic-not-mass-creation
+  evidence:
+    observed_yield: 0.8313
+    units: gDW/g glucose
+    rq: 3.43
+    o2_glucose: 0.096
+    measured_band: [0.355, 0.444]
+    theoretical_max: 0.538
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+    detail: "Current main, unmodified — reproduces Yxs 0.831, RQ 3.43."
+  variants:
+    - name: maintenance-atp-fix
+      detail: >-
+        Apply corrected NGAM/GAM maintenance-ATP and/or respiratory-capacity
+        parameterization (locus: metabolism / sim_data energetics). The exact
+        correction is chosen from cited E. coli maintenance values during the
+        gap-fix loop; the change is the smallest one that closes the energetic gap.
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+expected_behavior:
+  - name: biomass-yield-in-measured-band
+    observable: biomass_yield
+    condition: "after fix"
+    rationale: >-
+      Corrected energetics must drop Yxs from 0.831 into the measured band 0.355-0.444
+      gDW/g glucose (below the 0.538 first-principles ceiling).
+  - name: rq-approaches-one
+    observable: respiratory_quotient
+    condition: "after fix"
+    rationale: "Full glucose oxidation gives RQ ~1; the defect shows RQ 3.43."
+  - name: growth-rate-preserved
+    observable: growth_rate
+    condition: "held-out: after fix"
+    rationale: >-
+      HELD-OUT check — the fix targets yield/RQ, so growth_rate must remain
+      physiological (not tuned to). A fix that tanks growth is not an improvement.
+
+tests:
+  - name: biomass-yield-in-measured-band
+    classification: primary
+    question: "Does the corrected model produce Yxs within 0.355-0.444 gDW/g glucose?"
+    measure:
+      kind: derived
+      detail: >-
+        Yxs = dDW / integral(q_glc * DW) dt via the canonical estimator
+        (physiology_from_sweep / render_basal_vs_literature.py --from-sweep), graded on
+        the physiology.biomass_yield axis: band 0.355-0.444, theoretical_max 0.538.
+  - name: rq-approaches-one
+    classification: primary
+    question: "Does RQ = CO2/O2 fall from 3.43 toward ~1 after the fix?"
+    measure:
+      kind: derived
+      detail: "RQ and O2:glucose from exchange fluxes via bake_model_metabolism.py."
+  - name: growth-rate-preserved
+    classification: primary
+    kind: held_out
+    question: "Is growth_rate still physiological after a fix tuned to yield/RQ?"
+    measure:
+      kind: derived
+      detail: "Mean post-burn-in growth_rate within a physiological window; not tuned to."
+
+runs: []
+findings: []
+
+pipeline_gate:
+  enables: [mcs-04-capstone-downshift]

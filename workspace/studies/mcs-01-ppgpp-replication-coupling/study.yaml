@@ -1,0 +1,93 @@
+schema_version: 4
+name: mcs-01-ppgpp-replication-coupling
+investigation: multiscale-complexity-showcase
+title: "Arc 1 — ppGpp coordinates growth and replication"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+question: >-
+  Across nutrient conditions, does v2ecoli reproduce the Cooper-Helmstetter/Donachie
+  law that origins-per-cell scale with growth rate at a nearly constant initiation
+  mass, with the stringent-response alarmone ppGpp tracking the anti-correlation with
+  growth? Where the ppGpp -> replication-initiation coupling diverges, what is the
+  smallest principled correction that restores the scaling?
+
+hypothesis: >-
+  origins_per_cell rises with growth_rate (faster growth -> more overlapping rounds
+  of replication), initiation mass stays ~constant, and ppgpp_conc rises as growth
+  falls. If the native coupling is too weak or too strong, a small correction to the
+  ppGpp -> chromosome_initiation link restores the growth-law scaling.
+
+objective: >-
+  Simulate ecoli_baseline across a poor and a rich nutrient condition and measure
+  origins_per_cell, growth_rate, ppgpp_conc, and initiation mass to determine whether
+  replication timing is slaved to growth via ppGpp.
+
+# Multiscale role: a single molecular signal (ppGpp) coordinating replication (cell
+# cycle) and growth (single cell) — cross-scale CONTROL.
+
+parent_studies: []
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      seed: 0
+  variants:
+    - name: minimal-glucose
+      detail: "Poor medium (basal minimal glucose) — slow growth, high ppGpp."
+      config: v2ecoli/configs/population_phenotype_basal.json
+    - name: rich-amino-acids
+      detail: "Rich medium (with amino acids) — fast growth, low ppGpp."
+      media: with_aa
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+expected_behavior:
+  - name: origins-scale-with-growth-rate
+    observable: origins_per_cell
+    condition: "rich vs minimal"
+    rationale: >-
+      Origins-per-cell must increase with growth rate (Cooper-Helmstetter): faster
+      growth compresses C+D below the doubling time, forcing overlapping replication.
+  - name: initiation-mass-constant
+    observable: cell_mass / origins_per_cell
+    condition: "across conditions"
+    rationale: "Donachie: initiation mass per origin is ~constant across growth rates."
+  - name: ppgpp-anticorrelates-growth
+    observable: ppgpp_conc
+    condition: "rich vs minimal"
+    rationale: "ppGpp rises under nutrient limitation and represses rRNA/ribosome synthesis."
+
+tests:
+  - name: origins-scale-with-growth-rate
+    classification: primary
+    question: "Does origins_per_cell increase from minimal to rich medium?"
+    measure:
+      kind: derived
+      detail: >-
+        Mean origins_per_cell (post-burn-in) in rich vs minimal; slope of
+        origins_per_cell vs growth_rate across conditions must be positive.
+  - name: initiation-mass-constant
+    classification: secondary
+    question: "Is initiation mass (cell_mass/origins) approximately constant across conditions?"
+    measure:
+      kind: derived
+      detail: "CV of cell_mass/origins_per_cell across conditions within ~15%."
+  - name: ppgpp-anticorrelates-growth
+    classification: primary
+    question: "Does ppgpp_conc rise when growth_rate falls?"
+    measure:
+      kind: derived
+      detail: "Sign of correlation between ppgpp_conc and growth_rate across conditions is negative."
+
+runs: []
+findings: []
+
+pipeline_gate:
+  enables: [mcs-04-capstone-downshift, mcs-05-decoupling-control]

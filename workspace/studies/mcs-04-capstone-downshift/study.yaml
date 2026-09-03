@@ -1,0 +1,72 @@
+schema_version: 4
+name: mcs-04-capstone-downshift
+investigation: multiscale-complexity-showcase
+title: "Capstone — one downshift, three complexities"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+question: >-
+  In a single nutrient downshift (rich -> minimal), do all three flavors of multiscale
+  complexity fire together — a ppGpp spike (signaling), central-carbon flux reallocation
+  and acetate change (metabolism, with the Arc 2 energetic fix applied), and a shift in
+  the single-cell heterogeneity distribution (population)?
+
+hypothesis: >-
+  A downshift triggers the stringent response (ppgpp_conc spikes), reroutes central
+  carbon flux (exchange fluxes and acetate change), slows replication initiation
+  (origins_per_cell falls), and widens/shifts the division_time distribution — the three
+  arcs' mechanisms co-occurring in one run, demonstrating integrated multiscale behavior.
+
+objective: >-
+  Drive one ecoli_baseline (or ecoli_time_varying_env) run through a rich->minimal
+  media downshift and read ppgpp_conc, exchange fluxes/acetate, origins_per_cell, and
+  the division_time distribution together across the shift.
+
+# Multiscale role: the synthesis — one perturbation, all three complexities at once.
+
+parent_studies:
+  - {study: mcs-01-ppgpp-replication-coupling, relation: leads-to, condition: tests-passed}
+  - {study: mcs-02-metabolism-energy-balance, relation: leads-to, condition: tests-passed}
+  - {study: mcs-03-single-cell-heterogeneity, relation: leads-to, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+    detail: >-
+      Media timeline: rich (with amino acids) for the first phase, then a downshift to
+      minimal glucose. Uses the Arc 2 energetic correction so metabolism is physiological.
+  variants: []
+  model_settings:
+    - name: media-downshift
+      detail: "Timeline event switches media rich -> minimal mid-run."
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+expected_behavior:
+  - name: three-complexities-co-occur
+    observable: "ppgpp_conc + exchange_fluxes + division_time"
+    condition: "across the downshift"
+    rationale: >-
+      The payoff: signaling (ppGpp spike), metabolism (flux reroute/acetate), and
+      heterogeneity (division_time shift) must all respond to the single downshift.
+
+tests:
+  - name: three-complexities-co-occur
+    classification: primary
+    question: "Do ppGpp, metabolic flux, and heterogeneity all shift at the downshift?"
+    measure:
+      kind: derived
+      detail: >-
+        ppgpp_conc rises after the shift; exchange fluxes/acetate change sign or
+        magnitude; division_time distribution mean/CV shifts. All three within one run.
+
+runs: []
+findings: []
+
+pipeline_gate:
+  enables: []

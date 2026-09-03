@@ -3,8 +3,8 @@ name: mcs-05-etc-stoichiometry-fix
 investigation: multiscale-complexity-showcase
 title: "Follow-up (Arc 2) — locate & correct the ATP-supply defect"
 created: '2026-09-03'
-status: planned
-confidence: Planned
+status: evaluated
+confidence: Accepted
 
 cites:
   - {key: Feist2007iAF1260, claim: "genome-scale E. coli stoichiometry incl. oxidative phosphorylation P/O coupling"}
@@ -91,6 +91,7 @@ tests:
 
 report_cards:
   - viz/mcs05_fix_before_after.html
+  - viz/mcs05_regression.html
   - viz/mcs05_atp_synthase_reversal.html
 
 runs:
@@ -175,9 +176,23 @@ runs:
         result: PASS
         measured_value: 0.974
         detail: "HELD-OUT: growth 0.974/h — preserved (RQ and growth were NOT tuned; only the yield-centering cap was)."
+  - name: mcs05-regression-check
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    kind: simulation
+    canonical: true
+    status: completed
+    result: PASS
+    description: >-
+      Regression check: 3-generation basal run with the fix as the model default, compared
+      axis-by-axis to the identical pre-fix run (Arc 1 basal). Feasible across all divisions.
+    computed_outcomes:
+      growth-physiological-after-fix:
+        result: PASS
+        detail: >-
+          No regression: growth 0.896->0.883/h, tau 43-47 min unchanged, cell_mass +2%,
+          origins/initiation held, composition within 3.6% (protein/RNA/DNA fractions). Only
+          ppGpp/RelA signaling shifts (metabolism-adjacent). Yield/RQ fixed without collateral.
 
-status: evaluated
-confidence: Accepted
 claim: >-
   Root cause found, fix landed, INTEGRATED and centred in-band. The ATP-supply defect localizes one
   level deeper than Arc 2: ATP synthase runs in REVERSE (hydrolysis 7.48, synthesis 0), so the model
@@ -263,10 +278,40 @@ findings:
       committed_change: "v2ecoli/processes/metabolism.py — atp_synthase_reverse_cap (default 4.5)"
     expected:
       summary: "A net-forward ATP synthase (Feist iAF1260) should respire O2 in proportion to ATP demand, giving RQ ~1 and a physiological yield with aerobic acetate overflow."
-    next_action: "Re-run the full population_phenotype_basal card + re-bake fixtures to formally re-grade the biomass_yield axis (deferred to avoid moving fixtures mid-investigation); check the fix does not regress the other basal-card axes."
+    next_action: "Only the formal full-card re-bake remains (deferred to avoid moving committed fixtures mid-investigation); the regression check across the other axes is DONE (see the regression finding) and clean."
     next_action_type: replicate
     provenance:
       run_ids: [mcs05-etc-fix-applied, mcs05-etc-fix-refined-and-integrated]
     caveats:
       - "The reverse cap (4.5) is calibrated to the measured yield band; RQ->1.1 and growth preservation are the held-out (untuned) validations."
-      - "Validated with the single-cell in-process probe (same estimator/axis as the basal card, ~2% vs the committed diagnostic); a full card re-grade + regression check on the other axes is the flagged next step."
+      - "Validated with the single-cell in-process probe (same estimator/axis as the basal card, ~2% vs the committed diagnostic)."
+
+  - id: fix-does-not-regress-other-axes
+    kind: computational
+    status: confirms
+    statement: >-
+      A regression check confirms the ETC fix corrects biomass yield WITHOUT collateral damage.
+      A 3-generation basal run with the fix as the default was compared axis-by-axis to the
+      identical pre-fix run (Arc 1's basal). Every non-metabolic axis holds within a few percent:
+      growth rate 0.896 -> 0.883/h (-1.5%), interdivision time 43-47 min (unchanged), cell mass
+      1575 -> 1608 fg (+2%), origins/cell 2.43 -> 2.47, initiation mass 648 -> 652 fg, ribosome
+      concentration 20.8 -> 21.5, and macromolecular composition is essentially unchanged
+      (protein fraction +3.6%, RNA fraction +2.7%, DNA fraction -0.3%, RNA/protein -0.9%). The
+      run stays feasible across all divisions. The only material shifts are metabolism-adjacent
+      signaling (ppGpp 74.8 -> 68.2, -9%; RelA rises off a tiny base) — plausible now that the
+      cell respires rather than fermenting. So the fix improves the graded biomass_yield and RQ
+      axes while leaving growth, the cell cycle, replication and composition within band: no
+      regression.
+    evidence:
+      from_run: mcs05-regression-check
+      prefix: {growth_per_h: 0.896, tau_min: "43-47", cell_mass_fg: 1575, origins: 2.43, protein_frac: 0.425, rna_frac: 0.132}
+      with_fix: {growth_per_h: 0.883, tau_min: "43-47", cell_mass_fg: 1608, origins: 2.47, protein_frac: 0.440, rna_frac: 0.135}
+      feasible_all_divisions: true
+    expected:
+      summary: "A correct metabolism fix should move the energetic axes (yield, RQ) into band without shifting growth, division, replication or composition out of theirs."
+    next_action: "Formal full-card re-bake (deferred); otherwise the fix is validated and regression-clean."
+    next_action_type: replicate
+    provenance:
+      run_ids: [mcs05-regression-check]
+    caveats:
+      - "3-gen, single-seed regression run; the deltas are small and consistent across every emitted axis, but a multi-seed re-bake would tighten the formal card grade."

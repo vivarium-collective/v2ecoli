@@ -787,8 +787,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # Build the injected_processes block so the v2 side actually
             # converts+injects the fork's add/swap processes (translate alone
             # passes the raw keys through but never assembles the block).
+            # ⭐ NATIVE candidate arm (fork-free). `composite_kind == "v2ecoli"` is
+            # native-only (fork-sourcing was removed — assert_injection_sourcing in
+            # ecoli_baseline.py hard-errors on any non-empty
+            # injected_processes.fork_repo). `fork_dir` here is used ONLY to read
+            # the fork config's process-set STRUCTURE via
+            # resolve_vecoli_config_local (v2ecoli's own loader, no fork runtime);
+            # it must never be threaded through as `fork_repo`, or a run with
+            # add_processes/swap_processes raises instead of building. Always pass
+            # fork_repo="" so resolve_injections takes its native (fork-free) path
+            # off the candidate's own installed process set.
             inj = _injected_from_resolved(
-                resolved, fork_dir,
+                resolved, "",
                 os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None,
                 extra_processes=inject_processes)
             if inj:

@@ -94,6 +94,16 @@ from v2ecoli.workflow.batch_lineage_ray import (
             "default": None,
             "description": "Raw per-generation config overrides, threaded verbatim.",
         },
+        "emitter_arg": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "XArrayEmitter view override (e.g. {'view': [...dotted paths...]}). Without it "
+                "every lineage falls back to LineageProcess.DEFAULT_XARRAY_VIEW (mass only) -- "
+                "a document that needs a specific KPI column (e.g. a product exchange flux) "
+                "cannot get it without this."
+            ),
+        },
     },
     visualizations=[],
     core_extensions=[register_ray_lineage],
@@ -115,6 +125,7 @@ def lineage_ray_batch(
     variants: dict | None = None,
     injected_processes: dict | None = None,
     config_overrides: dict | None = None,
+    emitter_arg: dict | None = None,
 ) -> dict:
     """Build the lineage_ray_batch composite document.
 
@@ -151,5 +162,6 @@ def lineage_ray_batch(
         variants=variants,
         injected_processes=injected_processes,
         config_overrides=config_overrides,
+        emitter_arg=emitter_arg,
     )
     return doc

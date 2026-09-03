@@ -72,24 +72,84 @@ def test_absent_declaration_leaves_the_exchange_store_unchanged():
     assert SEED_A not in plain
 
 
-def test_seeding_never_clobbers_a_species_the_bundle_already_carries():
-    """setdefault, not assignment. Re-declaring an existing media molecule must
-    keep the bundle's own initial value -- otherwise this seam would silently
-    reset a real initial condition."""
+def test_seeding_never_clobbers_a_species_the_bundle_already_carries(monkeypatch):
+    """setdefault, not assignment: re-declaring a species the bundle already
+    carries must keep the bundle's own value, or this seam would silently reset
+    a real initial condition.
+
+    ⚠ The bundle is patched to give that species a NON-ZERO value on purpose.
+    Every key in the shipped cache's environment.exchange is 0, so asserting
+    against an unmodified bundle compares 0 == 0.0 and passes even if the code
+    assigned instead of setdefault-ing — the test could not fail for the reason
+    it exists.
+    """
+    import copy
     from v2ecoli.core import build_core
-    from v2ecoli.composites.ecoli_baseline import baseline
+    from v2ecoli.composites import ecoli_baseline as eb
+
+    real_loader = eb.load_cache_bundle
+    marked_value = 7.5
+    _store = real_loader(CACHE)["initial_state"]["environment"]["exchange"]
+    if not _store:
+        pytest.skip("cache bundle ships an empty environment.exchange; nothing "
+                    "already-present to test the no-clobber property against")
+    existing = next(iter(_store))
+
+    def _patched(cache_dir, *a, **kw):
+        bundle = copy.deepcopy(real_loader(cache_dir, *a, **kw))
+        bundle["initial_state"]["environment"]["exchange"][existing] = marked_value
+        return bundle
+
+    monkeypatch.setattr(eb, "load_cache_bundle", _patched)
+
     core = build_core()
-    plain = _exchange(baseline(core=core, seed=0, cache_dir=CACHE))
-    existing = next(iter(plain))
-    reseeded = _exchange(baseline(
+    reseeded = _exchange(eb.baseline(
         core=core, seed=0, cache_dir=CACHE,
         injected_processes={"fork_repo": "",
                             "seed_exchange_species": [existing, SEED_A]}))
-    assert reseeded[existing] == plain[existing]
+    assert reseeded[existing] == marked_value, (
+        "an already-present species was overwritten — this seam must "
+        "setdefault, never assign")
     assert reseeded[SEED_A] == 0.0
 
 
-@pytest.mark.parametrize("bad", [["", "X"], [None], [123], [{"id": "X"}]])
+def test_a_bare_string_declaration_raises_instead_of_seeding_characters():
+    """⛔ The highest-value guard here. A bare string is iterable, so
+    ``seed_exchange_species: "MY-PRODUCT"`` — the natural single-item form in a
+    config — would seed one key PER CHARACTER ('M', 'Y', '-', ...) and never the
+    declared species. Every character is a non-empty str, so a per-element check
+    alone lets it through. The build then completes clean with a zero product:
+    exactly the failure class this seam exists to close.
+    """
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    core = build_core()
+    with pytest.raises(ValueError, match="takes a LIST"):
+        baseline(core=core, seed=0, cache_dir=CACHE,
+                 injected_processes={"fork_repo": "",
+                                     "seed_exchange_species": "MY-PRODUCT"})
+
+
+def test_a_compartment_tagged_id_raises_because_no_writer_would_match_it():
+    """Writers of environment.exchange strip the compartment
+    (``metabolism.py`` emits ``str(molecule[:-3])``), so a tagged id seeds a key
+    nothing ever writes to — a clean build with a zero product.
+
+    ⚠ This is the one place the `seed_bulk_species` sibling MISLEADS: its ids
+    are compartment-tagged ("X[c]"). A caller declaring both blocks would
+    reasonably use the same form in each and get silence from this one.
+    """
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    core = build_core()
+    with pytest.raises(ValueError, match="BARE species ids"):
+        baseline(core=core, seed=0, cache_dir=CACHE,
+                 injected_processes={"fork_repo": "",
+                                     "seed_exchange_species": ["MY-PRODUCT[c]"]})
+
+
+@pytest.mark.parametrize("bad", [["", "X"], [None], [123], [{"id": "X"}],
+                                 True, {"MY-PRODUCT": 5.0}, "MY-PRODUCT"])
 def test_a_malformed_declaration_raises_rather_than_seeding_nothing(bad):
     """A bad entry must fail loudly. Skipping it silently would reproduce the
     exact class this seam exists to close -- a clean run with no product."""

@@ -1306,7 +1306,11 @@ WCM_PARAMETERS = {
             "description": "Native process-injection spec "
                            "{add_processes, swap_processes, process_configs, "
                            "topology, time_step}; empty = none. fork_repo must be "
-                           "empty — fork-sourcing is removed, v2ecoli is native-only.",
+                           "empty — fork-sourcing is removed, v2ecoli is native-only. "
+                           "Also honoured: seed_bulk_species (bulk ids, "
+                           "compartment-TAGGED) and seed_exchange_species (a LIST "
+                           "of BARE environment.exchange ids, seeded at 0.0 so an "
+                           "injected process's secretion has a key to land in).",
         },
         # --- Batch / lineage knobs (absorbed from the former batch_baseline) ----
         # n_seeds>1 OR n_generations>1 switches baseline from a single 55-process
@@ -1814,8 +1818,25 @@ def baseline(
     # setdefault, not assignment: a species the bundle already carries keeps its
     # real initial value. Opt-in -- absent or empty leaves the built document
     # byte-identical to today.
+    #
+    # ⚠ BARE names, no compartment suffix. Every writer of this store strips the
+    # compartment (metabolism.py emits `str(molecule[:-3])`), so a compartment-
+    # tagged id would seed a key no writer ever touches -- a clean build with a
+    # zero product, i.e. the very failure this seam closes. NOTE this differs
+    # from the `seed_bulk_species` sibling above, whose ids ARE compartment-
+    # tagged ("X[c]"); the two stores use different id conventions.
     _exchange_seed = (injected_processes or {}).get("seed_exchange_species")
     if _exchange_seed:
+        # Validate the CONTAINER before iterating. A bare string is iterable, so
+        # `seed_exchange_species: "MY-PRODUCT"` -- the natural single-item form
+        # in a config -- would otherwise seed one key per CHARACTER and never
+        # the declared species, silently. A dict would iterate keys and discard
+        # its values.
+        if not isinstance(_exchange_seed, (list, tuple, set, frozenset)):
+            raise ValueError(
+                "injected_processes['seed_exchange_species'] takes a LIST of "
+                f"exchange species ids; got {type(_exchange_seed).__name__}. "
+                "A single species must still be a list: ['MY-PRODUCT'].")
         _exchange = initial_state.setdefault("environment", {}).setdefault(
             "exchange", {})
         for _species in _exchange_seed:
@@ -1823,6 +1844,12 @@ def baseline(
                 raise ValueError(
                     "injected_processes['seed_exchange_species'] takes exchange "
                     f"species ids (non-empty strings); got {_species!r}.")
+            if _species.endswith("]"):
+                raise ValueError(
+                    "injected_processes['seed_exchange_species'] takes BARE "
+                    f"species ids without a compartment suffix; got {_species!r}. "
+                    "Writers of environment.exchange strip the compartment, so a "
+                    "tagged id would seed a key nothing ever writes to.")
             _exchange.setdefault(_species, 0.0)
 
     configs = bundle["configs"]

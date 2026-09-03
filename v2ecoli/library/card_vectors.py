@@ -40,7 +40,36 @@ from __future__ import annotations
 # failing. An envelope written by v2 for a sweep that v2 could not read does not
 # exist -- but one written by v2 for a sweep whose column set has since changed
 # would differ, and the cache key is the only thing that distinguishes them.
-EXTRACTOR_VERSION = 3
+#
+# v3 -> v4: cells that are not complete cell cycles are excluded from the
+# ensemble, and a node carries `n_cells_excluded_partial` plus
+# `partial_cell_detection`. Content AND keys change, so the bump is required
+# twice over. A v3 envelope was written WITHOUT the exclusion and its numbers
+# are plausible, so nothing but the key distinguishes them.
+EXTRACTOR_VERSION = 4
+
+#: A cell whose row count sits below the split is not a complete cell cycle.
+#:
+#: ⛔ **THE SPLIT IS FOUND, NOT ASSUMED — and this function REFUSES rather than
+#: guessing.** A fixed fraction of the longest cell was tried first and was
+#: withdrawn after independent review: on a coarse-emit sweep already in this
+#: tree (per-cell rows ``25, 29, 26, 4``) a genuinely partial cell is 14% of the
+#: longest, so a 10% floor admitted it **while the node affirmatively reported
+#: that nothing had been dropped.** Whether a stub falls under any fixed fraction
+#: is a property of the producing run's emit cadence — the very thing this module
+#: must stop assuming.
+#:
+#: ⇒ Instead: sort the per-cell row counts and look for the largest RATIO gap. A
+#: sweep whose cells separate into "ran a cycle" and "was born and abandoned"
+#: has a gap of orders of magnitude; one that does not, does not. If no gap
+#: reaches this ratio the split is **UNDECIDABLE**, and the extraction says so
+#: (``partial_cell_detection: "ambiguous"``) and excludes NOTHING rather than
+#: excluding arbitrarily.
+#:
+#: ⚠ **"Ambiguous" is not "clean" — a consumer must not read n_cells as complete
+#: cycles in that case.** It is the honest state for a truncated run, where every
+#: cell is partial to a different degree and no split exists to find.
+_MIN_SEPARATION_RATIO = 10.0
 
 #: Rows pulled from DuckDB per batch. Bounds peak memory during extraction: the
 #: rows themselves are released after each batch, so what persists is the
@@ -70,6 +99,36 @@ _VECTOR_COLS = {
 #: pre-v2 envelope cannot produce an operand that silently declares nothing.
 VECTOR_UNITS = {(group, name): units for group, name, units in _VECTOR_COLS.values()}
 
+
+def _complete_cells(cell_order: list, per_cell_rows: dict) -> tuple[list, int, str]:
+    """Split cells into complete cycles and partials, or decline to.
+
+    Returns ``(included, n_excluded, detection)`` where ``detection`` is
+    ``"clean"`` when a real separation was found and ``"ambiguous"`` when none
+    was — in which case NOTHING is excluded and ``included`` is every cell.
+
+    ⛔ **Declining is a real outcome, not a fallback.** The alternative — pick a
+    threshold anyway — is what the withdrawn version did, and it silently
+    admitted a partial cell on a real sweep while reporting that it had not.
+
+    ⚠ Deliberately makes no claim about WHY a cell is short. A birth stub and a
+    run killed mid-cycle are both "not a complete cycle"; distinguishing them
+    needs the per-cell ``divided`` flag, which is not an emitted column.
+    """
+    if len(cell_order) < 2:
+        # One cell cannot separate into two populations. Not ambiguous in the
+        # interesting sense, but nothing is excludable either.
+        return list(cell_order), 0, "clean" if cell_order else "ambiguous"
+    counts = sorted(per_cell_rows[c] for c in cell_order)
+    best_ratio, split_at = 1.0, None
+    for lo, hi in zip(counts, counts[1:]):
+        ratio = (hi / lo) if lo else float("inf")
+        if ratio > best_ratio:
+            best_ratio, split_at = ratio, hi
+    if split_at is None or best_ratio < _MIN_SEPARATION_RATIO:
+        return list(cell_order), 0, "ambiguous"
+    included = [c for c in cell_order if per_cell_rows[c] >= split_at]
+    return included, len(cell_order) - len(included), "clean"
 
 def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     """Return ``{group: {name: {...}}}`` of cell-first aggregated vectors
@@ -199,6 +258,7 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     cell_order: list[tuple] = []          # first-appearance order, which IS the
     seen_cells: set[tuple] = set()        # row order of the per_cell matrix
     col_len = [0] * len(present)          # modal (max) feature length per column
+    per_cell_rows: dict[tuple, int] = {}  # rows per cell, for the split below
 
     while True:
         batch = result.fetchmany(_FETCH_BATCH_ROWS)
@@ -209,6 +269,9 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
             if cell not in seen_cells:
                 seen_cells.add(cell)
                 cell_order.append(cell)
+            # Counted over ROWS, so membership is a property of the cell rather
+            # than of whichever observable happens to be widest.
+            per_cell_rows[cell] = per_cell_rows.get(cell, 0) + 1
             for i, val in enumerate(r[3:]):
                 if val is None:
                     continue
@@ -224,13 +287,21 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
                     acc += val
                     per_cell_n[key] += 1
 
+    # ⭐ MEMBERSHIP IS DECIDED ONCE AND APPLIED TO EVERY COLUMN, so the groups
+    # cannot describe different cell sets.
+    # ⚠ The ragged-row rule below can still drop a cell from ONE column (a
+    # listener emitting its `[]` default for a whole cell). That is pre-existing
+    # and NOT fixed here — `n_cells` is therefore per-node, and two nodes may
+    # still differ. Stated rather than implied.
+    included, n_excluded, detection = _complete_cells(cell_order, per_cell_rows)
+
     out: dict[str, dict] = {}
     for i, (col, (group, name, units)) in enumerate(present):
         n = col_len[i]
         # per-cell time-mean vector over rows whose array is full-length (drops
         # the [] empties); skip cells with no full-length rows.
         cell_means = []
-        for c in cell_order:
+        for c in included:
             key = (c, i, n)
             count = per_cell_n.get(key)
             if count:
@@ -240,6 +311,10 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
         node = {
             "vector": [float(x) for x in ensemble_mean],
             "n_cells": len(cell_means),
+            "n_cells_excluded_partial": n_excluded,
+            # "clean" -> a real split was found. "ambiguous" -> none was, nothing
+            # was excluded, and n_cells is NOT a count of complete cycles.
+            "partial_cell_detection": detection,
             "units": units,
             "per_cell": [[float(x) for x in row] for row in per_cell_means],
         }

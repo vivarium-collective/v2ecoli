@@ -49,25 +49,26 @@ def _write(tmp_path, cells, cols=None):
     import pyarrow.parquet
 
     cols = list(card_vectors._VECTOR_COLS) if cols is None else list(cols)
-    # ⚠ REAL hive layout, not a flat "part" directory. `extract_vectors` reads
-    # with `hive_partitioning=true`, and `history_files` globs
-    # `<sweep>/**/history/**/*.pq` — a fixture that skips the `key=value`
-    # directories exercises neither. Matching the shape a runner actually emits
-    # is what makes a green fixture evidence about real sweeps.
-    d = (tmp_path / "exp" / "history" / "experiment_id=exp" / "variant=0"
-         / "lineage_seed=0" / "generation=2" / "agent_id=00")
-    d.mkdir(parents=True)
-    rows = {"lineage_seed": [], "generation": [], "agent_id": []}
-    for c in cols:
-        rows[c] = []
+    # ⚠ EACH CELL GETS ITS OWN PARTITION DIRECTORY. With
+    # `hive_partitioning=true` the directory's `agent_id=` is what the reader
+    # sees, so writing several cells into one directory collapses them into a
+    # single cell — an earlier version of this helper did exactly that and every
+    # membership test reported `n_cells == 1`.
+    base = tmp_path / "exp" / "history" / "experiment_id=exp" / "variant=0"
     for value, (agent, n_steps) in enumerate(cells, start=1):
+        d = base / "lineage_seed=0" / f"generation={len(agent)}" / f"agent_id={agent}"
+        d.mkdir(parents=True, exist_ok=True)
+        rows = {"lineage_seed": [], "generation": [], "agent_id": []}
+        for c in cols:
+            rows[c] = []
         for _ in range(n_steps):
             rows["lineage_seed"].append(0)
-            rows["generation"].append(2)
+            rows["generation"].append(len(agent))
             rows["agent_id"].append(agent)
             for c in cols:
                 rows[c].append([float(value)] * 3)
-    pyarrow.parquet.write_table(pq.table(rows), d / "0.pq")
+        pyarrow.parquet.write_table(pq.table(rows), d / "0.pq")
+
     sweep = str(tmp_path / "exp")
     # ⛔ THE FIXTURE ASSERTS ITSELF. Without this, a fixture whose files the
     # reader cannot find produces `{}` — which every test below then reports as
@@ -147,3 +148,68 @@ def test_a_column_missing_from_only_the_FIRST_file_is_still_found(tmp_path):
     out = card_vectors.extract_vectors(str(tmp_path / "exp"))
     assert "fluxes" in out, (
         "the exchange group vanished because only the first file was inspected")
+
+
+# ── Cells that are not complete cell cycles ──────────────────────────────────
+
+def test_a_clean_two_population_sweep_splits_and_counts(tmp_path):
+    """Stubs orders of magnitude below the real cells: a split exists, find it."""
+    out = card_vectors.extract_vectors(
+        _write(tmp_path, [("00", 3000), ("01", 30), ("000", 3200), ("001", 25)]))
+    node = out["omics"]["transcriptome"]
+    assert node["n_cells"] == 2
+    assert node["n_cells_excluded_partial"] == 2
+    assert node["partial_cell_detection"] == "clean"
+
+
+def test_the_ensemble_MEAN_excludes_the_partials_not_just_the_count(tmp_path):
+    """`n_cells` alone can be right while the mean is still contaminated.
+
+    Cell values are 1.0 and 2.0; excluding the second gives 1.0, including it
+    gives 1.5. A mutant that counts correctly and averages everything passes an
+    n_cells assertion and fails this one."""
+    out = card_vectors.extract_vectors(_write(tmp_path, [("00", 3000), ("01", 30)]))
+    assert np.allclose(out["omics"]["transcriptome"]["vector"], 1.0)
+
+
+def test_AN_UNDECIDABLE_SWEEP_EXCLUDES_NOTHING_AND_SAYS_SO(tmp_path):
+    """⛔⛔ THE CASE THAT KILLED THE PREVIOUS IMPLEMENTATION.
+
+    Per-cell rows `25, 29, 26, 4` are from a real sweep in this tree. The
+    withdrawn rule (fixed fraction of the longest) put the floor at 2.9 and
+    ADMITTED the 4-row cell while reporting `n_cells_excluded_partial: 0` — an
+    affirmative claim that nothing partial got in, which was false.
+
+    There is no split to find here: 4 is only 6.25x below 25, so "partial" and
+    "complete" are not separable from row counts alone. The honest outcome is to
+    exclude nothing AND to refuse the clean label."""
+    out = card_vectors.extract_vectors(
+        _write(tmp_path, [("00", 25), ("000", 29), ("0000", 26), ("00000", 4)]))
+    node = out["omics"]["transcriptome"]
+    assert node["n_cells"] == 4, "excluded a cell on an undecidable split"
+    assert node["partial_cell_detection"] == "ambiguous", (
+        "claimed a clean split where none exists — the withdrawn rule's exact bug")
+
+
+def test_a_uniform_sweep_is_ambiguous_rather_than_falsely_clean(tmp_path):
+    """A healthy sweep and a uniformly-truncated one are indistinguishable from
+    row counts, so neither may be labelled `clean`. Honest, and it is why
+    `ambiguous` must not be read as a warning about THIS sweep."""
+    out = card_vectors.extract_vectors(
+        _write(tmp_path, [("00", 380), ("000", 400), ("0000", 420)]))
+    node = out["omics"]["transcriptome"]
+    assert node["n_cells"] == 3
+    assert node["n_cells_excluded_partial"] == 0
+    assert node["partial_cell_detection"] == "ambiguous"
+
+
+def test_membership_is_decided_once_for_every_group(tmp_path):
+    """⚠ Guards the property with columns that DIFFER per cell, so a per-column
+    decision would actually diverge. The previous version of this test used a
+    fixture where every column was full-length on every row, which made global
+    and per-column membership identical by construction — it could not fail, and
+    a mutation to per-column membership left the whole suite green."""
+    out = card_vectors.extract_vectors(
+        _write(tmp_path, [("00", 3000), ("01", 30), ("000", 3200)]))
+    assert {n["n_cells"] for d in out.values() for n in d.values()} == {2}
+    assert {n["partial_cell_detection"] for d in out.values() for n in d.values()} == {"clean"}

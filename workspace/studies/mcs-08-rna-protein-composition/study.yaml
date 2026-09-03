@@ -64,6 +64,9 @@ tests:
     question: "Does RNA/protein increase from minimal to rich medium?"
     measure: {kind: derived, detail: "slope of rna_mass/protein_mass vs growth_rate across conditions; positive expected."}
 
+visualizations:
+  - {name: "rna protein law", address: "html:viz/rna_protein_law.html"}
+
 report_cards:
   - viz/rna_protein_law.html
 

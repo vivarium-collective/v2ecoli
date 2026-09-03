@@ -84,6 +84,9 @@ readouts:
   - "division_time (interdivision time, min) per cell across the seed ensemble; CV"
   - "birth_mass, division_mass, added_mass (adder test)"
 
+visualizations:
+  - {name: "Arc 3 heterogeneity", address: "html:viz/arc3_heterogeneity.html"}
+
 report_cards:
   - viz/arc3_heterogeneity.html
 

@@ -72,6 +72,9 @@ tests:
     question: "Is the slope consistent with the Scott-Hwa C-line?"
     measure: {kind: derived, detail: "compare fitted slope to the literature growth-law slope."}
 
+visualizations:
+  - {name: "mcs07 ribosome growth law", address: "html:viz/mcs07_ribosome_growth_law.html"}
+
 report_cards:
   - viz/mcs07_ribosome_growth_law.html
 

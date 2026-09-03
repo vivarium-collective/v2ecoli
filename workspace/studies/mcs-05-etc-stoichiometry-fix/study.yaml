@@ -89,6 +89,11 @@ tests:
     question: "Is growth still physiological after the fix?"
     measure: {kind: derived, detail: "mean post-burn-in growth_rate within a physiological window."}
 
+visualizations:
+  - {name: "ETC fix — before/after", address: "html:viz/mcs05_fix_before_after.html", description: "Yield/RQ/O2/growth before vs after the integrated fix, against the healthy band."}
+  - {name: "Regression scorecard", address: "html:viz/mcs05_regression.html", description: "The fix corrects energetics; every other axis holds within a few percent."}
+  - {name: "ATP synthase runs in reverse", address: "html:viz/mcs05_atp_synthase_reversal.html", description: "The diagnostic: ATP synthase forward flux 0, reverse 7.48."}
+
 report_cards:
   - viz/mcs05_fix_before_after.html
   - viz/mcs05_regression.html

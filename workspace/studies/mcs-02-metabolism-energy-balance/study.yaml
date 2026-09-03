@@ -114,6 +114,9 @@ readouts:
   - "RQ = CO2/O2 and O2:glucose from live external_exchange_fluxes"
   - "growth_rate (held-out) across the GAM/NGAM sweep"
 
+visualizations:
+  - {name: "Arc 2 energy balance", address: "html:viz/arc2_energy_balance.html"}
+
 report_cards:
   - viz/arc2_energy_balance.html
 

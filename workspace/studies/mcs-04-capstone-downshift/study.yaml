@@ -72,6 +72,9 @@ tests:
 readouts:
   - "ppGpp, origins_per_cell, growth_rate (Arc 1) and glucose uptake (Arc 2) at minimal vs rich"
 
+visualizations:
+  - {name: "capstone multiscale", address: "html:viz/capstone_multiscale.html"}
+
 report_cards:
   - viz/capstone_multiscale.html
 

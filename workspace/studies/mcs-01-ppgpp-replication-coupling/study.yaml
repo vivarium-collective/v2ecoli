@@ -149,6 +149,9 @@ readouts:
   - "ppgpp_conc and rela_conc (listeners.growth_limits) across conditions"
   - "initiation mass = cell_mass / origins_per_cell"
 
+visualizations:
+  - {name: "Arc 1 ppgpp replication", address: "html:viz/arc1_ppgpp_replication.html"}
+
 report_cards:
   - viz/arc1_ppgpp_replication.html
 

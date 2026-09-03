@@ -20,7 +20,7 @@ Usage:
       --label baseline --out arc2_baseline.json
 """
 from __future__ import annotations
-import argparse, json, os, re
+import argparse, json, os, re, uuid
 import numpy as np
 
 # canonical E. coli exchange-molecule ids, matched EXACTLY against the
@@ -62,6 +62,11 @@ def find_indices(exchange_ids):
 def _build(cache_dir, dark_atp_scale, ngam_scale):
     """Build ecoli_baseline, optionally scaling the GAM (dark_atp) / NGAM
     maintenance-ATP config values via a patched cache bundle (no ParCa rerun)."""
+    # We read fluxes in-process, so disable the persisting emitter entirely —
+    # avoids parallel probes colliding on the default .pbg/parquet-runs/baseline/
+    # hive path (the composite's default decl hardcodes experiment_id=baseline).
+    from v2ecoli.composites._helpers import set_null_emitter_override
+    set_null_emitter_override(True)
     from v2ecoli import build_composite
     if dark_atp_scale == 1.0 and ngam_scale == 1.0:
         return build_composite("ecoli_baseline", cache_dir=cache_dir), {}

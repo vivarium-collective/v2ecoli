@@ -89,5 +89,84 @@ tests:
     question: "Is growth still physiological after the fix?"
     measure: {kind: derived, detail: "mean post-burn-in growth_rate within a physiological window."}
 
-runs: []
-findings: []
+report_cards:
+  - viz/mcs05_atp_synthase_reversal.html
+
+runs:
+  - name: mcs05-etc-atp-budget-diagnostic
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    kind: simulation
+    canonical: true
+    status: completed
+    result: PARTIAL
+    description: >-
+      In-process FBA-solution audit (basal, warmed 180s): read reaction_fluxes indexed by
+      getReactionIDs(), plus the oxphos reaction stoichiometry, to find where ATP is made.
+    computed_outcomes:
+      atp-supply-defect-localized:
+        result: PASS
+        detail: >-
+          ATP synthase (ATPSYN-RXN) forward-synthesis flux is 0.0 while its REVERSE
+          (hydrolysis) flux is 7.48 — the cell makes ZERO respiratory ATP and instead runs
+          ATP synthase backwards to pump protons. Effective respiratory P/O ~ 0. ATP is
+          over-supplied by substrate-level phosphorylation. O2 uptake 0.89, RQ 2.94.
+      corrected-yield-in-band:
+        result: NOT_ACHIEVED
+        detail: >-
+          Fix not applied: correcting the ATP over-supply requires FBA reaction-bound /
+          stoichiometry surgery (forcing net-forward ATP synthase, or finding the specific
+          over-productive substrate-level route) that risks model infeasibility. Flagged.
+      growth-physiological-after-fix:
+        result: NOT_ACHIEVED
+        detail: "N/A — no correction applied this pass."
+
+status: evaluated
+confidence: Investigating
+claim: >-
+  The ATP-supply defect localizes one level deeper than Arc 2: ATP synthase runs in REVERSE
+  (hydrolysis flux 7.48, synthesis 0) — the model makes no respiratory ATP and behaves
+  fermentatively despite available O2, over-supplying ATP by substrate-level phosphorylation
+  and dissipating it through the reverse ATP synthase. This is WHY maintenance ATP was
+  irrelevant (Arc 2). A principled fix (force net-forward ATP synthase under aerobiosis) is a
+  dedicated FBA-stoichiometry effort, flagged not applied — no unsafe speculative change.
+
+findings:
+  - id: atp-synthase-runs-in-reverse
+    kind: computational
+    status: contradicts
+    statement: >-
+      Auditing the baseline FBA solution shows the root of the energetic defect: ATP synthase
+      (ATPSYN-RXN) carries ZERO forward (synthesis) flux and 7.48 units of REVERSE (hydrolysis)
+      flux — it is running backwards, spending ATP to pump protons rather than making ATP from
+      respiration. The cell therefore makes essentially no ATP by oxidative phosphorylation
+      (respiratory P/O ~ 0), consistent with its near-absent O2 use (0.89 mmol/gDW/h) and
+      impossible RQ (2.94). ATP is instead over-produced by substrate-level phosphorylation and
+      the surplus is dissipated through the reverse ATP synthase. This explains Arc 2's central
+      puzzle — why raising maintenance ATP did nothing: the cell already has an ATP surplus it
+      is actively throwing away, so demanding more of it just changes how much is dissipated,
+      not the carbon/O2 flux. The proton-pumping NDH-1 and non-pumping NDH-2 dehydrogenases are
+      both present, and ATP synthase is parameterised at ~4 H+/ATP. Correcting the behaviour
+      (constraining ATP synthase to net-forward operation under aerobiosis, matching genome-scale
+      iAF1260) is the principled fix, but it is a reaction-bound change that can render the FBA
+      infeasible, so it is flagged for a dedicated pass rather than applied speculatively here.
+    evidence:
+      from_test: atp-supply-defect-localized
+      from_run: mcs05-etc-atp-budget-diagnostic
+      atp_synthase_forward_flux: 0.0
+      atp_synthase_reverse_flux: 7.48
+      o2_uptake_mmol_gDW_h: 0.888
+      RQ: 2.94
+      biomass_yield: 0.816
+    expected:
+      summary: >-
+        Under aerobic glucose growth a healthy cell synthesises ATP via oxidative
+        phosphorylation (ATP synthase FORWARD, P/O ~2-2.5, Feist iAF1260), consuming O2 in
+        proportion to ATP demand — the opposite of what the model does.
+    next_action: >-
+      Dedicated fix pass: constrain ATPSYN-RXN to net-forward flux (or lower-bound the reverse
+      direction to 0) under aerobic media and re-measure Yxs/RQ/growth; verify FBA feasibility.
+    next_action_type: escalate_model
+    provenance:
+      run_ids: [mcs05-etc-atp-budget-diagnostic]
+    caveats:
+      - "Diagnostic localizes the mechanism; it does not itself apply or validate a fix."

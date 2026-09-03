@@ -50,7 +50,7 @@ def test_declared_species_reach_the_built_exchange_store():
     from v2ecoli.core import build_core
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
-    doc = baseline(core=core, seed=0, cache_dir=CACHE,
+    doc = baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
                    injected_processes={"fork_repo": "",
                                        "seed_exchange_species": [SEED_A, SEED_B]})
     ex = _exchange(doc)
@@ -64,8 +64,8 @@ def test_absent_declaration_leaves_the_exchange_store_unchanged():
     from v2ecoli.core import build_core
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
-    plain = _exchange(baseline(core=core, seed=0, cache_dir=CACHE))
-    empty = _exchange(baseline(core=core, seed=0, cache_dir=CACHE,
+    plain = _exchange(baseline(core=core, seed=0, cache_dir=CACHE, emitter="null"))
+    empty = _exchange(baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
                                injected_processes={"fork_repo": "",
                                                    "seed_exchange_species": []}))
     assert plain == empty
@@ -104,7 +104,7 @@ def test_seeding_never_clobbers_a_species_the_bundle_already_carries(monkeypatch
 
     core = build_core()
     reseeded = _exchange(eb.baseline(
-        core=core, seed=0, cache_dir=CACHE,
+        core=core, seed=0, cache_dir=CACHE, emitter="null",
         injected_processes={"fork_repo": "",
                             "seed_exchange_species": [existing, SEED_A]}))
     assert reseeded[existing] == marked_value, (
@@ -125,7 +125,7 @@ def test_a_bare_string_declaration_raises_instead_of_seeding_characters():
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     with pytest.raises(ValueError, match="takes a LIST"):
-        baseline(core=core, seed=0, cache_dir=CACHE,
+        baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
                  injected_processes={"fork_repo": "",
                                      "seed_exchange_species": "MY-PRODUCT"})
 
@@ -143,7 +143,7 @@ def test_a_compartment_tagged_id_raises_because_no_writer_would_match_it():
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     with pytest.raises(ValueError, match="BARE species ids"):
-        baseline(core=core, seed=0, cache_dir=CACHE,
+        baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
                  injected_processes={"fork_repo": "",
                                      "seed_exchange_species": ["MY-PRODUCT[c]"]})
 
@@ -157,7 +157,7 @@ def test_a_malformed_declaration_raises_rather_than_seeding_nothing(bad):
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
     with pytest.raises(ValueError, match="seed_exchange_species"):
-        baseline(core=core, seed=0, cache_dir=CACHE,
+        baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
                  injected_processes={"fork_repo": "",
                                      "seed_exchange_species": bad})
 
@@ -190,3 +190,52 @@ def test_the_premise_an_unseeded_exchange_key_silently_discards_its_write():
         "premise broken: the map now ADDS unknown keys, so seeding may be "
         "redundant — re-derive whether this seam is still needed")
     assert unseeded["GLC"] == 1.0
+
+
+def test_the_guard_holds_on_the_BATCH_path_before_dispatch():
+    """⛔ Multi-seed / multi-generation is the production shape, and it returns a
+    batch document from an early branch — before the single-cell seeding code
+    ever runs.
+
+    Measured before this guard was hoisted: `n_seeds=2` with a bare-string
+    declaration returned a document carrying it verbatim in
+    `state.batch_runner.config.injected_processes`, and the ValueError fired only
+    inside each worker after dispatch. The validation must happen where the
+    document is built, not where the seeding is.
+    """
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    core = build_core()
+    for kwargs in ({"n_seeds": 2}, {"n_generations": 2}, {"stop_at_division": True}):
+        with pytest.raises(ValueError, match="takes a LIST"):
+            baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
+                     injected_processes={"fork_repo": "",
+                                         "seed_exchange_species": "MY-PRODUCT"},
+                     **kwargs)
+
+
+@pytest.mark.parametrize("empty", [[], None])
+def test_an_explicitly_empty_declaration_is_a_no_op_not_an_error(empty):
+    """Present-but-empty is a legitimate 'cleared' value and must not raise."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    core = build_core()
+    ex = _exchange(baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
+                            injected_processes={"fork_repo": "",
+                                                "seed_exchange_species": empty}))
+    assert SEED_A not in ex
+
+
+@pytest.mark.parametrize("bad", ["", 0, False])
+def test_a_falsy_but_MISTYPED_declaration_still_raises(bad):
+    """⚠ Validation keys on PRESENCE, not truthiness. `seed_exchange_species: ""`
+    is a realistic mistyped 'cleared' value; gating on truthiness would let it
+    skip the type check and silently no-op while `"MY-PRODUCT"` raised — an
+    inconsistency that hides exactly the class this guard exists for."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    core = build_core()
+    with pytest.raises(ValueError, match="takes a LIST"):
+        baseline(core=core, seed=0, cache_dir=CACHE, emitter="null",
+                 injected_processes={"fork_repo": "",
+                                     "seed_exchange_species": bad})

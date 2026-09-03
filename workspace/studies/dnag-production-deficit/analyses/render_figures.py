@@ -45,10 +45,19 @@ def main() -> int:
         "step_percentiles": [float(p) for _, p in steps],
         "frac_zero": float(m["simulated"]["frac_zero"]),
     })["html"]
+    page = _PAGE.format(title="DnaG deficit cascade", body=html)
     out = viz / "dnag_deficit_cascade.html"
-    out.write_text(_PAGE.format(title="DnaG deficit cascade", body=html),
-                   encoding="utf-8")
+    out.write_text(page, encoding="utf-8")
     print(f"  wrote {out.relative_to(REPO)} ({len(html)} bytes)")
+
+    # studies/<name>/viz/ auto-discovery is gated on a runs.db, which an
+    # analysis-only study has none of, so the figure would never surface. The
+    # reports/figures/<slug>/ source is NOT gated -- the author owns currency --
+    # so write there too.
+    rep = REPO / "reports" / "figures" / STUDY_DIR.name
+    rep.mkdir(parents=True, exist_ok=True)
+    (rep / "dnag_deficit_cascade.html").write_text(page, encoding="utf-8")
+    print(f"  wrote {(rep / 'dnag_deficit_cascade.html').relative_to(REPO)}")
     return 0
 
 

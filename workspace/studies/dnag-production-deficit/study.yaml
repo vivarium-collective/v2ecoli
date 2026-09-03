@@ -315,7 +315,7 @@ report_card_refs:
     proteome_script: /Users/rashmidissasekara/Documents/code/v2ecoli/scripts/proteome_compare.py
     fixture: models/parca/parca_state.pkl.gz
 design_status: complete
-implementation_status: in_progress
+implementation_status: complete
 simulation_status: ran
 evaluation_status: evaluated
 gate_status: failed

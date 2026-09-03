@@ -1,4 +1,4 @@
-"""``extract_vectors`` must not assume things about the run that PRODUCED a sweep.
+"""``extract_vectors`` must not assume every observable column is present.
 
 WHY THIS FILE EXISTS.
 
@@ -15,17 +15,20 @@ wrong in a way any existing test could see:
    error that named a column rather than the cause, and took the omics groups
    down with it even though those columns were present.
 
-2. **That one ``(lineage_seed, generation, agent_id)`` group is one cell cycle.**
-   A runner that hand-drives its generations emits BOTH daughters at division
-   and then follows only one; the abandoned daughter leaves a short birth stub
-   in its own ``agent_id`` partition. Sweeps produced with the workflow's
-   ``single_daughters`` setting contain no stubs, which is why this held.
+2. **That every file in the glob has the same schema.** DuckDB binds
+   ``read_parquet`` against the FIRST file unless told otherwise, so a pooled
+   directory silently loses a group (or raises) depending on which file sorts
+   first. ``union_by_name=true`` is what makes the probe describe the sweep
+   rather than one file of it.
 
-★ **The generalisable point, and the reason these are one file rather than two:**
-both are assumptions about the PRODUCER that were satisfied by CONFIGURATION and
-asserted NOWHERE. The consequence of (2) in particular is silent — a stub is a
-few dozen ticks of newborn state averaged beside a full cell cycle, so it moves
-every ensemble statistic toward the newborn without failing anything.
+⛔ **A cell-completeness rule was attempted in this PR and WITHDRAWN.** A
+row-count heuristic (drop cells far below the longest) was found, by independent
+review, to do nothing on a real in-tree sweep whose emit cadence is coarse — the
+partial cell was 14% of the longest and sailed through, while the node
+affirmatively reported that nothing had been dropped. Whether a stub falls under
+a fixed fraction is a property of the producing run, which is the very thing this
+module is trying to stop assuming. The correct signal is a per-cell ``divided``
+flag; it is not currently an emitted parquet column. Tracked as follow-up.
 """
 
 from __future__ import annotations
@@ -97,67 +100,31 @@ def test_a_sweep_with_no_observable_columns_raises(tmp_path):
             _write(tmp_path, [("0", 10)], cols=["listeners__mass__dry_mass"]))
 
 
-# --------------------------------------------------------------------------
-# 2. Rows that are not a cell cycle
-# --------------------------------------------------------------------------
-
-def test_birth_stubs_are_excluded_from_the_ensemble(tmp_path):
-    """One full cell (value 1) and one 2-tick stub (value 2).
-
-    The mean is the property under test, not ``n_cells``: including the stub
-    gives 1.5, excluding it gives 1.0. A mutant that counts correctly but still
-    averages the stub in passes an ``n_cells`` assertion and fails this one."""
-    out = card_vectors.extract_vectors(_write(tmp_path, [("00", 400), ("01", 2)]))
-    node = out["omics"]["transcriptome"]
-    assert node["n_cells"] == 1
-    assert node["n_cells_excluded_partial"] == 1
-    assert np.allclose(node["vector"], 1.0), (
-        "the stub was averaged into the ensemble mean")
 
 
-def test_the_excluded_count_is_reported_rather_than_silent(tmp_path):
-    """A provenance panel printing ``n_cells`` alone cannot distinguish an
-    ensemble that never had more cells from one whose extras were dropped."""
-    out = card_vectors.extract_vectors(_write(tmp_path, [("00", 400), ("01", 2)]))
-    assert out["omics"]["transcriptome"]["n_cells_excluded_partial"] == 1
+def test_a_column_missing_from_only_the_FIRST_file_is_still_found(tmp_path):
+    """⛔ DuckDB binds the glob against the first file unless union_by_name is set.
 
+    The two failure modes are asymmetric and only one is loud: a first file
+    LACKING a column the others have omits the group SILENTLY; a first file
+    HAVING one the others lack raises. This pins the silent one, which is the
+    dangerous direction — a whole observable group vanishing with no error."""
+    pq = pytest.importorskip("pyarrow")
+    import pyarrow.parquet
 
-def test_a_sweep_of_only_full_cells_excludes_NOTHING(tmp_path):
-    """The paired control. Without it, ``exclude everything but the longest
-    cell`` would pass every other test in this file."""
-    out = card_vectors.extract_vectors(
-        _write(tmp_path, [("00", 400), ("000", 380), ("0000", 420)]))
-    node = out["omics"]["transcriptome"]
-    assert node["n_cells"] == 3
-    assert node["n_cells_excluded_partial"] == 0
-    assert np.allclose(node["vector"], 2.0)
+    d = tmp_path / "exp" / "history" / "part"
+    d.mkdir(parents=True)
+    n = 20
+    base = {"lineage_seed": [0]*n, "generation": [2]*n, "agent_id": ["00"]*n}
+    narrow = dict(base)
+    for c in ("listeners__rna_counts__mRNA_cistron_counts", "listeners__monomer_counts"):
+        narrow[c] = [[1.0, 1.0]]*n
+    wide = dict(narrow)
+    wide["listeners__fba_results__external_exchange_fluxes"] = [[2.0, 2.0]]*n
+    # "0.pq" sorts first and is the NARROW one
+    pyarrow.parquet.write_table(pq.table(narrow), d / "0.pq")
+    pyarrow.parquet.write_table(pq.table(wide), d / "1.pq")
 
-
-def test_stubs_are_excluded_EVEN_WHEN_THEY_ARE_THE_MAJORITY(tmp_path):
-    """⛔⛔ THE TEST THAT CAUGHT THE FIRST IMPLEMENTATION OF THIS RULE.
-
-    The rule was first written against the sweep's MEDIAN rows-per-cell. On a
-    real 4-generation sweep the per-cell row counts were
-    ``25, 25, 29, 31, 45, 3217, 3333, 3511`` — five stubs to three cells — so
-    the median was 38, the floor 3.8, and **all eight were admitted**. The rule
-    failed silently in exactly the case it exists for, and no synthetic fixture
-    with a stub minority would have shown it.
-
-    ★ A robust statistic is the wrong tool when the contaminant can be the
-    majority. Scaling off the longest cell is what makes this hold."""
-    cells = [("a", 25), ("b", 25), ("c", 29), ("d", 31), ("e", 45),
-             ("f", 3217), ("g", 3333), ("h", 3511)]
-    out = card_vectors.extract_vectors(_write(tmp_path, cells))
-    node = out["omics"]["transcriptome"]
-    assert node["n_cells"] == 3, (
-        "stubs in the majority dragged the scale down and were admitted")
-    assert node["n_cells_excluded_partial"] == 5
-
-
-def test_membership_is_the_same_cell_set_for_every_group(tmp_path):
-    """Deciding membership per column would let two halves of one comparison
-    describe different cells, with nothing in the output saying so."""
-    out = card_vectors.extract_vectors(_write(tmp_path, [("00", 400), ("01", 2)]))
-    counts = {(g, n): node["n_cells"]
-              for g, d in out.items() for n, node in d.items()}
-    assert len(set(counts.values())) == 1, counts
+    out = card_vectors.extract_vectors(str(tmp_path / "exp"))
+    assert "fluxes" in out, (
+        "the exchange group vanished because only the first file was inspected")

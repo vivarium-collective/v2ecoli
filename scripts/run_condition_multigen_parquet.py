@@ -557,8 +557,17 @@ def main() -> None:
                                        **_cfg_over_kwarg)
                     comp = Composite(doc, core=core)
                 else:
+                    # seed= is REQUIRED here. Without it build_composite falls back
+                    # to baseline()'s default seed=0, so generation 1 executed at
+                    # seed 0 no matter what --seed asked for, while the perturbed
+                    # branch above and the daughter branch below both threaded it.
+                    # Every no-perturbation study was therefore reading correlated
+                    # replicates: replisome-gate-sufficiency's four mechanistic
+                    # seeds are bit-identical in generation 1 (tau=43.0,
+                    # 722.6 fg), and ppgpp-off-rescue's off-arm seeds 0 and 1 match
+                    # through two generations.
                     comp = build_composite("ecoli_baseline", cache_dir=args.cache_dir,
-                                                           **_cfg_over_kwarg)
+                                           seed=args.seed, **_cfg_over_kwarg)
             else:
                 d1_state, _d2_state = divide_cell(prev_cell_data)
                 bundle = {

@@ -324,7 +324,7 @@ falsifiability: 'Every hypothesis above is refuted by a specific named axis, and
   the same data. H6 is checked FIRST so no mechanism is fitted to a phenomenon that does not exist.'
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: Fix the generation-1 seed defect before any new run.
   detail: 'run_condition_multigen_parquet.py''s no-perturbation generation-1 path calls build_composite
@@ -335,7 +335,7 @@ implementation_requirements:
     2+ should use hash(seed, gen) rather than seed+gen_idx -- whose streams overlap across seeds -- is
     a behaviour change affecting prior studies and is NOT in scope here.'
 - id: req-2
-  status: not_started
+  status: complete
   blocking: false
   summary: Recompute the 5.40x deficit against idx_rprotein peers.
   detail: inforce_reference's comparison group excludes fixed-allocation classes and therefore excludes

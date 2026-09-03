@@ -86,9 +86,22 @@ class RnaSynthProb(Step):
         return (states["global_time"] % states["timestep"]) == 0
 
     def update(self, states, interval=None):
-        # Guard: return empty on first tick if data not yet populated
+        # Guard: return empty on the first tick, before TranscriptInitiation has
+        # written the probability arrays this step derives from.
+        #
+        # n_bound_TF_per_TU is deliberately NOT part of this guard. It is an
+        # OPTIONAL input: TfBinding emits it only when its `emit_n_bound_TF_per_TU`
+        # parameter is set, which defaults to False because the matrix is
+        # n_TU x n_TF (~900 KB/tick). Requiring it here meant the guard was never
+        # satisfied on a default build, so this step returned {} on every tick and
+        # ALL TEN of its outputs sat at their `[]` defaults for the life of every
+        # simulation -- promoter_copy_number, gene_copy_number, the bound_TF_*
+        # arrays and the four per-cistron arrays included. One performance toggle
+        # for a single heavy debug listener was silently disabling nine unrelated
+        # observables, and downstream studies read the resulting empty arrays as
+        # real absences. Only n_bound_TF_per_cistron genuinely needs the matrix, so
+        # only it is gated on availability now.
         if (len(states["rna_synth_prob"]["actual_rna_synth_prob"]) != self.n_TU
-                or len(states["rna_synth_prob"]["n_bound_TF_per_TU"]) != self.n_TU
                 or len(states["rna_synth_prob"]["target_rna_synth_prob"]) != self.n_TU):
             return {}
         TU_indexes, all_coordinates, all_domains, bound_TFs = attrs(
@@ -122,7 +135,7 @@ class RnaSynthProb(Step):
                 / target_rna_synth_prob_per_cistron.sum()
             )
 
-        return {
+        update = {
             "rna_synth_prob": {
                 "promoter_copy_number": np.bincount(TU_indexes, minlength=self.n_TU),
                 "gene_copy_number": np.bincount(
@@ -134,10 +147,14 @@ class RnaSynthProb(Step):
                 "expected_rna_init_per_cistron": expected_rna_init_per_cistron,
                 "actual_rna_synth_prob_per_cistron": actual_rna_synth_prob_per_cistron,
                 "target_rna_synth_prob_per_cistron": target_rna_synth_prob_per_cistron,
-                "n_bound_TF_per_cistron": self.cistron_tu_mapping_matrix.dot(
-                    states["rna_synth_prob"]["n_bound_TF_per_TU"]
-                )
-                .astype(np.int16)
-                .T,
             }
         }
+        # Only this field needs the optional n_bound_TF_per_TU matrix; emit it
+        # when TfBinding was asked for it, and leave it absent otherwise rather
+        # than blocking the other nine.
+        n_bound = states["rna_synth_prob"]["n_bound_TF_per_TU"]
+        if len(n_bound) == self.n_TU:
+            update["rna_synth_prob"]["n_bound_TF_per_cistron"] = (
+                self.cistron_tu_mapping_matrix.dot(n_bound).astype(np.int16).T
+            )
+        return update

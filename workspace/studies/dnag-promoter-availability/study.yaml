@@ -7,7 +7,7 @@ phase: Design
 created: '2026-09-03'
 status: planned
 design_status: complete
-implementation_status: not_started
+implementation_status: complete
 simulation_status: not_run
 evaluation_status: not_evaluated
 gate_status: pending
@@ -227,7 +227,7 @@ preregistered:
     prior: Does promoter count account for the collapse, or only part of it?
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: Repair the rna_synth_prob deriver — ALL of its outputs are currently empty.
   detail: 'Diagnosed 2026-09-03. Every field written by the rna_synth_prob_listener deriver is empty on
@@ -238,14 +238,30 @@ implementation_requirements:
     to this deriver: it sits in FLOW_ORDER and in the composite, and derivers/rna_synth_prob.py:127 computes
     np.bincount(TU_indexes, minlength=n_TU), but the update never lands. Root-cause before patching --
     do NOT simply re-emit from a second site, because a duplicate writer would mask whatever is discarding
-    the first. This repairs ten observables at once, not just this study''s.'
+    the first. This repairs ten observables at once, not just this study''s.
+
+
+    RESOLVED 2026-09-03. Root cause: the deriver''s first-tick guard required n_bound_TF_per_TU to be
+    full length, but that field is OPTIONAL -- TfBinding emits it only when emit_n_bound_TF_per_TU is
+    set, which defaults to False because the matrix is n_TU x n_TF (~900 KB/tick). The guard was therefore
+    never satisfied on a default build, so update() returned {} on every tick of every simulation ever
+    run. One performance toggle for a single heavy debug listener was disabling nine unrelated observables.
+    Fix: drop the optional field from the guard and gate only n_bound_TF_per_cistron, the sole output
+    that needs it, on its availability. Verified: nine fields now populate on 361/361 timesteps, and an
+    A/B at identical parameters is BIT-IDENTICAL across the full 3277-TU actual_rna_synth_prob array (max
+    |diff| = 0.0), so the repair is observational and does not perturb any prior result.'
 - id: req-2
-  status: not_started
+  status: complete
   blocking: true
   summary: Fix the generation-1 seed defect (carried from dnag-generational-decay req-1).
-  detail: run_condition_multigen_parquet.py's no-perturbation generation-1 path calls build_composite
+  detail: 'run_condition_multigen_parquet.py''s no-perturbation generation-1 path calls build_composite
     without seed=, so generation 1 always runs at seed 0. This study needs new runs and reads a per-generation
     trajectory across seeds, so correlated generation-1 states would bias it.
+
+
+    RESOLVED 2026-09-03: build_composite now receives seed=args.seed. Verified that seeds 0 and 1 yield
+    distinct TranscriptInitiation RNG streams. A no-op at seed 0 by construction (baseline()''s default
+    was 0), which is what made the deriver A/B above a clean test of the deriver change alone.'
 - id: req-3
   status: not_started
   blocking: false
@@ -333,3 +349,11 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+preliminary_observations:
+- note: 'FIRST EVER promoter-count measurement, from the req-1 verification smoke (generation 1 only,
+    6-minute cap, single seed): dnaG TU00352[c] holds a CONSTANT 2 promoters (min 2, max 2) and is never
+    at zero, and the idx_rprotein peer median is also exactly 2.000 (all-TU median 1.662). Recorded as
+    the regression pin''s baseline and as context, NOT as a result: this study''s hypothesis concerns
+    promoter LOSS by generation 4 across 6 seeds, and one truncated generation-1 run cannot speak to it.
+    It is, however, consistent with H2 being favoured a priori -- at generation 1 dnaG carries no promoter
+    deficit relative to its peers whatsoever.'

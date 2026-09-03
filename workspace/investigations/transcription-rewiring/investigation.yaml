@@ -201,7 +201,11 @@ decisions_needed:
     question of whether gen 2+ should use hash(seed,gen) instead of seed+gen_idx (whose streams overlap
     across seeds) is a behaviour change affecting prior studies.
   raised_by: ppgpp-off-rescue
-  status: open
+  status: resolved
+  resolution: build_composite now receives seed=args.seed. Verified distinct RNG streams per seed. Study
+    2's '8 of 8 seeds, seed-independent' still needs amending -- the runs behind it were made with the
+    defect and their generation 1 is bit-identical. The separate hash(seed, gen) question for generation
+    2+ remains OPEN and out of scope.
 - question: Is DnaG uniquely limiting, or merely first?
   why: With DnaG partly relieved, HolA (delta) becomes the worst gate pool in off-arm generations 3-4.
     replisome-gate-sufficiency's limiting-resource claim may need narrowing to 'limiting first'.
@@ -214,10 +218,16 @@ decisions_needed:
     would have fired. replisome-gate-sufficiency's original claim stands unamended.
 - question: 'Repair the rna_synth_prob deriver: ten observables are empty on every timestep ever emitted.'
   raised_by: dnag-promoter-availability
-  status: open
+  status: resolved
   why: 'Every field written by the rna_synth_prob_listener deriver is empty on 100% of timesteps: promoter_copy_number,
     gene_copy_number, bound_TF_indexes/coordinates/domains, n_bound_TF_per_TU, n_bound_TF_per_cistron,
     and the three _per_cistron probability arrays. Fields written by transcript_initiation itself are
     populated, so the emitter is fine and the fault is specific to this deriver. This is investigation-wide:
     silent-transcription-units already left an axis ungraded because of it, and any prior reading that
     treated one of these as absent-because-zero needs revisiting.'
+  resolution: Fixed. The first-tick guard required the OPTIONAL n_bound_TF_per_TU (TfBinding emits it
+    only under emit_n_bound_TF_per_TU, default False, ~900 KB/tick), so update() returned {} on every
+    tick and nine unrelated observables sat empty. Guard now requires only the two mandatory probability
+    arrays; n_bound_TF_per_cistron alone is gated on the optional matrix. A/B at identical parameters
+    is bit-identical, so no prior result changes -- but readings that treated any of these arrays as absent-because-zero
+    were reading a disabled listener, not the model.

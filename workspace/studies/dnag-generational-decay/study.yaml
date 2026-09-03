@@ -7,7 +7,7 @@ phase: Decide
 created: '2026-09-03'
 status: complete
 design_status: complete
-implementation_status: not_started
+implementation_status: complete
 simulation_status: complete
 evaluation_status: evaluated
 gate_status: failed
@@ -69,7 +69,10 @@ behavior_tests:
         points and spans exactly 3x, the widest the discrimination check permits. Uses prior published
         numbers only -- no per-generation value has been measured, which is what keeps this an acceptance
         criterion rather than a pin.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 3.278e-06
+  evaluated_by: agent
 - name: peers-do-not-decay
   classification: primary
   gate_class: acceptance_criterion
@@ -98,8 +101,11 @@ behavior_tests:
       note: 'Two-sided, and the change matters: the original one-sided ''< 1.5'' would have PASSED if
         the peers collapsed to 0.01, i.e. the control could be satisfied by exactly the pathology it exists
         to exclude. The band requires the peers to be steady in BOTH directions.'
-  status: pending
+  status: passed
   control: negative
+  result: PASS
+  measured_value: 1.474
+  evaluated_by: agent
 - name: ppgpp-conc-rises-across-generations
   classification: supporting
   gate_class: acceptance_criterion
@@ -125,7 +131,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: Smallest rise that could drive the observed decay through the squared Hill term.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 1.249
+  evaluated_by: agent
 - name: ppgpp-predicts-the-decay
   classification: primary
   gate_class: acceptance_criterion
@@ -158,7 +167,10 @@ behavior_tests:
       note: 'Two-sided on predicted/observed. A one-sided bound would let a prediction that grossly UNDER-shoots
         the decay count as agreement. Zero free parameters: synth_prob is fitted and untouched, and ppGpp_conc
         is measured.'
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 378000.0
+  evaluated_by: agent
 - name: decay-survives-within-class-normalisation
   classification: primary
   gate_class: acceptance_criterion
@@ -189,7 +201,10 @@ behavior_tests:
         as the other discriminators and spans 3x. The absolute form ([1.5, 100]) was both unbounded in
         practice and 3x wider than the audit permits, and it conflated 'dnaG decayed' with 'dnaG decayed
         relative to its class' -- which is precisely the H1-vs-H4 distinction this axis exists to make.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 1.374
+  evaluated_by: agent
 - name: dnag-deficit-vs-rprotein-peers-at-gen1
   classification: supporting
   gate_class: regression_pin
@@ -211,7 +226,10 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: Measured in ppgpp-off-rescue; pin only, at 2x tolerance.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 47.42
+  evaluated_by: agent
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-03T21:40:00Z'
@@ -584,3 +602,78 @@ findings:
     quantity has never actually been checked; and TU00352[c] is the transcript whose three promoters (rpsUp1/2/3)
     the known TU-dedup collapses into one, so dnaG has the fewest promoter copies to lose in the first
     place.'
+canonical_runs:
+- dnag-generational-decay__phase-A
+readouts:
+- name: dnag_synth_per_generation
+  units: dimensionless probability
+  source: listeners.rna_synth_prob.actual_rna_synth_prob[TU00352[c]], per-generation mean
+  value: 5.41e-06 -> 1.50e-07 -> 1.35e-11 -> 1.63e-11 (generations 1-4)
+- name: rprotein_peer_median_synth
+  units: dimensionless probability
+  source: median over the 41 idx_rprotein peers, per-generation mean
+  value: 7.25e-04 -> 7.84e-04 -> 8.31e-04 -> 1.09e-03 (rises 1.474x)
+- name: rprotein_class_total
+  units: dimensionless probability
+  source: sum over idx_rprotein, per-generation mean
+  value: 0.0435 -> 0.0478 -> 0.0521 -> 0.0617 (rises 1.374x)
+- name: ppgpp_conc
+  units: uM
+  source: listeners.growth_limits.ppgpp_conc, per-generation mean
+  value: 54.0 -> 66.3 -> 75.7 -> 80.4 (seed 0); rises only 1.01x in seed 1
+- name: dnag_ppgpp_basal
+  units: dimensionless probability
+  source: synth_prob(measured ppgpp_conc, copy_number)[TU00352[c]]
+  value: 2.96e-05 -> 3.13e-05 -> 3.28e-05 -> 3.37e-05 (RISES 14%)
+biological_summary: 'DnaG is the primase every replication fork needs, and this model''s lineages stall
+  when its free pool cannot meet the initiation gate. This study asked why the supply keeps getting worse
+  generation after generation, and found that the premise was wrong: dnaG''s transcription is not gradually
+  diluted, it is switched off. Per generation its synthesis probability runs 5.4e-06, 1.5e-07, then 1.3e-11
+  -- a collapse of five orders of magnitude to the numerical floor by the third generation, while the
+  41 other ribosomal-protein transcripts it shares an allocation class with are transcribed MORE, not
+  less.
+
+
+  The obvious culprit was ppGpp, the alarmone that reroutes transcription away from growth genes under
+  stress, and which an earlier study showed sets dnaG''s overall level. It is not responsible here. Feeding
+  the measured ppGpp concentration through the model''s own fitted response function predicts dnaG should
+  hold steady, and in one replicate ppGpp barely moves at all while dnaG still collapses a hundred-thousand-fold.
+  Measured directly, the ppGpp-adjusted probability assigned to dnaG actually RISES 14% across the same
+  generations in which its realised transcription vanishes.
+
+
+  So the cell is being told to make dnaG and is not making it. The instruction survives; the execution
+  does not. That places the failure in the machinery between the assigned probability and the transcripts
+  actually initiated -- and because dnaG''s class-mates pass through the same machinery unharmed, whatever
+  goes wrong is specific to this transcript.'
+conclusion_verdicts:
+- claim: dnaG's transcription collapses rather than decays
+  verdict: supported
+  basis: 5.41e-06 -> 1.3e-11 by generation 3, four orders below the pre-registered band's lower bound.
+- claim: ppGpp drives the generational collapse (H1)
+  verdict: refuted
+  basis: Zero-parameter held-out prediction wrong by 5 orders; dnaG's ppGpp basal RISES 14%; seed 1 collapses
+    with ppGpp flat at 1.01x.
+- claim: The collapse is class-level bookkeeping (H4)
+  verdict: refuted
+  basis: The idx_rprotein class total rises 1.374x and the peer median 1.474x while dnaG within the class
+    goes to zero.
+- claim: The defect lies downstream of the ppGpp basal vector (H5)
+  verdict: supported
+  basis: By elimination plus the direct measurement that the vector's dnaG entry rises while output collapses.
+discovery_implications:
+- Two mechanisms were being conflated. ppGpp sets dnaG's LEVEL (16.6x of the deficit, ppgpp-off-rescue)
+  and has nothing to do with its generational COLLAPSE. Any account of DnaG scarcity must name which of
+  the two it explains.
+- '''Revert to basal_prob'' is not available as a fix for the fit-runtime mismatch: ppgpp-off-rescue showed
+  removing ppGpp destroys growth homeostasis, and this study shows it would not address the collapse anyway.'
+- Cumulative window averages hid a five-order-of-magnitude shutdown behind what looked like a threefold
+  decay. Per-generation aggregation is not a refinement in this model; it is the difference between the
+  right and the wrong phenomenon.
+- The next target is transcript_initiation's path from basal_prob to the emitted probability, and dnag-promoter-availability
+  tests the first candidate on that path.
+embed_visualizations:
+- name: dnag_collapse_vs_rising_input
+  title: dnaG is switched off while every input to it rises
+  path: analyses/dnag_collapse_vs_rising_input.html
+  kind: html

@@ -9,7 +9,6 @@ comparison:
   generations: 4
 report_card_refs:
   vs_vecoli: docs/report_cards/population_phenotype_basal/vs_vecoli/report_card_verdict.json
-
 report_cards:
 - viz/report_card/summary.html
 - viz/report_card/parca.html
@@ -91,15 +90,19 @@ findings:
 - id: basal-vs-vecoli-result
   kind: computational
   status: confirms
-  statement: 'CONTROL -- v2ecoli reproduces vEcoli on basal (the ParCa fit point):
-    all observables within tolerance (4-seed gen-1).'
+  statement: 'CONTROL -- v2ecoli reproduces vEcoli on basal (the ParCa fit point): all observables within
+    tolerance (4-seed gen-1).'
   evidence:
     from_card: statistical
-    observed: cell/dry +1.x%, protein/RNA <1.5%, growth ~+5% at seed-noise level --
-      all within_tol.
+    observed: cell/dry +1.x%, protein/RNA <1.5%, growth ~+5% at seed-noise level -- all within_tol.
 inputs:
 - artifact: sim_data
   from: parca
   into: cache_dir
 pipeline_gate:
   enables: []
+embed_visualizations:
+- name: comparison_plotly
+  title: Comparison plotly
+  path: viz/comparison_plotly.html
+  kind: html

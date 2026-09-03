@@ -5,10 +5,10 @@ investigation: transcription-rewiring
 study_type: mechanism_localisation
 phase: Design
 created: '2026-09-03'
-status: planned
+status: running
 design_status: complete
 implementation_status: complete
-simulation_status: not_run
+simulation_status: running
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
@@ -301,7 +301,7 @@ simulation_set:
   note: Identical to dnag-generational-decay's arm so the two studies' generations are comparable.
 planned_runs:
 - name: promoter-trajectory
-  status: planned
+  status: running
   n_steps: 6
   details: '6 seeds x 5 generations, mechanistic gate ON, AFTER req-1 and req-2 land. NEW RUNS ARE UNAVOIDABLE:
     promoter_copy_number is empty in every existing parquet, so unlike dnag-generational-decay''s Phase
@@ -357,3 +357,4 @@ preliminary_observations:
     promoter LOSS by generation 4 across 6 seeds, and one truncated generation-1 run cannot speak to it.
     It is, however, consistent with H2 being favoured a priori -- at generation 1 dnaG carries no promoter
     deficit relative to its peers whatsoever.'
+sweep_started_at: '2026-09-03T23:20:00Z'

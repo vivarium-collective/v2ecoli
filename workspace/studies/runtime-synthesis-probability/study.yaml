@@ -6,7 +6,10 @@ status: complete
 phase: Decide
 study_type: diagnostic
 investigation: transcription-rewiring
-question: Study 4 showed a cohort of high-probability transcripts is realized ~51x below its assigned rate, with no static attribute explaining it. Is the probability actually in force at runtime depressed for these transcripts (an assignment defect), or is it normal and they are simply not selected (a sampling defect)?
+question: Study 4 showed a cohort of high-probability transcripts is realized ~51x below its assigned
+  rate, with no static attribute explaining it. Is the probability actually in force at runtime depressed
+  for these transcripts (an assignment defect), or is it normal and they are simply not selected (a sampling
+  defect)?
 biological_summary: 'Study silent-transcription-units established the effect and exhausted the
 
   static explanations. Six transcription units in the top 300 by assigned
@@ -57,9 +60,11 @@ biological_summary: 'Study silent-transcription-units established the effect and
 
   '
 assumptions:
-- text: listeners.rna_synth_prob.actual_rna_synth_prob is the per-TU probability the transcription process actually uses when selecting transcripts, after every override and adjustment.
+- text: listeners.rna_synth_prob.actual_rna_synth_prob is the per-TU probability the transcription process
+    actually uses when selecting transcripts, after every override and adjustment.
   verified_in_v2ecoli: false
-- text: The permissive sweep from silent-transcription-units is an unperturbed lineage, so its runtime probabilities reflect normal operation.
+- text: The permissive sweep from silent-transcription-units is an unperturbed lineage, so its runtime
+    probabilities reflect normal operation.
   verified_in_v2ecoli: true
 pipeline_gate:
   prerequisites:
@@ -70,7 +75,8 @@ pipeline_gate:
     - The six-TU cohort and its 294-member comparison group
     - The 3 seed x 3 generation sweep, reused here without re-running
   enables: []
-  proceed_condition: The deficit is attributed to probability assignment or to transcript selection, so a repair can be aimed at the right part of the process.
+  proceed_condition: The deficit is attributed to probability assignment or to transcript selection, so
+    a repair can be aimed at the right part of the process.
   gate_evaluator:
     result: failed
     blocked_by:
@@ -102,47 +108,68 @@ behavior_tests:
   question: Is the probability actually in force depressed for the cohort?
   description: 'The cohort''s median actual_rna_synth_prob is below half the comparison group''s median.
 
-    This is the discriminating axis. A PASS means the transcripts are under-supplied by construction and the defect lies in probability assignment. A FAIL means the probability in force is normal, the deficit arises downstream in selection, and the repair is somewhere else entirely.
+    This is the discriminating axis. A PASS means the transcripts are under-supplied by construction and
+    the defect lies in probability assignment. A FAIL means the probability in force is normal, the deficit
+    arises downstream in selection, and the repair is somewhere else entirely.
 
-    Threshold provenance: theory. Half is a deliberately generous separator between "depressed" and "normal"; the realized deficit is ~51x, so a genuine assignment defect should clear this easily and a normal probability should fail it clearly. Nothing is cited for it.'
+    Threshold provenance: theory. Half is a deliberately generous separator between "depressed" and "normal";
+    the realized deficit is ~51x, so a genuine assignment defect should clear this easily and a normal
+    probability should fail it clearly. Nothing is cited for it.'
   measure:
     kind: derived
-    detail: median actual_rna_synth_prob over the 6 cohort TUs divided by the median over the 294 comparison TUs, pooled across the sweep.
+    detail: median actual_rna_synth_prob over the 6 cohort TUs divided by the median over the 294 comparison
+      TUs, pooled across the sweep.
   pass_if:
     op: <
     value: 0.5
     provenance:
       kind: theory
       note: Generous separator; a 51x realized deficit should clear it easily.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 0.01076
+  evaluated_by: agent
 - name: realized-tracks-runtime-probability
   classification: primary
   gate_class: acceptance_criterion
   question: Given the probability in force, are the cohort's transcripts sampled fairly?
-  description: 'The cohort''s (realized share / actual probability) is at least half the comparison group''s same ratio.
+  description: 'The cohort''s (realized share / actual probability) is at least half the comparison group''s
+    same ratio.
 
-    The sampling test, and the complement of the axis above. If transcripts are selected in proportion to the probability in force, this ratio should be similar for both groups regardless of how depressed the cohort''s probability is. A FAIL means the cohort is under-sampled even relative to its own reduced probability, which would be a second, independent defect.
+    The sampling test, and the complement of the axis above. If transcripts are selected in proportion
+    to the probability in force, this ratio should be similar for both groups regardless of how depressed
+    the cohort''s probability is. A FAIL means the cohort is under-sampled even relative to its own reduced
+    probability, which would be a second, independent defect.
 
-    Threshold provenance: theory. Half allows for ordinary stochastic variation in a small cohort while still catching a systematic under-sampling.'
+    Threshold provenance: theory. Half allows for ordinary stochastic variation in a small cohort while
+    still catching a systematic under-sampling.'
   measure:
     kind: derived
-    detail: (cohort median realized-share / cohort median actual prob) divided by the same quantity for the comparison group.
+    detail: (cohort median realized-share / cohort median actual prob) divided by the same quantity for
+      the comparison group.
   pass_if:
     op: '>='
     value: 0.5
     provenance:
       kind: theory
       note: Tolerates stochastic variation; catches systematic under-sampling.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 0.37972
+  evaluated_by: agent
 - name: actual-tracks-target
   classification: primary
   gate_class: acceptance_criterion
   question: Is the depression introduced by regulation, or already in the target?
   description: 'For the cohort, median actual_rna_synth_prob is at least half of median target_rna_synth_prob.
 
-    Separates two routes to a depressed probability. If actual tracks target, whatever suppresses these transcripts is already present in the target and the cause is upstream in how targets are computed. If actual is far below target, something between the two -- regulation, an override, or a renormalisation -- is removing their probability, which localises the bug precisely.
+    Separates two routes to a depressed probability. If actual tracks target, whatever suppresses these
+    transcripts is already present in the target and the cause is upstream in how targets are computed.
+    If actual is far below target, something between the two -- regulation, an override, or a renormalisation
+    -- is removing their probability, which localises the bug precisely.
 
-    Threshold provenance: theory. Half distinguishes "tracks" from "is suppressed relative to" without assuming a particular mechanism.'
+    Threshold provenance: theory. Half distinguishes "tracks" from "is suppressed relative to" without
+    assuming a particular mechanism.'
   measure:
     kind: derived
     detail: median actual_rna_synth_prob / median target_rna_synth_prob over the cohort.
@@ -152,49 +179,83 @@ behavior_tests:
     provenance:
       kind: theory
       note: Distinguishes tracking from suppression; mechanism-agnostic.
-  status: invalidated_by_correction
-  review_note: |
-    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+  status: passed
+  review_note: 'CORRECTED 2026-09-03 after the question ''how sure are you on the regulation?''.
+
     The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+
     invalid one.
 
+
     VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+
     the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+
     timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
 
-    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
-    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+
+    INVALID: ''actual tracks target to 0.1%, so nothing between target and use removes
+
+    the probability.'' target_TU_synth_probs is returned by _synthesis_probabilities
+
     (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+
     including the delta_prob . bound_TF term. Both quantities are therefore
+
     POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+
     1.001 ratio shows crowding does not affect these transcripts; it says nothing
-    whatever about regulation. The study's own assumptions block flagged this as
+
+    whatever about regulation. The study''s own assumptions block flagged this as
+
     verified_in_v2ecoli: false and the conclusion leaned on it anyway.
 
+
     UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+
     When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+
     basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
-    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
-    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+
+    an accessibility gain b^2/(b+K) whose own comment says it goes ''smoothly -> 0 for
+
+    silent genes''. That path requires no TF binding, so zero TFs bound does not exclude
+
     it.
 
+
     Also newly noted: the configured delta_prob sum for these transcripts is almost
+
     exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+
     -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+
     evidence that regulation is irrelevant here.
 
-    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+
+    Consequence: the ''25x below basal_prob'' framing may be measuring against the wrong
+
     reference vector entirely. Study probability-in-force-reference is designed to settle
+
     which vector is in force.
+
+    '
+  result: PASS
+  measured_value: 1.001163
+  evaluated_by: agent
 - name: comparison-group-behaves-normally
   classification: control
   gate_class: acceptance_criterion
   question: Does the decomposition hold for transcripts known to behave?
-  description: 'For the 294 comparison TUs, median actual_rna_synth_prob is within a factor of two of median target_rna_synth_prob.
+  description: 'For the 294 comparison TUs, median actual_rna_synth_prob is within a factor of two of
+    median target_rna_synth_prob.
 
-    Positive control on the instrument rather than on the cohort. The comparison group is realized at 1.006x its assigned probability, so its actual and target should agree closely. If they do not, the columns do not mean what this study assumes and every other axis is uninterpretable.
+    Positive control on the instrument rather than on the cohort. The comparison group is realized at
+    1.006x its assigned probability, so its actual and target should agree closely. If they do not, the
+    columns do not mean what this study assumes and every other axis is uninterpretable.
 
-    Threshold provenance: theory; a factor of two is a loose sanity band for quantities that should be nearly identical.'
+    Threshold provenance: theory; a factor of two is a loose sanity band for quantities that should be
+    nearly identical.'
   measure:
     kind: derived
     detail: max of (median actual / median target) and its reciprocal, over the comparison group.
@@ -204,13 +265,18 @@ behavior_tests:
     provenance:
       kind: theory
       note: Loose sanity band on the instrument, not on the finding.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 1.000982
+  evaluated_by: agent
 - name: cohort-remains-depressed
   classification: supporting
   gate_class: regression_pin
-  description: 'The cohort''s realized/assigned ratio remains far below the comparison group''s, as measured in silent-transcription-units.
+  description: 'The cohort''s realized/assigned ratio remains far below the comparison group''s, as measured
+    in silent-transcription-units.
 
-    POST-HOC: measured in the prior study (0.000-0.020 vs 1.006). A pin so a change that silently fixes the depression is noticed here.'
+    POST-HOC: measured in the prior study (0.000-0.020 vs 1.006). A pin so a change that silently fixes
+    the depression is noticed here.'
   measure:
     kind: derived
     detail: cohort max realized/assigned ratio, recomputed from the same sweep.
@@ -220,22 +286,32 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: Observed in the prior study; pin only.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 0.019652
+  evaluated_by: agent
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-03T17:54:00Z'
   criteria:
   - test: runtime-probability-is-depressed
-    prior: Open. Determines whether the defect is in probability assignment or in transcript selection; these need different repairs.
+    prior: Open. Determines whether the defect is in probability assignment or in transcript selection;
+      these need different repairs.
   - test: realized-tracks-runtime-probability
-    prior: Open. If the cohort is under-sampled even relative to its own reduced probability, that is a second independent defect.
+    prior: Open. If the cohort is under-sampled even relative to its own reduced probability, that is
+      a second independent defect.
   - test: actual-tracks-target
-    prior: Open. Localises a depressed probability to the target computation or to something applied after it.
+    prior: Open. Localises a depressed probability to the target computation or to something applied after
+      it.
   - test: comparison-group-behaves-normally
     prior: The control; a failure invalidates the instrument, not the cohort.
   predictions:
-  - 'Confirmed before writing these axes: that actual_rna_synth_prob, target_rna_synth_prob and n_bound_TF_per_TU are emitted by the existing runs. That is a CAPABILITY check -- which columns exist -- and the cohort''s values in them were deliberately not inspected, so the thresholds above are genuine priors.'
-  - 'Carried from silent-transcription-units and NOT re-derived here: the cohort is realized at 0.000-0.020 of assigned against a comparison median of 1.006. cohort-remains-depressed is a regression pin for that reason.'
+  - 'Confirmed before writing these axes: that actual_rna_synth_prob, target_rna_synth_prob and n_bound_TF_per_TU
+    are emitted by the existing runs. That is a CAPABILITY check -- which columns exist -- and the cohort''s
+    values in them were deliberately not inspected, so the thresholds above are genuine priors.'
+  - 'Carried from silent-transcription-units and NOT re-derived here: the cohort is realized at 0.000-0.020
+    of assigned against a comparison median of 1.006. cohort-remains-depressed is a regression pin for
+    that reason.'
   controls:
   - comparison-group-behaves-normally
   thresholds:
@@ -266,7 +342,8 @@ preregistered:
 readouts:
 - name: actual-synthesis-probability
   store_path: listeners.rna_synth_prob.actual_rna_synth_prob
-  description: Per-TU probability in force per timestep. The primary observable; it is the only quantity that distinguishes an assignment defect from a sampling one.
+  description: Per-TU probability in force per timestep. The primary observable; it is the only quantity
+    that distinguishes an assignment defect from a sampling one.
   units: dimensionless
   status: available
 - name: target-synthesis-probability
@@ -276,7 +353,8 @@ readouts:
   status: available
 - name: tf-bound-per-tu
   store_path: listeners.rna_synth_prob.n_bound_TF_per_TU
-  description: Transcription factors bound per TU. Context for whether regulation is plausibly responsible; not itself a graded axis.
+  description: Transcription factors bound per TU. Context for whether regulation is plausibly responsible;
+    not itself a graded axis.
   units: count
   status: available
 - name: transcripts-synthesized-per-tu
@@ -288,7 +366,9 @@ planned_runs:
 - name: reuse-silent-tu-sweep
   status: complete
   n_steps: 0
-  details: No new simulation. Reuses the 3 seed x 3 generation sweep from silent-transcription-units, which already emits all four readouts. Re-running an identical lineage would cost 13 minutes to reproduce data already in hand.
+  details: No new simulation. Reuses the 3 seed x 3 generation sweep from silent-transcription-units,
+    which already emits all four readouts. Re-running an identical lineage would cost 13 minutes to reproduce
+    data already in hand.
 simulation_set:
 - name: baseline-transcription
   kind: single
@@ -303,11 +383,13 @@ robustness:
   - 1
   - 2
   parameter_sweep: false
-  note: 3 seeds x 3 generations, reused. Sufficient to compare medians between a 6-member cohort and a 294-member comparison group; not a powered estimate of any individual TU's probability.
+  note: 3 seeds x 3 generations, reused. Sufficient to compare medians between a 6-member cohort and a
+    294-member comparison group; not a powered estimate of any individual TU's probability.
 controls:
 - name: comparison-group-behaves-normally
   kind: positive
-  hypothesis: Transcripts realized at 1.006x assigned should show actual and target probabilities in close agreement. If they do not, the columns do not mean what this study assumes.
+  hypothesis: Transcripts realized at 1.006x assigned should show actual and target probabilities in close
+    agreement. If they do not, the columns do not mean what this study assumes.
   expected: actual within a factor of two of target across the comparison group.
   observed: ''
   result: PENDING
@@ -315,8 +397,10 @@ alternative_hypotheses:
 - claim: The probability in force is depressed, so the defect is in assignment.
   discriminated_by: runtime-probability-is-depressed.
   status: untested
-- claim: The probability in force is normal and transcripts are simply not selected from it, so the defect is in sampling or allocation.
-  discriminated_by: runtime-probability-is-depressed failing while realized-tracks-runtime-probability also fails.
+- claim: The probability in force is normal and transcripts are simply not selected from it, so the defect
+    is in sampling or allocation.
+  discriminated_by: runtime-probability-is-depressed failing while realized-tracks-runtime-probability
+    also fails.
   status: untested
 - claim: Regulation suppresses these transcripts after the target is computed.
   discriminated_by: actual-tracks-target.
@@ -324,17 +408,27 @@ alternative_hypotheses:
 - claim: The emitted columns do not mean what the study assumes and the decomposition is invalid.
   discriminated_by: comparison-group-behaves-normally.
   status: untested
-falsifiability: The assignment explanation is overturned if the cohort's actual probability is comparable to the comparison group's, which would move the defect downstream to selection. The whole decomposition is invalidated if the control fails, since that would mean actual and target do not behave as assumed even for transcripts known to be normal.
+falsifiability: The assignment explanation is overturned if the cohort's actual probability is comparable
+  to the comparison group's, which would move the defect downstream to selection. The whole decomposition
+  is invalidated if the control fails, since that would mean actual and target do not behave as assumed
+  even for transcripts known to be normal.
 limitations:
-- The sweep is reused rather than repeated; it is the same cache and composite, but it is reuse, not independent replication.
-- A depressed probability in force localises the defect but does not name its source; identifying which override or normalisation removes the probability would need a further study.
-- Six cohort members is a small group for a median comparison, and the cohort itself was defined from a single generation, so membership may be incomplete.
+- The sweep is reused rather than repeated; it is the same cache and composite, but it is reuse, not independent
+  replication.
+- A depressed probability in force localises the defect but does not name its source; identifying which
+  override or normalisation removes the probability would need a further study.
+- Six cohort members is a small group for a median comparison, and the cohort itself was defined from
+  a single generation, so membership may be incomplete.
 - Single medium and condition.
-- n_bound_TF_per_TU is recorded as context but is not graded, so any regulatory story it suggests is a hypothesis rather than a result.
+- n_bound_TF_per_TU is recorded as context but is not graded, so any regulatory story it suggests is a
+  hypothesis rather than a result.
 conclusion_logic:
-  if_primary_tests_pass: The probability in force is depressed and tracks its target, so the deficit originates in how synthesis probabilities are computed, and the repair belongs upstream of transcript selection.
+  if_primary_tests_pass: The probability in force is depressed and tracks its target, so the deficit originates
+    in how synthesis probabilities are computed, and the repair belongs upstream of transcript selection.
   if_primary_tests_fail:
-    summary: If the probability in force is normal, the defect is in transcript selection rather than assignment, and the repair belongs in the sampling path. If actual falls far below target, something applied after the target is removing these transcripts' probability.
+    summary: If the probability in force is normal, the defect is in transcript selection rather than
+      assignment, and the repair belongs in the sampling path. If actual falls far below target, something
+      applied after the target is removing these transcripts' probability.
     diagnose:
     - question: Is the deficit in probability assignment or in transcript selection?
       note: Answered by this study's own two primary axes taken together.
@@ -342,7 +436,8 @@ discovery_implications:
   resolved_uncertainties:
   - 'Assignment or selection: ASSIGNMENT. The probability in force is 93x depressed.'
   - 'Whether regulation causes it: no. Zero TFs bound; actual tracks target to 0.1%.'
-  - 'Why static ParCa attributes explained nothing: basal_prob is not what the process uses -- the in-force value is 25x lower for these transcripts.'
+  - 'Why static ParCa attributes explained nothing: basal_prob is not what the process uses -- the in-force
+    value is 25x lower for these transcripts.'
   remaining_uncertainties:
   - Where target_rna_synth_prob is computed and what reduces it 25x below basal_prob.
   - Whether the secondary selection effect (0.380) is real or n=6 sampling noise.
@@ -350,17 +445,24 @@ discovery_implications:
   followup_study_proposals:
   - id: FU-01
     title: Trace the target-probability computation
-    motivation: |
-      The defect is now localised to wherever target_rna_synth_prob is computed, since
+    motivation: 'The defect is now localised to wherever target_rna_synth_prob is computed, since
+
       actual tracks target exactly and regulation is excluded. Finding what reduces it
+
       25x below basal_prob for these transcripts would identify the bug itself rather
+
       than its consequences.
+
+      '
   - id: FU-02
     title: Rank every TU by in-force vs assigned probability
-    motivation: |
-      The cohort was defined from realized counts in one generation. Ranking all 3277
+    motivation: 'The cohort was defined from realized counts in one generation. Ranking all 3277
+
       by in-force/basal_prob would give the true affected set directly from the
+
       quantity that matters, and show how much of the transcriptome is mis-assigned.
+
+      '
 canonical_runs:
 - name: default
   script: studies/runtime-synthesis-probability/analyses/measure.py
@@ -473,7 +575,8 @@ findings:
 - id: F-01
   kind: computational
   status: confirms
-  statement: 'The probability actually in force is 93x lower for the cohort (4.88e-06) than for the 294 comparison transcripts (4.53e-04). The deficit is an ASSIGNMENT defect.'
+  statement: The probability actually in force is 93x lower for the cohort (4.88e-06) than for the 294
+    comparison transcripts (4.53e-04). The deficit is an ASSIGNMENT defect.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: runtime-probability-is-depressed
@@ -484,19 +587,27 @@ findings:
     run_ids:
     - runtime-synthesis-probability__sweep
   tier: mechanism
-  summary: |
-    This is the decomposition the study was built for. The transcripts are
+  summary: 'This is the decomposition the study was built for. The transcripts are
+
     under-supplied because the probability the process uses is itself depressed, not
+
     because a normal probability is being ignored.
 
+
     It also explains why four studies of static ParCa attributes found nothing: the
-    in-force probability is 25x below TU00352's own basal_prob (1.21e-04), so reading
+
+    in-force probability is 25x below TU00352''s own basal_prob (1.21e-04), so reading
+
     basal_prob was reading a number the process never uses. That was the error in
+
     dnag-production-deficit, and this measurement is its root cause.
+
+    '
 - id: F-02
   kind: computational
   status: contradicts
-  statement: 'Transcripts are also drawn less efficiently than the comparison group given the probability in force (0.380 vs the 0.5 bar), so a secondary selection effect exists on top of the assignment defect.'
+  statement: Transcripts are also drawn less efficiently than the comparison group given the probability
+    in force (0.380 vs the 0.5 bar), so a secondary selection effect exists on top of the assignment defect.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: realized-tracks-runtime-probability
@@ -507,18 +618,25 @@ findings:
     run_ids:
     - runtime-synthesis-probability__sweep
   tier: mechanism
-  summary: |
-    A real but much smaller second effect. The assignment gap is ~93x; this is
+  summary: 'A real but much smaller second effect. The assignment gap is ~93x; this is
+
     ~2.6x, so assignment dominates by more than an order of magnitude.
 
+
     The threshold is left where it was pre-registered. With only six cohort members a
+
     ratio of 0.380 is within reach of sampling noise, so this is recorded as a
+
     genuine but weakly-powered signal rather than a confident second defect -- and
+
     the honest reading is that it needs a larger cohort before it can carry weight.
+
+    '
 - id: F-03
   kind: computational
   status: partial
-  statement: 'The in-force probability tracks its target exactly (1.001) with zero transcription factors bound, so the suppression is already in the target and regulation is not responsible.'
+  statement: The in-force probability tracks its target exactly (1.001) with zero transcription factors
+    bound, so the suppression is already in the target and regulation is not responsible.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: actual-tracks-target
@@ -529,48 +647,82 @@ findings:
     run_ids:
     - runtime-synthesis-probability__sweep
   tier: mechanism
-  summary: |
-    Localises the defect upstream. Nothing between the target and the value in
-    force removes these transcripts' probability: the two agree to within 0.1%.
+  summary: 'Localises the defect upstream. Nothing between the target and the value in
+
+    force removes these transcripts'' probability: the two agree to within 0.1%.
+
 
     The TF measurement rules out the regulatory explanation cleanly rather than by
+
     assumption -- zero factors are bound for both the cohort and the comparison group,
+
     so delta_prob and TF binding cannot be what distinguishes them. Combined with F-01
+
     this places the defect squarely in how target synthesis probabilities are
+
     computed.
-  review_note: |
-    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+
+    '
+  review_note: 'CORRECTED 2026-09-03 after the question ''how sure are you on the regulation?''.
+
     The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+
     invalid one.
 
+
     VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+
     the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+
     timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
 
-    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
-    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+
+    INVALID: ''actual tracks target to 0.1%, so nothing between target and use removes
+
+    the probability.'' target_TU_synth_probs is returned by _synthesis_probabilities
+
     (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+
     including the delta_prob . bound_TF term. Both quantities are therefore
+
     POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+
     1.001 ratio shows crowding does not affect these transcripts; it says nothing
-    whatever about regulation. The study's own assumptions block flagged this as
+
+    whatever about regulation. The study''s own assumptions block flagged this as
+
     verified_in_v2ecoli: false and the conclusion leaned on it anyway.
 
+
     UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+
     When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+
     basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
-    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
-    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+
+    an accessibility gain b^2/(b+K) whose own comment says it goes ''smoothly -> 0 for
+
+    silent genes''. That path requires no TF binding, so zero TFs bound does not exclude
+
     it.
 
+
     Also newly noted: the configured delta_prob sum for these transcripts is almost
+
     exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+
     -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+
     evidence that regulation is irrelevant here.
 
-    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+
+    Consequence: the ''25x below basal_prob'' framing may be measuring against the wrong
+
     reference vector entirely. Study probability-in-force-reference is designed to settle
+
     which vector is in force.
+
+    '
 - id: F-04
   kind: computational
   status: confirms
@@ -585,15 +737,19 @@ findings:
     run_ids:
     - runtime-synthesis-probability__sweep
   tier: observation
-  summary: |
-    Control on the measurement rather than on the finding. Transcripts realized
+  summary: 'Control on the measurement rather than on the finding. Transcripts realized
+
     at 1.006x assigned show actual and target essentially identical, which is what the
+
     columns should look like when nothing is wrong. Without this the decomposition
+
     would be uninterpretable.
+
+    '
 - id: F-05
   kind: computational
   status: confirms
-  statement: 'The cohort remains realized far below assigned (0.0197), as previously measured.'
+  statement: The cohort remains realized far below assigned (0.0197), as previously measured.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: cohort-remains-depressed
@@ -604,19 +760,23 @@ findings:
     run_ids:
     - runtime-synthesis-probability__sweep
   tier: observation
-  summary: |
-    Regression pin carried from silent-transcription-units; it holds.
+  summary: 'Regression pin carried from silent-transcription-units; it holds.
+
+    '
 - id: F-06
   kind: computational
   status: partial
-  statement: Four of five graded axes are within tolerance; the card fails on the secondary selection axis.
+  statement: Four of five graded axes are within tolerance; the card fails on the secondary selection
+    axis.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: runtime_synth_prob
   tier: mechanism
-  summary: |
-    The failing axis is the weakly-powered secondary effect, not the study's
+  summary: 'The failing axis is the weakly-powered secondary effect, not the study''s
+
     main claim, which passes.
+
+    '
   expected:
     summary: All graded axes within tolerance.
   provenance:
@@ -627,174 +787,304 @@ findings:
   tier: interpretation
   mechanism_origin: engineered
   status: partial
-  statement: "The transcription deficit originates in how target synthesis probabilities are computed: the value in force is 93x depressed, 25x below the cohort's own basal_prob, with regulation excluded."
-  summary: |
-    Five studies converge here. A replication arrest led to DnaG, DnaG led to a
+  statement: 'The transcription deficit originates in how target synthesis probabilities are computed:
+    the value in force is 93x depressed, 25x below the cohort''s own basal_prob, with regulation excluded.'
+  summary: 'Five studies converge here. A replication arrest led to DnaG, DnaG led to a
+
     transcript that is barely made, that transcript led to a cohort of six, and the
-    cohort's cause is now located: the probability the process actually uses is ~93x
+
+    cohort''s cause is now located: the probability the process actually uses is ~93x
+
     below its peers and ~25x below the basal_prob the cache advertises.
 
+
     Regulation is excluded by measurement, not assumption -- zero TFs bound on both
+
     sides, and actual tracks target to within 0.1%. So the suppression is introduced
+
     wherever target probabilities are computed, upstream of both regulation and
+
     selection.
 
+
     This also explains a methodological failure that cost this investigation two
+
     reversed conclusions. basal_prob is not what the process uses; for these transcripts
+
     it is off by 25x. Any diagnosis that reads it -- as dnag-production-deficit did --
+
     is reading a number the model never consults.
 
+
     Marked engineered: nothing was tuned to produce this; it follows from how the model
+
     computes and normalises synthesis probability.
+
+    '
   expected:
-    summary: No pre-registered expectation; a synthesis after the measurements and a hypothesis for the next study.
+    summary: No pre-registered expectation; a synthesis after the measurements and a hypothesis for the
+      next study.
   evidence:
     from_run: runtime-synthesis-probability__sweep
     from_test: runtime-probability-is-depressed
   provenance:
     run_ids:
     - runtime-synthesis-probability__sweep
-  next_action: Trace where target_rna_synth_prob is computed and find what reduces it ~25x below basal_prob for these transcripts.
+  next_action: Trace where target_rna_synth_prob is computed and find what reduces it ~25x below basal_prob
+    for these transcripts.
   next_action_type: escalate_model
-  review_note: |
-    CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+  review_note: 'CORRECTED 2026-09-03 after the question ''how sure are you on the regulation?''.
+
     The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+
     invalid one.
 
+
     VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+
     the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+
     timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
 
-    INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
-    the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+
+    INVALID: ''actual tracks target to 0.1%, so nothing between target and use removes
+
+    the probability.'' target_TU_synth_probs is returned by _synthesis_probabilities
+
     (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+
     including the delta_prob . bound_TF term. Both quantities are therefore
+
     POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+
     1.001 ratio shows crowding does not affect these transcripts; it says nothing
-    whatever about regulation. The study's own assumptions block flagged this as
+
+    whatever about regulation. The study''s own assumptions block flagged this as
+
     verified_in_v2ecoli: false and the conclusion leaned on it anyway.
 
+
     UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+
     When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+
     basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
-    an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
-    silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+
+    an accessibility gain b^2/(b+K) whose own comment says it goes ''smoothly -> 0 for
+
+    silent genes''. That path requires no TF binding, so zero TFs bound does not exclude
+
     it.
 
+
     Also newly noted: the configured delta_prob sum for these transcripts is almost
+
     exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+
     -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+
     evidence that regulation is irrelevant here.
 
-    Consequence: the '25x below basal_prob' framing may be measuring against the wrong
+
+    Consequence: the ''25x below basal_prob'' framing may be measuring against the wrong
+
     reference vector entirely. Study probability-in-force-reference is designed to settle
+
     which vector is in force.
-conclusion: |
-  The deficit is an assignment defect, and it is located upstream of regulation.
+
+    '
+conclusion: 'The deficit is an assignment defect, and it is located upstream of regulation.
+
 
   The probability the transcription process actually uses is 4.88e-06 for the cohort
+
   against 4.53e-04 for the 294 comparable transcripts -- 93x depressed. It tracks its
+
   own target to within 0.1% (1.001) with zero transcription factors bound on either
+
   side, so nothing between target and use removes it and regulation is excluded by
+
   measurement rather than by assumption. The suppression is already present when the
+
   target is computed.
 
+
   The instrument checks out: for the comparison group actual and target agree to a
+
   fold of 1.00, which is what these columns should look like when nothing is wrong.
 
+
   A secondary effect exists and is reported honestly rather than dismissed. Given the
-  probability in force, the cohort is drawn at 0.380 of the comparison group's
+
+  probability in force, the cohort is drawn at 0.380 of the comparison group''s
+
   efficiency, failing the pre-registered 0.5 bar. That is ~2.6x against an assignment
+
   gap of ~93x, so assignment dominates by more than an order of magnitude, and with
+
   six cohort members the ratio is within reach of sampling noise. It is recorded as a
+
   genuine but weakly-powered signal needing a larger cohort, and the threshold was not
+
   moved to accommodate it.
 
+
   The most consequential number is one the study did not set out to produce: the
-  in-force probability is 25x below TU00352's own basal_prob of 1.21e-04. basal_prob
+
+  in-force probability is 25x below TU00352''s own basal_prob of 1.21e-04. basal_prob
+
   is not what the process uses. That is why four studies of static ParCa attributes
+
   found nothing, and it is the root cause of the reversed conclusion in
+
   dnag-production-deficit, which ranked basal_prob at the 91.9th percentile and
+
   concluded dnaG was not starved of transcription.
 
+
   Next: trace where target_rna_synth_prob is computed and find what reduces it ~25x
+
   below basal_prob for these transcripts. The defect is now localised to a single
+
   computation rather than a class of possibilities.
+
+  '
 conclusion_verdicts:
   regression_compatibility:
     verdict: confirmed
-    basis: No model code, data or simulation. A deterministic re-analysis of the existing silent-transcription-units sweep using columns it already emitted.
+    basis: No model code, data or simulation. A deterministic re-analysis of the existing silent-transcription-units
+      sweep using columns it already emitted.
   biological_validation:
     verdict: partial
-    basis: Three of four primary axes pass and attribute the deficit to probability assignment. The secondary selection axis fails its pre-registered bar (0.380 vs 0.5), a ~2.6x effect against a ~93x assignment gap, weakly powered at n=6.
+    basis: Three of four primary axes pass and attribute the deficit to probability assignment. The secondary
+      selection axis fails its pre-registered bar (0.380 vs 0.5), a ~2.6x effect against a ~93x assignment
+      gap, weakly powered at n=6.
   explanatory_gain:
     verdict: confirmed
-    basis: "Resolves a question four prior studies could not: the deficit is in probability assignment, not selection, and not regulation (zero TFs bound; actual tracks target to 0.1%). It also explains the investigation's own methodological failure by showing the in-force probability is 25x below basal_prob, so every diagnosis that read basal_prob read a number the process never uses."
-claim: 'The probability in force is 93x below peers and 25x below basal_prob. Whether regulation is responsible is UNRESOLVED: no TF is bound, but the actual-tracks-target evidence was invalid and the active ppGpp path was not examined.'
-correction_note: |
-  CORRECTED 2026-09-03 after the question 'how sure are you on the regulation?'.
+    basis: 'Resolves a question four prior studies could not: the deficit is in probability assignment,
+      not selection, and not regulation (zero TFs bound; actual tracks target to 0.1%). It also explains
+      the investigation''s own methodological failure by showing the in-force probability is 25x below
+      basal_prob, so every diagnosis that read basal_prob read a number the process never uses.'
+claim: 'The probability in force is 93x below peers and 25x below basal_prob. Whether regulation is responsible
+  is UNRESOLVED: no TF is bound, but the actual-tracks-target evidence was invalid and the active ppGpp
+  path was not examined.'
+correction_note: 'CORRECTED 2026-09-03 after the question ''how sure are you on the regulation?''.
+
   The exclusion of regulation was OVERSTATED and rests on one valid leg and one
+
   invalid one.
 
+
   VALID: no transcription factor is bound. Re-checked with a stronger statistic than
+
   the median originally used -- mean 0.0000, max 0.0000, any-binding on 0.0% of 7584
+
   timesteps, for both cohort and comparison. The ADDITIVE TF path cannot be firing.
 
-  INVALID: 'actual tracks target to 0.1%, so nothing between target and use removes
-  the probability.' target_TU_synth_probs is returned by _synthesis_probabilities
+
+  INVALID: ''actual tracks target to 0.1%, so nothing between target and use removes
+
+  the probability.'' target_TU_synth_probs is returned by _synthesis_probabilities
+
   (transcript_initiation.py:764-769), which contains the ENTIRE assignment path
+
   including the delta_prob . bound_TF term. Both quantities are therefore
+
   POST-regulation and differ only by RNAP crowding (max_p, tu_is_overcrowded). The
+
   1.001 ratio shows crowding does not affect these transcripts; it says nothing
-  whatever about regulation. The study's own assumptions block flagged this as
+
+  whatever about regulation. The study''s own assumptions block flagged this as
+
   verified_in_v2ecoli: false and the conclusion leaned on it anyway.
 
+
   UNEXAMINED, and now the leading hypothesis: ppgpp_regulation is TRUE in this cache.
+
   When ppgpp_state carries a basal vector, transcript_initiation.py:547-556 REPLACES
+
   basal_prob with the ppGpp-adjusted vector and makes the TF effect multiplicative via
-  an accessibility gain b^2/(b+K) whose own comment says it goes 'smoothly -> 0 for
-  silent genes'. That path requires no TF binding, so zero TFs bound does not exclude
+
+  an accessibility gain b^2/(b+K) whose own comment says it goes ''smoothly -> 0 for
+
+  silent genes''. That path requires no TF binding, so zero TFs bound does not exclude
+
   it.
 
+
   Also newly noted: the configured delta_prob sum for these transcripts is almost
+
   exactly -basal_prob (TU00352 basal 1.213e-04, delta -1.213e-04; TU00062 1.631e-04,
+
   -1.631e-04), i.e. regulators wired to null the gene. That is the opposite of
+
   evidence that regulation is irrelevant here.
 
-  Consequence: the '25x below basal_prob' framing may be measuring against the wrong
-  reference vector entirely. Study probability-in-force-reference is designed to settle
-  which vector is in force.
-magnitude_correction: |
-  MAGNITUDE CORRECTED 2026-09-03 by probability-in-force-reference.
 
-  Every ratio in this study divided by the cache's basal_prob. That is NOT the vector
+  Consequence: the ''25x below basal_prob'' framing may be measuring against the wrong
+
+  reference vector entirely. Study probability-in-force-reference is designed to settle
+
+  which vector is in force.
+
+  '
+magnitude_correction: 'MAGNITUDE CORRECTED 2026-09-03 by probability-in-force-reference.
+
+
+  Every ratio in this study divided by the cache''s basal_prob. That is NOT the vector
+
   the model consults: ppgpp_regulation is in DEFAULT_FEATURES and defaults True,
+
   PpgppInitiation writes a replacement, and transcript_initiation.py:547-556
+
   substitutes it. The two differ by a median |log ratio| of 0.683 across the top 300,
+
   and the cache vector sums to 0.5307 against the in-force 1.0000.
 
+
   Measured against the correct reference the cohort deficit is 0.165 (~6x), not the
+
   ~52x that basal_prob produced. The corrected reconstruction is validated: the 294
+
   comparison transcripts transcribe at 0.944 of the in-force vector, versus 1.85 of
+
   basal_prob.
 
+
   THE PHENOMENON SURVIVES -- these transcripts are genuinely under-supplied -- but the
+
   magnitude quoted here is overstated roughly ninefold and should be read as ~6x.
 
-  Specific to this study: The 93x in-force depression and the 25x below-basal_prob figure both use the wrong reference.
-observable_correction: |
-  OBSERVABLE CORRECTION 2026-09-03 from dnag-protein-mass-balance.
+
+  Specific to this study: The 93x in-force depression and the 25x below-basal_prob figure both use the
+  wrong reference.
+
+  '
+observable_correction: 'OBSERVABLE CORRECTION 2026-09-03 from dnag-protein-mass-balance.
+
 
   This study used DnaG protein = 1.76 copies. That figure is the FREE-MONOMER bulk
+
   count sampled from the permissive arm of a different sweep. The correct observable is
+
   listeners.monomer_counts (total protein), which gives 7.996 copies on the
+
   silent-transcription-units sweep.
 
-  Consequence: the gap against ParCa's fitted 38 is 4.75x, not 21.6x. Combined with the
+
+  Consequence: the gap against ParCa''s fitted 38 is 4.75x, not 21.6x. Combined with the
+
   corrected 5.40x transcription deficit, the arithmetic closes with no residual -- a
+
   held-out mass balance predicts DnaG at 0.694 of observed.
 
+
   Separately: mRNA measured from the BULK store is not a valid discriminator; 3220 of
+
   3277 transcripts read zero there. The rna_counts listener is the correct source, and
+
   measured properly TU00352 is still at zero mRNA 100% of the time while 1844 of 3134
+
   TUs carry mRNA -- so that finding survives and is stronger than when it was made.
+
+  '

@@ -2,275 +2,349 @@ schema_version: 3
 name: mbp-07-millard-kinetic-metabolism
 created: '2026-06-14'
 phase: Evaluate
-study_kind: diagnostic   # build -> validate -> head-to-head report-card comparison
-
+study_kind: diagnostic
 design_status: drafted
 implementation_status: in_progress
 simulation_status: smoke_run
 evaluation_status: not_evaluated
 expert_review_status: not_requested
-
-# ─── Consolidated Millard arc ──────────────────────────────────────────────
-# This study merges the former mbp-07 (build), mbp-08 (validate), and mbp-09
-# (reactor comparison) into one build->validate->compare arc. The "-swap"
-# suffix was dropped from the slug: the study now covers the full lifecycle,
-# not just the metabolism swap. Three baseline arms:
-#   - baseline_millard:               the Millard kinetic cell (build/validate)
-#   - reactor_bird_coupled_millard:   the Millard cell coupled to the BiRD reactor
-#   - reactor_bird_coupled:           the WCM-FBA cell coupled to the same reactor (contrast)
 baseline:
 - name: baseline-millard
   composite: v2ecoli.composites.ecoli_millard
-  params: {seed: 0, cache_dir: out/cache}
+  params:
+    seed: 0
+    cache_dir: out/cache
 - name: reactor-bird-coupled-millard
   composite: v2ecoli.composites.reactor_bird_coupled_millard
-  params: {seed: 0, cache_dir: out/cache}
+  params:
+    seed: 0
+    cache_dir: out/cache
 - name: reactor-bird-coupled
   composite: v2ecoli.composites.reactor_bird_coupled
-  params: {seed: 0, cache_dir: out/cache}
-
+  params:
+    seed: 0
+    cache_dir: out/cache
 purpose:
-  # ⚠ REFRAMED 2026-08-20. This study was built as the Millard kinetic-metabolism
-  # arc (the question below). It is now framed as the investigation's
-  # EXTENSIBILITY DEMONSTRATION for the cell-side interface contract: foreign
-  # metabolic engines behind the same interface, at three honestly different
-  # depths.
-  #
-  #   1. Millard 2017 kinetic ODE -- the deepest. v2ecoli's tFBA Metabolism is
-  #      REMOVED and central-carbon metabolism runs through the kinetic ODE
-  #      across the whole-cell model's full process set (baseline_millard),
-  #      then coupled to the
-  #      reactor. This is an ENGINE SWAP INSIDE THE WCM, not a standalone
-  #      Millard model -- a distinction worth stating because it is easy to
-  #      read the other way. Built and running.
-  #   2. iML1515 genome-scale FBA -- graded against the same Beulig prefix, but
-  #      UNCOUPLED and partly fit to the reference (its glucose/O2 uptake lower
-  #      bounds come FROM the measured Beulig rates), so growth is the only
-  #      genuine prediction graded. Its own card says it is not
-  #      apples-to-apples.
-  #   3. OxidizeME ME-model -- a NAMED candidate, not a wired one. Verified
-  #      2026-08-20: `pbg_oxidizeme` is not importable here and
-  #      `local:OxidizeMEStep` does not resolve, against a positive control
-  #      (`local:BiRDTransportProcess`) that does.
-  #
-  # What the INVESTIGATION gates on from this study is the iML1515 grading
-  # only, 2 criteria. Withdrawn: the five Millard criteria (its Beulig grading
-  # is deferred, not concluded) and the two wcm-* criteria, which were
-  # redundant -- mbp-05 already grades the same vs_beulig card across all five
-  # axis groups. Nothing here is deleted; the runs, figures and cards stand.
-  #
-  # On what the extensibility claim is gated by, stated precisely because the
-  # first draft of this note was sloppy about it:
-  #   - `composite-builds-and-runs` (`> 0.0`) and `central-fluxes-nontrivial`
-  #     (`!= 0.0`) are existence checks and were never investigation criteria.
-  #   - `growth-recovered-vs-baseline` WAS gated and is DE-promoted here, not
-  #     merely left unpromoted. Its band `[0.0, 0.04]` cannot distinguish
-  #     recovered growth from stalled growth, so keeping it would have gated an
-  #     extensibility claim on a check that cannot fail.
-  #   - ⚠ `wcm-mass-conservation-closes-millard` (band `[0.0, 0.05]`) CAN
-  #     discriminate and currently FAILS -- mbp-06 records cumRel ~1.4 after
-  #     CO2+H2O efflux accounting. It is not gated by the investigation, and
-  #     that is a real gap in this study's coverage rather than a deliberate
-  #     exclusion. Promoting it is the obvious candidate whenever the Millard
-  #     arm is reopened.
-  #
-  # Reopening the Millard arm means settling one thing first: whether a coupled
-  # reactor should drive this model's external glucose. It currently must not,
-  # and v2ecoli#550 (merged 2026-08-21) enforces that: `_NOT_REACTOR_DRIVEN_SPECIES`
-  # in reactor_millard_env_bridge.py holds GLCx back, so the reactor cannot
-  # overwrite the calibrated value. Answering it means re-calibrating the model
-  # and regenerating this study's figures and the millard_vs_beulig card.
-  #
-  # ⚠ DO NOT "tidy" this study's baseline shape. It is the only study of 60
-  # carrying a top-level `baseline:` list rather than `conditions.baseline`,
-  # and it is allowlisted for that (known_audit_failures.txt:28,
-  # `canonical-model-schema # multi_baseline_needs_human`). The two shapes are
-  # mutually exclusive across the workspace; converting it to clear the audit
-  # entry would move it onto the shape the observable-check readout guard does
-  # not read. See vivarium-workbench#913.
-  question: |
-    Can a metabolic engine other than v2ecoli's own be attached behind the same cell-side interface contract, and what does it actually take?
+  question: 'Can a metabolic engine other than v2ecoli''s own be attached behind the same cell-side interface
+    contract, and what does it actually take?
 
-    This study is the investigation's extensibility demonstration. Three
+
+    This study is the investigation''s extensibility demonstration. Three
+
     engines have been attached at three deliberately different depths -- a
+
     Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the
+
     whole-cell model and coupled to the BiRD reactor; iML1515 genome-scale
+
     FBA graded against the same Beulig prefix but uncoupled and partly fit
+
     to it; and the OxidizeME ME-model named as a candidate but not wired.
+
     The ladder is the finding: the depths differ, and flattening them would
-    overclaim. Full detail, including the coupling's known asymmetry and the
-    verification behind each claim, is in the investigation's what_is_this
+
+    overclaim. Full detail, including the coupling''s known asymmetry and the
+
+    verification behind each claim, is in the investigation''s what_is_this
+
     and in the comment above this field.
 
+
     Of the three, the investigation gates only on the iML1515 grading. The
-    Millard arm's grading against Beulig is deferred as of 2026-08-20 --
+
+    Millard arm''s grading against Beulig is deferred as of 2026-08-20 --
+
     deferred, not concluded -- and the original question this study was
+
     built to answer (does the kinetic ODE recover growth, close mass
+
     conservation, and track the bioreactor?) is preserved in the behavior
+
     tests and their recorded results.
+
     claims.
 
+    '
 implementation_requirements:
 - id: req-1-millard-exchange-accounting
   kind: process
   effort: M
   title: Millard cell exposes O2/CO2 exchange to the reactor coupler
-  description: |
-    The Millard cell (baseline_millard) replaced FBA metabolism, so it does NOT
+  description: 'The Millard cell (baseline_millard) replaced FBA metabolism, so it does NOT
+
     populate `agents.*.environment.exchange` with O2/CO2 — which is what
+
     ReactorCellCoupler reads to drive reactor consumption. Without this the
+
     Millard-coupled reactor is degenerate (cell consumes no reactor O2; DO stays
+
     at saturation). The Millard 2017 model HAS an O2 species + central fluxes, so
-    translate Millard's O2 uptake / CO2 evolution (central_fluxes) into the cell-
+
+    translate Millard''s O2 uptake / CO2 evolution (central_fluxes) into the cell-
+
     side exchange the coupler consumes (counts into environment.exchange, or a
+
     Millard-aware coupler input). This is the deferred Millard mass-exchange
+
     accounting (also unblocks the wcm-mass-conservation gate on the Millard cell).
-  unblocks: [the Millard arm + wcm-mass-conservation-closes-millard on baseline_millard]
+
+    '
+  unblocks:
+  - the Millard arm + wcm-mass-conservation-closes-millard on baseline_millard
   status: done
 - id: req-2-millard-coupled-composite
   kind: composite
   effort: S
   title: reactor_bird_coupled (Millard variant)
-  description: |
-    A composite coupling baseline_millard (instead of baseline_population's FBA
+  description: 'A composite coupling baseline_millard (instead of baseline_population''s FBA
+
     cell) to BiRDTransportHours + ReactorCellCoupler — i.e. the mbp-03 wiring with
+
     the Millard cell engine swapped in (the cell-side interface contract makes this
+
     a drop-in). Likely a `cell_engine` param on reactor_bird_coupled, or a sibling
+
     reactor_bird_coupled_millard.
+
+    '
   status: done
 - id: req-3-beulig-report-card
   kind: harness
   effort: M
   title: Reuse the mbp-05 Beulig comparison harness for all arms
-  description: |
-    Run the arms against the Beulig batch prefix through the mbp-05 comparison
+  description: 'Run the arms against the Beulig batch prefix through the mbp-05 comparison
+
     harness, producing a report_card_verdict.json per arm at the card paths below,
-    so the report_card_axis tests grade them. Reuses mbp-05's comparison_overlays
+
+    so the report_card_axis tests grade them. Reuses mbp-05''s comparison_overlays
+
     + grader (req: mbp-05 built). Now covers THREE arms — the Millard kinetic cell
+
     (millard_vs_beulig), the WCM-FBA cell (vs_beulig), and the iML1515 genome-scale
+
     FBA contrast (iml1515_vs_beulig).
+
+    '
   status: done (smoke run; full ~33h batch run is follow-up)
-
-# ─── Behavior tests ────────────────────────────────────────────────────────
-# Merged from the three former studies:
-#   BUILD    (mbp-07): composite-builds-and-runs, central-fluxes-nontrivial
-#   VALIDATE (mbp-08): growth-recovered-vs-baseline
-#   DEFERRED (mbp-08 -> mbp-09, now live): wcm-mass-conservation-closes-millard
-#   COMPARE  (mbp-09): report_card_axis tests, now for ALL THREE arms.
-# The report-card tests are diagnostic (execute-and-report); their verdicts
-# categorize divergences that feed mbp-06 and show where kinetic metabolism
-# tracks Beulig better than FBA.
 behavior_tests:
-
-# ── BUILD ──
 - name: composite-builds-and-runs
-  measure: {kind: derived, formula: "listeners.mass.cell_mass", window: full_lineage_from_gen_0}
-  pass_if: {op: ">", value: 0.0}
+  measure:
+    kind: derived
+    formula: listeners.mass.cell_mass
+    window: full_lineage_from_gen_0
+  pass_if:
+    op: '>'
+    value: 0.0
   acceptance_form: qualitative_direction
+  status: passed
+  result: pass
+  measured_value: null
+  evaluated_by: agent
 - name: central-fluxes-nontrivial
-  measure: {kind: derived, formula: "central_fluxes.PGI", window: full_lineage_from_gen_0}
-  pass_if: {op: "!=", value: 0.0}
+  measure:
+    kind: derived
+    formula: central_fluxes.PGI
+    window: full_lineage_from_gen_0
+  pass_if:
+    op: '!='
+    value: 0.0
   acceptance_form: qualitative_direction
-
-# ── VALIDATE ──
+  status: passed
+  result: pass
+  measured_value: null
+  evaluated_by: agent
 - name: growth-recovered-vs-baseline
-  measure: {kind: derived, formula: "listeners.mass.instantaneous_growth_rate", window: full_lineage_from_gen_0}
-  pass_if: {op: in_range, low: 0.0, high: 0.04}
-  cites: [Monod1949AnnRevMicrobiol]
+  measure:
+    kind: derived
+    formula: listeners.mass.instantaneous_growth_rate
+    window: full_lineage_from_gen_0
+  pass_if:
+    op: in_range
+    low: 0.0
+    high: 0.04
+  cites:
+  - Monod1949AnnRevMicrobiol
   acceptance_form: quantitative_range
-
-# Deferred from the old mbp-08; once req-1 landed, the Millard cell exposes
-# exchange and this mass-conservation gate becomes evaluable on the Millard arm.
+  status: passed
+  result: pass
+  measured_value: null
+  evaluated_by: agent
 - name: wcm-mass-conservation-closes-millard
   classification: diagnostic
-  measure: {kind: derived, formula: "listeners.mass.conservation_relative_cumulative", window: full_lineage_from_gen_0}
-  pass_if: {op: in_range, low: 0.0, high: 0.05}
-  cites: [agmon2022]
+  measure:
+    kind: derived
+    formula: listeners.mass.conservation_relative_cumulative
+    window: full_lineage_from_gen_0
+  pass_if:
+    op: in_range
+    low: 0.0
+    high: 0.05
+  cites:
+  - agmon2022
   acceptance_form: quantitative_range
-
-# ── COMPARE: Millard arm vs Beulig (card millard_vs_beulig) ──
+  status: failed
+  result: fail
+  measured_value: null
+  evaluated_by: agent
 - name: millard-growth-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/millard_vs_beulig, group: growth}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/millard_vs_beulig
+    group: growth
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: millard-substrate-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/millard_vs_beulig, group: substrate}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/millard_vs_beulig
+    group: substrate
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: millard-gas_transfer-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/millard_vs_beulig, group: gas_transfer}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/millard_vs_beulig
+    group: gas_transfer
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: kinetic-vs-fba-tracking-summarized
   classification: primary
-  question: Is the head-to-head (Millard kinetic vs WCM-FBA vs iML1515, all vs Beulig) rendered with a per-group winner and categorized divergences feeding mbp-06?
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/millard_vs_beulig, group: summary}
-  pass_if: {op: report_card_group_within_tol}
+  question: Is the head-to-head (Millard kinetic vs WCM-FBA vs iML1515, all vs Beulig) rendered with a
+    per-group winner and categorized divergences feeding mbp-06?
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/millard_vs_beulig
+    group: summary
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
-
-# ── COMPARE: WCM-FBA arm vs Beulig (card vs_beulig) ──
+  status: passed
+  result: PASS
+  measured_value: null
+  evaluated_by: report_card
 - name: wcm-growth-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/vs_beulig, group: growth}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: growth
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: wcm-gas_transfer-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/vs_beulig, group: gas_transfer}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/vs_beulig
+    group: gas_transfer
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
-
-# ── COMPARE: iML1515 genome-scale FBA arm vs Beulig (card iml1515_vs_beulig) ──
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: iml1515-growth-axes-graded-vs-beulig
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/iml1515_vs_beulig, group: growth}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/iml1515_vs_beulig
+    group: growth
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
+  status: failed
+  result: FAIL
+  measured_value: null
+  evaluated_by: report_card
 - name: iml1515-tracking-summarized
   classification: diagnostic
-  measure: {kind: report_card_axis, card: docs/report_cards/beulig_batch/iml1515_vs_beulig, group: summary}
-  pass_if: {op: report_card_group_within_tol}
+  measure:
+    kind: report_card_axis
+    card: docs/report_cards/beulig_batch/iml1515_vs_beulig
+    group: summary
+  pass_if:
+    op: report_card_group_within_tol
   acceptance_form: quantitative_range
-
+  status: passed
+  result: PASS
+  measured_value: null
+  evaluated_by: report_card
 open_questions:
 - id: bird-o2-saturation-temperature-sign-bug
-  text: |
-    pbg-bioreactordesign#2 — dissolved-O2 saturation has the wrong temperature
+  text: 'pbg-bioreactordesign#2 — dissolved-O2 saturation has the wrong temperature
+
     sign (masked at 298 K; biases c*(O2) high at the 310 K target). All arms
+
     compare against the same biased c*, so the head-to-head is unaffected, but
+
     absolute DO magnitudes vs Beulig are biased until fixed upstream.
+
+    '
 - id: millard-mass-balance-non-closure
-  text: |
-    The Millard cell accounts nutrient mass via bulk deltas (Millard writes bulk
+  text: 'The Millard cell accounts nutrient mass via bulk deltas (Millard writes bulk
+
     directly), so the standard MassConservationDeriver (which reads
+
     environment.exchange) historically emitted None on the Millard arm. req-1
-    routed Millard's uptake/evolution into the cell-side exchange so the
+
+    routed Millard''s uptake/evolution into the cell-side exchange so the
+
     wcm-mass-conservation-closes-millard gate can evaluate. UPDATE (#225 item-5,
+
     2026-06-15): the dominant residual was un-tracked CO2 (decarboxylation) and
+
     H2O (respiration) efflux — the Millard SBML holds HCO3/H2O as FIXED buffers,
+
     so O2/glucose uptake looked like phantom mass import. CO2+H2O efflux is now
+
     reconstructed from reaction stoichiometry and emitted to environment.exchange
+
     (BYPRODUCT_EFFLUX_REACTIONS). The gate now CLOSES on a sustained 100-step
+
     run: conservation_relative_cumulative 8.09 BEFORE -> 0.0284 AFTER (< 0.05),
-    a ~285x reduction (net mass-in +2.46->+0.09 fg). At 40 ticks it's still ~1.4
+
+    a ~285x reduction (net mass-in +2.46->+0.09 fg). At 40 ticks it''s still ~1.4
+
     during the early flat-growth transient (tiny Δcell_mass denominator) but
+
     converges below 5% by ~80-100 steps. Mass closure is now decoupled from the
+
     slow-growth limitation (see mbp-06 millard-growth-too-slow-to-divide): the
+
     cell still grows far slower than FBA and will not divide, but the boundary
+
     mass balance itself is closed.
 
-# `tests:` must be a list — a dict here breaks collect_emit_paths_from_spec
-# in the study-run path. Pytest wiring lives in pytest_tests:, as in mbp-03.
+    '
 tests: []
 pytest_tests:
   auto_discover: true
   data_source: latest_run
   pytest_args:
   - tests/test_baseline_millard.py
-
 readouts:
 - name: cell_mass
   store_path: listeners.mass.cell_mass
@@ -288,55 +362,68 @@ readouts:
   store_path: listeners.mass.conservation_relative_cumulative
   units: fraction
   status: planned
-
 visualizations:
-# ── BUILD/VALIDATE figures (docs/figures/millard/, copied into charts/) ──
 - name: 01_metabolism_swap_growth
   address: image:charts/01_metabolism_swap_growth.png
   chart: charts/01_metabolism_swap_growth.png
   config:
     title: Metabolism swap — cell_mass under the Millard kinetic ODE
-  render: |
-    baseline_millard, 60 steps (1 s/step): cell_mass trajectory with central-
+  render: 'baseline_millard, 60 steps (1 s/step): cell_mass trajectory with central-
+
     carbon metabolism running as the Millard kinetic ODE (not FBA). Mass is FLAT
+
     at this length (1268.7->1268.8 fg, +0.002%) — growth is not resolvable over
+
     60 s (cell cycle ~2700 s); the figure shows the WCM runs stably under the swap.
+
+    '
 - name: 02_central_fluxes
   address: image:charts/02_central_fluxes.png
   chart: charts/02_central_fluxes.png
   config:
     title: Live Millard central fluxes
-  render: |
-    baseline_millard, 60 steps: four key Millard central fluxes (PTS_4 glucose
+  render: 'baseline_millard, 60 steps: four key Millard central fluxes (PTS_4 glucose
+
     uptake, CYTBO O2 respiration, PGI glycolysis, PYK pyruvate kinase). Fluxes are
+
     live and non-trivial (PTS_4 ramps 0.070->0.229; PGI dips then recovers),
+
     confirming the kinetic ODE is active.
+
+    '
 - name: 03_env_responsiveness
   address: image:charts/03_env_responsiveness.png
   chart: charts/03_env_responsiveness.png
   config:
     title: Environment responsiveness — glucose-uptake saturation
-  render: |
-    Step-level glucose sweep via MillardPDMPMetabolism.update(external_concentrations
+  render: 'Step-level glucose sweep via MillardPDMPMetabolism.update(external_concentrations
+
     ={"GLCx": <mM>}): glucose-uptake flux |PTS_4| vs external glucose, 0.05->20 mM.
+
     Textbook saturation (0.389->0.822 mM/s) — the kinetics respond to the environment.
+
+    '
 - name: 04_reactor_o2_consumption
   address: image:charts/04_reactor_o2_consumption.png
   chart: charts/04_reactor_o2_consumption.png
   config:
     title: Reactor O2 consumption (Millard arm)
-  render: |
-    reactor_bird_coupled_millard, 60 steps (cells_per_agent=1e11, gas_flow 2 L/min):
+  render: 'reactor_bird_coupled_millard, 60 steps (cells_per_agent=1e11, gas_flow 2 L/min):
+
     reactor.dissolved_o2 vs o2_saturation (left) and agent O2 exchange counts/step
+
     (right). The Millard cell consumes reactor O2 end-to-end — DO drops 10.2->6.4
+
     mg/L below the ~10.2 mg/L saturation while O2 exchange stays negative (uptake).
-# ── COMPARE: report-card overlays (docs/report_cards/beulig_batch/*/overlay_*.png) ──
+
+    '
 - name: 05_millard_vs_beulig_growth
   address: image:charts/05_millard_vs_beulig_growth.png
   chart: charts/05_millard_vs_beulig_growth.png
   config:
     title: Millard arm vs Beulig — growth overlay
-  render: Report-card growth overlay, Millard kinetic cell coupled to BiRD vs the Beulig WT batch prefix (docs/report_cards/beulig_batch/millard_vs_beulig/overlay_growth.png).
+  render: Report-card growth overlay, Millard kinetic cell coupled to BiRD vs the Beulig WT batch prefix
+    (docs/report_cards/beulig_batch/millard_vs_beulig/overlay_growth.png).
 - name: 06_millard_vs_beulig_otr
   address: image:charts/06_millard_vs_beulig_otr.png
   chart: charts/06_millard_vs_beulig_otr.png
@@ -372,29 +459,32 @@ visualizations:
   chart: charts/11_iml1515_vs_beulig_growth.png
   config:
     title: iML1515 genome-scale FBA vs Beulig — growth overlay
-  render: Report-card growth overlay, iML1515 (Palsson genome-scale FBA, predicted vs measured mu) vs the Beulig WT batch prefix (docs/report_cards/beulig_batch/iml1515_vs_beulig/overlay_growth.png).
-
+  render: Report-card growth overlay, iML1515 (Palsson genome-scale FBA, predicted vs measured mu) vs
+    the Beulig WT batch prefix (docs/report_cards/beulig_batch/iml1515_vs_beulig/overlay_growth.png).
 planned_runs:
 - name: baseline-millard-build
   status: done
   n_steps: 60
-  details: smoke run (seed 0) confirming the composite builds and central fluxes are non-trivial (figures 01/02).
+  details: smoke run (seed 0) confirming the composite builds and central fluxes are non-trivial (figures
+    01/02).
 - name: millard-reactor-smoke
   status: done
   n_steps: 60
-  details: reactor_bird_coupled_millard smoke run (cells_per_agent=1e11) confirming the Millard cell consumes reactor O2 (figure 04).
+  details: reactor_bird_coupled_millard smoke run (cells_per_agent=1e11) confirming the Millard cell consumes
+    reactor O2 (figure 04).
 - name: beulig-batch-comparison
   status: planned
-  n_steps:
-  details: full ~33h Beulig WT batch-prefix run for all three arms; smoke-run report cards already render the report_card_axis verdicts.
-
+  n_steps: null
+  details: full ~33h Beulig WT batch-prefix run for all three arms; smoke-run report cards already render
+    the report_card_axis verdicts.
 simulation_set:
 - name: baseline-millard-build
   base_model: v2ecoli.composites.ecoli_millard
-  perturbation:
+  perturbation: null
   condition: M9-minimal-glucose
   duration_min: 1
-  seeds: [0]
+  seeds:
+  - 0
   applies_tests:
   - composite-builds-and-runs
   - central-fluxes-nontrivial
@@ -402,10 +492,11 @@ simulation_set:
   status: done
 - name: millard-reactor-coupled
   base_model: v2ecoli.composites.reactor_bird_coupled_millard
-  perturbation:
+  perturbation: null
   condition: beulig-wt-batch-prefix
   duration_min: 1
-  seeds: [0]
+  seeds:
+  - 0
   applies_tests:
   - millard-growth-axes-graded-vs-beulig
   - millard-substrate-axes-graded-vs-beulig
@@ -415,15 +506,15 @@ simulation_set:
   status: smoke_run
 - name: wcm-reactor-coupled
   base_model: v2ecoli.composites.reactor_bird_coupled
-  perturbation:
+  perturbation: null
   condition: beulig-wt-batch-prefix
   duration_min: 1
-  seeds: [0]
+  seeds:
+  - 0
   applies_tests:
   - wcm-growth-axes-graded-vs-beulig
   - wcm-gas_transfer-axes-graded-vs-beulig
   status: smoke_run
-# >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
 - name: baseline-millard-baseline
   kind: single
   base_model: v2ecoli.composites.ecoli_millard
@@ -471,13 +562,14 @@ simulation_set:
   metrics: *id001
   pass_fail_tests: *id002
 embed_visualizations:
-- name: "Metabolism-swap growth — cell_mass + central fluxes under Millard (interactive)"
-  url: "/reports/figures/mbp-07-millard-kinetic-metabolism/metabolism_swap_growth_interactive.html"
-  description: "baseline_millard, 60 steps: cell_mass and live Millard central-carbon fluxes with the kinetic ODE replacing FBA. Hover/zoom; toggle fluxes."
-- name: "Millard env-responsiveness — PTS uptake vs external glucose (interactive)"
-  url: "/reports/figures/mbp-07-millard-kinetic-metabolism/env_responsiveness_interactive.html"
-  description: "Glucose sweep: the Millard PTS uptake flux responds to external glucose (0.05 to 50 mM), confirming the kinetic arm is environment-coupled."
-# <<< interactive-plotly embeds <<<
+- name: Metabolism-swap growth — cell_mass + central fluxes under Millard (interactive)
+  url: /reports/figures/mbp-07-millard-kinetic-metabolism/metabolism_swap_growth_interactive.html
+  description: 'baseline_millard, 60 steps: cell_mass and live Millard central-carbon fluxes with the
+    kinetic ODE replacing FBA. Hover/zoom; toggle fluxes.'
+- name: Millard env-responsiveness — PTS uptake vs external glucose (interactive)
+  url: /reports/figures/mbp-07-millard-kinetic-metabolism/env_responsiveness_interactive.html
+  description: 'Glucose sweep: the Millard PTS uptake flux responds to external glucose (0.05 to 50 mM),
+    confirming the kinetic arm is environment-coupled.'
 inputs:
 - artifact: mbp-03-bird-reactor-coupling
   from: mbp-03-bird-reactor-coupling
@@ -489,20 +581,33 @@ runs:
   timestamp: 1786972289.465568
   canonical: true
   n_steps: 60
-  note: |
-    Canonical run of the baseline-millard arm, 60 steps (the smoke-run length
+  note: 'Canonical run of the baseline-millard arm, 60 steps (the smoke-run length
+
     in planned_runs), launched through the workbench study runner, which also
+
     ran the post-run evaluation. The eight card-based outcomes below were
+
     auto-evaluated against the beulig_batch cards; the committed cards were
+
     subsequently regenerated 2026-08-19 by direct production-scale harness
+
     invocation with rendering on (verdicts unchanged in every group, so these
+
     outcomes stand; the test suite writes only to tmp paths since the
+
     card_root fix). The four run-data outcomes were authored from direct
+
     measurement 2026-08-17
-    (values in each detail), because the run's zarr store exposes only
+
+    (values in each detail), because the run''s zarr store exposes only
+
     cell_mass and instantaneous_growth_rate to the automatic evaluator.
+
     Supporting suites, run the same day: test_baseline_millard.py 6 passed;
+
     test_millard_flux_export.py + test_millard_exchange.py 4 passed.
+
+    '
   emitter:
     kind: xarray
     store: /Users/chris/projects/SMS/v2ecoli-bpm/workspace/studies/mbp-07-millard-kinetic-metabolism/runs.v2ecoli.composites.ecoli_millard__1786972266__32ba53.zarr
@@ -529,35 +634,35 @@ runs:
       reconcile: no_authored
     millard-growth-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     millard-substrate-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     millard-gas_transfer-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     kinetic-vs-fba-tracking-summarized:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     wcm-growth-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     wcm-gas_transfer-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     iml1515-growth-axes-graded-vs-beulig:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
     iml1515-tracking-summarized:
       evaluated_by: agent
-      reason: "non-run-data kind: 'report_card_axis'"
+      reason: 'non-run-data kind: ''report_card_axis'''
       reconcile: no_authored
   provenance:
     params:
@@ -575,40 +680,64 @@ runs:
   outcomes:
     composite-builds-and-runs:
       result: pass
-      detail: |
-        cell_mass = 1268.9 fg (> 0) at the end of the canonical 60-step run,
+      detail: 'cell_mass = 1268.9 fg (> 0) at the end of the canonical 60-step run,
+
         read from its zarr store 2026-08-17. test_baseline_millard.py (incl.
+
         test_baseline_millard_runs_and_grows) 6 passed the same day.
+
+        '
     central-fluxes-nontrivial:
       result: pass
-      detail: |
-        Measured directly on ecoli_millard (seed 0, this tree, 2026-08-17):
+      detail: 'Measured directly on ecoli_millard (seed 0, this tree, 2026-08-17):
+
         central_fluxes.PGI = 0.121, and 66 of 67 central fluxes are nonzero
+
         finite floats — the kinetic ODE is live, not FBA.
+
         test_millard_emits_central_fluxes passed the same day.
+
+        '
     growth-recovered-vs-baseline:
       result: pass
-      detail: |
-        instantaneous_growth_rate = 4.5e-06 at the end of the canonical run
+      detail: 'instantaneous_growth_rate = 4.5e-06 at the end of the canonical run
+
         (read from its zarr store), inside the declared band [0.0, 0.04].
+
         Caveat: growth is far slower than the FBA baseline — the known
+
         millard-growth-too-slow-to-divide gap recorded in mbp-06 — and because
+
         the declared band includes near-zero, this criterion as specified
+
         cannot distinguish recovered growth from stalled growth. The band
+
         should be tightened when the behavior specs are next revised.
+
+        '
     wcm-mass-conservation-closes-millard:
       result: fail
-      detail: |
-        conservation_relative_cumulative, measured 2026-08-17 with
+      detail: 'conservation_relative_cumulative, measured 2026-08-17 with
+
         features=[mass_conservation] (the req-1 exchange accounting): 0.92 at
+
         14 steps, 2.43 at 60 steps, against the declared band [0.0, 0.05].
+
         req-1 made this gate evaluable (the listener returned None before;
+
         test_baseline_millard_mass_conservation_evaluable passes) — and
+
         evaluated, it fails, with the violation growing over the run. An
-        informative negative feeding mbp-06's Millard mass-accounting gap.
+
+        informative negative feeding mbp-06''s Millard mass-accounting gap.
+
         The canonical run itself does not enable the mass_conservation
+
         feature, so these values come from a matched direct build on the same
+
         tree.
+
+        '
     millard-growth-axes-graded-vs-beulig:
       result: FAIL
       detail: 'group growth: mismatch axis present'
@@ -663,7 +792,13 @@ pipeline_gate:
     evaluated_by: code
     diverges_from_authored: false
 study_card:
-  one_liner: 'Extensibility demonstration for the cell-side interface contract: foreign metabolic engines behind the same interface -- a Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the WCM and coupled to the reactor, iML1515 genome-scale FBA graded against the same Beulig prefix (uncoupled, partly fit to it), and the OxidizeME ME-model as a named candidate. The investigation gates on the iML1515 grading only.'
+  one_liner: 'Extensibility demonstration for the cell-side interface contract: foreign metabolic engines
+    behind the same interface -- a Millard 2017 kinetic ODE swapped in for tFBA Metabolism inside the
+    WCM and coupled to the reactor, iML1515 genome-scale FBA graded against the same Beulig prefix (uncoupled,
+    partly fit to it), and the OxidizeME ME-model as a named candidate. The investigation gates on the
+    iML1515 grading only.'
   phase: Evaluate
   kind: diagnostic (build -> validate -> head-to-head comparison)
-  depends_on: [mbp-03, mbp-05]
+  depends_on:
+  - mbp-03
+  - mbp-05

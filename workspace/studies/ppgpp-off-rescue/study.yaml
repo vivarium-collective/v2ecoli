@@ -156,7 +156,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: The run length used throughout; comparable to the recorded 8/8 stall.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 3
+  evaluated_by: agent
 - name: free-dnag-pool-clears-the-gate
   classification: primary
   gate_class: acceptance_criterion
@@ -179,7 +182,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: Definitional; the gate's own arithmetic.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: -3
+  evaluated_by: agent
 - name: dnag-transcription-recovers
   classification: primary
   gate_class: acceptance_criterion
@@ -202,7 +208,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: The agreement band used throughout this investigation.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 2.85
+  evaluated_by: agent
 - name: rescue-is-not-a-global-growth-artefact
   classification: control
   gate_class: acceptance_criterion
@@ -229,7 +238,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: Loose; tests for wholesale disruption, not for any change.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 1.39
+  evaluated_by: agent
 - name: ppgpp-on-control-still-stalls
   classification: control
   gate_class: acceptance_criterion
@@ -248,7 +260,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: Reproduces the recorded 8/8 stall under identical conditions.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 3
+  evaluated_by: agent
 - name: stall-was-at-generation-4-or-5
   classification: supporting
   gate_class: regression_pin
@@ -265,7 +280,10 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: Measured in replisome-gate-sufficiency; pin only.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 4
+  evaluated_by: agent
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-03T19:35:58Z'

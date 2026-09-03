@@ -1,0 +1,86 @@
+schema_version: 4
+name: mcs-06-stochastic-heterogeneity
+investigation: multiscale-complexity-showcase
+title: "Follow-up (Arc 3) — restore single-cell heterogeneity"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+cites:
+  - {key: TaheriAraghi2015, claim: "interdivision-time CV ~10-30% and adder homeostasis in E. coli"}
+
+question: >-
+  Arc 3 (mcs-03) found v2ecoli is under-dispersed — interdivision-time CV ~7% vs the
+  biological 10-30% — because many processes run at expected (mean) rather than stochastic
+  rates. Which process is the dominant missing noise source (division D-period timing,
+  replication-initiation timing, or low-copy expression), and does enabling stochasticity
+  there raise the ensemble CV toward the biological band WITHOUT changing the mean
+  generation time or breaking size homeostasis?
+
+hypothesis: >-
+  The interdivision-time CV is set mainly by deterministic division/initiation timing.
+  Adding biologically-motivated noise to that timing (or enabling an existing stochastic
+  mode) raises the CV into 0.10-0.30 while the MEAN generation time and mean mass are
+  preserved (the fix adds variance, not bias).
+
+objective: >-
+  Audit which timing processes are deterministic; enable/introduce the smallest
+  biologically-motivated stochastic term; re-run the seed ensemble and re-measure the
+  interdivision-time CV (target 0.10-0.30) with mean generation time held out.
+
+parent_studies:
+  - {study: mcs-03-single-cell-heterogeneity, relation: leads-to, condition: tests-passed}
+pipeline_gate:
+  prerequisites:
+    - {study: mcs-03-single-cell-heterogeneity, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants:
+    - name: stochastic-timing-enabled
+      detail: >-
+        Enable/introduce stochasticity in the dominant timing process (chosen during the
+        audit — division D-period or replication initiation). Smallest change that lifts CV.
+  model_settings:
+    - {name: seed-ensemble, detail: ">=8 seeds, multi-generation, before vs after"}
+
+comparison: {seeds: 8, generations: 6}
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+readouts:
+  - "interdivision-time CV across the ensemble (target 0.10-0.30)"
+  - "mean generation time and mean mass (held-out — must be preserved)"
+
+expected_behavior:
+  - name: noise-source-localized
+    observable: "per-process contribution to division-time variance"
+    condition: baseline
+    rationale: "Identify which deterministic timing process dominates the low CV."
+  - name: cv-restored-to-band
+    observable: division_time
+    condition: "after enabling stochasticity"
+    rationale: "CV should rise from ~0.07 into the biological 0.10-0.30 band."
+  - name: mean-generation-time-preserved
+    observable: division_time
+    condition: "held-out: after fix"
+    rationale: "Adding variance must not shift the mean generation time."
+
+tests:
+  - name: cv-restored-to-band
+    classification: primary
+    question: "Does enabling stochastic timing raise the ensemble CV into 0.10-0.30?"
+    measure: {kind: derived, detail: "arc3_heterogeneity.py CV before vs after."}
+  - name: mean-generation-time-preserved
+    classification: primary
+    kind: held_out
+    question: "Is the mean generation time unchanged (variance added, not bias)?"
+    measure: {kind: derived, detail: "mean division_time before vs after within tolerance."}
+
+runs: []
+findings: []

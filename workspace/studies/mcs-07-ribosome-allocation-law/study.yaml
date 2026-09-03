@@ -1,0 +1,76 @@
+schema_version: 4
+name: mcs-07-ribosome-allocation-law
+investigation: multiscale-complexity-showcase
+title: "Follow-up (Arc 1) — the ribosome allocation growth law"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+cites:
+  - {key: Scott2010, claim: "ribosomal protein fraction increases linearly with growth rate (the R-line/C-line)"}
+  - {key: CooperHelmstetter1968, claim: "growth-rate-dependent macromolecular scaling"}
+
+question: >-
+  Arc 1 (mcs-01) confirmed the ppGpp->replication coupling natively but flagged that growth
+  was varied by amino-acid supplementation (the R-line), leaving ribosome_conc ~flat and the
+  ribosome growth law (the C-line — ribosome fraction rising with growth rate under carbon
+  limitation) untested. Across a CARBON-QUALITY ladder (poor->rich carbon), does v2ecoli
+  reproduce the Scott-Hwa growth law that the ribosomal fraction rises ~linearly with growth
+  rate — and if the slope is off, what correction restores it?
+
+hypothesis: >-
+  Under a carbon-quality ladder the model's ribosome (active-ribosome / rRNA) fraction rises
+  with growth rate as in Scott et al. 2010. If v2ecoli's slope is too shallow or steep, a
+  correction to the ppGpp->rRNA/ribosome allocation gain restores the C-line, validated
+  against the measured growth-law slope.
+
+objective: >-
+  Run a carbon-quality growth-rate ladder (e.g. acetate/succinate/glucose), measure ribosome
+  fraction vs growth rate, compare the slope to the Scott-Hwa C-line, and correct the
+  allocation gain if it diverges.
+
+parent_studies:
+  - {study: mcs-01-ppgpp-replication-coupling, relation: leads-to, condition: tests-passed}
+pipeline_gate:
+  prerequisites:
+    - {study: mcs-01-ppgpp-replication-coupling, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants:
+    - {name: carbon-ladder, detail: "poor->rich carbon sources spanning a growth-rate range (C-line, not R-line)."}
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+readouts:
+  - "ribosome_conc / active-ribosome fraction vs growth rate across the carbon ladder"
+  - "slope of ribosome fraction vs growth rate vs the Scott-Hwa C-line"
+
+expected_behavior:
+  - name: ribosome-fraction-rises-with-growth
+    observable: ribosome_conc
+    condition: "carbon ladder"
+    rationale: "Scott 2010: ribosomal fraction increases ~linearly with growth rate under carbon limitation."
+  - name: slope-matches-scott-hwa
+    observable: "d(ribosome fraction)/d(growth rate)"
+    condition: "carbon ladder"
+    rationale: "The C-line slope is a quantitative, cited target."
+
+tests:
+  - name: ribosome-fraction-rises-with-growth
+    classification: primary
+    question: "Does ribosome fraction rise with growth rate across the carbon ladder?"
+    measure: {kind: derived, detail: "regression of ribosome_conc on growth_rate; positive slope expected."}
+  - name: slope-matches-scott-hwa
+    classification: secondary
+    question: "Is the slope consistent with the Scott-Hwa C-line?"
+    measure: {kind: derived, detail: "compare fitted slope to the literature growth-law slope."}
+
+runs: []
+findings: []

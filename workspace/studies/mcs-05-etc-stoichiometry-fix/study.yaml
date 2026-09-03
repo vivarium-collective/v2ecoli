@@ -1,0 +1,93 @@
+schema_version: 4
+name: mcs-05-etc-stoichiometry-fix
+investigation: multiscale-complexity-showcase
+title: "Follow-up (Arc 2) — locate & correct the ATP-supply defect"
+created: '2026-09-03'
+status: planned
+confidence: Planned
+
+cites:
+  - {key: Feist2007iAF1260, claim: "genome-scale E. coli stoichiometry incl. oxidative phosphorylation P/O coupling"}
+  - {key: Basan2015Nature, claim: "energetic/proteome cost of respiration vs fermentation"}
+
+question: >-
+  Arc 2 (mcs-02) confirmed the biomass-yield defect is ENERGETIC and, crucially, that it is
+  INSENSITIVE to maintenance ATP (GAM x5, NGAM x10 leave yield/O2/growth flat) — ATP is
+  over-supplied. Where in the FBA is ATP generated so cheaply that maintenance demand is
+  irrelevant, and can a principled correction to the oxidative-phosphorylation / electron-
+  transport stoichiometry (an over-high effective P/O ratio, or a free-ATP loop) restore
+  RQ toward 1 and biomass yield into the measured band?
+
+hypothesis: >-
+  The model's electron-transport chain produces too much ATP per O2 (P/O ratio too high) or a
+  reaction lets ATP be regenerated without a proportional O2 / carbon cost. Correcting that
+  stoichiometry to the genome-scale (Feist iAF1260) coupling will force the cell to consume
+  more O2 (or divert more carbon) per unit growth, lifting RQ toward 1 and lowering Yxs into
+  the 0.355-0.444 band, WITHOUT collapsing growth below a physiological range.
+
+objective: >-
+  Instrument the FBA solution to measure ATP production per reaction and the effective P/O
+  ratio at baseline; identify the dominant cheap-ATP route; apply the smallest principled
+  stoichiometry correction; re-measure Yxs, RQ, O2:glucose and growth (held-out).
+
+# Parent: mcs-02. This is the MODEL-UPDATE follow-up its finding (next_action_type:
+# escalate_model) called for.
+parent_studies:
+  - {study: mcs-02-metabolism-energy-balance, relation: leads-to, condition: tests-passed}
+pipeline_gate:
+  prerequisites:
+    - {study: mcs-02-metabolism-energy-balance, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {seed: 0}
+  variants:
+    - name: etc-stoichiometry-corrected
+      detail: >-
+        Correct the oxidative-phosphorylation / ATP-synthase / electron-transport reaction
+        stoichiometry (effective P/O ratio) to the genome-scale value, chosen during the
+        diagnostic from the baseline flux solution. Smallest change that closes the gap.
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+readouts:
+  - "ATP production per FBA reaction; effective P/O ratio (ATP made per O2 consumed)"
+  - "biomass_yield, RQ, O2:glucose before/after the stoichiometry correction"
+  - "growth_rate (held-out)"
+
+expected_behavior:
+  - name: atp-supply-defect-localized
+    observable: "P/O ratio (ATP per O2) in the baseline FBA solution"
+    condition: baseline
+    rationale: "If ATP is over-supplied, the effective P/O ratio (or a free-ATP loop) will exceed the ~2-2.5 physiological maximum."
+  - name: corrected-yield-in-band
+    observable: biomass_yield
+    condition: "after correction"
+    rationale: "A principled P/O correction should drop Yxs into 0.355-0.444 and lift RQ toward 1."
+  - name: growth-physiological-after-fix
+    observable: growth_rate
+    condition: "held-out: after correction"
+    rationale: "The correction must not collapse growth below a physiological range."
+
+tests:
+  - name: atp-supply-defect-localized
+    classification: primary
+    question: "Does the baseline FBA make ATP with an implausibly high effective P/O ratio (or via a free-ATP loop)?"
+    measure: {kind: derived, detail: "ATP-producing flux / O2 uptake flux from the live FBA solution."}
+  - name: corrected-yield-in-band
+    classification: primary
+    question: "Does the stoichiometry correction bring Yxs into 0.355-0.444 and RQ toward 1?"
+    measure: {kind: derived, detail: "in-process metabolism probe (metabolism_probe.py) after the correction."}
+  - name: growth-physiological-after-fix
+    classification: primary
+    kind: held_out
+    question: "Is growth still physiological after the fix?"
+    measure: {kind: derived, detail: "mean post-burn-in growth_rate within a physiological window."}
+
+runs: []
+findings: []

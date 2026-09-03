@@ -139,6 +139,9 @@ at_a_glance:
   - {study: mcs-02-metabolism-energy-balance, role: "Arc 2 — fix the energetic/biomass-yield defect (respiration & maintenance ATP)"}
   - {study: mcs-03-single-cell-heterogeneity, role: "Arc 3 — division-time CV & adder homeostasis from molecular noise"}
   - {study: mcs-04-capstone-downshift, role: "Capstone — one nutrient axis moves every scale together"}
+  - {study: mcs-05-etc-stoichiometry-fix, role: "Follow-up of Arc 2 — locate & correct the ATP-supply (P/O) defect"}
+  - {study: mcs-06-stochastic-heterogeneity, role: "Follow-up of Arc 3 — restore single-cell heterogeneity into the band"}
+  - {study: mcs-07-ribosome-allocation-law, role: "Follow-up of Arc 1 — test/correct the ribosome growth law"}
 
 how_to_read: |
   Start with the capstone (mcs-04) for the payoff, then read the three arcs for the
@@ -206,6 +209,10 @@ studies:
   - mcs-02-metabolism-energy-balance
   - mcs-03-single-cell-heterogeneity
   - mcs-04-capstone-downshift
+  # Follow-up studies — each attempts the MODEL UPDATE its parent's finding called for.
+  - mcs-05-etc-stoichiometry-fix       # <- mcs-02: correct the ATP-supply (P/O) defect
+  - mcs-06-stochastic-heterogeneity    # <- mcs-03: restore single-cell noise into the band
+  - mcs-07-ribosome-allocation-law     # <- mcs-01: test/correct the ribosome growth law
 
 expert_docs: []
 

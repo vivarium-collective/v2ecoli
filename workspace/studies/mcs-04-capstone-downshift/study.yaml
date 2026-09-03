@@ -5,6 +5,7 @@ title: "Capstone — one downshift, three complexities"
 created: '2026-09-03'
 status: planned
 confidence: Planned
+gate_status: passed
 
 cites:
   - {key: CooperHelmstetter1968, claim: "replication scales with growth across the nutrient axis"}

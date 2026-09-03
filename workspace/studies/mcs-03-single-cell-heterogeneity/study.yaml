@@ -5,6 +5,7 @@ title: "Arc 3 — single-cell heterogeneity from molecular noise"
 created: '2026-09-03'
 status: planned
 confidence: Planned
+gate_status: failed
 
 cites:
   - {key: TaheriAraghi2015, claim: "interdivision-time CV ~10-30% and the adder principle in E. coli"}

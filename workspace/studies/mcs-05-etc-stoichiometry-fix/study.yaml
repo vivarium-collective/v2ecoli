@@ -5,6 +5,7 @@ title: "Follow-up (Arc 2) — locate & correct the ATP-supply defect"
 created: '2026-09-03'
 status: evaluated
 confidence: Accepted
+gate_status: passed
 
 cites:
   - {key: Feist2007iAF1260, claim: "genome-scale E. coli stoichiometry incl. oxidative phosphorylation P/O coupling"}

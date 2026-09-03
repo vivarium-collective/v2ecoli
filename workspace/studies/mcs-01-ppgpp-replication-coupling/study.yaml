@@ -5,6 +5,7 @@ title: "Arc 1 — ppGpp coordinates growth and replication"
 created: '2026-09-03'
 status: planned
 confidence: Planned
+gate_status: passed
 
 cites:
   - {key: CooperHelmstetter1968, claim: "origins-per-cell scale with growth rate (C+D vs doubling time)"}

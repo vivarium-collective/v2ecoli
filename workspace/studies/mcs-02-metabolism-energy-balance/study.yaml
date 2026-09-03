@@ -5,6 +5,7 @@ title: "Arc 2 — fix the energetic biomass-yield defect"
 created: '2026-09-03'
 status: planned
 confidence: Planned
+gate_status: failed
 kind: adversarial   # falsification study: it PASSES by refuting the scoped maintenance-ATP fix
 
 cites:

@@ -5,6 +5,7 @@ title: "Follow-up (Arc 1) — the ribosome allocation growth law"
 created: '2026-09-03'
 status: evaluated
 confidence: Accepted
+gate_status: passed
 
 cites:
   - {key: Scott2010, claim: "ribosomal protein fraction increases linearly with growth rate (the R-line/C-line)"}

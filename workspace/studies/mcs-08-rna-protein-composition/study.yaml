@@ -5,6 +5,7 @@ title: "Composition scale — the RNA/protein growth law"
 created: '2026-09-03'
 status: evaluated
 confidence: Accepted
+gate_status: passed
 
 # Consolidated into the showcase from a parallel-development branch. Sits alongside
 # mcs-07 (the ribosome allocation law) as the bulk-composition view of the same

@@ -17,6 +17,7 @@ list-shaped-timeline mangling on the multigeneration path:
 These mirror the ``sulfadiazine_native_run.json`` ``_timeline_note`` diagnosis.
 """
 import numpy as np
+import pytest
 
 from scripts._compare import inject
 from v2ecoli.library.ecoli_step import EcoliStep
@@ -273,3 +274,153 @@ def test_lineage_injected_processes_list_timeline_survives_config_realize():
     realized = (comp.state["lin"]["config"]["injected_processes"]
                 ["process_configs"]["field_timeline"]["timeline"])
     assert realized == timeline, f"timeline mangled by config-realize: {realized!r}"
+
+
+# =========================================================================== #
+# NATIVE-PATH config-tag deserialization gate (_deserialize_config_values).
+#
+# On the FORK-WRAPPED path the gate always resolved a config's
+# !ParameterSerializer[...] / !units[...] tags before a native process saw its
+# config. On the NATIVE path (fork_repo="") it used to be SKIPPED, on the
+# assumption a fork-free config is pre-baked to plain values. A genuine
+# (non-baked) vEcoli config translated straight onto native ecoli_baseline
+# (e.g. --from-vecoli-config configs/mecillinam_wellmixed.json --composite
+# ecoli_baseline) breaks that assumption: raw tags survive into EVERY native
+# injection process -- gillespie's ``kf > 0`` raises ``TypeError: '>' not
+# supported between 'str' and 'int'``; antibiotic_transport's _param_magnitude
+# never handles a raw tag. The fix lifts the resolution into the SHARED gate so
+# it runs on the native path too. These tests exercise the gate directly with a
+# MINIMAL stand-in "fork" (just enough of ecoli.library.serialize) instead of
+# the heavy vEcoli-private checkout.
+# =========================================================================== #
+
+
+def _write_fake_vecoli_fork(tmp_path):
+    """A minimal stand-in vEcoli fork checkout: just enough of
+    ``ecoli.library.serialize.ParameterSerializer`` -- subclassing vivarium's
+    ``Serializer`` exactly as the real fork's class does, so the gate's
+    ``issubclass(_, Serializer)`` discovery picks it up -- to exercise the
+    native deserialization gate without the (much heavier) real repo."""
+    fork_dir = tmp_path / "fake_vecoli_fork"
+    (fork_dir / "ecoli" / "library").mkdir(parents=True)
+    (fork_dir / "ecoli" / "__init__.py").write_text("")
+    (fork_dir / "ecoli" / "library" / "__init__.py").write_text("")
+    (fork_dir / "ecoli" / "library" / "serialize.py").write_text(
+        "import re\n"
+        "\n"
+        "from vivarium.core.registry import Serializer\n"
+        "\n"
+        "_PARAM_STORE = {\n"
+        '    "mecillinam": {"pbp2": {"binding_kf": 123.456, "unbinding_kf": 0.02}},\n'
+        "}\n"
+        "\n"
+        "\n"
+        "class ParameterSerializer(Serializer):\n"
+        "    python_type = None\n"
+        "\n"
+        "    def __init__(self):\n"
+        "        super().__init__()\n"
+        '        self.regex_for_serialized = re.compile(r"!ParameterSerializer\\[(.*)\\]")\n'
+        "\n"
+        "    def serialize(self, data):\n"
+        "        return data\n"
+        "\n"
+        "    def can_deserialize(self, data):\n"
+        "        return isinstance(data, str) and bool(\n"
+        "            self.regex_for_serialized.fullmatch(data))\n"
+        "\n"
+        "    def deserialize(self, data):\n"
+        "        matched = self.regex_for_serialized.fullmatch(data)\n"
+        "        node = _PARAM_STORE\n"
+        '        for part in matched.group(1).split(">"):\n'
+        "            node = node[part]\n"
+        "        return node\n"
+    )
+    return str(fork_dir)
+
+
+def test_deserialize_config_values_no_tags_is_a_noop_on_the_native_path():
+    """A pre-baked native config (no serializer tags) passes through unchanged
+    and never touches the fork -- fork_repo="" must not error."""
+    cfg = {"initial_reaction_parameters": {"binding": {"kf": 5.0, "kr": 0}}}
+    assert inject._deserialize_config_values(cfg, "") == cfg
+
+
+def test_native_config_tags_deserialize_for_both_gillespie_and_transport(tmp_path):
+    """THE general fix: a native config carrying BOTH a !ParameterSerializer[...]
+    and a !units[...] tag -- in the shapes gillespie (initial_reaction_parameters)
+    AND antibiotic_transport (kinetic_parameters) actually consume -- is resolved
+    to plain numbers / pint Quantities by the SHARED gate before any native
+    process sees it. Proves the fix is general, not gillespie-only."""
+    fork_dir = _write_fake_vecoli_fork(tmp_path)
+    cfg = {
+        # gillespie-shaped: _build_model_structure reads ``kf``/``kr`` and does
+        # ``kf > 0`` -- a raw tag string here is the reported TypeError.
+        "initial_reaction_parameters": {
+            "binding": {
+                "kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]",
+                "kr": "!units[0 1 / second]",
+            },
+        },
+        # antibiotic-transport-shaped: _param_magnitude reads a nested rate and
+        # tolerates a Quantity/float, never a raw tag string.
+        "kinetic_parameters": {
+            "mecillinam": {
+                "PBP2": {
+                    "kcat": "!ParameterSerializer[mecillinam>pbp2>unbinding_kf]",
+                },
+            },
+        },
+    }
+    resolved = inject._deserialize_config_values(cfg, fork_dir)
+    # gillespie kf: a real number the ``kf > 0`` comparison can use.
+    kf = resolved["initial_reaction_parameters"]["binding"]["kf"]
+    assert kf == 123.456
+    assert kf > 0  # exactly gillespie's _build_model_structure check
+    # !units[...] -> a pint Quantity of magnitude 0.
+    kr = resolved["initial_reaction_parameters"]["binding"]["kr"]
+    assert hasattr(kr, "magnitude") and float(kr.magnitude) == 0.0
+    # transport kcat: resolved the SAME way through the SAME gate.
+    assert resolved["kinetic_parameters"]["mecillinam"]["PBP2"]["kcat"] == 0.02
+
+
+def test_native_param_tag_resolves_via_env_var(tmp_path, monkeypatch):
+    """On the native path (fork_repo="") the gate finds the fork via
+    $V2E_VECOLI_DIR / $VECOLI_REPO -- the same env a comparison run already
+    sets -- so a !ParameterSerializer tag still resolves."""
+    fork_dir = _write_fake_vecoli_fork(tmp_path)
+    monkeypatch.setenv("V2E_VECOLI_DIR", fork_dir)
+    monkeypatch.delenv("VECOLI_REPO", raising=False)
+    cfg = {"p": {"kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]"}}
+    resolved = inject._deserialize_config_values(cfg, "")
+    assert resolved["p"]["kf"] == 123.456
+
+
+def test_native_param_tag_without_a_fork_raises_a_clear_error(monkeypatch):
+    """Raw !ParameterSerializer tag on a native run with NO fork reachable ->
+    a clear, actionable ValueError naming the tag, NOT a silent pass-through
+    that later blows up as a confusing TypeError inside a native process."""
+    monkeypatch.delenv("V2E_VECOLI_DIR", raising=False)
+    monkeypatch.delenv("VECOLI_REPO", raising=False)
+    cfg = {
+        "initial_reaction_parameters": {
+            "binding": {
+                "kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]",
+                "kr": 0,
+            },
+        },
+    }
+    with pytest.raises(ValueError, match="unresolved vEcoli serializer tag"):
+        inject._deserialize_config_values(cfg, "")
+
+
+def test_native_units_tag_resolves_without_any_fork(monkeypatch):
+    """A !units[...] tag is fork-independent (vivarium's own dispatcher): it
+    resolves on the native path even with no fork reachable, unlike a
+    !ParameterSerializer tag which needs the fork's param_store."""
+    monkeypatch.delenv("V2E_VECOLI_DIR", raising=False)
+    monkeypatch.delenv("VECOLI_REPO", raising=False)
+    cfg = {"initial_reaction_parameters": {"binding": {"kr": "!units[0 1 / second]"}}}
+    resolved = inject._deserialize_config_values(cfg, "")
+    kr = resolved["initial_reaction_parameters"]["binding"]["kr"]
+    assert hasattr(kr, "magnitude") and float(kr.magnitude) == 0.0

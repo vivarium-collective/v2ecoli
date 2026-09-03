@@ -1,0 +1,550 @@
+schema_version: 4
+name: ppgpp-off-rescue
+title: ppGpp-off rescue
+created: '2026-09-03'
+status: planned
+phase: Design
+study_type: confirmatory
+investigation: transcription-rewiring
+
+question: >-
+  Nine studies traced the replication stall to ParCa fitting against basal_prob
+  while the runtime transcribes per the ppGpp-adjusted vector. If ppGpp
+  regulation is disabled so both use basal_prob, does dnaG transcription recover,
+  does the free DnaG pool clear the initiation gate, and does the lineage
+  complete 12 generations?
+
+biological_summary: |
+  This is the investigation's capstone: an intervention that tests the whole
+  chain at once, rather than another measurement inferring it.
+
+  The chain as it stands. The initiation gate stalls the mechanistic lineage at
+  generation 4-5 in 8 of 8 seeds; DnaG is the only replisome pool short at the
+  stall; removing DnaG from the gate's requirement restores 12 of 12; DnaG is
+  scarce because its sole transcript TU00352 is transcribed ~5.4x below its
+  peers; and that deficit matches, within the mass balance's resolution, the
+  ratio between the vector ParCa fits against and the one the runtime uses.
+
+  Every link is measured, but the last one is inferential: no experiment has
+  removed the substitution and observed the consequence. Disabling ppGpp
+  regulation does exactly that, because with it off TranscriptInitiation uses
+  basal_prob itself -- the vector ParCa fitted against -- so fit and runtime
+  agree by construction.
+
+  The prediction separates into two parts that can come apart, and the study
+  grades them separately for that reason. Transcription should rise toward the
+  fitted rate, roughly fourfold. And the FREE DnaG pool should stop dipping below
+  the gate's demand. Those are different claims: the gate reads free monomer from
+  the bulk store, which averages 5.99 and dips to zero, not total protein at
+  7.996. A mean can rise while transient dips persist, so a recovery in
+  transcription does not guarantee a lineage that survives.
+
+  The intervention is not surgical and the study says so throughout. With ppGpp
+  off, TranscriptInitiation takes an entirely different branch: class-level
+  rescaling by RNA type, fixed probabilities for ribosomal-protein and RNAP
+  transcripts, and an active-RNAP fraction drawn from a media table rather than
+  the ppGpp module. Every gene is affected. A lineage that completes might do so
+  for reasons unrelated to dnaG, which is why a proteome-wide sanity axis and a
+  specificity axis are graded alongside the outcome.
+
+  Disabling ppGpp is a diagnostic here, not a proposed repair. ppGpp regulation
+  is real biology and the stringent response matters; the question of which side
+  of the fit-runtime mismatch should change is explicitly left open.
+
+assumptions:
+- text: >-
+    With ppgpp_regulation off, TranscriptInitiation uses the cache's basal_prob
+    as the synthesis-probability vector, the same one ParCa fitted against.
+  verified_in_v2ecoli: true
+- text: >-
+    The initiation gate reads FREE monomer counts from the bulk store, so the
+    free pool rather than total protein is what must clear its demand.
+  verified_in_v2ecoli: true
+
+pipeline_gate:
+  prerequisites:
+  - study: fit-runtime-reconciliation
+    condition: tests-passed
+    relation: leads-to
+    outputs_used:
+    - dnaG's 6.85x fit-runtime discrepancy and its 3.99x vector ratio
+  - study: replisome-gate-sufficiency
+    condition: tests-passed
+    relation: model-input
+    outputs_used:
+    - The 8/8 stall at generation 4-5 that this study attempts to rescue
+  enables: []
+  proceed_condition: >-
+    The causal chain is either closed by intervention or shown to be incomplete.
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      config_overrides:
+        ecoli-chromosome-replication.mechanistic_replisome: true
+  variants:
+  - name: ppgpp-off
+    diff_from_baseline: >-
+      ppgpp_regulation=False passed to the generator, so TranscriptInitiation
+      uses basal_prob and the ppgpp-initiation step is absent. Gate still on.
+  - name: ppgpp-on-control
+    diff_from_baseline: >-
+      The unmodified mechanistic arm, re-run under identical conditions as the
+      paired comparison. Expected to stall at generation 4-5.
+  model_settings: []
+
+baseline:
+- name: baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+variants:
+- name: ppgpp-off
+  base_composite: baseline
+  params:
+    generator_params:
+      ppgpp_regulation: false
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+
+units_and_time:
+  tick: 1 tick = 1 s of simulated time (composite time_step=1)
+  quantities:
+    generations divided: count
+    free DnaG pool: molecule copies per cell (bulk, what the gate reads)
+    transcripts synthesized: transcripts per generation
+    subunit margin: copies (observed minus the gate's demand)
+
+# ---------------------------------------------------------------------------
+# All acceptance criteria open at design time. Carried as pins: the 8/8 stall at
+# generation 4-5, dnaG's 5.40x transcription deficit, and the 3.99x vector ratio.
+# Nothing about the ppGpp-off arm has been simulated or computed.
+# ---------------------------------------------------------------------------
+behavior_tests:
+- name: lineage-completes-with-ppgpp-off
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does removing the substitution rescue the lineage?
+  description: >-
+    Every ppGpp-off seed completes 12 generations with the mechanistic gate
+    still enabled.
+
+    The capstone outcome. The mechanistic arm stalls at generation 4-5 in 8 of
+    8 seeds; if disabling the substitution lets it run the full length, the
+    chain is closed by intervention rather than inference.
+
+    It can fail in an informative way: transcription may recover without the
+    free pool clearing the gate's transient demand, in which case the lineage
+    still stalls and the next axis says why.
+
+    Threshold provenance: theory. 12 is the run length used throughout this
+    investigation, so the result is directly comparable to the 8/8 stall.
+  measure:
+    kind: derived
+    detail: minimum divided-generation count across the ppGpp-off seeds.
+  pass_if:
+    op: '>='
+    value: 12
+    provenance:
+      kind: theory
+      note: The run length used throughout; comparable to the recorded 8/8 stall.
+  status: pending
+
+- name: free-dnag-pool-clears-the-gate
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the pool the gate actually reads stop falling short?
+  description: >-
+    The worst DnaG margin across the ppGpp-off lineage is at or above zero,
+    i.e. free monomer never falls below 2 copies per origin.
+
+    Separated from the outcome axis deliberately. The gate reads FREE monomer
+    from bulk, which averages 5.99 and dips to zero, not total protein at
+    7.996. A mean can rise while transient dips persist, so transcription
+    recovering does not entail the gate being satisfied. This axis measures the
+    quantity the gate reads, at the resolution the gate reads it.
+
+    Threshold provenance: zero is definitional -- it is the gate's own
+    condition, not a tuned cutoff.
+  measure:
+    kind: derived
+    detail: >-
+      minimum over the lineage of (free DnaG count - 2 x number_of_oric).
+  pass_if:
+    op: '>='
+    value: 0
+    provenance:
+      kind: theory
+      note: Definitional; the gate's own arithmetic.
+  status: pending
+
+- name: dnag-transcription-recovers
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does dnaG transcription rise toward the rate ParCa fitted?
+  description: >-
+    dnaG's transcription deficit against comparable transcripts shrinks to
+    below 2x, from the 5.40x measured with ppGpp on.
+
+    The mechanistic middle of the chain. If the substitution is what starves
+    dnaG, removing it should largely close the deficit. A pass here with a
+    failure above would locate the remaining problem downstream of
+    transcription.
+
+    Threshold provenance: theory. 2x is the residual this investigation has
+    treated as agreement throughout, matching the mass balance's demonstrated
+    precision.
+  measure:
+    kind: derived
+    detail: >-
+      comparison-group median transcription share divided by dnaG's, in the
+      ppGpp-off arm.
+  pass_if:
+    op: <
+    value: 2.0
+    provenance:
+      kind: theory
+      note: The agreement band used throughout this investigation.
+  status: pending
+
+- name: rescue-is-not-a-global-growth-artefact
+  classification: control
+  gate_class: acceptance_criterion
+  question: Did the lineage survive because of dnaG, or because everything changed?
+  description: >-
+    Generation time in the ppGpp-off arm stays within 50% of the ppGpp-on
+    control's, and total protein mass within 30%.
+
+    Disabling ppGpp perturbs every gene: class-level rescaling, fixed
+    ribosomal-protein probabilities, and a different active-RNAP fraction. A
+    lineage that completes because the whole cell now grows differently would
+    not demonstrate anything about dnaG. This axis bounds that.
+
+    A FAIL does not refute the rescue but does forbid attributing it to dnaG
+    specifically, which would be the overclaim available here.
+
+    Threshold provenance: theory. Deliberately loose, since some physiological
+    change is expected and the axis tests for wholesale disruption rather than
+    any change at all.
+  measure:
+    kind: derived
+    detail: >-
+      max of (generation-time ratio, protein-mass ratio) deviation from 1
+      between the ppGpp-off and ppGpp-on arms.
+  pass_if:
+    op: <
+    value: 0.5
+    provenance:
+      kind: theory
+      note: Loose; tests for wholesale disruption, not for any change.
+  status: pending
+
+- name: ppgpp-on-control-still-stalls
+  classification: control
+  gate_class: acceptance_criterion
+  question: Does the stall reproduce under identical conditions?
+  description: >-
+    The ppGpp-on arm, run identically alongside, still stalls before generation
+    12.
+
+    Paired control. Without it a completing ppGpp-off arm could reflect
+    anything that changed between this study and replisome-gate-sufficiency.
+    Run in the same batch, on the same cache, so the only difference is the
+    intervention.
+  measure:
+    kind: derived
+    detail: maximum divided-generation count across the ppGpp-on seeds.
+  pass_if:
+    op: <
+    value: 12
+    provenance:
+      kind: theory
+      note: Reproduces the recorded 8/8 stall under identical conditions.
+  status: pending
+
+- name: stall-was-at-generation-4-or-5
+  classification: supporting
+  gate_class: regression_pin
+  description: >-
+    The ppGpp-on arm stalls at generation 4-5, as recorded in
+    replisome-gate-sufficiency.
+
+    POST-HOC: measured there across 8 seeds. A pin so a drift in the baseline
+    phenomenon is noticed rather than silently changing the comparison.
+  measure:
+    kind: derived
+    detail: stall generation in the ppGpp-on arm.
+  pass_if:
+    op: <=
+    value: 6
+    provenance:
+      kind: post_hoc
+      note: Measured in replisome-gate-sufficiency; pin only.
+  status: pending
+
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-03T19:35:58Z'
+  criteria:
+  - test: lineage-completes-with-ppgpp-off
+    prior: >-
+      The capstone. If removing the substitution rescues the lineage, the chain
+      is closed by intervention rather than inference.
+  - test: free-dnag-pool-clears-the-gate
+    prior: >-
+      Open, and separable from the outcome: the gate reads free monomer, which
+      can keep dipping even as the mean recovers.
+  - test: dnag-transcription-recovers
+    prior: >-
+      Open. If the substitution starves dnaG, removing it should close most of
+      the 5.40x deficit.
+  - test: rescue-is-not-a-global-growth-artefact
+    prior: >-
+      Control. Disabling ppGpp changes every gene, so a rescue must be shown
+      not to be a by-product of wholesale physiological change.
+  - test: ppgpp-on-control-still-stalls
+    prior: Paired control; reproduces the baseline under identical conditions.
+  predictions:
+  - >-
+    CARRIED IN as pins from prior studies, not re-derived: the mechanistic arm
+    stalls at generation 4-5 in 8 of 8 seeds; dnaG's transcription deficit is
+    5.40x against the in-force reference; the basal-to-ppGpp vector ratio for
+    dnaG is 3.99x; free DnaG averages 5.99 copies and dips to 0 while total
+    protein is 7.996.
+  - >-
+    NOT simulated or computed at design time: anything about the ppGpp-off arm.
+  controls:
+  - rescue-is-not-a-global-growth-artefact
+  - ppgpp-on-control-still-stalls
+
+  thresholds:
+    lineage-completes-with-ppgpp-off:
+      op: '>='
+      value: 12
+      provenance:
+        kind: theory
+        note: The run length used throughout; comparable to the recorded 8/8 stall.
+    free-dnag-pool-clears-the-gate:
+      op: '>='
+      value: 0
+      provenance:
+        kind: theory
+        note: Definitional; the gate's own arithmetic.
+    dnag-transcription-recovers:
+      op: <
+      value: 2.0
+      provenance:
+        kind: theory
+        note: The agreement band used throughout this investigation.
+    rescue-is-not-a-global-growth-artefact:
+      op: <
+      value: 0.5
+      provenance:
+        kind: theory
+        note: Loose; tests for wholesale disruption, not for any change.
+    ppgpp-on-control-still-stalls:
+      op: <
+      value: 12
+      provenance:
+        kind: theory
+        note: Reproduces the recorded 8/8 stall under identical conditions.
+readouts:
+- name: free-dnag-pool
+  store_path: bulk.count
+  description: >-
+    EG10239-MONOMER[c] free monomer, the quantity the initiation gate reads.
+    Distinct from listeners.monomer_counts (total protein), which is the right
+    observable for proteomics comparison but NOT for the gate.
+  units: copies per cell
+  status: available
+- name: number-of-oric
+  store_path: listeners.replication_data.number_of_oric
+  description: Sets the gate's demand at 2 copies per origin.
+  units: origins
+  status: available
+- name: transcripts-synthesized
+  store_path: listeners.transcript_elongation_listener.count_rna_synthesized
+  description: Per-TU synthesis, for the transcription-recovery axis.
+  units: transcripts per generation
+  status: available
+- name: generation-outcomes
+  store_path: derived
+  description: Per-generation divided flag, duration and dry mass from the runner summaries.
+  units: min / fg
+  status: available
+
+implementation_requirements:
+- id: req-1
+  kind: parameter_hook
+  title: Let the runner pass generator parameters
+  status: planned
+  effort: S
+  description: >-
+    ppgpp_regulation is a GENERATOR parameter -- it controls whether the
+    ppgpp-initiation step exists -- not a process config key, so
+    --config-override cannot reach it. The runner forwards only
+    config_overrides into build_composite. Add a --generator-param KEY=VALUE
+    flag that forwards additional kwargs.
+
+    Safe: scripts/ is NOT in cache_version.INPUT_FILES, so editing the runner
+    does not invalidate the cache. ecoli_baseline.py IS hashed, so the toggle
+    must be PASSED THROUGH and never edited -- editing it would move the
+    fingerprint that all nine studies share.
+  steps:
+  - Add --generator-param to run_condition_multigen_parquet.py, parsed as JSON.
+  - Forward it into build_composite and baseline_doc alongside config_overrides.
+  - Verify with --dry-run that ppgpp_regulation=false reaches the generator.
+  unblocks:
+  - lineage-completes-with-ppgpp-off
+  - dnag-transcription-recovers
+
+planned_runs:
+- name: ppgpp-off-arm
+  status: planned
+  n_steps: 144000
+  details: >-
+    3 seeds x 12 generations, mechanistic gate ON, ppgpp_regulation=False.
+    ~2.5 h at 3 concurrent.
+- name: ppgpp-on-control
+  status: planned
+  n_steps: 144000
+  details: >-
+    3 seeds x 12 generations, mechanistic gate ON, ppGpp unchanged. The paired
+    control, run in the same batch on the same cache.
+
+simulation_set:
+- name: ppgpp-off
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  status: planned
+  perturbation:
+    generator_params:
+      ppgpp_regulation: false
+- name: ppgpp-on-control
+  kind: single
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  is_baseline: true
+  status: planned
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+
+robustness:
+  n_replicates: 3
+  seeds: [0, 1, 2]
+  parameter_sweep: false
+  note: >-
+    3 seeds per arm. Sufficient to distinguish 12/12 from a stall at generation
+    4-5, which is a categorical difference; NOT sufficient to estimate a stall
+    generation distribution. replisome-gate-sufficiency used 8 seeds for that.
+
+controls:
+- name: ppgpp-on-control-still-stalls
+  kind: positive
+  hypothesis: >-
+    The unmodified mechanistic arm should still stall at generation 4-5 when
+    run alongside. If it does not, something other than the intervention
+    changed and the comparison is void.
+  expected: stall before generation 12 in every seed.
+  observed: ''
+  result: PENDING
+- name: rescue-is-not-a-global-growth-artefact
+  kind: negative
+  hypothesis: >-
+    Disabling ppGpp perturbs every gene. If generation time or protein mass
+    shifts wholesale, a completing lineage cannot be attributed to dnaG.
+  expected: generation time within 50% and protein mass within 30% of control.
+  observed: ''
+  result: PENDING
+
+alternative_hypotheses:
+- claim: >-
+    The substitution starves dnaG; removing it restores transcription and the
+    lineage survives.
+  discriminated_by: >-
+    lineage-completes-with-ppgpp-off together with dnag-transcription-recovers.
+  status: untested
+- claim: >-
+    Transcription recovers but the free pool still dips below the gate's
+    demand, so the lineage stalls anyway.
+  discriminated_by: >-
+    dnag-transcription-recovers passing while free-dnag-pool-clears-the-gate
+    fails.
+  status: untested
+- claim: >-
+    The lineage completes because disabling ppGpp changes growth wholesale, not
+    because of dnaG.
+  discriminated_by: rescue-is-not-a-global-growth-artefact.
+  status: untested
+- claim: >-
+    Something other than the substitution starves dnaG, so removing it changes
+    nothing.
+  discriminated_by: dnag-transcription-recovers failing.
+  status: untested
+
+falsifiability: >-
+  The chain is refuted if disabling the substitution leaves dnaG transcription
+  unchanged, which would mean the vector mismatch is not what starves it. The
+  attribution to dnaG specifically is refuted if the lineage completes while the
+  growth control shows wholesale physiological change. The comparison itself is
+  void if the paired ppGpp-on arm fails to reproduce the stall.
+
+limitations:
+- >-
+  Disabling ppGpp is not a surgical removal of the substitution: it switches
+  TranscriptInitiation to a different branch with class-level rescaling and a
+  different active-RNAP fraction, affecting every gene.
+- >-
+  This is a DIAGNOSTIC, not a proposed repair. ppGpp regulation is real biology
+  and the stringent response matters; which side of the fit-runtime mismatch
+  should change is left open.
+- >-
+  3 seeds per arm distinguishes completion from a generation 4-5 stall but does
+  not characterise a stall distribution.
+- >-
+  Single medium and condition, and ppGpp regulation is condition-dependent by
+  construction, so a result here may not transfer.
+- >-
+  A rescue would show the substitution is SUFFICIENT to cause the stall in this
+  condition, not that it is the only cause.
+
+conclusion_logic:
+  if_primary_tests_pass: >-
+    Removing the fit-runtime substitution restores dnaG transcription, the free
+    pool clears the gate, and the lineage completes -- closing the causal chain by
+    intervention, with the growth control showing the rescue is attributable to
+    dnaG rather than to wholesale physiological change.
+  if_primary_tests_fail:
+    summary: >-
+      If transcription recovers but the lineage still stalls, the free pool's
+      transient dips matter more than its mean and the gate's sensitivity is the
+      remaining issue. If transcription does not recover, the vector mismatch is
+      not what starves dnaG and the chain has a broken link. If the growth
+      control fails, a rescue cannot be attributed to dnaG.
+    diagnose:
+    - question: >-
+        Is the vector substitution sufficient to cause the stall?
+      note: Answered by the outcome and transcription axes with both controls.
+
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties: []
+  followup_study_proposals: []
+
+canonical_runs:
+- name: default
+  script: studies/ppgpp-off-rescue/sims/run.py
+  args: []
+  label: ppgpp-off-rescue
+  default: true
+
+visualizations: []
+
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested

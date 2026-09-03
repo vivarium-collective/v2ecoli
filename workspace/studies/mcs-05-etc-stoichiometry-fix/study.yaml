@@ -144,8 +144,9 @@ findings:
       the surplus is dissipated through the reverse ATP synthase. This explains Arc 2's central
       puzzle — why raising maintenance ATP did nothing: the cell already has an ATP surplus it
       is actively throwing away, so demanding more of it just changes how much is dissipated,
-      not the carbon/O2 flux. The proton-pumping NDH-1 and non-pumping NDH-2 dehydrogenases are
-      both present, and ATP synthase is parameterised at ~4 H+/ATP. Correcting the behaviour
+      not the carbon/O2 flux. Both NADH dehydrogenase routes are present in the reaction set
+      (NADH-DEHYDROG-A-RXN carries a small flux ~0.009; NADH-DEHYDROGENASE-QUINONE-RXN is idle).
+      Correcting the behaviour
       (constraining ATP synthase to net-forward operation under aerobiosis, matching genome-scale
       iAF1260) is the principled fix, but it is a reaction-bound change that can render the FBA
       infeasible, so it is flagged for a dedicated pass rather than applied speculatively here.

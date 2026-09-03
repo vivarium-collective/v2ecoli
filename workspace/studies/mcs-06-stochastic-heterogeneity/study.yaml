@@ -83,4 +83,27 @@ tests:
     measure: {kind: derived, detail: "mean division_time before vs after within tolerance."}
 
 runs: []
+
+preliminary_findings:
+  - id: noise-source-is-bypassed-not-absent
+    kind: static-analysis
+    status: confirms
+    statement: >-
+      A code audit of the division machinery localizes the under-dispersion without a run:
+      v2ecoli/steps/division.py DOES carry a stochastic term — the division mass multiplier
+      mu_div ~ Normal(1.0, 0.1) (CRC32-seeded, ~10% CV) — but it feeds the LEGACY mass-threshold
+      trigger, while the ACTIVE division trigger is deterministic: divide fires when
+      global_time reaches (replication completion + a fixed D_period). So the ~10% noise the
+      model already knows about is bypassed by the replication-timed trigger, and interdivision
+      timing inherits only the (small) variance of replication completion. This is the exact
+      lever the model-update needs: route mu_div-style variance into the active trigger, or make
+      D_period stochastic (real E. coli D-period is variable), then re-run the ensemble and
+      confirm CV rises into the 0.10-0.30 band with the mean generation time preserved.
+    evidence:
+      code_ref: "v2ecoli/steps/division.py:138 (mu_div ~ Normal(1.0,0.1)); :40,:44 (deterministic replication+D_period trigger)"
+      parent_measured_cv: 0.070
+      target_band: [0.10, 0.30]
+    next_action: "Make D_period stochastic (or route mu_div into the active trigger); re-run the 6-seed ensemble; re-measure CV."
+    next_action_type: escalate_model
+
 findings: []

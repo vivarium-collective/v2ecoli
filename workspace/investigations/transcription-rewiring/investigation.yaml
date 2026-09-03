@@ -49,6 +49,7 @@ studies:
 - probability-assignment-trace
 - probability-in-force-reference
 - dnag-protein-mass-balance
+- fit-runtime-reconciliation
 executive:
   what_is_this: >-
     v2ecoli can normally start chromosome replication whenever it is due,

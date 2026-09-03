@@ -439,6 +439,14 @@ class LineageProcess(Process):
         if isinstance(survivor, dict) and survivor.get("divide"):
             divided = True
 
+        # DEBUG (item 105 fast-division investigation, disposable): unconditional,
+        # logs which of the two structural signals actually fired this call.
+        warnings.warn(
+            f"LineageProcess DIVISION-SIGNAL-DEBUG t={self._gen_elapsed}: "
+            f"agents_before={agents_before!r} agents_after={agents_after!r} "
+            f"divide_flag={survivor.get('divide') if isinstance(survivor, dict) else None!r}"
+        )
+
         cell = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})
         dry_mass = fg_magnitude(cell.get("listeners", {}).get("mass", {}).get("dry_mass", 0.0))
 

@@ -135,7 +135,20 @@ behavior_tests:
     provenance:
       kind: theory
       note: The median transcript is the non-arbitrary boundary for "starved".
-  status: pending
+  status: refuted_by_correction
+  review_note: |
+    CORRECTED 2026-09-03 after an expert challenge: 'without checking if it is
+    actually being actively transcribed throughout, how do you invalidate the
+    hypothesis?'
+
+    The original axis measured basal_prob, a STATIC ParCa parameter, and concluded
+    dnaG is not starved of transcription. Measuring what the simulation actually does
+    reverses that completely. Over a full generation (2528 timesteps):
+      TU00352 mRNA count            0 at 100% of timesteps
+      TU00352 synthesis events      0
+      realized / assigned           0.000x
+    TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
+    with the fixed ribosomal-protein probability -- basal_prob never governed it.
 - name: operon-partners-diverge
   classification: supporting
   gate_class: acceptance_criterion
@@ -153,6 +166,13 @@ behavior_tests:
       kind: theory
       note: A 2x spread is the smallest divergence that a shared mRNA pool cannot explain.
   status: pending
+  review_note: |
+    PREMISE FALSIFIED. This axis assumed rpsU, dnaG and rpoD 'share one mRNA
+    pool, so divergence cannot come from transcription'. They do not: rpsU has
+    TU0-14460 and rpoD has TU00472 in addition to TU00352. dnaG has TU00352
+    alone. Per generation: dnaG 0 transcripts, rpsU 1, rpoD 461. The divergence
+    is therefore TRANSCRIPTIONAL, not per-cistron translational, and the axis
+    cannot support the localisation it was written to provide.
 - name: dnag-below-literature
   classification: supporting
   gate_class: regression_pin
@@ -272,35 +292,35 @@ conclusion_logic:
       note: Answered by the chain percentiles in this study's own measurement.
 discovery_implications:
   resolved_uncertainties:
-  - 'Where DnaG is lost: translation, not transcription (91.9th vs 1.5th percentile), confirmed independently by a 3.55x divergence among cistrons sharing one transcript.'
-  - 'Whether the dedup explains the deficit: it does not. Refuted.'
-  - 'Whether the deficit is calibration or execution: primarily execution. ParCa fits 0.64x of literature; the simulation delivers 0.046x of ParCa.'
+  - 'Where DnaG is lost: transcription. TU00352 is synthesised 0 times per generation and its mRNA is absent at 100% of timesteps.'
+  - 'Why the operon partners diverge: they have different transcripts, not a different per-cistron step. rpsU and rpoD each have an alternative that is used; dnaG does not.'
+  - 'Why translation efficiency is not the cause: an mRNA that is never made cannot be translated.'
   remaining_uncertainties:
-  - Whether dnaG's low translation efficiency is inherited from the Li 2014 input or introduced by how ParCa applies it.
-  - What loses the remaining ~20x between ParCa's fit and the simulated counts.
-  - Whether HolA and HolB, in the same translation tail, share the same cause -- i.e. whether this is a class property of low-abundance proteins.
-  - Whether the mechanistic replisome option ships disabled because of this deficit; not answerable from this repository.
+  - Why TU00352 receives zero synthesis despite being an idx_rprotein TU with a high assigned basal_prob.
+  - Whether the rpsU-promoter dedup is what removed dnaG's alternative transcripts.
+  - Whether other cistrons are stranded on never-synthesised transcripts the same way.
   followup_study_proposals:
   - id: FU-01
-    title: Is the low translation efficiency inherited or introduced?
+    title: Why does TU00352 receive zero synthesis?
     motivation: |
-      dnaG's translation efficiency is 1.5th percentile, and efficiency is a ParCa
-      input fitted from Li 2014 ribosome profiling. If the low value is inherited
-      from the data the fix is upstream; if ParCa introduces it, the fix is in the
-      fitting. This decides where the repair belongs and is the direct successor to
-      this study.
+      TU00352 is in idx_rprotein, so TranscriptInitiation overrides basal_prob with the
+      fixed ribosomal-protein probability. It is nonetheless synthesised zero times per
+      generation. Establishing whether the rProtein pathway assigns it ~0, or whether it
+      is excluded some other way, is the direct next question and the one that decides
+      the fix.
   - id: FU-02
-    title: What loses the 22x between ParCa's fit and the simulation?
+    title: Did the dedup strand dnaG on a single transcript?
     motivation: |
-      Even a perfect ParCa fit would leave the simulation ~20x short, so a term
-      downstream of the fit is losing most of the protein. Locating it would explain
-      the deficit fully rather than partially, and it is the larger of the two gaps.
+      rpsU and rpoD each have an alternative transcript; dnaG has none. If the
+      rpsU-promoter dedup is what removed dnaG's alternatives, the transcription-unit
+      repair becomes the fix for the replication stall, which is the investigation's
+      original thesis.
   - id: FU-03
-    title: Do HolA and HolB share DnaG's translation anomaly?
+    title: How many other genes are stranded on never-synthesised transcripts?
     motivation: |
-      HolA (1.9th percentile) and HolB (5.7th) sit in the same tail. If the anomaly
-      is shared, this is a class property of low-abundance proteins rather than a
-      DnaG accident, which would widen the consequence well beyond replication.
+      dnaG was found only because a replication gate made it visible. A sweep for genes
+      whose sole transcript is never synthesised would show whether this is a systemic
+      defect and how much of the proteome it touches.
 canonical_runs:
 - name: default
   script: studies/dnag-production-deficit/analyses/measure.py
@@ -457,7 +477,7 @@ findings:
 - id: F-02
   kind: biological
   status: contradicts
-  statement: 'dnaG is not starved of transcription: TU00352 sits at the 91.9th percentile of 3277 transcripts, 30x the median. The dedup hypothesis is refuted as an explanation of the DnaG deficit.'
+  statement: 'CORRECTED: dnaG IS starved of transcription. TU00352 is synthesised zero times per generation and its mRNA is absent at 100% of timesteps, despite a high assigned basal_prob.'
   evidence:
     from_run: dnag-production-deficit__analysis
     from_test: transcription-is-not-the-lossy-step
@@ -469,25 +489,38 @@ findings:
     - dnag-production-deficit__analysis
   tier: mechanism
   summary: |
-    The investigation's standing hypothesis was that collapsing the rpsU
-    promoters into a single transcription unit starves dnaG. The test was
-    written so that hypothesis predicts a FAILURE, and it passed instead:
-    basal_prob 1.21e-04 against a median of 4.01e-06.
+    The original finding claimed the opposite and was wrong. It read basal_prob, a
+    static parameter, rather than measuring transcription during a run -- in a study
+    whose own headline is that parameters and behaviour diverge by 22x.
 
-    This does not vindicate the dedup. Collapsing three promoters into one is
-    still a structural misrepresentation, and it still prevents dnaG from being
-    regulated independently of rpsU and rpoD. What it does establish is that the
-    dedup is not the route by which DnaG becomes scarce, so repairing the
-    transcription-unit architecture would not by itself raise DnaG.
+    Two things invalidate the parameter reading. TU00352 is in idx_rprotein, so
+    TranscriptInitiation replaces its basal_prob with the fixed ribosomal-protein
+    probability; basal_prob never governed it. And measured directly, the transcript
+    is never made at all: 0 synthesis events and 0 mRNA across 2528 timesteps.
 
-    Recording this matters more than the pass: it redirects the investigation
-    away from a hypothesis it had been carrying since study 1.
-  next_action: Retire the transcription-starvation route as the explanation for low DnaG. Keep the TU00352 architecture as a separate regulatory-coupling concern, which it remains.
-  next_action_type: retire_hypothesis
+    This also explains the protein deficit without appeal to translation. ParCa seeds
+    ~38 copies, nothing replenishes them, and the pool decays toward zero. An mRNA
+    that is never made cannot be translated, so translation efficiency was a red
+    herring downstream of the real block.
+  next_action: Establish why an idx_rprotein TU receives zero synthesis probability, and whether the dedup is what left dnaG dependent on it.
+  next_action_type: escalate_model
+  review_note: |
+    CORRECTED 2026-09-03 after an expert challenge: 'without checking if it is
+    actually being actively transcribed throughout, how do you invalidate the
+    hypothesis?'
+
+    The original axis measured basal_prob, a STATIC ParCa parameter, and concluded
+    dnaG is not starved of transcription. Measuring what the simulation actually does
+    reverses that completely. Over a full generation (2528 timesteps):
+      TU00352 mRNA count            0 at 100% of timesteps
+      TU00352 synthesis events      0
+      realized / assigned           0.000x
+    TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
+    with the fixed ribosomal-protein probability -- basal_prob never governed it.
 - id: F-03
   kind: biological
-  status: confirms
-  statement: 'rpsU, dnaG and rpoD share one transcript yet their model/literature ratios span 3.55x (rpsU 1.81x over, rpoD 0.51x under), so the loss is per-cistron and downstream of transcription.'
+  status: contradicts
+  statement: 'CORRECTED: the operon partners diverge because they have DIFFERENT transcripts, not because of a per-cistron step. dnaG has only TU00352 (0 made); rpsU also has TU0-14460, rpoD also has TU00472 (461 made).'
   evidence:
     from_run: dnag-production-deficit__analysis
     from_test: operon-partners-diverge
@@ -499,19 +532,27 @@ findings:
     - dnag-production-deficit__analysis
   tier: mechanism
   summary: |
-    The operon is the study's internal control. Because the three cistrons
-    draw on one mRNA pool, any divergence between their protein levels cannot
-    come from transcription. rpsU is over-produced while its two partners are
-    under-produced, which localises the loss to a per-cistron step without
-    relying on any single absolute count being correct.
+    The original finding's premise was false. It assumed one shared mRNA pool and
+    concluded any divergence must be downstream of transcription. rpsU and rpoD each
+    carry a second transcript that IS synthesised; dnaG does not. The divergence is
+    transcriptional.
 
-    Combined with the chain percentiles -- transcription 91.9th, degradation at
-    exactly the median default, translation 1.5th of 4309 monomers -- the step is
-    translation. dnaG's efficiency is 2.27e-05 against a median of 2.30e-04,
-    about ten-fold low, and HolA (1.9th) and HolB (5.7th) sit in the same tail.
-    That the other two scarce replisome subunits share the anomaly suggests
-    something systematic about this class of protein rather than a DnaG-specific
-    accident.
+    This is the mechanism the investigation was looking for. dnaG's operon partners
+    have escape routes and dnaG does not, so a transcript that is never used starves
+    dnaG alone while leaving rpsU and rpoD unaffected.
+  review_note: |
+    CORRECTED 2026-09-03 after an expert challenge: 'without checking if it is
+    actually being actively transcribed throughout, how do you invalidate the
+    hypothesis?'
+
+    The original axis measured basal_prob, a STATIC ParCa parameter, and concluded
+    dnaG is not starved of transcription. Measuring what the simulation actually does
+    reverses that completely. Over a full generation (2528 timesteps):
+      TU00352 mRNA count            0 at 100% of timesteps
+      TU00352 synthesis events      0
+      realized / assigned           0.000x
+    TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
+    with the fixed ribosomal-protein probability -- basal_prob never governed it.
 - id: F-04
   kind: biological
   status: partial
@@ -609,29 +650,22 @@ findings:
   kind: computational
   tier: interpretation
   mechanism_origin: engineered
-  status: novel
-  statement: The DnaG deficit is a translation-side execution gap, not a transcription-unit problem, so the investigation's repair target moves from the dedup to translation efficiency and its application.
+  status: contradicts
+  statement: 'CORRECTED: the deficit is transcriptional, not translational. dnaG depends on a single transcript that the model never synthesises, while its operon partners have alternatives.'
   summary: |
-    The chain measurement resolves three candidate explanations into one. Transcription
-    is 30x the median, degradation is exactly the default rate, and translation
-    efficiency is 1.5th percentile of 4309 monomers. The operon control confirms the
-    loss is per-cistron: three genes on one mRNA pool diverge 3.55x.
+    The original synthesis concluded a translation-side execution gap and declared
+    the dedup hypothesis refuted. Both were wrong, and wrong for one reason: every
+    step was inferred from static ParCa parameters rather than from what the
+    simulation does.
 
-    This costs the investigation its founding hypothesis. Study 1 traced a replication
-    arrest to DnaG; the standing assumption was that the rpsU-promoter dedup starved
-    dnaG of transcription. That is now refuted -- dnaG's transcript is among the most
-    transcribed in the model. The dedup remains a real structural defect, because it
-    still prevents dnaG from being regulated independently of rpsU and rpoD, but it is
-    not why DnaG is scarce.
+    Measured: TU00352 is synthesised 0 times per generation. dnaG has no other
+    transcript. rpsU and rpoD do, and theirs are used (1 and 461 respectively). So
+    dnaG receives no mRNA at all while its partners are supplied normally.
 
-    What replaces it is sharper. Translation efficiency is a ParCa INPUT fitted from
-    Li 2014 ribosome profiling, so a low value there is inherited, not emergent -- hence
-    engineered. And the 22x gap between the fit and the simulation says the loss is
-    not even fully explained by the input: something downstream of the fit is losing
-    most of the remainder. HolA (1.9th percentile) and HolB (5.7th) sit in the same
-    tail, so this plausibly affects a class of low-abundance proteins rather than DnaG
-    alone, which would make it a general defect with a specific, measured consequence
-    for replication.
+    The transcription-unit architecture is therefore back at the centre of the
+    investigation, not eliminated from it. Whether the dedup is what removed dnaG's
+    alternative transcripts, and why an idx_rprotein TU draws zero synthesis, are the
+    two open questions.
   expected:
     summary: No pre-registered expectation; a synthesis formed after the measurements, and a hypothesis for the next study rather than evidence from this one.
   evidence:
@@ -640,59 +674,66 @@ findings:
   provenance:
     run_ids:
     - dnag-production-deficit__analysis
-  next_action: Test whether the low translation efficiency is inherited from the Li 2014 input or introduced by how ParCa applies it, and whether the same tail explains HolA and HolB.
+  next_action: Determine whether the rpsU-promoter dedup removed dnaG's alternative transcripts, and why TU00352 receives zero synthesis despite the rProtein pathway.
   next_action_type: refine_representation
+  review_note: |
+    CORRECTED 2026-09-03 after an expert challenge: 'without checking if it is
+    actually being actively transcribed throughout, how do you invalidate the
+    hypothesis?'
+
+    The original axis measured basal_prob, a STATIC ParCa parameter, and concluded
+    dnaG is not starved of transcription. Measuring what the simulation actually does
+    reverses that completely. Over a full generation (2528 timesteps):
+      TU00352 mRNA count            0 at 100% of timesteps
+      TU00352 synthesis events      0
+      realized / assigned           0.000x
+    TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
+    with the fixed ribosomal-protein probability -- basal_prob never governed it.
 conclusion: |
-  The DnaG deficit is a translation-side execution gap, and the dedup hypothesis is
-  refuted.
+  CORRECTED after expert challenge. The first version of this conclusion claimed the
+  deficit was a translation-side execution gap and that the dedup hypothesis was
+  refuted. Both claims were wrong. They rested on static ParCa parameters rather than
+  on what the simulation does, in a study whose own headline finding is that the two
+  diverge by 22x.
 
-  Walking the production chain resolves three candidates into one. Transcription is
-  NOT the lossy step: TU00352 sits at the 91.9th percentile of 3277 transcripts, 30x
-  the median. Degradation is exactly the default rate. Translation efficiency is the
-  1.5th percentile of 4309 monomers, 2.27e-05 against a median of 2.30e-04. The
-  operon confirms the localisation independently: rpsU, dnaG and rpoD share one
-  transcript and one mRNA pool, yet their model/literature ratios span 3.55x
-  (rpsU 1.81x over, dnaG 0.64x, rpoD 0.51x), which transcription cannot produce.
+  Measured during a run, over a full generation (2528 timesteps):
+    TU00352 mRNA present            0 copies, 100% of timesteps
+    TU00352 synthesis events        0
+    transcripts made for dnaG       0
+    transcripts made for rpoD       461 (via TU00472)
+    transcripts made for rpsU       1   (via TU0-14460)
 
-  The larger gap is against the model's own target rather than against experiment.
-  ParCa fits DnaG at 38 copies, a reasonable 0.64x of the four-dataset literature
-  median of 59. The simulation then delivers a mean of 1.76 and sits at zero for
-  61.6% of a healthy 12-generation lineage: 22x below the parameterisation it was
-  given. A repair aimed only at recalibrating DnaG upward would miss this, because
-  even a perfect fit would leave the simulation ~20x short.
+  dnaG depends on a single transcript that the model never synthesises. Its operon
+  partners each carry a second transcript that IS used, so they are supplied normally
+  while dnaG receives nothing. That is the mechanism: not a per-cistron translation
+  step, but the absence of any alternative route for dnaG alone.
 
-  This is what makes the gate unusable. It demands 2 DnaG per origin against a
-  supply that is absent most of the time, which is why study 2's mechanistic arm
-  stalled in 8 of 8 seeds and why removing DnaG from the requirement restored 12/12.
-  Whether that deficit is WHY the option ships disabled is an inference we cannot
-  settle: the process schema defaults it to True, the cache overrides it to False,
-  and this repository records no rationale.
+  It also explains the protein numbers without invoking translation. ParCa seeds ~38
+  copies, nothing replenishes them, and the pool decays toward zero -- mean 1.76,
+  absent 61.6% of a healthy lineage. An mRNA that is never made cannot be translated,
+  so dnaG's low translation efficiency (1.5th percentile) is downstream of the real
+  block and cannot be the cause.
 
-  The cost to the investigation is its founding hypothesis. Study 1 traced the arrest
-  to DnaG and the standing assumption was that the rpsU-promoter dedup starved it.
-  dnaG's transcript turns out to be among the most transcribed in the model. The
-  dedup remains a genuine structural defect -- it still prevents dnaG from being
-  regulated independently of rpsU and rpoD -- but it is not the route by which DnaG
-  becomes scarce, and repairing it would not raise DnaG.
+  Two errors are worth recording because they were methodological, not arithmetic.
+  First, basal_prob never governed this transcript at all: TU00352 is in idx_rprotein,
+  and TranscriptInitiation overrides basal_prob with the fixed ribosomal-protein
+  probability for those TUs. Second, the operon 'internal control' assumed the three
+  cistrons share one mRNA pool. They do not, and that false premise is what made a
+  transcriptional divergence look translational.
 
-  A methodological note worth keeping. Comparing against Schmidt alone would have
-  shown the model OVER-producing DnaG by 6x, the exact opposite of the truth; Schmidt
-  reads 6 copies where Soufi, Mori and Li read 53, 66 and 98. That error was made
-  during scoping, from the two proteomics tables the repo ships, and corrected only
-  by pulling all four datasets.
-
-  Next: HolA (1.9th percentile) and HolB (5.7th) sit in the same translation tail as
-  DnaG, so this may be a systematic property of low-abundance proteins rather than a
-  DnaG-specific accident. Whether the low efficiency is inherited from the Li 2014
-  input or introduced by how ParCa applies it is the question that decides the fix.
+  The transcription-unit architecture is therefore back at the centre of the
+  investigation. Whether the rpsU-promoter dedup is what left dnaG without an
+  alternative transcript, and why an idx_rprotein TU draws zero synthesis, are the two
+  open questions -- and they are now the investigation's main thread rather than a
+  retired one.
 conclusion_verdicts:
   regression_compatibility:
     verdict: confirmed
-    basis: No model code or data was changed. The study is a deterministic read of the ParCa cache, the four proteomics datasets, and a lineage already simulated for replisome-gate-sufficiency.
+    basis: No model code or data was changed. The correcting measurement is an additional 3-generation run on the same cache and composite.
   biological_validation:
-    verdict: not_met (execution gap, not calibration)
-    basis: The simulation delivers 4.6% of ParCa's own fitted DnaG count, failing the one acceptance criterion that was genuinely open at design time. ParCa's fit is only 0.64x the literature median, so the model's disagreement is primarily with itself rather than with experiment.
+    verdict: not_met
+    basis: "The simulation delivers 4.6% of ParCa's fitted DnaG count. The cause is now established as transcriptional: dnaG's only transcript is synthesised zero times per generation."
   explanatory_gain:
-    verdict: confirmed
-    basis: The study replaces the investigation's standing explanation with a measured one. It refutes the dedup/transcription hypothesis (91.9th percentile), localises the loss to a per-cistron step via an internal operon control (3.55x spread on one mRNA pool), identifies translation efficiency as the anomalous step (1.5th percentile), and separates a modest calibration shortfall (0.64x) from a large execution gap (22x) that any repair must address separately.
-claim: "DnaG is scarce because of a translation-side execution gap, not the transcription-unit dedup: its transcript is 30x the median, but the simulation delivers 4.6% of ParCa's own fitted count."
+    verdict: confirmed (after correction)
+    basis: "The study's first conclusion was wrong and was reversed by measuring transcription during a run rather than reading a parameter. The corrected result identifies a concrete mechanism: dnaG depends on TU00352 alone, that transcript is never synthesised, and its operon partners escape via alternative transcripts (rpoD 461, rpsU 1, dnaG 0). It also records two methodological traps -- basal_prob is overridden for idx_rprotein TUs, and the three cistrons do NOT share a single mRNA pool."
+claim: "DnaG is starved because it depends on a single transcript, TU00352, that the model never synthesises; its operon partners rpsU and rpoD have alternative transcripts and are unaffected."

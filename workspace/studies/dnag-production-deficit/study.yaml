@@ -530,6 +530,15 @@ findings:
       realized / assigned           0.000x
     TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
     with the fixed ribosomal-protein probability -- basal_prob never governed it.
+  superseded_note: |
+    SUPERSEDED 2026-09-03 by silent-transcription-units. This study reported TU00352 at
+    ZERO synthesis with mRNA absent at 100% of timesteps, from ONE generation of ONE
+    seed. Across 9 (seed, generation) observations TU00352 receives 5 transcripts, so
+    'never synthesised' is wrong.
+
+    The deficit itself stands: ~0.5 transcripts per generation against a peer median of
+    55 amply explains a protein at zero 62% of the time. Only the DESCRIPTION changes,
+    from 'never transcribed' to 'transcribed ~51x below its assigned rate'.
 - id: F-03
   kind: biological
   status: contradicts
@@ -702,6 +711,15 @@ findings:
       realized / assigned           0.000x
     TU00352 is also in idx_rprotein, so TranscriptInitiation OVERRIDES its basal_prob
     with the fixed ribosomal-protein probability -- basal_prob never governed it.
+  superseded_note: |
+    SUPERSEDED 2026-09-03 by silent-transcription-units. This study reported TU00352 at
+    ZERO synthesis with mRNA absent at 100% of timesteps, from ONE generation of ONE
+    seed. Across 9 (seed, generation) observations TU00352 receives 5 transcripts, so
+    'never synthesised' is wrong.
+
+    The deficit itself stands: ~0.5 transcripts per generation against a peer median of
+    55 amply explains a protein at zero 62% of the time. Only the DESCRIPTION changes,
+    from 'never transcribed' to 'transcribed ~51x below its assigned rate'.
 conclusion: |
   CORRECTED after expert challenge. The first version of this conclusion claimed the
   deficit was a translation-side execution gap and that the dedup hypothesis was
@@ -749,4 +767,13 @@ conclusion_verdicts:
   explanatory_gain:
     verdict: confirmed (after correction)
     basis: "The study's first conclusion was wrong and was reversed by measuring transcription during a run rather than reading a parameter. The corrected result identifies a concrete mechanism: dnaG depends on TU00352 alone, that transcript is never synthesised, and its operon partners escape via alternative transcripts (rpoD 461, rpsU 1, dnaG 0). It also records two methodological traps -- basal_prob is overridden for idx_rprotein TUs, and the three cistrons do NOT share a single mRNA pool."
-claim: "DnaG is starved because it depends on a single transcript, TU00352, that the model never synthesises; its operon partners rpsU and rpoD have alternative transcripts and are unaffected."
+claim: "DnaG is starved because its only transcript, TU00352, is transcribed ~51x below its assigned rate while its operon partners rpsU and rpoD have alternative transcripts that are supplied normally."
+superseded_note: |
+  SUPERSEDED 2026-09-03 by silent-transcription-units. This study reported TU00352 at
+  ZERO synthesis with mRNA absent at 100% of timesteps, from ONE generation of ONE
+  seed. Across 9 (seed, generation) observations TU00352 receives 5 transcripts, so
+  'never synthesised' is wrong.
+
+  The deficit itself stands: ~0.5 transcripts per generation against a peer median of
+  55 amply explains a protein at zero 62% of the time. Only the DESCRIPTION changes,
+  from 'never transcribed' to 'transcribed ~51x below its assigned rate'.

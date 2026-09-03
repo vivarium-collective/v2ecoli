@@ -105,12 +105,10 @@ tests:
       kind: derived
       detail: "Mean post-burn-in growth_rate within a physiological window; not tuned to."
 
-visualizations:
-  - path: viz/arc2_energy_balance.html
-    title: "The maintenance-ATP knob does nothing (yield/O2 vs GAM·NGAM scale)"
-    caption: >-
-      Biomass yield and O2:glucose stay flat as GAM (1-5x) and NGAM (1-10x) maintenance
-      ATP are scaled; yield never approaches the measured band. The scoped fix is refuted.
+readouts:
+  - "biomass_yield (Yxs, gDW/g glucose) by integrated mass balance"
+  - "RQ = CO2/O2 and O2:glucose from live external_exchange_fluxes"
+  - "growth_rate (held-out) across the GAM/NGAM sweep"
 
 report_cards:
   - viz/arc2_energy_balance.html
@@ -184,6 +182,8 @@ findings:
       investigation from 'energetic defect, fix scoped to maintenance' to 'energetic defect,
       maintenance fix falsified, defect localized to oxidative-phosphorylation stoichiometry.'
     evidence:
+      from_test: biomass-yield-in-measured-band
+      from_run: arc2-maintenance-atp-sweep
       baseline: {biomass_yield: 0.816, RQ: 2.94, O2_glucose: 0.137, growth_per_h: 0.956}
       sweep_yield_range: [0.816, 0.831]
       ngam_x10_model_value_mmol_gDW_h: 83.9
@@ -200,6 +200,8 @@ findings:
       reaction-stoichiometry fix, not a parameter tweak, so it is out of scope for a 'small
       correction' and is flagged for a dedicated follow-up.
     next_action_type: escalate_model
+    provenance:
+      run_ids: [arc2-baseline-invivo-probe, arc2-maintenance-atp-sweep]
     caveats:
       - "Single-cell in-process probe over a partial cell cycle; absolute yield validated against the multi-cell diagnostic (0.816 vs 0.831, ~2%)."
       - "The sweep is a refutation, not an exhaustive search; a combined ETC-stoichiometry + maintenance change could still matter, but maintenance ALONE is falsified."

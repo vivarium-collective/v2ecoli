@@ -77,12 +77,9 @@ tests:
       kind: derived
       detail: "Linear regression of (division_mass - birth_mass) on birth_mass; slope near 0 = adder."
 
-visualizations:
-  - path: viz/arc3_heterogeneity.html
-    title: "Heterogeneity accumulates but stays below the biological band"
-    caption: >-
-      Interdivision-time CV grows 0%->3%->5% over generations, reaching ~7% — below the
-      biological 10-30% band. The model is more synchronized than real E. coli.
+readouts:
+  - "division_time (interdivision time, min) per cell across the seed ensemble; CV"
+  - "birth_mass, division_mass, added_mass (adder test)"
 
 report_cards:
   - viz/arc3_heterogeneity.html
@@ -140,6 +137,8 @@ findings:
       modeling change (adding stochastic mechanisms), not a parameter tweak, so it is flagged
       rather than applied here.
     evidence:
+      from_test: division-time-cv-in-band
+      from_run: arc3-seed-ensemble-6x4
       division_time_cv: 0.070
       mean_tau_min: 49.3
       cv_by_generation: {gen2: 0.000, gen3: 0.029, gen4: 0.050}
@@ -154,6 +153,8 @@ findings:
       rates (division D-period, replication initiation timing, low-copy expression) and whether
       an existing stochastic mode can be enabled. Structural change; out of scope for a small fix.
     next_action_type: escalate_model
+    provenance:
+      run_ids: [arc3-seed-ensemble-6x4]
     caveats:
       - "Small ensemble (6 seeds, 3 post-burn-in gens); the CV estimate has wide uncertainty but is robustly below the biological band across every generation."
 

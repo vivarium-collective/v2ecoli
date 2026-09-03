@@ -65,12 +65,8 @@ tests:
         ppgpp_conc rises after the shift; exchange fluxes/acetate change sign or
         magnitude; division_time distribution mean/CV shifts. All three within one run.
 
-visualizations:
-  - path: viz/capstone_multiscale.html
-    title: "One nutrient axis moves every scale together"
-    caption: >-
-      Across minimal<->rich medium, ppGpp (molecular), origins & growth (cell cycle), and
-      glucose uptake (metabolism) all shift in concert — cross-scale coordination.
+readouts:
+  - "ppGpp, origins_per_cell, growth_rate (Arc 1) and glucose uptake (Arc 2) at minimal vs rich"
 
 report_cards:
   - viz/capstone_multiscale.html
@@ -124,12 +120,16 @@ findings:
       rich medium O2 uptake collapses to ~0 — so the metabolic READOUT used here is glucose
       uptake, which is physiological, rather than the pathological respiratory quotient.)
     evidence:
+      from_test: three-complexities-co-occur
+      from_run: capstone-cross-nutrient-synthesis
       minimal: {ppgpp: 74.8, origins: 2.43, growth_per_h: 0.90, glucose_uptake: 6.49}
       rich: {ppgpp: 18.3, origins: 4.21, growth_per_h: 1.28, glucose_uptake: 9.86}
     expected:
       summary: "A nutrient upshift should raise growth, ribosome/replication activity, and uptake, and lower ppGpp."
     next_action: "Run a true temporal downshift (rich->minimal timeline within one lineage) to show the transient, not just the endpoints."
     next_action_type: replicate
+    provenance:
+      run_ids: [capstone-cross-nutrient-synthesis]
     caveats:
       - "Steady-state between-condition contrast, NOT a within-run temporal transient."
       - "Heterogeneity (Arc 3) was measured only at minimal; it is not part of this cross-condition portrait."

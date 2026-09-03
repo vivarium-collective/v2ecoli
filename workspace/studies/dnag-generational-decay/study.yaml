@@ -278,16 +278,22 @@ preregistered:
   - test: decay-survives-within-class-normalisation
     prior: Is the decay upstream of the class rescaling, or produced by it?
 assumptions:
-- assumption: Gene dosage cannot drive the decay through the ppGpp basal vector.
-  basis: 'Ruled out a priori from source, not assumed. ppgpp_initiation computes basal_prob = synth_prob(ppgpp_conc,
-    copy_number), and copy_number is declared ''integer{1}'' -- a static scalar, ''the expected gene copy
-    number at the reference doubling time'', supplied once at build time via _helpers.py:1491. It is not
-    a per-gene, per-generation array, so it carries no dosage information and cannot vary across a lineage.
-    Independently, dnaG is oriC-PROXIMAL: 70% of all TUs sit farther from oriC than its 715 kb, and its
-    rProtein peers average 548 kb, so under-replication would hurt most other genes more. Dosage may still
-    act elsewhere (e.g. promoter copy number reaching transcript_initiation directly) and decay-survives-within-class-normalisation
-    would surface that.'
-  risk: low
+- assumption: Gene dosage cannot drive the decay through the ppGpp basal vector INDEPENDENTLY of ppGpp.
+  basis: 'CORRECTED 2026-09-03. The original basis was WRONG on its facts: it claimed copy_number is a
+    static scalar because the schema declares ''integer{1}''. The runtime value is a CALLABLE, get_average_copy_number(tau,
+    coords) = 2**(((1 - relative_pos) * C + D) / tau), so copy number varies with both doubling time and
+    genomic position.
+
+    The exclusion nevertheless survives, for a different and verified reason: synth_prob derives tau from
+    its ppGpp argument internally (tau = log(2)/growth/60, then n_avg_copy = copy_number(tau, coords)),
+    so the dosage response is a FUNCTION of ppGpp and was already inside the held-out prediction that
+    refuted H1. Measured directly, dnaG''s b RISES 14% across generations 1-4, so neither ppGpp nor the
+    dosage it implies removes transcription from dnaG.
+
+    One genuine model inconsistency is exposed and left open: the tau used for dosage is the ppGpp-IMPLIED
+    doubling time, not the lineage''s actual tau, which reaches 200 min at the stall. The model therefore
+    computes gene dosage for a cell growing faster than the one being simulated.'
+  risk: medium
 - assumption: The idx_rprotein TUs are a valid comparison class for dnaG.
   basis: 'TU00352[c] is itself in idx_rprotein, so these are its actual class-mates under transcript_initiation''s
     fixed-fraction rescaling. They measured 1.95-2.23 of basal across BOTH arms of ppgpp-off-rescue, i.e.
@@ -425,7 +431,11 @@ conclusion: 'Phase A localised the defect and refuted two of four hypotheses wit
   and enormous. What remains is H5 -- the collapse originates between the ppGpp basal vector and the emitted
   probability, in transcript_initiation''s class rescaling and promoter term. The one axis that ''failed''
   for the phenomenon''s existence failed on its LOWER bound, which is the band doing its job. Phase B
-  is now aimed at a different question than it was designed for and should be re-scoped before it is run.'
+  is now aimed at a different question than it was designed for and should be re-scoped before it is run.
+  A follow-up check refuted the _PPGPP_SCALE_K lead outright (b is 3e+06 x K) and in doing so showed dnaG''s
+  ppGpp basal RISES 14% while its output collapses -- so the defect is unambiguously downstream. The next
+  target is dnaG''s promoter COUNT, since promoter_init_probs is indexed by promoter and a vanishing promoter
+  contributes nothing however healthy its probability.'
 confidence: Refuted
 runs:
 - name: dnag-generational-decay__phase-A
@@ -542,14 +552,35 @@ findings:
     the class''s fixed allocation is intact and is being apportioned away from dnaG specifically. Combined
     with H1''s refutation, the defect is now localised to the path between the ppGpp basal vector and
     the emitted synthesis probability: transcript_initiation''s class rescaling and its promoter/TF term.'
-- summary: 'LEAD, NOT A RESULT: the floor dnaG lands on sits at the _PPGPP_SCALE_K constant.'
+- summary: 'REFUTED LEAD: _PPGPP_SCALE_K is irrelevant to dnaG; b sits 3 million times above K.'
+  status: contradicts
+  evidence:
+    from_run: dnag-generational-decay__phase-A
+    observed: 2960000.0
+    units: b as a multiple of _PPGPP_SCALE_K
+  explanation: 'Checked directly and refuted. dnaG''s ppGpp-adjusted basal b measures 2.96e-05 at generation
+    1 against K = 1e-11, i.e. 2.96e+06 x K, so the smooth accessibility gain b^2/(b+K) equals b to six
+    decimal places and the constant has no effect on dnaG whatsoever. The clustering of dnaG''s collapsed
+    values at 1.2-1.9e-11 near K was a coincidence, which is why it was recorded as a lead and not a result.
+
+    The check returned something far more useful than the lead it killed: across generations 1-4 dnaG''s
+    ppGpp basal RISES 14% (2.96e-05 -> 3.37e-05) while its emitted synthesis falls to 1.3e-11. The input
+    to the pipeline increases while the output collapses, which removes any remaining possibility that
+    the collapse originates at or upstream of the ppGpp vector.
+
+    It also decomposes the generation-1 deficit: dnaG''s b is already 20x below the peer median b (2.96e-05
+    vs 6.06e-04) -- that share belongs to the ppGpp vector -- with a further ~2.4x lost downstream, together
+    giving the 47x.'
+- summary: 'NEXT TARGET: dnaG''s promoter count, not its synthesis probability.'
   status: novel
   evidence:
     from_run: dnag-generational-decay__phase-A
-  explanation: 'dnaG''s collapsed values cluster at 1.20e-11 to 1.92e-11 across seeds and generations.
-    transcript_initiation defines _PPGPP_SCALE_K = 1e-11 for the smooth accessibility gain scale = b^2/(b+K),
-    introduced to stop a truly-null gene (TU0-14529) taking a TF delta at full strength. A transcript
-    whose ppGpp-adjusted basal falls near K is driven toward zero by that term. The numerical coincidence
-    is striking and is the obvious next target, but it is NOT established here: this study did not measure
-    b, and the clustering could equally reflect an unrelated floor. Phase B or a successor should measure
-    the ppGpp basal vector and the rescaling factors per generation directly.'
+  explanation: 'With b rising and the emitted probability collapsing, the defect lies in transcript_initiation''s
+    path from basal_prob to promoter_init_probs = basal_prob[TU_index] + scale * (delta_prob[TU_index]
+    . bound_TF). That expression is indexed BY PROMOTER: if dnaG''s promoters vanish from the state, the
+    TU contributes nothing regardless of how healthy its probability is, which is exactly the signature
+    observed -- a floor rather than a gradient. Two specific reasons to look there first: silent-transcription-units
+    recorded that the promoter_copy_number listener emits EMPTY arrays on all 2528 timesteps, so this
+    quantity has never actually been checked; and TU00352[c] is the transcript whose three promoters (rpsUp1/2/3)
+    the known TU-dedup collapses into one, so dnaG has the fewest promoter copies to lose in the first
+    place.'

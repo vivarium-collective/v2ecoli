@@ -139,30 +139,7 @@ runs:
     kind: unknown
   params: '{"cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache", "cache_fingerprint": "ea05ac9b23b1d843", "cache_fingerprint_detail": {"exists": true, "fingerprint": "ea05ac9b23b1d843", "mtime": 1788304860.1314518, "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill", "size_bytes": 164931234}, "dnaA_synth_prob_from_cache": {}, "experiment_id": "mechanistic-replisome-arrest__mechanistic__seed0", "generations": 12, "max_min": 200.0, "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/mechanistic-replisome-arrest/mechanistic", "perturbations": {}, "perturbations_detail": {}, "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/mechanistic-replisome-arrest/runs.db", "resume_dill": null, "run_identity": {"cache_version": {"available": true, "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954", "schema_version": "2"}, "code": {"commit": "c1fc6f6a25f08103c3c1508948eb494e0e918f01", "diff_sha256": "258e101101887f4a939cc078b5d3c21d8f95d78e8a2061c662133eb9f24c2707", "dirty": true, "untracked": 3}, "design": {"experiment_id": "mechanistic-replisome-arrest__mechanistic__seed0", "generations": 12, "perturbations": {}, "seed": 0, "start_gen": 1}}, "seed": 0, "start_gen": 1}'
   computed_outcomes:
-    lineage-arrests-under-mechanistic-replisome:
-      result: PASS
-      measured_value: 1
-      evaluated_by: agent
-      operator: derived/< 12
-      detail: Mechanistic arm completed 1 generation(s); generation 2 ran the full duration cap without dividing (dry mass 4156.5 fg).
-    permissive-lineage-survives:
-      result: PASS
-      measured_value: 12
-      evaluated_by: agent
-      operator: derived/>= 12
-      detail: Permissive arm completed 12 generation(s) from the same seed and the same cache.
-    dnag-is-the-exhausted-subunit:
-      result: FAIL
-      measured_value: false
-      evaluated_by: agent
-      operator: derived/== True
-      detail: "No pool was exhausted at generation 2: worst margin +2 copies (DnaG, the scarcest pool, which still cleared its requirement). Margins: pol III core +229, beta clamp +131, DnaB hexamer +135, DnaG +2, HolB (delta') +337, HolA (delta) +15."
-    replisome_arrest:
-      result: FAIL
-      measured_value: fail
-      evaluated_by: code
-      operator: report_card/severity_gate
-      detail: 4/5 axes within tolerance; 1 hard mismatch. See viz/report_card/replisome_arrest.html.
+    _status: store_unresolved
   canonical: true
   outcomes:
     lineage-arrests-under-mechanistic-replisome:
@@ -198,6 +175,12 @@ simulation_set:
   params:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: true
+  pass_fail_tests: &id001
+  - replisome_arrest
+  metrics: &id002
+  - listeners.replication_data.number_of_oric
+  - bulk.count
+  - generation_summary
 - name: permissive
   kind: single
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -205,6 +188,8 @@ simulation_set:
     config_overrides:
       ecoli-chromosome-replication.mechanistic_replisome: false
   status: ran
+  pass_fail_tests: *id001
+  metrics: *id002
 pipeline_gate:
   gate_evaluator:
     result: failed

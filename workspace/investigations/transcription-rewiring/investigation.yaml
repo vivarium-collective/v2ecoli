@@ -120,3 +120,40 @@ scientific_argument:
 acceptance_criteria:
 - study: mechanistic-replisome-arrest
   behavior: lineage-arrests-under-mechanistic-replisome
+inputs:
+  references:
+  - bib_key: schmidt2016
+    title: Schmidt et al. 2016 -- quantitative E. coli proteome
+    kind: dataset
+    role: DnaG validation (reads 6 copies; the low outlier of the four)
+    local_path: ~/Documents/Proteomics data/schmidt et al 2016
+    used_by: scripts/proteome_compare.py (Table S6)
+    status: provided
+  - bib_key: soufi2015
+    title: Maeck/Soufi et al. 2015 -- E. coli proteome
+    kind: dataset
+    role: DnaG validation (53 copies)
+    local_path: ~/Documents/Proteomics data/maeck et al 2015
+    used_by: scripts/proteome_compare.py (sheet S2)
+    status: provided
+  - bib_key: mori2021
+    title: Mori et al. 2021 -- absolute proteome mass fractions
+    kind: dataset
+    role: DnaG validation (66 copies)
+    local_path: ~/Documents/Proteomics data/mori et al 2021
+    used_by: scripts/proteome_compare.py (EV9)
+    status: provided
+  - bib_key: li2014
+    title: Li et al. 2014 -- ribosome profiling / translation efficiency
+    kind: dataset
+    role: DnaG validation (98 copies) AND the source of the translation-efficiency ParCa input this study identifies as the anomalous step -- so it is both a validation set and a model input, and must not be treated as independent confirmation of the quantity it parameterises
+    local_path: ~/Documents/Proteomics data/Li et al 2014
+    used_by: scripts/proteome_compare.py; ParCa translation_efficiencies
+    status: provided
+  notes: |
+    Proteomics datasets live outside the repo in the user's local archive; paths are
+    recorded rather than the data vendored. scripts/proteome_compare.py in the sibling
+    v2ecoli checkout reads all four.
+
+    The four-dataset median matters: Schmidt alone reads DnaG at 6 copies where the
+    others read 53-98, so a single-dataset comparison inverts the conclusion.

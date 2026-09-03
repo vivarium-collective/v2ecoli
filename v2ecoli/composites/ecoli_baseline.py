@@ -1797,6 +1797,34 @@ def baseline(
         from v2ecoli.library.sim_data import seed_bulk_species
         initial_state["bulk"] = seed_bulk_species(initial_state["bulk"], _seed_specs)
 
+    # Product-agnostic EXCHANGE-store seeding, the environment.exchange sibling of
+    # the bulk seeding above: an injected subsystem declares the exchange keys it
+    # needs present via injected_processes["seed_exchange_species"], so the engine
+    # holds no pathway knowledge (the caller supplies the ids).
+    #
+    # Why it is needed at all: environment.exchange is a map[float] store
+    # initialised from the cache bundle with only the media's external molecules.
+    # A bare-float map leaf ACCUMULATES (state + update) -- it updates keys that
+    # already exist and never ADDS one. So an injected metabolism that secretes a
+    # species the ParCa bundle never registered writes into a key nobody created,
+    # and every downstream reader (exchange-flux listeners, a coupled environment)
+    # sees nothing. The process runs, the run completes clean, and the product
+    # reads bit-exact zero with nothing raising.
+    #
+    # setdefault, not assignment: a species the bundle already carries keeps its
+    # real initial value. Opt-in -- absent or empty leaves the built document
+    # byte-identical to today.
+    _exchange_seed = (injected_processes or {}).get("seed_exchange_species")
+    if _exchange_seed:
+        _exchange = initial_state.setdefault("environment", {}).setdefault(
+            "exchange", {})
+        for _species in _exchange_seed:
+            if not isinstance(_species, str) or not _species:
+                raise ValueError(
+                    "injected_processes['seed_exchange_species'] takes exchange "
+                    f"species ids (non-empty strings); got {_species!r}.")
+            _exchange.setdefault(_species, 0.0)
+
     configs = bundle["configs"]
     if config_overrides:
         # Deep-copy before patching: load_cache_bundle returns the cache dict

@@ -162,6 +162,7 @@ at_a_glance:
   - {study: mcs-05-etc-stoichiometry-fix, role: "Follow-up of Arc 2 — locate & correct the ATP-supply (P/O) defect"}
   - {study: mcs-06-stochastic-heterogeneity, role: "Follow-up of Arc 3 — restore single-cell heterogeneity into the band"}
   - {study: mcs-07-ribosome-allocation-law, role: "Follow-up of Arc 1 — test/correct the ribosome growth law"}
+  - {study: mcs-08-rna-protein-composition, role: "Composition scale — the RNA/protein (Bremer-Dennis) growth law, complementing mcs-07"}
 
 how_to_read: |
   Start with the capstone (mcs-04) for the payoff, then read the three arcs for the
@@ -222,6 +223,7 @@ inputs:
     - Feist2007iAF1260        # GAM/NGAM literature values (mcs-02)
     - Basan2015Nature         # acetate overflow / proteome tradeoff (mcs-02)
     - TaheriAraghi2015        # adder principle; interdivision CV band (mcs-03)
+    - BremerDennis2008        # RNA/protein composition growth law (mcs-08)
   expert_docs: []
 
 studies:
@@ -233,6 +235,7 @@ studies:
   - mcs-05-etc-stoichiometry-fix       # <- mcs-02: correct the ATP-supply (P/O) defect
   - mcs-06-stochastic-heterogeneity    # <- mcs-03: restore single-cell noise into the band
   - mcs-07-ribosome-allocation-law     # <- mcs-01: test/correct the ribosome growth law
+  - mcs-08-rna-protein-composition     # composition scale — RNA/protein growth law (with mcs-07)
 
 expert_docs: []
 
@@ -241,3 +244,4 @@ acceptance_criteria:
   - {study: mcs-02-metabolism-energy-balance, behavior: biomass-yield-in-measured-band}
   - {study: mcs-03-single-cell-heterogeneity, behavior: division-time-cv-in-band}
   - {study: mcs-04-capstone-downshift, behavior: three-complexities-co-occur}
+  - {study: mcs-08-rna-protein-composition, behavior: rna-protein-rises-with-growth}

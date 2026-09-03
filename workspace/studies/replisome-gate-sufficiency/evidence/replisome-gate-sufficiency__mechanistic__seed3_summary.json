@@ -1,0 +1,83 @@
+{
+  "experiment_id": "replisome-gate-sufficiency__mechanistic__seed3",
+  "cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache",
+  "generations_requested": 12,
+  "generations_completed": 4,
+  "pipeline_wall_seconds": 2336.3853890895844,
+  "run_config": {
+    "experiment_id": "replisome-gate-sufficiency__mechanistic__seed3",
+    "perturbations": {},
+    "perturbations_detail": {},
+    "cache_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache",
+    "cache_fingerprint": "ea05ac9b23b1d843",
+    "cache_fingerprint_detail": {
+      "path": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/cache/sim_data_cache.dill",
+      "exists": true,
+      "size_bytes": 164931234,
+      "mtime": 1788304860.1314518,
+      "fingerprint": "ea05ac9b23b1d843"
+    },
+    "seed": 3,
+    "generations": 12,
+    "start_gen": 1,
+    "max_min": 200.0,
+    "resume_dill": null,
+    "dnaA_synth_prob_from_cache": {},
+    "out_dir": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/out/replisome-gate-sufficiency/mechanistic/seed3",
+    "run_identity": {
+      "code": {
+        "commit": "365843059371888fb4ee9e7a5793a50e47d5107a",
+        "dirty": true,
+        "diff_sha256": "1b1af12659d5dd43ad9a0fada5cbba84fa3662c923f1474b715a35f4e1f4fd88",
+        "untracked": 0
+      },
+      "cache_version": {
+        "available": true,
+        "inputs_hash": "a5624c300aed56c2cc9877ca3cb4f2655e463a187681d55ef1da757c512d6954",
+        "schema_version": "2"
+      },
+      "design": {
+        "experiment_id": "replisome-gate-sufficiency__mechanistic__seed3",
+        "seed": 3,
+        "start_gen": 1,
+        "generations": 12,
+        "perturbations": {}
+      }
+    },
+    "registered_runs_db": "/Users/rashmidissasekara/Documents/code/v2ecoli-transcription/workspace/studies/replisome-gate-sufficiency/runs.db"
+  },
+  "gens": [
+    {
+      "gen": 1,
+      "agent_id": "0",
+      "duration_min": 43.0,
+      "divided": true,
+      "final_dry_mass_fg": 722.5973942949051,
+      "wall_seconds": 277.9705419540405
+    },
+    {
+      "gen": 2,
+      "agent_id": "00",
+      "duration_min": 46.0,
+      "divided": true,
+      "final_dry_mass_fg": 609.1861423222795,
+      "wall_seconds": 301.9336769580841
+    },
+    {
+      "gen": 3,
+      "agent_id": "000",
+      "duration_min": 57.0,
+      "divided": true,
+      "final_dry_mass_fg": 628.3232848822663,
+      "wall_seconds": 326.26962184906006
+    },
+    {
+      "gen": 4,
+      "agent_id": "0000",
+      "duration_min": 200.0,
+      "divided": false,
+      "final_dry_mass_fg": 2679.096567158308,
+      "wall_seconds": 1430.1189959049225
+    }
+  ]
+}

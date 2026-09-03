@@ -59,7 +59,7 @@ executive:
     investigation asks why, and the answer appears to sit upstream of
     replication entirely: in how the model decides which stretches of DNA are
     transcribed, and under whose regulatory control.
-  verdict: "The chain closes: a 5.40x transcription deficit fully explains DnaG's 4.75x protein gap and the replication stall. One defect remains -- ParCa fits a transcription rate ~6.85x above what the model delivers."
+  verdict: "The chain closes on one structural fact: ParCa fits against basal_prob while the runtime transcribes per the ppGpp-adjusted vector. For dnaG that accounts for the whole deficit; it does not generalise."
   verdict_status: in-progress
   verdict_detail: |
     Eight studies. The causal chain holds end to end at corrected magnitudes.
@@ -97,6 +97,7 @@ executive:
   - "Whether to treat the never-synthesised TU00352 as the investigation's primary target: establish why an idx_rprotein TU receives zero synthesis, and whether the dedup removed dnaG's alternative transcripts."
   - Whether a ~6x deficit still explains DnaG's protein shortfall, which was argued from a ~25x figure. If it does not, the replication story needs re-deriving at the corrected magnitude.
   - 'Reconcile the ParCa fit with the ppGpp runtime: the fit assumes ~6.85x more dnaG transcription than the model delivers, and that single disagreement may account for the entire deficit.'
+  - 'Which side of the fit-runtime mismatch should change: should ParCa fit against the in-force ppGpp vector, or should TranscriptInitiation stop substituting? This governs every downstream number in the investigation.'
 scientific_argument:
   main_claim: >-
     A transcription unit cannot serve as both promoter and transcript without

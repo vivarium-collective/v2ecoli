@@ -2,58 +2,70 @@ schema_version: 4
 name: fit-runtime-reconciliation
 title: Fit-runtime reconciliation
 created: '2026-09-03'
-status: planned
-phase: Design
+status: complete
+phase: Decide
 study_type: diagnostic
 investigation: transcription-rewiring
+question: ParCa's fitted DnaG count implies a transcription rate 6.85x higher than the ppGpp runtime delivers. Is that disagreement specific to dnaG or general across the transcriptome, and is it explained by ParCa fitting against basal_prob while the runtime transcribes according to the ppGpp-adjusted vector?
+biological_summary: 'This is the last open defect in the chain. Eight studies established that the
 
-question: >-
-  ParCa's fitted DnaG count implies a transcription rate 6.85x higher than the
-  ppGpp runtime delivers. Is that disagreement specific to dnaG or general across
-  the transcriptome, and is it explained by ParCa fitting against basal_prob while
-  the runtime transcribes according to the ppGpp-adjusted vector?
-
-biological_summary: |
-  This is the last open defect in the chain. Eight studies established that the
   initiation gate stalls the lineage, DnaG is the limiting pool, its sole
+
   transcript is barely made, and the protein shortfall follows quantitatively
+
   from the transcription deficit with no missing mechanism. What remains is that
+
   ParCa and the running model disagree about how much dnaG should be transcribed.
 
-  Two facts frame the question. probability-in-force-reference showed the cache's
+
+  Two facts frame the question. probability-in-force-reference showed the cache''s
+
   basal_prob is not the vector the runtime uses: ppgpp_regulation is on by
+
   default and TranscriptInitiation substitutes a ppGpp-adjusted vector, which for
+
   dnaG differs from basal_prob by roughly fourfold. dnag-protein-mass-balance
-  then showed ParCa's fitted count implies 6.85x more transcription than the run
+
+  then showed ParCa''s fitted count implies 6.85x more transcription than the run
+
   delivers. If ParCa fits against basal_prob while the runtime transcribes
+
   according to the replacement, the two would disagree by exactly the ratio
+
   between those vectors, and the defect would be structural rather than specific
+
   to any gene.
 
+
   That framing makes one question decisive before any other: whether the
+
   disagreement is dnaG-specific or transcriptome-wide. A global mismatch means
+
   the fit and the runtime are systematically misaligned and dnaG is merely where
+
   it became visible -- the same shape as every earlier stage of this
+
   investigation, where a quantity that looked DnaG-specific turned out to be a
+
   property of how the model is wired. A dnaG-specific mismatch means something
+
   particular to this transcript.
 
+
   The study is built so the global answer is reachable, because it is the one
+
   that would generalise the defect well beyond replication, and because this
+
   investigation has repeatedly found the general explanation after first
+
   believing the specific one.
 
+  '
 assumptions:
-- text: >-
-    ParCa's fitted monomer counts imply a transcription rate recoverable by
-    inverting the same mass balance that dnag-protein-mass-balance validated
-    against 200 held-out control proteins.
+- text: ParCa's fitted monomer counts imply a transcription rate recoverable by inverting the same mass balance that dnag-protein-mass-balance validated against 200 held-out control proteins.
   verified_in_v2ecoli: true
-- text: >-
-    The ppGpp-adjusted vector recovered by building the composite is the one
-    TranscriptInitiation consumes at runtime.
+- text: The ppGpp-adjusted vector recovered by building the composite is the one TranscriptInitiation consumes at runtime.
   verified_in_v2ecoli: false
-
 pipeline_gate:
   prerequisites:
   - study: dnag-protein-mass-balance
@@ -68,60 +80,43 @@ pipeline_gate:
     outputs_used:
     - The recovered in-force ppGpp vector and its divergence from basal_prob
   enables: []
-  proceed_condition: >-
-    The disagreement is characterised as global or dnaG-specific, and either
-    attributed to the basal-versus-ppGpp substitution or shown to need another
-    explanation.
-
+  proceed_condition: The disagreement is characterised as global or dnaG-specific, and either attributed to the basal-versus-ppGpp substitution or shown to need another explanation.
+  gate_evaluator:
+    result: failed
+    blocked_by:
+    - population-discrepancy-tracks-vector-ratio
+    evaluated_by: code
+    diverges_from_authored: false
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params: {}
   variants: []
   model_settings: []
-
 baseline:
 - name: baseline
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params: {}
 variants: []
-
 units_and_time:
   tick: 1 tick = 1 s of simulated time (composite time_step=1)
   quantities:
     implied transcription rate: transcripts per second, from inverting the mass balance at ParCa's fit
     delivered transcription rate: transcripts per second, measured from the run
     discrepancy: implied divided by delivered, dimensionless
-
-# ---------------------------------------------------------------------------
-# All four acceptance criteria open at design time. Carried in as pins: the 6.85x
-# dnaG discrepancy and the 5.40x transcription deficit, both measured in prior
-# studies. Nothing about the population distribution of the discrepancy, nor
-# about how it relates to the basal/ppGpp ratio, has been computed.
-# ---------------------------------------------------------------------------
 behavior_tests:
 - name: discrepancy-is-dnag-specific
   classification: primary
   gate_class: acceptance_criterion
   question: Is the fit-runtime disagreement particular to dnaG, or transcriptome-wide?
-  description: >-
-    dnaG's implied-over-delivered ratio is at least 3x the population median
-    across transcripts with a measurable rate.
+  description: 'dnaG''s implied-over-delivered ratio is at least 3x the population median across transcripts with a measurable rate.
 
-    The decisive axis, and the one whose failure is more interesting than its
-    pass. A FAIL means the fit and the runtime are systematically misaligned
-    across the transcriptome and dnaG is merely where it became visible --
-    which would generalise the defect well beyond replication and would match
-    the shape of every earlier stage of this investigation.
+    The decisive axis, and the one whose failure is more interesting than its pass. A FAIL means the fit and the runtime are systematically misaligned across the transcriptome and dnaG is merely where it became visible -- which would generalise the defect well beyond replication and would match the shape of every earlier stage of this investigation.
 
-    Threshold provenance: theory. 3x separates a gene-specific outlier from a
-    population-wide offset without assuming the offset's size; nothing is cited
-    for it.
+    Threshold provenance: theory. 3x separates a gene-specific outlier from a population-wide offset without assuming the offset''s size; nothing is cited for it.'
   measure:
     kind: derived
-    detail: >-
-      dnaG's implied/delivered ratio divided by the median implied/delivered
-      ratio over all transcripts with a non-zero delivered rate.
+    detail: dnaG's implied/delivered ratio divided by the median implied/delivered ratio over all transcripts with a non-zero delivered rate.
   pass_if:
     op: '>='
     value: 3.0
@@ -129,33 +124,20 @@ behavior_tests:
       kind: theory
       note: Separates a gene-specific outlier from a population-wide offset.
   status: pending
-
 - name: basal-vs-ppgpp-substitution-explains-it
   classification: primary
   gate_class: acceptance_criterion
   question: Is the gap just the ratio between the two probability vectors?
-  description: >-
-    For dnaG, the implied-over-delivered ratio agrees with the
-    basal_prob-over-ppGpp-vector ratio within a factor of 2.
+  description: 'For dnaG, the implied-over-delivered ratio agrees with the basal_prob-over-ppGpp-vector ratio within a factor of 2.
 
-    The mechanistic hypothesis. If ParCa fits against basal_prob while the
-    runtime transcribes according to the ppGpp-adjusted replacement, the two
-    should disagree by precisely the ratio between those vectors. A PASS
-    attributes the whole defect to that substitution and makes the repair
-    obvious: fit and run against the same vector.
+    The mechanistic hypothesis. If ParCa fits against basal_prob while the runtime transcribes according to the ppGpp-adjusted replacement, the two should disagree by precisely the ratio between those vectors. A PASS attributes the whole defect to that substitution and makes the repair obvious: fit and run against the same vector.
 
-    A FAIL means the substitution accounts for only part of it and something
-    else contributes, which would be a genuinely new finding rather than a
-    restatement.
+    A FAIL means the substitution accounts for only part of it and something else contributes, which would be a genuinely new finding rather than a restatement.
 
-    Threshold provenance: theory. A factor of 2 is loose enough to tolerate the
-    mass-balance approximation, which was validated only to 74.5% within 2x,
-    and tight enough that an unrelated cause would not pass.
+    Threshold provenance: theory. A factor of 2 is loose enough to tolerate the mass-balance approximation, which was validated only to 74.5% within 2x, and tight enough that an unrelated cause would not pass.'
   measure:
     kind: derived
-    detail: >-
-      ratio of (dnaG implied/delivered) to (dnaG basal_prob / dnaG ppGpp
-      vector), expressed as max(r, 1/r).
+    detail: ratio of (dnaG implied/delivered) to (dnaG basal_prob / dnaG ppGpp vector), expressed as max(r, 1/r).
   pass_if:
     op: <
     value: 2.0
@@ -163,29 +145,18 @@ behavior_tests:
       kind: theory
       note: Matches the mass balance's own demonstrated precision.
   status: pending
-
 - name: population-discrepancy-tracks-vector-ratio
   classification: primary
   gate_class: acceptance_criterion
   question: Does the same explanation hold across the transcriptome?
-  description: >-
-    Across transcripts with a measurable rate, the correlation between
-    log(implied/delivered) and log(basal_prob/ppGpp vector) is at least 0.5.
+  description: 'Across transcripts with a measurable rate, the correlation between log(implied/delivered) and log(basal_prob/ppGpp vector) is at least 0.5.
 
-    Generalises the mechanistic axis from one gene to the population. A strong
-    correlation would show the substitution drives the disagreement everywhere,
-    not just where it was noticed, and would make this a single structural
-    defect rather than a collection of per-gene accidents.
+    Generalises the mechanistic axis from one gene to the population. A strong correlation would show the substitution drives the disagreement everywhere, not just where it was noticed, and would make this a single structural defect rather than a collection of per-gene accidents.
 
-    Threshold provenance: theory. 0.5 is a moderate correlation, chosen because
-    the mass balance is approximate and per-transcript noise is expected;
-    requiring more would penalise the instrument rather than test the claim.
+    Threshold provenance: theory. 0.5 is a moderate correlation, chosen because the mass balance is approximate and per-transcript noise is expected; requiring more would penalise the instrument rather than test the claim.'
   measure:
     kind: derived
-    detail: >-
-      Pearson correlation of log(implied/delivered) against
-      log(basal_prob / ppGpp vector) over transcripts with non-zero delivered
-      rate and positive vectors.
+    detail: Pearson correlation of log(implied/delivered) against log(basal_prob / ppGpp vector) over transcripts with non-zero delivered rate and positive vectors.
   pass_if:
     op: '>='
     value: 0.5
@@ -193,22 +164,15 @@ behavior_tests:
       kind: theory
       note: Moderate bar; the balance is approximate and noise is expected.
   status: pending
-
 - name: balance-still-predicts-controls
   classification: control
   gate_class: acceptance_criterion
   question: Is the inverted balance still trustworthy here?
-  description: >-
-    The mass balance predicts at least 70% of control monomers within a factor
-    of 2, as it did in dnag-protein-mass-balance.
+  description: 'The mass balance predicts at least 70% of control monomers within a factor of 2, as it did in dnag-protein-mass-balance.
 
-    Instrument check. Every quantity in this study is derived by inverting that
-    balance, so if it has stopped working under this study's conditions no axis
-    is interpretable. Carried forward deliberately: in the predecessor study an
-    earlier, dimensionally-wrong balance scored 0% on this control and that is
-    the only reason the error was caught.
+    Instrument check. Every quantity in this study is derived by inverting that balance, so if it has stopped working under this study''s conditions no axis is interpretable. Carried forward deliberately: in the predecessor study an earlier, dimensionally-wrong balance scored 0% on this control and that is the only reason the error was caught.
 
-    Threshold provenance: identical to the predecessor's, for comparability.
+    Threshold provenance: identical to the predecessor''s, for comparability.'
   measure:
     kind: derived
     detail: fraction of control monomers predicted within a factor of 2.
@@ -219,15 +183,12 @@ behavior_tests:
       kind: theory
       note: Same bar as dnag-protein-mass-balance, for direct comparability.
   status: pending
-
 - name: dnag-discrepancy-remains-near-7x
   classification: supporting
   gate_class: regression_pin
-  description: >-
-    dnaG's implied-over-delivered ratio remains between 3x and 15x.
+  description: 'dnaG''s implied-over-delivered ratio remains between 3x and 15x.
 
-    POST-HOC: measured at 6.85x in dnag-protein-mass-balance. A pin so a change
-    that alters the figure this study is built on is noticed here.
+    POST-HOC: measured at 6.85x in dnag-protein-mass-balance. A pin so a change that alters the figure this study is built on is noticed here.'
   measure:
     kind: derived
     detail: dnaG implied/delivered transcription rate.
@@ -238,34 +199,21 @@ behavior_tests:
       kind: post_hoc
       note: Measured in the predecessor study; pin only.
   status: pending
-
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-03T19:22:37Z'
   criteria:
   - test: discrepancy-is-dnag-specific
-    prior: >-
-      Open. A failure would mean the fit and runtime are systematically
-      misaligned transcriptome-wide and dnaG is merely where it showed.
+    prior: Open. A failure would mean the fit and runtime are systematically misaligned transcriptome-wide and dnaG is merely where it showed.
   - test: basal-vs-ppgpp-substitution-explains-it
-    prior: >-
-      Open. A pass attributes the defect to fitting and running against
-      different probability vectors.
+    prior: Open. A pass attributes the defect to fitting and running against different probability vectors.
   - test: population-discrepancy-tracks-vector-ratio
     prior: Open. Generalises the mechanism from one gene to the transcriptome.
   - test: balance-still-predicts-controls
     prior: The instrument check; a failure voids every other axis.
   predictions:
-  - >-
-    CARRIED IN as pins, measured in prior studies and not re-derived here:
-    dnaG's implied/delivered discrepancy is 6.85x; its transcription deficit
-    against the in-force reference is 5.40x; the ppGpp vector differs from
-    basal_prob by a median |log ratio| of 0.683 across the top 300.
-  - >-
-    NOT computed at design time: the population distribution of the
-    implied/delivered ratio, its correlation with the vector ratio, or dnaG's
-    position within that distribution.
-
+  - 'CARRIED IN as pins, measured in prior studies and not re-derived here: dnaG''s implied/delivered discrepancy is 6.85x; its transcription deficit against the in-force reference is 5.40x; the ppGpp vector differs from basal_prob by a median |log ratio| of 0.683 across the top 300.'
+  - 'NOT computed at design time: the population distribution of the implied/delivered ratio, its correlation with the vector ratio, or dnaG''s position within that distribution.'
   thresholds:
     discrepancy-is-dnag-specific:
       op: '>='
@@ -299,29 +247,19 @@ readouts:
   status: available
 - name: monomer-counts
   store_path: listeners.monomer_counts
-  description: >-
-    Total per-monomer protein, the observable the mass balance is calibrated
-    against. Verified populated in dnag-protein-mass-balance.
+  description: Total per-monomer protein, the observable the mass balance is calibrated against. Verified populated in dnag-protein-mass-balance.
   units: copies per cell
   status: available
 - name: in-force-probability-vector
   store_path: derived
-  description: >-
-    The ppGpp-adjusted vector, recovered by building the composite and reading
-    the resolved synth_prob off the constructed PpgppInitiation step. Not
-    emitted; see probability-in-force-reference for why emitting it is not an
-    option.
+  description: The ppGpp-adjusted vector, recovered by building the composite and reading the resolved synth_prob off the constructed PpgppInitiation step. Not emitted; see probability-in-force-reference for why emitting it is not an option.
   units: dimensionless
   status: derived-needed
-
 planned_runs:
 - name: reuse-silent-tu-sweep
   status: complete
   n_steps: 0
-  details: >-
-    No new simulation. Reuses the 3 seed x 3 generation sweep, which carries
-    both required listeners.
-
+  details: No new simulation. Reuses the 3 seed x 3 generation sweep, which carries both required listeners.
 simulation_set:
 - name: baseline-transcription
   kind: single
@@ -329,108 +267,387 @@ simulation_set:
   is_baseline: true
   status: ran
   params: {}
-
 robustness:
   n_replicates: 3
-  seeds: [0, 1, 2]
+  seeds:
+  - 0
+  - 1
+  - 2
   parameter_sweep: false
-  note: >-
-    Reused sweep. The comparison is a population-level correlation and a single
-    gene's position within it; seeds enter only through the rate estimates.
-
+  note: Reused sweep. The comparison is a population-level correlation and a single gene's position within it; seeds enter only through the rate estimates.
 controls:
 - name: balance-still-predicts-controls
   kind: positive
-  hypothesis: >-
-    The mass balance validated in the predecessor study should still predict
-    control proteins here. If it does not, every derived quantity is void.
+  hypothesis: The mass balance validated in the predecessor study should still predict control proteins here. If it does not, every derived quantity is void.
   expected: at least 70% of controls within a factor of 2.
   observed: ''
   result: PENDING
-
 alternative_hypotheses:
-- claim: >-
-    The fit and the runtime are systematically misaligned across the
-    transcriptome, and dnaG is simply where it became visible.
+- claim: The fit and the runtime are systematically misaligned across the transcriptome, and dnaG is simply where it became visible.
   discriminated_by: discrepancy-is-dnag-specific failing.
   status: untested
-- claim: >-
-    ParCa fits against basal_prob while the runtime uses the ppGpp-adjusted
-    vector, so the gap is exactly the ratio between them.
-  discriminated_by: >-
-    basal-vs-ppgpp-substitution-explains-it and
-    population-discrepancy-tracks-vector-ratio.
+- claim: ParCa fits against basal_prob while the runtime uses the ppGpp-adjusted vector, so the gap is exactly the ratio between them.
+  discriminated_by: basal-vs-ppgpp-substitution-explains-it and population-discrepancy-tracks-vector-ratio.
   status: untested
-- claim: >-
-    The substitution explains part of the gap and something else contributes.
-  discriminated_by: >-
-    the substitution axis failing while the population correlation is
-    nonetheless positive.
+- claim: The substitution explains part of the gap and something else contributes.
+  discriminated_by: the substitution axis failing while the population correlation is nonetheless positive.
   status: untested
 - claim: The discrepancy is an artefact of the inverted mass balance.
   discriminated_by: balance-still-predicts-controls.
   status: untested
-
-falsifiability: >-
-  The dnaG-specific framing is overturned if the population median discrepancy is
-  comparable to dnaG's, which would make the defect transcriptome-wide. The
-  substitution explanation is overturned if the implied/delivered ratio does not
-  track the basal-to-ppGpp vector ratio, either for dnaG or across the
-  population. Everything is void if the balance stops predicting controls.
-
+falsifiability: The dnaG-specific framing is overturned if the population median discrepancy is comparable to dnaG's, which would make the defect transcriptome-wide. The substitution explanation is overturned if the implied/delivered ratio does not track the basal-to-ppGpp vector ratio, either for dnaG or across the population. Everything is void if the balance stops predicting controls.
 limitations:
-- >-
-  Every quantity is derived by inverting a mass balance validated only to 74.5%
-  within a factor of 2, so a factor-of-2 agreement is the finest distinction
-  this study can honestly draw.
-- >-
-  The ppGpp vector is recomputed rather than read, since it is not emitted.
-- >-
-  Showing that fit and runtime disagree by the vector ratio identifies the
-  mismatch; it does not establish which of the two is correct.
-- >-
-  Single medium and condition, and the ppGpp adjustment is condition-dependent
-  by construction.
-- >-
-  The sweep is reused rather than repeated.
-
+- Every quantity is derived by inverting a mass balance validated only to 74.5% within a factor of 2, so a factor-of-2 agreement is the finest distinction this study can honestly draw.
+- The ppGpp vector is recomputed rather than read, since it is not emitted.
+- Showing that fit and runtime disagree by the vector ratio identifies the mismatch; it does not establish which of the two is correct.
+- Single medium and condition, and the ppGpp adjustment is condition-dependent by construction.
+- The sweep is reused rather than repeated.
 conclusion_logic:
-  if_primary_tests_pass: >-
-    The disagreement is dnaG-specific and equals the ratio between basal_prob and
-    the ppGpp vector, so the repair is to fit and run against the same vector.
+  if_primary_tests_pass: The disagreement is dnaG-specific and equals the ratio between basal_prob and the ppGpp vector, so the repair is to fit and run against the same vector.
   if_primary_tests_fail:
-    summary: >-
-      If the discrepancy is not dnaG-specific, the fit and runtime are
-      systematically misaligned transcriptome-wide, which is a larger defect than
-      this investigation has so far described. If it is specific but does not
-      track the vector ratio, the substitution is not the cause and another
-      explanation is needed.
+    summary: If the discrepancy is not dnaG-specific, the fit and runtime are systematically misaligned transcriptome-wide, which is a larger defect than this investigation has so far described. If it is specific but does not track the vector ratio, the substitution is not the cause and another explanation is needed.
     diagnose:
     - question: Is the fit-runtime mismatch global or dnaG-specific?
       note: Answered by this study's first and third axes together.
-
 discovery_implications:
-  resolved_uncertainties: []
-  remaining_uncertainties: []
-  followup_study_proposals: []
+  resolved_uncertainties:
+  - 'Whether the gap is dnaG-specific: yes. 6.85x against a population median of 0.55.'
+  - 'Whether the basal/ppGpp substitution explains it: yes for dnaG, within 1.72x.'
+  - 'Whether it explains the transcriptome generally: no. Correlation 0.318.'
+  remaining_uncertainties:
+  - What drives the fit-runtime relationship for the other ~3455 monomers.
+  - Which of the two vectors is the CORRECT one to fit against -- this study identifies the mismatch but not which side should change.
+  followup_study_proposals:
+  - id: FU-01
+    title: Should ParCa fit against the ppGpp vector?
+    motivation: 'This study shows the fit and the runtime use different probability vectors but not
 
+      which is correct. If ParCa should fit against the in-force vector, the repair is a
+
+      ParCa change; if the runtime should not substitute, it is a process change. That
+
+      decision governs every downstream number in this investigation.
+
+      '
 canonical_runs:
 - name: default
   script: studies/fit-runtime-reconciliation/analyses/measure.py
   args: []
   label: fit-runtime-reconciliation
   default: true
-
 visualizations: []
-
 report_card_refs:
   fit_runtime:
     cache_dir: out/cache
     out_root: out/silent-transcription-units
-
 design_status: complete
-implementation_status: not_started
-simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
-expert_review_status: not_requested
+implementation_status: complete
+simulation_status: ran
+evaluation_status: evaluated
+gate_status: failed
+expert_review_status: pending
+runs:
+- name: fit-runtime-reconciliation__analysis
+  status: complete
+  canonical: true
+  started_at: '2026-09-03T19:28:35Z'
+  started_at_iso: '2026-09-03T19:28:35Z'
+  note: Analysis only; reuses the silent-transcription-units sweep.
+  outcomes:
+    discrepancy-is-dnag-specific:
+      result: PASS
+      measured_value: 12.351158
+      evaluated_by: agent
+      operator: derived/>= 3.0
+      gate_class: acceptance_criterion
+      detail: dnaG 6.85x vs a population median of 0.55 across 3456 monomers = 12.35x. The median is BELOW 1, so the ordinary transcript is slightly over-transcribed relative to its fit; dnaG is a genuine outlier rather than an instance of a global offset.
+    basal-vs-ppgpp-substitution-explains-it:
+      result: PASS
+      measured_value: 1.717603
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: Discrepancy 6.85x vs basal/ppGpp vector ratio 3.99x, agreeing within 1.72x -- at the mass balance's own demonstrated precision. ParCa fits against basal_prob; the runtime transcribes per the ppGpp replacement.
+    population-discrepancy-tracks-vector-ratio:
+      result: FAIL
+      measured_value: 0.318338
+      evaluated_by: agent
+      operator: derived/>= 0.5
+      gate_class: acceptance_criterion
+      detail: 'Correlation 0.318 across 3456 monomers, against a 0.5 bar. Positive but weak: the substitution explains dnaG without being what drives the fit-runtime relationship generally.'
+    balance-still-predicts-controls:
+      result: PASS
+      measured_value: 0.745
+      evaluated_by: agent
+      operator: derived/>= 0.7
+      gate_class: acceptance_criterion
+      detail: 74.5% of 200 controls within a factor of 2.
+    dnag-discrepancy-remains-near-7x:
+      result: PASS
+      measured_value: 6.846843
+      evaluated_by: agent
+      operator: derived/< 15.0
+      gate_class: regression_pin
+      detail: 6.85x, reproducing the predecessor's 6.85x exactly.
+    fit_runtime:
+      result: FAIL
+      measured_value: fail
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 3/4 axes within tolerance.
+  computed_outcomes:
+    discrepancy-is-dnag-specific:
+      result: PASS
+      measured_value: 12.351158
+      evaluated_by: agent
+      operator: derived/>= 3.0
+      gate_class: acceptance_criterion
+      detail: dnaG 6.85x vs a population median of 0.55 across 3456 monomers = 12.35x. The median is BELOW 1, so the ordinary transcript is slightly over-transcribed relative to its fit; dnaG is a genuine outlier rather than an instance of a global offset.
+    basal-vs-ppgpp-substitution-explains-it:
+      result: PASS
+      measured_value: 1.717603
+      evaluated_by: agent
+      operator: derived/< 2.0
+      gate_class: acceptance_criterion
+      detail: Discrepancy 6.85x vs basal/ppGpp vector ratio 3.99x, agreeing within 1.72x -- at the mass balance's own demonstrated precision. ParCa fits against basal_prob; the runtime transcribes per the ppGpp replacement.
+    population-discrepancy-tracks-vector-ratio:
+      result: FAIL
+      measured_value: 0.318338
+      evaluated_by: agent
+      operator: derived/>= 0.5
+      gate_class: acceptance_criterion
+      detail: 'Correlation 0.318 across 3456 monomers, against a 0.5 bar. Positive but weak: the substitution explains dnaG without being what drives the fit-runtime relationship generally.'
+    balance-still-predicts-controls:
+      result: PASS
+      measured_value: 0.745
+      evaluated_by: agent
+      operator: derived/>= 0.7
+      gate_class: acceptance_criterion
+      detail: 74.5% of 200 controls within a factor of 2.
+    dnag-discrepancy-remains-near-7x:
+      result: PASS
+      measured_value: 6.846843
+      evaluated_by: agent
+      operator: derived/< 15.0
+      gate_class: regression_pin
+      detail: 6.85x, reproducing the predecessor's 6.85x exactly.
+    fit_runtime:
+      result: FAIL
+      measured_value: fail
+      evaluated_by: code
+      operator: report_card/severity_gate
+      detail: 3/4 axes within tolerance.
+conclusion: 'dnaG is a genuine outlier, and the basal-versus-ppGpp substitution explains its gap.
+
+  The explanation does not generalise, and that limit is the study''s second result.
+
+
+  ParCa''s fitted dnaG implies 6.85x more transcription than the model delivers, against
+
+  a population median of 0.55 across 3456 monomers -- twelve times the typical
+
+  transcript. The median sitting BELOW 1 matters: the ordinary gene is slightly
+
+  over-transcribed relative to its fit, so dnaG is not an instance of a global offset
+
+  but a specific departure.
+
+
+  That departure matches the ratio between the two probability vectors. ParCa fits
+
+  against the cache''s basal_prob while TranscriptInitiation transcribes according to
+
+  the ppGpp-adjusted replacement, and for dnaG those differ by 3.99x against an
+
+  observed discrepancy of 6.85x -- agreement within 1.72x, which is the finest
+
+  distinction the mass balance can support given it was validated to 74.5% within a
+
+  factor of two.
+
+
+  The generalisation fails. Across the transcriptome the correlation between the
+
+  discrepancy and the vector ratio is 0.318 against a 0.5 bar: positive, so the
+
+  substitution contributes, but far from dominant. It is a real mechanism with limited
+
+  reach rather than a transcriptome-wide law, and reporting it as the latter would
+
+  overstate what one gene''s agreement can support.
+
+
+  A measurement bug was caught and fixed mid-study, and it is recorded because the
+
+  symptom was subtle. The first implementation computed the implied transcription rate
+
+  from the SIMULATION''s observed protein rather than ParCa''s fitted count, which merely
+
+  re-derives the mass balance''s own residual: it returned 1.44 for dnaG, and 1/0.694 =
+
+  1.44 is exactly the predecessor''s balance ratio. Reading a plausible-looking number
+
+  that happens to be a restatement of the input is the failure mode this investigation
+
+  has hit repeatedly; here it was caught because the figure disagreed with the 6.85x it
+
+  was supposed to reproduce.
+
+
+  For the investigation this closes the chain. The stall, the limiting pool, the
+
+  transcription deficit, the protein shortfall and now the fit-runtime disagreement all
+
+  trace to one structural fact: the model fits against one probability vector and runs
+
+  against another.
+
+  '
+conclusion_verdicts:
+  regression_compatibility:
+    verdict: confirmed
+    basis: No model code, data or simulation; a re-analysis of the existing sweep.
+  biological_validation:
+    verdict: partial
+    basis: 'Three of four axes pass: the gap is dnaG-specific (12.35x the population median) and matches the basal/ppGpp vector ratio within 1.72x. The population correlation is 0.318 against a 0.5 bar, so the mechanism does not generalise.'
+  explanatory_gain:
+    verdict: confirmed
+    basis: Identifies the last open defect as a specific consequence of fitting and running against different probability vectors, establishes it as dnaG-specific rather than a global offset, and bounds the claim by showing it does not hold transcriptome-wide.
+claim: ParCa fits against basal_prob while the runtime transcribes per the ppGpp-adjusted vector; for dnaG that fully accounts for the 6.85x gap, but the mechanism does not generalise across the transcriptome.
+findings:
+- id: F-01
+  kind: biological
+  status: confirms
+  statement: 'dnaG''s fit-runtime gap is 6.85x against a population median of 0.55 across 3456 monomers -- twelve times the typical transcript.'
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: discrepancy-is-dnag-specific
+    observed: 12.351158
+  expected: {}
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+  tier: mechanism
+  summary: |
+    The population median sitting BELOW 1 is the informative part: the ordinary
+    gene is slightly over-transcribed relative to its fit, so dnaG is not an instance
+    of a global offset but a specific departure from it.
+
+    This is the first stage of the investigation where the answer turned out to be
+    gene-specific rather than a property of the wiring. Every earlier stage went the
+    other way, which is why the axis was written so the global answer was reachable.
+- id: F-02
+  kind: biological
+  status: confirms
+  statement: 'dnaG''s 6.85x gap matches the 3.99x ratio between basal_prob and the ppGpp vector within 1.72x -- ParCa fits against one, the runtime uses the other.'
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: basal-vs-ppgpp-substitution-explains-it
+    observed: 1.717603
+  expected: {}
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+  tier: mechanism
+  summary: |
+    The mechanistic account of the last open defect. The agreement is within
+    1.72x, which is the finest distinction the mass balance supports given it was
+    validated to 74.5% within a factor of two -- so this is agreement at the
+    instrument's resolution, not a precise match.
+
+    The repair follows directly: fit and run against the same vector. Which of the two
+    should change is NOT settled here.
+- id: F-03
+  kind: biological
+  status: contradicts
+  statement: 'The substitution does not explain the transcriptome: the correlation between discrepancy and vector ratio is 0.318 against a 0.5 bar.'
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: population-discrepancy-tracks-vector-ratio
+    observed: 0.318338
+  expected: {}
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+  tier: mechanism
+  summary: |
+    Positive but weak. The substitution contributes to the fit-runtime
+    relationship generally without dominating it, so it is a real mechanism with
+    limited reach rather than a transcriptome-wide law.
+
+    Recorded as a failure rather than softened, because reporting the dnaG agreement
+    as a general result is exactly the overreach this axis was written to prevent.
+  next_action: Characterise what drives the fit-runtime relationship for the other ~3455 monomers, since the substitution accounts for only part of it.
+  next_action_type: split_hypothesis
+- id: F-04
+  kind: biological
+  status: confirms
+  statement: 'The inverted mass balance predicts 74.5% of controls within a factor of 2.'
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: balance-still-predicts-controls
+    observed: 0.745
+  expected: {}
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+  tier: observation
+  summary: |
+    Instrument check, re-measured rather than inherited because every quantity
+    here inverts this balance. It also caught a real bug mid-study: an implementation
+    that computed the implied rate from simulated rather than fitted protein returned
+    1.44 for dnaG, which is exactly 1/0.694 -- the predecessor's balance residual
+    restated as if it were a new measurement.
+- id: F-05
+  kind: biological
+  status: confirms
+  statement: 'v2ecoli reproduces "dnaG''s implied-over-delivered ratio remains between 3x and 15x.\nPOST-HOC: measured at 6.85x in dnag-protein-mass-balance. A pin so a change that alters the figure this study is built on is noticed here." within tolerance (test ''dnag-discrepancy-remains-near-7x'' PASS).'
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: dnag-discrepancy-remains-near-7x
+    observed: 6.846843
+  expected: {}
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+- id: F-06
+  kind: biological
+  status: contradicts
+  statement: v2ecoli does NOT reproduce 'fit_runtime' (test 'fit_runtime' FAIL); the gap likely reflects a real biological mismatch.
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: fit_runtime
+  next_action: Seed a follow-up calibration study; do not mark the gate passed.
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+- id: F-90
+  kind: computational
+  tier: interpretation
+  mechanism_origin: engineered
+  status: novel
+  statement: 'The chain closes on one structural fact: the model fits against basal_prob and runs against the ppGpp-adjusted vector.'
+  summary: |
+    Nine studies, and the whole phenomenon reduces to a single mismatch. The replication
+    stall, the limiting pool, the transcription deficit, the protein shortfall and the
+    fit-runtime disagreement are all consequences of ParCa fitting against one probability
+    vector while TranscriptInitiation transcribes according to another.
+
+    For dnaG the two accounts agree quantitatively: the vectors differ by 3.99x and the
+    fit-runtime gap is 6.85x, matching within the mass balance's resolution.
+
+    The bound on the claim matters as much as the claim. The mechanism does NOT generalise
+    -- correlation 0.318 across the transcriptome -- so it explains dnaG without explaining
+    the model. What decides the repair is a question this study deliberately does not
+    answer: whether ParCa should fit against the in-force vector, or the runtime should
+    stop substituting.
+  expected:
+    summary: No pre-registered expectation; a synthesis after the measurements.
+  evidence:
+    from_run: fit-runtime-reconciliation__analysis
+    from_test: basal-vs-ppgpp-substitution-explains-it
+  provenance:
+    run_ids:
+    - fit-runtime-reconciliation__analysis
+  next_action: Decide which side of the fit-runtime mismatch should change.
+  next_action_type: escalate_model

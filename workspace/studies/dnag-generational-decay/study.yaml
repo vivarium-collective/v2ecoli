@@ -3,14 +3,14 @@ name: dnag-generational-decay
 title: Why dnaG's transcription decays across generations
 investigation: transcription-rewiring
 study_type: mechanism_localisation
-phase: Design
+phase: Decide
 created: '2026-09-03'
-status: planned
+status: complete
 design_status: complete
 implementation_status: not_started
-simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: failed
 expert_review_status: not_requested
 question: 'dnaG''s transcription falls generation over generation while its ribosomal-protein class-mates
   hold steady. ppgpp-off-rescue explained the LEVEL -- removing ppGpp regulation recovers 16.6x of the
@@ -203,7 +203,8 @@ behavior_tests:
   measure:
     kind: derived
     detail: dnaG's generation-1 deficit against the idx_rprotein peer median, ppGpp-on arm.
-    path: dnaG deficit vs idx_rprotein peer median at generation 1
+    path: median over idx_rprotein peers of (actual_rna_synth_prob / basal_prob), divided by the same
+      ratio for dnaG, at generation 1 -- each TU normalised by its OWN basal first (study 10's definition)
   pass_if:
     op: <=
     value: 94.8
@@ -337,7 +338,7 @@ implementation_requirements:
     this study, which uses the peer group throughout, but the older figure must not be cited beside these
     results.
 - id: req-3
-  status: not_started
+  status: complete
   blocking: true
   summary: Per-generation extraction helper in v2ecoli/library/generational_decay.py.
   detail: 'All six axes read per-generation aggregates; every existing helper returns a single pooled
@@ -390,14 +391,15 @@ controls:
   kind: negative
   hypothesis: If dnaG's class-mates decay alongside it, the phenomenon is class-level and not dnaG-specific.
   expected: idx_rprotein peer median changes by less than 1.5x over generations 1-4.
-  observed: ''
-  result: PENDING
+  observed: Peer median rises 1.474x over generations 1-4; the phenomenon is dnaG-specific.
+  result: PASS
 - name: decay-is-real-per-generation
   kind: positive
   hypothesis: The decay must be shown to exist per-generation before any mechanism is fitted to it.
   expected: generation-4 dnaG synthesis below half of generation 1.
-  observed: ''
-  result: PENDING
+  observed: 'A change exists and is enormous: 3.28e-06 of generation 1. It is a shutdown, not the gradual
+    decay the band was written for, so the axis fails on its lower bound.'
+  result: FAIL
 limitations:
 - Phase A's 3 seeds are correlated by the generation-1 seed defect; no quantitative decay rate may be
   quoted from Phase A alone.
@@ -407,6 +409,147 @@ limitations:
   rather than the mean, the prediction axis could fail for a reason unrelated to H1's truth.
 - Phase A measures a stalling lineage. Every quantity is read from cells that are already failing, so
   a mechanism found here is a mechanism of the failure and may not describe healthy growth.
-claim: ''
-conclusion: ''
-confidence: Planned
+- Phase B was designed to replicate a gradual decay on properly seeded runs. The phenomenon turned out
+  to be a shutdown localised downstream of basal_prob, so Phase B as specified would answer a question
+  that is no longer the live one; it should be re-scoped to measure the ppGpp basal vector and the class-rescaling
+  factors per generation, not merely repeat Phase A with more seeds.
+claim: 'dnaG is not diluted across generations -- its transcription shuts off to the numerical floor by
+  generation 3, and ppGpp cannot explain it: the defect lies downstream of the ppGpp basal vector.'
+conclusion: 'Phase A localised the defect and refuted two of four hypotheses without running a single
+  new simulation. The phenomenon is real but was mis-framed: dnaG does not decay, it collapses 5.41e-06
+  -> 1.3e-11, a shutdown to the numerical floor by generation 3, non-monotonic across seeds. H1 (ppGpp
+  feedback spiral) is refuted by five orders of magnitude in a zero-parameter held-out prediction, and
+  decisively so because ppgpp_conc is the only per-generation input to that vector; in one seed ppGpp
+  is flat while dnaG still collapses. H4 (class bookkeeping) is refuted because the rProtein class total
+  and its 41 peers both RISE while dnaG within the class goes to zero. H6 is refuted: the change is real
+  and enormous. What remains is H5 -- the collapse originates between the ppGpp basal vector and the emitted
+  probability, in transcript_initiation''s class rescaling and promoter term. The one axis that ''failed''
+  for the phenomenon''s existence failed on its LOWER bound, which is the band doing its job. Phase B
+  is now aimed at a different question than it was designed for and should be re-scoped before it is run.'
+confidence: Refuted
+runs:
+- name: dnag-generational-decay__phase-A
+  status: complete
+  canonical: true
+  started_at: '2026-09-03T22:05:00Z'
+  started_at_iso: '2026-09-03T22:05:00Z'
+  note: 'ANALYSIS ONLY, no new simulation, as designed. Reuses ppgpp-off-rescue''s ppGpp-on control arm
+    (3 seeds x generations 1-4) via the new v2ecoli/library/generational_decay.py (req-3), which aggregates
+    PER GENERATION rather than pooling a window. ppgpp-on/seed2 generation 4 is EXCLUDED from every axis:
+    that run was stopped by hand and its generation 4 holds 2 timesteps, which is not a mean. Generation
+    1 is bit-identical across all three seeds, re-confirming the req-1 seed defect.'
+  outcomes:
+    decay-is-real-per-generation:
+      result: FAIL
+      measured_value: 3.278e-06
+      evaluated_by: agent
+      operator: derived/band [0.04, 0.12]
+      gate_class: acceptance_criterion
+      detail: 'dnaG''s generation-4 synthesis is 3.28e-06 of its generation-1 value -- FOUR ORDERS OF
+        MAGNITUDE below the band''s lower bound. The axis fails, but not for lack of a decay: the band''s
+        lower bound was written to catch ''a collapse to silence rather than a decay'', and that is exactly
+        what fired. dnaG falls 5.41e-06 -> 1.3e-11, i.e. to the numerical floor. Per seed: 3.01e-06, 3.55e-06.
+        Non-monotonic as the prior de-convolution predicted -- seed 2 partially recovers at generation
+        3 (0.306 of generation 1) before collapsing.'
+    peers-do-not-decay:
+      result: PASS
+      measured_value: 1.474
+      evaluated_by: agent
+      operator: derived/band [0.67, 1.5]
+      gate_class: acceptance_criterion
+      detail: 'The 41 idx_rprotein peers'' median synthesis RISES slightly, 1.474x over generations 1-4
+        (per seed 1.51, 1.44), landing just inside the band. The phenomenon is dnaG-specific, not class-level.
+        Note how close this sits to the upper bound: the peers are not merely steady, they are gaining
+        while dnaG vanishes.'
+    ppgpp-conc-rises-across-generations:
+      result: PASS
+      measured_value: 1.249
+      evaluated_by: agent
+      operator: derived/>= 1.2
+      gate_class: acceptance_criterion
+      detail: 'ppGpp rises 1.249x median over generations 1-4, clearing the precondition by a hair. But
+        the per-seed spread is the real story: 1.487 and 1.010. In seed 1 ppGpp barely moves at all while
+        dnaG still collapses by 10^5, which alone makes a ppGpp-driven mechanism implausible.'
+    ppgpp-predicts-the-decay:
+      result: FAIL
+      measured_value: 378000.0
+      evaluated_by: agent
+      operator: derived/band [0.67, 1.5]
+      gate_class: acceptance_criterion
+      detail: 'REFUTES H1 decisively. Feeding each generation''s measured ppGpp concentration through
+        the fitted, untouched synth_prob predicts dnaG should be essentially FLAT -- ratios of 1.136 (seed
+        0) and 1.002 (seed 1). Observed is 3.0e-06 and 3.6e-06. Predicted over observed is 3.78e+05 and
+        2.82e+05: wrong by five orders of magnitude. Because copy_number is a static scalar, ppgpp_conc
+        is the ONLY per-generation-varying input to the ppGpp basal vector, so this is not a weak prediction
+        that missed -- it establishes that the collapse cannot originate in that vector at all.'
+    decay-survives-within-class-normalisation:
+      result: PASS
+      measured_value: 1.374
+      evaluated_by: agent
+      operator: derived/band [0.67, 1.5]
+      gate_class: acceptance_criterion
+      detail: REFUTES H4. The metric reduces algebraically to the class total's own generation-4-over-1
+        ratio, measured at 1.374 (per seed 1.42, 1.33) -- the idx_rprotein class total is steady and slightly
+        RISING while dnaG within it goes to zero. The collapse is genuinely dnaG's own and is not produced
+        by the class denominator moving.
+    dnag-deficit-vs-rprotein-peers-at-gen1:
+      result: PASS
+      measured_value: 47.42
+      evaluated_by: agent
+      operator: derived/<= 94.8
+      gate_class: regression_pin
+      detail: '47.42x against study 10''s recorded 47.4x -- the baseline reproduces exactly. NOTE a defect
+        in this study''s own spec: the pin''s measure.path said ''dnaG deficit vs idx_rprotein peer median''
+        without stating that each TU is first normalised by its own basal_prob. Computed as a raw actual-value
+        ratio it reads 133.8x and would have ''failed'' the pin; the two differ because dnaG''s basal
+        (1.21e-04) is 2.6x below the peer median basal (3.20e-04). The pin passes on study 10''s actual
+        definition, and the measure.path is corrected here.'
+findings:
+- summary: dnaG's transcription is not diluted or decayed across generations -- it is switched OFF, falling
+    to the numerical floor by generation 3.
+  status: novel
+  evidence:
+    from_test: decay-is-real-per-generation
+    observed: 3.278e-06
+    units: gen4/gen1 ratio
+  explanation: 'Per generation, dnaG''s mean actual_rna_synth_prob runs 5.41e-06 -> ~1.5e-07 -> ~1.3e-11
+    -> ~1.8e-11. That is not a gradient, it is a shutdown to a floor, and it reframes the question that
+    motivated this study: nothing is being ''diluted out''. The earlier cumulative windows (0.045 / 0.023
+    / 0.016) disguised this completely, because a cumulative mean is dominated by the generation that
+    still had signal. The pre-registered band''s LOWER bound is what caught it -- written to distinguish
+    a decay from a collapse to silence, and it fired.'
+- summary: The collapse cannot originate in the ppGpp basal vector. H1 is refuted by five orders of magnitude.
+  status: contradicts
+  evidence:
+    from_test: ppgpp-predicts-the-decay
+    observed: 378000.0
+    units: predicted/observed
+  explanation: 'Feeding the measured per-generation ppGpp concentration through the fitted, untouched
+    synth_prob predicts dnaG should stay FLAT (1.136 and 1.002); observed is ~3e-06. This is a zero-parameter
+    held-out prediction, and because copy_number is a static scalar, ppgpp_conc is the ONLY per-generation-varying
+    input to that vector -- so the failure is structural, not a near miss. Seed 1 settles it independently:
+    ppGpp moves 1.01x there while dnaG still collapses 10^5-fold. ppGpp sets dnaG''s LEVEL (study 10''s
+    16.6x) but has nothing to do with its generational collapse.'
+- summary: The collapse is dnaG's own and is not class bookkeeping. H4 is refuted; the defect is localised
+    downstream of basal_prob.
+  status: novel
+  evidence:
+    from_test: decay-survives-within-class-normalisation
+    observed: 1.374
+    units: class-total gen4/gen1
+  explanation: 'The idx_rprotein class total is steady and slightly rising (1.374x) and the 41 peers''
+    median RISES 1.474x over the same generations, while dnaG within that same class goes to zero. So
+    the class''s fixed allocation is intact and is being apportioned away from dnaG specifically. Combined
+    with H1''s refutation, the defect is now localised to the path between the ppGpp basal vector and
+    the emitted synthesis probability: transcript_initiation''s class rescaling and its promoter/TF term.'
+- summary: 'LEAD, NOT A RESULT: the floor dnaG lands on sits at the _PPGPP_SCALE_K constant.'
+  status: novel
+  evidence:
+    from_run: dnag-generational-decay__phase-A
+  explanation: 'dnaG''s collapsed values cluster at 1.20e-11 to 1.92e-11 across seeds and generations.
+    transcript_initiation defines _PPGPP_SCALE_K = 1e-11 for the smooth accessibility gain scale = b^2/(b+K),
+    introduced to stop a truly-null gene (TU0-14529) taking a TF delta at full strength. A transcript
+    whose ppGpp-adjusted basal falls near K is driven toward zero by that term. The numerical coincidence
+    is striking and is the obvious next target, but it is NOT established here: this study did not measure
+    b, and the clustering could equally reflect an unrelated floor. Phase B or a successor should measure
+    the ppGpp basal vector and the rescaling factors per generation directly.'

@@ -316,13 +316,11 @@ preregistered:
           the deficit rather than defending the prior mechanism claim.
 readouts:
 - name: ppgpp-adjusted-basal
-  store_path: derived
+  store_path: ppgpp_state.basal_prob
   description: >-
-    The basal vector the ppGpp module writes into ppgpp_state, which replaces
-    the cache's basal_prob when present. NOT known to be emitted; may require
-    instrumenting the ppGpp module or reconstructing it from the process.
+    The basal vector PpgppInitiation writes and TranscriptInitiation consumes in place of the cache's basal_prob. NOT currently emitted; obtainable by adding ppgpp_state to the emitted stores in a short re-run.
   units: dimensionless
-  status: aspirational
+  status: derived-needed
 - name: actual-synthesis-probability
   store_path: listeners.rna_synth_prob.actual_rna_synth_prob
   description: Per-TU probability in force; the numerator throughout.
@@ -337,8 +335,8 @@ readouts:
 implementation_requirements:
 - id: req-1
   kind: listener
-  title: Determine whether the ppGpp-adjusted basal vector is observable
-  status: planned
+  title: Determine whether the ppGpp vector is observable — RESOLVED
+  status: done
   effort: S
   description: >-
     The whole study depends on reading the vector in force. It is not known to
@@ -355,6 +353,20 @@ implementation_requirements:
   - in-force-reference-differs-from-basal
   - deficit-survives-correct-reference
 
+  outcome: Not emitted, but the branch is confirmed active by default and the vector is obtainable by emitting ppgpp_state in a short re-run. No instrumentation of the model required.
+- id: req-2
+  kind: data
+  title: Emit ppgpp_state in a short run
+  status: planned
+  effort: S
+  description: |
+    Add ppgpp_state to the emitted stores and run 1 seed x 2 generations. That yields
+    the vector actually in force, which three of four axes need. An emitter-config
+    change only -- no model change, and nothing that alters simulation behaviour.
+  unblocks:
+  - in-force-reference-differs-from-basal
+  - deficit-survives-correct-reference
+  - suppression-is-not-explained-by-configured-regulators
 robustness:
   n_replicates: 3
   seeds: [0, 1, 2]
@@ -452,8 +464,38 @@ canonical_runs:
 visualizations: []
 
 design_status: complete
-implementation_status: not_started
+implementation_status: in_progress
 simulation_status: not_run
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
+capability_check: |
+  req-1 RESOLVED 2026-09-03 (capability check, no outcomes inspected).
+
+  The ppGpp-adjusted basal vector is NOT emitted. The only ppGpp column in the
+  existing runs is listeners.growth_limits.ppgpp_conc; there is no
+  ppgpp_state.basal_prob column.
+
+  But the branch IS active, which settles the study's premise independently of the
+  readout. PpgppInitiation (v2ecoli/steps/ppgpp_initiation.py) writes
+  ppgpp_state.basal_prob, and it is wired into ecoli_baseline through the
+  ppgpp_regulation feature, which is in DEFAULT_FEATURES and defaults True. So every
+  run in this investigation took the branch that REPLACES the cache's basal_prob, and
+  the cache vector was never the reference in force.
+
+  The vector is reconstructible in principle: PpgppInitiation computes it as
+  synth_prob(ppgpp_conc, copy_number), where ppgpp_conc is emitted and both
+  synth_prob (transcription.synth_prob_from_ppgpp) and copy_number
+  (replication.get_average_copy_number) live in the cache config. They are stored as
+  function-registry wrappers ({_function, _data}) rather than raw callables, and
+  several attempts to resolve them standalone via the core's method registry did not
+  succeed -- the process resolves them through its own initialisation path.
+
+  Two practical routes, in preference order:
+    (a) emit ppgpp_state in a short re-run. This is an emitter-configuration change,
+        not a model change, and yields the vector directly with no reconstruction.
+    (b) instantiate PpgppInitiation through the composite machinery so the method
+        wrappers resolve as they do at runtime, then call update().
+
+  Route (a) is preferred: it reads what the model actually used rather than
+  recomputing it, so it cannot silently diverge from the real value.

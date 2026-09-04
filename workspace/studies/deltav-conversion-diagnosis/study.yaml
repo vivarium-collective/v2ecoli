@@ -275,25 +275,35 @@ preregistered:
     prior: Is the distortion concentrated in entries whose basal_prob was clipped to zero?
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: Reproduce deltaV from r_vector, and identify what the fit was constrained to.
-  detail: calculateRnapRecruitment (fit_sim_data_1.py:4022) reads deltaV from r[col_names_to_index[rnaIdNoLoc
-    + '__' + tf]] and basal_prob from the matching '__alpha' column, where r = cell_specs['basal']['r_vector'],
+  detail: 'calculateRnapRecruitment (fit_sim_data_1.py:4022) reads deltaV from r[col_names_to_index[rnaIdNoLoc
+    + ''__'' + tf]] and basal_prob from the matching ''__alpha'' column, where r = cell_specs[''basal''][''r_vector''],
     set at line 3705. The fold changes enter far upstream (lines ~758, 874, 3879) as constraints on that
-    fit, NOT through any direct formula. So the question is not 'what transform is wrong' but 'what was
-    the regression asked to satisfy, and is deltaV/basal_prob the quantity that answers it'. req-1 is
-    to reproduce the stored deltaV from r_vector (axis 1) and to read the fit's objective -- what residual
-    it minimises and in what space -- WITHOUT yet evaluating fidelity.
+    fit, NOT through any direct formula. So the question is not ''what transform is wrong'' but ''what
+    was the regression asked to satisfy, and is deltaV/basal_prob the quantity that answers it''. req-1
+    is to reproduce the stored deltaV from r_vector (axis 1) and to read the fit''s objective -- what
+    residual it minimises and in what space -- WITHOUT yet evaluating fidelity.
+
+
+    RESOLVED. r_vector (4739,) and r_columns both recover from models/parca/parca_state.pkl.gz -> cell_specs[''basal''],
+    so NO ParCa re-run is needed and the main scoping risk is closed. Replaying calculateRnapRecruitment''s
+    indexing reproduces 979 of 979 stored deltaV entries within 1e-9 relative and 100% of basal_prob.
+    Only 3 TUs had a negative fitted alpha clipped to zero.'
 - id: req-2
-  status: not_started
+  status: complete
   blocking: true
   summary: State the candidate correction BEFORE measuring its effect.
   detail: 'The two repair axes are only meaningful if the correction is specified in advance. Once req-1
     identifies what the fit optimises, the candidate correction must be written into this study''s record
     BEFORE recomputing anything, otherwise ''the correction that restores fidelity'' is chosen by fitting
     to the answer. This requirement exists because that is precisely how studies 13-15 leaked: numbers
-    measured during scoping could only be recorded post-hoc.'
+    measured during scoping could only be recorded post-hoc.
+
+
+    SATISFIED: the candidate diagnosis and BOTH correction options are recorded in the candidate_diagnosis
+    block above, with their predictions, before any fidelity measurement.'
 - id: req-3
   status: not_started
   blocking: false
@@ -383,3 +393,43 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+candidate_diagnosis:
+  recorded_at: '2026-09-04T09:40:00Z'
+  recorded_before_measuring: true
+  statement: 'The distortion is an ACTIVE-CONSTRAINT artefact of the convex fit, not a transform error
+    and not residual scatter.
+
+    fit_sim_data_1.py:3578-3592 minimises norm(G@R - k) subject to 0 <= Z@R <= 1 and T@R >= 0, where Z@R
+    is the initiation probability with ALL TFs bound. The lower bound therefore states alpha + sum(delta)
+    >= 0, i.e. delta/alpha >= -1. When that constraint is ACTIVE the optimiser sits exactly on it, giving
+    delta/alpha = -1 and a retained fraction of 0 -- total silencing -- regardless of what the target
+    fold change asked for. The objective never sees the ratio delta/alpha; it matches absolute probabilities
+    k, so nothing pulls a boundary-bound entry back toward 2**log2FC.'
+  predictions:
+  - 'BIDIRECTIONAL: the lower constraint (Z@R >= 0) binds for repressors, driving retained -> 0 (under-shoot);
+    the upper constraint (Z@R <= 1) binds for strongly activated TUs, driving retained up (over-shoot).
+    This is why activators are distorted MORE than repressors.'
+  - 'MAGNITUDE-UNIFORM: a constraint either binds or it does not. Whether it binds depends on the TU''s
+    whole regulatory context, not on any single |log2FC|, so distortion does not grow with fold-change
+    magnitude.'
+  - The 10 near-total-repression targets should sit at Z@R ~ 0, i.e. the lower constraint is active for
+    them.
+  - EG10620_RNA[c]'s ratio slightly BELOW -1 (-1.000009) is ECOS solver tolerance overshooting the boundary,
+    not a distinct defect.
+  - dnaG's -0.999999957 is the boundary itself, to solver precision -- NOT a coincidence and NOT floating-point
+    cancellation.
+  candidate_correction: 'Two options, stated now so neither is chosen by fitting to the answer.
+
+    (A) Floor the constraint: replace 0 <= Z@R with eps <= Z@R for a small positive eps, so a fully-repressed
+    TU retains a floor instead of collapsing to zero. Cheap, but arbitrary in eps and does not make the
+    encoding faithful -- it only makes it non-lethal.
+
+    (B) Constrain the RATIO: add delta/alpha == 2**log2FC - 1 for entries with a measured fold change,
+    either as an equality constraint or as a penalty term in the objective. This is the correction that
+    would make the encoding faithful, and it is the one the repair axes should be graded against.
+
+    PREDICTION under (B): entries whose constraint was NOT active are already near-faithful and barely
+    move; the network median improves mainly by repairing the boundary-bound entries.'
+  note: Recorded per req-2 BEFORE measuring any of it. Axis 1 has passed (979/979 deltaV entries reproduced
+    within 1e-9), so the code path is confirmed; nothing about fidelity has been evaluated at the time
+    of writing.

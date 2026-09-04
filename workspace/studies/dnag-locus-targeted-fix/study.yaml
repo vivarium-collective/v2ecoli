@@ -5,18 +5,14 @@ investigation: transcription-rewiring
 study_type: fix_validation
 phase: Design
 created: '2026-09-04'
-status: running
+status: complete
 design_status: complete
 implementation_status: complete
 simulation_status: running
 evaluation_status: not_evaluated
-gate_status: pending
+gate_status: failed
 expert_review_status: not_requested
-question: 'promoter-specific-regulation showed the attribution rule removes the LexA edge on TU00352 exactly
-  as predicted, but strips 89.5% of the network and so cannot be applied generally from this export. At
-  the dnaG locus the evidence is POSITIVE rather than an absence: LexA''s site is present at 3210729-3210749
-  and matches TU00435''s start to 0.5 bp, while TU00352''s start lies 88.5 bp away. Does removing that
-  single misattributed edge rescue the lineage?'
+question: 'promoter-specific-regulation showed the attribution rule removes the LexA edge on TU00352 exactly as predicted, but strips 89.5% of the network and so cannot be applied generally from this export. At the dnaG locus the evidence is POSITIVE rather than an absence: LexA''s site is present at 3210729-3210749 and matches TU00435''s start to 0.5 bp, while TU00352''s start lies 88.5 bp away. Does removing that single misattributed edge rescue the lineage?'
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -30,44 +26,37 @@ behavior_tests:
   description: 'Every changed delta_prob entry is the LexA edge on TU00352 -- i.e. nothing else moved.
 
 
-    The scope gate, checked FIRST. promoter-specific-regulation''s network-wide rule stripped 89.5% of
-    adjudicated edges and its disruption control fired, voiding any rescue it could have shown. This study
-    exists because the dnaG locus is the one place the evidence is POSITIVE -- LexA''s site is present
-    and matches TU00435 to 0.5 bp -- rather than an absence. If more than one edge moves, the same interpretability
-    problem returns.
+    The scope gate, checked FIRST. promoter-specific-regulation''s network-wide rule stripped 89.5% of adjudicated edges and its disruption control fired, voiding any rescue it could have shown. This study exists because the dnaG locus is the one place the evidence is POSITIVE -- LexA''s site is present and matches TU00435 to 0.5 bp -- rather than an absence. If more than one edge moves, the same interpretability problem returns.
 
 
     Threshold provenance: definitional. One edge, or the intervention is not targeted.'
   measure:
     kind: derived
     path: fraction of changed delta_prob entries that are the LexA edge on dnaG's TU00352
-    detail: changed entries that are the intended one, over all changed entries; 1.0 means nothing else
-      moved.
+    detail: changed entries that are the intended one, over all changed entries; 1.0 means nothing else moved.
   pass_if:
     low: 0.99
     high: 1.0
     provenance:
       kind: theory
-      note: 'Expressed as a fraction bounded above by 1.0 rather than a raw count with ''<= 1'', so the
-        discrimination check can grade it. Same claim: 1.0 means the only edge that moved is the intended
-        one.'
-  status: pending
+      note: 'Expressed as a fraction bounded above by 1.0 rather than a raw count with ''<= 1'', so the discrimination check can grade it. Same claim: 1.0 means the only edge that moved is the intended one.'
+  status: passed
+  result: PASS
+  measured_value: 1.0
+  evaluated_by: agent
+  evaluated_at: '2026-09-04T23:28:14Z'
+  detail: 'Exactly one delta_prob entry differs between out/cache and out/cache_lexafix: (2837, 14) = (TU00352[c], PC00010/LexA dimer), value -1.2128e-04 removed. basal_prob bit-identical. Nothing else moved.'
 - name: dnag-transcription-recovers
   classification: primary
   gate_class: acceptance_criterion
   question: With no regulator on its only transcript, is dnaG transcribed?
-  description: 'dnaG''s deficit against its idx_rprotein peers closes by at least 80% in log space, from
-    47.4x.
+  description: 'dnaG''s deficit against its idx_rprotein peers closes by at least 80% in log space, from 47.4x.
 
 
-    Stricter than the 50% asked of the network-wide fix, deliberately. Removing the sole regulator from
-    TU00352 leaves promoter_init_probs equal to basal_prob exactly, so dnaG should transcribe at its fitted
-    rate with nothing left to suppress it. A partial recovery would mean something beyond the LexA edge
-    is limiting, and 80% is set high enough to detect that rather than absorb it.
+    Stricter than the 50% asked of the network-wide fix, deliberately. Removing the sole regulator from TU00352 leaves promoter_init_probs equal to basal_prob exactly, so dnaG should transcribe at its fitted rate with nothing left to suppress it. A partial recovery would mean something beyond the LexA edge is limiting, and 80% is set high enough to detect that rather than absorb it.
 
 
-    Threshold provenance: theory. The mechanism predicts near-total recovery, so the band is set where
-    a partial one would fail.'
+    Threshold provenance: theory. The mechanism predicts near-total recovery, so the band is set where a partial one would fail.'
   measure:
     kind: derived
     path: fraction of dnaG's log-space peer deficit closed after removing the LexA edge from TU00352
@@ -77,9 +66,13 @@ behavior_tests:
     high: 1.0
     provenance:
       kind: theory
-      note: Bounded above by 1.0. 80% because the mechanism predicts near-total recovery -- removing the
-        only regulator leaves basal_prob untouched -- so a partial result should FAIL rather than pass.
-  status: pending
+      note: Bounded above by 1.0. 80% because the mechanism predicts near-total recovery -- removing the only regulator leaves basal_prob untouched -- so a partial result should FAIL rather than pass.
+  status: failed
+  result: FAIL
+  measured_value: 0.45462
+  evaluated_by: agent
+  evaluated_at: '2026-09-04T23:28:14Z'
+  detail: REFUTED. Removing dnaG's only regulator closes 45.5% of the log-space deficit, not the >=80% predicted. The basal-normalised deficit falls 51.6x -> 7.9x but then holds flat at ~8x for all 12 generations. LexA does not account for the residual shortfall.
 - name: lineage-completes
   classification: primary
   gate_class: acceptance_criterion
@@ -87,10 +80,7 @@ behavior_tests:
   description: 'Lineages complete at least 8 generations, against the 4-5 they currently reach.
 
 
-    The payoff, and the first end-to-end test of this investigation''s central claim. Same band as the
-    two retired or blocked fix studies so all three are comparable. replisome-gate-sufficiency''s DnaG-ablation
-    arm reached 12/12 once the gate stopped waiting on DnaG; this supplies DnaG instead of removing the
-    requirement, so it should do at least as well.
+    The payoff, and the first end-to-end test of this investigation''s central claim. Same band as the two retired or blocked fix studies so all three are comparable. replisome-gate-sufficiency''s DnaG-ablation arm reached 12/12 once the gate stopped waiting on DnaG; this supplies DnaG instead of removing the requirement, so it should do at least as well.
 
 
     Threshold provenance: theory. 8 is past the 4-5 stall and short of 12, so a partial rescue counts.'
@@ -103,20 +93,21 @@ behavior_tests:
     high: 12
     provenance:
       kind: theory
-      note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix
-        studies.
-  status: pending
+      note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix studies.
+  status: passed
+  result: PASS
+  measured_value: 12.0
+  evaluated_by: agent
+  evaluated_at: '2026-09-04T23:28:14Z'
+  detail: 12/12 generations in all three seeds (min across seeds = 12), against 4/5/4 in the unmodified control.
 - name: rescue-is-not-a-global-growth-artefact
   classification: primary
   gate_class: acceptance_criterion
   question: Is any rescue attributable to dnaG?
-  description: 'Generation time stays within 50% of the paired control''s, and the idx_rprotein peers''
-    median transcription stays within 1.5x of the control''s.
+  description: 'Generation time stays within 50% of the paired control''s, and the idx_rprotein peers'' median transcription stays within 1.5x of the control''s.
 
 
-    Carried from ppgpp-off-rescue, where it fired and correctly voided a rescue claim. A single-edge intervention
-    should barely perturb anything else -- and unlike the earlier studies, that is now a strong prediction
-    rather than a hope, because only one number in the cache changes.
+    Carried from ppgpp-off-rescue, where it fired and correctly voided a rescue claim. A single-edge intervention should barely perturb anything else -- and unlike the earlier studies, that is now a strong prediction rather than a hope, because only one number in the cache changes.
 
 
     Threshold provenance: theory. The same 50% band, so the studies read on one scale.'
@@ -130,8 +121,13 @@ behavior_tests:
     provenance:
       kind: theory
       note: Two-sided at roughly 50%, matching ppgpp-off-rescue.
-  status: pending
+  status: passed
   control: negative
+  result: PASS
+  measured_value: 0.979167
+  evaluated_by: agent
+  evaluated_at: '2026-09-04T23:28:14Z'
+  detail: 'Median tau over generations 1-3: 47.0 min corrected vs 48.0 min control (ratio 0.979, n=9 per arm). The rescue is not bought by slowing the cell down.'
 - name: dnag-deficit-baseline
   classification: supporting
   gate_class: regression_pin
@@ -139,9 +135,7 @@ behavior_tests:
   description: 'The control arm reproduces dnaG''s peer deficit at 47.4x within a factor of 3.
 
 
-    POST-HOC: measured in pc00010-repression-arithmetic. A pin so a drift in the control is caught before
-    the corrected arm is read against it -- important here because the corrected cache is a MODIFIED copy,
-    so this is a within-cache-family comparison rather than a within-cache one.'
+    POST-HOC: measured in pc00010-repression-arithmetic. A pin so a drift in the control is caught before the corrected arm is read against it -- important here because the corrected cache is a MODIFIED copy, so this is a within-cache-family comparison rather than a within-cache one.'
   measure:
     kind: derived
     path: dnaG peer deficit in the control arm at the dnaG locus
@@ -152,7 +146,12 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: 3x the 47.4x measured previously; a drift pin.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 19236831.523279
+  evaluated_by: agent
+  evaluated_at: '2026-09-04T23:28:14Z'
+  detail: "Graded as written (last generation) = 1.92e+07, FAIL. SPEC DEFECT: the 47.4x anchor was measured at GENERATION 1, and this investigation's own established finding is that dnaG decays across generations, so a last-generation value can never match a generation-1 anchor. At generation 1 the control reads 51.6x = 1.09x the anchor, comfortably inside the 3x tolerance -- the drift check the pin intended passes."
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-04T21:15:00Z'
@@ -163,24 +162,19 @@ preregistered:
       high: 1.0
       provenance:
         kind: theory
-        note: 'Expressed as a fraction bounded above by 1.0 rather than a raw count with ''<= 1'', so
-          the discrimination check can grade it. Same claim: 1.0 means the only edge that moved is the
-          intended one.'
+        note: 'Expressed as a fraction bounded above by 1.0 rather than a raw count with ''<= 1'', so the discrimination check can grade it. Same claim: 1.0 means the only edge that moved is the intended one.'
     dnag-transcription-recovers:
       low: 0.8
       high: 1.0
       provenance:
         kind: theory
-        note: Bounded above by 1.0. 80% because the mechanism predicts near-total recovery -- removing
-          the only regulator leaves basal_prob untouched -- so a partial result should FAIL rather than
-          pass.
+        note: Bounded above by 1.0. 80% because the mechanism predicts near-total recovery -- removing the only regulator leaves basal_prob untouched -- so a partial result should FAIL rather than pass.
     lineage-completes:
       low: 8
       high: 12
       provenance:
         kind: theory
-        note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix
-          studies.
+        note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix studies.
     rescue-is-not-a-global-growth-artefact:
       low: 0.67
       high: 1.5
@@ -207,32 +201,21 @@ implementation_requirements:
   status: complete
   blocking: true
   summary: Zero the LexA entry for TU00352 in a COPY of the cache.
-  detail: 'Remove exactly one nonzero delta_prob entry -- row TU00352, column 14 (PC00010) -- from a copied
-    sim_data_cache.dill, leaving basal_prob and everything else untouched. No ParCa refit: the magnitudes
-    are already fitted and only this attribution is wrong. Verify the copy differs from the original in
-    exactly one entry before running anything.
+  detail: 'Remove exactly one nonzero delta_prob entry -- row TU00352, column 14 (PC00010) -- from a copied sim_data_cache.dill, leaving basal_prob and everything else untouched. No ParCa refit: the magnitudes are already fitted and only this attribution is wrong. Verify the copy differs from the original in exactly one entry before running anything.
 
 
-    DONE and VERIFIED: out/cache_lexafix differs from out/cache in exactly ONE delta_prob entry, (row
-    2837 = TU00352[c], column 14 = PC00010), value -1.2128e-04 removed. basal_prob is bit-identical. Axis
-    1 therefore measures 1.0.'
+    DONE and VERIFIED: out/cache_lexafix differs from out/cache in exactly ONE delta_prob entry, (row 2837 = TU00352[c], column 14 = PC00010), value -1.2128e-04 removed. basal_prob is bit-identical. Axis 1 therefore measures 1.0.'
 - id: req-2
   status: complete
   blocking: true
   summary: Re-verify the control on matched seeds.
-  detail: The corrected cache is a modified copy, so its fingerprint differs from ea05ac9b23b1d843 and
-    this is a cache-family comparison rather than a within-cache one. The control arm must be re-run on
-    the same seeds rather than compared against dnag-promoter-availability's existing numbers.
+  detail: The corrected cache is a modified copy, so its fingerprint differs from ea05ac9b23b1d843 and this is a cache-family comparison rather than a within-cache one. The control arm must be re-run on the same seeds rather than compared against dnag-promoter-availability's existing numbers.
 assumptions:
 - assumption: Removing the edge without refitting is adequate.
-  basis: basal_prob was fitted WITH this edge present, so TU00352's alpha is very slightly mis-calibrated
-    afterwards. The effect is one edge among 1462 and the alternative is a full refit; adequate to test
-    whether the mechanism rescues, not the shippable fix.
+  basis: basal_prob was fitted WITH this edge present, so TU00352's alpha is very slightly mis-calibrated afterwards. The effect is one edge among 1462 and the alternative is a full refit; adequate to test whether the mechanism rescues, not the shippable fix.
   risk: medium
 - assumption: LexA genuinely does not act on TU00352's promoter.
-  basis: EcoCyc places its only site here 4.5 bases downstream of rpsUp3, matching TU00435 to 0.5 bp,
-    with TU00352's start 88.5 bp away. But the export gives position, not mechanism -- a site acting by
-    looping could still reach an upstream promoter.
+  basis: EcoCyc places its only site here 4.5 bases downstream of rpsUp3, matching TU00435 to 0.5 bp, with TU00352's start 88.5 bp away. But the export gives position, not mechanism -- a site acting by looping could still reach an upstream promoter.
   risk: high
 simulation_set:
 - name: lexa-edge-removed
@@ -256,8 +239,7 @@ planned_runs:
 - name: paired-lineage
   status: planned
   n_steps: 6
-  details: 3 seeds x 2 arms x 12 generations. ~30-60 min per run. Check for sims in other worktrees before
-    choosing concurrency; disk is at 56 GB with out/ holding 51 GB.
+  details: 3 seeds x 2 arms x 12 generations. ~30-60 min per run. Check for sims in other worktrees before choosing concurrency; disk is at 56 GB with out/ holding 51 GB.
 robustness:
   n_replicates: 3
   seeds:
@@ -269,22 +251,16 @@ robustness:
 controls:
 - name: rescue-is-not-a-global-growth-artefact
   kind: negative
-  hypothesis: A single-edge change should barely perturb anything else; if growth shifts broadly the rescue
-    is not about dnaG.
+  hypothesis: A single-edge change should barely perturb anything else; if growth shifts broadly the rescue is not about dnaG.
   expected: generation time within 50% of control.
   observed: ''
   result: PENDING
 limitations:
-- 'No refit: TU00352''s alpha was fitted with the edge present and is slightly mis-calibrated after removal.
-  Adequate to test the mechanism, not shippable.'
-- The corrected cache is a modified copy, so this is a cache-family comparison; the control is re-run
-  rather than reused.
-- A rescue would show the misattributed edge is SUFFICIENT to cause the stall, not that the other defects
-  are harmless -- the dedup, the constraint boundary and the 2.13x activator residual all remain.
-- 'It also would NOT show the model is then correct: biologically LexA should repress rpsUp3, so dnaG
-  ought to lose roughly a third of its supply under SOS. Removing the edge entirely leaves it unrepressed,
-  which is closer to right than total silencing but still wrong.'
-claim: ''
+- 'No refit: TU00352''s alpha was fitted with the edge present and is slightly mis-calibrated after removal. Adequate to test the mechanism, not shippable.'
+- The corrected cache is a modified copy, so this is a cache-family comparison; the control is re-run rather than reused.
+- A rescue would show the misattributed edge is SUFFICIENT to cause the stall, not that the other defects are harmless -- the dedup, the constraint boundary and the 2.13x activator residual all remain.
+- 'It also would NOT show the model is then correct: biologically LexA should repress rpsUp3, so dnaG ought to lose roughly a third of its supply under SOS. Removing the edge entirely leaves it unrepressed, which is closer to right than total silencing but still wrong.'
+claim: 'Removing the LexA edge from dnaG''s only transcript is a clean single-edge change that fully rescues the lineage -- 12/12 generations in 3/3 seeds against a stall at generation 4-5, with no growth penalty -- and abolishes the generational decay, holding the peer deficit flat at ~8x instead of collapsing to 1.9e+07. But it does NOT restore dnaG to its peers: the pre-registered prediction of near-total recovery is refuted at 45.5%. LexA explains dnaG''s progressive collapse, not its baseline 8x shortfall, which has another cause.'
 conclusion: ''
 confidence: Planned
 sweep_started_at: '2026-09-04T21:40:00Z'
@@ -298,8 +274,7 @@ pipeline_gate:
   - study: promoter-specific-regulation
     condition: complete
     relation: refines
-    note: Narrows that study's network-wide rule, whose disruption control failed, to the one locus where
-      the evidence is positive.
+    note: Narrows that study's network-wide rule, whose disruption control failed, to the one locus where the evidence is positive.
   - study: pc00010-repression-arithmetic
     condition: complete
     relation: calibrates-threshold
@@ -307,5 +282,40 @@ pipeline_gate:
   - study: replisome-gate-sufficiency
     condition: complete
     relation: evidence
-    note: Its DnaG-ablation arm reaching 12/12 is the evidence that restoring DnaG supply should rescue
-      the lineage.
+    note: Its DnaG-ablation arm reaching 12/12 is the evidence that restoring DnaG supply should rescue the lineage.
+computed_outcomes:
+  intervention-is-a-single-edge:
+    measured_value: 1.0
+    passed: true
+    band:
+    - 0.99
+    - 1.0
+    threshold:
+  dnag-transcription-recovers:
+    measured_value: 0.45462
+    passed: false
+    band:
+    - 0.8
+    - 1.0
+    threshold:
+  lineage-completes:
+    measured_value: 12.0
+    passed: true
+    band:
+    - 8
+    - 12
+    threshold:
+  rescue-is-not-a-global-growth-artefact:
+    measured_value: 0.979167
+    passed: true
+    band:
+    - 0.67
+    - 1.5
+    threshold:
+  dnag-deficit-baseline:
+    measured_value: 19236831.523279
+    passed: false
+    band:
+    threshold:
+      op: <=
+      value: 142.2

@@ -35,6 +35,21 @@ def indices(cache_dir):
     return dnag, [i for i in rprot if i != dnag], rprot
 
 
+def basal_prob(cache_dir):
+    """The cache's static basal_prob vector.
+
+    Separate from ``indices`` on purpose: two completed studies unpack that
+    function's 3-tuple, so widening it would break them.
+    """
+    import dill, numpy as np
+    from v2ecoli.core import build_core
+    build_core()
+    with open(Path(cache_dir) / "sim_data_cache.dill", "rb") as f:
+        sd = dill.load(f)
+    ti = sd["configs"]["ecoli-transcript-initiation"]
+    return np.asarray(ti["basal_prob"], dtype=float).ravel()
+
+
 def per_generation(out_root, seeds=(0, 1, 2), generations=(1, 2, 3, 4),
                    cache_dir="out/cache") -> dict:
     """``{seed: {generation: {dnag, peer_median, class_total, ppgpp_conc, n}}}``.
@@ -45,6 +60,7 @@ def per_generation(out_root, seeds=(0, 1, 2), generations=(1, 2, 3, 4),
     """
     import numpy as np, polars as pl
     dnag, peers, rprot = indices(cache_dir)
+    basal = basal_prob(cache_dir)
     out: dict = {}
     for seed in seeds:
         for gen in generations:
@@ -53,9 +69,17 @@ def per_generation(out_root, seeds=(0, 1, 2), generations=(1, 2, 3, 4),
                 recursive=True))
             if not files:
                 continue
-            df = pl.concat([pl.read_parquet(f) for f in files], how="diagonal")
-            if ACTUAL not in df.columns:
+            # Read ONLY the two columns this function uses. A generation-12
+            # parquet carries the full emit-everything schema (~100 MB/file), so
+            # a whole-frame read costs gigabytes for two columns. Semantics are
+            # unchanged: nothing below touches any other column.
+            schema = pl.scan_parquet(files[0]).collect_schema().names()
+            if ACTUAL not in schema:
                 continue
+            want = [ACTUAL] + ([PPGPP_CONC] if PPGPP_CONC in schema else [])
+            df = pl.concat(
+                [pl.scan_parquet(f).select(want).collect() for f in files],
+                how="diagonal")
             acc = None
             n = 0
             for row in df[ACTUAL].to_list():
@@ -67,9 +91,19 @@ def per_generation(out_root, seeds=(0, 1, 2), generations=(1, 2, 3, 4),
             act = acc / n
             conc = (float(df[PPGPP_CONC].mean())
                     if PPGPP_CONC in df.columns else float("nan"))
+            # Deficit is defined on each TU normalised by its OWN basal_prob,
+            # not on raw actual values. dnaG's basal (1.21e-04) sits 2.6x below
+            # the peer median basal, so the raw ratio reads ~134x where the
+            # normalised one reads ~47x. dnag-generational-decay pinned the
+            # normalised definition; a raw ratio measures a different quantity.
+            with np.errstate(divide="ignore", invalid="ignore"):
+                norm = np.where(basal > 0, act / basal, np.nan)
+            peer_norm = [norm[i] for i in peers if np.isfinite(norm[i])]
             out.setdefault(seed, {})[gen] = {
                 "dnag": float(act[dnag]),
                 "peer_median": float(np.median([act[i] for i in peers])),
+                "dnag_norm": float(norm[dnag]),
+                "peer_median_norm": float(np.median(peer_norm)) if peer_norm else float("nan"),
                 "class_total": float(sum(act[i] for i in rprot)),
                 "ppgpp_conc": conc,
                 "n": n,

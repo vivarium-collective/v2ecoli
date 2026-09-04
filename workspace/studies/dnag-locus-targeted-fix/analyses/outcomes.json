@@ -1,0 +1,117 @@
+{
+  "intervention-is-a-single-edge": {
+    "measured": 1.0,
+    "band": [
+      0.99,
+      1.0
+    ],
+    "passed": true,
+    "detail": {
+      "n_changed": 1,
+      "changed_entries": [
+        [
+          2837,
+          14
+        ]
+      ],
+      "changed_values": {
+        "[2837, 14]": [
+          -0.00012127574720306004,
+          null
+        ]
+      },
+      "dnag_tu_index": 2837
+    }
+  },
+  "dnag-transcription-recovers": {
+    "measured": 0.4546201812245645,
+    "band": [
+      0.8,
+      1.0
+    ],
+    "passed": false,
+    "detail": {
+      "deficit_after_median": 8.202300730546904,
+      "per_seed": {
+        "0": {
+          "generation": 12,
+          "deficit": 8.202300730546904
+        },
+        "1": {
+          "generation": 12,
+          "deficit": 7.02225369382809
+        },
+        "2": {
+          "generation": 12,
+          "deficit": 8.26855920451923
+        }
+      },
+      "baseline_deficit": 47.4
+    }
+  },
+  "lineage-completes": {
+    "measured": 12,
+    "band": [
+      8,
+      12
+    ],
+    "passed": true,
+    "detail": {
+      "per_seed": {
+        "0": 12,
+        "1": 12,
+        "2": 12
+      }
+    }
+  },
+  "rescue-is-not-a-global-growth-artefact": {
+    "measured": 0.9791666666666666,
+    "band": [
+      0.67,
+      1.5
+    ],
+    "passed": true,
+    "detail": {
+      "median_tau_corrected": 47.0,
+      "median_tau_control": 48.0,
+      "n_corrected": 9,
+      "n_control": 9
+    }
+  },
+  "dnag-deficit-baseline": {
+    "measured": 19236831.523278546,
+    "threshold": {
+      "op": "<=",
+      "value": 142.2
+    },
+    "passed": false,
+    "detail": {
+      "per_seed_last_gen": {
+        "0": {
+          "generation": 4,
+          "deficit": 23797287.609368727
+        },
+        "1": {
+          "generation": 5,
+          "deficit": 12996023.203371381
+        },
+        "2": {
+          "generation": 4,
+          "deficit": 19236831.523278546
+        }
+      },
+      "SPEC_DEFECT": "measure.path says 'last generation', but the 47.4x anchor this pin is 3x tolerance around was measured at GENERATION 1 (dnag-generational-decay). This study's own established finding is that dnaG decays across generations, so grading a last-generation value against a generation-1 anchor compares two different quantities and must fail by construction. Graded as written; the drift check the pin intended is reported below.",
+      "intended_drift_check_gen1": {
+        "measured": 51.618323612293715,
+        "anchor": 47.42,
+        "ratio_to_anchor": 1.088534871621546,
+        "passes_142.2": true,
+        "per_seed": {
+          "0": 49.079451420786164,
+          "1": 51.618323612293715,
+          "2": 215.68342361303564
+        }
+      }
+    }
+  }
+}

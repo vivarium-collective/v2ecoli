@@ -125,3 +125,23 @@ findings:
       run_ids: [mcs08-composition-two-conditions]
     caveats:
       - "Two conditions only (a first result); the amino-acid axis is the R-line, not the classic C-line."
+
+biological_summary: >-
+  One of microbiology's most robust laws: faster-growing cells commit more mass to ribosomes, so
+  the RNA/protein mass ratio climbs with growth rate (Bremer-Dennis). v2ecoli reproduces the
+  direction natively; the magnitude is shallow on the amino-acid (R-line) axis (the steep C-line
+  is mcs-07's carbon ladder).
+
+behavior_tests:
+  - name: rna-protein-rises-with-growth
+    classification: primary
+    measure: "slope of RNA/protein mass ratio vs growth rate"
+    pass_if: "positive slope (Bremer-Dennis)"
+    expected: "positive"
+    observed: "+0.021 per (1/h): 0.310 (μ 0.90) → 0.318 (μ 1.28)"
+    verdict: pass
+
+conclusion: >-
+  ## Result
+  The Bremer-Dennis composition-law DIRECTION is reproduced natively; the shallow R-line slope
+  echoes the flat-ribosome finding, with the steep C-line covered by mcs-07.

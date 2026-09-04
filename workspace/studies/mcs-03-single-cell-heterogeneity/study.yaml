@@ -167,3 +167,29 @@ findings:
 
 pipeline_gate:
   enables: [mcs-04-capstone-downshift]
+
+biological_summary: >-
+  Stochastic gene expression and replication initiation should make no two cells identical,
+  giving an interdivision-time CV of ~10–30% and adder-like size homeostasis. v2ecoli
+  under-produces this: it is more synchronized/deterministic than real E. coli.
+
+behavior_tests:
+  - name: division-time-cv-in-band
+    classification: primary
+    measure: "CV of interdivision time across a 6-seed ensemble"
+    pass_if: "0.10–0.30 (biological E. coli range)"
+    expected: "0.10–0.30"
+    observed: "0.070 — below band (accumulates 0%→3%→5% over gens 2–4)"
+    verdict: fail
+  - name: size-homeostasis-adder
+    classification: secondary
+    measure: "slope of added-size vs birth-size"
+    pass_if: "slope ≈ 0 (adder)"
+    expected: "≈ 0"
+    observed: "0.59, but birth-size CV ~4% too narrow to resolve"
+    verdict: inconclusive
+
+conclusion: >-
+  ## Result
+  The model is under-dispersed (CV 7% vs 10–30%). A code audit (see mcs-06) traces it to a
+  bypassed division-noise term; the fix is a structural modeling change, flagged not applied.

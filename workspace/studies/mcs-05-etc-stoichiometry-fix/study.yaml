@@ -321,3 +321,55 @@ findings:
       run_ids: [mcs05-regression-check]
     caveats:
       - "3-gen, single-seed regression run; the deltas are small and consistent across every emitted axis, but a multi-seed re-bake would tighten the formal card grade."
+
+biological_summary: >-
+  The energetic defect (mcs-02) traced to ATP synthase running in REVERSE — the cell dumps an ATP
+  surplus instead of respiring. Capping the reverse (ATPase) flux forces net-forward operation:
+  respiration turns on, RQ falls to ~1, biomass yield lands in the measured band, and aerobic
+  acetate overflow (Basan 2015) appears — with growth preserved and no regression elsewhere.
+
+behavior_tests:
+  - name: atp-supply-defect-localized
+    classification: primary
+    measure: "ATP synthase forward (synthesis) vs reverse (hydrolysis) flux in the FBA solution"
+    pass_if: "identify the cheap-ATP route"
+    expected: "a route that makes ATP without O2"
+    observed: "synthesis 0 / reverse 7.48 — ATP synthase runs backwards"
+    verdict: pass
+  - name: corrected-yield-in-band
+    classification: primary
+    measure: "biomass yield after the integrated fix (cap=4.5, committed to metabolism.py)"
+    pass_if: "0.355–0.444"
+    expected: "in band"
+    observed: "0.390 — centered in band (from 0.816)"
+    verdict: pass
+  - name: rq-approaches-one
+    classification: primary
+    measure: "RQ after fix"
+    pass_if: "≈ 1"
+    expected: "~1"
+    observed: "1.11 (from 2.94); O2 uptake 0.89→16.9; acetate overflow appears"
+    verdict: pass
+  - name: growth-physiological-after-fix
+    classification: primary
+    measure: "growth rate (HELD-OUT — not tuned)"
+    pass_if: "physiological"
+    expected: "preserved"
+    observed: "0.974/h (from 0.956)"
+    verdict: pass
+  - name: no-regression-other-axes
+    classification: primary
+    measure: "growth, division time, cell mass, origins, composition vs pre-fix"
+    pass_if: "all hold within a few %"
+    expected: "no collateral damage"
+    observed: "growth −1.5%, τ unchanged, mass +2%, composition ≤3.6% — clean"
+    verdict: pass
+
+conclusion: >-
+  ## Final model
+  A calibrated cap on ATP synthase's reverse flux (atp_synthase_reverse_cap=4.5) is committed to
+  v2ecoli/processes/metabolism.py. Yield 0.816→0.390 (in band), RQ 2.94→1.11, growth preserved,
+  regression-clean.
+  ## Result
+  Root cause found, fix landed, integrated, held-out-validated, and regression-checked. The
+  gap→fix→validate loop is fully closed.

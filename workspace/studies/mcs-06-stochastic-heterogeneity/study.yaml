@@ -107,3 +107,37 @@ preliminary_findings:
     next_action_type: escalate_model
 
 findings: []
+
+biological_summary: >-
+  Arc 3 found the model too synchronized (CV ~7% vs 10–30%). A code audit localizes the missing
+  noise: the division machinery HAS a stochastic term (μ_div ~ Normal(1.0, 0.1)) but it feeds the
+  legacy mass trigger, while the active trigger is deterministic (replication completion + a fixed
+  D-period). Routing noise into the active trigger (or making D-period stochastic) is the fix.
+
+behavior_tests:
+  - name: noise-source-localized
+    classification: primary
+    measure: "per-process contribution to division-time variance (code audit)"
+    pass_if: "identify the dominant deterministic timing process"
+    expected: "a bypassed or missing noise source"
+    observed: "μ_div noise bypassed; active trigger = deterministic replication + fixed D-period"
+    verdict: pass
+  - name: cv-restored-to-band
+    classification: primary
+    measure: "ensemble CV after enabling stochastic timing"
+    pass_if: "0.10–0.30"
+    expected: "0.10–0.30"
+    observed: "(not yet run — fix designed)"
+    verdict: pending
+  - name: mean-generation-time-preserved
+    classification: primary
+    measure: "mean interdivision time (HELD-OUT)"
+    pass_if: "unchanged (variance added, not bias)"
+    expected: "preserved"
+    observed: "(not yet run)"
+    verdict: pending
+
+conclusion: >-
+  ## Result
+  Designed follow-up. The under-dispersion is localized to a bypassed division-noise term; the
+  stochasticity fix + re-run remain to be executed.

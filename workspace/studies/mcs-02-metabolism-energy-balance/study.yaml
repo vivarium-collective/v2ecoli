@@ -216,3 +216,37 @@ findings:
 
 pipeline_gate:
   enables: [mcs-04-capstone-downshift]
+
+biological_summary: >-
+  The baseline builds ~1.8× more biomass per gram of glucose than carbon/energy balance permit,
+  because it barely respires (RQ 2.94, near-zero O2). This study tests the prior investigation's
+  scoped maintenance-ATP fix — and REFUTES it, re-localizing the defect to ATP supply.
+
+behavior_tests:
+  - name: biomass-yield-in-measured-band
+    classification: primary
+    measure: "biomass yield Yxs (gDW/g glucose)"
+    pass_if: "0.355–0.444 (measured band; below the 0.538 ceiling)"
+    expected: "in band"
+    observed: "0.816 — 1.84× over the band"
+    verdict: fail
+  - name: rq-approaches-one
+    classification: primary
+    measure: "RQ = CO2/O2"
+    pass_if: "≈ 1 (aerobic respiration)"
+    expected: "~1"
+    observed: "2.94 (physically impossible for pure respiration)"
+    verdict: fail
+  - name: maintenance-atp-fix-moves-yield
+    classification: primary
+    measure: "yield across GAM ×1–5 and NGAM ×1–10 (verified at the FBA)"
+    pass_if: "yield drops into the band"
+    expected: "in band after fix"
+    observed: "flat 0.82–0.83 — FBA insensitive to maintenance ATP"
+    verdict: fail
+
+conclusion: >-
+  ## Result
+  The scoped maintenance-ATP fix is REFUTED — GAM/NGAM changes leave yield/O2/growth flat. The
+  defect is re-localized to ATP-supply stoichiometry, which its follow-up (mcs-05) then fixes.
+  An adversarial study that succeeds by rejecting the wrong hypothesis.

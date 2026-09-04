@@ -144,3 +144,22 @@ findings:
 
 pipeline_gate:
   enables: []
+
+biological_summary: >-
+  A whole-cell model earns its complexity where one perturbation moves many scales. Across the
+  nutrient axis, a single change shifts the ppGpp signal, replication, growth, and metabolic
+  uptake in concert — the integrated multiscale behavior the showcase set out to demonstrate.
+
+behavior_tests:
+  - name: three-complexities-co-occur
+    classification: primary
+    measure: "ppGpp, origins, growth, glucose uptake — minimal vs rich"
+    pass_if: "all shift together across the nutrient change"
+    expected: "signaling + cell-cycle + metabolism all respond"
+    observed: "ppGpp 74.8→18.3, origins 2.4→4.2, growth 0.90→1.28/h, glucose uptake 6.5→9.9"
+    verdict: pass
+
+conclusion: >-
+  ## Result
+  One nutrient axis moves every scale together — cross-scale integration confirmed (steady-state
+  contrast; a temporal downshift is flagged as follow-up).

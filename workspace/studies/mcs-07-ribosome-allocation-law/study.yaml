@@ -151,3 +151,32 @@ findings:
       run_ids: [mcs07-carbon-quality-ladder]
     caveats:
       - "acetate/succinate are gen-1 transient (glucose-adapted start) and the FBA is ill-conditioned there, so their ABSOLUTE growth is under-estimated; only the monotonic ribosome-growth DIRECTION is claimed."
+
+biological_summary: >-
+  Arc 1 varied growth with amino acids (the R-line), leaving ribosome content flat. The classic
+  Scott-Hwa C-line — ribosome fraction rising with growth under carbon limitation — needs a
+  carbon-quality ladder. Across acetate→succinate→glucose→+AA, v2ecoli's ribosome concentration
+  climbs monotonically, reproducing the C-line direction (a robustness fix unblocked the media).
+
+behavior_tests:
+  - name: ribosome-fraction-rises-with-growth
+    classification: primary
+    measure: "ribosome_conc across the carbon-quality ladder"
+    pass_if: "monotonic rise with growth rate (Scott 2010 C-line)"
+    expected: "increases with growth"
+    observed: "1.42 → 1.87 → 20.8 → 21.2 (acetate→succinate→glucose→+AA)"
+    verdict: pass
+  - name: biotin-clamp-unblocks-conditions
+    classification: primary
+    measure: "acetate/succinate FBA feasibility"
+    pass_if: "runs without the spurious negative-homeostatic-target crash"
+    expected: "conditions run"
+    observed: "clamp of FP-noise negatives (modular_fba.py) lets them run"
+    verdict: pass
+
+conclusion: >-
+  ## Final model
+  A robustness fix clamps FP-noise negative homeostatic targets (modular_fba.py), unblocking
+  carbon-limited media.
+  ## Result
+  The Scott-Hwa ribosome C-line direction is reproduced; a small model-robustness fix landed.

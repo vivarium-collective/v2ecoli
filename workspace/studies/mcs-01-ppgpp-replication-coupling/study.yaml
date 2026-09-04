@@ -199,3 +199,38 @@ findings:
 
 pipeline_gate:
   enables: [mcs-04-capstone-downshift, mcs-05-decoupling-control]
+
+biological_summary: >-
+  ppGpp is the cell's master coordinator. As nutrients change it rises and falls, and in real
+  E. coli this single alarmone simultaneously sets ribosome synthesis, restrains DnaA-driven
+  replication initiation, and tunes growth rate. This study asks whether v2ecoli reproduces that
+  cross-scale coupling natively — and it does: replication timing is slaved to growth via ppGpp.
+
+behavior_tests:
+  - name: origins-scale-with-growth-rate
+    classification: primary
+    measure: "slope of origins_per_cell vs growth_rate across minimal & rich media"
+    pass_if: "slope > 0 (origins rise with growth — Cooper-Helmstetter overlapping replication)"
+    expected: "positive"
+    observed: "+4.60 per (1/h): origins 2.43 (μ 0.90) → 4.21 (μ 1.28)"
+    verdict: pass
+  - name: ppgpp-anticorrelates-growth
+    classification: primary
+    measure: "ppgpp_conc, minimal vs rich"
+    pass_if: "ppGpp higher at slower growth (stringent response)"
+    expected: "anti-correlated with growth"
+    observed: "74.8 (slow) vs 18.3 (fast) — 4.1× higher when starved"
+    verdict: pass
+  - name: initiation-mass-constant
+    classification: secondary
+    measure: "cell_mass / origins_per_cell across conditions"
+    pass_if: "≈ constant (Donachie), CV < ~15%"
+    expected: "~constant"
+    observed: "648 → 696 fg (7.1%)"
+    verdict: pass
+
+conclusion: >-
+  ## Result
+  All three primary/secondary criteria pass NATIVELY — origins scale with growth, ppGpp
+  anti-correlates, initiation mass holds constant. The bacterial growth law emerges from the
+  mechanism; no correction is needed. This is an honest "the model is already right here" result.

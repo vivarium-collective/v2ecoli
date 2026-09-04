@@ -42,6 +42,7 @@ studies:
 - inforce-basal-vector
 - pc00010-repression-arithmetic
 - foldchange-to-delta-fidelity
+- deltav-conversion-diagnosis
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -253,7 +254,12 @@ decisions_needed:
     magnitude) but did not LOCATE it. deltaV arrives precomputed in sim_data; transcription_regulation.py
     only reshapes it. Until the conversion is found the defect cannot be fixed, only measured.
   raised_by: pc00010-repression-arithmetic
-  status: open
+  status: in_progress
+  resolution: 'Located in source: calculateRnapRecruitment (fit_sim_data_1.py:4022) reads deltaV from
+    r[col_names_to_index[rnaId + ''__'' + tf]] and basal_prob from the matching ''__alpha'' column, where
+    r = cell_specs[''basal''][''r_vector''] (line 3705). deltaV is NOT converted from a fold change by
+    any formula -- it is a fitted regression coefficient, and the fold changes enter far upstream as constraints
+    on that fit. Scoped as deltav-conversion-diagnosis; open until that study runs.'
 - question: Add a per-promoter occupancy listener.
   why: pc00010-repression-arithmetic's quantitative axis fails at 0.211 because occupancy can only be
     measured per-TU while delta is applied per promoter; two copies of one promoter share a replication

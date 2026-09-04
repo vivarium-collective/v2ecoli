@@ -1,0 +1,153 @@
+schema_version: 4
+name: mcs-11-etc-heldout-and-downshift
+investigation: multiscale-complexity-showcase
+title: "Held-out ETC-fix check + the real temporal downshift"
+created: '2026-09-04'
+status: investigating
+confidence: Investigating
+gate_status: running
+
+cites:
+  - {key: Basan2015Nature, claim: "aerobic acetate overflow onset above a growth-rate threshold"}
+  - {key: Feist2007iAF1260, claim: "genome-scale oxidative-phosphorylation stoichiometry"}
+
+question: >-
+  Two loose ends from Arc 2 and the capstone. (1) The mcs-05 ETC fix centres biomass yield in
+  the measured band, but the reverse-ATP-synthase cap (4.5) was CALIBRATED to that band — a
+  skeptic will call it a fitted knob. Does the fix also reproduce an observable it was NOT
+  tuned to, namely the aerobic acetate-overflow ONSET (Basan 2015: acetate secretion rising
+  with growth rate above a threshold)? (2) The capstone showed cross-scale coordination across
+  STEADY-STATE conditions but did not run the titular temporal rich->minimal downshift. Does a
+  genuine downshift produce the transient ppGpp spike and flux reallocation dynamically?
+
+hypothesis: >-
+  (1) If the ETC fix is mechanistic rather than a fitted knob, the respiring cell secretes
+  acetate in a growth-rate-dependent way whose ONSET the cap never saw during calibration —
+  an independent, held-out confirmation. (2) A rich->minimal downshift transiently spikes ppGpp
+  and reroutes central-carbon flux before the cell re-equilibrates at the lower growth rate,
+  reproducing the stringent-response transient dynamically rather than as a between-condition
+  contrast.
+
+objective: >-
+  (1) With the committed ETC fix on, sweep growth rate (across the carbon-quality / +AA
+  conditions) and measure acetate secretion vs growth; test whether overflow ONSET emerges
+  without having been tuned. (2) Run the rich->minimal media downshift (resume a rich-adapted
+  lineage into minimal media) and record the ppGpp / flux / growth transient.
+
+pipeline_gate:
+  prerequisites:
+    - {study: mcs-05-etc-stoichiometry-fix, condition: tests-passed}
+    - {study: mcs-04-capstone-downshift, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants:
+    - name: overflow-onset-sweep
+      detail: "ETC fix on; measure acetate secretion vs growth rate across conditions (acetate/succinate/glucose/+AA) — the held-out overflow-onset curve."
+    - name: temporal-downshift
+      detail: >-
+        Resume a rich/with_aa-adapted lineage (gen dill) into minimal/basal media and record the
+        transient ppGpp spike and central-carbon flux reallocation. (Time-varying media is not a
+        native runner flag; the downshift is staged as a resume-into-new-condition, which is the
+        feasible approximation of a step downshift.)
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+readouts:
+  - "acetate secretion vs growth rate with the ETC fix on (held-out overflow-onset curve; the cap was tuned to YIELD, never to acetate)"
+  - "ppgpp_conc, growth_rate and central-carbon flux transient across a rich->minimal downshift"
+
+expected_behavior:
+  - name: acetate-overflow-onset-held-out
+    observable: acetate_secretion
+    condition: overflow-onset-sweep
+    rationale: "A mechanistic ETC fix should secrete acetate in a growth-dependent way whose onset was not part of the calibration — an independent confirmation."
+  - name: downshift-transient-ppgpp-spike
+    observable: ppgpp_conc
+    condition: temporal-downshift
+    rationale: "A genuine downshift should transiently spike ppGpp before re-equilibration, the dynamic signature the steady-state capstone only approximated."
+
+tests:
+  - name: acetate-overflow-onset-held-out
+    classification: primary
+    kind: held_out
+    question: "With the ETC fix on, does acetate secretion rise with growth rate (overflow onset) though the cap was tuned only to yield?"
+    measure: {kind: derived, detail: "acetate secretion vs growth across conditions (metabolism_probe.py), fix on."}
+  - name: downshift-transient-ppgpp-spike
+    classification: primary
+    question: "Does a rich->minimal downshift transiently spike ppGpp and reroute flux?"
+    measure: {kind: derived, detail: "ppgpp_conc + flux time-course across a resume-into-minimal downshift."}
+
+planned_runs:
+  - name: mcs11-overflow-onset-sweep
+    status: planned
+    n_steps: "in-process probe x conditions"
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    details: "ETC fix on; acetate secretion vs growth across conditions — the held-out overflow-onset curve (reuses mcs-05 fix + carbon-ladder caches)."
+  - name: mcs11-temporal-downshift
+    status: planned
+    n_steps: "resume rich->minimal, transient"
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    details: "Resume a with_aa-adapted lineage into basal media; record the ppGpp / flux / growth transient."
+
+simulation_set:
+  - name: mcs11-overflow-onset-sweep
+    kind: simulation
+    status: running
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    duration_steps: "in-process probe"
+    seeds: [0]
+    metrics: [acetate_secretion, growth_rate]
+    pass_fail_tests: [acetate-overflow-onset-held-out]
+  - name: mcs11-temporal-downshift
+    kind: simulation
+    status: planned
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    duration_steps: "resume transient"
+    seeds: [20]
+    metrics: [ppgpp_conc, growth_rate]
+    pass_fail_tests: [downshift-transient-ppgpp-spike]
+
+runs: []
+
+claim: >-
+  Designed held-out + dynamics study (running). Turns the ETC fix's calibrated headline into a
+  falsifiable claim by testing acetate-overflow onset — an observable the cap never saw — and
+  runs the real temporal downshift the capstone only approximated at steady state.
+
+findings: []
+
+biological_summary: >-
+  The mcs-05 ETC fix centres biomass yield in-band, but the cap was calibrated to that band, so
+  a skeptic can call it a fitted knob. This study checks the fix against acetate-overflow ONSET
+  (Basan 2015) — a growth-dependent observable the cap was never tuned to — as the decisive
+  held-out test, and additionally runs the genuine rich->minimal downshift to show the ppGpp
+  spike and flux reallocation as a transient rather than a between-condition contrast.
+
+behavior_tests:
+  - name: acetate-overflow-onset-held-out
+    classification: primary
+    measure: "acetate secretion vs growth with the ETC fix on (HELD-OUT — cap tuned to yield only)"
+    pass_if: "acetate rises with growth (overflow onset emerges)"
+    expected: "growth-dependent overflow"
+    observed: "(sweep running)"
+    verdict: pending
+  - name: downshift-transient-ppgpp-spike
+    classification: primary
+    measure: "ppGpp / flux transient across a rich->minimal downshift"
+    pass_if: "transient ppGpp spike then re-equilibration"
+    expected: "dynamic stringent-response transient"
+    observed: "(downshift staged)"
+    verdict: pending
+
+conclusion: >-
+  ## Plan
+  The ETC fix is put to a held-out test (acetate-overflow onset, which the cap never saw) and the
+  capstone's steady-state coordination is upgraded to a genuine temporal downshift. Running; the
+  overflow-onset check is the decisive test that the fix is mechanistic, not a fitted knob.

@@ -1,0 +1,161 @@
+schema_version: 4
+name: mcs-09-ppgpp-decoupling-control
+investigation: multiscale-complexity-showcase
+title: "Causal control — knock down ppGpp; does the coordination collapse?"
+created: '2026-09-04'
+status: investigating
+confidence: Investigating
+gate_status: running
+
+kind: adversarial
+
+cites:
+  - {key: CooperHelmstetter1968, claim: "origins-per-cell scale with growth rate"}
+  - {key: Scott2010, claim: "ppGpp sets ribosome allocation; the stringent response couples growth to synthesis"}
+
+question: >-
+  Arc 1 shows origins-per-cell, ppGpp and growth move together across nutrient conditions,
+  and reads that as EMERGENT coordination by the ppGpp signal. But a correlation across
+  conditions is also consistent with hard-wired coupling that does not actually depend on
+  ppGpp. If ppGpp is the causal coordinator, then KNOCKING IT DOWN (suppressing RelA, the
+  ppGpp synthetase) should break the coordination: the growth-dependent tuning of ribosome
+  allocation and replication initiation should weaken or collapse. Does it?
+
+hypothesis: >-
+  ppGpp is the causal coordinator. Suppressing RelA synthesis lowers the ppGpp level and
+  DECOUPLES the axes: ribosome allocation and initiation timing no longer track growth as
+  they do at native ppGpp, so the origins/ribosome response to a nutrient change is blunted
+  relative to the ppGpp-competent baseline. If instead the coordination persists unchanged
+  with ppGpp knocked down, the Arc-1 thesis (emergent, signal-driven coordination) is wrong
+  and the coupling was imposed.
+
+objective: >-
+  Run the native baseline and a RelA-knockdown variant (--perturbation on the relA transcription
+  unit) at matched conditions; measure ppGpp, ribosome content, origins-per-cell and growth;
+  compare the cross-condition coordination (the coupling slope / response magnitude) between
+  ppGpp-competent and ppGpp-suppressed cells. This is the falsification control for H1.
+
+pipeline_gate:
+  prerequisites:
+    - {study: mcs-01-ppgpp-replication-coupling, condition: tests-passed}
+
+conditions:
+  baseline:
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params: {}
+  variants:
+    - name: rela-knockdown
+      detail: >-
+        Suppress RelA synthesis via --perturbation <relA-TU>=<low prob> so the cell cannot
+        mount the normal ppGpp response; run at matched media and compare the coupling to the
+        ppGpp-competent baseline. (The relA transcription-unit id is resolved from sim_data at
+        run time; a partial knockdown is used so the cell still grows and the DECOUPLING, not
+        lethality, is what is measured.)
+  model_settings: []
+
+inputs:
+  - artifact: sim_data
+    from: parca
+    into: cache_dir
+
+readouts:
+  - "ppgpp_conc: native baseline vs RelA-knockdown (confirms the knockdown actually lowers ppGpp)"
+  - "ribosome_conc and origins_per_cell response to a nutrient change, ppGpp-competent vs suppressed"
+  - "growth_rate (held-out: the knockdown must not simply kill the cell — a partial knockdown that preserves growth is required for a clean decoupling readout)"
+
+expected_behavior:
+  - name: knockdown-lowers-ppgpp
+    observable: ppgpp_conc
+    condition: rela-knockdown
+    rationale: "A RelA knockdown must measurably lower ppGpp, else it is not a valid ppGpp perturbation."
+  - name: coordination-collapses-without-ppgpp
+    observable: "coupling of origins/ribosome to growth"
+    condition: "rela-knockdown vs baseline"
+    rationale: "If ppGpp is causal, the growth-dependent tuning of ribosome allocation / initiation weakens when ppGpp is suppressed."
+  - name: knockdown-preserves-viability
+    observable: growth_rate
+    condition: "held-out: rela-knockdown"
+    rationale: "The knockdown must be partial enough that the cell still grows, so the readout is decoupling and not death."
+
+tests:
+  - name: knockdown-lowers-ppgpp
+    classification: primary
+    question: "Does suppressing RelA measurably lower ppGpp vs baseline?"
+    measure: {kind: derived, detail: "mean ppgpp_conc, baseline vs knockdown (observables.py)."}
+  - name: coordination-collapses-without-ppgpp
+    classification: primary
+    question: "Is the growth-dependent coupling of ribosome allocation / origins weaker under ppGpp suppression?"
+    measure: {kind: derived, detail: "coupling magnitude (response of ribosome_conc / origins to a nutrient change) baseline vs knockdown."}
+  - name: knockdown-preserves-viability
+    classification: primary
+    kind: held_out
+    question: "Does the cell still grow under the partial knockdown?"
+    measure: {kind: derived, detail: "mean post-burn-in growth_rate within a physiological window."}
+
+planned_runs:
+  - name: mcs09-ppgpp-competent-baseline
+    status: planned
+    n_steps: "2-3 gens x 2 conditions"
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    details: "Native baseline at basal and with_aa (reuses Arc-1 seeds where possible) — the ppGpp-competent reference."
+  - name: mcs09-rela-knockdown
+    status: planned
+    n_steps: "2-3 gens x 2 conditions"
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    details: "RelA-knockdown variant (--perturbation <relA-TU>=<low prob>) at basal and with_aa; compare coupling to baseline."
+
+simulation_set:
+  - name: mcs09-rela-knockdown
+    kind: simulation
+    status: running
+    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    duration_steps: "2-3 generations"
+    seeds: [20]
+    metrics: [ppgpp_conc, ribosome_conc, origins_per_cell, growth_rate]
+    pass_fail_tests: [knockdown-lowers-ppgpp, coordination-collapses-without-ppgpp, knockdown-preserves-viability]
+
+runs: []
+
+claim: >-
+  Designed causal control (running). Discriminates emergent (signal-driven) from hard-wired
+  coordination: if suppressing RelA/ppGpp blunts the growth-dependent tuning of ribosome
+  allocation and replication, the Arc-1 coordination is causal; if it persists unchanged, the
+  thesis is falsified.
+
+findings: []
+
+biological_summary: >-
+  Arc 1's cross-condition correlation of ppGpp, ribosomes and origins is consistent with two
+  stories: ppGpp CAUSES the coordination, or the coupling is hard-wired and ppGpp is a passenger.
+  This control knocks down RelA (the ppGpp synthetase) and asks whether the growth-dependent
+  tuning collapses. A collapse confirms emergent, signal-driven control; persistence would
+  falsify it. A partial knockdown keeps the cell alive so the readout is decoupling, not death.
+
+behavior_tests:
+  - name: knockdown-lowers-ppgpp
+    classification: primary
+    measure: "mean ppGpp, baseline vs RelA-knockdown"
+    pass_if: "knockdown ppGpp materially below baseline"
+    expected: "lower ppGpp"
+    observed: "(control running)"
+    verdict: pending
+  - name: coordination-collapses-without-ppgpp
+    classification: primary
+    measure: "growth-dependent coupling of ribosome allocation / origins"
+    pass_if: "coupling weaker under ppGpp suppression"
+    expected: "coordination weakens"
+    observed: "(control running)"
+    verdict: pending
+  - name: knockdown-preserves-viability
+    classification: primary
+    measure: "growth rate under the partial knockdown (HELD-OUT)"
+    pass_if: "still growing"
+    expected: "viable"
+    observed: "(control running)"
+    verdict: pending
+
+conclusion: >-
+  ## Plan
+  The native baseline and a RelA-knockdown variant are compared at matched conditions. If the
+  growth-dependent coordination collapses under ppGpp suppression, Arc 1's emergent-coordination
+  thesis is causally confirmed; if it persists, the thesis is falsified. The control is running.

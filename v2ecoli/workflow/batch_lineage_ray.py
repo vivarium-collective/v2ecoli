@@ -96,6 +96,8 @@ def build_lineage_ray_batch_document(
     config_overrides: dict | None = None,
     emitter_arg: dict | None = None,
     seed_overrides: dict[Any, dict[str, Any]] | None = None,
+    exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str | None = None,
 ) -> dict:
     """Build a document with N real ``ray:LineageProcess`` nodes, one per seed.
 
@@ -119,6 +121,13 @@ def build_lineage_ray_batch_document(
       one (``v2ecoli/workflow/batch_lineage_ray.py``'s own prior comment here:
       "A real variant sweep across ray:-distributed lineages is real, separate,
       not-yet-scoped work" -- this is that work, scoped to the per-seed case).
+
+    ``exchange_fluxes``/``exchange_flux_basis`` (item 106): ``ecoli_baseline.baseline()`` and
+    ``LineageProcess`` both already accept these (a caller-supplied exchange-species-to-flux-column
+    map, plus the units basis those columns are reported in -- e.g. ``{"violacein_exchange":
+    "VIOLACEIN"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
+    config -- the same class of gap ``variants``/``injected_processes`` had before item109/#663.
+    Needed for real CD2 Run 2 KPI reporting (a violacein-exchange flux column), not just raw state.
 
     Omitted entirely (the default): every lineage starts fresh at generation 0
     against the one shared ``cache_dir`` -- today's exact behavior, unchanged.
@@ -200,6 +209,10 @@ def build_lineage_ray_batch_document(
             config["injected_processes"] = dict(injected_processes)
         if emitter_arg:
             config["emitter_arg"] = dict(emitter_arg)
+        if exchange_fluxes:
+            config["exchange_fluxes"] = dict(exchange_fluxes)
+        if exchange_flux_basis:
+            config["exchange_flux_basis"] = exchange_flux_basis
 
         state[node_name] = {
             "_type": "process",

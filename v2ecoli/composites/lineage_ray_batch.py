@@ -120,6 +120,26 @@ from v2ecoli.workflow.batch_lineage_ray import (
                 "cache_dir, today's exact behavior, unchanged."
             ),
         },
+        "exchange_fluxes": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Item 106: exchange-species-to-flux-column map (e.g. {'violacein_exchange': "
+                "'VIOLACEIN', 'glucose_exchange': 'GLC'}), threaded verbatim into each lineage's "
+                "own LineageProcess config -- already-supported by ecoli_baseline.baseline()/"
+                "LineageProcess, only unexposed at this thin wrapper until now. Needed to get a "
+                "real product-exchange-flux column out of a batch run rather than only raw state."
+            ),
+        },
+        "exchange_flux_basis": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "Item 106: units basis for exchange_fluxes columns (e.g. 'gdcw'). Required "
+                "alongside exchange_fluxes -- omitting it used to inherit 'counts', which is "
+                "lineage-cumulative and wrong for a per-generation flux reading."
+            ),
+        },
     },
     visualizations=[],
     core_extensions=[register_ray_lineage],
@@ -143,6 +163,8 @@ def lineage_ray_batch(
     config_overrides: dict | None = None,
     emitter_arg: dict | None = None,
     seed_overrides: dict | None = None,
+    exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str | None = None,
 ) -> dict:
     """Build the lineage_ray_batch composite document.
 
@@ -181,5 +203,7 @@ def lineage_ray_batch(
         config_overrides=config_overrides,
         emitter_arg=emitter_arg,
         seed_overrides=seed_overrides,
+        exchange_fluxes=exchange_fluxes,
+        exchange_flux_basis=exchange_flux_basis,
     )
     return doc

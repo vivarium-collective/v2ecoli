@@ -3,14 +3,14 @@ name: zerocs-occupancy-override
 title: The two lines that kill the cell
 investigation: transcription-rewiring
 study_type: root_cause
-phase: Design
+phase: Decide
 created: '2026-09-04'
-status: planned
+status: superseded
 design_status: complete
 implementation_status: not_started
 simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
+evaluation_status: evaluated
+gate_status: not_applicable
 expert_review_status: not_requested
 question: 'The amended foldchange-to-delta-fidelity showed ParCa''s encoding is nearly faithful -- lexA->rpoD
   is 1.88x off, not 1.5e+07x -- and that dnaG''s silencing is a RUNTIME occupancy effect: a delta of r
@@ -345,6 +345,46 @@ limitations:
   be attributed to LexA alone without a LexA-only arm this design does not include.
 - 'A rescue would show the override is SUFFICIENT to cause the stall, not that it is the only defect:
   the 2.13x activator residual is untouched by it.'
-claim: ''
-conclusion: ''
-confidence: Planned
+claim: 'Superseded before running: it would have tested a fix for the trigger rather than the cause, and
+  on a misreading of what the fitted occupancy means.'
+conclusion: 'Retired unrun, on the user''s observation that dnaG is not rescued by occupancy either way.
+
+  Two things were wrong with it. First, I read the fitted pPromoterBound as a binding affinity; it is
+  not. getter_functions'' fit computes min(1, tf_counts * init_to_average / tf_targets) with the comment
+  ''If TF exists, the promoter is always bound to the TF'' -- so LexA''s 0.5192 is a SCARCITY ratio, the
+  fraction of its sites it has copies to cover. 0CS means always-bound-if-present, and the runtime''s
+  hard-coded 1.0 is a deliberate expression of that, not a bug. ''Honouring the fitted occupancy'' would
+  have imposed a fixed per-site probability that neither the fit nor the runtime means.
+
+  Second, and decisively: occupancy is the trigger, not the cause. With the constraint-pinned delta r
+  = -0.99999996, dnaG retains 0.48 at q=0.52, 0.34 at q=0.66, 0.012 at q=0.988 and 4.3e-08 at q=1.0 --
+  so any occupancy fix leaves the cell on a knife-edge. With the delta the measured fold change implies
+  (r = -0.3627), dnaG retains 0.637 even at q = 1.0. LexA can be permanently bound, which is what an SOS
+  repressor should be in an unstressed cell, and dnaG is fine.
+
+  Superseded by tu-dedup-promoter-collapse, which targets the most upstream defect: getter_functions discards
+  TUs that share a gene set but differ in start coordinate -- distinct promoters -- taking 637 TUs across
+  428 groups, including both alternative dnaG transcripts.'
+confidence: Refuted
+findings:
+- summary: The fitted pPromoterBound is a scarcity ratio, not a binding affinity; the 0CS override is
+    deliberate.
+  status: novel
+  evidence:
+    from_run: analysis-only
+  explanation: fit_sim_data_1.py computes limited_tf_counts = min(1, tf_counts * init_to_average / tf_targets)
+    for 0CS TFs, commented 'If TF exists, the promoter is always bound to the TF'. LexA's 0.5192 therefore
+    means it has copies for ~52% of its sites, and the runtime models the same scarcity by capping n_to_bind
+    at n_available_TF. Both sides intend always-bound-if-present. My framing of the runtime as 'ignoring
+    the fit' was wrong.
+- summary: Occupancy is the trigger; the constraint-pinned delta is the cause.
+  status: novel
+  evidence:
+    from_run: analysis-only
+    observed: 0.637
+    units: retained at q=1 with the correct delta
+  explanation: retained = 1 + r*q. With r pinned at -1 by ParCa's constraint the cell sits on a cliff
+    -- 0.34 at q=0.66, 4.3e-08 at q=1.0 -- so the difference between generation 1 surviving and generation
+    3 dying is q moving from 0.988 to 1.000. With r = -0.3627, the value lexA->rpoD's log2FC of -0.65
+    implies, dnaG retains 0.637 across the whole occupancy range and is insensitive to q. Fixing occupancy
+    treats the trigger.

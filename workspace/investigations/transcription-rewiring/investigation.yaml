@@ -46,6 +46,7 @@ studies:
 - activator-overshoot
 - tu-coverage-loss
 - zerocs-occupancy-override
+- tu-dedup-promoter-collapse
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -306,14 +307,23 @@ decisions_needed:
     The fit is nearly faithful; dnaG''s silencing is a runtime occupancy effect.'
 - question: Why does runtime LexA occupancy reach 1.0 when the fit assumes 0.52-0.66?
   raised_by: foldchange-to-delta-fidelity (amended)
-  status: in_progress
+  status: resolved
   why: THE decisive question now. The fit is nearly faithful -- lexA->rpoD is 1.88x off, not 1.5e+07x
     -- and a delta of r = -1 yields a survivable retained fraction of 0.34 at the fit's own active occupancy
     of 0.6615. It becomes total silencing (4.3e-08) only at q = 1.0, which is where the simulation puts
     it. So the lethal defect is in TF BINDING at runtime, not in the ParCa encoding. Why the model binds
     LexA at ~100% when the fit assumed 52-66% is now the highest-value open question in this investigation.
-  resolution: 'Located: tf_binding.py:393 sets pPromoterBound = 1.0 unconditionally for TFs typed 0CS,
-    bypassing the fitted p_promoter_bound_tf. LexA is 0CS. 7 of 23 TFs are 0CS, but 5 were also FITTED
-    at 1.0 so the override is harmless for them; only PC00010 (LexA, 0.5192/0.6615) and PD00519 (0.3600)
-    are contradicted. Scoped as zerocs-occupancy-override, which tests whether honouring the fitted value
-    rescues the lineage.'
+  resolution: 'Answered, and demoted. tf_binding.py:393 hard-codes p_bound=1.0 for 0CS TFs, and that is
+    DELIBERATE: getter_functions'' fit computes min(1, counts*factor/targets) commented ''If TF exists,
+    the promoter is always bound'' -- so the fitted 0.5192 is a SCARCITY ratio, not an affinity, and both
+    sides intend always-bound-if-present. More importantly occupancy is the trigger, not the cause: with
+    the correct delta (r = -0.363) dnaG retains 0.637 even at q = 1.0. zerocs-occupancy-override was retired
+    unrun on this basis.'
+- question: Relax the getter_functions gene-set dedup so distinct promoters survive.
+  raised_by: tu-dedup-promoter-collapse
+  status: open
+  why: getter_functions.py:220 keys TUs on their sorted GENE SET and keeps only the first, discarding
+    637 TUs across 428 groups -- explicitly those covering the same genes with different end coordinates,
+    i.e. distinct promoters. It is the dominant reason 760 source TUs are absent, and it is why dnaG has
+    one transcript instead of three. Unlike the constraint artefact and the cistron-content regulation
+    rule, this one DISCARDS EVIDENCED DATA rather than modelling it debatably.

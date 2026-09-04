@@ -108,8 +108,22 @@ def build_ptools_launch_url(
     if not available:
         return {"error": "no ptools TSVs found for this run", "available": []}
 
-    chosen = all_tsvs[0]
-    rel = available[0]
+    # Default overlay: prefer the combined "overview" export (genes + reactions +
+    # proteins in one EcoCyc "a mixture" upload) so the launch is deterministic
+    # and biologically complete. Fall back to any ``ptools_*`` export, then to
+    # the first file — so a study whose ``ptools/`` dir also holds unrelated TSVs
+    # (e.g. ``cd1_*`` omics tables that sort earlier alphabetically) still
+    # launches the PTools overview rather than the alphabetically-first file.
+    def _overlay_rank(p: Path) -> tuple:
+        n = p.name.lower()
+        if "overview" in n:
+            return (0, n)
+        if n.startswith("ptools_"):
+            return (1, n)
+        return (2, n)
+
+    chosen = min(all_tsvs, key=_overlay_rank)
+    rel = _relpath(chosen)
     if data_dir:
         tsv_url = f"{data_dir.rstrip('/')}/{rel}"
     else:

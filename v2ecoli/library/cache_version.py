@@ -49,6 +49,22 @@ DEFAULT_BUILD_PARAMS: dict = {
     "seed": None,
     "n_seeds": None,
     "condition_manifest_hash": None,
+    # Strain-defining genotype content (P1-6). These identify WHICH STRAIN a
+    # bundle is, not merely which nutrient condition. ``new_genes`` changes the
+    # genome the fit is built from (a heterologous insertion / KO overlay);
+    # ``bundle_overrides`` / ``bundle_manifest`` name the ecoli-sources bundle
+    # the raw_data was built from; ``perturbations`` fingerprints an in-memory
+    # sim_data perturbation baked into the cache before it was written (e.g. a
+    # new-gene expression / translation-efficiency override — see
+    # v2ecoli/perturbations/new_gene_cache.py). Two strains that differed only
+    # in these previously produced byte-identical ``cache_version.json`` and a
+    # wrong-strain cache verified clean, so they are folded into ``inputs_hash``
+    # here and compared requested-vs-stored in ``verify_cache_version``. ``None``
+    # for every key is the wild-type / unperturbed build.
+    "new_genes": None,
+    "bundle_overrides": None,
+    "bundle_manifest": None,
+    "perturbations": None,
 }
 
 #: Config names whose absence from a built bundle is fatal (PARCA_REVIEW A6).
@@ -138,6 +154,24 @@ INPUT_FILES: tuple[str, ...] = (
     "v2ecoli/composites/ecoli_time_varying_env.py",
     "v2ecoli/composites/ecoli_colony.py",
     "v2ecoli/composites/ecoli_millard.py",
+    # This PR adds two leaves to the reactor-coupled document
+    # (``reactor.kla_co2``, ``reactor.ammonium_medium_mM``), and the
+    # composite was not listed here — so the change that shifts the
+    # document shape would have busted no cache. A cache built against
+    # the old reactor architecture would have verified clean against the
+    # new one, which is the failure this module exists to prevent.
+    # Only the three files this change touches are added; the wider gap
+    # (the remaining unlisted composites, and the fact that
+    # ``v2ecoli/steps/`` is not represented here at all) is tracked in
+    # #650 and is deliberately NOT closed piecemeal from here.
+    "v2ecoli/composites/reactor_bird_coupled.py",
+    # The two steps THIS CHANGE EDITS. They are here because this diff
+    # touches them, not because a structural rule now covers steps --
+    # environment_driver.py is instantiated by the same lines of
+    # add_reactor_coupling and shifts the document identically, and is
+    # deliberately NOT added here. The general rule is #650's.
+    "v2ecoli/steps/reactor_cell_coupler.py",
+    "v2ecoli/steps/environment_mirror.py",
     # Shared builders imported by the composites above (make_edge,
     # _make_instance, _get_special_step, per-step config dispatch, ...).
     # A change here shifts document shape for every composite that imports
@@ -217,8 +251,51 @@ def _default_repo_root() -> str:
     collapses to a constant that never changes when the source changes — so the
     whole staleness check silently no-ops. Anchor to the package instead:
     this file is ``<repo>/v2ecoli/library/cache_version.py``.
+
+    Still used as the second/fallback candidate in :func:`candidate_repo_roots`,
+    and directly by any external caller that just wants "the v2ecoli source
+    root" without the installed-dependency two-root split.
     """
     return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+
+
+def candidate_repo_roots() -> list[str]:
+    """Ordered, de-duplicated roots to search for an INPUT_FILES-style entry.
+
+    When v2ecoli is consumed as an INSTALLED dependency (e.g. sms-ecoli
+    depending on it via git), its SOURCE files live under the package
+    (``site-packages/v2ecoli/...``, anchored by :func:`_default_repo_root`)
+    but its DATA files (``models/parca/parca_state.pkl.gz``) live in the
+    consuming WORKSPACE — so no single root resolves both.
+
+    Returns the workspace root first (via ``viva_workspace.find_workspace_root``,
+    a chdir-safe upward walk to the nearest ``workspace.yaml`` — see that
+    function's docstring; it still works from inside a chdir'd ``.regen_*``
+    isolation dir as long as that dir nests under the workspace, same
+    guarantee :func:`_default_repo_root`'s docstring describes), then the
+    package/source root. Import is guarded: an environment with no
+    ``viva_workspace`` installed, or no ``workspace.yaml`` in any ancestor
+    (e.g. a bare `pip install v2ecoli` with no workspace at all), simply
+    falls back to the package root alone.
+
+    For a standalone v2ecoli checkout (this repo) both roots resolve to the
+    same directory, so this collapses to a single-entry list — identical to
+    the old single-root behavior.
+    """
+    roots: list[str] = []
+    try:
+        from viva_workspace import find_workspace_root
+        roots.append(str(find_workspace_root()))
+    except Exception:
+        pass
+    roots.append(_default_repo_root())
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for root in roots:
+        if root not in seen:
+            seen.add(root)
+            ordered.append(root)
+    return ordered
 
 
 def compute_cache_version(repo_root: str | None = None,
@@ -246,25 +323,34 @@ def compute_cache_version(repo_root: str | None = None,
     have to pass an empty list. Deliberately excluded from ``inputs_hash``
     — see the field docstring on ``CacheVersion.configs``.
     """
-    if repo_root is None:
-        repo_root = _default_repo_root()
+    # An explicit repo_root (tests, or a caller that already knows exactly
+    # where its files live) means "search only there" — the original,
+    # single-root behavior. repo_root=None means "resolve per entry against
+    # the workspace-then-package candidate roots" so a data file that only
+    # exists in the workspace (installed-dependency case) still resolves.
+    candidate_roots = [repo_root] if repo_root is not None else candidate_repo_roots()
     per_file: dict[str, str] = {}
     for rel in sorted(files):
-        path = os.path.join(repo_root, rel)
-        if not os.path.exists(path):
+        resolved_path = None
+        for root in candidate_roots:
+            path = os.path.join(root, rel)
+            if os.path.exists(path):
+                resolved_path = path
+                break
+        if resolved_path is None:
             # A vanished fingerprint input is a bug, not a state: hashing it
             # to a stable "MISSING" sentinel silently drops the file from
             # the fingerprint forever (its edits stop moving inputs_hash).
             # That is exactly how 5/11 INPUT_FILES went dead unnoticed after
             # the ecoli_* composite rename in 645fe178. Fail loudly instead.
             raise FileNotFoundError(
-                f"cache_version INPUT_FILES entry does not exist: {path!r} "
-                f"(from repo_root={repo_root!r}, rel={rel!r}). This file was "
+                f"cache_version INPUT_FILES entry does not exist: {rel!r} "
+                f"(tried roots: {candidate_roots!r}). This file was "
                 f"renamed or deleted without updating "
                 f"v2ecoli/library/cache_version.py:INPUT_FILES — see "
                 f"AGENTS.md 'Adding a new composite architecture' step 3."
             )
-        per_file[rel] = _hash_file(path)
+        per_file[rel] = _hash_file(resolved_path)
 
     if context is None:
         context = probe_context()
@@ -315,22 +401,47 @@ def read_cache_version(cache_dir: str) -> CacheVersion | None:
         return CacheVersion.from_dict(json.load(f))
 
 
-def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
+def _resolve_build_params(build_params: dict | None) -> dict:
+    """Fill ``build_params`` against :data:`DEFAULT_BUILD_PARAMS`.
+
+    Same normalization ``compute_cache_version`` applies before hashing:
+    unknown keys are dropped, missing keys default to their ``None`` sentinel.
+    Sharing it here lets ``verify_cache_version`` compare a *requested*
+    build against a *stored* one on exactly the keys that shape the
+    fingerprint.
+    """
+    resolved = dict(DEFAULT_BUILD_PARAMS)
+    if build_params:
+        resolved.update(
+            {k: v for k, v in build_params.items() if k in resolved})
+    return resolved
+
+
+def verify_cache_version(cache_dir: str, repo_root: str | None = None,
+                         expected_build_params: dict | None = None) -> None:
     """Raise StaleCacheError if the cache on disk doesn't match current inputs.
 
     Called from the cache load path.  A missing ``cache_version.json`` is a
     hard error too — we can't prove a pre-versioning cache is safe, so treat
     it the same as a mismatch.
 
+    ``expected_build_params`` (P1-6) is what makes a WRONG-STRAIN cache fail.
+    A caller that knows which strain/condition it *requested* (e.g. new_genes,
+    bundle_overrides, condition) passes those here; every supplied key is
+    compared against the bundle's stored ``build_params`` and any divergence
+    raises. Without it this function has no independent notion of the request
+    and cannot tell a wild-type cache apart from a new-gene cache — the silent
+    failure this parameter closes. Left ``None`` (the load paths that don't
+    yet know the request) the comparison is skipped and behavior is unchanged.
+
     ``build_params`` (A7) describes *which artifact* the cache is (condition,
-    seed, n_seeds, ...) — it is a property of the bundle, not something
+    seed, n_seeds, strain, ...) — it is a property of the bundle, not something
     "current code" can independently re-derive, so recomputing "current"
     echoes ``stored.build_params`` back rather than defaulting them away.
     That keeps a real non-basal bundle (e.g. built with a non-default seed)
-    from failing verification against itself; the value of folding
-    build_params into inputs_hash is that two *different* bundles now hash
-    differently (inspectable via a plain diff of their cache_version.json),
-    not that this function detects a mismatched --cache-dir on its own.
+    from failing verification against *itself* on the file/context inputs_hash;
+    the requested-vs-stored strain check above is what catches a mismatched
+    ``--cache-dir``, not the echoed recompute.
     ``context`` (A9) is the opposite: it is re-probed fresh here so an
     environment change between build and load is exactly what this catches.
 
@@ -361,6 +472,34 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None) -> None:
             expected=current,
             actual=None,
         ))
+
+    # P1-6: compare the REQUESTED strain/condition against what the bundle was
+    # actually built for. This is the real comparison — the echoed recompute of
+    # ``current`` above deliberately folds in ``stored.build_params`` so a
+    # bundle verifies against itself on file/context hashes, which means it can
+    # never catch a wrong-strain --cache-dir on its own. Only an explicit
+    # requested-vs-stored diff can, so do it here whenever the caller knows the
+    # request.
+    if expected_build_params is not None:
+        requested = _resolve_build_params(expected_build_params)
+        stored_bp = _resolve_build_params(stored.build_params)
+        mismatched = {
+            key: (requested[key], stored_bp[key])
+            for key in requested
+            if requested[key] != stored_bp[key]
+        }
+        if mismatched:
+            detail = ", ".join(
+                f"{key}: requested {req!r} != cached {cached!r}"
+                for key, (req, cached) in sorted(mismatched.items()))
+            raise StaleCacheError(_rebuild_message(
+                cache_dir,
+                reason=f"build_params mismatch (wrong strain/condition cache): "
+                       f"{detail} — the cache at this path was built for a "
+                       f"different strain/condition than requested (P1-6)",
+                expected=current,
+                actual=stored,
+            ))
 
     if stored.schema_version != current.schema_version:
         raise StaleCacheError(_rebuild_message(

@@ -167,9 +167,18 @@ def test_cli_allow_partial_fit_flag_threads_to_build_parca_composite():
     """
     from v2ecoli.cli import parca as parca_cli
 
+    # The FLAG is asserted on the parser's behaviour rather than on source
+    # text: a substring check passes just as happily when a flag is defined
+    # and then dropped on the floor. (It also survives the parser moving out
+    # of main() into _build_arg_parser(), which is what broke the old form.)
+    parser = parca_cli._build_arg_parser()
+    assert parser.parse_args([]).allow_partial_fit is False
+    assert parser.parse_args(["--allow-partial-fit"]).allow_partial_fit is True
+
+    # The FORWARDING is still a static check: a real main() invocation
+    # monkeypatches the Step classes' module-global ``.update`` for per-step
+    # checkpointing, which would leak across the rest of the session.
     src = inspect.getsource(parca_cli.main)
-    assert '"--allow-partial-fit"' in src, (
-        "cli/parca.py:main() no longer defines --allow-partial-fit")
     assert 'allow_partial_fit=args.allow_partial_fit' in src, (
         "cli/parca.py:main() no longer forwards --allow-partial-fit into "
         "build_parca_composite(...)")
@@ -354,6 +363,11 @@ def test_build_scripts_do_not_clobber_configs_or_build_params(tmp_path):
         "seed": 3,
         "n_seeds": fixed.build_params["n_seeds"],  # resolved independently
         "condition_manifest_hash": None,
+        # P1-6 strain-identity keys, None for this unperturbed WT build.
+        "new_genes": None,
+        "bundle_overrides": None,
+        "bundle_manifest": None,
+        "perturbations": None,
     }
 
     # 2. Proof this is a real regression guard, not a vacuous assertion:

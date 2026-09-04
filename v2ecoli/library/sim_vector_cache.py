@@ -17,7 +17,20 @@ Key — ``(experiment_id, generation_lower_bound, extractor_version)``:
   stale vector after a burn-in change.
 * ``extractor_version`` is part of the key because the vector is a function of
   the extraction code as much as of the run. Bump
-  ``card_vectors.EXTRACTOR_VERSION`` whenever the aggregation semantics change.
+  ``card_vectors.EXTRACTOR_VERSION`` whenever a node's CONTENT changes — the
+  aggregation semantics *or* the keys a node carries. Content-only changes are
+  the ones that need the discipline most: they leave every number identical, so
+  nothing else distinguishes "this run recorded no such field" from "this file
+  predates the field".
+
+Size — the envelope is dominated by the ``per_cell`` matrices (extractor v2
+emits them for every group, not fluxes alone). At 104 cells x ~8.6k omics
+features that is ~900k floats and takes a cached envelope from ~279 KB to
+~17 MB. Large in relative terms, negligible in absolute ones: it is ~0.03% of
+the sweep it sits beside, it is gitignored by contract (below), and a full parse
+costs well under a second. It is deliberately plain JSON rather than a packed
+binary — losing the one artifact in this chain a human can open and read is a
+worse trade than the disk it saves.
 
 Location — follows the convention PR #418 established for S3-resident sweeps:
 results go to ``out_dir``, which defaults to the sweep dir when the sweep is
@@ -28,10 +41,11 @@ report cards grade against.
 
 Provenance — two distinct commits, never one ambiguous ``sim_commit``:
 
-* ``run_commit`` — the code that produced the *sweep*. Null when the sweep did
-  not record one (v2ecoli workflow sweeps do not today; only the
-  ``run_condition_multigen_parquet`` runner registers a run config), and
-  honestly null rather than backfilled with something that looks authoritative.
+* ``run_commit`` — the code that produced the *sweep*, read from the sweep's
+  ``run_identity.json`` sidecar (v2ecoli#472/#473,
+  ``v2ecoli.library.run_provenance.write_run_identity``). Null for a sweep
+  that predates that sidecar or genuinely never recorded one — honestly null
+  rather than backfilled with something that looks authoritative.
 * ``extracted_at_commit`` — the code that ran the *extraction*, which for a
   re-extracted older sweep is a different thing entirely.
 """
@@ -43,7 +57,12 @@ import time
 from pathlib import Path
 
 from v2ecoli.library.card_vectors import EXTRACTOR_VERSION, extract_vectors
-from v2ecoli.library.run_provenance import code_provenance, run_id_from_run_dir
+from v2ecoli.library.run_provenance import (
+    RUN_IDENTITY_FILENAME,
+    code_provenance,
+    read_run_identity,
+    run_id_from_run_dir,
+)
 
 CACHE_SCHEMA = "sim_vector_cache/v1"
 _CACHE_SUBDIR = "sim_vectors"
@@ -72,15 +91,51 @@ def cache_path(sweep_dir: str, generation_lower_bound: int = 0,
     return Path(out_dir) / _CACHE_SUBDIR / name
 
 
+def _read_run_identity_s3(sweep_dir: str) -> dict | None:
+    """``run_identity.json`` from an ``s3://`` sweep, via DuckDB's ``read_text``
+    over the same httpfs credential path :mod:`sweep_io` already establishes
+    for parquet reads — no new dependency, no S3 SDK call duplicated here."""
+    from v2ecoli.library.sweep_io import connect_for
+
+    uri = sweep_dir.rstrip("/") + "/" + RUN_IDENTITY_FILENAME
+    conn = connect_for(sweep_dir)
+    try:
+        rows = conn.sql(f"SELECT content FROM read_text('{uri}')").fetchall()
+    except Exception:
+        return None
+    finally:
+        conn.close()
+    if not rows:
+        return None
+    try:
+        blob = json.loads(rows[0][0])
+    except Exception:
+        return None
+    return blob if isinstance(blob, dict) else None
+
+
 def _run_commit(sweep_dir: str) -> str | None:
     """The commit that produced the sweep, if the run recorded one.
 
-    v2ecoli workflow sweeps do not record a commit anywhere in their output
-    (checked: the ``configuration`` partition carries experiment_id / variant /
-    lineage_seed / generation and nothing else, and ``sweep.pbg`` /
-    ``summary.json`` carry no git identity). Returns None rather than
-    substituting the extracting tree's HEAD, which would assert something false.
+    Reads the canonical ``run_identity.json`` sidecar (v2ecoli#472/#473) —
+    local or ``s3://``, an S3 sweep gets one automatically once it's produced
+    by a runner on this side of #472, since the Ray/Batch teardown syncs the
+    whole output dir (docker/ray-batch-entrypoint.sh). Falls back to the
+    legacy flat-key scan of ``run_config.json`` / ``summary.json`` for
+    sweeps produced before this brief, none of which ever populated those
+    keys in practice but the shape was speculatively read for — kept in
+    case an external tool already emits it. Returns None, never the
+    extracting tree's HEAD, when nothing was recorded — substituting would
+    assert something false.
     """
+    if is_s3(sweep_dir):
+        blob = _read_run_identity_s3(sweep_dir)
+    else:
+        blob = read_run_identity(sweep_dir)
+    if isinstance(blob, dict):
+        commit = blob.get("code", {}).get("commit")
+        if commit:
+            return str(commit)
     if is_s3(sweep_dir):
         return None
     for name in ("run_config.json", "summary.json"):
@@ -88,13 +143,13 @@ def _run_commit(sweep_dir: str) -> str | None:
         if not p.is_file():
             continue
         try:
-            blob = json.load(open(p, encoding="utf-8"))
+            legacy = json.load(open(p, encoding="utf-8"))
         except Exception:
             continue
-        if isinstance(blob, dict):
+        if isinstance(legacy, dict):
             for key in ("commit", "git_commit", "code_commit"):
-                if blob.get(key):
-                    return str(blob[key])
+                if legacy.get(key):
+                    return str(legacy[key])
     return None
 
 

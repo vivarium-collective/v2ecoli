@@ -17,12 +17,23 @@ columns it names.
 from __future__ import annotations
 
 import argparse
+import concurrent.futures
 import glob
 import json
 import os
 import re
 import warnings
 from typing import Any
+
+# Default concurrency ceiling for the DuckDB-backed (Analysis) family's
+# per-module fan-out in run_analyses (see _run_duckdb_names below). Each
+# named analysis is fully independent (own cursor, own query) and DuckDB
+# releases the GIL during query execution, so real threads give real
+# speedup -- empirically confirmed 2026-08-20 (~3x with 4 threads on a
+# genuine aggregation query, not just assumed from docs). Bounded by
+# cpu_count so a container's own vCPU allocation is the natural ceiling;
+# a caller can still force strict serial execution via max_workers=1.
+DEFAULT_ANALYSIS_MAX_WORKERS = os.cpu_count() or 4
 
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
@@ -252,7 +263,9 @@ def resolve_validation_data(sim_data):
 
 def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     """Build per-cell summary records from the sweep's parquet + summary.json."""
-    import duckdb
+    import tempfile
+
+    from viva_emitters import create_duckdb_conn
 
     div_by_cell: dict[tuple, dict] = {}
     spath = os.path.join(sweep_dir, "summary.json")
@@ -277,7 +290,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", ".join(_MASS_COLS) + ", " + ", ".join(_PHYSIO_COLS)
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
-    conn = duckdb.connect()
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -360,6 +373,47 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     return records
 
 
+_MISSING_COLUMN_RE = re.compile(
+    r'[Cc]olumn(?: named)?\s+"([^"]+)"\s+(?:not found|does not exist)')
+
+
+def _extract_missing_column(exc: Exception) -> str | None:
+    """Best-effort extraction of a missing-column name from a DuckDB binder
+    error, e.g. ``duckdb.BinderException: Binder Error: Referenced column
+    "listeners__mass__dry_mass" not found in FROM clause!`` (confirmed live
+    against a real DuckDB missing-column query 2026-09-01). Returns ``None``
+    when the message doesn't name a column explicitly -- the caller still
+    records the raw exception text either way, so nothing is lost.
+    """
+    m = _MISSING_COLUMN_RE.search(str(exc))
+    return m.group(1) if m else None
+
+
+def _name_status(per_group: dict) -> str:
+    """Roll one named analysis's per-group results up into a single status --
+    ``ok`` / ``partial`` / ``error`` / ``missing_column`` -- so ``run_analyses``
+    can report a structured pass/fail summary (P1-10) instead of leaving a
+    per-group ``{"error": ...}`` entry as the only signal a caller could act
+    on. ``missing_column`` is distinct from ``error`` precisely so a zero/empty
+    panel caused by an absent KPI column is never indistinguishable from a
+    genuine null result (CD2 audit §3.7)."""
+    if not per_group:
+        return "ok"
+    statuses = set()
+    for v in per_group.values():
+        if isinstance(v, dict) and "error" in v:
+            statuses.add(v.get("status") or "error")
+        else:
+            statuses.add("ok")
+    if statuses <= {"ok"}:
+        return "ok"
+    if statuses == {"missing_column"}:
+        return "missing_column"
+    if "ok" in statuses:
+        return "partial"
+    return "error"
+
+
 def _group_key_str(scale: str, key: tuple) -> str:
     if scale == "single":
         return f"variant={key[0]}/seed={key[1]}/gen={key[2]}/agent={key[3]}"
@@ -372,11 +426,55 @@ def _group_key_str(scale: str, key: tuple) -> str:
     return "all"
 
 
+def _register_builtin_analyses() -> None:
+    """Import the built-in analyses package so its ``Analysis`` subclasses
+    populate ``ANALYSIS_REGISTRY``.
+
+    ``run_analyses`` resolves every requested name against ``ANALYSIS_REGISTRY``
+    and skips (with an ``"unknown analysis"`` warning) any name that isn't
+    there. Registration happens as a side effect of importing each analysis
+    module, and ``v2ecoli.workflow.analyses.__init__`` imports the whole suite —
+    but nothing in the workflow run path imports that package. So a bare
+    ``python -m v2ecoli.workflow.run`` (as opposed to a session that already
+    imported the analyses, e.g. via a downstream workspace) finds the registry
+    empty and silently drops EVERY declared built-in analysis. Importing the
+    package here guarantees the built-ins are resolvable regardless of what the
+    caller imported. Idempotent — the import is cached after the first call.
+    """
+    import v2ecoli.workflow.analyses  # noqa: F401 — import registers the suite
+
+
 def run_analyses(sweep_dir: str, analysis_options: dict,
                  sim_data_path: str | None = None,
-                 out_dir: str | None = None) -> dict:
+                 out_dir: str | None = None,
+                 max_workers: int | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results.
+
+    The returned dict is ``{scale: {name: {group: data}}}`` (unchanged shape)
+    PLUS three structured-summary keys a caller can check without walking
+    every group of every named analysis (P1-10 / CD2 audit §3.7 -- an
+    analysis failure, or a KPI column the emitter dropped, must never look
+    like a clean `{"n": 0, "mean": 0.0}` result):
+
+      ``status``   -- ``"OK"`` if every requested analysis/group succeeded,
+                       else ``"PARTIAL"``.
+      ``summary``  -- ``{scale: {name: "ok"|"partial"|"error"|"missing_column"}}``.
+                       ``missing_column`` means the underlying per-cell record
+                       lacked a column this analysis needed (see
+                       ``build_cell_records``) -- distinct from ``error``
+                       (the analysis itself raised) and never silently
+                       collapsed into a zero-valued result.
+      ``errors``   -- flat list of ``{"scale", "name", "group", "error",
+                       "missing_column"}`` entries for every failure, plus one
+                       ``scale=None`` entry if the per-cell record build
+                       itself failed (see ``records_error`` below).
+
+    This function never raises over an analysis-level failure or a missing
+    KPI column -- both degrade to ``status: "PARTIAL"`` so the rest of the
+    sweep's analyses still run and land in ``analysis.json``. It still
+    raises for setup failures outside any single analysis's control (an
+    unresolvable sim_data pickle, an s3:// sweep with no ``out_dir``, ...).
 
     Parameters
     ----------
@@ -394,9 +492,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     out_dir:
         Where ``analysis.json`` / ``viz/`` / ``ptools/`` are written.  Defaults
         to ``sweep_dir``, which is only writable when the sweep is local.
+    max_workers:
+        How many DuckDB-backed (``Analysis``-family) named analyses to run
+        concurrently within a scale (see ``_run_duckdb_name``). ``None``
+        (default) uses ``DEFAULT_ANALYSIS_MAX_WORKERS``, capped to however
+        many such analyses this scale actually names. Pass ``1`` to force
+        strict serial execution (e.g. for deterministic debugging).
     """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
+
+    # Populate ANALYSIS_REGISTRY with the built-in suite before resolving any
+    # requested name against it — otherwise a bare workflow run finds it empty
+    # and drops every declared analysis. See _register_builtin_analyses.
+    _register_builtin_analyses()
 
     # Records are built ONLY if a record-based AnalysisStep is actually
     # requested. That family consumes per-cell timeseries, so building them
@@ -422,8 +531,28 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 "out_dir is required for an s3:// sweep (the sweep is read-only)")
         out_dir = sweep_dir
 
+    # P1-10 (CD2 audit §3.7): build_cell_records() hard-codes 15+ columns in
+    # one query; if the emitter dropped one, the query raises OUTSIDE any
+    # per-group guard -- previously that propagated straight out of
+    # run_analyses and every analysis (including ones on scales that never
+    # needed the timeseries) was lost, reduced to one error string by the
+    # flush's broad catch. Instead: catch it here, extract the missing column
+    # name when the error names one, and fall back to the cheap partition-key
+    # listing so DuckDB-backed analyses (which read columns from DuckDB
+    # directly, not from these Python records) are unaffected. Record-based
+    # analyses are flagged explicitly below (never silently computing a
+    # hollow {"n": 0, "mean": 0.0, ...} over key-only records).
+    records_error: dict[str, Any] | None = None
     if _needs_timeseries():
-        records = list(build_cell_records(sweep_dir).values())
+        try:
+            records = list(build_cell_records(sweep_dir).values())
+        except Exception as e:  # noqa: BLE001 -- converted into an explicit,
+            # per-analysis "missing_column" signal below, not swallowed.
+            records_error = {
+                "error": f"{type(e).__name__}: {e}",
+                "missing_column": _extract_missing_column(e),
+            }
+            records = cell_keys(sweep_dir)
     else:
         records = cell_keys(sweep_dir)
     core = allocate_core()
@@ -432,23 +561,98 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     # large sim_data pickle is loaded only once per run (not once per analysis),
     # and a single DuckDB connection is reused.
     _ctx: dict[str, Any] = {}
+    # Named analyses now fan out across threads (see _run_duckdb_name below),
+    # and this lazy provisioning is only safe to run once — guard the
+    # check-then-populate with a lock so two threads racing on the very first
+    # call can't both see `not _ctx`, both start building it, and leave a
+    # reader mid-construction with a KeyError (or a discarded, redundantly
+    # loaded sim_data pickle).
+    import threading
+
+    _ctx_lock = threading.Lock()
 
     def _analysis_ctx() -> tuple:
-        if not _ctx:
-            import duckdb
-            _ctx["conn"] = duckdb.connect()
-            if is_s3_uri(sweep_dir):
-                configure_duckdb_s3(_ctx["conn"])
-            _ctx["from_clause"] = _history_from_clause(sweep_dir)
-            if sim_data_path is not None:
-                from v2ecoli.library.sim_data import LoadSimData
-                _ctx["sim_data"] = LoadSimData(
-                    sim_data_path=localize(sim_data_path)).sim_data
-            else:
-                _ctx["sim_data"] = resolve_sim_data(sweep_dir)
-            _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
-        return (_ctx["conn"], _ctx["from_clause"],
-                _ctx["sim_data"], _ctx["validation_data"])
+        with _ctx_lock:
+            if not _ctx:
+                import tempfile
+
+                from viva_emitters import create_duckdb_conn
+                _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+                _ctx["from_clause"] = _history_from_clause(sweep_dir)
+                if sim_data_path is not None:
+                    from v2ecoli.library.sim_data import LoadSimData
+                    _ctx["sim_data"] = LoadSimData(
+                        sim_data_path=localize(sim_data_path)).sim_data
+                else:
+                    _ctx["sim_data"] = resolve_sim_data(sweep_dir)
+                _ctx["validation_data"] = resolve_validation_data(_ctx["sim_data"])
+            return (_ctx["conn"], _ctx["from_clause"],
+                    _ctx["sim_data"], _ctx["validation_data"])
+
+    # (S3-secret refresh moved out of here and onto each thread's own cursor —
+    # see _run_duckdb_name's own docstring for why the refresh call itself
+    # must still be serialized via _ctx_lock even though query execution
+    # after it is not.)
+
+    def _run_duckdb_name(name: str, step_cls: type, params: dict, scale: str,
+                          groups: Any) -> dict:
+        """Run one DuckDB-backed (``Analysis``-family) named analysis over
+        every group in ``scale``, on its own cursor.
+
+        A DuckDB connection is safe to use concurrently from multiple Python
+        threads only for QUERY EXECUTION, via ``conn.cursor()`` (a lightweight,
+        independent session against the same in-memory catalog) — never the
+        base connection object itself from more than one thread at a time.
+        Cursors share the base connection's catalog (tables, secrets), which
+        is exactly why concurrent CATALOG WRITES (``INSTALL``/``LOAD`` of an
+        extension, ``CREATE OR REPLACE SECRET``) are NOT safe across threads:
+        DuckDB's transactional catalog correctly raises a write-write
+        TransactionException when two threads try to alter the same object at
+        once (confirmed live 2026-08-21 — see item 79). So the S3 credential
+        refresh below still needs to happen once per module, on each call's
+        own cursor (item 71 b4's ExpiredToken fix — a long multi-module sweep
+        can outlive one STS session), but the refresh CALL ITSELF must be
+        serialized against every other thread's refresh call; only the query
+        execution after it is safe to run concurrently.
+        """
+        conn, from_clause, sim_data, validation_data = _analysis_ctx()
+        cursor = conn.cursor()
+        if is_s3_uri(sweep_dir):
+            with _ctx_lock:
+                configure_duckdb_s3(cursor)
+        step = step_cls(params, core=core)
+        viz_dir = os.path.join(out_dir, "viz")
+        os.makedirs(viz_dir, exist_ok=True)
+        per_group: dict[str, Any] = {}
+        for gkey in groups:
+            gstr = _group_key_str(scale, gkey)
+            try:
+                history_sql = scale_history_sql(scale, from_clause, gkey)
+                out = step.update({
+                    "conn": cursor, "history_sql": history_sql,
+                    "config_sql": "", "success_sql": "",
+                    "sim_data": sim_data,
+                    "validation_data": validation_data,
+                    "variant_metadata": params,
+                })
+                if out.get("view"):
+                    vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
+                    with open(vp, "w", encoding="utf-8") as vf:
+                        vf.write(out["view"])
+                data = out.get("data")
+                if isinstance(data, dict) and data.get("tsv"):
+                    ptools_dir = os.path.join(out_dir, "ptools")
+                    os.makedirs(ptools_dir, exist_ok=True)
+                    tsv_path = os.path.join(
+                        ptools_dir,
+                        f"{name}__{gstr.replace('/', '_')}.tsv",
+                    )
+                    with open(tsv_path, "w", encoding="utf-8") as tf:
+                        tf.write(data["tsv"])
+                per_group[gstr] = out.get("data", {})
+            except Exception as e:
+                per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+        return per_group
 
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
@@ -456,6 +660,18 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
+
+        # Resolve + validate every requested name up front (unchanged
+        # semantics), splitting into the DuckDB family (run concurrently
+        # below — each is a fully independent query, and DuckDB releases the
+        # GIL during execution, see _run_duckdb_name) and the record-based
+        # family (run serially, unchanged — cheap, pure-Python, not the
+        # observed bottleneck). Results are reassembled into scale_out in the
+        # original ``analyses`` order regardless of which family or thread
+        # actually produced them, so output ordering matches strict serial
+        # execution exactly.
+        duckdb_names: list[str] = []
+        record_names: list[str] = []
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
@@ -465,67 +681,99 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
                               f"not {scale}; skipping")
                 continue
-            # Pass the per-analysis options dict (the value under the analysis
-            # name in analysis_options) as the Step's config, so analyses can
-            # be parameterized (e.g. population_phenotype_basal's generation_lower_bound).
-            # Analyses with config_schema={} simply ignore a populated config.
+            (duckdb_names if issubclass(step_cls, Analysis) else record_names).append(name)
+
+        results_by_name: dict[str, dict] = {}
+
+        for name in record_names:
+            step_cls = ANALYSIS_REGISTRY[name]
+            if records_error is not None:
+                # The per-cell records this family needs failed to build (see
+                # above) -- flag every group explicitly rather than running
+                # analyze() over key-only records and returning a zero panel
+                # that looks like a real (if boring) result.
+                col = records_error.get("missing_column")
+                msg = (f"missing KPI column {col!r} ({records_error['error']})"
+                       if col else f"cell records unavailable ({records_error['error']})")
+                flagged = {"error": msg, "status": "missing_column",
+                          "missing_column": col}
+                per_group = {_group_key_str(scale, gkey): dict(flagged)
+                            for gkey in groups} or {"_all": flagged}
+                results_by_name[name] = per_group
+                continue
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
+            for gkey, grp in groups.items():
+                try:
+                    # single-scale Steps consume a cell's timeseries; cross-scale
+                    # Steps consume the list of per-cell summary records. (A single
+                    # group is exactly one cell by construction — group_for_scale
+                    # keys single by the full cell id — so grp[0] is that cell.)
+                    rows = grp[0].get("timeseries") if scale == "single" else grp
+                    per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
+                except Exception as e:
+                    per_group[_group_key_str(scale, gkey)] = {
+                        "error": f"{type(e).__name__}: {e}"}
+            results_by_name[name] = per_group
 
-            if issubclass(step_cls, Analysis):
-                # DuckDB-provisioning path: connection + sim_data are shared across
-                # all groups and analyses (lazily provisioned once per run).
-                conn, from_clause, sim_data, validation_data = _analysis_ctx()
-                params = (analyses or {}).get(name) or {}
-                viz_dir = os.path.join(out_dir, "viz")
-                os.makedirs(viz_dir, exist_ok=True)
-                for gkey in groups:
-                    gstr = _group_key_str(scale, gkey)
-                    try:
-                        history_sql = scale_history_sql(scale, from_clause, gkey)
-                        out = step.update({
-                            "conn": conn, "history_sql": history_sql,
-                            "config_sql": "", "success_sql": "",
-                            "sim_data": sim_data,
-                            "validation_data": validation_data,
-                            "variant_metadata": params,
-                        })
-                        if out.get("view"):
-                            vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
-                            with open(vp, "w", encoding="utf-8") as vf:
-                                vf.write(out["view"])
-                        data = out.get("data")
-                        if isinstance(data, dict) and data.get("tsv"):
-                            ptools_dir = os.path.join(out_dir, "ptools")
-                            os.makedirs(ptools_dir, exist_ok=True)
-                            tsv_path = os.path.join(
-                                ptools_dir,
-                                f"{name}__{gstr.replace('/', '_')}.tsv",
-                            )
-                            with open(tsv_path, "w", encoding="utf-8") as tf:
-                                tf.write(data["tsv"])
-                        per_group[gstr] = out.get("data", {})
-                    except Exception as e:
-                        per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+        if duckdb_names:
+            workers = max_workers or min(len(duckdb_names), DEFAULT_ANALYSIS_MAX_WORKERS)
+            if workers <= 1 or len(duckdb_names) == 1:
+                for name in duckdb_names:
+                    params = (analyses or {}).get(name) or {}
+                    results_by_name[name] = _run_duckdb_name(
+                        name, ANALYSIS_REGISTRY[name], params, scale, groups)
             else:
-                # Record-based AnalysisStep path (unchanged).
-                for gkey, grp in groups.items():
-                    try:
-                        # single-scale Steps consume a cell's timeseries; cross-scale
-                        # Steps consume the list of per-cell summary records. (A single
-                        # group is exactly one cell by construction — group_for_scale
-                        # keys single by the full cell id — so grp[0] is that cell.)
-                        rows = grp[0].get("timeseries") if scale == "single" else grp
-                        per_group[_group_key_str(scale, gkey)] = step.analyze(rows or [])
-                    except Exception as e:
-                        per_group[_group_key_str(scale, gkey)] = {
-                            "error": f"{type(e).__name__}: {e}"}
+                with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
+                    futures = {
+                        name: ex.submit(
+                            _run_duckdb_name, name, ANALYSIS_REGISTRY[name],
+                            (analyses or {}).get(name) or {}, scale, groups)
+                        for name in duckdb_names
+                    }
+                    for name, fut in futures.items():
+                        results_by_name[name] = fut.result()
 
-            scale_out[name] = per_group
+        for name in (analyses or {}):
+            if name in results_by_name:
+                scale_out[name] = results_by_name[name]
         results[scale] = scale_out
 
     if _ctx.get("conn") is not None:
         _ctx["conn"].close()
+
+    # P1-10: a structured pass/fail summary, not just the nested per-group
+    # results -- a caller (the post-sim flush, a batch summary, ...) can check
+    # results["status"] instead of having to walk every group of every named
+    # analysis looking for an "error" key to know whether anything failed.
+    summary: dict[str, dict] = {}
+    for scale_key, scale_result in results.items():
+        scale_summary = {name: _name_status(per_group)
+                         for name, per_group in scale_result.items()}
+        if scale_summary:
+            summary[scale_key] = scale_summary
+
+    errors: list[dict] = []
+    if records_error is not None:
+        errors.append({"scale": None, "name": None, "group": None, **records_error})
+    for scale_key, scale_summary in summary.items():
+        for name, status in scale_summary.items():
+            if status == "ok":
+                continue
+            for gkey, gval in results[scale_key][name].items():
+                if isinstance(gval, dict) and "error" in gval:
+                    errors.append({
+                        "scale": scale_key, "name": name, "group": gkey,
+                        "error": gval["error"],
+                        "missing_column": gval.get("missing_column"),
+                    })
+
+    overall_bad = records_error is not None or any(
+        status != "ok" for scale_summary in summary.values()
+        for status in scale_summary.values())
+    results["status"] = "PARTIAL" if overall_bad else "OK"
+    results["summary"] = summary
+    results["errors"] = errors
 
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "analysis.json"), "w") as f:

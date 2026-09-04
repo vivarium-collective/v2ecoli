@@ -1,0 +1,40 @@
+schema_version: 4
+name: variant-sweep-phenotype-demo
+investigation: variant-sweep-phenotype
+title: Variant-sweep phenotype demo (generic template)
+description: >
+  Template for a variant-sweep phenotype study. Runs the whole-config vEcoli
+  node (v2ecoli.composites.vecoli.vecoli) at several indices of a config-declared
+  variant grid and compares a chosen observable across the sweep axis. Copy this
+  study, point `whole_config` at any fork config that declares a `variants` block,
+  set `variant` per entry to the grid index, and list the observable ids to emit.
+  Perturbation-agnostic: no specific model content lives here.
+topic: variant-sweep-phenotype
+tags: [template, variant-sweep, phenotype, whole-config]
+created: '2026-08-15'
+conditions:
+  baseline:
+    composite: v2ecoli.composites.vecoli.vecoli
+    params:
+      whole_config: ""          # template: set to a fork config declaring `variants`
+      variant: 0                # 0 = unperturbed baseline
+      observable_bulk_ids: []   # template: list bulk ids to emit as observables
+      n_steps: 1500
+  variants:
+    - name: sweep-index-1
+      composite: v2ecoli.composites.vecoli.vecoli
+      params:
+        whole_config: ""
+        variant: 1
+        observable_bulk_ids: []
+        n_steps: 1500
+    - name: sweep-index-2
+      composite: v2ecoli.composites.vecoli.vecoli
+      params:
+        whole_config: ""
+        variant: 2
+        observable_bulk_ids: []
+        n_steps: 1500
+status: designed
+phase: Design
+design_status: approved

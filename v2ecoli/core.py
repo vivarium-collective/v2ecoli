@@ -10,6 +10,7 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import json
 import os
 import warnings
 from typing import Any
@@ -33,6 +34,7 @@ from v2ecoli.types import ECOLI_TYPES
 
 __all__ = [
     "build_core",
+    "register_ecoli_core",
     "load_cache_bundle",
     "save_cache",
     "save_sim_input",
@@ -40,9 +42,16 @@ __all__ = [
 ]
 
 
-def build_core():
-    """Create and configure a bigraph-schema core with ecoli types."""
-    core = allocate_core()
+def register_ecoli_core(core):
+    """Register ecoli types/links onto an EXISTING bigraph-schema core.
+
+    Behavior-preserving split of ``build_core``'s post-``allocate_core()``
+    body: this is the piece a ``@composite_generator``'s ``core_extensions``
+    hook needs (see ``v2ecoli.composites.ecoli_baseline``) so a generic
+    runner can provision a bare core via ``core_extensions`` alone, without
+    calling ``build_core()`` itself. ``build_core()`` below is now just
+    ``register_ecoli_core(allocate_core())``.
+    """
     core.register_types(ECOLI_TYPES)
     # Register emitters as links so they're discoverable (dashboard scans
     # core.link_registry for Emitter subclasses). Parquet stays the default
@@ -56,12 +65,12 @@ def build_core():
     except Exception:
         pass
     try:
-        from pbg_emitters import ParquetEmitter
+        from viva_emitters import ParquetEmitter
         core.register_link("ParquetEmitter", ParquetEmitter)
     except Exception:
         pass
     try:
-        from pbg_emitters import XArrayEmitter
+        from viva_emitters import XArrayEmitter
         core.register_link("XArrayEmitter", XArrayEmitter)
     except Exception:
         pass
@@ -113,6 +122,37 @@ def build_core():
         core.register_links(REPORT_CARD_STEPS)
     except Exception:  # noqa: BLE001 — never let card registration break build_core
         pass
+    return core
+
+
+def build_core():
+    """Create and configure a bigraph-schema core with ecoli types.
+
+    Also registers ``LineageProcess`` for the ``ray:`` address protocol (item 101/109) --
+    unlike other composite-specific registrations (colony's ``_register_colony_core``,
+    lineage_ray_batch's ``register_ray_lineage`` via its own ``core_extensions``), this one
+    lives here, on the CORE BUILDER ITSELF, because ``run_pbg.py`` only runs
+    ``apply_core_extensions`` on its ``--composite-id`` branch -- the ``/compose/v1`` raw-document
+    branch has no ``composite_id`` at all, so a raw ``.pbg`` document with a ``ray:LineageProcess``
+    address would otherwise fail to resolve under ``PBG_CORE_BUILDER=v2ecoli.core:build_core``.
+
+    Deliberately calls ONLY ``register_ray_lineage`` (a pure registry write: ``register_types`` +
+    ``register_process_class``, no Ray connection) -- NOT ``prewarm_lineage_pool``. Confirmed
+    directly (``process_bigraph/protocols/ray.py:528-536``): ``RayProtocolRuntime.__init__`` calls
+    ``ray.init()`` eagerly whenever Ray isn't already running. Calling ``prewarm_lineage_pool``
+    unconditionally here would make EVERY caller of ``build_core()`` -- chain-dispatch's per-
+    generation jobs, local scripts, tests, anything -- eagerly try to init Ray, whether or not it
+    ever resolves a ``ray:`` address. Known, accepted trade-off from omitting it: a raw document
+    dispatched through ``/compose/v1/run-document`` (the one path this unblocks) gets the ray:
+    protocol's own DEFAULT pool sizing (``os.cpu_count()``) on first real resolution, not the
+    cluster-derived ``RAY_SHARDS_DEFAULT`` -- callers on that path who need correct sizing must
+    still call ``prewarm_lineage_pool`` themselves before dispatch, same as ``lineage_ray_batch``'s
+    own composite_generator already does via its own ``core_extensions``.
+    """
+    from v2ecoli.workflow.batch_lineage_ray import register_ray_lineage
+
+    core = register_ecoli_core(allocate_core())
+    register_ray_lineage(core)
     return core
 
 
@@ -281,6 +321,29 @@ def _hash_file(path: str) -> str:
     return h.hexdigest()
 
 
+def _fingerprint_perturbations(perturbations) -> str | None:
+    """Stable, JSON-safe fingerprint of an in-memory sim_data perturbation.
+
+    ``perturbations`` is whatever strain-defining mutation was baked into the
+    sim_data before the bundle was written (e.g. new_gene_cache's ``applied``
+    dict of ids / indices / per-target values). It becomes a
+    ``build_params['perturbations']`` value that folds into ``inputs_hash`` and
+    is compared requested-vs-stored, so two perturbed strains no longer share a
+    cache fingerprint (P1-6). Returns ``None`` for a falsy/absent perturbation
+    (the wild-type build), a short hex digest otherwise. Never raises —
+    numpy scalars / non-serializable leaves fall back to ``repr`` rather than
+    crashing bundle-saving.
+    """
+    if not perturbations:
+        return None
+    if isinstance(perturbations, str):
+        payload = perturbations.encode()
+    else:
+        payload = json.dumps(
+            perturbations, sort_keys=True, default=repr).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _resolve_n_seeds() -> int | None:
     """The fit's actual V2PARCA_N_SEEDS, for recording into build_params.
 
@@ -301,7 +364,9 @@ def _resolve_n_seeds() -> int | None:
 
 
 def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
-                            fixed_media=None, condition_manifest_hash=None):
+                            fixed_media=None, condition_manifest_hash=None,
+                            new_genes=None, bundle_overrides=None,
+                            bundle_manifest=None, perturbations=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
@@ -316,6 +381,14 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
     ``n_seeds`` is resolved independently (A8) since it isn't a parameter of
     ``LoadSimData`` — it governs the *fit* upstream of this bundle-writing
     step, not sim-data hydration.
+
+    ``new_genes``/``bundle_overrides``/``bundle_manifest``/``perturbations``
+    (P1-6) identify WHICH STRAIN this bundle is, so a wild-type cache and a
+    new-gene / knockout / perturbed cache no longer share a fingerprint and a
+    wrong-strain ``--cache-dir`` is caught by ``verify_cache_version`` instead
+    of silently mis-calibrating the sim. ``perturbations`` is fingerprinted to
+    a stable digest (see ``_fingerprint_perturbations``); the other three are
+    recorded verbatim.
     """
     os.makedirs(bundle_dir, exist_ok=True)
 
@@ -428,6 +501,11 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
         'seed': seed,
         'n_seeds': _resolve_n_seeds(),
         'condition_manifest_hash': resolved_manifest_hash,
+        # P1-6 strain identity.
+        'new_genes': new_genes,
+        'bundle_overrides': bundle_overrides,
+        'bundle_manifest': bundle_manifest,
+        'perturbations': _fingerprint_perturbations(perturbations),
     }
     write_cache_version(bundle_dir, build_params=build_params,
                         configs=sorted(configs.keys()))
@@ -448,7 +526,9 @@ def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
                    condition=None, fixed_media=None,
-                   condition_manifest_hash=None):
+                   condition_manifest_hash=None,
+                   new_genes=None, bundle_overrides=None,
+                   bundle_manifest=None, perturbations=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -479,4 +559,8 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir, seed=seed, condition=condition,
                             fixed_media=fixed_media,
-                            condition_manifest_hash=condition_manifest_hash)
+                            condition_manifest_hash=condition_manifest_hash,
+                            new_genes=new_genes,
+                            bundle_overrides=bundle_overrides,
+                            bundle_manifest=bundle_manifest,
+                            perturbations=perturbations)

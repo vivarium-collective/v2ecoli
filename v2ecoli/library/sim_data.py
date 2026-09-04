@@ -28,6 +28,76 @@ if TYPE_CHECKING:
 
 RAND_MAX = 2**31
 
+# --- Injected bulk-species seeding (drug-agnostic) -------------------------
+# Species an injected subsystem needs (e.g. an antibiotic arm's drug + complex
+# species) are NOT in the ParCa cache; they are seeded at composite-generate
+# time by :func:`seed_bulk_species` below, from a per-species molar-mass
+# declaration the fork supplies through ``injected_processes`` — so the engine
+# carries no knowledge of any particular drug.
+
+
+def seed_bulk_species(bulk_state, specs):
+    """Drug-agnostic bulk-species seeding for the generic injection seam.
+
+    The engine-neutral bulk-species seeder for the injection seam: an injected
+    subsystem (antibiotic or otherwise) declares the bulk species it
+    needs seeded — with their molar masses — through ``injected_processes`` /
+    the run config, so the engine carries ZERO knowledge of any particular drug.
+
+    ``specs`` is a list of dicts, each:
+        ``{"id": str,
+           "molar_mass_g_per_mol": float,     # the species' own molar mass,
+                                               # placed in the metabolite submass slot
+           "complex_with": Optional[str]}``    # id of an EXISTING bulk species whose
+                                               # molar-mass vector is ADDED (drug-target
+                                               # complex); the partner's reconstruction
+                                               # mass need not be known by the caller.
+
+    Appends each species to the columnar ``bulk_state`` at ``count == 0`` with the
+    correct fg submass columns (the same ``molar_mass -> fg`` conversion
+    ``initialize_bulk_counts`` applies to every bulk molecule). Idempotent
+    (species already present are skipped); a no-op (empty / falsy ``specs``)
+    returns ``bulk_state`` unchanged. This is the exact arithmetic the retired
+    drug-specific ``*_species_masses`` helpers used — a hydrolysed form simply
+    passes its already-summed molar mass (drug + water), and a complex passes the
+    drug part plus ``complex_with``.
+    """
+    if not specs:
+        return bulk_state
+
+    submass_cols = [n for n in bulk_state.dtype.names if n.endswith("_submass")]
+    n_submass = len(submass_cols)
+    metabolite_index = submass_cols.index("metabolite_submass")
+    n_avogadro = (1 * units.avogadro_constant).to("1/mol").magnitude
+    molar_to_fg = 1e15 / n_avogadro
+
+    existing_ids = set(bulk_state["id"].tolist())
+    new_rows = []
+    for spec in specs:
+        sid = spec["id"]
+        if sid in existing_ids:
+            continue  # idempotent
+        molar = np.zeros(n_submass)
+        molar[metabolite_index] = float(spec["molar_mass_g_per_mol"])
+        partner = spec.get("complex_with")
+        if partner:
+            rows = bulk_state[bulk_state["id"] == partner]
+            if len(rows) == 0:
+                raise ValueError(
+                    f"seed_bulk_species: complex_with={partner!r} (for {sid!r}) "
+                    "not found in the bulk store; cannot build the complex mass.")
+            # Recover the partner's molar-mass (g/mol) vector from its fg columns
+            # and add it, matching the retired complex arithmetic exactly.
+            partner_fg = np.array([rows[0][c] for c in submass_cols], dtype=float)
+            molar = molar + partner_fg / molar_to_fg
+        new_rows.append((sid, 0, *(molar * molar_to_fg)))
+
+    if not new_rows:
+        return bulk_state
+
+    appended = np.array(new_rows, dtype=bulk_state.dtype)
+    return np.append(bulk_state, appended)
+
 
 class LoadSimData:
     def __init__(
@@ -45,7 +115,6 @@ class LoadSimData:
         ppgpp_regulation: bool = True,
         mar_regulon: bool = False,
         process_configs: Optional[dict[str, Any]] = None,
-        amp_lysis: bool = False,
         initial_state_gaussian: bool = True,
         superhelical_density: bool = False,
         recycle_stalled_elongation: bool = False,
@@ -89,8 +158,6 @@ class LoadSimData:
                 of antibiotic resistance genes by the mar operon
             process_configs: Mapping of process names to config dictionaries,
                 currently only used to configure :py:class:`~ecoli.processes.rna_interference.RnaInterference`
-            amp_lysis: Enable ampicillin-induced lysis, adds ampicillin and
-                hydrolyzed ampicillin to bulk molecule store
             initial_state_gaussian: If the simulation is configured to generate an
                 initial state from pickled simulation data (see option 3 in
                 :py:meth:`~ecoli.composites.ecoli_master.Ecoli.initial_state`),
@@ -549,30 +616,6 @@ class LoadSimData:
                 ts_alias.exp_ppgpp = np.concatenate(
                     [ts_alias.exp_ppgpp, [0] * n_duplex_rnas]
                 )
-
-        # NEW to vivarium-ecoli
-        # Add ampicillin to bulk molecules
-        if amp_lysis:
-            bulk_mol_alias = self.sim_data.internal_state.bulk_molecules
-            # Add mass data for ampicillin and hydrolyzed ampicillin
-            bulk_data = bulk_mol_alias.bulk_data.fullArray()
-            amp_mass = param_store.get(("ampicillin", "molar_mass")).magnitude
-            amp_mass = np.array([0, 0, 0, 0, 0, 0, amp_mass, 0, 0])
-            amp_hydro_mass = amp_mass.copy()
-            # Include molar mass of water added during hydrolysis
-            amp_hydro_mass[6] += 18
-            bulk_data = np.append(
-                bulk_data,
-                np.array(
-                    [
-                        ("ampicillin[p]",) + (amp_mass,),
-                        ("ampicillin_hydrolyzed[p]",) + (amp_hydro_mass,),
-                    ],
-                    dtype=bulk_data.dtype,
-                ),
-            )
-            bulk_units = bulk_mol_alias.bulk_data.fullUnits()
-            bulk_mol_alias.bulk_data = UnitStructArray(bulk_data, bulk_units)
 
     def get_monomer_counts_indices(self, names):
         """Given a list of monomer names without location tags, this returns

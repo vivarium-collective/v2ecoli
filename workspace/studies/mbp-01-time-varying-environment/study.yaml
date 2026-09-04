@@ -26,33 +26,33 @@ conditions:
       seed: 0
       cache_dir: out/cache
   variants:
-    - name: zero-substrate-clamp
-      perturbation:
-        external_glucose_clamp_gL: 0.0
-        external_DO_clamp_mmolL: 0.0
-      note: 'extreme: deprivation floor'
-      composite: v2ecoli.composites.ecoli_time_varying_env
-    - name: saturating-glucose-low
-      perturbation:
-        external_glucose_clamp_gL: 5.0
-      note: above PTS Km
-      composite: v2ecoli.composites.ecoli_time_varying_env
-    - name: saturating-glucose-high
-      perturbation:
-        external_glucose_clamp_gL: 50.0
-      note: far above PTS Km (Vmax ceiling check)
-      composite: v2ecoli.composites.ecoli_time_varying_env
-    - name: linear-glucose-decline
-      perturbation:
-        external_glucose_trajectory: linear_decline
-        glucose_start_gL: 5.0
-        glucose_end_gL: 0.0
-      note: propagation + mass-balance
-      composite: v2ecoli.composites.ecoli_time_varying_env
-    - name: static-env-reference
-      perturbation:
-      note: regression guard vs unmodified baseline (env_driver_mode=static)
-      composite: v2ecoli.composites.ecoli_time_varying_env
+  - name: zero-substrate-clamp
+    perturbation:
+      external_glucose_clamp_gL: 0.0
+      external_DO_clamp_mmolL: 0.0
+    note: 'extreme: deprivation floor'
+    composite: v2ecoli.composites.ecoli_time_varying_env
+  - name: saturating-glucose-low
+    perturbation:
+      external_glucose_clamp_gL: 5.0
+    note: above PTS Km
+    composite: v2ecoli.composites.ecoli_time_varying_env
+  - name: saturating-glucose-high
+    perturbation:
+      external_glucose_clamp_gL: 50.0
+    note: far above PTS Km (Vmax ceiling check)
+    composite: v2ecoli.composites.ecoli_time_varying_env
+  - name: linear-glucose-decline
+    perturbation:
+      external_glucose_trajectory: linear_decline
+      glucose_start_gL: 5.0
+      glucose_end_gL: 0.0
+    note: propagation + mass-balance
+    composite: v2ecoli.composites.ecoli_time_varying_env
+  - name: static-env-reference
+    perturbation:
+    note: regression guard vs unmodified baseline (env_driver_mode=static)
+    composite: v2ecoli.composites.ecoli_time_varying_env
   model_settings: []
 purpose:
   question: 'Can v2ecoli''s `media_update` / `exchange_data` Layer-1 Steps consume an
@@ -111,102 +111,149 @@ pipeline_gate:
     (deferred to `transport-kinetics-fidelity` candidate-future-study).
 
     '
+  gate_evaluator:
+    result: failed
+    blocked_by:
+    - cell-mass-monotone-pre-division
+    - growth-rate-positive
+    evaluated_by: code
+    diverges_from_authored: false
 simulation_set:
-  - name: zero-substrate-clamp
-    base_model: v2ecoli.composites.ecoli_time_varying_env
-    perturbation:
-      external_glucose_clamp_gL: 0.0
-      external_DO_clamp_mmolL: 0.0
-    condition: glucose-minimal
-    duration_min: 30
-    seeds:
-      - 0
-    readouts:
-      - external_glucose
-      - external_DO
-      - metabolism_glucose_uptake_flux
-      - metabolism_o2_uptake_flux
-    applies_tests:
-      - zero-substrate-blocks-uptake
-    status: planned
-  - name: saturating-glucose-low
-    base_model: v2ecoli.composites.ecoli_time_varying_env
-    perturbation:
-      external_glucose_clamp_gL: 5.0
-    condition: glucose-minimal
-    duration_min: 30
-    seeds:
-      - 0
-    readouts:
-      - external_glucose
-      - metabolism_glucose_uptake_flux
-    applies_tests:
-      - saturating-substrate-respects-vmax
-      - plateau-across-saturating-range
-    status: planned
-  - name: saturating-glucose-high
-    base_model: v2ecoli.composites.ecoli_time_varying_env
-    perturbation:
-      external_glucose_clamp_gL: 50.0
-    condition: glucose-minimal
-    duration_min: 30
-    seeds:
-      - 0
-    readouts:
-      - external_glucose
-      - metabolism_glucose_uptake_flux
-    applies_tests:
-      - saturating-substrate-respects-vmax
-      - plateau-across-saturating-range
-    status: planned
-  - name: linear-glucose-decline
-    base_model: v2ecoli.composites.ecoli_time_varying_env
-    perturbation:
-      external_glucose_trajectory: linear_decline
-      glucose_start_gL: 5.0
-      glucose_end_gL: 0.0
-    condition: glucose-minimal
-    duration_min: 60
-    seeds:
-      - 0
-    readouts:
-      - external_glucose
-      - metabolism_glucose_uptake_flux
-      - cell_mass
-    applies_tests:
-      - external_glucose_updates_propagate_within_one_step
-      - cumulative-mass-balance-closes
-    status: planned
-  - name: static-env-regression
-    base_model: v2ecoli.composites.ecoli_time_varying_env
-    perturbation:
-    condition: M9-minimal-glucose
-    duration_min: 60
-    seeds:
-      - 0
-    readouts:
-      - cell_mu_per_h
-      - dnaA_protein_count
-    applies_tests:
-      - static-env-baseline-unchanged
-    status: planned
+- name: zero-substrate-clamp
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 0.0
+    external_DO_clamp_mmolL: 0.0
+  condition: glucose-minimal
+  duration_min: 30
+  seeds:
+  - 0
+  readouts:
+  - external_glucose
+  - external_DO
+  - metabolism_glucose_uptake_flux
+  - metabolism_o2_uptake_flux
+  applies_tests:
+  - zero-substrate-blocks-uptake
+  status: planned
+  kind: single
+  metrics: &id001
+  - external_glucose
+  - external_DO
+  - metabolism_glucose_uptake_flux
+  - metabolism_o2_uptake_flux
+  - metabolism_acetate_flux
+  - cell_mu_per_h
+  - cell_mass
+  - dnaA_protein_count
+  pass_fail_tests: &id002
+  - cell-mass-monotone-pre-division
+  - growth-rate-positive
+  - glc-declines-under-linear-decline-driver
+  - glc-stays-zero-under-zero-clamp-driver
+- name: saturating-glucose-low
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 5.0
+  condition: glucose-minimal
+  duration_min: 30
+  seeds:
+  - 0
+  readouts:
+  - external_glucose
+  - metabolism_glucose_uptake_flux
+  applies_tests:
+  - saturating-substrate-respects-vmax
+  - plateau-across-saturating-range
+  status: planned
+  kind: single
+  metrics: *id001
+  pass_fail_tests: *id002
+- name: saturating-glucose-high
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  perturbation:
+    external_glucose_clamp_gL: 50.0
+  condition: glucose-minimal
+  duration_min: 30
+  seeds:
+  - 0
+  readouts:
+  - external_glucose
+  - metabolism_glucose_uptake_flux
+  applies_tests:
+  - saturating-substrate-respects-vmax
+  - plateau-across-saturating-range
+  status: planned
+  kind: single
+  metrics: *id001
+  pass_fail_tests: *id002
+- name: linear-glucose-decline
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  perturbation:
+    external_glucose_trajectory: linear_decline
+    glucose_start_gL: 5.0
+    glucose_end_gL: 0.0
+  condition: glucose-minimal
+  duration_min: 60
+  seeds:
+  - 0
+  readouts:
+  - external_glucose
+  - metabolism_glucose_uptake_flux
+  - cell_mass
+  applies_tests:
+  - external_glucose_updates_propagate_within_one_step
+  - cumulative-mass-balance-closes
+  status: planned
+  kind: single
+  metrics: *id001
+  pass_fail_tests: *id002
+- name: static-env-regression
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  perturbation:
+  condition: M9-minimal-glucose
+  duration_min: 60
+  seeds:
+  - 0
+  readouts:
+  - cell_mu_per_h
+  - dnaA_protein_count
+  applies_tests:
+  - static-env-baseline-unchanged
+  status: planned
+- name: mbp-01-time-varying-environment-baseline
+  kind: single
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  is_baseline: true
+  status: ran
+  params:
+    seed: 0
+    cache_dir: out/cache
+  metrics: *id001
+  pass_fail_tests: *id002
+- name: static-env-reference
+  kind: single
+  base_model: v2ecoli.composites.ecoli_time_varying_env
+  status: ran
+  metrics: *id001
+  pass_fail_tests: *id002
 model_change:
   base_model: v2ecoli.composites.ecoli_baseline
   new_state_variables:
-    - environment.external_concentrations (map[float], mM) — populated by external physics each timestep
+  - environment.external_concentrations (map[float], mM) — populated by external physics each timestep
   new_processes:
-    - name: EnvironmentDriver
-      kind: Step
-      requirement_id: req-1-env-driver
+  - name: EnvironmentDriver
+    kind: Step
+    requirement_id: req-1-env-driver
   new_parameters:
-    - name: env_driver_mode
-      default: external_store
-      units: '{static|external_store|synthetic_trajectory}'
-    - name: env_driver_trajectory_spec
-      default:
-      units: —
+  - name: env_driver_mode
+    default: external_store
+    units: '{static|external_store|synthetic_trajectory}'
+  - name: env_driver_trajectory_spec
+    default:
+    units: —
   modified_processes:
-    - 'media_update / exchange_data: read external_concentrations (when env_driver_mode != static) instead of static media config. Backward-compatible default.'
+  - 'media_update / exchange_data: read external_concentrations (when env_driver_mode != static) instead of static media config. Backward-compatible default.'
   notes: 'Internal v2ecoli enhancement — the smallest viable hook that lets
 
     external physics drive v2ecoli''s metabolism. Implementation must keep
@@ -217,511 +264,782 @@ model_change:
 
     '
 key_assumptions:
-  - v2ecoli's metabolism Process can re-read environment constraints every step (it already does via `exchange_data_from_media`).
-  - External concentrations are well-mixed (single value per species across all agents in this single-cell study).
-  - No timestep mismatch handled this phase — env updates and metabolism updates run on the same timebase.
+- v2ecoli's metabolism Process can re-read environment constraints every step (it already does via `exchange_data_from_media`).
+- External concentrations are well-mixed (single value per species across all agents in this single-cell study).
+- No timestep mismatch handled this phase — env updates and metabolism updates run on the same timebase.
 readouts:
-  - name: external_glucose
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: GLC[p]
-    units: mM
-    status: planned
-  - name: external_DO
-    store_path: environment.external_concentrations
-    index_by:
-      type: bulk_id
-      value: OXYGEN-MOLECULE[p]
-    units: mM
-    status: planned
-  - name: metabolism_glucose_uptake_flux
-    store_path: agents.0.metabolism.external_exchange_fluxes
-    index_by:
-      type: bulk_id
-      value: GLC[p]
-    units: mmol/(gDW·h)
-    status: planned
-  - name: metabolism_o2_uptake_flux
-    store_path: agents.0.metabolism.external_exchange_fluxes
-    index_by:
-      type: bulk_id
-      value: OXYGEN-MOLECULE[p]
-    units: mmol/(gDW·h)
-    status: planned
-  - name: metabolism_acetate_flux
-    store_path: agents.0.metabolism.external_exchange_fluxes
-    index_by:
-      type: bulk_id
-      value: ACET[p]
-    units: mmol/(gDW·h)
-    status: planned
-  - name: cell_mu_per_h
-    store_path: agents.0.listeners.mass.instantaneous_growth_rate
-    units: 1/h
-    status: planned
-  - name: cell_mass
-    store_path: agents.0.listeners.mass.cell_mass
-    units: fg
-    status: planned
-  - name: dnaA_protein_count
-    store_path: agents.0.listeners.monomer_counts.monomerCounts
-    index_by:
-      type: monomer_id
-      value: PD03831[c]
-    units: molecules/cell
-    status: available
+- name: external_glucose
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: GLC[p]
+  units: mM
+  status: planned
+- name: external_DO
+  store_path: environment.external_concentrations
+  index_by:
+    type: bulk_id
+    value: OXYGEN-MOLECULE[p]
+  units: mM
+  status: planned
+- name: metabolism_glucose_uptake_flux
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
+  index_by:
+    type: bulk_id
+    value: GLC[p]
+  units: mmol/(gDW·h)
+  status: planned
+- name: metabolism_o2_uptake_flux
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
+  index_by:
+    type: bulk_id
+    value: OXYGEN-MOLECULE[p]
+  units: mmol/(gDW·h)
+  status: planned
+- name: metabolism_acetate_flux
+  store_path: agents.0.listeners.fba_results.external_exchange_fluxes
+  # ⚠ index_by type is `bulk_id`, but this store is NOT the bulk array: it is
+  # the 87-element exchange vector indexed by `metabolism.externalMoleculeIDs`.
+  # `bulk_id` is a catalog-backed type over the ~16k bulk ids (see
+  # viva_superpowers/readout_resolver.py), so this selector cannot resolve
+  # here. There is no `external_molecule_id` type yet -- that type is the
+  # prerequisite, and it is the same gap that leaves mbp-01's three flux
+  # criteria `status: unwired`. Kept `status: planned` deliberately.
+  index_by:
+    type: bulk_id
+    value: ACET[p]
+  units: mmol/(gDW·h)
+  status: planned
+- name: cell_mu_per_h
+  store_path: agents.0.listeners.mass.instantaneous_growth_rate
+  units: 1/h
+  status: planned
+- name: cell_mass
+  store_path: agents.0.listeners.mass.cell_mass
+  units: fg
+  status: planned
+- name: dnaA_protein_count
+  store_path: agents.0.listeners.monomer_counts
+  index_by:
+    type: monomer_id
+    value: PD03831[c]
+  units: molecules/cell
+  status: available
 behavior_tests:
-  - name: external_glucose_updates_propagate_within_one_step
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: An external_glucose store update is reflected in metabolism's GLC[p] exchange constraint within one timestep. Direct wire check — replaces the removed `uptake-flux-tracks-external-glucose` Pearson test (which assumed linear response between concentration and uptake; v2ecoli's PTS is saturable).
-    measure:
-      kind: one_step_propagation
-      source_path: environment.external_concentrations.GLC[p]
-      sink_path: agents.0.metabolism.exchange_constraints.GLC[p]
-    pass_if:
-      op: propagates_within
-      value: 1
-    units: timesteps
-    requires_simulation: linear-glucose-decline
-    cites: []
-  - name: cumulative-mass-balance-closes
-    classification: primary
-    acceptance_form: quantitative_range
-    description: Closed-balance cumulative mass conservation (MassConservationDeriver) — the relative cumulative residual between cell-mass change and net environmental exchange stays near zero, confirming the environment hook is wired without leakage.
-    measure: {kind: derived, formula: listeners.mass.conservation_relative_cumulative, window: full_lineage_from_gen_0}
-    pass_if: {op: in_range, low: 0.0, high: 0.05}
-    units: fraction
-    requires_simulation: linear-glucose-decline
-    cites:
-      - agmon2022
-    cites_note: 'No machine-linkable bib_key: the 0.0-0.05 band is a numerical mass-conservation closure tolerance (env-driver wire leakage check), not a literature-sourced biological value.'
-  - name: static-env-baseline-unchanged
-    classification: primary
-    acceptance_form: quantitative_range
-    description: With env_driver_mode=static, the composite produces the same baseline trajectory (e.g. DnaA count, growth rate) as the unmodified v2ecoli.composites.ecoli_baseline. Regression guard.
-    measure:
-      kind: trajectory_match
-      reference: v2ecoli.composites.ecoli_baseline:default-run
-      series:
-        - dnaA_protein_count
-        - cell_mu_per_h
-    pass_if:
-      op: numerical_match
-      tolerance: 0.01
-    units: —
-    requires_simulation: static-env-regression
-    cites: []
-  - name: zero-substrate-blocks-uptake
-    classification: primary
-    acceptance_form: qualitative_direction
-    description: 'external_glucose held at 0 → glucose exchange flux ≈ 0 (numerical tolerance). Same for DO: zero external DO → O2 exchange flux ≈ 0. Universal biological floor; also confirms plumbing.'
-    measure:
-      kind: multi_path_max_abs
-      paths:
-        - agents.0.metabolism.external_exchange_fluxes.GLC[p]
-        - agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]
-      window: full
-    pass_if:
-      op: at_most
-      value: 0.01
-    units: mmol/(gDW·h)
-    requires_simulation: zero-substrate-clamp
-    cites: []
-  - name: saturating-substrate-respects-vmax
-    classification: primary
-    acceptance_form: quantitative_range
-    description: external_glucose held at 50 g/L (~30,000× PTS Km) → glucose exchange flux ≤ published Vmax for E. coli glucose-PTS (~10–12 mmol/gDW/h). Catches the unphysical linear-scaling implementation case.
-    measure:
-      kind: series
-      path: agents.0.metabolism.external_exchange_fluxes.GLC[p]
-      reduce: max_abs
-      window: full
-    pass_if:
-      op: at_most
-      value: 12.0
-    units: mmol/(gDW·h)
-    requires_simulation: saturating-glucose-high
-    cites: []
-  - name: plateau-across-saturating-range
-    classification: primary
-    acceptance_form: quantitative_range
-    description: Two runs at 5 g/L and 50 g/L (both far above PTS Km) → GUR within a tight ratio tolerance. Both above Km, so saturable and constant-bound models predict matching GUR; linear scaling would predict ~10× difference. Direct discriminator between physical and unphysical implementations.
-    measure:
-      kind: cross_run_ratio
-      runs:
-        - saturating-glucose-low
-        - saturating-glucose-high
-      path: agents.0.metabolism.external_exchange_fluxes.GLC[p]
-      reduce: mean
-      window: full
-    pass_if:
-      op: in_range
-      low: 0.9
-      high: 1.1
-    units: fraction
-    requires_simulation: saturating-glucose-low
+- name: external_glucose_updates_propagate_within_one_step
+  classification: primary
+  acceptance_form: qualitative_direction
+  description: An external_glucose store update is reflected in metabolism's GLC[p] exchange constraint within one timestep. Direct wire check — replaces the removed `uptake-flux-tracks-external-glucose` Pearson test (which assumed linear response between concentration and uptake; v2ecoli's PTS is saturable).
+  measure:
+    kind: one_step_propagation
+    source_path: environment.external_concentrations.GLC[p]
+    sink_path: agents.0.metabolism.exchange_constraints.GLC[p]
+  pass_if:
+    op: propagates_within
+    value: 1
+  units: timesteps
+  requires_simulation: linear-glucose-decline
+  cites: []
+- name: cumulative-mass-balance-closes
+  classification: primary
+  acceptance_form: quantitative_range
+  description: Closed-balance cumulative mass conservation (MassConservationDeriver) — the relative cumulative residual between cell-mass change and net environmental exchange stays near zero, confirming the environment hook is wired without leakage.
+  measure: {kind: derived, formula: listeners.mass.conservation_relative_cumulative, window: full_lineage_from_gen_0}
+  pass_if: {op: in_range, low: 0.0, high: 0.05}
+  units: fraction
+  requires_simulation: linear-glucose-decline
+  cites:
+  - agmon2022
+  cites_note: 'No machine-linkable bib_key: the 0.0-0.05 band is a numerical mass-conservation closure tolerance (env-driver wire leakage check), not a literature-sourced biological value.'
+- name: static-env-baseline-unchanged
+  classification: primary
+  acceptance_form: quantitative_range
+  description: With env_driver_mode=static, the composite produces the same baseline trajectory (e.g. DnaA count, growth rate) as the unmodified v2ecoli.composites.ecoli_baseline. Regression guard.
+  measure:
+    kind: trajectory_match
+    reference: v2ecoli.composites.ecoli_baseline:default-run
+    series:
+    - dnaA_protein_count
+    - cell_mu_per_h
+  pass_if:
+    op: numerical_match
+    tolerance: 0.01
+  units: —
+  requires_simulation: static-env-regression
+  cites: []
+- name: zero-substrate-blocks-uptake
+  classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
+  acceptance_form: qualitative_direction
+  description: 'external_glucose held at 0 → glucose exchange flux ≈ 0 (numerical tolerance). Same for DO: zero external DO → O2 exchange flux ≈ 0. Universal biological floor; also confirms plumbing.'
+  measure:
+    kind: multi_path_max_abs
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
+    paths:
+    - agents.0.listeners.fba_results.external_exchange_fluxes
+    window: full
+  pass_if:
+    op: at_most
+    value: 0.01
+  units: mmol/(gDW·h)
+  requires_simulation: zero-substrate-clamp
+  cites: []
+- name: saturating-substrate-respects-vmax
+  classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
+  acceptance_form: quantitative_range
+  description: external_glucose held at 50 g/L (~30,000× PTS Km) → glucose exchange flux ≤ published Vmax for E. coli glucose-PTS (~10–12 mmol/gDW/h). Catches the unphysical linear-scaling implementation case.
+  measure:
+    kind: series
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
+    reduce: max_abs
+    window: full
+  pass_if:
+    op: at_most
+    value: 12.0
+  units: mmol/(gDW·h)
+  requires_simulation: saturating-glucose-high
+  cites: []
+- name: plateau-across-saturating-range
+  classification: primary
+  status: unwired  # NOT EVALUABLE — see note in `measure` (2026-08-31)
+  acceptance_form: quantitative_range
+  description: Two runs at 5 g/L and 50 g/L (both far above PTS Km) → GUR within a tight ratio tolerance. Both above Km, so saturable and constant-bound models predict matching GUR; linear scaling would predict ~10× difference. Direct discriminator between physical and unphysical implementations.
+  measure:
+    kind: cross_run_ratio
+    runs:
+    - saturating-glucose-low
+    - saturating-glucose-high
+    # ⛔⛔ NOT EVALUABLE AS WRITTEN — DO NOT GRADE. The path below resolves to the
+    # WHOLE 87-element vector while `pass_if` describes ONE MOLECULE, and under
+    # max_abs/mean the vector is dominated by O2/CO2, not glucose.
+    # ⚠ The old path (`agents.0.metabolism.external_exchange_fluxes.GLC[p]`) did
+    # NOT resolve and so FAILED LOUDLY. This one SUCCEEDS WRONGLY. That is
+    # strictly worse, so the criterion is `status: unwired` until the measure
+    # schema grows a positional selector.
+    # ⚠ `status: unwired` is DECLARATIVE, not enforced -- verified 2026-08-31 that
+    # nothing in viva_superpowers consumes a behavior_test's own `status` (the
+    # tooling's `status` reads are on `gate`; the repo's existing `passed`/
+    # `pending` values are equally descriptive). It marks intent for a human and
+    # for a future enforcement point; it does NOT stop a runner grading this.
+    # The real protection is that the mismatch is written down here.
+    # ⊕ Recorded outcomes below came from a THIRD store (`environment.exchange`
+    # GLC counts) — per-molecule addressable, but cumulative counts, not
+    # mmol/gDW/h, so not a drop-in substitute.
+    path: agents.0.listeners.fba_results.external_exchange_fluxes
+    reduce: mean
+    window: full
+  pass_if:
+    op: in_range
+    low: 0.9
+    high: 1.1
+  units: fraction
+  requires_simulation: saturating-glucose-low
   # Saturable-kinetics premise (uptake plateaus once [glucose] >> Km) is the
   # Monod / Michaelis-Menten anchor; the 0.9-1.1 width is a numerical tolerance.
-    cites:
-      - Monod1949AnnRevMicrobiol
+  cites:
+  - Monod1949AnnRevMicrobiol
 required_knowledge:
   claims:
-    - id: glucose-pts-vmax-ecoli
-      backs:
-        - saturating-substrate-respects-vmax
-    - id: substrate-floor-zero-blocks-uptake
-      backs:
-        - zero-substrate-blocks-uptake
-    - id: saturable-transport-plateau
-      backs:
-        - plateau-across-saturating-range
+  - id: glucose-pts-vmax-ecoli
+    backs:
+    - saturating-substrate-respects-vmax
+  - id: substrate-floor-zero-blocks-uptake
+    backs:
+    - zero-substrate-blocks-uptake
+  - id: saturable-transport-plateau
+    backs:
+    - plateau-across-saturating-range
   open_questions:
-    - id: env-driver-cadence
-      question: 'Is per-timestep external_concentrations update fast enough, or does
+  - id: env-driver-cadence
+    question: 'Is per-timestep external_concentrations update fast enough, or does
 
-        metabolism need a longer "constant medium" window (e.g. 1 min) to
+      metabolism need a longer "constant medium" window (e.g. 1 min) to
 
-        avoid solver-instability artifacts in v2ecoli''s FBA inner solve?
+      avoid solver-instability artifacts in v2ecoli''s FBA inner solve?
 
-        '
-      blocks:
-        - linear-glucose-decline implementation
-      asked_to: unassigned
-      status: open
-    - id: static-env-default-key
-      question: 'Should env_driver_mode default to `static` (preserves existing
+      '
+    blocks:
+    - linear-glucose-decline implementation
+    asked_to: unassigned
+    status: open
+  - id: static-env-default-key
+    question: 'Should env_driver_mode default to `static` (preserves existing
 
-        baseline behavior, opt-in to time-varying) or `external_store`
+      baseline behavior, opt-in to time-varying) or `external_store`
 
-        (opt-out)? Preference is `static` for backward compatibility but
+      (opt-out)? Preference is `static` for backward compatibility but
 
-        confirm with v2ecoli baseline maintainer.
+      confirm with v2ecoli baseline maintainer.
 
-        '
-      blocks:
-        - req-2-time-varying-composite spec
-      asked_to: unassigned
-      status: open
-    - id: functional-form-metadata-on-claims
-      question: 'Should claims carry a `functional_form` field (saturable / step /
+      '
+    blocks:
+    - req-2-time-varying-composite spec
+    asked_to: unassigned
+    status: open
+  - id: functional-form-metadata-on-claims
+    question: 'Should claims carry a `functional_form` field (saturable / step /
 
-        linear / threshold) so tests can pick the right measure shape and
+      linear / threshold) so tests can pick the right measure shape and
 
-        lint-time validation can flag mismatched bindings? Raised in
+      lint-time validation can flag mismatched bindings? Raised in
 
-        chris_feedback_2026_05_26 §2 as a pbg-superpowers schema extension.
+      chris_feedback_2026_05_26 §2 as a pbg-superpowers schema extension.
 
-        Tracked as an upstream PR candidate via mbp-06 axis-E.
+      Tracked as an upstream PR candidate via mbp-06 axis-E.
 
-        '
-      blocks:
-        - pbg-superpowers PR scope
-      asked_to: pbg-superpowers maintainer
-      status: open
-    - id: env-store-topology-mismatch
-      question: "Surfaced 2026-05-28 while implementing the media_update consumption\npath: baseline_time_varying_env adds `state[\"environment\"]` at the\nTOP LEVEL of the composite, but MediaUpdate (and ExchangeData) live\ninside `agents.0` and resolve their topology port `(\"environment\",)`\nto `state[\"agents\"][\"0\"][\"environment\"]` — a DIFFERENT store. The\ntwo are never wired together, so EnvironmentDriver writes to the\ntop-level store and MediaUpdate sees nothing. Three resolution\noptions (none yet picked):\n\n  (a) Make EnvironmentDriver per-agent — every cell gets its own\n      driver. Loses the \"one driver feeds the population\" semantic\n      that mbp-02 + mbp-03 rely on (reactor coupler is one source\n      of truth feeding all cells); reject unless we add a separate\n      coordination mechanism on top.\n\n  (b) Widen MediaUpdate's class-level topology to read top-level\n      environment via an absolute path (or `(\"..\", \"..\",\n      \"environment\")` upward traversal). Smallest code change but\n      touches every architecture (baseline, departitioned,\n      reconciled) — regression risk on the baseline composite that\n      has no top-level environment store. Would need careful\n      conditional topology.\n\n  (c) Add a small tick-leading mirror Step inside\n      baseline_time_varying_env that, each tick, copies\n      `state[\"environment\"][\"external_concentrations\"]` into each\n      `state[\"agents\"][i][\"environment\"][\"external_concentrations\"]`.\n      Most additive — no class-level changes; localized to this one\n      composite. Doubles as the natural place to resolve the\n      molecule-ID convention gap below (see\n      `env-driver-molecule-id-convention`). RECOMMENDED.\n\nResolution gates the 5 mbp-01 plumbing/extreme tests\n(test_external_glucose_updates_propagate_within_one_step,\ntest_cumulative_mass_balance_closes, test_zero_substrate_blocks_uptake,\ntest_saturating_substrate_respects_vmax,\ntest_plateau_across_saturating_range).\n"
-      blocks: []
-      asked_to: v2ecoli baseline maintainer (composite architecture decision)
-      status: resolved
-      resolution: 'Adopted option (c) — added EnvironmentMirror Step that runs each tick
+      '
+    blocks:
+    - pbg-superpowers PR scope
+    asked_to: pbg-superpowers maintainer
+    status: open
+  - id: env-store-topology-mismatch
+    question: "Surfaced 2026-05-28 while implementing the media_update consumption\npath: baseline_time_varying_env adds `state[\"environment\"]` at the\nTOP LEVEL of the composite, but MediaUpdate (and ExchangeData) live\ninside `agents.0` and resolve their topology port `(\"environment\",)`\nto `state[\"agents\"][\"0\"][\"environment\"]` — a DIFFERENT store. The\ntwo are never wired together, so EnvironmentDriver writes to the\ntop-level store and MediaUpdate sees nothing. Three resolution\noptions (none yet picked):\n\n  (a) Make EnvironmentDriver per-agent — every cell gets its own\n      driver. Loses the \"one driver feeds the population\" semantic\n      that mbp-02 + mbp-03 rely on (reactor coupler is one source\n      of truth feeding all cells); reject unless we add a separate\n      coordination mechanism on top.\n\n  (b) Widen MediaUpdate's class-level topology to read top-level\n      environment via an absolute path (or `(\"..\", \"..\",\n      \"environment\")` upward traversal). Smallest code change but\n      touches every architecture (baseline, departitioned,\n      reconciled) — regression risk on the baseline composite that\n      has no top-level environment store. Would need careful\n      conditional topology.\n\n  (c) Add a small tick-leading mirror Step inside\n      baseline_time_varying_env that, each tick, copies\n      `state[\"environment\"][\"external_concentrations\"]` into each\n      `state[\"agents\"][i][\"environment\"][\"external_concentrations\"]`.\n      Most additive — no class-level changes; localized to this one\n      composite. Doubles as the natural place to resolve the\n      molecule-ID convention gap below (see\n      `env-driver-molecule-id-convention`). RECOMMENDED.\n\nResolution gates the 5 mbp-01 plumbing/extreme tests\n(test_external_glucose_updates_propagate_within_one_step,\ntest_cumulative_mass_balance_closes, test_zero_substrate_blocks_uptake,\ntest_saturating_substrate_respects_vmax,\ntest_plateau_across_saturating_range).\n"
+    blocks: []
+    asked_to: v2ecoli baseline maintainer (composite architecture decision)
+    status: resolved
+    resolution: 'Adopted option (c) — added EnvironmentMirror Step that runs each tick
 
-        BEFORE the FLUSH barrier preceding `media_update`''s layer. The mirror
+      BEFORE the FLUSH barrier preceding `media_update`''s layer. The mirror
 
-        reads top-level state[''environment''][''external_concentrations''] and
+      reads top-level state[''environment''][''external_concentrations''] and
 
-        writes the driver-derived delta DIRECTLY to each agent''s
+      writes the driver-derived delta DIRECTLY to each agent''s
 
-        boundary.external (which has a typed schema; bypasses the
+      boundary.external (which has a typed schema; bypasses the
 
-        per-agent environment store the original gap was about). PBG''s FLUSH
+      per-agent environment store the original gap was about). PBG''s FLUSH
 
-        commits the mirror''s writes before exchange_data reads boundary —
+      commits the mirror''s writes before exchange_data reads boundary —
 
-        propagation completes same-tick. Landed in commit 60cdbd3; all 5
+      propagation completes same-tick. Landed in commit 60cdbd3; all 5
 
-        previously-blocked tests now pass alongside the static-mode
+      previously-blocked tests now pass alongside the static-mode
 
-        regression (full sim suite: 32 passed, 15 skipped).
+      regression (full sim suite: 32 passed, 15 skipped).
 
-        '
-    - id: env-driver-molecule-id-convention
-      question: "Surfaced 2026-05-28 alongside `env-store-topology-mismatch`: the\nEnvironmentDriver emits compartment-tagged molecule IDs (e.g.\n\"GLC[p]\" per the synthetic_trajectory_spec convention used in\nmbp-01 sims), but `boundary.external` (the store ExchangeData\nreads) uses BARE names — \"GLC\", \"ACET\", \"FUM\", \"MAL\", \"SUC\", ...\nacross all 87 entries, no compartment suffix. So even if the\ntopology gap above is closed, MediaUpdate would look up\n`boundary_ext.get(\"GLC[p]\")`, miss, and skip silently.\n\nThree resolution options (none yet picked):\n\n  (a) Have the driver use bare names. Cleanest if the convention\n      isn't load-bearing elsewhere — needs audit of where else\n      compartment-tagged IDs are used (e.g. emit paths, parquet\n      hive schemas).\n\n  (b) Have MediaUpdate strip the compartment suffix at read time.\n      Hides the convention difference inside the consumer; cheap\n      but every other consumer would need the same logic.\n\n  (c) Have the mirror Step (see `env-store-topology-mismatch`\n      option c) do both the copy AND the ID normalization in one\n      place. Pairs cleanly with the recommended topology fix.\n      RECOMMENDED.\n\nResolution gates the same 5 tests as the topology question above\n— both gaps must close before mbp-01's plumbing/extreme suite can\nrun.\n"
-      blocks: []
-      asked_to: v2ecoli baseline maintainer (joint with env-store-topology-mismatch)
-      status: resolved
-      resolution: 'Bare-name convention adopted — driver synthetic_trajectory_spec keys
+      '
+  - id: env-driver-molecule-id-convention
+    question: "Surfaced 2026-05-28 alongside `env-store-topology-mismatch`: the\nEnvironmentDriver emits compartment-tagged molecule IDs (e.g.\n\"GLC[p]\" per the synthetic_trajectory_spec convention used in\nmbp-01 sims), but `boundary.external` (the store ExchangeData\nreads) uses BARE names — \"GLC\", \"ACET\", \"FUM\", \"MAL\", \"SUC\", ...\nacross all 87 entries, no compartment suffix. So even if the\ntopology gap above is closed, MediaUpdate would look up\n`boundary_ext.get(\"GLC[p]\")`, miss, and skip silently.\n\nThree resolution options (none yet picked):\n\n  (a) Have the driver use bare names. Cleanest if the convention\n      isn't load-bearing elsewhere — needs audit of where else\n      compartment-tagged IDs are used (e.g. emit paths, parquet\n      hive schemas).\n\n  (b) Have MediaUpdate strip the compartment suffix at read time.\n      Hides the convention difference inside the consumer; cheap\n      but every other consumer would need the same logic.\n\n  (c) Have the mirror Step (see `env-store-topology-mismatch`\n      option c) do both the copy AND the ID normalization in one\n      place. Pairs cleanly with the recommended topology fix.\n      RECOMMENDED.\n\nResolution gates the same 5 tests as the topology question above\n— both gaps must close before mbp-01's plumbing/extreme suite can\nrun.\n"
+    blocks: []
+    asked_to: v2ecoli baseline maintainer (joint with env-store-topology-mismatch)
+    status: resolved
+    resolution: 'Bare-name convention adopted — driver synthetic_trajectory_spec keys
 
-        match boundary.external keys directly (''GLC'', ''ACET'', ...). The
+      match boundary.external keys directly (''GLC'', ''ACET'', ...). The
 
-        EnvironmentMirror Step (closes env-store-topology-mismatch above)
+      EnvironmentMirror Step (closes env-store-topology-mismatch above)
 
-        looks up `boundary.external[mol]` per driver-supplied key; any
+      looks up `boundary.external[mol]` per driver-supplied key; any
 
-        unmatched name (e.g. compartment-tagged ''GLC[p]'') is silently
+      unmatched name (e.g. compartment-tagged ''GLC[p]'') is silently
 
-        skipped — fails closed without crashing. Bundled with the
+      skipped — fails closed without crashing. Bundled with the
 
-        topology fix in the same commit.
+      topology fix in the same commit.
 
-        '
+
+      ⚠ SUPERSEDED 2026-08-20 (by v2ecoli#550, merged 2026-08-21). Option (a) was recorded
+
+      as taken, but the effect of #550 is closer to option (c): the mirror now
+
+      resolves a compartment-tagged id onto the bare boundary key, preferring
+
+      an exact match, so the driver''s bare-name convention is unchanged while
+
+      ''GLC[p]'' no longer misses. It was NOT a stylistic gap — the reactor
+
+      coupler writes compartment-tagged ids, so the mirror matched ZERO of
+
+      them on every tick and the reactor→cell direction carried nothing at
+
+      all. And an unmatched name is no longer SILENTLY skipped: it is counted
+
+      and named once. Withdrawing the word ''silently'' here matters, because
+
+      that silence is what let the defect survive.
+
+      '
 failure_modes:
-  - signature: external_glucose_updates_propagate_within_one_step fails (write not visible to media_update)
-    candidate_causes:
-      - EnvironmentDriver Step writes external_concentrations BEFORE media_update reads (ordering bug)
-      - media_update caches the medium definition past one timestep
-      - exchange_data constraints recomputed from a stale media object
-    checks:
-      - Sample external_glucose and metabolism flux at the same timepoint; both should track monotonic decline
-      - Debug listener on metabolism.exchange_data_from_media's output set; verify it updates each step
-  - signature: static-env-baseline-unchanged FAILS
-    candidate_causes:
-      - EnvironmentDriver runs even with env_driver_mode=static and overwrites the constant medium
-      - Composite-build wiring changes Layer-1 Step ordering
-    checks:
-      - Diff per-cell observables vs an unmodified baseline run at seed 0 — should be byte-identical
-      - Verify EnvironmentDriver short-circuits in static mode
-  - signature: cumulative-mass-balance-closes off by >10%
-    candidate_causes:
-      - EnvironmentDriver writes concentrations in different units than metabolism reads (mM vs mmol/L vs g/L)
-      - Per-cell uptake flux not multiplied by cell mass to get total mmol uptaken
-      - Volume not held constant in the batch run
-    checks:
-      - Print unit annotations on each store write
-      - 'Verify the integrand: total_uptake = sum_t(flux × cell_mass × dt)'
+- signature: external_glucose_updates_propagate_within_one_step fails (write not visible to media_update)
+  candidate_causes:
+  - EnvironmentDriver Step writes external_concentrations BEFORE media_update reads (ordering bug)
+  - media_update caches the medium definition past one timestep
+  - exchange_data constraints recomputed from a stale media object
+  checks:
+  - Sample external_glucose and metabolism flux at the same timepoint; both should track monotonic decline
+  - Debug listener on metabolism.exchange_data_from_media's output set; verify it updates each step
+- signature: static-env-baseline-unchanged FAILS
+  candidate_causes:
+  - EnvironmentDriver runs even with env_driver_mode=static and overwrites the constant medium
+  - Composite-build wiring changes Layer-1 Step ordering
+  checks:
+  - Diff per-cell observables vs an unmodified baseline run at seed 0 — should be byte-identical
+  - Verify EnvironmentDriver short-circuits in static mode
+- signature: cumulative-mass-balance-closes off by >10%
+  candidate_causes:
+  - EnvironmentDriver writes concentrations in different units than metabolism reads (mM vs mmol/L vs g/L)
+  - Per-cell uptake flux not multiplied by cell mass to get total mmol uptaken
+  - Volume not held constant in the batch run
+  checks:
+  - Print unit annotations on each store write
+  - 'Verify the integrand: total_uptake = sum_t(flux × cell_mass × dt)'
 regression_tests:
   inherits_from: []
 limitations:
-  - PLUMBING-ONLY scope (per chris_feedback_2026_05_26 §3). Gradient-shape and quantitative-biological-fidelity tests (e.g. μ response to glucose decline near Km, acetate flux shift at sub-Vmax DO, GUR-vs-[glucose] curve) are deferred to a `transport-kinetics-fidelity` candidate-future-study under mbp-06 axis A.
-  - 'REMOVED tests with rationale (kept here so future agents don''t re-add them by reflex): `uptake-flux-tracks-external-glucose` (Pearson ≥ 0.7 assumed linear response; real PTS is saturable, ~3 orders of magnitude above the sweep range — test fails on every realistic implementation). `low-do-clamp-reduces-o2-uptake` (5 µM DO clamp is 25-200× above cytochrome bd/bo3 Km, so OUR shouldn''t reduce at this clamp; Vemuri 2006 supports acetate-RISE under low DO, not OUR-drop — citation/test mismatch). `mu-drops-when-glucose-depletes` (kinetics-dependent; defer to transport-kinetics-fidelity study).'
-  - Single cell only; population aggregation is mbp-02's job.
-  - Reactor physics (kLa, gas transport) not coupled here — that is mbp-03.
-  - Time-varying-medium support assumes the same exchange-molecule set as static medium; new species require ParCa regeneration.
+- PLUMBING-ONLY scope (per chris_feedback_2026_05_26 §3). Gradient-shape and quantitative-biological-fidelity tests (e.g. μ response to glucose decline near Km, acetate flux shift at sub-Vmax DO, GUR-vs-[glucose] curve) are deferred to a `transport-kinetics-fidelity` candidate-future-study under mbp-06 axis A.
+- 'REMOVED tests with rationale (kept here so future agents don''t re-add them by reflex): `uptake-flux-tracks-external-glucose` (Pearson ≥ 0.7 assumed linear response; real PTS is saturable, ~3 orders of magnitude above the sweep range — test fails on every realistic implementation). `low-do-clamp-reduces-o2-uptake` (5 µM DO clamp is 25-200× above cytochrome bd/bo3 Km, so OUR shouldn''t reduce at this clamp; Vemuri 2006 supports acetate-RISE under low DO, not OUR-drop — citation/test mismatch). `mu-drops-when-glucose-depletes` (kinetics-dependent; defer to transport-kinetics-fidelity study).'
+- Single cell only; population aggregation is mbp-02's job.
+- Reactor physics (kLa, gas transport) not coupled here — that is mbp-03.
+- Time-varying-medium support assumes the same exchange-molecule set as static medium; new species require ParCa regeneration.
 implementation_requirements:
-  - id: req-1-env-driver
-    kind: process
-    title: EnvironmentDriver Step
-    effort: S
-    description: 'PBG Step that, each timestep, writes to environment.external_concentrations
+- id: req-1-env-driver
+  kind: process
+  title: EnvironmentDriver Step
+  effort: S
+  description: 'PBG Step that, each timestep, writes to environment.external_concentrations
 
-      from either (a) an external source store (default for reactor coupling),
+    from either (a) an external source store (default for reactor coupling),
 
-      or (b) a synthetic trajectory function (for unit testing this phase).
+    or (b) a synthetic trajectory function (for unit testing this phase).
 
-      Hooks the existing media_update to read from this store when
+    Hooks the existing media_update to read from this store when
 
-      env_driver_mode != static.
+    env_driver_mode != static.
 
-      '
-    unblocks:
-      - linear-glucose-decline
-      - zero-substrate-clamp
-      - saturating-glucose-low
-      - saturating-glucose-high
-      - all primary tests
-  - id: req-2-time-varying-composite
-    kind: composite
-    title: v2ecoli.composites.ecoli_time_varying_env
-    effort: XS
-    description: 'Thin wrapper around v2ecoli.composites.ecoli_baseline that injects
+    '
+  unblocks:
+  - linear-glucose-decline
+  - zero-substrate-clamp
+  - saturating-glucose-low
+  - saturating-glucose-high
+  - all primary tests
+- id: req-2-time-varying-composite
+  kind: composite
+  title: v2ecoli.composites.ecoli_time_varying_env
+  effort: XS
+  description: 'Thin wrapper around v2ecoli.composites.ecoli_baseline that injects
 
-      EnvironmentDriver and the environment.external_concentrations store.
+    EnvironmentDriver and the environment.external_concentrations store.
 
-      Backward-compatible default: env_driver_mode=static.
+    Backward-compatible default: env_driver_mode=static.
 
-      '
-    unblocks:
-      - all mbp-01 simulations
+    '
+  unblocks:
+  - all mbp-01 simulations
 bibliography:
   expert:
-    - multiscale_bioprocess_roadmap
-    - chris_feedback_2026_05_26
+  - multiscale_bioprocess_roadmap
+  - chris_feedback_2026_05_26
   bib_keys: []
 runs:
-  - simulation: static-env-baseline-multigen
-    simulation_id: 15166838-67b2-45f7-960f-4f4d66e49421
-    seed: 0
-    started_at: '2026-05-27 20:15:53'
-    sim_seconds: 7200
-    n_history_rows: 720
-    chunk: 10
-    generations:
-      - 1
-      - 2
-    artifact: studies/mbp-01-time-varying-environment/parquet-runs/15166838-67b2-45f7-960f-4f4d66e49421
-    investigation: multiscale-bioprocess
-    emitter: parquet
-    outcome: completed
-    runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
-    note: 'Workspace-default-emitter (parquet) version of the v2-sqlite run
+- name: static-env-baseline-multigen-2b3f0765
+  simulation: static-env-baseline-multigen
+  simulation_id: 2b3f0765-52d8-400b-93e5-b0c115098408
+  status: completed
+  canonical: true
+  seed: 0
+  started_at: '2026-08-17'
+  sim_seconds: 7200
+  n_history_rows: 7200
+  generations: [1, 2, 3]
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/2b3f0765-52d8-400b-93e5-b0c115098408
+  emitter: parquet
+  note: |
+    Re-run of the canonical static-env multigen regression guard
+    (scripts/run_mbp_tracked.py --variant static-env-baseline-multigen),
+    recorded 2026-08-17 because the May run's parquet artifact is not part
+    of the clone. Full 120 sim-min, crossing two divisions (generations
+    1 -> 3; the May original reached 2). Required a runner fix first: the
+    composite's internal workspace-default emitter, added since May, is not
+    lineage-aware and crashed the run at first division — the runner now
+    silences it (set_null_emitter_override) and recording stays with the
+    external lineage-following emitter.
+  outcomes:
+    # NOTE (spec drift, recorded 2026-08-18 after independent review): the
+    # pytest suite was deliberately re-scoped to plumbing-only in May (its own
+    # header says so), but these behavior_tests blocks were never re-scoped —
+    # they still declare flux measures, the conservation listener, and a path
+    # (external_exchange_fluxes) that v2ecoli's live state does not populate
+    # (environment.exchange is the real source, per reactor_cell_coupler.py).
+    # The details below therefore cite BOTH the plumbing test and a direct
+    # measurement of each criterion's actual quantity, made 2026-08-18 on this
+    # tree. Fourth spec defect for the behavior-spec revision.
+    external_glucose_updates_propagate_within_one_step:
+      result: pass
+      detail: |
+        test_external_glucose_updates_propagate_within_one_step PASSED
+        (2026-08-17, full suite 6/6): with the driver clamping GLC to 1.5 mM,
+        boundary.external.GLC reads exactly 1.5 after one tick — the
+        one-step-propagation this criterion declares, measured directly.
+    cumulative-mass-balance-closes:
+      result: pass
+      detail: |
+        Measured directly 2026-08-18: conservation_relative_cumulative =
+        0.0092 at 60 ticks on the static-driver composite (band [0, 0.05]),
+        via a matched build with the mass_conservation feature enabled — the
+        canonical run does not enable it, same convention as mbp-07's
+        conservation measurement (where the Millard arm reads 2.43 on the
+        same listener; the WCM baseline closes). Window caveat: 60 ticks, not
+        the declared full-lineage window. The cited pytest
+        (test_cumulative_mass_balance_closes) is a wire-fidelity check only —
+        it asserts the driven boundary value does not drift and never reads
+        the conservation listener (its docstring says so).
+    zero-substrate-blocks-uptake:
+      result: fail
+      detail: |
+        Measured directly 2026-08-18, and the criterion FAILS: with the
+        driver clamping external glucose to 0 mM (boundary.external.GLC
+        verified 0.0 at every check), environment.exchange GLC still
+        accumulates uptake at an unchanged rate (-267,620 counts @1 tick ->
+        -5,949,891 @20 ticks — identical to the 5 mM and 50 mM runs).
+        Metabolism's glucose uptake is concentration-independent, including
+        at zero substrate: the plumbing delivers the value (the cited pytest
+        asserts exactly that, and passes) but the FBA constraint derivation
+        does not consume it. This is the carried transport-kinetics gap
+        (mbp-06, v2ecoli-transport-kinetics-functional-form — the reason
+        mbp-01 was re-scoped plumbing-only), now with direct measured
+        evidence rather than suspicion.
+    saturating-substrate-respects-vmax:
+      result: pass
+      detail: |
+        Measured directly 2026-08-18: glucose uptake at a 50 mM clamp works
+        out to ~4.7 mmol/gDW/h (297,495 counts/s at 381.4 fg dry mass),
+        under the 12 mmol/gDW/h ceiling this criterion declares. Caveat: the
+        bound is respected because uptake is a constant bound at every
+        concentration (see zero-substrate-blocks-uptake), not because a
+        saturable-kinetics cap was demonstrated. The cited pytest asserts
+        only that the 50 mM value reaches the boundary.
+    plateau-across-saturating-range:
+      result: pass
+      detail: |
+        Measured directly 2026-08-18: cumulative glucose uptake at 5 mM and
+        50 mM clamps is identical (-5,949,891 counts @20 ticks in both) —
+        ratio exactly 1.0, inside the declared [0.9, 1.1]. Caveat, stated
+        plainly: the flatness extends to 0 mM as well, so this measurement
+        evidences concentration-INDEPENDENCE (the transport-kinetics gap),
+        not saturable kinetics reaching a plateau. The criterion is
+        numerically satisfied and mechanistically hollow until the gap is
+        resolved; see zero-substrate-blocks-uptake.
+    static-env-baseline-unchanged:
+      result: pass
+      detail: |
+        Measured as a full trajectory comparison 2026-08-18: this canonical
+        static-env run's cell_mass AND instantaneous_growth_rate traces are
+        BIT-IDENTICAL to an unmodified-baseline reference run
+        (baseline-reference-multigen, seed 0, artifact
+        studies/multiscale-bioprocess-reference/parquet-runs/114eeee6-...)
+        at all 7200 steps — max difference exactly 0 on both observables,
+        across two divisions. Caveat: the criterion also names
+        dnaA_protein_count and cell_mu_per_h, which the emitted trace does
+        not carry; test_static_env_baseline_unchanged (PASSED 2026-08-17)
+        covers state equality at snapshot scale. The time-varying plumbing
+        is regression-neutral when unused, on all evidence available.
+    cell-mass-monotone-pre-division:
+      result: fail
+      detail: |
+        Measured on this run's parquet trace 2026-08-17: cell_mass spans
+        1267.6 -> 2319.0 fg over generation 1 (monotone growth up to a single
+        division-boundary drop), against the declared band [400, 1500] fg.
+        The band fails as specified — and the diagnosis is the band, not the
+        model: the spec's own note calls the band "the v2ecoli baseline
+        single-cell dry-mass range," but the measure path
+        (listeners__mass__cell_mass) emits TOTAL cell mass, which is ~1270 fg
+        at birth and ~2300-2600 fg pre-division in this model. The behavior
+        the test describes (monotone growth through generation 1 under a
+        static driver) is what the trace shows. Band recalibration to the
+        total-mass listener (or repointing at a dry-mass path) is flagged for
+        the spec revision.
+    growth-rate-positive:
+      result: fail
+      detail: |
+        Measured on this run's parquet trace 2026-08-17: instantaneous growth
+        rate min = -0.0021, with 3 of 7200 samples non-positive — isolated
+        transients at division boundaries; the trace is positive everywhere
+        else (max 0.0023). The criterion as specified (strict min over the
+        full lineage > 0) fails on any division transient, which the multigen
+        run this test requires necessarily contains. Quantile- or
+        within-generation-windowed refinement flagged for the spec revision;
+        the biology the test describes (metabolism producing mass under the
+        static driver) is not in question.
+    glc-declines-under-linear-decline-driver:
+      result: pass
+      detail: |
+        Measured on the linear-decline-glc-multigen run's parquet trace
+        (recorded below, 2026-08-17): boundary.external.GLC spans 5.0 -> 0 mM
+        over the run, inside the declared [0, 5] mM band — the driven decline
+        reaches the agent's boundary store as designed.
+    glc-stays-zero-under-zero-clamp-driver:
+      result: pass
+      detail: |
+        Measured on the zero-clamp-glc-multigen run's parquet trace (recorded
+        below, 2026-08-17): boundary.external.GLC is identically 0 at all
+        7200 steps (max 0, band <= 1e-06) — the clamp holds for the whole
+        run.
+  computed_outcomes:
+    _status: store_unresolved
+- name: linear-decline-glc-multigen-0646250b
+  simulation: linear-decline-glc-multigen
+  simulation_id: 0646250b-8722-4b4c-8fe8-9bd7341b3acf
+  status: completed
+  seed: 0
+  started_at: '2026-08-17'
+  sim_seconds: 7200
+  n_history_rows: 7200
+  generations: [1, 2, 3]
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/0646250b-8722-4b4c-8fe8-9bd7341b3acf
+  emitter: parquet
+  note: |
+    Driven-env evidence run for glc-declines-under-linear-decline-driver (the
+    canonical run's outcomes above cite it). Full 120 sim-min, two divisions
+    crossed.
+  computed_outcomes:
+    _status: store_unresolved
+- name: zero-clamp-glc-multigen-81142011
+  simulation: zero-clamp-glc-multigen
+  simulation_id: 81142011-c08a-4c6a-a1c3-a98df7e26578
+  status: completed
+  seed: 0
+  started_at: '2026-08-17'
+  sim_seconds: 7200
+  n_history_rows: 7200
+  generations: [1, 2, 3]
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/81142011-c08a-4c6a-a1c3-a98df7e26578
+  emitter: parquet
+  note: |
+    Driven-env evidence run for glc-stays-zero-under-zero-clamp-driver (the
+    canonical run's outcomes above cite it). Full 120 sim-min, two divisions
+    crossed.
+  computed_outcomes:
+    _status: store_unresolved
+- simulation: static-env-baseline-multigen
+  simulation_id: 15166838-67b2-45f7-960f-4f4d66e49421
+  seed: 0
+  started_at: '2026-05-27 20:15:53'
+  sim_seconds: 7200
+  n_history_rows: 720
+  chunk: 10
+  generations:
+  - 1
+  - 2
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/15166838-67b2-45f7-960f-4f4d66e49421
+  investigation: multiscale-bioprocess
+  emitter: parquet
+  outcome: completed
+  runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+  note: 'Workspace-default-emitter (parquet) version of the v2-sqlite run
 
-      above. Hive partitioned per ParquetEmitter convention
+    above. Hive partitioned per ParquetEmitter convention
 
-      (experiment_id/variant/lineage_seed/generation/agent_id). Same
+    (experiment_id/variant/lineage_seed/generation/agent_id). Same
 
-      120-min sim, same 2 generations, same division events. Used to
+    120-min sim, same 2 generations, same division events. Used to
 
-      sanity-check that the parquet emit path produces byte-equivalent
+    sanity-check that the parquet emit path produces byte-equivalent
 
-      trajectory data to the sqlite path before colonies + mbp standardize
+    trajectory data to the sqlite path before colonies + mbp standardize
 
-      on parquet workspace-wide.
+    on parquet workspace-wide.
 
-      '
-    computed_outcomes:
-      _status: store_unresolved
-  - simulation: linear-decline-glc-multigen
-    simulation_id: e7d53f4d-c796-4429-a37a-ee78c9181cec
-    seed: 0
-    env_driver_mode: synthetic_trajectory
-    trajectory_kind: linear_decline
-    trajectory_params:
-      molecule: GLC
-      start_gL: 5.0
-      end_gL: 0.0
-      duration_min: 60.0
-    sim_seconds: 3600
-    n_history_rows: 3600
-    chunk: 1
-    generations:
-      - 1
-      - 2
-    artifact: studies/mbp-01-time-varying-environment/parquet-runs/e7d53f4d-c796-4429-a37a-ee78c9181cec
-    investigation: multiscale-bioprocess
-    emitter: parquet
-    outcome: completed
-    runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
-    note: 'GLC drops linearly from 5 mM to 0 over 60 sim-min. First
+    '
+  computed_outcomes:
+    _status: store_unresolved
+- simulation: linear-decline-glc-multigen
+  simulation_id: e7d53f4d-c796-4429-a37a-ee78c9181cec
+  seed: 0
+  env_driver_mode: synthetic_trajectory
+  trajectory_kind: linear_decline
+  trajectory_params:
+    molecule: GLC
+    start_gL: 5.0
+    end_gL: 0.0
+    duration_min: 60.0
+  sim_seconds: 3600
+  n_history_rows: 3600
+  chunk: 1
+  generations:
+  - 1
+  - 2
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/e7d53f4d-c796-4429-a37a-ee78c9181cec
+  investigation: multiscale-bioprocess
+  emitter: parquet
+  outcome: completed
+  runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+  note: 'GLC drops linearly from 5 mM to 0 over 60 sim-min. First
 
-      environmental forcing trajectory recorded at multigen scale
+    environmental forcing trajectory recorded at multigen scale
 
-      (60cdbd3 unblock). Feeds chart 01_driven-env-glc-trajectory.svg
+    (60cdbd3 unblock). Feeds chart 01_driven-env-glc-trajectory.svg
 
-      via boundary__external__GLC column.
+    via boundary__external__GLC column.
 
-      '
-    computed_outcomes:
-      _status: store_unresolved
-  - simulation: zero-clamp-glc-multigen
-    simulation_id: 58e90ccb-3116-4274-a560-004f8f0ae6e8
-    seed: 0
-    env_driver_mode: synthetic_trajectory
-    trajectory_kind: clamp_to_value
-    trajectory_params:
-      molecule: GLC
-      value_mmolL: 0.0
-    sim_seconds: 3600
-    n_history_rows: 3600
-    chunk: 1
-    generations:
-      - 1
-      - 2
-    artifact: studies/mbp-01-time-varying-environment/parquet-runs/58e90ccb-3116-4274-a560-004f8f0ae6e8
-    investigation: multiscale-bioprocess
-    emitter: parquet
-    outcome: completed
-    runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
-    note: 'GLC clamped at 0 from t=0. Multi-tick counterpart to
+    '
+  computed_outcomes:
+    _status: store_unresolved
+- simulation: zero-clamp-glc-multigen
+  simulation_id: 58e90ccb-3116-4274-a560-004f8f0ae6e8
+  seed: 0
+  env_driver_mode: synthetic_trajectory
+  trajectory_kind: clamp_to_value
+  trajectory_params:
+    molecule: GLC
+    value_mmolL: 0.0
+  sim_seconds: 3600
+  n_history_rows: 3600
+  chunk: 1
+  generations:
+  - 1
+  - 2
+  artifact: studies/mbp-01-time-varying-environment/parquet-runs/58e90ccb-3116-4274-a560-004f8f0ae6e8
+  investigation: multiscale-bioprocess
+  emitter: parquet
+  outcome: completed
+  runner: v2-parquet (run_multigen_parquet + single_daughters + extra_root_paths)
+  note: 'GLC clamped at 0 from t=0. Multi-tick counterpart to
 
-      test_zero_substrate_blocks_uptake; demonstrates instant-deprivation
+    test_zero_substrate_blocks_uptake; demonstrates instant-deprivation
 
-      extreme at multigen scale.
+    extreme at multigen scale.
 
-      '
-    computed_outcomes:
-      _status: store_unresolved
+    '
+  computed_outcomes:
+    _status: store_unresolved
 tests:
-  - name: cell-mass-monotone-pre-division
-    classification: primary
-    description: Per-cell cell_mass must grow monotonically through the first generation under env_driver_mode=static. Validates that the static-mode env-driver is a no-op against the unmodified baseline.
-    measure:
-      path: listeners__mass__cell_mass
-      source: static-env-baseline-multigen parquet hive
-      observable: per-cell dry mass over the lineage trajectory (fg)
-      units: fg
-    pass_if:
-      operator: in-range
-      low: 400.0
-      high: 1500.0
-    requires_simulation: static-env-baseline-multigen
-    cites:
-      - agmon2022
-    backs:
-      behavior_test: static-env-baseline-unchanged
-    cites_note: 'No machine-linkable bib_key: the 400-1500 fg band is the v2ecoli baseline single-cell dry-mass range (model-internal regression guard), not an external literature value.'
-  - name: growth-rate-positive
-    classification: supporting
-    description: Instantaneous growth rate stays positive throughout the run — confirms metabolism is producing mass under the static env driver.
-    measure:
-      path: listeners__mass__instantaneous_growth_rate
-      source: static-env-baseline-multigen parquet hive
-      observable: per-cell μ instantaneous from mass listener
-      units: 1/s
-    pass_if:
-      operator: greater-than
-      threshold: 0.0
-      field: min_value
-    requires_simulation: static-env-baseline-multigen
-    cites:
-      - agmon2022
-    backs:
-      behavior_test: static-env-baseline-unchanged
-    cites_note: 'No machine-linkable bib_key needed: trivial biological floor (instantaneous growth rate > 0 under replete static medium); no external source applies.'
-  - name: glc-declines-under-linear-decline-driver
-    classification: primary
-    description: Under env_driver_mode=synthetic_trajectory with a linear_decline spec (GLC 5 mM → 0 over 60 sim-min), boundary.external.GLC at the cell tracks the driver trajectory monotonically downward. Multi-tick counterpart to the 1-tick test_external_glucose_updates_propagate_within_one_step plumbing assertion — proves propagation persists across generations and division boundaries.
-    measure:
-      path: boundary__external__GLC
-      source: linear-decline-glc-multigen parquet hive
-      observable: boundary.external.GLC at the agent over time (mM)
-      units: mM
-    pass_if:
-      operator: in-range
-      low: 0.0
-      high: 5.0
-    requires_simulation: linear-decline-glc-multigen
-    cites:
-      - agmon2022
-    backs:
-      behavior_test: external_glucose_updates_propagate_within_one_step
-    cites_note: 'No machine-linkable bib_key: the 0-5 mM band equals the synthetic linear_decline driver spec (5 mM -> 0); plumbing/propagation check, not a literature value.'
-  - name: glc-stays-zero-under-zero-clamp-driver
-    classification: primary
-    description: Under env_driver_mode=synthetic_trajectory with a clamp_to_value=0 spec for GLC, boundary.external.GLC is held at 0 throughout the run. Multi-tick counterpart to test_zero_substrate_blocks_uptake.
-    measure:
-      path: boundary__external__GLC
-      source: zero-clamp-glc-multigen parquet hive
-      observable: boundary.external.GLC at the agent over time (mM)
-      units: mM
-    pass_if:
-      operator: in-range
-      low: 0.0
-      high: 1.0e-06
-    requires_simulation: zero-clamp-glc-multigen
-    cites:
-      - agmon2022
-    backs:
-      behavior_test: zero-substrate-blocks-uptake
-    cites_note: 'No machine-linkable bib_key: the 0 to 1e-6 mM band is a numerical-zero tolerance for the clamp_to_value=0 driver; plumbing check, not a literature value.'
+- name: cell-mass-monotone-pre-division
+  classification: primary
+  description: Per-cell cell_mass must grow monotonically through the first generation under env_driver_mode=static. Validates that the static-mode env-driver is a no-op against the unmodified baseline.
+  measure:
+    path: listeners__mass__cell_mass
+    source: static-env-baseline-multigen parquet hive
+    observable: per-cell dry mass over the lineage trajectory (fg)
+    units: fg
+  pass_if:
+    operator: in-range
+    low: 400.0
+    high: 1500.0
+  requires_simulation: static-env-baseline-multigen
+  cites:
+  - agmon2022
+  backs:
+    behavior_test: static-env-baseline-unchanged
+  cites_note: 'No machine-linkable bib_key: the 400-1500 fg band is the v2ecoli baseline single-cell dry-mass range (model-internal regression guard), not an external literature value.'
+- name: growth-rate-positive
+  classification: supporting
+  description: Instantaneous growth rate stays positive throughout the run — confirms metabolism is producing mass under the static env driver.
+  measure:
+    path: listeners__mass__instantaneous_growth_rate
+    source: static-env-baseline-multigen parquet hive
+    observable: per-cell μ instantaneous from mass listener
+    units: 1/s
+  pass_if:
+    operator: greater-than
+    threshold: 0.0
+    field: min_value
+  requires_simulation: static-env-baseline-multigen
+  cites:
+  - agmon2022
+  backs:
+    behavior_test: static-env-baseline-unchanged
+  cites_note: 'No machine-linkable bib_key needed: trivial biological floor (instantaneous growth rate > 0 under replete static medium); no external source applies.'
+- name: glc-declines-under-linear-decline-driver
+  classification: primary
+  description: Under env_driver_mode=synthetic_trajectory with a linear_decline spec (GLC 5 mM → 0 over 60 sim-min), boundary.external.GLC at the cell tracks the driver trajectory monotonically downward. Multi-tick counterpart to the 1-tick test_external_glucose_updates_propagate_within_one_step plumbing assertion — proves propagation persists across generations and division boundaries.
+  measure:
+    path: boundary__external__GLC
+    source: linear-decline-glc-multigen parquet hive
+    observable: boundary.external.GLC at the agent over time (mM)
+    units: mM
+  pass_if:
+    operator: in-range
+    low: 0.0
+    high: 5.0
+  requires_simulation: linear-decline-glc-multigen
+  cites:
+  - agmon2022
+  backs:
+    behavior_test: external_glucose_updates_propagate_within_one_step
+  cites_note: 'No machine-linkable bib_key: the 0-5 mM band equals the synthetic linear_decline driver spec (5 mM -> 0); plumbing/propagation check, not a literature value.'
+- name: glc-stays-zero-under-zero-clamp-driver
+  classification: primary
+  description: Under env_driver_mode=synthetic_trajectory with a clamp_to_value=0 spec for GLC, boundary.external.GLC is held at 0 throughout the run. Multi-tick counterpart to test_zero_substrate_blocks_uptake.
+  measure:
+    path: boundary__external__GLC
+    source: zero-clamp-glc-multigen parquet hive
+    observable: boundary.external.GLC at the agent over time (mM)
+    units: mM
+  pass_if:
+    operator: in-range
+    low: 0.0
+    high: 1.0e-06
+  requires_simulation: zero-clamp-glc-multigen
+  cites:
+  - agmon2022
+  backs:
+    behavior_test: zero-substrate-blocks-uptake
+  cites_note: 'No machine-linkable bib_key: the 0 to 1e-6 mM band is a numerical-zero tolerance for the clamp_to_value=0 driver; plumbing check, not a literature value.'
 pytest:
   auto_discover: true
   data_source: latest_run
   pytest_args: []
   last_results:
 visualizations:
-  - name: 00_static-mode-regression
-    address: image:charts/00_static-mode-regression.svg
-    chart: charts/00_static-mode-regression.svg
-    config:
-      title: 'Static-mode env-driver: regression guard against baseline'
-    render: cell_mass(t) overlay of baseline_time_varying_env (static mode) vs unmodified baseline — curves byte-identical
-  - name: 01_driven-env-glc-trajectory
-    address: image:charts/01_driven-env-glc-trajectory.svg
-    chart: charts/01_driven-env-glc-trajectory.svg
-    config:
-      title: EnvironmentDriver → Mirror → boundary.external propagation
-    render: boundary.external.GLC(t) under two env_driver_mode=synthetic_trajectory scenarios.
+- name: 00_static-mode-regression
+  address: image:charts/00_static-mode-regression.svg
+  chart: charts/00_static-mode-regression.svg
+  config:
+    title: 'Static-mode env-driver: regression guard against baseline'
+  render: cell_mass(t) overlay of baseline_time_varying_env (static mode) vs unmodified baseline — curves byte-identical
+- name: 01_driven-env-glc-trajectory
+  address: image:charts/01_driven-env-glc-trajectory.svg
+  chart: charts/01_driven-env-glc-trajectory.svg
+  config:
+    title: EnvironmentDriver → Mirror → boundary.external propagation
+  render: boundary.external.GLC(t) under two env_driver_mode=synthetic_trajectory scenarios.
 study_type: diagnostic
 runtime:
   status: ran
@@ -736,34 +1054,34 @@ study_card:
   kind: diagnostic (plumbing/regression)
   deliverable: EnvironmentDriver Step + baseline_time_varying_env composite + 5 plumbing/extreme tests + static-mode regression.
 enforced_params:
-  - name: env_driver_mode
-    default: external_store
-    note: static path kept byte-identical for regression
-  - name: seed
-    value: 0
-  - name: cache_dir
-    value: out/cache
+- name: env_driver_mode
+  default: external_store
+  note: static path kept byte-identical for regression
+- name: seed
+  value: 0
+- name: cache_dir
+  value: out/cache
 biological_summary: "PLUMBING-ONLY (per chris_feedback_2026_05_26 §3): verifies the wire under extreme/saturating inputs robust to v2ecoli's internal transport-kinetics functional form (saturable MM / constant-bound / linear). Biological floors checked: zero external substrate -> zero exchange flux; uptake at 50 g/L respects the published E. coli glucose-PTS Vmax (~10-12 mmol/gDW/h); uptake plateaus across 5 vs 50 g/L (saturable kinetics). Gradient-shape / mu-vs-[glucose] fidelity is deferred."
 literature_anchors:
   expert_docs:
-    - multiscale_bioprocess_roadmap
-    - chris_feedback_2026_05_26
+  - multiscale_bioprocess_roadmap
+  - chris_feedback_2026_05_26
   bib_keys:
-    - Monod1949AnnRevMicrobiol
+  - Monod1949AnnRevMicrobiol
   note: Monod 1949 anchors the saturable-kinetics plateau premise (plateau-across-saturating-range). Other test bands are numerical-tolerance / model-internal / plumbing-spec (see per-test cites_note) and have no machine-linkable source.
 design_pivot_required:
   required: true
   note: 'PIVOTED to plumbing-only (chris_feedback_2026_05_26 §3): removed 3 transport-kinetics tests (uptake-flux-tracks-external-glucose Pearson, low-do-clamp-reduces-o2-uptake, mu-drops-when-glucose-depletes) that assumed a functional form v2ecoli does not commit to; fidelity deferred to transport-kinetics-fidelity (mbp-06 axis A). See limitations.'
 conclusion_verdicts:
-  - verdict: PASS (recorded, not re-evaluated here)
-    statement: "Env-driver plumbing wire verified: external-concentration updates reach metabolism within one tick after the EnvironmentMirror fix (60cdbd3); the study's resolution note records all 5 plumbing/extreme tests + static-mode regression passing (32 passed / 15 skipped)."
-    evidence: 'open_questions env-store-topology-mismatch + env-driver-molecule-id-convention (status: resolved); runs[] (3 parquet runs); charts 00 (static regression) + 01 (driven-env propagation).'
-  - verdict: DEFERRED
-    statement: Quantitative transport-kinetics fidelity (GUR-vs-[glucose] shape, mu response near Km, acetate at sub-Vmax DO) is out of scope.
-    evidence: limitations[0]; routed to mbp-06 axis A transport-kinetics-fidelity candidate-future-study.
+- verdict: PASS (recorded, not re-evaluated here)
+  statement: "Env-driver plumbing wire verified: external-concentration updates reach metabolism within one tick after the EnvironmentMirror fix (60cdbd3); the study's resolution note records all 5 plumbing/extreme tests + static-mode regression passing (32 passed / 15 skipped)."
+  evidence: 'open_questions env-store-topology-mismatch + env-driver-molecule-id-convention (status: resolved); runs[] (3 parquet runs); charts 00 (static regression) + 01 (driven-env propagation).'
+- verdict: DEFERRED
+  statement: Quantitative transport-kinetics fidelity (GUR-vs-[glucose] shape, mu response near Km, acetate at sub-Vmax DO) is out of scope.
+  evidence: limitations[0]; routed to mbp-06 axis A transport-kinetics-fidelity candidate-future-study.
 # >>> interactive-plotly embeds (scripts/wire_interactive_embeds.py) >>>
 embed_visualizations:
-  - name: "Environment coupling — uptake & growth track the medium (interactive)"
-    url: "/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html"
-    description: "baseline WCM, 40 steps: glucose & O2 uptake fluxes and the FBA growth objective respond to the external medium. Hover for per-step values; toggle traces in the legend. Establishes that the cell is environment-responsive — the prerequisite for reactor coupling."
+- name: "Environment coupling — uptake & growth track the medium (interactive)"
+  url: "/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html"
+  description: "baseline WCM, 40 steps: glucose & O2 uptake fluxes and the FBA growth objective respond to the external medium. Hover for per-step values; toggle traces in the legend. Establishes that the cell is environment-responsive — the prerequisite for reactor coupling."
 # <<< interactive-plotly embeds <<<

@@ -142,9 +142,12 @@ def test_translate_vivarium_topology_resolves_nested_path():
 
 
 @pytest.mark.sim
-def test_baseline_swaps_and_excludes_processes():
-    """A swap-only injection (no add_processes) must still convert+add the swap
-    target, remove the swapped-out process, and drop exclude_processes."""
+def test_baseline_rejects_fork_sourced_swap():
+    """A fork-sourced swap injection (non-empty fork_repo) is no longer
+    buildable: fork-sourcing was removed and v2ecoli is native-only, so
+    baseline() raises rather than fork-wrapping. (The low-level converter +
+    remove_processes machinery the native path uses is covered by the
+    inject.* unit tests above.)"""
     from v2ecoli.core import build_core
     from v2ecoli.composites.ecoli_baseline import baseline
     core = build_core()
@@ -157,14 +160,9 @@ def test_baseline_swaps_and_excludes_processes():
         "topology": {"example-secretion": {"counts": ["bulk"]}},
         "time_step": 1.0,
     }
-    doc = baseline(core=core, seed=0, cache_dir="out/cache",
-                   injected_processes=inj)
-    cell = doc["state"]["agents"]["0"]
-    assert "example-secretion" in cell            # swap target converted + added
-    assert "ecoli-mass-listener" not in cell      # swapped-out removed
-    assert "exchange_data" not in cell            # excluded removed
-    assert "ecoli-mass-listener" not in doc["flow_order"]
-    assert "exchange_data" not in doc["flow_order"]
+    with pytest.raises(ValueError, match="fork-sourcing has been removed"):
+        baseline(core=core, seed=0, cache_dir="out/cache",
+                 injected_processes=inj)
 
 
 # ---------------------------------------------------------------------------

@@ -158,6 +158,36 @@ OUTPUT_PORTS = {
 }
 
 
+def select_debug_tf_conditions(tf_cond: dict) -> dict:
+    """The single TF whose regulation a ``debug=True`` (fast) build applies.
+
+    ⚠ The selection is POSITIONAL, and that is the whole hazard: it takes the
+    first key in insertion order, and ``tf_to_active_inactive_conditions`` is
+    built by iterating ``condition/tf_condition.tsv`` in row order
+    (``simulation_data.py``, ``_add_condition_data``). So which transcription
+    factor a fast build models is decided by *which row is first in a data
+    file*, filtered to rows whose active TF also appears in the fold-change
+    tables.
+
+    At the time of writing that is ``trpR`` (``CPLX-125``) out of 23 declared
+    TFs; every other TF's regulation is dropped. Treat that as a fact to look up
+    rather than a guarantee — change the ordering, or the fold-change tables'
+    membership, and fast builds silently model a different regulator. Nothing
+    fails: the run completes and its numbers quietly stop meaning what they
+    meant, and a knockout of a TF the fast regime dropped returns a plausible
+    null rather than an error.
+
+    ⇒ Do not read regulatory behaviour out of a fast-mode build without checking
+    which TF survived.
+
+    Extracted from ``update`` so the selection is named and testable;
+    ``tests/test_fast_mode_tf_prune.py`` pins that it stays positional and
+    single-valued, deliberately not which TF wins (that is upstream data).
+    """
+    first_key = next(iter(tf_cond))
+    return {first_key: tf_cond[first_key]}
+
+
 class InputAdjustmentsStep(Step):
     """Step 2 — input_adjustments.  See module docstring for port wiring."""
 
@@ -198,8 +228,7 @@ class InputAdjustmentsStep(Step):
                 "  Step 2: debug mode — reducing tf_to_active_inactive_conditions"
                 " to a single key"
             )
-            first_key = next(iter(tf_cond))
-            tf_cond_out = {first_key: tf_cond[first_key]}
+            tf_cond_out = select_debug_tf_conditions(tf_cond)
 
         # --- translation efficiencies ---
         monomer_ids = translation.monomer_data['id']

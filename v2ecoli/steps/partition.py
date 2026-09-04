@@ -222,9 +222,18 @@ class Evolver(Step):
         process = proc_state[0] if isinstance(proc_state, (list, tuple)) else proc_state
 
         # If the Requester has not run yet, skip the Evolver's update to
-        # let the Requester run in the next time step.
-        if not process.request_set:
-            return {}
+        # let the Requester run in the next time step. On fast-growth media
+        # the Evolver can fire before its paired Requester ever has, so
+        # `request_set` may not be set on the process at all yet -- default
+        # that read to False rather than a bare attribute access. Returning
+        # `{}` here (no `next_update_time`) leaves the global clock reading
+        # a non-advancing 0.0 interval and deadlocks the composite, so
+        # reschedule instead by advancing next_update_time by one timestep.
+        if not getattr(process, "request_set", False):
+            dt = states.get("timestep") or 0.0
+            if not dt or float(dt) <= 0:
+                dt = 1.0
+            return {"next_update_time": states["global_time"] + float(dt)}
 
         update = process.evolve_state(states["timestep"], states)
         update["process"] = (process,)

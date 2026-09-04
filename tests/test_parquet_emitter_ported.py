@@ -38,7 +38,7 @@ import pytest
 # Skip the whole module if the [parquet] extra isn't installed.
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 import duckdb  # noqa: E402
 import polars as pl  # noqa: E402
@@ -48,7 +48,6 @@ from v2ecoli.library.parquet_emitter import (  # noqa: E402
     ParquetEmitter,
     create_duckdb_conn,
     flatten_dict,
-    json_to_parquet,
     list_columns,
     named_idx,
     ndidx_to_duckdb_expr,
@@ -829,10 +828,10 @@ class TestParquetEmitterEdgeCases:
         shutil.rmtree(tmp)
 
     # Patch the executor where ParquetEmitter looks it up (upstream
-    # pbg_emitters module). v2ecoli.library.parquet_emitter is now a
+    # viva_emitters module). v2ecoli.library.parquet_emitter is now a
     # re-export shim and patching its attribute would not intercept
     # the running emitter.
-    @patch("pbg_emitters.parquet_emitter.ThreadPoolExecutor")
+    @patch("viva_emitters.parquet_emitter.ThreadPoolExecutor")
     def test_multithreaded_buffer_clearing(self, mock_executor_class, temp_dir, core):
         """Clearing the buffer in the main thread doesn't race with the writer."""
         real_executor = ThreadPoolExecutor(max_workers=1)

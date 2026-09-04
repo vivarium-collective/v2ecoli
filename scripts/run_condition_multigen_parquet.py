@@ -63,6 +63,10 @@ from v2ecoli.composites.ecoli_baseline import baseline as baseline_doc
 from v2ecoli.core import build_core
 from v2ecoli.library.division import divide_cell
 from v2ecoli.library.parquet_emitter import ParquetEmitter
+from v2ecoli.library.run_provenance import (
+    build_run_identity,
+    write_run_identity_record,
+)
 
 
 SNAPSHOT_INTERVAL = 60
@@ -212,6 +216,21 @@ def build_run_config(args, *, perturbations: dict[str, float],
         "dnaA_synth_prob_from_cache": read_synth_probs(
             cache, list(perturbations.keys())),
         "out_dir": args.out_dir,
+        # v2ecoli#472/#473: code identity + cache-content fingerprint + the
+        # design/grid metadata already available here. Also written as its
+        # own canonical `run_identity.json` sidecar on a real (non-dry-run)
+        # completion — see the end of main() — so sim_vector_cache._run_commit
+        # can read it without knowing this runner's summary shape.
+        "run_identity": build_run_identity(
+            cache_dir=args.cache_dir,
+            design={
+                "experiment_id": args.experiment_id,
+                "seed": args.seed,
+                "start_gen": args.start_gen,
+                "generations": args.generations,
+                "perturbations": dict(perturbations),
+            },
+        ),
     }
 
 
@@ -489,6 +508,11 @@ def main() -> None:
     summary_path = os.path.join(args.out_dir, f"{args.experiment_id}_summary.json")
     with open(summary_path, "w") as f:
         json.dump(out_summary, f, indent=2, default=str)
+
+    # Canonical run_identity.json sidecar (v2ecoli#472/#473) — reuses the
+    # record already computed into run_config["run_identity"] rather than
+    # recomputing (a second git/cache-fingerprint round trip).
+    write_run_identity_record(args.out_dir, run_config["run_identity"])
 
     # Mark the run complete in the registry (preserves the recorded params).
     register_run_config(args, run_config, status="complete")

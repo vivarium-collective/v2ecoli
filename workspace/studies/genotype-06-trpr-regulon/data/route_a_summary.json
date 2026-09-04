@@ -1,0 +1,167 @@
+{
+  "route_a": [
+    {
+      "arm": "trpR",
+      "gene_ids": [
+        "EG11029"
+      ],
+      "note": "the repressor alone",
+      "genotype_id": "0adf8b53af80154d",
+      "deleted_spans": {
+        "EG11029": [
+          4632760,
+          4633086
+        ]
+      },
+      "card": {
+        "structural_axes_all_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "checkpoints": [
+          "checkpoint_step_1.pkl",
+          "checkpoint_step_2.pkl",
+          "checkpoint_step_3.pkl",
+          "checkpoint_step_4.pkl",
+          "checkpoint_step_5.pkl",
+          "checkpoint_step_6.pkl",
+          "checkpoint_step_7.pkl",
+          "checkpoint_step_8.pkl"
+        ],
+        "tail": [
+          "    self.run_steps(self.to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  [Previous line repeated 5 more times]",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2569, in run_steps",
+          "    step_update = self.process_update(",
+          "                  ^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 3039, in process_update",
+          "    update = process['instance'].invoke(clean_state, interval)",
+          "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 179, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_09_final_adjustments.py\", line 156, in update",
+          "    sd.process.metabolism.set_phenomological_supply_constants(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/metabolism.py\", line 985, in set_phenomological_supply_constants",
+          "    raise ValueError(",
+          "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']"
+        ]
+      },
+      "failure": {
+        "last_checkpoint_step": 8,
+        "failed_in_step": 9,
+        "assertion_line": "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']",
+        "trp_lines": [
+          "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']"
+        ],
+        "numbers_in_trp_lines": [
+          []
+        ]
+      }
+    },
+    {
+      "arm": "trpRtnaA",
+      "gene_ids": [
+        "EG11029",
+        "EG11005"
+      ],
+      "note": "repressor + the main catabolic sink",
+      "genotype_id": "70d3080e93e991f3",
+      "deleted_spans": {
+        "EG11005": [
+          3888730,
+          3890145
+        ],
+        "EG11029": [
+          4632760,
+          4633086
+        ]
+      },
+      "card": {
+        "structural_axes_all_ok": true,
+        "axes": {
+          "chromosome_length.ok": "within_tol",
+          "round_trip.ok": "within_tol",
+          "coordinate_bounds.ok": "within_tol",
+          "coordinate_shift.ok": "within_tol",
+          "tombstone.ok": "within_tol",
+          "functional_absence.ok": "within_tol",
+          "fit.completed": "ungraded",
+          "fit.conditions_fitted": "ungraded"
+        }
+      },
+      "parca": {
+        "exit": 1,
+        "state_written": false,
+        "checkpoints": [
+          "checkpoint_step_1.pkl",
+          "checkpoint_step_2.pkl",
+          "checkpoint_step_3.pkl",
+          "checkpoint_step_4.pkl",
+          "checkpoint_step_5.pkl",
+          "checkpoint_step_6.pkl",
+          "checkpoint_step_7.pkl",
+          "checkpoint_step_8.pkl"
+        ],
+        "tail": [
+          "    self.run_steps(self.to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2592, in run_steps",
+          "    self.run_steps(to_run)",
+          "  [Previous line repeated 5 more times]",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 2569, in run_steps",
+          "    step_update = self.process_update(",
+          "                  ^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 3039, in process_update",
+          "    update = process['instance'].invoke(clean_state, interval)",
+          "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/.venv/lib/python3.12/site-packages/process_bigraph/composite.py\", line 689, in invoke",
+          "    result = self.update(state)",
+          "             ^^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/cli/parca.py\", line 179, in update",
+          "    out = orig(self, state)",
+          "          ^^^^^^^^^^^^^^^^^",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/steps/step_09_final_adjustments.py\", line 156, in update",
+          "    sd.process.metabolism.set_phenomological_supply_constants(sd)",
+          "  File \"/Users/chris/projects/SMS/v2ecoli-geno/v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/process/metabolism.py\", line 985, in set_phenomological_supply_constants",
+          "    raise ValueError(",
+          "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']"
+        ]
+      },
+      "failure": {
+        "last_checkpoint_step": 8,
+        "failed_in_step": 9,
+        "assertion_line": "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']",
+        "trp_lines": [
+          "ValueError: Check that amino acid concentrations should be lower in amino acid media for ['TRP[c]']"
+        ],
+        "numbers_in_trp_lines": [
+          []
+        ]
+      }
+    }
+  ]
+}

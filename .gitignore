@@ -29,6 +29,12 @@ v2ecoli/processes/parca/**/*.cpython-*.so
 **/runs.db-shm
 **/runs.db-wal
 workspace/investigations/*/runs.db
+# per-run zarr stores written next to a study's runs.db by XArrayEmitter runs
+# (runs.<run_id>.zarr/) — regenerable run data, same class as runs.db
+workspace/studies/*/runs.*.zarr/
+# scripts/run_mbp_tracked.py writes hive-partitioned parquet run artifacts
+# under REPO_ROOT/studies/<slug>/parquet-runs/ — regenerable run data
+/studies/*/parquet-runs/
 workspace/investigations/*/.run.lock
 workspace/studies/*/sims/*.subprocess.py
 workspace/studies/*/sims/parquet-rerun-*/
@@ -80,6 +86,4 @@ docs/report_cards/**/report_card_verdict.json
 docs/report_cards/**/*_reference.json
 workspace/investigations/*/studies/*/viz/report_card/
 
-# structural-ecoli s01: generated 3D packs/meshes are large - keep local, not committed
-workspace/studies/s01-birth-and-division/viz/3d/
 .parsimony/

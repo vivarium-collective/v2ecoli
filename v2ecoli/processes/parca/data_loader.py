@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from v2ecoli.library.cache_version import candidate_repo_roots
 from v2ecoli.processes.parca import _scipy_compat
 
 # ParCa states pickled before a scipy upgrade embed old-format interpolators
@@ -24,8 +25,31 @@ _scipy_compat.install()
 
 
 # ``v2ecoli/processes/parca/data_loader.py`` → repo root is four parents up.
+# Kept as the final fallback candidate below: when v2ecoli is an INSTALLED
+# dependency (e.g. sms-ecoli), source lives under the package but this data
+# file lives in the consuming WORKSPACE, so the package root alone may not
+# have it — see ``v2ecoli.library.cache_version.candidate_repo_roots``,
+# which this reuses to also try the workspace root first.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_DEFAULT_PATH = _REPO_ROOT / 'models' / 'parca' / 'parca_state.pkl.gz'
+_PARCA_STATE_REL = Path('models') / 'parca' / 'parca_state.pkl.gz'
+
+
+def _resolve_default_parca_state_path() -> Path:
+    """First candidate root (workspace, then package) that has the file.
+
+    Falls back to the package-anchored path (the historical default) if
+    none of the candidate roots has it, so a genuinely-missing file still
+    fails with the same, familiar ``FileNotFoundError`` at ``open()`` time
+    instead of a confusing path swap.
+    """
+    for root in candidate_repo_roots():
+        candidate = Path(root) / _PARCA_STATE_REL
+        if candidate.exists():
+            return candidate
+    return _REPO_ROOT / _PARCA_STATE_REL
+
+
+_DEFAULT_PATH = _resolve_default_parca_state_path()
 
 # Module-name remapping applied during unpickling.  Pickles created by
 # v2parca or vEcoli embed module paths like ``v2parca.reconstruction.ecoli…``
@@ -110,9 +134,15 @@ def load_parca_state(path: str | Path | None = None) -> dict[str, Any]:
     ``wholecell.*``) to the canonical ``v2ecoli.processes.parca.*``
     path — without modifying ``sys.modules`` globally.
 
+    Accepts both the gzipped fixture and an UNCOMPRESSED ``parca_state.pkl``:
+    ``v2ecoli-parca`` writes the latter (see ``cli/parca.py``), so a state
+    produced by a local run could not be read back through this loader.
+    Compression is detected from the gzip magic bytes rather than the file
+    extension, because the CLI's output keeps a ``.pkl`` name either way.
+
     Args:
-        path: optional path to a ``parca_state.pkl.gz`` file.  Defaults
-            to ``<repo>/models/parca/parca_state.pkl.gz``.
+        path: optional path to a ``parca_state.pkl.gz`` or ``parca_state.pkl``
+            file.  Defaults to ``<repo>/models/parca/parca_state.pkl.gz``.
 
     Returns:
         Dict of top-level stores (``process``, ``cell_specs``, ``mass``,
@@ -120,7 +150,10 @@ def load_parca_state(path: str | Path | None = None) -> dict[str, Any]:
     """
     p = Path(path) if path is not None else _DEFAULT_PATH
     _ensure_parca_modules_loaded()
-    with gzip.open(p, 'rb') as f:
+    with open(p, 'rb') as probe:
+        gzipped = probe.read(2) == b'\x1f\x8b'
+    opener = gzip.open if gzipped else open
+    with opener(p, 'rb') as f:
         return _RemappingUnpickler(f).load()
 
 

@@ -30,7 +30,8 @@ import importlib.util
 import os
 from typing import Any
 
-from pbg_superpowers.composite_generator import composite_generator
+# from pbg_superpowers.composite_generator import composite_generator  # old name, pbg->viva rebrand complete 2026-09-04
+from viva_superpowers.composite_generator import composite_generator
 
 _LOCAL_MODEL_MODULE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),

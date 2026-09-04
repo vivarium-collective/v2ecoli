@@ -312,6 +312,83 @@ def cast_decimals(df):
     return df
 
 
+_CD1_ID_COLS = ["experiment_id", "variant", "lineage_seed", "generation", "agent_id"]
+
+# Default cells-per-round-trip for run_chunked/distinct_cell_filters (item 77).
+# chunk_size=1 was item 38's original OOM-safety default; item 38's own later
+# investigation found chunking barely moves peak memory (2-6% noise), while at
+# the real 1000-seed x 10-generation production scale chunk_size=1 means
+# ~40,000 sequential DuckDB round-trips across the 4 cd1_* modules that call
+# run_chunked -- confirmed live as the direct cause of a 5+ hour analysis run.
+# 100 cuts that to ~400. Still exposed as a per-module tunable `chunk_size`
+# config_schema param, not hardcoded -- see cd1_fluxomics.py etc.
+DEFAULT_CD1_CHUNK_SIZE = 100
+
+
+def _sql_literal(value) -> str:
+    """Inline a Python scalar (str/int/float — cell-identity values only) as a
+    DuckDB SQL literal."""
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return str(value)
+
+
+def distinct_cell_filters(
+    conn: duckdb.DuckDBPyConnection,
+    filtered_sql: str,
+    id_cols: Optional[list[str]] = None,
+    chunk_size: int = DEFAULT_CD1_CHUNK_SIZE,
+) -> list[str]:
+    """Row-tuple ``WHERE`` fragments partitioning ``filtered_sql``'s distinct cells.
+
+    Selects only ``id_cols`` (default the 5 cell-identity columns — never a
+    measurement column), so DuckDB's projection pushdown means this scan never
+    materializes the large per-timepoint list columns (``monomer_counts``,
+    ``bulk__count``, etc.) that make the cd1 explode+aggregate queries OOM.
+    Each returned fragment restricts a follow-up query to at most
+    ``chunk_size`` cells via a tuple-``IN`` predicate.
+    """
+    cols = id_cols or _CD1_ID_COLS
+    col_list = ", ".join(cols)
+    rows = conn.sql(f"SELECT DISTINCT {col_list} FROM ({filtered_sql})").fetchall()
+    fragments = []
+    for i in range(0, len(rows), chunk_size):
+        batch = rows[i : i + chunk_size]
+        values = ", ".join(
+            "(" + ", ".join(_sql_literal(v) for v in row) + ")" for row in batch
+        )
+        fragments.append(f"({col_list}) IN ({values})")
+    return fragments
+
+
+def run_chunked(
+    conn: duckdb.DuckDBPyConnection,
+    filtered_sql: str,
+    build_batch_sql,
+    id_cols: Optional[list[str]] = None,
+    chunk_size: int = DEFAULT_CD1_CHUNK_SIZE,
+):
+    """Run ``build_batch_sql(cell_filter)`` once per cell chunk, concatenated.
+
+    ``build_batch_sql`` takes one ``(id_cols...) IN (...)`` WHERE fragment (to
+    be applied against ``filtered_sql``) and returns the full per-batch
+    explode+aggregate SQL string. Every cd1 module's ``GROUP BY`` already
+    partitions by the same cell-identity columns (a group never spans two
+    cells), so per-batch results concatenate directly with zero cross-batch
+    recombination — confirmed by the item-38 chunk-safety audit. This bounds
+    peak memory to ``chunk_size`` cells' unnested arrays at a time instead of
+    materializing the whole sweep at once, which is what OOM-killed the
+    analysis DAG node on the full sweep.
+    """
+    import polars as pl
+
+    fragments = distinct_cell_filters(conn, filtered_sql, id_cols, chunk_size)
+    if not fragments:
+        return pl.DataFrame()
+    parts = [conn.sql(build_batch_sql(frag)).pl() for frag in fragments]
+    return pl.concat(parts, how="vertical")
+
+
 def cd1_filter_clause(params: Optional[dict] = None) -> str:
     """The ``WHERE`` clause the cd1 omics ports share, or ``""`` when unfiltered.
 

@@ -19,6 +19,34 @@ import numpy as np
 
 from v2ecoli.library.schema import attrs
 
+
+# Builtin computation/lookup errors that are ALWAYS real failures — never a
+# division signal — even when their message happens to contain the substring
+# "divide"/"division" (the canonical trap: ``ZeroDivisionError: float division
+# by zero``). Callers that detect division from a raised exception must exclude
+# these so a real bug is surfaced, not silently mislabeled as a division.
+NON_DIVISION_ERRORS = (
+    ArithmeticError, TypeError, KeyError, AttributeError, ValueError,
+    IndexError, NameError, ImportError, AssertionError,
+)
+
+
+def is_division_exception(e: BaseException) -> bool:
+    """True if an exception from ``composite.run()`` is a genuine division signal.
+
+    A division surfaces as a structural agents-map update (mother removed,
+    daughters added) that process-bigraph can raise through; its message
+    mentions "divide"/"division". A genuine division is never one of
+    :data:`NON_DIVISION_ERRORS` — those are real code errors that merely happen
+    to contain the substring. Returns ``False`` for them (and for any exception
+    without the token) so the caller re-raises instead of treating it as a
+    phantom division.
+    """
+    if isinstance(e, NON_DIVISION_ERRORS):
+        return False
+    msg = str(e).lower()
+    return "divide" in msg or "division" in msg
+
 RAND_MAX = 2**31 - 1
 
 

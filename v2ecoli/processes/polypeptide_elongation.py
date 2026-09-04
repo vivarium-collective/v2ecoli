@@ -1115,7 +1115,19 @@ class SteadyStatePolypeptideElongation(TranslationSupplyPolypeptideElongation):
         """
         aa_in_media = np.array(
             [
-                states["boundary"]["external"][aa] > self.import_constraint_threshold
+                # states["boundary"]["external"][aa] arrives as a pint
+                # Quantity (mM-denominated) rather than a bare float on
+                # AA-containing media (with_aa / succinate), while
+                # import_constraint_threshold is a plain float in mM.
+                # Comparing a Quantity directly to a float raises
+                # ValueError: Cannot compare PlainQuantity and float, so
+                # normalize to the mM magnitude first.
+                (
+                    v.to("mM").magnitude
+                    if hasattr(v := states["boundary"]["external"][aa], "to")
+                    else v
+                )
+                > self.import_constraint_threshold
                 for aa in self.aa_environment_names
             ]
         )

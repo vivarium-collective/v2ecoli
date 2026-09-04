@@ -18,7 +18,7 @@ import pytest
 
 pytest.importorskip("duckdb")
 pytest.importorskip("polars")
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
 import duckdb  # noqa: E402
 
@@ -161,7 +161,7 @@ def test_output_metadata_in_parquet_config(tmp_path):
     )
 
     # Also verify via the canonical field_metadata() reader API.
-    from pbg_emitters import field_metadata
+    from viva_emitters import field_metadata
     recovered = field_metadata(conn, config_sql, "listeners__monomer_counts")
     assert recovered == monomer_ids, (
         f"field_metadata recovered {recovered!r}, expected {monomer_ids!r}"
@@ -265,7 +265,7 @@ def test_output_metadata_in_sqlite_simulations(tmp_path):
         core=comp.core,
     )
 
-    from pbg_emitters.sqlite_emitter import load_simulation_metadata
+    from viva_emitters.sqlite_emitter import load_simulation_metadata
     row = load_simulation_metadata(db_file, "run-meta-test")
     assert row is not None, "No simulations row found"
     meta = row.get("metadata")
@@ -291,7 +291,7 @@ def test_golden_output_metadata_in_parquet_config_real_composite(tmp_path, sim_d
     construction and config write, not a full-gen run.
     """
     from v2ecoli import build_composite
-    from pbg_emitters import field_metadata
+    from viva_emitters import field_metadata
 
     comp = build_composite("ecoli_baseline", seed=0, cache_dir=sim_data_cache)
 

@@ -69,6 +69,27 @@ def test_build_workflow_config_sequential_and_study():
     assert "study" not in build_workflow_config(analyses="none", study="")
 
 
+def test_build_workflow_config_threads_checkpoint_resume_keys_unrenamed():
+    """Backlog item 34: a wave orchestrator sets these 3 keys per
+    seed-per-generation; they must pass through build_workflow_config
+    unrenamed (meta_composite.py's per-branch LineageProcess config reads
+    these exact names) and be omitted entirely when falsy, matching the
+    media/study/base_config_overrides omit-when-falsy pattern above."""
+    cfg = build_workflow_config(
+        analyses="none",
+        initial_carry_state_path="s3://bucket/seed0/gen4/daughter.json",
+        initial_generation_index=5,
+        daughter_state_out_path="s3://bucket/seed0/gen5/daughter.json")
+    assert cfg["initial_carry_state_path"] == "s3://bucket/seed0/gen4/daughter.json"
+    assert cfg["initial_generation_index"] == 5
+    assert cfg["daughter_state_out_path"] == "s3://bucket/seed0/gen5/daughter.json"
+
+    default_cfg = build_workflow_config(analyses="none")
+    assert "initial_carry_state_path" not in default_cfg
+    assert "initial_generation_index" not in default_cfg
+    assert "daughter_state_out_path" not in default_cfg
+
+
 # --- analysis selection ------------------------------------------------------
 
 def test_applicable_scales_track_what_the_batch_actually_produced():
@@ -152,6 +173,22 @@ def test_dispatch_batch_respects_base_seed():
     assert cfg["lineage_seed"] == 5 and cfg["n_init_sims"] == 2
 
 
+def test_dispatch_batch_threads_checkpoint_resume_keys_to_run_workflow():
+    """Backlog item 34: the 3 checkpoint/resume keys must reach
+    run_workflow's own config unrenamed — the actual contract
+    meta_composite.py's per-branch LineageProcess config reads off of."""
+    dispatch_batch(
+        n_seeds=1, n_generations=1, analyses="none",
+        run_workflow_fn=_stub_workflow((0,)),
+        initial_carry_state_path="s3://bucket/seed0/gen4/daughter.json",
+        initial_generation_index=5,
+        daughter_state_out_path="s3://bucket/seed0/gen5/daughter.json")
+    cfg = _stub_workflow.last_config
+    assert cfg["initial_carry_state_path"] == "s3://bucket/seed0/gen4/daughter.json"
+    assert cfg["initial_generation_index"] == 5
+    assert cfg["daughter_state_out_path"] == "s3://bucket/seed0/gen5/daughter.json"
+
+
 def test_dispatch_batch_records_a_seed_the_workflow_never_reported():
     batch = dispatch_batch(n_seeds=2, n_generations=1, analyses="none",
                            run_workflow_fn=_stub_workflow((0,)))  # seed 1 missing
@@ -232,6 +269,50 @@ def test_baseline_batch_mode_document_is_cheap_and_well_formed():
         "state"]["batch_runner"]["config"]["emitter"] == "both"
 
 
+def test_baseline_batch_mode_document_carries_a_realizable_emitter():
+    """Regression for #496: batch document must carry an emitter with a resolved
+    out_dir so Composite() does not raise the ParquetEmitter empty-config error."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+    from process_bigraph.emitter import document_has_emitter
+    from process_bigraph import Composite
+    core = build_core()
+    doc = baseline(core=core, n_seeds=1, n_generations=3, emitter="parquet", out_dir="")
+    assert document_has_emitter(doc["state"], core)
+    Composite(doc, core=core)   # must not raise the #496 ValueError
+
+
+def test_baseline_batch_mode_threads_checkpoint_resume_keys_into_document():
+    """Backlog item 34: baseline(n_seeds>1, ...) must carry the 3
+    checkpoint/resume keys into the BatchBaselineRunner step config it
+    builds. This is the exact gap the original bug had: the keys existed on
+    LineageProcess and BatchBaselineRunner, but ecoli_baseline's own
+    composite_generator parameters={} allowlist never listed them, so a real
+    remote dispatch's --overrides KeyError'd at container start before
+    baseline() was ever reached — see
+    test_ecoli_baseline_composite_declares_checkpoint_resume_params for the
+    allowlist itself."""
+    from v2ecoli.core import build_core
+    from v2ecoli.composites.ecoli_baseline import baseline
+
+    doc = baseline(
+        core=build_core(), n_seeds=2, n_generations=3,
+        initial_carry_state_path="s3://bucket/seed0/gen4/daughter.json",
+        initial_generation_index=5,
+        daughter_state_out_path="s3://bucket/seed0/gen5/daughter.json")
+    cfg = doc["state"]["batch_runner"]["config"]
+    assert cfg["initial_carry_state_path"] == "s3://bucket/seed0/gen4/daughter.json"
+    assert cfg["initial_generation_index"] == 5
+    assert cfg["daughter_state_out_path"] == "s3://bucket/seed0/gen5/daughter.json"
+
+    # Defaults: no orchestrator asking for a checkpoint = today's unchanged
+    # single-invocation behavior.
+    default_cfg = baseline(core=build_core(), n_seeds=2)["state"]["batch_runner"]["config"]
+    assert default_cfg["initial_carry_state_path"] == ""
+    assert default_cfg["initial_generation_index"] == 0
+    assert default_cfg["daughter_state_out_path"] == ""
+
+
 def test_batch_baseline_composite_is_gone_baseline_absorbed_it():
     """The standalone batch_baseline composite no longer exists; baseline(n_seeds>1)
     is the only batch entry point."""
@@ -255,6 +336,24 @@ def test_baseline_exposes_the_vecoli_workflow_knobs():
     assert {"seed", "n_seeds", "n_generations", "single_daughters",
             "time_step", "max_duration", "variants", "emitter", "analyses",
             "study", "cache_dir", "out_dir", "experiment_id", "parallel"} <= params
+
+
+def test_ecoli_baseline_composite_declares_checkpoint_resume_params():
+    """Backlog item 34: the composite_generator's OWN declared parameters={}
+    allowlist (not just baseline()'s Python kwargs) must list these 3 keys —
+    this is the actual allowlist a real remote dispatch's --overrides gets
+    validated against. The original bug: LineageProcess and
+    BatchBaselineRunner both already accepted these keys, but ecoli_baseline
+    (which absorbed the former batch_baseline composite in an unrelated
+    refactor) never declared them, so a real dispatch KeyError'd at
+    container start before reaching any of that already-correct code."""
+    from viva_superpowers.composite_generator import _REGISTRY
+    import v2ecoli.composites  # noqa: F401 — fires the @composite_generator
+
+    entry = next(e for e in _REGISTRY.values() if e.name == "ecoli_baseline")
+    declared = set(entry.parameters)
+    assert {"initial_carry_state_path", "initial_generation_index",
+            "daughter_state_out_path"} <= declared
 
 
 # --- sim_data pairing --------------------------------------------------------

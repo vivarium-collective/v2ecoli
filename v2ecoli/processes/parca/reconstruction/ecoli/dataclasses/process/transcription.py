@@ -28,6 +28,292 @@ RNA_SEQ_ANALYSIS = "rsem_tpm"
 PPGPP_CONC_UNITS = units.umol / units.L
 PRINT_VALUES = False  # print values for supplemental table if True
 
+#: The two values ``sim_data.rnaseq_source`` may take.
+#:
+#: ``reference`` (the default, and the behaviour of every build before this
+#: existed) reads the LEGACY WIDE table ``rna_seq_data.rnaseq_<ANALYSIS>_mean``
+#: at ``sim_data.basal_expression_condition`` — genes down the rows, modelled
+#: conditions across the columns.
+#:
+#: ``experimental`` reads ecoli-sources' long-form ``rnaseq_experimental_tpms``
+#: (RFC-010 tier 2, the swap point a variant bundle overrides), cross-filling
+#: model genes it does not measure from ``rnaseq_basal_tpms`` (tier 1, which DI
+#: declares as *"reference for cross-fill of missing genes in experimental
+#: data"*).
+RNASEQ_SOURCES = ("reference", "experimental")
+DEFAULT_RNASEQ_SOURCE = "reference"
+
+#: ``basal_expression_condition``'s default. Only used to notice that a build
+#: set it to something else on a path where it does not govern the cross-fill.
+DEFAULT_BASAL_EXPRESSION_CONDITION = "M9 Glucose minus AAs"
+
+
+def _wide_reference_key():
+    """Canonical key of the legacy wide table the reference path reads."""
+    from v2ecoli.processes.parca.reconstruction.ecoli.sources import relpath_to_key
+    import os
+
+    return relpath_to_key(
+        os.path.join("rna_seq_data", f"rnaseq_{RNA_SEQ_ANALYSIS}_mean.tsv"))
+
+
+@cache
+def _shipped_default_path(canonical_key):
+    """Absolute path ``canonical_key`` resolves to in the INSTALLED ecoli-sources
+    reference bundle, or ``None`` if that cannot be determined.
+
+    Used only by a guard: a build that asked for experimental data and got the
+    file the base bundle ships by default did not get experimental data.
+    """
+    try:
+        import pandas as pd
+        from ecoli_sources import BUNDLE_PATH
+    except ImportError:
+        return None
+    try:
+        from pathlib import Path
+
+        manifest = Path(BUNDLE_PATH)
+        df = pd.read_csv(manifest, sep="\t", comment="#")
+        row = df.loc[df["canonical_key"] == canonical_key]
+        if row.empty:
+            return None
+        return (manifest.parent / str(row.iloc[0]["source_path"])).resolve()
+    except (OSError, ValueError, KeyError):
+        return None
+
+
+def _bundle_relpath(path, bundle):
+    """``path`` relative to the bundle root, for a stamp that carries no
+    absolute paths (D4a: the record must be copyable into a run's ``design``
+    dict verbatim). Falls back to the basename when ``path`` sits outside the
+    bundle root (v2ecoli's own ``flat_overrides/`` do)."""
+    import os
+    from pathlib import Path
+
+    if path is None:
+        return None
+    path = Path(path)
+    root = getattr(getattr(bundle, "base_manifest", None), "parent", None)
+    if root is not None:
+        try:
+            rel = os.path.relpath(path, root)
+            if not rel.startswith(".."):
+                return rel
+        except ValueError:                      # different drives (Windows)
+            pass
+    return path.name
+
+
+def _content_sha256(path):
+    """Content hash of a resolved source file, or ``None``.
+
+    Reuses ``cache_version._hash_file`` — in-repo, already the hasher every
+    other v2ecoli fingerprint uses. ecoli-sources' ``genotype_id`` is a
+    *manifest*-level digest and cannot hash one file; its per-file primitive is
+    private to that package.
+    """
+    if path is None:
+        return None
+    try:
+        from v2ecoli.library.cache_version import _hash_file
+
+        return _hash_file(str(path))
+    except (ImportError, OSError):
+        return None
+
+
+def _bundle_genotype_id(bundle):
+    """Bundle-level identity (``genotype_id`` over every ``(key, sha256)`` row),
+    recorded alongside the per-file hash so the stamp names the genotype as well
+    as the table. ``None`` when ecoli-sources is not importable."""
+    manifest = getattr(bundle, "base_manifest", None)
+    if manifest is None:
+        return None
+    try:
+        from processing.genotypes import genotype_id  # ecoli-sources package
+
+        return genotype_id(manifest)
+    except Exception:
+        # Never fail a ParCa build to compute provenance about it. The stamp
+        # records the absence honestly instead (the hash + relpath still
+        # identify the table).
+        return None
+
+
+def resolve_basal_seq_data(raw_data, sim_data, model_gene_ids):
+    """Return ``(seq_data, provenance)`` — the gene→TPM map basal expression is
+    built from, and the record of where it came from.
+
+    **The stamp is the enforcement.** This function is the single place the
+    ``rnaseq_source`` selector takes effect, and it writes the provenance record
+    in the same breath, so the artifact records *what happened* rather than what
+    was asked for. Both entry points reach it identically: the ``v2ecoli-parca``
+    CLI and the composite/workbench path converge on ``sim_data.initialize``,
+    which sets the fields read here. A selector that failed to take effect is
+    therefore not merely warned about — it is visible in
+    ``sim_data.rnaseq_provenance`` afterwards, and cross-checked below.
+
+    Four guards fire here rather than in ``InitializeStep``, because a guard
+    that only runs on the composite path would miss the CLI entirely — which is
+    the exact defect class this whole change exists to remove.
+    """
+    import warnings
+    from pathlib import Path
+
+    from v2ecoli.processes.parca.reconstruction.ecoli.knowledge_base_raw import (
+        RNASEQ_BASAL_KEY,
+        RNASEQ_EXPERIMENTAL_KEY,
+    )
+
+    declared = getattr(sim_data, "rnaseq_source", DEFAULT_RNASEQ_SOURCE)
+    cross_fill = bool(getattr(sim_data, "rnaseq_cross_fill", True))
+    condition = sim_data.basal_expression_condition
+
+    bundle = getattr(raw_data, "_bundle", None)
+    tables = getattr(raw_data, "rnaseq_tpm_tables", None) or {}
+    sources = getattr(raw_data, "rnaseq_tpm_sources", None) or {}
+
+    n_filled = 0
+    cross_fill_ran = False
+
+    if declared == "experimental" and RNASEQ_EXPERIMENTAL_KEY in tables:
+        table = tables[RNASEQ_EXPERIMENTAL_KEY]
+        seq_data = {
+            str(gene_id): float(tpm)
+            for gene_id, tpm in zip(table["gene_id"], table["tpm_mean"])
+        }
+        actual = "experimental"
+        canonical_key = RNASEQ_EXPERIMENTAL_KEY
+        resolved = sources.get(RNASEQ_EXPERIMENTAL_KEY)
+
+        if cross_fill:
+            missing = set(model_gene_ids).difference(seq_data)
+            ref_table = tables.get(RNASEQ_BASAL_KEY)
+            if ref_table is None:
+                warnings.warn(
+                    f"rnaseq cross-fill requested but canonical key "
+                    f"{RNASEQ_BASAL_KEY!r} is not in the bundle, so "
+                    f"{len(missing)} model gene(s) absent from the experimental "
+                    "dataset will be left at zero expression.",
+                    stacklevel=2,
+                )
+            else:
+                cross_fill_ran = True
+                ref_data = {
+                    str(gene_id): float(tpm)
+                    for gene_id, tpm in zip(
+                        ref_table["gene_id"], ref_table["tpm_mean"])
+                }
+                for gene_id in missing:
+                    if gene_id in ref_data:
+                        seq_data[gene_id] = ref_data[gene_id]
+                        n_filled += 1
+                if n_filled:
+                    # Warn ONCE with the count — a per-gene warning for a
+                    # thousand genes is noise nobody reads.
+                    warnings.warn(
+                        f"{n_filled} gene(s) were missing from the experimental "
+                        f"RNA-seq dataset ({canonical_key}) and were filled from "
+                        f"the basal reference tier ({RNASEQ_BASAL_KEY}).",
+                        stacklevel=2,
+                    )
+    else:
+        seq_data = {
+            x["Gene"]: x[condition]
+            for x in getattr(raw_data.rna_seq_data, f"rnaseq_{RNA_SEQ_ANALYSIS}_mean")
+        }
+        actual = "reference"
+        canonical_key = _wide_reference_key()
+        resolved = None
+        if bundle is not None and bundle.has_key(canonical_key):
+            resolved = str(bundle.path(canonical_key))
+
+    provenance = {
+        "source": actual,
+        "canonical_key": canonical_key,
+        "resolved_path": _bundle_relpath(resolved, bundle),
+        "content_sha256": _content_sha256(resolved),
+        "cross_fill": {"enabled": cross_fill and actual == "experimental",
+                       "ran": cross_fill_ran,
+                       "n_filled": n_filled},
+        "basal_expression_condition": condition,
+        "bundle_manifest": _bundle_relpath(
+            getattr(bundle, "base_manifest", None), bundle),
+        "bundle_genotype_id": _bundle_genotype_id(bundle),
+    }
+
+    # -- Guard 1 (declared vs stamped). The build recorded what it DID, and it
+    #    does not match what it was told to do.
+    #
+    #    ⚠ Scope of this guarantee, stated honestly: the STAMP is unconditional
+    #    (every build records its actual source), so a mismatch is always
+    #    *detectable* from the artifact. The WARNING is a plain
+    #    ``warnings.warn`` — nothing escalates it, the gate does not run
+    #    ``-W error``, and ParCa's stdout is noisy, so it can be missed by a
+    #    human watching a build scroll past. "Detectable in the artifact" is
+    #    what this buys; "impossible to miss" would need an escalation policy
+    #    this module should not set unilaterally.
+    if declared != actual:
+        warnings.warn(
+            "ParCa rnaseq source mismatch: the build declared "
+            f"rnaseq_source={declared!r} but fitted against {actual!r}. "
+            f"Canonical key {RNASEQ_EXPERIMENTAL_KEY!r} was not available in "
+            "the bundle handed to this build, so the legacy wide reference "
+            "table was used. The resulting sim_data is NOT an "
+            "experimental-transcriptome fit.",
+            stacklevel=2,
+        )
+
+    # -- Guard 2 (the motivating silent failure). SOMEONE deliberately supplied
+    #    an experimental TPM table and this build is about to ignore it: the
+    #    knockdown() case that validates, hashes stably and changes nothing.
+    #
+    #    Reads ``externally_supplied_keys``, NOT ``variant_generated_keys``.
+    #    The sidecar only describes what a generator wrote beside the base
+    #    manifest; a payload delivered through ``--bundle-overrides`` carries no
+    #    sidecar and would sail past a sidecar-only check — on precisely the
+    #    entry point that makes overlays useful. A guard that misses the newest
+    #    way of supplying the key would reproduce the defect it exists to catch.
+    supplied = set(getattr(bundle, "externally_supplied_keys", None)
+                   or getattr(bundle, "variant_generated_keys", None) or ())
+    if RNASEQ_EXPERIMENTAL_KEY in supplied and actual != "experimental":
+        warnings.warn(
+            f"{RNASEQ_EXPERIMENTAL_KEY!r} was supplied by this bundle (variant "
+            f"or override) but the build ran with rnaseq_source={declared!r}, "
+            "so the expression table was NOT read. The perturbation it encodes "
+            "has no effect on the fit.",
+            stacklevel=2,
+        )
+
+    # -- Guard 3 (the mirror image). Experimental was asked for and delivered,
+    #    but the key still resolves to the file the base bundle ships — the
+    #    study got the reference table under an experimental label.
+    if actual == "experimental" and resolved is not None:
+        shipped = _shipped_default_path(RNASEQ_EXPERIMENTAL_KEY)
+        if shipped is not None and Path(resolved).resolve() == shipped:
+            warnings.warn(
+                f"rnaseq_source={declared!r} but {RNASEQ_EXPERIMENTAL_KEY!r} "
+                f"resolves to the path the reference bundle ships by default "
+                f"({provenance['resolved_path']}). No experimental dataset was "
+                "swapped in; this fit is equivalent to the reference tier.",
+                stacklevel=2,
+            )
+
+    # -- Guard 4. On the experimental path the cross-fill reference is
+    #    rnaseq_basal_tpms, so basal_expression_condition selects nothing.
+    #    Without this it would be a third silently-inert parameter.
+    if actual == "experimental" and condition != DEFAULT_BASAL_EXPRESSION_CONDITION:
+        warnings.warn(
+            f"basal_expression_condition={condition!r} does not govern the "
+            f"experimental rnaseq path: the cross-fill reference is the "
+            f"{RNASEQ_BASAL_KEY!r} bundle key, not a column of the legacy wide "
+            "table. Swap that key to change the cross-fill reference.",
+            stacklevel=2,
+        )
+
+    return seq_data, provenance
+
 
 class TranscriptionDirectionError(Exception):
     pass
@@ -526,10 +812,13 @@ class Transcription(object):
         cistron_id_to_gene_id = {
             gene["rna_ids"][0]: gene["id"] for gene in raw_data.genes
         }
-        seq_data = {
-            x["Gene"]: x[sim_data.basal_expression_condition]
-            for x in getattr(raw_data.rna_seq_data, f"rnaseq_{RNA_SEQ_ANALYSIS}_mean")
-        }
+        # Which transcriptome tier this fit is built from is decided ONCE, here,
+        # and stamped onto sim_data in the same call — see
+        # ``resolve_basal_seq_data``. ``rnaseq_provenance`` rides on
+        # ``sim_data_root``, so it survives into ``parca_state.pkl`` and is
+        # readable by any downstream card/analysis without re-deriving it.
+        seq_data, sim_data.rnaseq_provenance = resolve_basal_seq_data(
+            raw_data, sim_data, cistron_id_to_gene_id.values())
 
         cistron_rnaseq_coverage = []
         for cistron_id in self.cistron_data["id"]:

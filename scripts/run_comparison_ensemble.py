@@ -59,6 +59,58 @@ _UPSTREAM_SIMDATA_FALLBACK = (
     "kb/simData.cPickle")
 
 
+def _declared_variants(from_vecoli_config: str | None, vecoli_dir: str) -> list[str]:
+    """Names in the driving config's ``variants`` block, or ``[]``.
+
+    ⛔⛔ RESOLVES ``inherit_from`` — reading the raw JSON is NOT equivalent, and an
+    earlier version of this docstring justified doing so by saying it "runs before
+    any fork import". That was FALSE: ``load_config_with_inheritance`` is
+    v2ecoli's own loader, no fork import is involved, and the same resolution
+    already happens on this code path. There was no import cost being avoided —
+    only a lost ``inherit_from`` branch, in which a child config that declares no
+    ``variants`` of its own inherits one from its parent. The guard would then see
+    nothing, stay silent, and let the run proceed with the variant unchosen: the
+    precise omission it exists to catch.
+
+    ⚠ A config we cannot read yields ``[]`` and the guard stays silent, which is
+    the right failure direction for a check aimed at an OMISSION — a broken config
+    should surface as the loader's own error further down, not as this guard's.
+    """
+    if not from_vecoli_config:
+        return []
+    path = from_vecoli_config
+    if not os.path.isabs(path):
+        path = os.path.join(vecoli_dir or "", from_vecoli_config)
+    try:
+        # ⛔⛔ THE SAME RESOLVER THE ROUTE USES — and that is the whole point.
+        # This guard and the route decision both ask "does this config declare
+        # variants?", and they must not answer differently. An earlier version
+        # called `load_config_with_inheritance` directly while the route read
+        # `resolve_vecoli_config_local`'s output; the two disagreed on **10 of 86**
+        # real fork configs, because the adapter FALLS BACK to a flat read when the
+        # strict loader raises (`TypeError: unhashable type` out of `_merge_configs`
+        # on 8 of them, `FileNotFoundError` on a nested-directory config).
+        # ⇒ On those, the route said "config declares variants" and switched route,
+        # while this guard said it did not and let the run proceed with
+        # `variant = 0`: the reference arm ran the UNVARIED strain, healthy-looking,
+        # unrecorded — precisely the omission this guard exists to catch, in the
+        # same process that had already seen the variants.
+        # ⚠ Picking the stricter resolver was the wrong instinct: it raises on
+        # configs the adapter reads fine, and a guard that fails OPEN on a parse
+        # error is worse than one that never consulted inheritance at all.
+        from scripts._compare.config_adapter import resolve_vecoli_config_local
+        cfg = resolve_vecoli_config_local(from_vecoli_config, vecoli_dir)
+        variants = cfg.get("variants") or {}
+        return sorted(variants.keys())
+    except Exception:  # noqa: BLE001 — unreadable config is not this guard's business
+        # ⚠ `.get`/`.keys()` are INSIDE the try on purpose. They were outside it,
+        # so a `variants` key that was a list, or a top-level JSON array, raised
+        # `AttributeError` out of a helper whose docstring promises `[]` — turning
+        # a schema typo into a bare traceback from an argument check, before the
+        # loader that would have reported it properly ever ran.
+        return []
+
+
 def _spec_from_vecoli_config() -> str | None:
     """``from_vecoli_config`` from the comparison_spec.json baked into the image.
 
@@ -77,7 +129,9 @@ def _spec_from_vecoli_config() -> str | None:
 
 
 def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
-                   overrides: dict | None = None):
+                   overrides: dict | None = None,
+                   exchange_fluxes: dict | None = None,
+                   exchange_flux_basis: str | None = None):
     """v2ecoli ported composite (baseline) for the given media condition.
 
     The condition MUST be threaded through: the v2ecoli builder selects the
@@ -216,6 +270,16 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
     # and not already provided via overrides.
     if expected_media is not None and "media" not in kwargs:
         kwargs["media"] = expected_media
+    if exchange_fluxes:
+        # Opt-in exchange_flux feature on the candidate: emit named
+        # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
+        kwargs["exchange_fluxes"] = dict(exchange_fluxes)
+        kwargs["exchange_flux_basis"] = str(exchange_flux_basis or "counts")
+    # v2ecoli is native-only: ecoli_baseline builds injected processes fork-free
+    # off its own bundle simData. Fork-sourcing has been removed, so a run with a
+    # non-empty injected_processes.fork_repo now RAISES inside the composite build
+    # (assert_injection_sourcing) rather than silently fork-wrapping. All runs go
+    # through build_composite("ecoli_baseline").
     comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
@@ -434,6 +498,75 @@ def extract_v2_build_config(composite, *, seed: int, condition: str,
     }
 
 
+def _lineage_depth(initial_generation, max_generations) -> int:
+    """How many generations THE LINEAGE has, not how many THIS INVOCATION ran.
+
+    A chained run — the induction seam, where a silent stage is resumed against a
+    different cache — is SEVERAL invocations over ONE lineage, and every stage
+    rewrites the exchange-flux sidecar. A stage that reports its own
+    ``max_generations`` therefore understates the lineage: a 3-generation chain
+    whose final stage ran 2 records 2, the card's arm-correspondence check reads
+    candidate=2 against reference=3, and it refuses the whole grade as "one of
+    them is stale" while both arms have generations 1-3 sitting on disk.
+
+    Named and extracted so the convention is testable rather than inlined at one
+    call site: ``initial_generation`` is 1-based and inclusive, so a fresh run
+    (the default, ``initial_generation=1``) is exactly ``max_generations`` and
+    this is a strict no-op.
+
+    ⚠ Only the v2ecoli arm accepts ``initial_generation``; the wrapped-reference
+    arm has no resume hook, so its sidecar records ``max_generations`` directly
+    and must NOT be "fixed" to use this.
+
+    ⊕ A non-positive ``initial_generation`` is NOT guarded here, deliberately:
+    ``v2ecoli.library.xarray_run.run_multigen_xarray`` already refuses it (see
+    its ``initial_generation < 1`` check, whose message names the 0-based
+    ``workflow/lineage.py`` convention this repo also carries), and it refuses
+    BEFORE any run happens. A second guard at this call site would fire inside a
+    best-effort ``except Exception`` block and be swallowed into a warning, which
+    is worse than no guard: it would read as "refused" while the run continued.
+    """
+    return int(initial_generation) - 1 + int(max_generations)
+
+
+def _write_exchange_flux_sidecar(out_root: str, prefix: str, fluxes: dict,
+                                 basis: str, *, seeds=None,
+                                 generations=None) -> None:
+    """Record, NEXT TO THE RUN, which quantity that run's exchange leaves carry.
+
+    ⚠ This exists so a consumer never has to RE-DERIVE the basis from the study
+    config. Two readers resolving the same setting from the same YAML by slightly
+    different rules is not hypothetical — it shipped, and it graded a
+    lineage-cumulative molecule total as a mmol/gDCW/h rate inside a 3% band,
+    because both arms were equally wrong so the relative delta looked fine.
+
+    The run is the ground truth for what the run computed. A card reading this
+    cannot disagree with the engine that wrote it, and a study whose declaration
+    never reached the machinery is now VISIBLE (the study says gdcw, the sidecar
+    says counts) instead of being a silent no-op.
+
+    Named ``{prefix}_exchange_flux.json`` to match the ``{prefix}_seed*.zarr`` and
+    ``{prefix}_build_config.json`` already written here, so both arms can share one
+    out_root without ambiguity.
+    ⚠ The basis alone is NOT enough to tie this file to the data beside it. Both
+    arms write into ONE out_root and nothing cleans it, so a re-run of one arm
+    leaves the other arm's sidecar and stores in place. Two sidecars agreeing on
+    "gdcw" would then pass an agreement check while describing runs from different
+    invocations. The run shape is recorded alongside so that mismatch is
+    detectable: two arms of one study share seeds and generations by construction,
+    so a disagreement means one of them is stale.
+    """
+    if not fluxes:
+        return
+    import time
+    _write_json_sidecar(
+        f"{out_root.rstrip('/')}/{prefix}_exchange_flux.json",
+        {"basis": str(basis or "counts"), "leaves": dict(fluxes),
+         "seeds": (int(seeds) if seeds is not None else None),
+         "generations": (int(generations) if generations is not None else None),
+         "written_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+
+
 def _write_json_sidecar(path: str, obj: dict) -> None:
     """Write ``obj`` as JSON to ``path`` (local or s3://) via fsspec.
 
@@ -487,7 +620,7 @@ def _baseline_param_names() -> set:
     import v2ecoli.composites  # noqa: F401  (register generators)
     from viva_superpowers.composite_generator import _REGISTRY
     for e in _REGISTRY.values():
-        if e.name == "baseline":
+        if e.name in ("ecoli_baseline", "baseline"):
             return set(e.parameters)
     return set()
 
@@ -509,7 +642,8 @@ def _overrides_from_resolved(resolved: dict) -> tuple[dict, dict]:
 
 
 def _injected_from_resolved(resolved: dict, fork_repo: str,
-                            fork_sim_data: str | None) -> dict | None:
+                            fork_sim_data: str | None,
+                            extra_processes: list | None = None) -> dict | None:
     """Assemble a baseline ``injected_processes`` block from a resolved vEcoli
     config, so the v2 side converts+injects the fork's add/swap processes.
 
@@ -518,12 +652,30 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
     config-described; ``fork_sim_data`` lets a swapped process pull its full
     config from the fork's own LoadSimData.
     """
+    # A swapped fork process can depend on a COMPANION fork process — typically a
+    # listener it reads a store from. On the fork those arrive via the config's
+    # standard ``processes`` list; injection carries only ``add_processes`` /
+    # ``swap_processes``, so the companion is absent and its store is created
+    # from schema defaults. The process then fails inside the fork on a lookup
+    # against empty contents, far from the cause.
+    #
+    # ``extra_processes`` names those companions EXPLICITLY. Deliberately not
+    # inferred: deciding "this port has no writer" from a vivarium-1.0
+    # ports_schema means guessing at port direction, and a prototype that guessed
+    # produced 90 false positives on the first real composite. An unknown name
+    # still fails loud — ``resolve_injections`` raises on a process the fork
+    # registry does not have.
+    extra = [p for p in (extra_processes or []) if p]
     if not (resolved.get("add_processes") or resolved.get("swap_processes")
-            or resolved.get("exclude_processes")):
+            or resolved.get("exclude_processes") or extra):
         return None
+    declared = list(resolved.get("add_processes") or [])
+    for name in extra:                      # union, order-stable, no duplicates
+        if name not in declared:
+            declared.append(name)
     inj = {
         "fork_repo": fork_repo,
-        "add_processes": resolved.get("add_processes") or [],
+        "add_processes": declared,
         "swap_processes": resolved.get("swap_processes") or {},
         "exclude_processes": resolved.get("exclude_processes") or [],
         "process_configs": resolved.get("process_configs") or {},
@@ -538,6 +690,24 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         # own first-update logic builds the rest).
         "initial_state": resolved.get("initial_state") or {},
         "initial_state_overrides": resolved.get("initial_state_overrides") or [],
+        # Fork-declared candidate-side ParCa-cache gaps: bulk molecules the
+        # fork's sim_data flags add at runtime that the candidate's own ParCa
+        # cache never applies, and initial values a config-declared process
+        # needs but the single-cell candidate has no upstream process to fill
+        # (e.g. a spatial shape process). See resolve_injections for how
+        # these three are consumed; a config declares them directly (no
+        # per-fork-flag translation lives here or in resolve_injections).
+        "extra_bulk_species": resolved.get("extra_bulk_species") or [],
+        "shape_seed_param_store": resolved.get("shape_seed_param_store") or {},
+        "shape_seed_literal": resolved.get("shape_seed_literal") or {},
+        # Exchange-store keys baseline() must create so an injected process's
+        # secretion has somewhere to land (environment.exchange accumulates onto
+        # existing keys and never adds one). Forwarded here for the same reason
+        # extra_bulk_species is: this assembly is an ALLOWLIST, so a key it does
+        # not name is silently dropped one layer above baseline()'s own guard —
+        # and the symptom would be a clean run with a zero product, which is the
+        # failure this key exists to prevent.
+        "seed_exchange_species": resolved.get("seed_exchange_species") or [],
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data
@@ -556,17 +726,56 @@ def _translated_v2_overrides(vecoli_config_path: str) -> tuple[dict, dict]:
 
 def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                  max_generations: int, max_steps: int, chunk: int,
-                 out_root: str, seed_start: int = 0,
+                 out_root: str, seed_start: int = 0, n_seeds: int = 1,
                  vecoli_config: str | None = None,
                  translate_config: bool = False,
                  vecoli_source: str = "vivarium-process",
                  from_vecoli_config: str | None = None,
+                 inject_processes: list | None = None,
                  vecoli_dir: str | None = None,
                  match_initial_state: bool = False,
                  match_unique_state: bool = False,
-                 match_vecoli_simdata: str | None = None):
-    """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``."""
+                 match_vecoli_simdata: str | None = None,
+                 vecoli_whole_config: str = "auto",
+                 exchange_fluxes: dict | None = None,
+                 exchange_flux_basis: str = "counts",
+                 observables: list | None = None,
+                 observable_bulk_ids: list | None = None,
+                 variant: int = 0,
+                 initial_generation: int = 1,
+                 initial_carry_state: str = "",
+                 daughter_state_out: str = "",
+                 append_store: bool = False):
+    """Return a ``run_one(seed)`` closure for ``run_seeds_parallel``.
+
+    ``vecoli_whole_config`` controls the genuine-vEcoli (``--composite vecoli``)
+    reference route for a ``--from-vecoli-config`` run: ``auto`` (default) loads the
+    fork config NATIVELY as one WCM node whenever its model content can't be
+    expressed as ``swap_processes``/``flow`` (it declares ``add_processes`` or
+    ``spatial_environment_config``) **or it declares a ``variants`` block**, since
+    ``apply_variant`` runs only on the native route; ``on`` forces native
+    whole-config; ``off`` keeps the swap/flow route.
+    ⛔ The route CHANGES THE PROCESS SET — the native path carries
+    ``exclude_processes: ['exchange_data']``, which ``build_vivarium_ecoli`` MERGES
+    with the caller's list, so ``ExchangeData`` (metabolism's uptake bounds) is
+    absent there and present on the swap route. It is therefore chosen from the
+    CONFIG and never from the ``variant`` INDEX: keying it on the index would put a
+    ``variant 0`` baseline arm on a different model from the variant arm it exists
+    to control for. Native loading is faithful-by-construction for ANY fork
+    (``$V2E_VECOLI_DIR``).
+
+    ``exchange_fluxes`` ({leaf: exchange_key}) emits named environment.exchange
+    fluxes onto ``listeners.exchange_flux.<leaf>`` on the reference arm too, so
+    candidate and reference expose the same leaves to the report cards.
+    ``observables`` (arbitrary ``group.leaf`` listener paths) are likewise emitted
+    on both arms as declared measurements."""
     from v2ecoli.library.xarray_run import run_multigen_xarray, view_from_emit_paths
+
+    exchange_fluxes = dict(exchange_fluxes or {})
+    observables = list(observables or [])
+    # Bulk molecule ids to grade as config-specific KPIs — emitted on BOTH arms
+    # under listeners.observable_bulk.<id> (violacein titer, drug-target complex).
+    observable_bulk_ids = list(observable_bulk_ids or [])
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
     v2_overrides: dict | None = None
@@ -586,9 +795,20 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # Build the injected_processes block so the v2 side actually
             # converts+injects the fork's add/swap processes (translate alone
             # passes the raw keys through but never assembles the block).
+            # ⭐ NATIVE candidate arm (fork-free). `composite_kind == "v2ecoli"` is
+            # native-only (fork-sourcing was removed — assert_injection_sourcing in
+            # ecoli_baseline.py hard-errors on any non-empty
+            # injected_processes.fork_repo). `fork_dir` here is used ONLY to read
+            # the fork config's process-set STRUCTURE via
+            # resolve_vecoli_config_local (v2ecoli's own loader, no fork runtime);
+            # it must never be threaded through as `fork_repo`, or a run with
+            # add_processes/swap_processes raises instead of building. Always pass
+            # fork_repo="" so resolve_injections takes its native (fork-free) path
+            # off the candidate's own installed process set.
             inj = _injected_from_resolved(
-                resolved, fork_dir,
-                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None)
+                resolved, "",
+                os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None,
+                extra_processes=inject_processes)
             if inj:
                 v2_overrides = dict(v2_overrides or {})
                 v2_overrides["injected_processes"] = inj
@@ -604,6 +824,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     # and the comparison would confound the engine with the metabolism model.
     ve_swap_processes: dict | None = None
     ve_flow: dict | None = None
+    ve_whole_config: str | None = None
     if from_vecoli_config and composite_kind == "vecoli":
         try:
             from scripts._compare.config_adapter import resolve_vecoli_config_local
@@ -615,8 +836,57 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             if ve_swap_processes:
                 print(f"[from-vecoli-config] vecoli side applies swap_processes="
                       f"{ve_swap_processes}")
+            # Whole-config route: swap_processes/flow can only reorder/replace
+            # EXISTING processes — a config that ADDS processes or declares a spatial
+            # environment can't be expressed that way, so the faithful reference is
+            # that config run NATIVELY as one WCM node. Auto-enable when such content
+            # is present; `on`/`off` override.
+            # ⭐ A REQUESTED VARIANT ALSO NEEDS THIS ROUTE. `apply_variant` runs
+            # only when the reference arm loaded a whole-config, so a config that
+            # declares `variants` alongside `swap_processes` — and neither of the
+            # two keys below — took the swap route and had its variant silently
+            # dropped. The engine now refuses that combination outright; this is
+            # what stops the refusal from firing on every study that legitimately
+            # declares a variant.
+            # ⚠ The REASON is kept alongside the decision, because the message
+            # below reports it and a wrong reason sends the next reader after the
+            # wrong thing. This line previously always said "add_processes/spatial
+            # detected", which became false the moment a variant could trigger the
+            # route — observed on a real run within the hour.
+            # ⛔⛔ KEYED ON WHETHER THE CONFIG *DECLARES* VARIANTS, NOT ON WHICH
+            # INDEX WAS CHOSEN — and that distinction is the whole point.
+            # An earlier version tested `int(variant or 0)`, so `--variant 0` took
+            # the swap route while `--variant 1` took the native one. Those are NOT
+            # the same model: the native path carries
+            # `exclude_processes: ['exchange_data']`, which `build_vivarium_ecoli`
+            # MERGES with the caller's list rather than replacing it, so
+            # `ExchangeData` — the Step that writes metabolism's uptake bounds —
+            # runs on one arm and not the other. That is exactly what the
+            # exchange-flux cards grade.
+            # ⇒ `--variant 0` exists so a study can declare a DELIBERATE BASELINE
+            # reference arm, i.e. the CONTROL for the variant arm. Keying the route
+            # on the index made the control a different model from the treatment,
+            # with nothing — zarr metadata, sidecar, card — recording which route
+            # ran. Worse than the discarded-variant bug it replaced: that one
+            # merely ran the baseline; this silently confounds the perturbation
+            # with a model change.
+            # ⇒ The CONFIG selects the route; the INDEX selects only what
+            # `apply_variant` does. Both arms therefore stay on one route.
+            _native_why = ("add_processes/spatial detected"
+                           if (resolved_ve.get("add_processes")
+                               or resolved_ve.get("spatial_environment_config"))
+                           else "config declares variants"
+                           if resolved_ve.get("variants") else "")
+            _needs_native = bool(_native_why)
+            _mode = (vecoli_whole_config or "auto").lower()
+            if _mode == "on" or (_mode == "auto" and _needs_native):
+                ve_whole_config = from_vecoli_config
+                print(f"[from-vecoli-config] vecoli side: WHOLE-CONFIG WCM node "
+                      f"(loads {from_vecoli_config} natively"
+                      + (f" — {_native_why}" if _mode == "auto" and _native_why else "")
+                      + ")")
         except Exception as e:  # noqa: BLE001
-            print(f"[warn] vecoli from-vecoli-config swap resolve failed: "
+            print(f"[warn] vecoli from-vecoli-config resolve failed: "
                   f"{type(e).__name__} {e}")
 
     # Legacy opt-in: translate the vEcoli config into baseline overrides ONCE
@@ -633,8 +903,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     def run_one(seed: int) -> dict:
         t0 = time.time()
         store_path = f"{out_root.rstrip('/')}/{composite_kind}_seed{seed:02d}.zarr"
-        # local stores: clear stale
-        if "://" not in str(store_path) and Path(store_path).exists():
+        # local stores: clear stale — UNLESS this is a later stage of a chain,
+        # which must APPEND to the store its predecessor wrote.
+        # ⛔⛔ THIS IS A SECOND DELETION SITE, upstream of the emitter's own
+        # `overwrite`. Threading `--append-store` to `run_multigen_xarray` alone
+        # is NOT enough: this rmtree runs first, so a resumed stage deleted the
+        # generations it was about to resume from and then failed looking for the
+        # parent it had just removed — `KeyError: emitstep_gen=1`, which reads as
+        # an emitter bug rather than as "we deleted it a moment ago".
+        # ⇒ One flag, two sites. Measured: stage 1 closed with 10 data files on
+        # disk; stage 2 started, and the store was empty.
+        if (not append_store and "://" not in str(store_path)
+                and Path(store_path).exists()):
             shutil.rmtree(store_path)
 
         # The genuine vEcoli side ALWAYS runs as a SINGLE pbg node with vivarium's
@@ -655,7 +935,32 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                 swap_processes=ve_swap_processes, flow=ve_flow,
                 fork_dir=os.environ.get("V2E_VECOLI_DIR"),
                 experiment_id=f"cmp-vecoli-{condition}-seed{seed:02d}",
-                variant=0, lineage_seed=seed)
+                # ⛔⛔ WAS HARDCODED `variant=0`, AND THAT IS A NO-OP THAT LOOKS
+                # LIKE A RUN. `_select_variant_params` treats `variant_index <= 0`
+                # as "baseline", so the fork's `ecoli.variants.<name>.apply_variant`
+                # was NEVER CALLED on the reference arm — no matter what the
+                # driving config declared. For a config whose variant carries the
+                # strain itself (a new-gene expression/translation-efficiency
+                # vector) plus its induction schedule, that silently ran a
+                # DIFFERENT STRAIN with induction disabled, and emitted a
+                # complete-looking reference arm for it.
+                # ⚠ `apply_variant` is also what CREATES `sim_data.internal_shift_dict`
+                # — so with variant 0 there is no induction schedule to consult at
+                # all, and a generation counter pointed at it can only ever read
+                # nothing. Any "staged induction does not fire" diagnosis has to
+                # rule this out FIRST; it is upstream of the counter.
+                variant=variant, lineage_seed=seed, whole_config=ve_whole_config,
+                exchange_fluxes=exchange_fluxes,
+                exchange_flux_basis=exchange_flux_basis, observables=observables,
+                observable_bulk_ids=observable_bulk_ids)
+            if seed == seed_start:
+                try:
+                    _write_exchange_flux_sidecar(
+                        out_root, "vecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds, generations=max_generations)
+                except Exception as e:  # noqa: BLE001 — never block a completed run
+                    print(f"[warn] vecoli exchange-flux sidecar failed: "
+                          f"{type(e).__name__} {e}")
             # Emit vEcoli's OWN resolved config sidecar ONCE (lowest seed) next to
             # the stores, so the report shows the full vEcoli config too. Best-effort.
             if seed == seed_start and res.get("build_config"):
@@ -675,7 +980,9 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
 
         if composite_kind == "v2ecoli":
             composite = _build_v2ecoli(seed, condition, cache_dir,
-                                       overrides=v2_overrides)
+                                       overrides=v2_overrides,
+                                       exchange_fluxes=exchange_fluxes,
+                                       exchange_flux_basis=exchange_flux_basis)
             # Matched-initial-state seeding (opt-in): overlay genuine vEcoli's
             # initial bulk onto v2 so both engines start from identical molecule
             # counts — removing the stochastic low-copy sampling divergence
@@ -725,6 +1032,24 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
                                  "translated": v2_translated})
                     _write_json_sidecar(
                         f"{out_root.rstrip('/')}/v2ecoli_build_config.json", cfg)
+                    _write_exchange_flux_sidecar(
+                        out_root, "v2ecoli", exchange_fluxes, exchange_flux_basis,
+                        seeds=n_seeds,
+                        # ⛔ LINEAGE DEPTH, not this invocation's generation count.
+                        # A chained run (the induction seam: silent stage, then a
+                        # resumed stage against a different cache) is SEVERAL
+                        # invocations over ONE lineage, and every stage rewrites
+                        # this sidecar. Recording `max_generations` makes a
+                        # 3-generation lineage whose last stage ran 2 report 2 —
+                        # and the card's arm-correspondence check then sees
+                        # candidate=2 against reference=3 and refuses the whole
+                        # grade as "one of them is stale". Measured on a real
+                        # chain: both arms had generations 1-3 on disk.
+                        # ⚠ Only the v2ecoli arm takes `initial_generation`; the
+                        # reference arm has no resume hook, so its sidecar (above)
+                        # correctly records `max_generations` as its depth.
+                        generations=_lineage_depth(initial_generation,
+                                                   max_generations))
                     print(f"[config] wrote v2ecoli_build_config.json "
                           f"({cfg['n_processes']} processes) under {out_root}")
                 except Exception as e:  # noqa: BLE001
@@ -740,7 +1065,12 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
         # include_vectors=False skipped the counts by name too — dropping them
         # from the comparison. The view is still only the 8 COMPARISON_PATHS, so
         # this keeps the two counts (scalars) without emitting any coord vectors.
-        view = view_from_emit_paths(COMPARISON_PATHS, include_vectors=True)
+        _paths = COMPARISON_PATHS + [
+            f"listeners.exchange_flux.{leaf}" for leaf in exchange_fluxes] + [
+            (o if str(o).startswith("listeners.") else f"listeners.{o}")
+            for o in observables] + [
+            f"listeners.observable_bulk.{i}" for i in observable_bulk_ids]
+        view = view_from_emit_paths(_paths, include_vectors=True)
         metadata_base = {
             "experiment_id": f"cmp-{composite_kind}-{condition}-seed{seed:02d}",
             "engine": composite_kind,
@@ -759,6 +1089,19 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             max_steps=max_steps,
             max_generations=max_generations,
             chunk=chunk,
+            # Candidate side: select declared bulk ids from the bulk record into
+            # listeners.observable_bulk.<id> (the reference emits the same path).
+            observable_bulk_ids=observable_bulk_ids,
+            # ⭐ CHAIN SEAM (v2ecoli answers a generation-indexed induction with a
+            # SEQUENCE OF CACHES, not a mutation schedule — see
+            # v2ecoli/perturbations/design_variant.py). A later stage resumes the
+            # previous stage's cell against a DIFFERENT cache: it continues the
+            # generation labels, seeds from the carried daughter, and appends to
+            # the same store. Defaults are a strict no-op — a fresh lineage.
+            initial_generation=int(initial_generation),
+            initial_carry_state_path=initial_carry_state or "",
+            daughter_state_out_path=daughter_state_out or "",
+            overwrite=not append_store,
             # Follow a single lineage (prune non-followed daughters each
             # division) so EVERY generation — including the last — runs to its
             # own division, matching genuine vEcoli. Without this, kept siblings
@@ -802,6 +1145,19 @@ def main(argv=None):
                    help="OPT-IN: configure the v2ecoli build FROM the translated "
                         "vEcoli config (default off — keeps the working runs on "
                         "baseline defaults).")
+    p.add_argument("--inject-process", action="append", default=None,
+                   dest="inject_processes", metavar="NAME",
+                   help="Also inject this fork process, in addition to whatever "
+                        "--from-vecoli-config's add_processes/swap_processes "
+                        "declare. Repeatable. Use it when a swapped fork process "
+                        "reads a store written by a COMPANION fork process that "
+                        "v2ecoli has no equivalent of: on the fork that companion "
+                        "arrives via the config's standard `processes` list, which "
+                        "injection does not carry, so its store is created from "
+                        "schema defaults and the swapped process later fails inside "
+                        "the fork on a lookup against empty contents. Named "
+                        "explicitly rather than inferred; an unknown name fails "
+                        "loud at resolve time.")
     p.add_argument("--from-vecoli-config", default=None,
                    help="Path WITHIN the vEcoli fork (under V2E_VECOLI_DIR), e.g. "
                         "configs/default.json, to drive BOTH engines from: the "
@@ -828,7 +1184,116 @@ def main(argv=None):
                    help="Path to the genuine vEcoli simData.cPickle used as the "
                         "matched-initial-state reference (default: the upstream "
                         "fallback). Required when that fallback is absent.")
+    p.add_argument("--variant", type=int, default=None,
+                   help="1-based index into the driving config's `variants` block, "
+                        "applied to the REFERENCE (--composite vecoli) arm via the "
+                        "fork's own ecoli.variants.<name>.apply_variant. 0 means "
+                        "baseline (no variant applied) and must be given "
+                        "EXPLICITLY: when the config declares variants and this is "
+                        "omitted, the run refuses rather than silently running the "
+                        "unvaried strain. The candidate arm takes its perturbation "
+                        "from --cache-dir instead, so this does not apply to it.")
+    p.add_argument("--vecoli-whole-config", choices=["auto", "on", "off"],
+                   default="auto",
+                   help="Genuine-vEcoli (--composite vecoli) reference route for a "
+                        "--from-vecoli-config run: 'auto' (default) loads the fork "
+                        "config NATIVELY as one WCM node when it declares "
+                        "add_processes, spatial_environment_config (which "
+                        "swap_processes/flow can't express), OR a `variants` block "
+                        "(applying a variant requires the native route). NOTE the "
+                        "route changes the PROCESS SET (the native path excludes "
+                        "ExchangeData), so it is selected per CONFIG and never per "
+                        "--variant index — otherwise a baseline arm would not be "
+                        "comparable to a variant arm. 'on' forces it; 'off' "
+                        "keeps the swap/flow route. Faithful-by-construction for any "
+                        "fork ($V2E_VECOLI_DIR).")
+    p.add_argument("--exchange-flux", action="append", default=[],
+                   metavar="leaf=exchange_key",
+                   help="Emit a metabolic exchange flux onto "
+                        "listeners.exchange_flux.<leaf> on BOTH arms, read from "
+                        "environment.exchange[<exchange_key>] (e.g. "
+                        "glucose_exchange=GLC[p]). Repeatable. The violacein card "
+                        "reads these leaves.")
+    p.add_argument("--exchange-flux-basis", default="counts",
+                   choices=["counts", "gdcw"],
+                   help="WHICH QUANTITY the --exchange-flux leaves carry, on "
+                        "BOTH arms. 'counts' (default) re-homes the exchange "
+                        "store verbatim — a LINEAGE-CUMULATIVE molecule total "
+                        "whose time-average is not a rate. 'gdcw' is a per-tick "
+                        "mmol/gDCW/h rate: the candidate differences the counts "
+                        "store and normalises, the reference reads the wrapped "
+                        "metabolism's own listeners.fba_results."
+                        "external_exchange_fluxes, which is already that "
+                        "quantity (and requires a metabolism that keys that leaf "
+                        "by metabolite id rather than writing a positional array). Declared once so the two arms cannot end up "
+                        "carrying different measurements under one leaf name.")
+    p.add_argument("--observable", action="append", default=[],
+                   metavar="group.leaf",
+                   help="Emit an arbitrary genuine-vEcoli listener leaf as a "
+                        "measurement on BOTH arms — a dotted 'group.leaf' path "
+                        "under listeners (e.g. rna_synth_prob.total_rna_init). "
+                        "Repeatable. The general observable-declaration hook.")
+    p.add_argument("--observable-bulk", action="append", default=[],
+                   metavar="MOLECULE_ID",
+                   help="Emit a bulk molecule count as a config-specific KPI on "
+                        "BOTH arms, under listeners.observable_bulk.<id> (e.g. "
+                        "VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] "
+                        "drug-target complex). Repeatable. Graded by the "
+                        "bulk-aware comparison cards.")
+    # ⭐ CHAIN STAGE — a later stage of a staged-induction run. All four default
+    # to a strict no-op (a fresh, single-stage lineage), so an ordinary run is
+    # unaffected. v2ecoli expresses a generation-indexed induction as a SEQUENCE
+    # OF CACHES rather than a mutation schedule — see
+    # v2ecoli/perturbations/design_variant.py.
+    p.add_argument("--initial-generation", type=int, default=1,
+                   help="1-based ABSOLUTE label for this stage's first generation "
+                        "(default 1 = a fresh lineage). >1 continues the zarr "
+                        "generation labels instead of restarting at 1. Requires "
+                        "--initial-carry-state and --append-store.")
+    p.add_argument("--initial-carry-state", default="",
+                   help="carry state written by the previous stage's "
+                        "--daughter-state-out; seeds this stage's cell so the chain "
+                        "continues the SAME lineage against a different cache.")
+    p.add_argument("--daughter-state-out", default="",
+                   help="write the daughter produced at this stage's FINAL division "
+                        "here, as the hand-off to the next stage. That daughter is "
+                        "otherwise discarded.")
+    p.add_argument("--append-store", action="store_true",
+                   help="do NOT wipe --out-root's store first. Required for a "
+                        "resumed stage: the emitter links each partition to its "
+                        "PARENT generation, so a stage that re-creates the store "
+                        "deletes the very generations it needs.")
     args = p.parse_args(argv)
+    # ⛔ The stages of a chain must share a STORE and an EXPERIMENT_ID: the
+    # partition path is experiment_id=…/variant=…/lineage_seed=…/emitstep_gen=N,
+    # so a stage that changes any of that prefix looks for a parent its predecessor
+    # never wrote — and does not merely lose the linkage, it fails.
+    if args.initial_generation > 1 and not args.append_store:
+        p.error("--initial-generation > 1 resumes an existing store; pass "
+                "--append-store, or the run DELETES the generations it resumes from.")
+
+    # ⛔ The reference arm CANNOT resume: run_vivarium_ecoli_pbg_multigen takes no
+    # generation offset and always starts a fresh lineage at agent_id "0". Accepted
+    # silently, this flag would be ignored there while the candidate arm honoured
+    # it, so the two arms' sidecars would describe different lineage depths and the
+    # card would refuse the grade as "one of them is stale" — surfacing a FLAG
+    # mistake as a DATA problem, several steps downstream. Refused here rather than
+    # ignored, and at argparse so no best-effort handler can swallow it.
+    if args.composite == "vecoli" and args.initial_generation > 1:
+        p.error("--initial-generation is meaningless for --composite vecoli: the "
+                "wrapped reference engine has no resume hook, so it would re-run "
+                "generations 1..N from scratch and (with --append-store) write "
+                "them over its predecessor's. Chain the candidate arm only.")
+
+    # Parse repeatable --exchange-flux leaf=key into a {leaf: key} map.
+    exchange_fluxes: dict = {}
+    for item in args.exchange_flux:
+        if "=" not in item:
+            raise SystemExit(f"--exchange-flux expects leaf=key, got {item!r}")
+        leaf, key = item.split("=", 1)
+        exchange_fluxes[leaf.strip()] = key.strip()
+    observables: list = [o.strip() for o in args.observable if o.strip()]
+    observable_bulk_ids: list = [b.strip() for b in args.observable_bulk if b.strip()]
 
     # Resolve --from-vecoli-config: CLI flag > env > baked comparison_spec.json.
     from_vc = (args.from_vecoli_config
@@ -836,19 +1301,55 @@ def main(argv=None):
                or _spec_from_vecoli_config())
     vecoli_dir = os.environ.get("V2E_VECOLI_DIR", str(REPO_ROOT.parent / "vEcoli"))
 
+    # ⛔⛔ A DECLARED VARIANT MUST BE CHOSEN, NOT DEFAULTED. The reference arm
+    # applies `--variant` and the candidate arm does not (its perturbation is
+    # baked into --cache-dir), so an omitted flag on the reference arm is a
+    # silent substitution of the unvaried strain — the same family as the
+    # `--from-vecoli-config` resolve failure that warns and CONTINUES. The flag
+    # selects WHAT IS BEING COMPARED, so failing to choose does not degrade the
+    # comparison, it replaces it. Refuse instead; `--variant 0` is how you say
+    # "baseline, deliberately".
+    # ⚠ `< 0` REFUSED HERE TOO. `variant_from_study_yaml` already rejects it, but
+    # argparse did not — and `_select_variant_params` treats any index <= 0 as
+    # "baseline", so a typo'd `--variant -1` silently ran the unperturbed model on
+    # the one arm this whole guard exists to protect. Two entry points must not
+    # disagree about whether the same value is valid.
+    if args.variant is not None and args.variant < 0:
+        p.error(f"--variant must be >= 0 (got {args.variant}); 0 selects the "
+                f"baseline deliberately, and >= 1 indexes the config's variants")
+    variant = int(args.variant or 0)
+    if args.composite == "vecoli" and args.variant is None:
+        _declared = _declared_variants(from_vc, vecoli_dir)
+        if _declared:
+            p.error(
+                f"{from_vc} declares variants {_declared} but --variant was not "
+                f"given, so the reference arm would run the BASELINE strain with "
+                f"any induction schedule absent. Pass --variant 1 for the first "
+                f"grid point, or --variant 0 to run baseline deliberately.")
+
     from v2ecoli.library.parallel_seeds import run_seeds_parallel
     seeds = list(range(args.seed_start, args.seed_start + args.n_seeds))
     run_one = make_run_one(
         composite_kind=args.composite, condition=args.condition,
         cache_dir=args.cache_dir, max_generations=args.max_generations,
         max_steps=args.max_steps, chunk=args.chunk, out_root=args.out_root,
-        seed_start=args.seed_start, vecoli_config=args.vecoli_config,
+        seed_start=args.seed_start, n_seeds=args.n_seeds,
+        vecoli_config=args.vecoli_config,
         translate_config=args.translate_vecoli_config,
         vecoli_source=args.vecoli_source,
         from_vecoli_config=from_vc, vecoli_dir=vecoli_dir,
+        inject_processes=args.inject_processes,
         match_initial_state=args.match_initial_state,
         match_unique_state=args.match_unique_state,
-        match_vecoli_simdata=args.match_vecoli_simdata)
+        match_vecoli_simdata=args.match_vecoli_simdata,
+        vecoli_whole_config=args.vecoli_whole_config,
+        exchange_fluxes=exchange_fluxes,
+        exchange_flux_basis=args.exchange_flux_basis, observables=observables,
+        observable_bulk_ids=observable_bulk_ids, variant=variant,
+        initial_generation=args.initial_generation,
+        initial_carry_state=args.initial_carry_state,
+        daughter_state_out=args.daughter_state_out,
+        append_store=args.append_store)
     # V2E_RAY_THREADS caps Ray concurrency: each worker requests this many CPUs,
     # so concurrency = cores // threads. Use it to bound memory (a v2ecoli 4-gen
     # seed is ~16GB; on the 12-core/69GB mini set 4 → 3 concurrent ≈ 48GB, safe).

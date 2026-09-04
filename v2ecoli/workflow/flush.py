@@ -169,14 +169,28 @@ def _run_one_step(cls, kind, extract, core):
 def _flush_analyses(extract: "RunExtract", config: dict) -> tuple:
     """Run the configured analyses over the run, then copy their outputs into the
     owning study's report dir. Returns (placed, skipped). Empty analysis_options
-    -> ([], []). Any failure -> ([], [{"name":"analyses","error":...}])."""
+    -> ([], []). A crash outside any single analysis (e.g. no sim_data
+    resolvable) -> ([], [{"name":"analyses","error":...}]).
+
+    P1-10 (CD2 audit §3.7): run_analyses() itself no longer raises just
+    because one named analysis errored or a KPI column was missing from the
+    emitted parquet -- it returns a structured summary instead (see its
+    docstring). That summary's per-failure detail is folded into `skipped`
+    here so a PARTIAL analysis run surfaces the same way a raised exception
+    always has, instead of vanishing once run_analyses() stopped raising for
+    it: `run_flush`'s caller (`_maybe_flush`) marks the whole run PARTIAL
+    whenever `skipped` is non-empty."""
     analysis_options = (config or {}).get("analysis_options") or {}
     if not any(analysis_options.values()):
         return [], []
     try:
         from v2ecoli.workflow.analysis_runner import run_analyses
-        run_analyses(extract.out_dir, analysis_options)
-        return place_analysis_outputs(extract), []
+        summary = run_analyses(extract.out_dir, analysis_options) or {}
+        skipped = []
+        if summary.get("status") == "PARTIAL":
+            for err in summary.get("errors") or []:
+                skipped.append({"name": "analyses", **err})
+        return place_analysis_outputs(extract), skipped
     except Exception as e:  # noqa: BLE001 — never abort the flush
         return [], [{"name": "analyses", "error": f"{type(e).__name__}: {e}"}]
 

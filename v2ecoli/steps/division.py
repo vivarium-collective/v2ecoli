@@ -189,6 +189,17 @@ class Division(V2Step):
         # _helpers.py's 'division' branch. None/empty -> daughters rebuild
         # with baseline()'s own defaults exactly as before this fix.
         self._features = self.parameters.get('features')
+        # A config_overrides / knockouts perturbation, threaded for the same
+        # reason: passed back into each daughter's baseline() rebuild so a
+        # variant survives division instead of reverting to the cached configs
+        # from generation 2 on (#505). None for the plain baseline.
+        self._config_overrides = self.parameters.get('config_overrides')
+        # Declared exchange-flux measurements, threaded for the same reason as
+        # the injected processes above: baseline() takes them via a module-level
+        # override it clears in its own finally, so a daughter rebuilt without
+        # them declares no leaves and reports 0.0 for the rest of the lineage.
+        self._exchange_fluxes = self.parameters.get('exchange_fluxes')
+        self._exchange_flux_basis = self.parameters.get('exchange_flux_basis')
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -396,7 +407,10 @@ class Division(V2Step):
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
                         injected_processes=self._injected_processes,
-                        features=self._features)
+                        features=self._features,
+                        config_overrides=self._config_overrides,
+                        exchange_fluxes=self._exchange_fluxes,
+                        exchange_flux_basis=self._exchange_flux_basis)
                 finally:
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)

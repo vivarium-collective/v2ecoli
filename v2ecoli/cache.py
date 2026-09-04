@@ -11,12 +11,35 @@ Uses bigraph-schema's serialize/realize for numpy array round-tripping.
 import os
 import gzip
 import json
+import tempfile
 
 import numpy as np
 
 from v2ecoli.library.schema import MetadataArray
 from v2ecoli.library.unit_bridge import unum_to_pint
 from v2ecoli.types.quantity import ureg
+
+# Mirrors v2ecoli.workflow.analysis_runner's own local-path-or-s3-URI
+# convention (is_s3_uri / localize) — duplicated rather than imported so this
+# module (on LineageProcess's per-generation hot path) doesn't pull in
+# analysis_runner's heavier deps (duckdb) at import time.
+_S3_PREFIX = "s3://"
+
+
+def is_s3_uri(path: str) -> bool:
+    return str(path).startswith(_S3_PREFIX)
+
+
+def _s3_download(uri: str, dest: str) -> None:
+    import boto3
+    bucket, _, key = uri[len(_S3_PREFIX):].partition("/")
+    boto3.client("s3").download_file(bucket, key, dest)
+
+
+def _s3_upload(local_path: str, uri: str) -> None:
+    import boto3
+    bucket, _, key = uri[len(_S3_PREFIX):].partition("/")
+    boto3.client("s3").upload_file(local_path, bucket, key)
 
 
 class NumpyJSONEncoder(json.JSONEncoder):
@@ -129,9 +152,27 @@ def save_json(data, path):
     If `path` ends in .gz, the file is transparently gzipped. JSON state
     files compress ~15x with gzip, so using .json.gz makes large
     bigraph-schema save states cheap to commit and distribute.
+
+    ``path`` may also be an ``s3://`` URI — staged through a local temp file
+    then uploaded, mirroring how every other S3 output in this codebase is
+    written (a local write followed by an explicit upload/sync, not a
+    streaming write; see ``v2ecoli.workflow.analysis_runner.localize`` for
+    the read-side precedent this follows).
     """
-    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     data = _stringify_keys(data)
+    if is_s3_uri(path):
+        suffix = ".json.gz" if path.endswith(".gz") else ".json"
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        try:
+            with _opener(tmp_path, 'w') as f:
+                json.dump(data, f, cls=NumpyJSONEncoder, indent=1)
+            _s3_upload(tmp_path, path)
+            print(f"Saved {path} ({os.path.getsize(tmp_path) // 1024}KB)")
+        finally:
+            os.remove(tmp_path)
+        return
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
     with _opener(path, 'w') as f:
         json.dump(data, f, cls=NumpyJSONEncoder, indent=1)
     print(f"Saved {path} ({os.path.getsize(path) // 1024}KB)")
@@ -140,8 +181,21 @@ def save_json(data, path):
 def load_json(path):
     """Load data from JSON with numpy reconstruction.
 
-    Transparently gunzips if `path` ends in .gz.
+    Transparently gunzips if `path` ends in .gz. ``path`` may also be an
+    ``s3://`` URI, downloaded to a local temp file first (mirrors
+    ``v2ecoli.workflow.analysis_runner.localize``'s download-then-read
+    pattern for the sim_data pickle).
     """
+    if is_s3_uri(path):
+        suffix = ".json.gz" if path.endswith(".gz") else ".json"
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        try:
+            _s3_download(path, tmp_path)
+            with _opener(tmp_path, 'r') as f:
+                return json.load(f, object_hook=numpy_json_hook)
+        finally:
+            os.remove(tmp_path)
     with _opener(path, 'r') as f:
         return json.load(f, object_hook=numpy_json_hook)
 

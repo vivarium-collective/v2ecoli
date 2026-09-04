@@ -29,17 +29,31 @@ def history_files(sweep_dir: str) -> list[str]:
     Mirrors the local glob for S3 so every caller (FROM-clause builder, cell-key
     enumeration, per-cell record builder) sees one file list regardless of where
     the sweep lives.
+
+    ⚠ Scoped to the HIVE-partitioned tree (``history/experiment_id=*/…/*.pq``), NOT
+    a bare ``history/**/*.pq``. A run's output can also contain a stray, non-hive
+    ``<out>/default/history/1.pq`` — an emit that fell back to experiment_id
+    ``"default"`` (parquet_vecoli's default when the emitter decl carries no
+    experiment_id) and wrote a flat file with none of the hive partition keys. A
+    bare glob picks it up alongside the real hive files, and the downstream
+    ``read_parquet(files, hive_partitioning=true)`` then aborts the whole read with
+    "Hive partition mismatch … key 'agent_id' not found". Requiring the
+    ``experiment_id=`` partition segment selects only real hive history and makes
+    the read robust to any such stray/flat tree.
     """
     if not is_s3_uri(sweep_dir):
         return sorted(glob.glob(
-            os.path.join(sweep_dir, "**", "history", "**", "*.pq"), recursive=True))
+            os.path.join(sweep_dir, "**", "history", "experiment_id=*", "**", "*.pq"),
+            recursive=True))
     # DuckDB's glob() lists object storage through the same httpfs extension the
     # read needs — so listing costs no extra dependency and no parquet read.
-    import duckdb
+    import tempfile
 
-    conn = duckdb.connect()
+    from viva_emitters import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     configure_duckdb_s3(conn)
-    pattern = sweep_dir.rstrip("/") + "/**/history/**/*.pq"
+    pattern = sweep_dir.rstrip("/") + "/**/history/experiment_id=*/**/*.pq"
     try:
         rows = conn.sql(
             f"SELECT file FROM glob('{pattern}')").fetchall()
@@ -83,9 +97,11 @@ def connect_for(sweep_dir: str):
     The counterpart to :func:`history_files` for callers that own their own
     connection: pair the two and neither has to know where the sweep lives.
     """
-    import duckdb
+    import tempfile
 
-    conn = duckdb.connect()
+    from viva_emitters import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     return conn

@@ -18,7 +18,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_parquet_emitter_includes_bulk_counts(tmp_path):
     duckdb = pytest.importorskip("duckdb")
-    pytest.importorskip("pbg_emitters")
+    pytest.importorskip("viva_emitters")
 
     import glob
     from v2ecoli.workflow.run import run_workflow

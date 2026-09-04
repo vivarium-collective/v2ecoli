@@ -148,20 +148,43 @@ def study_declaration(workspace: Path, member: str) -> dict:
 
 # ── the pieces a member contributes to the document ─────────────────
 
+#: ``comparison:`` keys that do NOT belong in a study's content address. The
+#: engine identities select WHICH engines run, but they are already addressed by
+#: the member's INPUT EDGES — the ParCa + vEcoli node addresses (``vecoli_address``
+#: folds the vEcoli commit in there) — so folding them in here too would be
+#: redundant, not wrong. Everything ELSE under ``comparison:`` is a knob that
+#: changes what is computed and is addressed by default.
+#:
+#: ⚠ This is a fail-safe DENYLIST, not a whitelist. A comparison key added in
+#: future is addressed unless it is deliberately exempted here — the reverse of
+#: the whitelist this replaced, which omitted every new key silently (#602: e.g.
+#: ``exchange_flux_basis`` selects a different QUANTITY, ``from_vecoli_config``
+#: selects which model runs, and neither moved the address, so a re-grade after
+#: changing one served the stale result).
+_ADDRESS_EXEMPT_COMPARISON_KEYS = frozenset({'candidate', 'reference'})
+
+
 def study_config(declaration: dict) -> dict:
     """The knobs that identify a study's *result* — its content address.
 
-    Deliberately narrow: the condition and the comparison knobs that change
-    what is computed. Prose, status and recorded outcomes are not inputs to
-    the result and must not perturb the address.
+    The condition plus every ``comparison:`` knob that changes what is computed.
+    Prose, status and recorded outcomes live at the top level, not under
+    ``comparison:``, so they are not inputs to the result and never reach the
+    address. The engine-identity keys (:data:`_ADDRESS_EXEMPT_COMPARISON_KEYS`)
+    are addressed by the input edges instead.
+
+    Fail-safe by construction: a new ``comparison:`` key is addressed unless it
+    is deliberately exempted, so a knob that changes the result cannot be omitted
+    from the address by simply forgetting to add it here (#602).
     """
     comparison = declaration.get('comparison') or {}
     config = {'condition': declaration.get('condition')}
-    for key in ('seeds', 'generations', 'max_steps_per_gen'):
-        if key in comparison:
-            config[key] = comparison[key]
-    if comparison.get('cards'):
-        config['cards'] = list(comparison['cards'])
+    for key, value in comparison.items():
+        if key in _ADDRESS_EXEMPT_COMPARISON_KEYS:
+            continue
+        # Copy list/dict values so a later mutation of the declaration cannot
+        # reach into the address config (``cards`` was copied for this reason).
+        config[key] = list(value) if isinstance(value, list) else value
     return {key: value for key, value in config.items() if value is not None}
 
 

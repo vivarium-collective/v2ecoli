@@ -10,9 +10,9 @@ set — while external overrides still win. See
 import os
 import pytest
 
-pytest.importorskip("pbg_emitters")
+pytest.importorskip("viva_emitters")
 
-from pbg_emitters import ParquetEmitter  # noqa: E402
+from viva_emitters import ParquetEmitter  # noqa: E402
 from process_bigraph.emitter import SQLiteEmitter  # noqa: E402
 
 CACHE = os.environ.get("V2ECOLI_CACHE", "out/cache")

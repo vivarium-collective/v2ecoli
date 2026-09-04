@@ -1,0 +1,81 @@
+{
+  "arms": {
+    "trpR": {
+      "arm": "trpR",
+      "fraction_repressed": 0.0,
+      "generations": 3,
+      "level_when_active": 0.0006134966986325062,
+      "n_samples": 33,
+      "time_mean": 0.0006134966986325062,
+      "trpR_monomer_max": 0.0,
+      "trpR_monomer_min": 0.0,
+      "wall_seconds": 1395.0
+    },
+    "trpR_withaa": {
+      "arm": "trpR_withaa",
+      "fraction_repressed": 0.0,
+      "generations": 3,
+      "level_when_active": 0.00041718793753887245,
+      "n_samples": 19,
+      "time_mean": 0.00041718793753887245,
+      "trpR_monomer_max": 0.0,
+      "trpR_monomer_min": 0.0,
+      "wall_seconds": 1819.3
+    },
+    "trpRtnaA": {
+      "arm": "trpRtnaA",
+      "fraction_repressed": 0.0,
+      "generations": 3,
+      "level_when_active": 0.0006803493349455917,
+      "n_samples": 33,
+      "time_mean": 0.0006803493349455917,
+      "trpR_monomer_max": 0.0,
+      "trpR_monomer_min": 0.0,
+      "wall_seconds": 1336.9
+    },
+    "wt": {
+      "arm": "wt",
+      "fraction_repressed": 0.030303030303030276,
+      "generations": 3,
+      "level_when_active": 0.0005949123273564018,
+      "n_samples": 33,
+      "time_mean": 0.0005768846813490571,
+      "trpR_monomer_max": 371.0,
+      "trpR_monomer_min": 125.0,
+      "wall_seconds": 1409.9
+    },
+    "wt_withaa": {
+      "arm": "wt_withaa",
+      "fraction_repressed": 0.736842105263158,
+      "generations": 3,
+      "level_when_active": 0.0002521162264452892,
+      "n_samples": 19,
+      "time_mean": 6.634638108083652e-05,
+      "trpR_monomer_max": 111.0,
+      "trpR_monomer_min": 23.0,
+      "wall_seconds": 2068.0
+    }
+  },
+  "pairs": {
+    "aa_replete": {
+      "ko": "trpR_withaa",
+      "note": "TrpR is declared ACTIVE in this condition (condition_defs.tsv)",
+      "ratio_ko_over_wt": 6.288028536636688,
+      "wt": "wt_withaa"
+    },
+    "basal": {
+      "ko": "trpR",
+      "note": "TrpR is declared INACTIVE in this condition",
+      "ratio_ko_over_wt": 1.0634650537050683,
+      "wt": "wt"
+    },
+    "basal_double": {
+      "ko": "trpRtnaA",
+      "note": "trpR + tnaA, basal; same inactive-TrpR caveat",
+      "ratio_ko_over_wt": 1.1793506691052713,
+      "wt": "wt"
+    }
+  },
+  "repressed_threshold": 1e-08,
+  "statistic": "time_mean of trp TU (TU00067) synthesis probability, second-half window; ratio KO/WT"
+}

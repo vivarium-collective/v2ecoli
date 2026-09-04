@@ -72,9 +72,23 @@ class _GrowingPopComposite:
         self.doublings_series: list[float] = []
         self._aggregate()
 
-    @staticmethod
-    def _cell(mass_fg: float) -> dict:
-        return {"listeners": {"mass": {"cell_mass": float(mass_fg)}}}
+    # Measured wet/dry ratio over the 2026-08-17 mbp-01 runs; see
+    # tests/test_population_aggregator_unit.py::WET_DRY_RATIO.
+    WET_DRY_RATIO: float = 3.3315
+
+    @classmethod
+    def _cell(cls, mass_fg: float) -> dict:
+        """Carry BOTH mass listeners: the aggregator reads dry_mass, and a
+        populated cell_mass at the measured ratio makes a regression back to
+        the total-mass listener fail loudly instead of silently skipping."""
+        return {
+            "listeners": {
+                "mass": {
+                    "dry_mass": float(mass_fg),
+                    "cell_mass": float(mass_fg) * cls.WET_DRY_RATIO,
+                }
+            }
+        }
 
     def run(self, n: int) -> None:
         for _ in range(int(n)):
@@ -89,9 +103,10 @@ class _GrowingPopComposite:
                 agents["00"] = self._cell(BIRTH_MASS_FG)
                 agents["01"] = self._cell(BIRTH_MASS_FG)
             else:
-                agents[cur]["listeners"]["mass"]["cell_mass"] = (
-                    BIRTH_MASS_FG + self._age * GROWTH_FG_PER_TICK
-                )
+                grown = BIRTH_MASS_FG + self._age * GROWTH_FG_PER_TICK
+                mass = agents[cur]["listeners"]["mass"]
+                mass["dry_mass"] = grown
+                mass["cell_mass"] = grown * self.WET_DRY_RATIO
             self._aggregate()
         self.state["global_time"] = float(self._t)
 
@@ -116,7 +131,7 @@ def _drive(core, mode: str, tmp_path, *, max_generations: int = 4):
         comp,
         run_id=f"doubling-test-{mode}",
         db_file=str(db_file),
-        emit_paths=["listeners.mass.cell_mass"],
+        emit_paths=["listeners.mass.dry_mass"],
         extra_root_paths=["population/biomass_concentration_gL"],
         max_steps=DIVIDE_PERIOD * (max_generations + 1),  # cross all divisions
         max_generations=max_generations,

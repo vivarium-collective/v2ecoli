@@ -30,11 +30,24 @@ EXPECTED_SHA256 = {
     "rnas": "bddcd413a0ebb04b912844bde21bb189047d128a7629cbd409a7166158541f53",
     "metabolites": "b87e39d72a33954f3f564db39b75810941204f1e22ebeaf077e412460157b864",
     "sequence": "28a7167d8bab60570cd6e3ddacdde75d5c51db60e1009fb8c241f1da446b6152",
-    # v2ecoli local overrides (diverged biology, must win). The two equilibrium
-    # keys gained the FLGM-FLIA-CPLX_RXN row (flagella-cascade investigation: FlgM
-    # anti-sigma sequestration of FliA/sigma28) — hashes re-pinned deliberately.
-    "equilibrium_reactions": "c6631eb752cd2f5062787517f78251bc3fbaae822c6faa4aa82e77db44649cb7",
-    "equilibrium_reaction_rates": "17ecd8f8fa622ea76ec7d7ddde5e2410de40c5eb3d4db875962d8047d810349b",
+    # Condition/media inputs — added for #584 (part 2). The docstring promises a
+    # content-different pin bump fails loudly, but #581 changed exactly these
+    # files (condition_defs, media_recipes) and the test stayed green because
+    # they were unpinned. They also drive the genotype-card condition count
+    # (len(condition_defs) + 2*len(tf_condition)); pin them so a data change is
+    # caught here rather than silently shifting graded references downstream.
+    "condition__condition_defs": "5d71324e95ef9794f130667e2d033539a3ffc7c747c5b5f7d10d5476640149cd",
+    "condition__media_recipes": "6501ea7880a2906f8cd04e5d3010e12d042efe0da653f88e08d182c3cb46b7cb",
+    "condition__tf_condition": "fbcfbefdcffde74a380b13c1cf0b4c7d2cab28b312a7cb7b841459bc18460099",
+    # v2ecoli local overrides (diverged biology, must win). Re-pinned 2026-09-04
+    # merging origin/main: both branches had independently changed these two
+    # files (this branch: flagella-cascade's FLGM-FLIA-CPLX_RXN row, FlgM
+    # anti-sigma sequestration of FliA/sigma28; main: an unrelated upstream
+    # change) -- neither side's pinned hash reflected the merged content, so
+    # these are freshly computed directly against the post-merge working tree
+    # files, not copied from either side of the conflict.
+    "equilibrium_reactions": "d10247d4dfc31da7d0293aa3bd2d16bbf2493891693b83435718384f0404febb",
+    "equilibrium_reaction_rates": "74c7216898625b1d616d814aeb254489c7ede6ced6cc6529aecfab573a225fb1",
     "metabolic_reactions_added": "97765aafda3c76445caedb887f96ec874a0defa7004d94e1083e89dcf68b0271",
 }
 

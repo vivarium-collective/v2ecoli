@@ -1,0 +1,203 @@
+schema_version: 2
+name: genotype-perturbation-response
+title: "Genotype perturbation response: how v2ecoli responds to KO, KD, and OE of native genes"
+created: '2026-07-21'
+status: planning
+
+runtime:
+  default_emitter: sqlite
+
+question: >-
+  When a native gene is knocked out, knocked down, or overexpressed in v2ecoli, how does
+  the cell respond? Specifically: does a genotype built at the ParCa level yield a
+  self-consistent sim_data at all; what does the model do across a panel of genes whose
+  essentiality is independently known; what happens when the perturbed genes feed the
+  mechanistic amino-acid supply parameters; and how do the two available knockout
+  mechanisms - translation-level and ParCa-level - differ in effect?
+
+object_of_evaluation: model
+
+executive:
+  what_is_this: >-
+    A characterization of the genotype-perturbation machinery and of the model's response
+    to it. The arc runs from build integrity - does a perturbed genotype reconstruct into
+    a coherent sim_data - through a descriptive pass over panels with independent
+    structure to read against, into targeted probes of the two places the model is most
+    likely to be wrong.
+    Deliberately DESCRIPTIVE past the first study. Studies 01-06 characterize behaviour
+    and are not structured as graded evaluations returning verdicts; each carries several
+    independent checks, any of which can surface a divergence worth acting on. That is the
+    intended yield - a ranked list of things to look at, not a pass/fail. Committing bands
+    before real readouts exist would mostly be speculative structure, rewritten once the
+    first numbers land.
+    genotype-00 is the exception and is graded, because "did the build stay
+    self-consistent" has answers that are right or wrong independently of biology.
+  verdict_status: not-yet-run
+  decisions_needed:
+    - question: >-
+        How does a study declare WHICH genotype it builds?
+      status: CLOSED - resolved by v2ecoli#457 (merged 2026-08-05)
+      context: >-
+        Was blocking genotype-00 execution: the `parca` generator accepted exactly `debug`,
+        `cpus`, `cache_dir`, so a knockout build was indistinguishable from a wild-type one
+        in `conditions.baseline.params`, and genotype-00 had to record its genotype as a
+        gate: required-before-run model_setting instead. RESOLVED by adding
+        `bundle_manifest` / `bundle_overrides` to the generator, threaded into
+        InitializeStep's config, plus a cross-check that warns when the declared manifest
+        disagrees with the bundle the injected raw_data was actually built from - the
+        failure that would otherwise attribute a sim_data to a genotype it was not built
+        from. genotype-00 now declares its genotype in params for both conditions.
+        Smaller than this entry anticipated: the RUNNER (`v2ecoli-parca
+        --bundle-manifest-path`) already accepted a manifest, so only the study surface was
+        missing it. Two things it deliberately does NOT do, which the remaining gates
+        cover: the declaration is structural rather than effective (driving ParCa from a
+        study is out of scope), and nothing yet PRODUCES a knockout manifest - that is the
+        ecoli-sources KO generator.
+    - question: "Which gene panel for the essentiality study, and at what size?"
+      status: OPEN
+      context: >-
+        An informative panel mixes confidently-essential, confidently-non-essential, and
+        known-conditional genes rather than sampling uniformly, since the conditional cases
+        are where a whole-cell model can say something a flux-balance model cannot. Panel
+        size trades directly against seeds and generations per genotype.
+    - question: "What readouts best express 'the model treated this gene as essential'?"
+      status: OPEN - expected to be informed BY the descriptive pass, not before it
+      context: >-
+        A whole-cell model does not return a binary. Candidates include failure to divide
+        within the simulated window, doubling time beyond some band, and mass-accumulation
+        arrest. Rather than pick one up front, the descriptive pass should report several
+        and show what they look like across known-essential and known-non-essential genes.
+        Choosing the criterion is then grounded in observed separation instead of guessed.
+        Note also that at the ParCa level an essential-gene knockout may fail to BUILD
+        rather than fail to grow - a genotype-00 outcome, qualitatively unlike the
+        translation-level knockout's outcome.
+    - question: "Does a ParCa-level TF knockout prune that TF's regulon entries?"
+      status: >-
+        OPEN - the BEHAVIOUR is now measured (it does NOT prune; all 7 trpR fold_changes
+        rows survive a trpR deletion, because the transform never touches fold_changes).
+        What stays open is the JUDGEMENT - defect or defensible modelling choice - which
+        genotype-06-trpr-regulon carries as design_pivot_required GENO06-EQ-01.
+      context: >-
+        fold_changes.tsv is keyed by TF COMMON NAME (trpR has 7 target entries: trpA -1.83,
+        trpB -1.77, trpC -1.63, ...), and the chromosome-deletion transform touches only
+        genes, transcription_units, dna_sites and the genome sequence. So a ParCa-level
+        knockout of a transcription factor deletes the gene while ParCa continues to fit
+        delta_prob entries for a regulator that no longer exists in the genome. Whether
+        that is a defect or a defensible modelling choice needs deciding for every TF
+        knockout, not just trpR.
+
+scientific_argument:
+  main_claim: >-
+    Descriptive investigation - no verdict claim is asserted past build integrity. The
+    intended output is a characterization of the model's genotype-perturbation response,
+    plus a ranked list of divergences worth acting on.
+  evidence_for: []
+  caveats:
+    - >-
+      genotype-00, genotype-01 and genotype-06 are authored; the rest are named targets,
+      not artifacts. genotype-00 and genotype-01 have run; genotype-06's findings are static
+      measurements of the model's own parameter tables, and its run arms are not yet executed.
+    - >-
+      Published essentiality is used as independent structure to read results against, not
+      as a grading key. It IS genuinely independent - the model is not fit to it - which is
+      what would make a later graded comparison meaningful, and why it is worth reaching
+      for even in a descriptive pass.
+    - >-
+      Reference strain matters: published single-gene knockout collections are in BW25113,
+      not MG1655. Strain mismatch is a real confounder for a minority of genes and should be
+      recorded alongside results rather than silently absorbed.
+    - >-
+      genotype-04 is a model-to-model comparison. There is no ground truth for which
+      knockout mechanism is "right", so it characterizes divergence and cannot return a
+      correctness verdict - but the divergence itself is informative, since a
+      translation-level knockout still transcribes mRNA and consumes RNAP capacity where a
+      ParCa-level knockout removes the gene entirely.
+    - >-
+      genotype-03 and genotype-06 test anticipated failure modes, so negative results there
+      are expected and useful outcomes rather than project risks. Each is scoped as its own
+      study precisely so it cannot be quietly skipped.
+
+biological_story: >-
+  Deleting a gene from a chromosome is not the same operation as silencing its product.
+  The chromosome is a coordinate system: genes sit inside transcription units, transcription
+  units overlap one another, and regulatory sites are addressed by position. Removing a
+  span renumbers everything downstream of it and truncates whatever straddles the cut, so a
+  knockout at the reconstruction level propagates into operon structure, transcription-unit
+  boundaries, and the fitted parameters that depend on them - none of which a
+  translation-level knockout touches. That difference is the reason this investigation
+  exists: the two mechanisms answer different biological questions, and the model's response
+  to each is a claim about how faithfully it represents genome organization rather than just
+  gene dosage. The first study asks the prior question - whether a perturbed genome
+  reconstructs into a coherent parameter set at all - because every downstream physiological
+  reading is conditional on that.
+
+at_a_glance:
+  studies:
+    - genotype-00-build-integrity: >-
+        AUTHORED. Does a ParCa-level knockout reconstruct into a self-consistent sim_data?
+        Graded, not descriptive - the round-trip and inventory invariants are right or wrong
+        independently of biology. Gates everything below.
+    - genotype-01-control-panel: >-
+        AUTHORED. A control panel spanning gene classes - a no-op perturbation plus
+        well-characterized knockouts - confirming the machinery moves the cell only where it
+        should before anything is read into a result. (Authored under the slug
+        genotype-01-control-panel; this entry previously named a planned
+        genotype-01-null-control.)
+    - genotype-02-essentiality-panel: >-
+        PLANNED. Single-gene knockouts spanning known-essential, known-non-essential and
+        known-conditional genes; characterize the model's response using published
+        essentiality as structure to read against.
+    - genotype-03-aa-pathway-stress: >-
+        PLANNED. Knockouts of amino-acid pathway genes, probing the mechanistic AA supply
+        parameter-fitting interaction flagged in RFC-007. Checked at build time (fitting
+        integrity) and downstream (physiology).
+    - genotype-04-ko-mechanism-comparison: >-
+        PLANNED. The same genes knocked out translationally and at the ParCa level;
+        characterize where and how far the two mechanisms diverge.
+    - genotype-05-knockdown-dose-response: >-
+        PLANNED. Graded knockdown of a small gene set; characterize the shape of the
+        response across the multiplier series.
+    - genotype-06-trpr-regulon: >-
+        AUTHORED (design complete, runs not yet executed). Slug is all-lowercase per the
+        workspace convention; the gene is trpR. Knockout of a transcriptional
+        regulator rather
+        than an enzyme. Expected to disagree with data, for a mechanistic reason worth
+        pinning: the deletion transform never prunes fold_changes, so ParCa keeps fitting
+        the trpR regulon after trpR is gone. Sibling of genotype-03 - that one probes the
+        enzymes of the tryptophan pathway, this one probes its regulator.
+
+acceptance_criteria:
+  - study: genotype-00-build-integrity
+    behavior: perturbed-genome-reconstructs-without-coordinate-or-sequence-corruption
+    independent: false
+  - study: genotype-00-build-integrity
+    behavior: parca-fit-completes-and-fitted-parameters-stay-in-range
+    independent: false
+
+members:
+  - genotype-00-build-integrity
+  - genotype-01-control-panel
+  - genotype-06-trpr-regulon
+
+glossary:
+  - term: ParCa-level knockout
+    definition: >-
+      Deletion of a gene from the chromosome before reconstruction - the sequence is spliced
+      out, coordinates of downstream features shift, and ParCa fits parameters for a genome
+      that no longer contains the gene. Contrast the translation-level knockout, which
+      zeroes a translation efficiency on the live process and leaves transcription intact.
+  - term: Build integrity
+    definition: >-
+      Whether a perturbed genotype reconstructs into a self-consistent sim_data - coordinates
+      internally consistent, sequence uncorrupted, ParCa fit converged, fitted parameters in
+      range - independently of whether the resulting physiology is sensible.
+  - term: Round-trip invariant
+    definition: >-
+      Two-branch check over every coordinate-bearing feature after a deletion. A feature whose
+      length is unchanged must be byte-identical; a feature that shrank must equal its
+      original with exactly the deleted span excised. Only the second branch detects an
+      off-by-one splice, because an off-by-one preserves every length.
+  - term: Genotype identity
+    definition: >-
+      The hash of the complete ecoli-sources bundle manifest a genotype is built from. One
+      hash, fully reproducible, campaign-pinnable - genotype = bundle = ParCa build = study.

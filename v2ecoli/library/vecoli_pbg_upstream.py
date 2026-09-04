@@ -47,6 +47,12 @@ import sys
 
 _UPSTREAM: dict = {}
 
+# Default vEcoli simData for the upstream builders. Resolved from
+# $V2E_UPSTREAM_SIMDATA (empty when unset) rather than a hardcoded developer
+# path, so a caller on any machine must supply one explicitly or set the env
+# var; the builders raise a clear error when it is empty (issue #131).
+_UPSTREAM_SIMDATA_DEFAULT: str = os.environ.get("V2E_UPSTREAM_SIMDATA", "")
+
 # Pure-python vEcoli source packages that both the upstream checkout AND the
 # installed ``vEcoli`` dist provide, so the installed copy shadows the checkout
 # in ``sys.modules``. These must be dropped (after the checkout goes first on
@@ -82,8 +88,12 @@ def _ensure_upstream() -> dict:
     if _UPSTREAM:
         return _UPSTREAM
 
-    vecoli_dir = os.environ.get(
-        "V2E_VECOLI_DIR", "/Users/eranagmon/code/vEcoli-upstream")
+    # Resolve the vEcoli SOURCE checkout from $V2E_VECOLI_DIR. When it is unset
+    # (or points at a directory that does not exist), fall THROUGH to whatever
+    # ``ecoli``/``configs`` the installed environment provides (the public vEcoli
+    # PyPI package) rather than a hardcoded developer path — and say so, so a run
+    # is never ambiguous about which vEcoli it used (issue #131).
+    vecoli_dir = os.environ.get("V2E_VECOLI_DIR", "")
 
     # NumPy 2.0: chromosome-replication uses np.in1d (~tick 1851). It is only
     # deprecated->removed upstream of where we monkeypatch; alias it so a pure
@@ -104,7 +114,22 @@ def _ensure_upstream() -> dict:
         except Exception:
             pass
 
-    sys.path.insert(0, vecoli_dir)
+    if vecoli_dir and os.path.isdir(vecoli_dir):
+        sys.path.insert(0, vecoli_dir)
+        print(f"[vecoli] using vEcoli SOURCE checkout: {vecoli_dir} "
+              f"($V2E_VECOLI_DIR)")
+    else:
+        try:
+            import importlib.metadata as _md
+            _ver = _md.version("vEcoli")
+        except Exception:
+            _ver = "unknown"
+        if vecoli_dir:
+            print(f"[vecoli] $V2E_VECOLI_DIR={vecoli_dir!r} does not exist; "
+                  f"falling back to the installed vEcoli package (v{_ver})")
+        else:
+            print(f"[vecoli] $V2E_VECOLI_DIR unset; using the installed vEcoli "
+                  f"package (v{_ver})")
     # configs/ is a top-level package in the upstream checkout (ECOLI_DEFAULT_*)
     # that ecoli.composites.ecoli_master imports as ``from configs import ...``.
 
@@ -226,9 +251,7 @@ def build_upstream_cell_document(
     *,
     seed: int = 0,
     condition: str = "basal",
-    sim_data_path: str = (
-        "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
-        "kb/simData.cPickle"),
+    sim_data_path: str = _UPSTREAM_SIMDATA_DEFAULT,
     time_step: float = 1.0,
     exclude_processes: list | None = None,
     core=None,
@@ -274,6 +297,11 @@ def build_upstream_cell_document(
         finally:
             sys.argv = _saved_argv
 
+        if not sim_data_path:
+            raise ValueError(
+                "build_upstream_cell_document requires a sim_data_path: pass it "
+                "explicitly or set $V2E_UPSTREAM_SIMDATA to your vEcoli "
+                "simData.cPickle (there is no hardcoded default path).")
         sim.config["condition"] = condition
         sim.config["seed"] = seed
         sim.config["sim_data_path"] = sim_data_path
@@ -446,9 +474,7 @@ def build_upstream_pbg_composite(
     *,
     seed: int = 0,
     condition: str = "basal",
-    sim_data_path: str = (
-        "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
-        "kb/simData.cPickle"),
+    sim_data_path: str = _UPSTREAM_SIMDATA_DEFAULT,
     time_step: float = 1.0,
     exclude_processes: list | None = None,
     core=None,

@@ -28,7 +28,7 @@ import warnings
 # Framework-generic per-agent emitter-lifecycle registry (register / get /
 # unregister + finalize) now lives in pbg-emitters. v2ecoli re-exports the
 # parquet-named wrappers below so existing call sites keep working.
-from pbg_emitters.lifecycle import (
+from viva_emitters.lifecycle import (
     register_emitter as register_parquet_emitter,
     get_emitter as get_parquet_emitter,  # noqa: F401 — re-exported for external call sites
     unregister_emitter as _unregister_emitter,
@@ -163,53 +163,53 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
     # missing prerequisite rather than failing the whole tab.
     {
         'name': 'mass_fraction_summary',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass fraction summary',
                    'analysis': 'mass_fraction_summary_view'},
     },
     {
         'name': 'cell_mass',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Cell mass over time', 'analysis': 'cell_mass'},
     },
     {
         'name': 'mass_fraction_voronoi',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass composition (Voronoi)',
                    'analysis': 'mass_fraction_voronoi'},
     },
     {
         'name': 'replication',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
     },
     {
         'name': 'chromosome_state',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Chromosome state (animated)',
                    'analysis': 'chromosome_state_view'},
     },
     {
         'name': 'ribosome_components',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome components',
                    'analysis': 'ribosome_components'},
     },
     {
         'name': 'central_carbon_metabolism',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Central carbon metabolism (FBA)',
                    'analysis': 'central_carbon_metabolism_scatter'},
     },
     {
         'name': 'protein_counts_validation',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Protein counts vs. proteomics',
                    'analysis': 'protein_counts_validation'},
     },
     {
         'name': 'doubling_time',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Doubling time', 'analysis': 'doubling_time_line'},
     },
 ]
@@ -225,37 +225,37 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
 DEFAULT_BATCH_VISUALIZATIONS: list[dict] = DEFAULT_SINGLE_CELL_VISUALIZATIONS + [
     {
         'name': 'mass_growth_across_generations',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Mass growth across generations',
                    'analysis': 'mass_growth_across_generations'},
     },
     {
         'name': 'ribosome_usage',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome usage (lineage)',
                    'analysis': 'ribosome_usage'},
     },
     {
         'name': 'ribosome_production',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome production (lineage)',
                    'analysis': 'ribosome_production'},
     },
     {
         'name': 'new_gene_counts',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'New gene counts (lineage)',
                    'analysis': 'new_gene_counts'},
     },
     {
         'name': 'doubling_time_distribution',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Doubling time distribution (across seeds)',
                    'analysis': 'doubling_time_distribution'},
     },
     {
         'name': 'subgenerational_expression',
-        'address': 'local:ParquetAnalysisView',
+        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Subgenerational expression (across seeds)',
                    'analysis': 'subgenerational_expression_table'},
     },
@@ -271,12 +271,12 @@ def v2ecoli_default_single_cell_visualizations() -> list[dict]:
     return [
         {
             'name': 'workflow',
-            'address': 'local:WorkflowVisualization',
+            'address': 'local:!v2ecoli.visualizations.workflow.WorkflowVisualization',
             'config': {'title': 'v2ecoli — single-cell lifecycle'},
         },
         {
             'name': 'topology',
-            'address': 'local:NetworkVisualization',
+            'address': 'local:!v2ecoli.visualizations.network.NetworkVisualization',
             'config': {'title': 'Process topology'},
         },
     ]
@@ -329,7 +329,7 @@ _NULL_EMITTER_OVERRIDE: bool = False
 _DEFAULT_EMITTER_DECL: dict | None = None
 
 # Per-agent registry of live ParquetEmitter step instances (framework-generic
-# registry imported at module top from ``pbg_emitters.lifecycle``). Populated
+# registry imported at module top from ``viva_emitters.lifecycle``). Populated
 # when ``_get_special_step('emitter')`` constructs an emitter under a parquet
 # override; consulted by ``Division.next_update`` so the parent's trailing
 # partial batch can be ``close(success=True)``-d before the agent is
@@ -361,6 +361,35 @@ def set_null_emitter_override(flag: bool) -> None:
     _NULL_EMITTER_OVERRIDE = bool(flag)
 
 
+# {leaf_name: exchange_key} for the opt-in exchange_flux_listener feature step.
+# Set by ecoli_baseline's generator (from its ``exchange_fluxes`` param) around a
+# build so _get_special_step can build the config-less feature step with the
+# caller's flux map, then restored — same external-override discipline as the
+# emitter overrides above. Empty = the listener declares/emits nothing.
+_EXCHANGE_FLUXES_OVERRIDE: dict = {}
+
+
+def set_exchange_fluxes_override(fluxes: dict | None) -> None:
+    """Set the flux map the ``exchange_flux_listener`` feature step is built with
+    (see ``_EXCHANGE_FLUXES_OVERRIDE``). Pass None/{} to clear."""
+    global _EXCHANGE_FLUXES_OVERRIDE
+    _EXCHANGE_FLUXES_OVERRIDE = dict(fluxes or {})
+
+
+# WHICH QUANTITY those leaves carry — "counts" (a lineage-cumulative molecule
+# total) or "gdcw" (a per-tick mmol/gDCW/h rate). Threaded the same way as the
+# flux map above so a study declares it once. Default preserves the deriver's
+# own default, so an undeclared build is unchanged.
+_EXCHANGE_FLUX_BASIS_OVERRIDE: str = "counts"
+
+
+def set_exchange_flux_basis_override(basis: str | None) -> None:
+    """Set the ``basis`` the ``exchange_flux_listener`` feature step is built with
+    (see ``_EXCHANGE_FLUX_BASIS_OVERRIDE``). Pass None to restore the default."""
+    global _EXCHANGE_FLUX_BASIS_OVERRIDE
+    _EXCHANGE_FLUX_BASIS_OVERRIDE = str(basis or "counts")
+
+
 def set_default_emitter_decl(decl: dict | None) -> None:
     """Set the generator-declared default emitter (see ``_DEFAULT_EMITTER_DECL``).
 
@@ -376,7 +405,42 @@ def set_default_emitter_decl(decl: dict | None) -> None:
     _DEFAULT_EMITTER_DECL = decl
 
 
-def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
+def _merge_emit_paths(emit_schema: dict, topo: dict, emit_paths) -> None:
+    """Add caller-declared EXTRA emit store paths to a parquet emit
+    schema/topology, in place — a general, domain-agnostic capability.
+
+    The baseline parquet emitter captures a fixed set (``global_time`` /
+    ``bulk`` / ``listeners``). A composite or config that wants to persist
+    additional stores declares them via the emitter config's ``emit_paths``: a
+    list of store paths, each a sequence of store-node segments (e.g.
+    ``["some_store", "sub_key"]`` or ``["compartment", "global", "volume"]``).
+    This honors them without any subsystem-specific schema baked into the
+    framework — the declaring config owns which stores matter.
+
+    Emit-schema leaf types collapse to ``node`` in the emitter, so only the
+    topology (store roots) selects what is captured: each path's first segment
+    becomes a top-level emit key wired to its own store root, and the nested
+    schema carries ``node`` at the path's leaf. Paths sharing a prefix merge.
+    """
+    for path in emit_paths or []:
+        segments = [str(s) for s in path]
+        if not segments:
+            continue
+        node = emit_schema
+        for segment in segments[:-1]:
+            child = node.get(segment)
+            if not isinstance(child, dict):
+                child = {}
+                node[segment] = child
+            node = child
+        leaf = segments[-1]
+        if not isinstance(node.get(leaf), dict):
+            node[leaf] = "node"
+        topo[segments[0]] = (segments[0],)
+
+
+def _build_declared_emitter(decl: dict, listeners_schema: dict, core,
+                             *, allow_ram_fallback: bool = False):
     """Materialise the generator-declared default emitter step.
 
     Maps ``decl['address']`` (the registered emitter link, with or without a
@@ -387,6 +451,18 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
     Only the emitters v2ecoli actually ships are recognised; an unknown
     address raises rather than silently falling back, so a typo in a
     generator's ``emitters=`` declaration surfaces at build time.
+
+    ``allow_ram_fallback`` (default ``False``): when the declared address is
+    ``ParquetEmitter`` but ``viva_emitters`` fails to import, the historical
+    behavior degraded to an in-memory RAMEmitter with only a warning — a run
+    that believed it was persisting parquet to disk would silently keep
+    everything in RAM and lose ALL of it on exit, with no error anywhere
+    (CD2 pipeline audit finding P1-4, §2.10). ``viva-emitters[parquet,xarray]``
+    is a BASE v2ecoli dependency today, so this import failing normally means
+    the active environment is stale/incomplete (e.g. ``uv sync`` needed), not
+    a genuinely absent optional extra — exactly the case that must not fail
+    silently. Set ``allow_ram_fallback=True`` to opt into the old degrade-and-
+    warn behavior (tests/debug only).
     """
     from process_bigraph.emitter import RAMEmitter, SQLiteEmitter
 
@@ -395,16 +471,31 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
 
     if address == "ParquetEmitter":
         try:
-            from pbg_emitters import ParquetEmitter
-        except ImportError:
-            # A generator-declared *default* must not hard-fail the build when
-            # the optional [parquet] extra is absent (e.g. CI behavior-tests
-            # install only the dev extra). Degrade to the historical full-capture
+            from viva_emitters import ParquetEmitter
+        except ImportError as exc:
+            if not allow_ram_fallback:
+                raise RuntimeError(
+                    "generator declared a ParquetEmitter default but "
+                    f"`from viva_emitters import ParquetEmitter` failed "
+                    f"({exc}). viva-emitters[parquet,xarray] is a BASE "
+                    "v2ecoli dependency, so this usually means the active "
+                    "venv is stale/incomplete — run `uv sync` — rather than "
+                    "a genuinely missing optional extra. Refusing to "
+                    "silently degrade to an in-memory RAMEmitter: that would "
+                    "let the run complete and exit having persisted NOTHING "
+                    "to disk (CD2 pipeline audit finding P1-4). If you "
+                    "really want the degraded in-memory behavior (tests/"
+                    "debug only), pass allow_ram_fallback=True to "
+                    "_build_declared_emitter()."
+                ) from exc
+            # Explicit opt-in: degrade to the historical full-capture
             # in-memory RAMEmitter — the pre-declaration default — and warn.
             warnings.warn(
-                "generator declared a ParquetEmitter default but the [parquet] "
-                "extra is not installed; falling back to in-memory RAMEmitter. "
-                "Install with: pip install 'v2ecoli[parquet]' to persist parquet.")
+                "generator declared a ParquetEmitter default but "
+                f"`from viva_emitters import ParquetEmitter` failed ({exc}); "
+                "falling back to in-memory RAMEmitter because "
+                "allow_ram_fallback=True was passed explicitly. ALL output "
+                "will be lost on exit instead of persisted to parquet.")
             emit_schema = {
                 "global_time": "float", "bulk": "array",
                 "listeners": listeners_schema,
@@ -428,12 +519,24 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             ws_root = _find_workspace_root()
             out_dir = (str(ws_root / ".pbg" / "parquet-runs")
                        if ws_root is not None else "out/parquet")
-        preset = parquet_vecoli(out_dir=out_dir,
-                                experiment_id=cfg_in.pop(
-                                    "experiment_id",
-                                    os.environ.get(
-                                        "V2ECOLI_EMITTER_EXPERIMENT_ID",
-                                        "default")))
+        # Thread the run-identity fields the declaration carries into the
+        # preset so each cell writes its OWN hive partition. Without this,
+        # variant/lineage_seed/agent_id fall back to parquet_vecoli's defaults
+        # (variant=0, lineage_seed=0, agent_id="1") and every variant in a
+        # multivariant sweep collapses onto partition ``variant=0`` — the
+        # multivariant KPI analysis then sees all variants as one. experiment_id
+        # likewise defaults to the env var / "default" only when the decl does
+        # not supply it (so a declared experiment_id actually reaches the
+        # emitter instead of silently no-opping).
+        _preset_kwargs = {
+            "experiment_id": cfg_in.pop(
+                "experiment_id",
+                os.environ.get("V2ECOLI_EMITTER_EXPERIMENT_ID", "default")),
+        }
+        for _idkey in ("variant", "lineage_seed", "agent_id", "generation"):
+            if _idkey in cfg_in:
+                _preset_kwargs[_idkey] = cfg_in.pop(_idkey)
+        preset = parquet_vecoli(out_dir=out_dir, **_preset_kwargs)
         emit_schema = {
             "global_time": "float",
             "bulk": "array[integer]",
@@ -444,6 +547,9 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core):
             "bulk": ("bulk",),
             "listeners": ("listeners",),
         }
+        # Config-declared EXTRA emit store paths (domain-agnostic; see
+        # _merge_emit_paths). Popped so it does not reach the emitter config.
+        _merge_emit_paths(emit_schema, topo, cfg_in.pop("emit_paths", None))
         cfg = {"emit": emit_schema, **preset, **cfg_in}
         return ParquetEmitter(cfg, core), topo
 
@@ -826,7 +932,7 @@ def flush_parquet(composite, *, success: bool = True) -> int:
     emitter step).
     """
     try:
-        from pbg_emitters import ParquetEmitter
+        from viva_emitters import ParquetEmitter
     except ImportError:
         return 0
     return ParquetEmitter.flush_all_in_composite(composite, success=success)
@@ -1172,6 +1278,15 @@ def _get_special_step(loader, step_name, core):
         instance = _make_instance(MassConservationDeriver, config, core)
         return instance, instance.topology, 'step'
 
+    if step_name == 'exchange_flux_listener':
+        from v2ecoli.steps.derivers.exchange_flux_listener import ExchangeFluxListener
+        # Flux map comes from the external override the generator sets from its
+        # ``exchange_fluxes`` param (same discipline as the emitter overrides).
+        config = {'fluxes': dict(_EXCHANGE_FLUXES_OVERRIDE),
+                  'basis': str(_EXCHANGE_FLUX_BASIS_OVERRIDE)}
+        instance = _make_instance(ExchangeFluxListener, config, core)
+        return instance, instance.topology, 'step'
+
     if step_name == 'global_clock':
         from v2ecoli.steps.global_clock import GlobalClock
         instance = GlobalClock(config={}, core=core)
@@ -1188,7 +1303,7 @@ def _get_special_step(loader, step_name, core):
         # Imported directly from pbg-emitters (the upstream library);
         # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
         try:
-            from pbg_emitters import ParquetEmitter
+            from viva_emitters import ParquetEmitter
         except ImportError:
             ParquetEmitter = None  # type: ignore[assignment]
         # Mass listener fields — always emitted, used by the workflow report.
@@ -1324,6 +1439,12 @@ def _get_special_step(loader, step_name, core):
                 'bulk': ('bulk',),
                 'listeners': ('listeners',),
             }
+            # Config-declared EXTRA emit store paths (domain-agnostic; see
+            # _merge_emit_paths). Popped so it does not reach the emitter config.
+            _merge_emit_paths(
+                emit_schema, topo, dict(parquet_override).pop("emit_paths", None))
+            parquet_override = {k: v for k, v in parquet_override.items()
+                                if k != "emit_paths"}
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)
             # Register under the override's metadata.agent_id (the runner's
@@ -1368,6 +1489,11 @@ def _get_special_step(loader, step_name, core):
             # priority than every external override above; higher than the bare
             # RAMEmitter fallback below. The composite's own default emitter
             # thus travels with the generator for standalone runs.
+            #
+            # allow_ram_fallback defaults to False here: a run that declares
+            # ParquetEmitter as its default sink expects to persist to disk,
+            # so a failed build must raise rather than silently keep
+            # everything in RAM and lose it all on exit (P1-4, §2.10).
             instance, topo = _build_declared_emitter(
                 default_decl, listeners_schema, core)
         else:
@@ -1529,6 +1655,33 @@ def _get_special_step(loader, step_name, core):
         _features = getattr(loader, '_features', None)
         if _features:
             div_config['features'] = _features
+        # Same reasoning, for a config_overrides / knockouts PERTURBATION. Without
+        # this, a variant applied as config_overrides is correct in generation 1
+        # and silently reverts to the unperturbed cached configs at division
+        # (#505). Only set when non-empty so the plain baseline (None) leaves
+        # daughters byte-for-byte unchanged.
+        _overrides = getattr(loader, '_config_overrides', None)
+        if _overrides:
+            div_config['config_overrides'] = _overrides
+        # Same reasoning, for DECLARED MEASUREMENTS. baseline() threads the flux
+        # map through the module-level override above and CLEARS it in its
+        # finally, so a daughter rebuilt mid-run is built with an empty map: the
+        # feature step declares no leaves and every exchange-flux leaf sits at
+        # its 0.0 default for the rest of the lineage. Measured on a two-
+        # generation run: generation 1 carries the data, generation 2 reads
+        # exactly zero on every sample while dry mass, growth rate and division
+        # are all normal — i.e. the cell is fine and only the measurement is
+        # gone, which is the shape that gets mistaken for a result.
+        # Captured here rather than read at daughter-build time because by then
+        # the override has been restored.
+        _fluxes = dict(_EXCHANGE_FLUXES_OVERRIDE)
+        if _fluxes:
+            div_config['exchange_fluxes'] = _fluxes
+            # The BASIS travels with the map for the same reason the map does: a
+            # daughter rebuilt without it silently reverts to counts and emits a
+            # running total under a rate's leaf name — the two are different
+            # quantities, and nothing downstream can tell which one it got.
+            div_config['exchange_flux_basis'] = str(_EXCHANGE_FLUX_BASIS_OVERRIDE)
         instance = _make_instance(Division, div_config, core)
         topo = {
             'bulk': ('bulk',),

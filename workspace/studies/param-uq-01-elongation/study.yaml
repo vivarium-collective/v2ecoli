@@ -128,6 +128,25 @@ report:
     | numpy / scipy / polars | 2.4.5 / 1.17.1 / 1.40.1 |
     | Reproducibility dependency | v2ecoli PR #197 (deep-copy initial_state) — without it, samples are not independent |
 
+# Run environment / budget (narrative-spine runtime section). Real values from
+# this study's methodology + provenance block — NOT a new run.
+runtime:
+  tool: pbg-uq · examples/v2ecoli_uq_ensemble.py
+  composite: v2ecoli.composites.ecoli_baseline
+  window_steps: 120
+  seeds: [0, 1, 2]
+  samples: "30 train + 10 test PCRV per seed (120 sims total across 3 seeds)"
+  surrogate: order-2 Polynomial Chaos Expansion, Legendre basis (10 terms), lsq
+  sensitivity: analytic Sobol indices from PCE coefficients
+  dispatch: serial
+  emitter: xarray
+  observable: listeners.mass.instantaneous_growth_rate
+  date: '2026-06-12'
+  versions: "pbg-uq 0.1.0 · pbg-emitters 0.1.0 · pytuq 1.0.0 · process-bigraph 1.4.17 · bigraph-schema 1.4.1"
+  environment: |
+    Run in the v2ecoli .venv; fresh initial_state per sample (v2ecoli PR #197)
+    so samples are independent (verified identical params → identical output).
+
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -222,6 +241,20 @@ tests:
   # convention for declaring a single driver dominant, not a value from a
   # publication. Documented as a citation GAP (no fabricated cite added).
     cites_note: "Sobol >= 0.5 is a methodological dominance threshold; not literature-derived."
+
+# Narrative-spine behavior_tests — one entry per tests[] entry, restating the
+# real pass condition and its actual evaluated outcome (this study is evaluated).
+behavior_tests:
+  - name: forward-uq-pipeline-runs-end-to-end
+    expectation: |
+      The pbg-uq forward-UQ pipeline runs end-to-end on v2ecoli and produces
+      Sobol indices, a PCE surrogate, figures and an HTML report.
+    status: passed  # 120 sims across 3 seeds → Sobol + surrogate + 2 figures + report.
+  - name: single-elongation-knob-robustly-dominates
+    expectation: |
+      A single effective elongation knob has total-order Sobol >= 0.5 with a
+      stable identity across the 3 PCRV seeds.
+    status: passed  # basal_elongation_rate Sobol 0.966 (0.955–0.987), dominant across all 3 seeds.
 
 runs:
   - name: uq-elongation-effective-n30x3seeds

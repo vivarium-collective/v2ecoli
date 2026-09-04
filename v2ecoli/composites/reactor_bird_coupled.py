@@ -66,6 +66,7 @@ from v2ecoli.steps.environment_driver import (
 )
 from v2ecoli.steps.environment_mirror import EnvironmentMirror
 from v2ecoli.steps.reactor_cell_coupler import (
+    AMMONIUM_MEDIUM_LEAF,
     GLUCOSE_MEDIUM_LEAF,
     ReactorCellCoupler,
 )
@@ -97,6 +98,25 @@ FALLBACK_DISSOLVED_CO2_MGL = 0.5
 # (vs Beulig reactor_glucose_data.csv). Byproduct leaves seed at 0 (cumulative
 # secreted concentration).
 DEFAULT_INITIAL_GLUCOSE_MM = 22.2
+# Batch ammonium, ~2x the M9 recipe value (which seeds boundary.external at
+# 30.272 mM).
+#
+# ⛔ WHY IT IS NOT THE RECIPE VALUE. At the recipe pool, nitrogen -- not carbon --
+# is the binding constraint at the OD10 working point, with almost no margin:
+#
+#     OD  8.0 -> 2.72 gDW -> 23.3 mM N needed   (77% of a 30.27 mM pool)
+#     OD 10.0 -> 3.40 gDW -> 29.1 mM N needed   (96% of pool)
+#     OD 12.0 -> 4.08 gDW -> 35.0 mM N needed   (EXCEEDS pool)
+#
+# `[m@31Aug]` A 40 mM-glucose batch run exhausted ammonium outright by OD ~12.7,
+# and growth then continued past exhaustion. Sizing N off the recipe leaves an
+# OD10 run on a knife edge where a slightly faster seed hits the wall.
+#
+# ⊕ Raising it also makes the draw-down behaviourally inert in the working range:
+# a finite pool that is never exhausted behaves exactly like the previous
+# effectively-infinite one, so the physical change only bites well beyond the
+# target -- which is where it SHOULD bite.
+DEFAULT_INITIAL_AMMONIUM_MM = 60.0
 # Byproduct medium-concentration leaves seeded on the reactor store (mmol/L,
 # ADDITIVE float — only the coupler writes them). Mirrors
 # reactor_cell_coupler.BYPRODUCT_LEAVES.
@@ -148,6 +168,7 @@ def _transport_equilibrium(bird_config: dict[str, Any]) -> tuple[float, float]:
 def _reactor_store(
     bird_config: dict[str, Any],
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+    initial_ammonium_mM: float = DEFAULT_INITIAL_AMMONIUM_MM,
 ) -> dict[str, Any]:
     """Seed the shared reactor store.
 
@@ -162,7 +183,8 @@ def _reactor_store(
     byproducts seed at 0 (accumulate secretion).
     """
     cstar_o2, cstar_co2 = _transport_equilibrium(bird_config)
-    medium = {GLUCOSE_MEDIUM_LEAF: float(initial_glucose_mM)}
+    medium = {GLUCOSE_MEDIUM_LEAF: float(initial_glucose_mM),
+              AMMONIUM_MEDIUM_LEAF: float(initial_ammonium_mM)}
     medium.update({leaf: 0.0 for leaf in MEDIUM_BYPRODUCT_LEAVES})
     return {
         # Additive shared dissolved-gas stores (mg/L) — both transport and the
@@ -181,6 +203,11 @@ def _reactor_store(
         "o2_transport_delta":  {"_type": "overwrite[float]", "_default": 0.0},
         "co2_transport_delta": {"_type": "overwrite[float]", "_default": 0.0},
         "kla_o2":              {"_type": "overwrite[float]", "_default": 0.0},
+        # kla_co2 is emitted by BiRDTransportProcess.outputs() exactly as kla_o2
+        # is, but was never declared or wired here — so the CO2 side of the gas
+        # transfer was UNOBSERVABLE while the O2 side was fully instrumented.
+        # (Transport itself was always correct; only the readout was missing.)
+        "kla_co2":             {"_type": "overwrite[float]", "_default": 0.0},
         "o2_saturation":       {"_type": "overwrite[float]", "_default": 0.0},
         "co2_saturation":      {"_type": "overwrite[float]", "_default": 0.0},
         "gas_holdup":          {"_type": "overwrite[float]", "_default": 0.0},
@@ -196,6 +223,7 @@ def add_reactor_coupling(
     bird_config: dict | None = None,
     cells_per_agent: float = 1.0,
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+    initial_ammonium_mM: float = DEFAULT_INITIAL_AMMONIUM_MM,
     track_medium: bool = True,
 ) -> dict:
     """Layer the BiRD reactor + cell<->reactor coupling onto a cell document.
@@ -267,7 +295,8 @@ def add_reactor_coupling(
         flow_order.extend([ENVIRONMENT_DRIVER_STEP_NAME, ENVIRONMENT_MIRROR_STEP_NAME])
 
     # --- reactor side: shared stores + transport + coupler ----------------
-    state[REACTOR_STORE_NAME] = _reactor_store(bird_cfg, initial_glucose_mM)
+    state[REACTOR_STORE_NAME] = _reactor_store(
+        bird_cfg, initial_glucose_mM, initial_ammonium_mM)
 
     # BiRDTransportHours (local: link registered in build_core) — the
     # seconds->hours time-base adapter over BiRDTransportProcess. Reads the
@@ -293,6 +322,7 @@ def add_reactor_coupling(
             "o2_transport_delta":  [REACTOR_STORE_NAME, "o2_transport_delta"],
             "co2_transport_delta": [REACTOR_STORE_NAME, "co2_transport_delta"],
             "kla_o2":              [REACTOR_STORE_NAME, "kla_o2"],
+            "kla_co2":             [REACTOR_STORE_NAME, "kla_co2"],
             "o2_saturation":       [REACTOR_STORE_NAME, "o2_saturation"],
             "co2_saturation":      [REACTOR_STORE_NAME, "co2_saturation"],
             "gas_holdup":          [REACTOR_STORE_NAME, "gas_holdup"],
@@ -323,6 +353,7 @@ def add_reactor_coupling(
         "dissolved_o2":  "float",
         "dissolved_co2": "float",
         GLUCOSE_MEDIUM_LEAF: "float",
+        AMMONIUM_MEDIUM_LEAF: "float",
         "acetate_mM":   "float",
         "lactate_mM":   "float",
         "formate_mM":   "float",
@@ -364,10 +395,38 @@ def add_reactor_coupling(
         # represented population 2x per generation so the coupled reactor sees an
         # ACCUMULATING biomass / O2 demand instead of the single-lineage plateau.
         "population_growth_mode": {"type": "string", "default": "fixed"},
+        # Opt into the #572 substrate-exhaustion growth arrest. Set True for a
+        # batch-to-exhaustion run so the cell arrests once glucose is depleted
+        # instead of building biomass from phantom internal carbon. Default off
+        # -> metabolism unchanged. carbon_source_ids defaults to ["GLC[p]"].
+        "carbon_exhaustion_arrest": {"type": "boolean", "default": False},
+        # Follow a single lineage past divisions (#588). Set True for the
+        # single-lineage coupled batch runs (must match the multigen runner's
+        # single_daughters); adds the in-composite LineageBookkeeper so the
+        # reactor trajectory is chunk-independent. Default False = no-op.
+        "single_daughters": {"type": "boolean", "default": False},
         # Medium glucose recipe seed (mmol/L) for the coupler's drawdown
         # accumulator (#225 req-3 substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
                                "default": DEFAULT_INITIAL_GLUCOSE_MM},
+        # Medium ammonium recipe seed (mmol/L) -- a finite, drawn-down pool
+        # rather than a static concentration.
+        "initial_ammonium_mM": {"type": "number",
+                                "default": DEFAULT_INITIAL_AMMONIUM_MM},
+        # Per-cell biological build kwarg, forwarded through baseline_population
+        # to baseline(). Before this parameter existed there was NO WAY to put a
+        # different process in the metabolism slot on the coupled path at all --
+        # a missing capability, not a silently-wrong build: naming it in a config
+        # raised ValueError from build_generator's override validation.
+        # Empty = none, so the default is byte-identical to before.
+        "injected_processes": {
+            "type": "map",
+            "default": {},
+            "description": "Process-injection spec {fork_repo, add_processes, "
+                           "swap_processes, process_configs, topology, "
+                           "time_step}. ⚠ fork_repo is REQUIRED even when empty (\"\" = native); baseline() indexes it directly. Omit the whole parameter for no injection. Forwarded verbatim to "
+                           "baseline_population -> baseline().",
+        },
     },
 )
 def reactor_bird_coupled(
@@ -378,7 +437,12 @@ def reactor_bird_coupled(
     bird_reactor_config: dict | None = None,
     cells_per_agent: float = 1.0,
     population_growth_mode: str = "fixed",
+    carbon_exhaustion_arrest: bool = False,
+    carbon_source_ids: list | None = None,
+    single_daughters: bool = False,
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
+    initial_ammonium_mM: float = DEFAULT_INITIAL_AMMONIUM_MM,
+    injected_processes: dict | None = None,
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -399,6 +463,10 @@ def reactor_bird_coupled(
         core, seed=seed, cache_dir=cache_dir, cells_per_agent=cells_per_agent,
         reactor_volume_L=float(bird_config.get("volume_L", 1.0)),
         population_growth_mode=population_growth_mode,
+        carbon_exhaustion_arrest=carbon_exhaustion_arrest,
+        carbon_source_ids=carbon_source_ids,
+        single_daughters=single_daughters,
+        injected_processes=injected_processes,
     )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)
@@ -406,4 +474,5 @@ def reactor_bird_coupled(
         document, core,
         bird_config=bird_config, cells_per_agent=cells_per_agent,
         initial_glucose_mM=initial_glucose_mM,
+        initial_ammonium_mM=initial_ammonium_mM,
     )

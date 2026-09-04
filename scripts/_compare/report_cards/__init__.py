@@ -19,6 +19,13 @@ CARD_INPUTS = {
     "observables": "tree[list[map]]", "plot_trajs": "tree[map]",
     "v2_bounds": "list[float]", "config": "tree[map]",
     "v2_dir": "string", "ve_dir": "string",
+    "observable_bulk_ids": "list[string]",
+    # Analysis-time generation window: cards grade only generations >= this.
+    # Declared as a port for the same reason `observable_bulk_ids` is — an
+    # undeclared key reaching a card works only because the assembler calls
+    # `step.update(state)` directly, which is a property of one caller rather
+    # than of the card contract.
+    "generation_lower_bound": "integer",
 }
 CARD_OUTPUTS = {
     "card_html": "overwrite[string]",
@@ -72,4 +79,6 @@ from scripts._compare.report_cards import standard, statistical  # noqa: E402,F4
 from scripts._compare.report_cards import parca, config_diff, config  # noqa: E402,F401
 from scripts._compare.report_cards import trajectory, distribution  # noqa: E402,F401
 from scripts._compare.report_cards import metabolism, composition  # noqa: E402,F401
+from scripts._compare.report_cards import violacein  # noqa: E402,F401
+from scripts._compare.report_cards import bulk_kpi  # noqa: E402,F401
 from scripts._compare.report_cards import summary  # noqa: E402,F401

@@ -182,6 +182,29 @@ inputs:
     local_path: ~/Documents/Proteomics data/Li et al 2014
     used_by: scripts/proteome_compare.py; ParCa translation_efficiencies
     status: provided
+  - bib_key: ecocyc-tfbs-29.1
+    title: EcoCyc v29.1 -- all transcription-factor binding sites (SmartTable export)
+    kind: dataset
+    role: 'The TF -> binding-site -> promoter chain the repo''s own flat files lack. dna_sites.tsv carries
+      5046 site coordinates with NO TF attribution, and fold_changes.tsv carries TF -> target cistron
+      with no positions, so nothing in the repo could say WHICH promoter a TF acts on. This export settled
+      the investigation''s central question: LexA''s only site at the rpsU-dnaG-rpoD locus is at rpsUp3
+      (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the getter_functions dedup DISCARDS -- while
+      the model applies LexA''s repression to the surviving TU00352, whose TSS is 88 bp upstream and which
+      has no LexA site.'
+    local_path: references/all-transcription-factor-binding-sites.txt
+    vendored: true
+    sha256_prefix: fad5b4709a146e49
+    n_sites: 4356
+    columns: Site, Left, Right, Strand, Transcription-Units, Common-Name
+    used_by: tu-dedup-promoter-collapse (Phase A); the promoter-specific-regulation decision
+    provided_by: user (EcoCyc subscription, SmartTable export, 2026-09-04)
+    status: provided
+    caveats: Gives site coordinates and the OPERON each is attributed to, but NOT per-TU regulation. The
+      rpsUp3-to-TU00435 identification therefore rests on matching the site name's stated '4.5 bases downstream'
+      offset against TU00435's start coordinate -- agreement is 0.5 bp, but it is an inference from a
+      name string rather than a declared mapping. Many rows have empty Left/Right coordinates, so positional
+      analysis covers only the subset that carries them.
   notes: 'Proteomics datasets live outside the repo in the user''s local archive; paths are
 
     recorded rather than the data vendored. scripts/proteome_compare.py in the sibling
@@ -193,7 +216,12 @@ inputs:
 
     others read 53-98, so a single-dataset comparison inverts the conclusion.
 
-    '
+
+    The EcoCyc TF binding-site export IS vendored into the repo (unlike the proteomics datasets, which
+    are referenced by path), because it is small and because the investigation''s conclusions now rest
+    on specific coordinates in it. A Pathway Tools licence request is outstanding; regulation.dat from
+    the flat-file distribution would state TF -> promoter mapping directly and remove the name-string
+    inference this export requires.'
 decisions_needed:
 - question: Recompute every transcription-deficit figure against dnaG's own allocation class.
   why: inforce_reference's comparison group is the top-300 mRNAs with fixed-allocation classes REMOVED,

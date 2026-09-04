@@ -80,8 +80,12 @@ executive:
     BOTH a respiring optimum (yield 0.395) and a non-respiring one (yield 0.819, reverse
     pinned at the cap, forward ATP synthase 0). The in-band yield is therefore solve-path
     dependent: the DIAGNOSIS (reverse ATP synthase) is solid and stands, but the reverse-cap
-    FIX is reclassified from fixable-and-landed to NOT-YET-ROBUST — it must FORCE forward
-    respiration, not merely bound the reverse. Arc 3 (heterogeneity) is the arc whose fix
+    FIX is reclassified from fixable-and-landed to NOT robust. Reformulating it to FORCE
+    forward respiration (mcs-11) then localized the defect precisely: no ATP-synthase flux
+    bound can simultaneously force respiration, hit the measured yield, and preserve growth
+    (an in-band yield requires growth ~1.48/h vs the physiological ~0.97), so the defect is
+    STOICHIOMETRIC — the effective P/O ratio is mis-set, and the principled correction is a
+    reaction-stoichiometry change, not a flux bound. Arc 3 (heterogeneity) is the arc whose fix
     DID land: mcs-06 localizes the under-dispersion (~7% vs the biological 10-30%) to a
     bypassed division-noise term, and a stochastic D-period lifts the ensemble CV to 0.115
     (into the band) with the mean generation time approximately preserved; mcs-10 confirms
@@ -110,8 +114,8 @@ executive:
     non-reproducibility).
   verdict_status: passing-with-caveats
   decisions_needed:
-    - question: "The reverse-ATP-synthase cap does not robustly restore respiration (mcs-11: yield 0.395 vs 0.819 at the same cap). Should the ETC fix be reformulated to FORCE forward ATP synthase (lower-bound the forward direction, or add an ATP-maintenance-linked respiratory demand) rather than only bounding the reverse?"
-      context: "The DIAGNOSIS (ATP synthase runs in reverse) is solid, but capping the reverse direction admits a non-respiring FBA optimum. A robust fix needs to make forward respiration the only feasible way to meet ATP demand. This is the top open item on the Arc 2 thread."
+    - question: "The Arc-2 defect is now localized as STOICHIOMETRIC (mcs-11 reformulation): no ATP-synthase flux bound can force respiration, reproduce the measured yield, and preserve growth at once. Should the correction adjust the oxidative-phosphorylation stoichiometry (ATP-synthase H+/ATP ratio or ETC proton-pumping) toward the genome-scale iAF1260 value?"
+      context: "Reformulating to force forward respiration was ATTEMPTED and resolved the question of WHAT kind of fix is needed: forcing net-forward respiration is robust but yields 0.268 (below band); reaching the band requires distorting growth to 1.48/h. So the effective P/O ratio is mis-set — a reaction-stoichiometry change, not a flux bound. This is the precisely-localized top open item on the Arc 2 thread."
     - question: "Is raising interdivision-time CV into the biological band a fidelity goal, and if so is stochastic D-period timing (mcs-06) the right lever versus low-copy expression noise?"
       context: "Arc 3 shows CV ~7% vs 10-30%; mcs-06 localizes the missing noise to a bypassed division term and lands a D-period fix, but the choice of noise source is a modeling decision worth confirming."
 

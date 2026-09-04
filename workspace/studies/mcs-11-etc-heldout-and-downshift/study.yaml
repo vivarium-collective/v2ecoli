@@ -130,7 +130,7 @@ runs:
       result: SKIP
 
 claim: >-
-  The held-out check did its job — and FALSIFIED the fix as characterized. With the committed ETC fix on, acetate secretion stayed at 0 and RQ at ~2.85 (no overflow, no respiration): the held-out observable the cap was never tuned to REVEALED that the committed default reads as un-fixed physiology (yield ~0.82). A controlled comparison pins the cause: at the same cap (4.5) the explicit solve-wrapping diagnostic lands a respiring optimum (yield 0.395, RQ 1.10) while the committed-default path lands a NON-respiring optimum (reverse pinned at 4.5, forward ATP synthase 0, yield 0.819). The reverse-cap does not UNIQUELY force respiration — the FBA is degenerate at that cap — so mcs-05's in-band yield is solve-path dependent, not robust. This is the meta-finding in action: the loop's own held-out control caught an over-claimed fix on re-execution. The temporal downshift is deferred.
+  The held-out check did its job — and FALSIFIED the fix as characterized. With the committed ETC fix on, acetate secretion stayed at 0 and RQ at ~2.85 (no overflow, no respiration): the held-out observable the cap was never tuned to REVEALED that the committed default reads as un-fixed physiology (yield ~0.82). A controlled comparison pins the cause: at the same cap (4.5) the explicit solve-wrapping diagnostic lands a respiring optimum (yield 0.395, RQ 1.10) while the committed-default path lands a NON-respiring optimum (reverse pinned at 4.5, forward ATP synthase 0, yield 0.819). The reverse-cap does not UNIQUELY force respiration — the FBA is degenerate at that cap — so mcs-05's in-band yield is solve-path dependent, not robust. This is the meta-finding in action: the loop's own held-out control caught an over-claimed fix on re-execution. The temporal downshift is deferred.  [REFORMULATION: forcing forward respiration was then attempted systematically. No ATP-synthase flux bound can simultaneously force respiration, hit the measured yield, and preserve growth (in-band yield 0.41 requires growth 1.48/h vs ~0.97). The defect is STOICHIOMETRIC (P/O ratio), not a flux bound — the principled fix is a reaction-stoichiometry change, now precisely localized.]
 
 findings:
 - id: etc-fix-not-robustly-reproducible
@@ -163,6 +163,40 @@ findings:
   caveats:
   - The reverse ATP-synthase diagnosis is unaffected and solid; only the one-parameter cap FIX is falsified as non-robust.
 
+- id: etc-fix-is-stoichiometric-not-flux-bound
+  kind: computational
+  status: confirms
+  statement: 'Following the mcs-11 non-reproducibility, the ETC fix was systematically reformulated to FORCE forward respiration. Three formulations were tested on the real composite: (1) lower-bounding the FORWARD ATP-synthase reaction alone does NOTHING — the reverse flux rises to match it (a futile cycle), so net stays reverse-hydrolysis and yield stays 0.815; (2) forcing net-forward via reverse=0 gives robust respiration (RQ 1.22, O2 up, acetate overflow, 0 infeasible) but yield 0.268, BELOW the band, with ATP synthase bypassed; (3) forcing net-forward THROUGH ATP synthase (forward-min + reverse=0) reaches the band (yield 0.41) ONLY at forward-min=12, where growth blows up to 1.48/h (vs the physiological ~0.97) with non-physiological O2/acetate (O2 ~104). Across the sweep, yield and growth rise together, so an in-band yield REQUIRES growth ~1.5. Conclusion: no ATP-synthase FLUX BOUND simultaneously forces respiration, reproduces the measured yield, and preserves growth. The defect is STOICHIOMETRIC — the effective oxidative-phosphorylation P/O ratio (ATP per O2 / per glucose) is mis-set — and the principled correction is a reaction-stoichiometry change (H+/ATP coupling, ETC proton pumping), NOT a flux bound. This localizes the Arc-2 defect one level deeper than mcs-05 and explains WHY the reverse-cap was degenerate: a flux bound cannot fix a stoichiometric error.'
+  evidence:
+    from_run: mcs11-overflow-onset-heldout
+    forward_only: no effect (futile cycle), yield 0.815
+    reverse0:
+      yield: 0.268
+      RQ: 1.22
+      growth: 0.972
+      atpsyn_forward: 0.0
+    netforward_through_atpsyn:
+    - fmin: 4
+      yield: 0.268
+      growth: 0.972
+    - fmin: 8
+      yield: 0.327
+      growth: 1.182
+    - fmin: 12
+      yield: 0.41
+      growth: 1.476
+    band:
+    - 0.355
+    - 0.444
+    physiological_growth: 0.97
+    artifact: analysis/etc_reformulation_result.json
+  expected:
+    summary: A robust fix should force respiration AND reproduce the measured yield AND preserve growth simultaneously — no flux bound does all three, indicating a stoichiometric root cause.
+  next_action: Correct the oxidative-phosphorylation stoichiometry (ATP-synthase H+/ATP ratio or ETC proton-pumping coefficients) toward the genome-scale (Feist iAF1260) value, then re-validate yield/RQ/growth together.
+  next_action_type: escalate_model
+  provenance:
+    run_ids:
+    - mcs11-overflow-onset-heldout
 biological_summary: >-
   The mcs-05 ETC fix centres biomass yield in-band, but the cap was calibrated to that band, so
   a skeptic can call it a fitted knob. This study checks the fix against acetate-overflow ONSET

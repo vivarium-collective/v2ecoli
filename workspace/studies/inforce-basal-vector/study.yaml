@@ -1,0 +1,379 @@
+schema_version: 4
+name: inforce-basal-vector
+title: What probability is dnaG actually assigned?
+investigation: transcription-rewiring
+study_type: mechanism_localisation
+phase: Design
+created: '2026-09-04'
+status: planned
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+question: 'Four candidate mechanisms for dnaG''s 1e+05-fold transcription collapse have now been eliminated:
+  promoter availability, the ppGpp concentration channel, the footprint cap and the class rescaling. What
+  remains is a flat contradiction. The ppGpp basal probability assigned to dnaG, RECONSTRUCTED offline,
+  is ~3e-05 and rising; the measured target_rna_synth_prob is ~1.35e-11. No surviving step accounts for
+  the 4e+06 gap. Is the reconstruction wrong, or is a step missing from our account of the pipeline?'
+parent_studies:
+- study: dnag-promoter-availability
+  condition: complete
+  relation: leads-to
+- study: dnag-generational-decay
+  condition: complete
+  relation: refines
+- study: probability-in-force-reference
+  condition: tests-passed
+  relation: supports
+units_and_time:
+  tick: 1 s of simulated time; generations delimited by division events.
+  quantities:
+    basal_prob: dimensionless per-TU probability (the in-force ppGpp-adjusted vector)
+    target_rna_synth_prob: dimensionless per-TU probability, pre-footprint-cap
+    promoter_copy_number: count of promoter records per TU (dimensionless integer)
+    ppgpp_conc: uM
+behavior_tests:
+- name: ppgpp-basal-is-emitted
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the in-force ppGpp basal vector actually observable?
+  description: 'ppgpp_state.basal_prob is emitted as a full-length (3277) array on at least 99% of timesteps.
+
+
+    The gate on req-1, and a TEST rather than a mere requirement for the same reason it was in dnag-promoter-availability:
+    every axis below reads this vector, and an absent or truncated array would be silently indistinguishable
+    from the collapse being measured. Checked FIRST.
+
+
+    Threshold provenance: definitional. The array carries the TU dimension or the observable does not
+    exist.'
+  measure:
+    kind: derived
+    path: fraction of timesteps where the emitted ppGpp ppgpp_state basal_prob array carrying dnaG has
+      length n_TU
+    detail: fraction of emitted timesteps with a full-length in-force basal vector, generations 1-4.
+  pass_if:
+    low: 0.99
+    high: 1.0
+    provenance:
+      kind: theory
+      note: A fraction bounded above by 1.0 by construction, so this interval and '>= 0.99' state the
+        same thing.
+  status: pending
+- name: runtime-basal-matches-reconstruction
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Was dnag-generational-decay's reconstruction of the in-force vector sound?
+  description: 'The EMITTED runtime ppgpp_state.basal_prob[dnaG] agrees within 1.5x with the value reconstructed
+    offline as synth_prob(measured mean ppgpp_conc, copy_number)[dnaG].
+
+
+    This study''s most important axis, because it audits a load-bearing number this investigation already
+    published. dnag-generational-decay concluded that dnaG''s assigned probability RISES 14% while its
+    output collapses -- the finding that localised the defect downstream -- but that number was RECONSTRUCTED
+    by re-evaluating a fitted function at a per-generation MEAN concentration, never measured in force.
+    This investigation has already been burned once by exactly that substitution: probability-in-force-reference
+    had to correct a deficit from ~52x to ~5.4x because an earlier study divided by a vector the model
+    does not use.
+
+    A PASS vindicates the reconstruction and the defect stays downstream. A FAIL means dnaG''s assigned
+    probability does NOT rise, dnag-generational-decay''s central finding needs correcting, and the collapse
+    is in the ppGpp vector after all.
+
+
+    Threshold provenance: theory. 1.5x is inside the standing 2x agreement band; a mean-vs-in-force discrepancy
+    smaller than that would not change any conclusion.'
+  measure:
+    kind: derived
+    path: emitted ppgpp_state basal_prob[dnaG TU00352] divided by the offline synth_prob reconstruction,
+      per generation, median
+    detail: ratio of emitted to reconstructed in-force basal for dnaG, median over seeds and generations
+      1-4.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: 'Two-sided: the reconstruction can fail by over- or under-stating the in-force value, and
+        only a symmetric band detects both.'
+  status: pending
+- name: runtime-basal-holds-steady
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the probability the model actually assigns dnaG hold up across generations?
+  description: 'The emitted runtime basal_prob[dnaG] at the last generation is within 1.5x of its generation-1
+    value.
+
+
+    The direct form of the question dnag-generational-decay answered by reconstruction. A PASS reproduces
+    that study''s claim on measured data and keeps the defect downstream of the vector. A FAIL localises
+    the collapse INSIDE the ppGpp vector and overturns it.
+
+
+    Threshold provenance: theory. Mirrors the band used for the reconstruction axis so the two read on
+    one scale.'
+  measure:
+    kind: derived
+    path: emitted ppgpp_state basal_prob[dnaG TU00352], last generation over generation 1
+    detail: runtime in-force basal for dnaG, last generation divided by generation 1, median over seeds.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Two-sided so a RISE as large as the fall is equally flagged; a vector that doubled would be
+        as informative as one that halved.
+  status: pending
+- name: the-pipeline-is-accounted-for
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Do the measured inputs explain the measured output?
+  description: 'dnaG''s measured target_rna_synth_prob agrees within 1.5x with (its promoter count) x
+    (its emitted runtime basal), the product the code computes when no other term is active.
+
+
+    The closing arithmetic, and the axis that catches an unknown mechanism. In the ppGpp branch, promoter_init_probs
+    = basal + ppgpp_scale*(delta.boundTF); the class rescaling is skipped entirely (it sits inside `if
+    not has_ppgpp`), the footprint cap is a no-op for dnaG (actual/target = 1.00 measured), and the TF
+    term is ~3.6e-09 against a basal of ~3e-05. So target SHOULD equal promoters x basal to within a normalisation.
+    If it does not, a step nobody has identified is consuming five orders of magnitude, and this axis
+    is what forces that admission instead of letting the discrepancy hide between two studies.
+
+
+    Threshold provenance: theory. 1.5x for an identity that should hold exactly up to normalisation.'
+  measure:
+    kind: derived
+    path: measured target_rna_synth_prob[dnaG TU00352] over (promoter_copy_number[dnaG TU00352] x emitted
+      runtime basal[dnaG TU00352])
+    detail: ratio of measured target to the product of measured promoter count and measured in-force basal,
+      per generation.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: 'Two-sided: an accounting identity can fail in either direction and both indicate a missing
+        term.'
+  status: pending
+- name: peers-basal-behaves
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is whatever happens to dnaG's assigned probability specific to dnaG?
+  description: 'The 41 idx_rprotein peers'' median emitted basal_prob changes by less than 1.5x across
+    the same generations.
+
+
+    The discriminating control. The peers'' transcription RISES while dnaG''s collapses, so if their assigned
+    probability moves as much as dnaG''s, the vector is not what separates them and every dnaG-specific
+    reading of it is misdirected.
+
+
+    Threshold provenance: theory. Two-sided, mirroring the control in dnag-generational-decay -- whose
+    one-sided form was a real defect caught at audit.'
+  measure:
+    kind: derived
+    path: idx_rprotein peer median emitted ppGpp basal_prob, the comparison group for dnaG, last generation
+      over generation 1
+    detail: median in-force basal across the 41 peers, last generation over generation 1.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Two-sided so the control cannot be satisfied by the peers collapsing alongside dnaG.
+  status: pending
+  control: negative
+- name: dnag-target-at-generation-1
+  classification: supporting
+  gate_class: regression_pin
+  question: Does the generation-1 baseline still match what study 12 measured?
+  description: 'dnaG''s generation-1 target_rna_synth_prob stays within a factor of 4 of the 2.68e-06
+    median study 12 recorded.
+
+
+    POST-HOC: measured in dnag-promoter-availability. A pin so baseline drift is caught before it is read
+    as a change in the collapse. The factor of 4 reflects the genuine 10x seed spread that study found
+    at generation 1 once the seeds became independent.'
+  measure:
+    kind: derived
+    path: median dnaG target_rna_synth_prob at generation 1
+    detail: median over seeds of dnaG's generation-1 target synthesis probability.
+  pass_if:
+    op: <=
+    value: 1.07e-05
+    provenance:
+      kind: post_hoc
+      note: 4x the 2.68e-06 median measured in dnag-promoter-availability; pin only, not a gate on correctness.
+  status: pending
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-04T00:40:00Z'
+  date: '2026-09-04'
+  thresholds:
+    ppgpp-basal-is-emitted:
+      low: 0.99
+      high: 1.0
+      provenance:
+        kind: theory
+        note: A fraction bounded above by 1.0 by construction, so this interval and '>= 0.99' state the
+          same thing.
+    runtime-basal-matches-reconstruction:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: 'Two-sided: the reconstruction can fail by over- or under-stating the in-force value, and
+          only a symmetric band detects both.'
+    runtime-basal-holds-steady:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Two-sided so a RISE as large as the fall is equally flagged; a vector that doubled would
+          be as informative as one that halved.
+    the-pipeline-is-accounted-for:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: 'Two-sided: an accounting identity can fail in either direction and both indicate a missing
+          term.'
+    peers-basal-behaves:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Two-sided so the control cannot be satisfied by the peers collapsing alongside dnaG.
+    dnag-target-at-generation-1:
+      op: <=
+      value: 1.07e-05
+      provenance:
+        kind: post_hoc
+        note: 4x the 2.68e-06 median measured in dnag-promoter-availability; pin only, not a gate on correctness.
+  criteria:
+  - test: ppgpp-basal-is-emitted
+    prior: Is the in-force ppGpp basal vector actually observable?
+  - test: runtime-basal-matches-reconstruction
+    prior: Was dnag-generational-decay's reconstruction of the in-force vector sound?
+  - test: runtime-basal-holds-steady
+    prior: Does the probability the model actually assigns dnaG hold up across generations?
+  - test: the-pipeline-is-accounted-for
+    prior: Do the measured inputs explain the measured output?
+  - test: peers-basal-behaves
+    prior: Is whatever happens to dnaG's assigned probability specific to dnaG?
+implementation_requirements:
+- id: req-1
+  status: not_started
+  blocking: true
+  summary: Emit the in-force ppGpp basal vector from the ppgpp-initiation step.
+  detail: 'ppgpp_state.basal_prob is computed every tick and written to a store that is NOT emitted; the
+    only ppGpp-related column in any parquet is listeners__growth_limits__ppgpp_conc. A previous attempt
+    to add it by editing composites/_helpers.py raised StaleCacheError, because _helpers.py IS in cache_version.INPUT_FILES
+    and editing it invalidates the fingerprint every study in this investigation shares.
+
+    The route that avoids this: v2ecoli/steps/ppgpp_initiation.py is NOT cache-hashed, and it ALREADY
+    declares a `listeners` port in its topology (it reads listeners.mass.cell_mass). Add basal_prob as
+    an output under that existing port. Verify the cache fingerprint is unchanged before running anything,
+    and confirm bit-identical trajectories at fixed seed, exactly as the rna_synth_prob deriver repair
+    was verified -- this must be observational or it invalidates comparison with studies 10-12.'
+- id: req-2
+  status: not_started
+  blocking: false
+  summary: Extend generational_decay.py with the in-force basal and target arrays.
+  detail: Add the emitted basal_prob and target_rna_synth_prob to the per-generation record so all six
+    axes read one aggregation, as in the previous two studies.
+alternative_hypotheses:
+- name: H1 the reconstruction was wrong
+  discriminator: runtime-basal-matches-reconstruction
+  statement: The in-force basal does NOT rise; dnag-generational-decay's central finding is an artefact
+    of re-evaluating a fitted function at a per-generation MEAN concentration rather than reading the
+    vector the model used. The collapse is inside the ppGpp vector after all. Predicts the reconstruction
+    axis FAILS and runtime-basal-holds-steady FAILS. This investigation has made this exact substitution
+    before -- probability-in-force-reference corrected a deficit from ~52x to ~5.4x for it.
+- name: H2 a missing pipeline step
+  discriminator: the-pipeline-is-accounted-for
+  statement: The in-force basal is as reconstructed (~3e-05, rising) and something between promoter_init_probs
+    and target_rna_synth_prob consumes five orders of magnitude -- a step absent from our account of the
+    code. Predicts the reconstruction and steady axes PASS while the accounting axis FAILS, which would
+    send the next study to instrument _synthesis_probabilities line by line.
+- name: H3 both measurements are right and the account is complete
+  discriminator: the-pipeline-is-accounted-for
+  statement: The arithmetic closes once the in-force vector is measured rather than reconstructed, meaning
+    the 4e+06 gap was an artefact of comparing a reconstructed input against a measured output. Predicts
+    ALL axes pass, which would make this study a correction to how the gap was framed rather than a discovery.
+falsifiability: 'The three hypotheses are separated by two independent axes, and the study is designed
+  to be able to overturn a published finding of this investigation rather than defend it: if runtime-basal-matches-reconstruction
+  fails, dnag-generational-decay''s central claim is wrong and this study says so. The accounting axis
+  is what prevents the comfortable outcome where both inputs look fine and the discrepancy is quietly
+  left between two studies.'
+assumptions:
+- assumption: The emitted vector is the one TranscriptInitiation consumes.
+  basis: ppgpp_initiation writes ppgpp_state.basal_prob and transcript_initiation reads states['ppgpp_state']['basal_prob']
+    into its local basal_prob when has_ppgpp is true. Emitting at the point of writing captures exactly
+    the array the consumer sees, which is the whole purpose of measuring rather than reconstructing.
+  risk: low
+- assumption: Adding an output to an existing port does not perturb dynamics.
+  basis: The rna_synth_prob deriver repair was verified bit-identical at fixed seed across the full 3277-TU
+    array, so this class of change is observational. req-1 nonetheless requires that verification to be
+    REPEATED for this edit rather than assumed from the precedent.
+  risk: medium
+simulation_set:
+- name: ppgpp-on-mechanistic
+  kind: single
+  is_baseline: true
+  status: planned
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+  note: Identical to dnag-promoter-availability's arm so generations are directly comparable.
+planned_runs:
+- name: inforce-basal-trajectory
+  status: planned
+  n_steps: 4
+  details: '4 seeds x 5 generations, mechanistic gate ON, AFTER req-1 lands. New runs are unavoidable:
+    ppgpp_state.basal_prob has never been emitted, so there is no reuse path. 4 seeds rather than 6 because
+    every axis is a within-lineage comparison of two simultaneously-measured arrays, not a cross-seed
+    contrast; dnag-promoter-availability''s 6 seeds showed the collapse is universal, so replication here
+    guards against a seed-specific measurement artefact rather than establishing the phenomenon. ~30 min
+    each; ~1 h at 2 concurrent, or ~2 h at 1 if another worktree holds a slot -- check ps first.'
+robustness:
+  n_replicates: 4
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  parameter_sweep: false
+  note: 4 seeds, genuinely independent since the generation-1 seed fix. Sufficient because the discriminators
+    compare two arrays measured in the SAME cell at the same tick, where seed variance is not the dominant
+    uncertainty.
+controls:
+- name: peers-basal-behaves
+  kind: negative
+  hypothesis: If the peers' assigned probability moves like dnaG's, the vector is not what separates them.
+  expected: peer median in-force basal changes by less than 1.5x.
+  observed: ''
+  result: PENDING
+- name: ppgpp-basal-is-emitted
+  kind: positive
+  hypothesis: An absent or truncated array is indistinguishable from the collapse being measured.
+  expected: full-length on >= 99% of timesteps.
+  observed: ''
+  result: PENDING
+limitations:
+- All lineages stall by generation 4-5, so the trajectory is 4-5 points and every quantity is read from
+  a cell already failing.
+- If the accounting axis fails, this study localises a missing step but does not identify it; instrumenting
+  _synthesis_probabilities line by line is a separate piece of work.
+- The emitted vector is captured at the ppgpp-initiation step's write. If any process mutated ppgpp_state
+  between that write and TranscriptInitiation's read, the emitted value would not be what the consumer
+  saw -- no such writer is known, and none appears in the topology, but this study does not prove the
+  absence of one.
+- req-1 edits a process file. It is expected to be observational and req-1 requires bit-identical verification,
+  but a failure of that check would block the study rather than merely caveat it.
+claim: ''
+conclusion: ''
+confidence: Planned

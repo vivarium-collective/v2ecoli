@@ -220,22 +220,30 @@ preregistered:
     prior: Is any part of the activator over-shoot a constraint artefact after all?
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: Extract pPromoterBound['basal'] per TF and pair it with measured runtime occupancy.
-  detail: pPromoterBound recovers from models/parca/parca_state.pkl.gz (23 TFs; median basal 0.444, LexA
-    0.5192). Runtime occupancy comes from bound_TF_coordinates in dnag-promoter-availability's sweep,
-    matched to each TU's replication_coordinate. Only TFs whose sites are observable that way can be paired
-    -- the count of unpairable TFs must be reported, not silently dropped.
+  detail: 'pPromoterBound recovers from models/parca/parca_state.pkl.gz (23 TFs; median basal 0.444, LexA
+    0.5192). Runtime occupancy comes from bound_TF_coordinates in dnag-promoter-availability''s sweep,
+    matched to each TU''s replication_coordinate. Only TFs whose sites are observable that way can be
+    paired -- the count of unpairable TFs must be reported, not silently dropped.
+
+
+    RESOLVED: pPromoterBound recovers from parca_state.pkl.gz with a ''<TF>__active'' / ''<TF>__inactive''
+    pair per TF (LexA 0.0 -> 0.6615; CPLX-125 0.500 -> 0.945; basal LexA 0.5192).'
 - id: req-2
-  status: not_started
+  status: complete
   blocking: true
   summary: State the occupancy-corrected expected value BEFORE computing it.
   detail: 'The correction to be graded: if alpha already embodies pPromoterBound worth of TF effect, then
     the quantity comparable to 2**log2FC is not 1 + delta/alpha but the ratio between the fully-bound
     and basal-occupancy states. Writing the formula into the record before evaluating it, exactly as deltav-conversion-diagnosis''s
     req-2 required, because that discipline is what let its failed prediction stand as a refutation rather
-    than be quietly narrowed.'
+    than be quietly narrowed.
+
+
+    SATISFIED: the correction formula and its four predictions are in the candidate_correction block above,
+    recorded before any corrected value was computed.'
 alternative_hypotheses:
 - name: H1 occupancy calibration offset
   discriminator: occupancy-correction-explains-the-overshoot
@@ -292,3 +300,30 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+candidate_correction:
+  recorded_at: '2026-09-04T13:00:00Z'
+  recorded_before_measuring: true
+  statement: 'The fold change is measured across the TF''s ACTIVE-vs-INACTIVE occupancy swing, not a 0->1
+    swing, so 1 + delta/alpha is not the quantity 2**log2FC describes.
+
+    pPromoterBound stores an occupancy per TF per condition, including a ''<TF>__active'' and ''<TF>__inactive''
+    pair. LexA runs 0.0 -> 0.6615; CPLX-125 runs 0.500 -> 0.945. The fit therefore chooses delta so that
+    the expression ratio ACROSS THAT SWING matches the measurement, whereas foldchange-to-delta-fidelity
+    compared the FULL-swing ratio 1 + delta/alpha against it. A partial swing means the full-swing effect
+    is more extreme than the measured fold change, which inflates activators above 1 and drives repressors
+    further below it -- the observed bidirectional signature.'
+  formula: "With r = delta/alpha, p_a = pPromoterBound[TF__active][TF] and p_i = pPromoterBound[TF__inactive][TF],\
+    \ the fit's own predicted fold change is\n    FC_pred = (1 + r * p_a) / (1 + r * p_i)\nand the corrected\
+    \ fidelity ratio to be graded is FC_pred / 2**log2FC, replacing the uncorrected (1 + r) / 2**log2FC.\
+    \ Entries whose TF swings a full 0->1 are unchanged by this correction (p_a=1, p_i=0 gives FC_pred\
+    \ = 1 + r), which is a useful internal check."
+  predictions:
+  - Activators move from a median ratio of 4.7727 toward 1, because their full-swing over-statement is
+    removed.
+  - 'FREE repressors, already at 0.9959, should barely move: their TFs'' swings must be near-complete
+    or the uncorrected comparison would not already have been faithful. If they move a lot, the correction
+    is wrong.'
+  - Boundary repressors stay at ~0 regardless -- they are pinned by the constraint, not by the swing,
+    so this correction cannot and should not rescue them.
+  - TFs with p_a=1 and p_i=0 show no change at all; that subgroup is the internal control on the arithmetic.
+  note: Recorded per req-2 BEFORE computing any corrected value.

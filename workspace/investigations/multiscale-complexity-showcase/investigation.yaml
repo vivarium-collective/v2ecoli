@@ -81,11 +81,15 @@ executive:
     pinned at the cap, forward ATP synthase 0). The in-band yield is therefore solve-path
     dependent: the DIAGNOSIS (reverse ATP synthase) is solid and stands, but the reverse-cap
     FIX is reclassified from fixable-and-landed to NOT robust. Reformulating it to FORCE
-    forward respiration (mcs-11) then localized the defect precisely: no ATP-synthase flux
-    bound can simultaneously force respiration, hit the measured yield, and preserve growth
-    (an in-band yield requires growth ~1.48/h vs the physiological ~0.97), so the defect is
-    STOICHIOMETRIC — the effective P/O ratio is mis-set, and the principled correction is a
-    reaction-stoichiometry change, not a flux bound. Arc 3 (heterogeneity) is the arc whose fix
+    forward respiration (mcs-11) then ROOT-CAUSED it: no flux bound works, the ATP-synthase
+    H+/ATP ratio has no effect (ruling out the P/O stoichiometry), and a per-reaction proton
+    audit finds the culprit — a succinate/proton FUTILE CYCLE (and others the FBA reroutes to)
+    that generates proton-motive force for FREE, driving ATP synthesis without respiration.
+    The defect is a known genome-scale-FBA artifact: the LP lacks thermodynamic loop-law
+    constraints, so internal free-energy-generating cycles are feasible. The correction is
+    LOOPLESS / thermodynamic FBA — a solver-level change, not a parameter or flux bound. This
+    is the disciplined loop at its best: a plausible fix refuted, then traced to a precise,
+    actionable root cause. Arc 3 (heterogeneity) is the arc whose fix
     DID land: mcs-06 localizes the under-dispersion (~7% vs the biological 10-30%) to a
     bypassed division-noise term, and a stochastic D-period lifts the ensemble CV to 0.115
     (into the band) with the mean generation time approximately preserved; mcs-10 confirms
@@ -114,8 +118,8 @@ executive:
     non-reproducibility).
   verdict_status: passing-with-caveats
   decisions_needed:
-    - question: "The Arc-2 defect is now localized as STOICHIOMETRIC (mcs-11 reformulation): no ATP-synthase flux bound can force respiration, reproduce the measured yield, and preserve growth at once. Should the correction adjust the oxidative-phosphorylation stoichiometry (ATP-synthase H+/ATP ratio or ETC proton-pumping) toward the genome-scale iAF1260 value?"
-      context: "Reformulating to force forward respiration was ATTEMPTED and resolved the question of WHAT kind of fix is needed: forcing net-forward respiration is robust but yields 0.268 (below band); reaching the band requires distorting growth to 1.48/h. So the effective P/O ratio is mis-set — a reaction-stoichiometry change, not a flux bound. This is the precisely-localized top open item on the Arc 2 thread."
+    - question: "The Arc-2 defect is now ROOT-CAUSED (mcs-11) to thermodynamically-infeasible proton futile cycles — the FBA lacks loop-law constraints, so a succinate/proton cycle (and others) generate proton-motive force for free, driving ATP synthesis without respiration. Should the metabolism FBA adopt LOOPLESS / thermodynamic constraints (or curate out the infeasible proton-coupled transport cycles)?"
+      context: "The correction was attempted end-to-end: forcing forward respiration (no flux bound works), then the ATP-synthase H+/ATP ratio (no effect — rules out the P/O stoichiometry), then blocking the proton source (the FBA reroutes to another free-proton pump). The defect is a known genome-scale-FBA artifact (free-energy-generating internal loops), fixable only at the solver level (loopless FBA), not by any parameter. This is the precisely-localized, actionable top open item on the Arc 2 thread."
     - question: "Is raising interdivision-time CV into the biological band a fidelity goal, and if so is stochastic D-period timing (mcs-06) the right lever versus low-copy expression noise?"
       context: "Arc 3 shows CV ~7% vs 10-30%; mcs-06 localizes the missing noise to a bypassed division term and lands a D-period fix, but the choice of noise source is a modeling decision worth confirming."
 

@@ -1,7 +1,7 @@
 schema_version: 4
 name: mcs-11-etc-heldout-and-downshift
 investigation: multiscale-complexity-showcase
-title: "Held-out ETC-fix check + the real temporal downshift"
+title: "ETC fix: held-out check + root-cause trace to thermodynamic FBA loops"
 created: '2026-09-04'
 status: evaluated
 confidence: Accepted
@@ -197,6 +197,31 @@ findings:
   provenance:
     run_ids:
     - mcs11-overflow-onset-heldout
+- id: root-cause-is-thermodynamic-futile-proton-cycles
+  kind: computational
+  status: confirms
+  statement: 'Tracing the ATP-supply defect to its root: the model synthesizes ATP via ATP synthase (flux ~7.5) while consuming almost no O2 (~0.9), so the proton-motive force is NOT respiratory. A per-reaction proton-balance audit finds the source — a succinate/proton FUTILE CYCLE: TRANS-RXN-300 exports succinate with 3 H+ (SUC[c]+3H+[c]->SUC[p]+3H+[p]) and TRANS-RXN0-517 re-imports it with 2 H+ (SUC[p]+2H+[p]->SUC[c]+2H+[c]); run together (~18 flux each) succinate is unchanged but 1 net H+ is pumped cytoplasm->periplasm per turn — proton-motive force generated for FREE, thermodynamically impossible. That free PMF drives ATP synthase, so the cell makes ATP without respiring (yield 0.82, RQ 2.94, no acetate overflow). Two controls prove this is the mechanism and that it is SYSTEMIC: (1) changing the ATP-synthase H+/ATP ratio (4->3->6) has NO effect on yield or O2 (rules out the P/O ratio); (2) blocking TRANS-RXN-300 does NOT fix it (yield stays 0.817) — the FBA reroutes to another free-proton pump (TRANS-RXN0-601 (reverse), a direct H+/H+ translocator, ~22 H+). The defect is a KNOWN class of genome-scale-FBA artifact: the LP has no thermodynamic loop-law constraints, so internal free-energy-generating proton cycles are feasible. The principled correction is LOOPLESS / THERMODYNAMIC FBA (loop-law constraints forbidding free-energy-generating internal cycles) — a solver-level change, not a parameter, stoichiometry, or single-reaction flux bound.'
+  evidence:
+    from_run: mcs11-overflow-onset-heldout
+    futile_cycle:
+    - 'TRANS-RXN-300: SUC[c]+3H+[c]->SUC[p]+3H+[p] (flux ~18)'
+    - 'TRANS-RXN0-517: SUC[p]+2H+[p]->SUC[c]+2H+[c] (flux ~18)'
+    - 'net: +1 H+ pumped per turn, free PMF'
+    hplusper_sweep_no_effect:
+      h4: 0.817
+      h3: 0.816
+      h6: 0.817
+    block_trans300_no_effect:
+      yield: 0.817
+      reroute_to: TRANS-RXN0-601 (reverse), ~22 H+
+    artifact: analysis/etc_root_cause.json
+  expected:
+    summary: A thermodynamically-consistent FBA (loopless) cannot generate proton-motive force from an internal cycle, forcing the cell to respire (O2-coupled) to make ATP.
+  next_action: Apply loopless-FBA / thermodynamic loop-law constraints to the metabolism FBA (or curate out the infeasible proton-coupled transport cycles), then re-validate yield/RQ/growth/acetate together.
+  next_action_type: escalate_model
+  provenance:
+    run_ids:
+    - mcs11-overflow-onset-heldout
 biological_summary: >-
   The mcs-05 ETC fix centres biomass yield in-band, but the cap was calibrated to that band, so
   a skeptic can call it a fitted knob. This study checks the fix against acetate-overflow ONSET
@@ -224,3 +249,7 @@ conclusion: >-
   ## Result
 
   The held-out check FALSIFIED the mcs-05 fix as characterized: with the committed reverse-cap on, respiration is absent (acetate 0, yield 0.82). The reverse-cap admits a non-respiring FBA optimum, so the in-band yield (0.395) is solve-path dependent, not robust — the same cap gives 0.395 or 0.82. The ATP-synthase-reversal diagnosis stands; the one-parameter fix must be reformulated to force forward respiration. The temporal downshift is deferred. This is the loop catching its own over-claim.
+
+  ## Root cause (this pass)
+
+  The correction was attempted: forcing forward respiration, then a P/O (H+/ATP) stoichiometry change, then blocking the proton source. None works as a parameter/flux fix. The defect is a THERMODYNAMICALLY-INFEASIBLE proton futile cycle (succinate/proton, and others the FBA reroutes to) that generates proton-motive force for free — a missing FBA loop-law constraint. The principled fix is loopless / thermodynamic FBA, a solver-level change. The defect is now root-caused and precisely actionable, not a fitted knob.

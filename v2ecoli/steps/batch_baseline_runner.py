@@ -558,6 +558,49 @@ class BatchBaselineRunner(Step):
         else:
             self.parallel = p or None
 
+    def inner_composite(self):
+        """The single-generation cell ``Composite`` this batch runs per generation.
+
+        The ``inner_composite()`` convention (mirrors ``EcoliWCM``) marks this Step
+        as a "Composite Process", so tooling (the workbench loom Explorer) can
+        drill from the batch node into the actual per-generation cell model —
+        with this batch's injected processes (permeability, gillespie, …) as
+        visible nodes, which the batch orchestrator itself never exposes.
+
+        Built at ``n_seeds=1``/``n_generations=1`` (the one-cell build, not the
+        batch orchestration) from THIS runner's own per-cell config, so the drill
+        shows the same wiring each generation actually runs. Lazy + cached, and
+        with ``emitter="null"`` (the wiring is read from ``.state`` directly, never
+        a history) so browsing the model pays no emitter cost.
+        """
+        if getattr(self, "_inner_cell_composite", None) is None:
+            from process_bigraph import Composite
+
+            from v2ecoli.composites.ecoli_baseline import baseline
+            from v2ecoli.core import build_core
+            import v2ecoli.types  # noqa: F401 — register resolve dispatch
+
+            core = build_core()
+            document = baseline(
+                core=core,
+                seed=self.base_seed,
+                cache_dir=self.cache_dir,
+                media=self.media,
+                features=self.features,
+                ppgpp_regulation=self.ppgpp_regulation,
+                trna_attenuation=self.trna_attenuation,
+                supercoiling=self.supercoiling,
+                mass_conservation=self.mass_conservation,
+                exchange_fluxes=self.exchange_fluxes,
+                exchange_flux_basis=self.exchange_flux_basis,
+                transcript_initiation_mode=self.transcript_initiation_mode,
+                polypeptide_initiation_mode=self.polypeptide_initiation_mode,
+                config_overrides=self.base_config_overrides,
+                injected_processes=(self.injected_processes or None),
+                n_seeds=1, n_generations=1, emitter="null")
+            self._inner_cell_composite = Composite(document, core=core)
+        return self._inner_cell_composite
+
     def inputs(self) -> dict[str, Any]:
         # Read `batch` so the idempotency guard is persistent (survives the
         # dashboard composite-runner rebuilding the Step from the document).

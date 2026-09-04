@@ -50,11 +50,14 @@ def _lineage_node(spec: BranchSpec, config: dict[str, Any]) -> dict[str, Any]:
                 "media": config.get("media", "minimal"),
                 "emitter": config.get("emitter", "parquet"),
                 "emitter_arg": dict(config.get("emitter_arg") or {}),
+                # Config-declared EXTRA emit store paths (domain-agnostic);
+                # threaded to the per-generation parquet emitter override.
+                "emit_paths": list(config.get("emit_paths") or []),
                 "injected_processes": config.get("injected_processes") or {},
                 # Per-cell biological build kwargs — forwarded so every
                 # generation's baseline() build engages the SAME biology as the
                 # single-cell path (audit: batch mode dropped these, degrading an
-                # injected metabolism-redux/violacein batch to basal FBA).
+                # injected batch to basal FBA).
                 # LineageProcess.config_schema supplies the defaults when absent.
                 "features": list(config.get("features") or []),
                 "ppgpp_regulation": bool(config.get("ppgpp_regulation", True)),

@@ -45,7 +45,9 @@ def _write_sweep(tmp_path, n_cells=3, n_steps=40, width=5, ragged=True):
     pq = pytest.importorskip("pyarrow")
     import pyarrow.parquet
 
-    d = tmp_path / "exp" / "history" / "part"
+    # Match the real emitter layout: history/experiment_id=…/variant=… — the
+    # hive-partition segment `history_files` scopes to.
+    d = tmp_path / "exp" / "history" / "experiment_id=e" / "part"
     d.mkdir(parents=True)
     rows = {"lineage_seed": [], "generation": [], "agent_id": []}
     cols = list(card_vectors._VECTOR_COLS)

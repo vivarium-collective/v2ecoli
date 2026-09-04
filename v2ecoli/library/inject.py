@@ -1,8 +1,22 @@
-"""Resolve, classify, translate, and inject a fork's added processes.
+"""Resolve, classify, translate, and inject add/swap processes.
 
-Runs in the v2ecoli sim subprocess (where vivarium-core + the fork repo are
-importable). The parent harness invokes the ``__main__`` below to obtain the
-resolved specs as JSON for the report + early fail-fast.
+Wheel-shipped package resolver. This module lives INSIDE the ``v2ecoli`` package
+(imported absolutely as ``v2ecoli.library.inject``) so ``ecoli_baseline`` no
+longer resolves it via a bare ``from scripts._compare.inject import ...`` after a
+``sys.path.insert`` — a bare import that picked up whichever repo's ``scripts/``
+happened to be on ``sys.path`` (on the GovCloud pod, a vendored copy), silently
+shadowing the intended resolver. The absolute package import kills that shadow.
+
+Native process classes stay DOWNSTREAM (they are not shipped in this wheel):
+resolve them through the native-injection registry (:func:`register_native_injection`,
+populated downstream, e.g. by sms-ecoli). The resolver fails LOUD by construction
+— a registered name whose class will not import raises, and a built config missing
+a declared required key raises — rather than falling back to an empty/default
+config (the root of the one-tick "empty config" collapse this design fixes).
+
+Runs in the v2ecoli sim subprocess (where vivarium-core + any fork repo are
+importable). The ``__main__`` below obtains the resolved specs as JSON for the
+report + early fail-fast.
 
 Single-fork constraint: this module imports ``ecoli.processes`` once per
 process class resolution; a given process lifetime must use exactly one fork
@@ -279,6 +293,234 @@ def build_fork_config(fork_repo: str, sim_data_path: str, name: str) -> dict:
                 "installed vEcoli and silently omit fork-only keys.")
         loader = sim_data_mod.LoadSimData(sim_data_path=sim_data_path)
         return dict(loader.get_config_by_name(name))
+
+
+def build_native_redux_config(sim_data_path: str) -> dict:
+    """Build the ``ecoli-metabolism-redux`` config from the v2ecoli-NATIVE bundle,
+    with NO dependency on the vEcoli-private fork — the fork-free twin of
+    ``build_fork_config(fork_repo, fork_sim_data, "ecoli-metabolism-redux")``.
+
+    ``build_fork_config`` sources the redux config from the FORK's own
+    ``LoadSimData.get_metabolism_redux_config`` (Unum scalars + sim_data-bound
+    callables), which ``adapt_metabolism_redux_config`` then resolves into the
+    native ``MetabolismReduxClassic`` surface (bare floats + a
+    ``homeostatic_concentrations`` dict + an ``initial_exchange_molecules`` list).
+    A vEcoli-free config carries no ``fork_sim_data`` and must never touch the
+    fork, so this reads v2ecoli's OWN ``LoadSimData.get_metabolism_redux_config``
+    from the native violacein bundle instead.
+
+    ⚠ v2ecoli's native getter SERIALISES the three callables the adapter needs
+    (``exchange_data_from_media`` / ``concentration_updates`` /
+    ``get_biomass_as_concentrations``) into ``{"_function","_data"}`` dicts, so it
+    re-injects the LIVE native objects here — the same objects the fork exposes,
+    read off the native sim_data — so ``adapt_metabolism_redux_config`` (the
+    validated surface bridge) runs unchanged and fork-free. Scalars come back a
+    Unum/pint MIX; ``_asnumber`` handles both.
+    """
+    import pbg_v2ecoli  # noqa: F401 — data-root redirect for the native bundle
+    from v2ecoli.library.sim_data import LoadSimData
+    loader = LoadSimData(sim_data_path=sim_data_path)
+    sd = loader.sim_data
+    cfg = dict(loader.get_metabolism_redux_config())
+    # Replace the serialised (_function/_data) callables with the LIVE native
+    # objects adapt_metabolism_redux_config resolves against. These are the same
+    # methods the fork's redux config carries, taken off v2ecoli's own sim_data.
+    cfg["exchange_data_from_media"] = sd.external_state.exchange_data_from_media
+    cfg["concentration_updates"] = sd.process.metabolism.concentration_updates
+    cfg["get_biomass_as_concentrations"] = sd.mass.getBiomassAsConcentrations
+    # Kinetic constraints (kcat capacity bounds): re-inject the LIVE native
+    # get_kinetic_constraints callable + its reaction/enzyme/substrate id lists
+    # off v2ecoli's OWN sim_data (fork-free), so adapt_metabolism_redux_config can
+    # BRIDGE them instead of deferring kinetics off. Without kcat bounds the native
+    # LP over-produces general flux, skewing the enzyme/TRP trajectory that feeds
+    # the violacein ODE (the KPI ran ~2-3x high on the kinetics-off arm).
+    _m = sd.process.metabolism
+    cfg["get_kinetic_constraints"] = _m.get_kinetic_constraints
+    cfg["kinetic_constraint_reactions"] = list(_m.kinetic_constraint_reactions)
+    cfg["kinetic_constraint_enzymes"] = list(_m.kinetic_constraint_enzymes)
+    cfg["kinetic_constraint_substrates"] = list(_m.kinetic_constraint_substrates)
+    return cfg
+
+
+def _asnumber(value, unit=None):
+    """Bare-float magnitude of a possibly-Unum / possibly-pint value.
+
+    A vEcoli ``Unum`` exposes ``.asNumber([unit])`` (magnitude in its own units
+    when called bare, or converted to ``unit``). A ``pint`` Quantity exposes
+    ``.magnitude`` (and ``.to(unit)``). v2ecoli's native ``get_metabolism_redux_config``
+    returns a MIX — most quantities stay Unum (the vendored ``wholecell.utils.units``),
+    but a few top-level constants (``avogadro``, ``cell_density``) are pint via
+    ``unum_to_pint`` — so the fork-free path must de-unit both. A plain float
+    passes through.
+    """
+    if hasattr(value, "asNumber"):  # Unum (fork + most native quantities)
+        return value.asNumber() if unit is None else value.asNumber(unit)
+    if hasattr(value, "magnitude"):  # pint Quantity (native top-level constants)
+        # ``unit`` here is only ever a fork Unum unit (the mM conversion inside
+        # adapt_metabolism_redux_config), and the pint values this branch sees
+        # (avogadro, cell_density) are de-unit'd WITHOUT a target unit, so a
+        # bare-magnitude read in the Quantity's own (native) units is correct.
+        return float(value.magnitude)
+    return value
+
+
+def adapt_metabolism_redux_config(config_dict: dict) -> dict:
+    """Translate the FORK's ``get_metabolism_redux_config`` output into the plain
+    config the NATIVE ``MetabolismReduxClassic`` process declares.
+
+    ``build_fork_config`` returns vEcoli's OWN redux config, whose surface is the
+    fork ``MetabolismReduxClassic.__init__`` contract: ``Unum`` scalars
+    (``avogadro`` [1/mol], ``cell_density`` [g/L], ``dark_atp`` [mmol/g],
+    ``non_growth_associated_maintenance`` [mmol/g/h]) and sim_data-bound CALLABLES
+    (``concentration_updates`` + ``get_biomass_as_concentrations`` for the
+    homeostatic objective; ``exchange_data_from_media`` for the initial exchange
+    set). The native port instead declares a de-unit'd, pre-resolved surface
+    (bare floats; a ``homeostatic_concentrations`` dict; an
+    ``initial_exchange_molecules`` list) — see its module docstring's "Sim_data-
+    driven callables replaced by plain config" adaptation.
+
+    This adapter resolves that surface by REPRODUCING the fork ``__init__``
+    verbatim (``ecoli/processes/metabolism_redux_classic.py`` lines ~224-240):
+
+        exchanges  = exchange_data_from_media(media_id)["externalExchangeMolecules"]
+        conc_dict  = concentration_updates.concentrations_based_on_nutrients(media_id)
+        conc_dict.update(get_biomass_as_concentrations(doubling_time))
+        homeostatic_metabolites, homeostatic_concs = conc_dict keys / .asNumber(mM)
+
+    Values already plain (a synthetic/test config, or a config with no fork
+    getters) pass through unchanged. Kinetics are DEFERRED (see below).
+
+    ⚠ DEFERRED — kinetic constraints. The fork's ``get_kinetic_constraints`` is a
+    sim_data-bound callable that both CONSUMES and RETURNS ``Unum`` quantities,
+    while the native port passes/expects bare mM floats. Faithfully bridging it
+    needs a two-sided unit wrap (attach units on input, strip on output) that is
+    error-prone and orthogonal to the violacein readout (the violacein pathway
+    reactions are NOT among ``kinetic_constraint_reactions`` — verified — so
+    kinetics never touches VIOLACEIN[c]). Rather than risk wrong kinetic numbers,
+    kinetics is turned OFF here via the native port's own documented off-switch
+    (``get_kinetic_constraints=None`` + empty kinetic reaction/enzyme/substrate
+    lists → the ``USE_KINETICS`` off path). This lowers general-flux fidelity vs.
+    the fork (kcat capacity bounds are dropped) but is honest and leaves the
+    homeostatic + maintenance + steady-state LP — the part that governs whether
+    any metabolite (violacein included) is produced — intact.
+    """
+    cfg = dict(config_dict)
+    # De-unit the scalar parameters to the native port's fixed-float convention
+    # (its config_schema declares each as a bare float in exactly these units).
+    for key in ("avogadro", "cell_density", "dark_atp",
+                "non_growth_associated_maintenance", "cell_dry_mass_fraction"):
+        if key in cfg:
+            cfg[key] = _asnumber(cfg[key])
+
+    media_id = cfg.get("media_id")
+    # initial_exchange_molecules <- exchange_data_from_media(media_id), plus the
+    # per-tick UPTAKE set the excluded `exchange_data` step would have written to
+    # environment.exchange_data (see _exchange_data_seed below).
+    edm = cfg.get("exchange_data_from_media")
+    if callable(edm) and media_id is not None:
+        ex = edm(media_id)
+        if "initial_exchange_molecules" not in cfg:
+            cfg["initial_exchange_molecules"] = list(ex["externalExchangeMolecules"])
+        # The config excludes the `exchange_data` step (matching the fork), so
+        # nothing populates environment.exchange_data — leaving the redux LP with
+        # NO allowed nutrient uptake and rendering it infeasible. For a fixed
+        # medium that step's output is constant, so seed the store with its t=0
+        # value: the media's unconstrained + constrained importers. The native LP
+        # uses only the KEYS (the allowed-uptake set), so the constrained rate
+        # magnitudes are de-unit'd to bare floats for a clean map[float] store.
+        unconstrained = [str(m) for m in ex["importUnconstrainedExchangeMolecules"]]
+        constrained = {
+            str(m): float(_asnumber(v))
+            for m, v in dict(ex["importConstrainedExchangeMolecules"]).items()}
+        cfg["_exchange_data_seed"] = {
+            ("environment", "exchange_data", "unconstrained"): unconstrained,
+            ("environment", "exchange_data", "constrained"): constrained,
+        }
+
+    # homeostatic_concentrations <- concentrations_based_on_nutrients(media_id)
+    #                               U get_biomass_as_concentrations(doubling_time)
+    if "homeostatic_concentrations" not in cfg:
+        cu = cfg.get("concentration_updates")
+        gbac = cfg.get("get_biomass_as_concentrations")
+        doubling_time = cfg.get("doubling_time")
+        if cu is not None and callable(getattr(cu, "concentrations_based_on_nutrients", None)):
+            conc_dict = dict(cu.concentrations_based_on_nutrients(media_id))
+            if callable(gbac) and doubling_time is not None:
+                conc_dict.update(gbac(doubling_time))
+            # mM = mmol/L; convert each Unum concentration to a bare mM float.
+            try:
+                from wholecell.utils import units as _u  # fork units
+                mM = _u.mmol / _u.L
+                cfg["homeostatic_concentrations"] = {
+                    met: _asnumber(conc, mM) for met, conc in conc_dict.items()}
+            except Exception:  # noqa: BLE001 — units unavailable: bare magnitudes
+                cfg["homeostatic_concentrations"] = {
+                    met: _asnumber(conc) for met, conc in conc_dict.items()}
+
+    # Kinetics ON — BRIDGE the native get_kinetic_constraints (Unum in/out) onto
+    # the native port's bare-float surface (supersedes the former off-switch
+    # deferral). The port's kinetics block passes bare concentrations
+    # (counts_to_molar * counts, in mmol/L = CONC_UNITS) and forms
+    # (timestep_s * result); v2ecoli's callable expects Unum concentrations and
+    # returns Unum (KINETIC_CONSTRAINT_CONC_UNITS/s = umol/L/s). So attach mmol/L
+    # on input and strip mmol/L/s on output — reproducing the fork's
+    # metabolism_redux_classic unit handling exactly (gated by an exact-match test).
+    _native_gkc = cfg.get("get_kinetic_constraints")
+    if callable(_native_gkc):
+        try:
+            from wholecell.utils import units as _u
+            _CONC = _u.mmol / _u.L
+            _RATE = _CONC / _u.s
+
+            def _bridged_get_kinetic_constraints(enzyme_conc, substrate_conc,
+                                                 _gkc=_native_gkc, _c=_CONC, _r=_RATE):
+                # enzyme_conc/substrate_conc arrive as bare-float arrays already in
+                # mmol/L; _c * arr attaches the unit (Unum on the LEFT so its
+                # __mul__ wraps the array — ndarray*Unum lets numpy win and drops
+                # the unit). The callable's own .asNumber(umol/L) rescales.
+                out = _gkc(_c * enzyme_conc, _c * substrate_conc)
+                return out.asNumber(_r)
+
+            cfg["get_kinetic_constraints"] = _bridged_get_kinetic_constraints
+        except Exception:  # noqa: BLE001 — units unavailable: safe fall back to off
+            cfg["get_kinetic_constraints"] = None
+            cfg["kinetic_constraint_reactions"] = []
+            cfg["kinetic_constraint_enzymes"] = []
+            cfg["kinetic_constraint_substrates"] = []
+    else:
+        cfg["kinetic_constraint_reactions"] = []
+        cfg["kinetic_constraint_enzymes"] = []
+        cfg["kinetic_constraint_substrates"] = []
+
+    # Violacein pathway ODE + export-flux pin (native port of the fork's
+    # violacein mechanism). Enable it by DATASET MEMBERSHIP -- exactly as the
+    # fork gates the same machinery: the violacein new-gene enzymes register as
+    # "NG-"-prefixed catalysts only when the violacein dataset is loaded, so a
+    # plain (non-violacein) bundle leaves include_violacein_reactions False and
+    # the native redux is byte-for-byte untouched. On the violacein bundle this
+    # activates the pathway ODE and the VIOLACEIN[c]-export pin so the
+    # native-candidate arm produces violacein faithfully.
+    if "include_violacein_reactions" not in cfg:
+        cfg["include_violacein_reactions"] = any(
+            str(c).startswith("NG-") for c in cfg.get("catalyst_ids", [])
+        )
+
+    # Seed a VIOLACEIN key into the environment.exchange store when the pathway
+    # is active. environment.exchange is a map[float] store initialised from the
+    # cache's initial_state with ONLY the media's ~87 external (periplasmic)
+    # molecules; a bare-float map leaf ACCUMULATES (state + update), which
+    # updates existing keys but does not add the redux process's brand-new
+    # cytoplasmic VIOLACEIN[c] secretion key -- so its export flux never reaches
+    # environment.exchange and the ExchangeFluxListener's violacein_exchange leaf
+    # stays 0. Seeding the (compartment-stripped, matching the redux writer)
+    # "VIOLACEIN" key to 0.0 lets the per-tick accumulate land, so the KPI leaf
+    # carries the real secreted-violacein flux. Gated on the pathway being active
+    # so non-violacein runs are untouched.
+    if cfg.get("include_violacein_reactions"):
+        seed = cfg.get("_exchange_data_seed") or {}
+        seed[("environment", "exchange", "VIOLACEIN")] = 0.0
+        cfg["_exchange_data_seed"] = seed
+    return cfg
 
 
 def _compose_store_path(base: list, rel) -> list:
@@ -665,6 +907,92 @@ def _deserialize_config_values(obj, fork_repo: str):
         _restore_ecoli(saved_real, effective_fork)
 
 
+# ---------------------------------------------------------------------------
+# Native-injection registry (Arm 3 seam).
+#
+# Replaces the former hardcoded native-class map (name -> (module, qualname)).
+# v2ecoli DEFINES the registry and ships it EMPTY: the native process classes
+# live DOWNSTREAM (sms-ecoli), which populates this registry at import time via
+# :func:`register_native_injection`. Keeping the classes out of the wheel is the
+# whole point — the wheel-shipped resolver never imports the downstream process
+# package, so it can no longer be shadowed by whichever copy sits on sys.path
+# (the root of the empty-config one-tick collapse).
+#
+# "Fail loud by construction" (Fable): a name that is REGISTERED but whose class
+# fails to import RAISES (:func:`_resolve_native_injection`), and a built config
+# missing any ``required_config_keys`` RAISES (in :func:`resolve_injections`) —
+# there is no silent fallback to an empty/default config.
+# ---------------------------------------------------------------------------
+class NativeInjection:
+    """One registry entry: how to resolve + configure a native injected process."""
+    __slots__ = ("module_path", "class_name", "topology",
+                 "required_config_keys", "config_builder")
+
+    def __init__(self, module_path, class_name, topology=None,
+                 required_config_keys=(), config_builder=None):
+        self.module_path = module_path
+        self.class_name = class_name
+        # Topology: either a static wires dict, or a callable
+        # ``(name, config_dict) -> wires dict`` (e.g. a drug-parametric native
+        # topology). Applied in resolve_injections; WINS over the config topology
+        # for a native class (whose flat ports differ from the fork's nested ones).
+        self.topology = topology
+        # Keys the built config MUST carry non-empty for this process to run.
+        self.required_config_keys = tuple(required_config_keys)
+        # ``(native_sim_data_path) -> config dict``: builds the native config off
+        # this run's own bundle sim_data when the config would otherwise be empty
+        # (the fork-free swap case). May stash an ``_exchange_data_seed`` mapping.
+        self.config_builder = config_builder
+
+
+_NATIVE_INJECTION_REGISTRY: dict[str, NativeInjection] = {}
+
+
+def register_native_injection(name, module_path, class_name, *, topology=None,
+                              required_config_keys=(), config_builder=None):
+    """Register a native process port for a vEcoli add/swap process ``name``.
+
+    Populated DOWNSTREAM (sms-ecoli) so the native process classes stay out of
+    the v2ecoli wheel. ``module_path``/``class_name`` are imported LAZILY (only
+    when a config actually injects ``name``, via absolute import in
+    :func:`_import_class`), so registering a process whose module is absent in
+    this environment costs nothing until it is used — and then fails loud rather
+    than silently falling back. Re-registering a ``name`` replaces its entry.
+    """
+    _NATIVE_INJECTION_REGISTRY[name] = NativeInjection(
+        module_path, class_name, topology=topology,
+        required_config_keys=required_config_keys, config_builder=config_builder)
+
+
+def _native_injection_entry(name):
+    """The registry entry for ``name``, or ``None`` if ``name`` is not registered."""
+    return _NATIVE_INJECTION_REGISTRY.get(name)
+
+
+def _resolve_native_injection(name):
+    """Resolve the native process CLASS for ``name`` from the registry.
+
+    Returns ``None`` when ``name`` is NOT registered (the caller then falls
+    through to the fork path). When ``name`` IS registered but
+    ``module_path:class_name`` cannot be imported, RAISES :class:`InjectionError`
+    — the fail-loud contract. The former hardcoded map swallowed this import error
+    and fell back to an empty/default config, which is exactly the tick-0 collapse
+    this replaces.
+    """
+    entry = _NATIVE_INJECTION_REGISTRY.get(name)
+    if entry is None:
+        return None
+    try:
+        return _import_class(entry.module_path, entry.class_name)
+    except Exception as exc:  # noqa: BLE001 — registered means it MUST resolve
+        raise InjectionError(
+            f"native injection {name!r} is registered to "
+            f"{entry.module_path}:{entry.class_name}, but that class could not be "
+            f"imported ({type(exc).__name__}: {exc}). A registered native process "
+            f"must resolve — refusing to fall back to a fork/empty config."
+        ) from exc
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -715,7 +1043,6 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     if key in _RESOLVE_CACHE:
         return [dict(s) for s in _RESOLVE_CACHE[key]]
 
-    registry = _fork_registry(fork_repo)
     interval = float(config.get("time_step", 1.0))
     process_configs = config.get("process_configs") or {}
     topologies = config.get("topology") or {}
@@ -730,16 +1057,47 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     # defaults. Used by the config-less-swap guard below.
     swap_targets = set((config.get("swap_processes") or {}).values())
 
+    # Lazy fork registry: a fully-native config (every add/swap name registered
+    # via register_native_injection) NEVER imports the fork's ecoli.* package —
+    # the fork registry is loaded only when a non-native name actually needs it.
+    # A non-native name with no fork_repo is a hard error (nothing resolves it).
+    _registry_box: list = []
+
+    def _get_registry():
+        if not _registry_box:
+            if not fork_repo:
+                raise InjectionError(
+                    "no fork_repo (vEcoli-free config) but a process is not "
+                    "native (not registered via register_native_injection); "
+                    "cannot resolve it without the fork.")
+            _registry_box.append(_fork_registry(fork_repo))
+        return _registry_box[0]
+
     specs: list[dict[str, Any]] = []
+    # Store seeds a native config_builder/adapter computes for shared stores (e.g.
+    # the redux adapter's environment.exchange_data uptake set); merged into
+    # shape_seed after the loop and applied by apply_injected_processes.
+    _pending_shape_seeds: dict = {}
     for name in names:
-        try:
-            cls = registry.access(name)
-        except KeyError:
-            raise InjectionError(f"add/swap process {name!r} not in fork registry.")
-        # Defeat the installed-vEcoli shadow: for names shared with the installed
-        # ecoli, `access` returns the INSTALLED class (whose store layout may
-        # differ). Force the fork's own class so the transferred code actually runs.
-        cls = _force_fork_class(fork_repo, cls)
+        # NATIVE-FIRST (Arm 3): when a native v2 process is REGISTERED for this
+        # vEcoli name, inject it DIRECTLY instead of fork-wrapping. A registered
+        # name whose class fails to import RAISES (fail loud — see
+        # _resolve_native_injection). classify_process then returns 'pbg_native'
+        # and apply_injected_processes places it without the vivarium bridge. Falls
+        # through to the fork path only when the name is NOT registered.
+        native_entry = _native_injection_entry(name)
+        native_cls = _resolve_native_injection(name)
+        if native_cls is not None:
+            cls = native_cls
+        else:
+            try:
+                cls = _get_registry().access(name)
+            except KeyError:
+                raise InjectionError(f"add/swap process {name!r} not in fork registry.")
+            # Defeat the installed-vEcoli shadow: for names shared with the installed
+            # ecoli, `access` returns the INSTALLED class (whose store layout may
+            # differ). Force the fork's own class so the transferred code actually runs.
+            cls = _force_fork_class(fork_repo, cls)
         kind = classify_process(cls)
         if kind == "partitioned":
             raise InjectionError(
@@ -772,33 +1130,56 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                       f"({type(e).__name__}); using default. {e}")
                 config_dict = None
 
+        # FORK-FREE native config builder (#683). A native swap/add whose config
+        # would otherwise be empty builds it from THIS run's own bundle sim_data
+        # via the registry's config_builder (e.g. a composition of
+        # build_native_redux_config + adapt_metabolism_redux_config for
+        # metabolism-redux), reading config["cache_dir"]/simData.cPickle. The
+        # builder is v2ecoli-clean (imports only v2ecoli/pbg_v2ecoli); it may stash
+        # a store seed under _exchange_data_seed, which is popped here and carried
+        # as a shape_seed so the process constructor never sees a non-schema key.
+        if (config_dict is None and native_entry is not None
+                and native_entry.config_builder is not None
+                and config.get("cache_dir")):
+            native_sd = os.path.join(config["cache_dir"], "simData.cPickle")
+            if not os.path.isfile(native_sd):
+                raise InjectionError(
+                    f"{name!r}: native injection config needs this run's bundle "
+                    f"sim_data at {native_sd!r}, which is missing.")
+            built = native_entry.config_builder(native_sd)
+            if isinstance(built, dict):
+                store_seed = built.pop("_exchange_data_seed", None)
+                if store_seed:
+                    _pending_shape_seeds.update(store_seed)
+            config_dict = built
+
         # FAIL LOUD (sms-ecoli#210 Gate 0 / #375 §3d, v2ecoli#667): a SWAP TARGET
         # that reaches here with no config on the NATIVE (fork-free) path would run
         # on config_schema defaults. For a swapped metabolism (ecoli-metabolism ->
         # ecoli-metabolism-redux) those defaults are an empty stoichiometry and zero
         # homeostatic targets, so the process does nothing, the generation collapses
         # after one tick, and the run STILL reports success (the exact silent-failure
-        # this exists to stop). The native config builder for redux
-        # (build_native_redux_config, off cache_dir's own bundle sim_data via
-        # v2ecoli's LoadSimData.get_metabolism_redux_config) is NOT yet wired into
-        # this authoritative copy -- it lives in the sms-ecoli vendored inject.py and
-        # must be ported here (entangled with the #211 kinetics-units bridge). Until
-        # then, refuse loudly rather than silently run wild-type.
+        # this exists to stop). The native config builder is now available
+        # (build_native_redux_config / adapt_metabolism_redux_config in this module)
+        # and is wired through a registry config_builder above — so a swap target
+        # that STILL has no config here has no explicit dict, no fork_sim_data, and
+        # no registered config_builder (or no cache_dir). Refuse loudly rather than
+        # silently run wild-type.
         if (config_dict is None
                 and name in swap_targets
                 and not config.get("fork_sim_data")):
             raise InjectionError(
                 f"{name!r} is a swap target but has NO config on the native "
                 f"(fork-free) path: process_configs names no explicit dict for it, "
-                f"there is no fork_sim_data to build from, and the native "
-                f"cache-derived config builder is not wired into this inject.py yet. "
-                f"Running it now would fall back to config_schema defaults (for "
-                f"metabolism-redux: an empty stoichiometry / 0 homeostatic targets), "
-                f"which silently collapses the generation to one tick and reports "
-                f"success. Fix: provide process_configs[{name!r}] explicitly, or port "
-                f"build_native_redux_config from sms-ecoli scripts/_compare/inject.py "
-                f"and build the config from this run's cache_dir bundle "
-                f"(sms-ecoli#210 Gate 0 / v2ecoli#667).")
+                f"there is no fork_sim_data to build from, and no native "
+                f"config_builder is registered for it (or this run supplies no "
+                f"cache_dir bundle). Running it now would fall back to config_schema "
+                f"defaults (for metabolism-redux: an empty stoichiometry / 0 "
+                f"homeostatic targets), which silently collapses the generation to "
+                f"one tick and reports success. Fix: provide process_configs[{name!r}] "
+                f"explicitly, or register a native config_builder for {name!r} via "
+                f"register_native_injection and build the config from this run's "
+                f"cache_dir bundle (sms-ecoli#210 Gate 0 / v2ecoli#667).")
 
         # NATIVE-FIRST: deserialize vEcoli-serialized process_config values —
         # !ParameterSerializer[path] -> param_store Quantity, !units[...] ->
@@ -813,7 +1194,36 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         if kind == "pbg_native" and config_dict is not None:
             config_dict = _deserialize_config_values(config_dict, fork_repo)
 
-        topo = topologies.get(name)
+        # FAIL LOUD by required key (Fable): after the config is built for a
+        # REGISTERED native process, RAISE if any declared required key is absent
+        # or empty. A config-less injected process must not run — this is the
+        # per-process backstop against the same empty-config/tick-0 collapse the
+        # #682 swap-target guard catches, but keyed on the SPECIFIC fields a
+        # process needs (e.g. metabolism-redux's homeostatic_concentrations),
+        # applying to add_processes too (not only swap targets).
+        if native_entry is not None and native_entry.required_config_keys:
+            _cfg = config_dict or {}
+            missing = [k for k in native_entry.required_config_keys if not _cfg.get(k)]
+            if missing:
+                raise InjectionError(
+                    f"{name!r}: native injection config is missing or empty for "
+                    f"required key(s) {missing!r}. A config-less injected process "
+                    f"would fall back to schema defaults and silently collapse the "
+                    f"generation — refusing to run it. Provide these via "
+                    f"process_configs[{name!r}] or a registered config_builder.")
+
+        # Topology. A native class's registered topology (a static wires dict, or a
+        # callable (name, config_dict) -> wires) WINS: the config's topology is
+        # written for the FORK's (nested) ports and is WRONG for the native class's
+        # restructured (flat) ports. Falls back to the config topology / class
+        # default when no native topology is registered. Fork-wrapped (vivarium_1)
+        # processes keep the config's fork topology unchanged.
+        topo = None
+        if native_entry is not None and native_entry.topology is not None:
+            ntopo = native_entry.topology
+            topo = ntopo(name, config_dict) if callable(ntopo) else ntopo
+        if topo is None:
+            topo = topologies.get(name)
         if topo is None:
             topo = getattr(cls, "topology", getattr(cls, "TOPOLOGY", {}))
         topo = translate_vivarium_topology(topo)
@@ -871,6 +1281,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
         seed.update(_resolve_param_store_seeds(
             fork_repo, config.get("shape_seed_param_store") or {}))
         seed.update(_resolve_literal_seeds(config.get("shape_seed_literal") or {}))
+        seed.update(_pending_shape_seeds)  # native config_builder/adapter store seeds
         if seed:
             specs[0]["shape_seed"] = seed
     # Seed reaction TYPE strings into kinetic_parameters from any injected

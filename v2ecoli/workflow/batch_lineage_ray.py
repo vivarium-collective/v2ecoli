@@ -94,8 +94,43 @@ def build_lineage_ray_batch_document(
     variants: dict | None = None,
     injected_processes: dict | None = None,
     config_overrides: dict | None = None,
+    emitter_arg: dict | None = None,
+    seed_overrides: dict[Any, dict[str, Any]] | None = None,
+    exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str | None = None,
 ) -> dict:
     """Build a document with N real ``ray:LineageProcess`` nodes, one per seed.
+
+    ``seed_overrides`` (item 115): per-seed overrides, keyed by seed number --
+    accepts either int or str keys (a caller building the request in Python has
+    ints; one round-tripping it through JSON, e.g. ``--params`` over HTTP, has
+    strings; both are looked up so neither caller shape silently misses). Two
+    real gaps this closes, found comparing this design against Jim's own
+    Nextflow-dispatch plan (viva-api PR#405):
+
+    - **Resume**: a seed's own entry may set ``initial_carry_state_path`` +
+      ``initial_generation_index`` to resume that ONE lineage from a specific
+      prior checkpoint instead of generation 0 -- the same fields chain-dispatch
+      already uses for its own per-generation resume (``LineageProcess`` needed
+      no changes for THIS half; the fields were already there, just never
+      threaded from this document builder).
+    - **Variant-specific caching**: a seed's own entry may set ``cache_dir`` to
+      point that lineage at a strain-specific ParCa cache instead of the
+      batch-wide default -- real, needed for Run1/Run2 (K4/J3), whose real
+      strain identity lives in a variant-specific cache, not a shared baseline
+      one (``v2ecoli/workflow/batch_lineage_ray.py``'s own prior comment here:
+      "A real variant sweep across ray:-distributed lineages is real, separate,
+      not-yet-scoped work" -- this is that work, scoped to the per-seed case).
+
+    ``exchange_fluxes``/``exchange_flux_basis`` (item 106): ``ecoli_baseline.baseline()`` and
+    ``LineageProcess`` both already accept these (a caller-supplied exchange-species-to-flux-column
+    map, plus the units basis those columns are reported in -- e.g. ``{"violacein_exchange":
+    "VIOLACEIN"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
+    config -- the same class of gap ``variants``/``injected_processes`` had before item109/#663.
+    Needed for real CD2 Run 2 KPI reporting (a violacein-exchange flux column), not just raw state.
+
+    Omitted entirely (the default): every lineage starts fresh at generation 0
+    against the one shared ``cache_dir`` -- today's exact behavior, unchanged.
 
     Unlike ``_build_batch_document`` (``v2ecoli/composites/ecoli_baseline.py``), which returns a
     single-Step document whose ``BatchBaselineRunner`` fans seeds out internally at run time, this
@@ -129,6 +164,13 @@ def build_lineage_ray_batch_document(
     for i in range(n_seeds):
         seed = base_seed + i
         node_name = f"lineage_{seed:04d}"
+        # Item 115: always give every lineage a REAL per-generation checkpoint
+        # destination -- zero caller effort, matching this composite's own
+        # established "no per-request tuning needed for the common case"
+        # philosophy (n_workers's own docstring). LineageProcess writes a
+        # checkpoint after EVERY generation already; it was only ever a no-op
+        # here because this builder never gave it anywhere real to write to.
+        checkpoint_dir = f"{resolved_out_dir.rstrip('/')}/checkpoints/{experiment_id}/seed_{seed:04d}"
         config: dict[str, Any] = {
             "cache_dir": cache_dir,
             "seed": seed,
@@ -141,7 +183,20 @@ def build_lineage_ray_batch_document(
             "time_step": float(time_step),
             "media": media,
             "emitter": emitter,
+            "checkpoint_dir": checkpoint_dir,
         }
+        override = None
+        if seed_overrides:
+            override = seed_overrides.get(seed)
+            if override is None:
+                override = seed_overrides.get(str(seed))
+        if override:
+            if "cache_dir" in override:
+                config["cache_dir"] = override["cache_dir"]
+            if "initial_carry_state_path" in override:
+                config["initial_carry_state_path"] = override["initial_carry_state_path"]
+            if "initial_generation_index" in override:
+                config["initial_generation_index"] = int(override["initial_generation_index"])
         if variants:
             # LineageProcess itself has no variant concept (that's applied one layer up in
             # BatchBaselineRunner today, via _apply_config_variant before dispatch) -- fold any
@@ -152,6 +207,12 @@ def build_lineage_ray_batch_document(
             config["config_overrides"] = dict(config_overrides)
         if injected_processes:
             config["injected_processes"] = dict(injected_processes)
+        if emitter_arg:
+            config["emitter_arg"] = dict(emitter_arg)
+        if exchange_fluxes:
+            config["exchange_fluxes"] = dict(exchange_fluxes)
+        if exchange_flux_basis:
+            config["exchange_flux_basis"] = exchange_flux_basis
 
         state[node_name] = {
             "_type": "process",

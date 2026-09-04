@@ -398,8 +398,30 @@ limitations:
   and evidence codes. The repo carries no TF-binding-site-to-promoter mapping, so this study cannot verify
   that LexA's operator lies upstream of TU00352 and not of TU00434/TU00435 -- which is the fact that would
   make the biology decisive.
-claim: ''
-conclusion: ''
+- The EcoCyc export gives site positions and the operon each is attributed to, but not per-TU regulation,
+  so the rpsUp3-to-TU00435 identification rests on matching the site name's stated offset (4.5 bases downstream)
+  against TU00435's start coordinate. The agreement is 0.5 bp, but it is an inference from a name string,
+  not a declared mapping.
+claim: LexA's operator is at rpsUp3, which the dedup discarded; the model then applied LexA's repression
+  to TU00352, a promoter LexA does not regulate. dnaG is silenced through the wrong promoter.
+conclusion: 'Phase A answers the study''s question without the ParCa refit it was scoped to need, using
+  EcoCyc''s binding-site export.
+
+  The dedup collapses 637 TUs across 428 groups; 84% of the discards are distinct promoters and 16% genuine
+  duplicates, so the axis as pre-registered FAILS at 0.8399 and my characterisation was too sweeping.
+  But dnaG''s case is far worse than a generic collapse. The only LexA site at this locus is at rpsUp3,
+  TSS 3210734.5, matching TU00435''s start of 3210735 -- and TU00435 is one of the two DISCARDED TUs.
+  The model kept TU00352, whose TSS is 88 bp upstream of the operator, and rna_id_to_regulating_tfs handed
+  it LexA anyway because it contains rpoD.
+
+  So dnaG is silenced through a promoter LexA does not regulate, having lost the one it does. That reorders
+  the fixes: promoter-specific regulation ALONE would free dnaG entirely, since the surviving TU carries
+  no LexA site -- cheaper than restoring TUs, and it makes restoration alone useless, because the cistron-content
+  rule would reassign LexA to all three. The faithful fix is both together: restore rpsUp1/p2/p3 and assign
+  regulation by promoter, giving dnaG two unrepressed transcripts and one repressed.
+
+  Phases B and C are NOT run and axes 2-5 stay pending. Phase B as designed -- refit with the TUs restored
+  -- would now test the WRONG fix on its own.'
 confidence: Planned
 runs:
 - name: tu-dedup-promoter-collapse__phase-A
@@ -439,3 +461,37 @@ preliminary_observations:
     group being 8 TUs reduced to one. 84% of the discards are distinct promoters and 16% are true duplicates
     -- so the dedup is doing legitimate work part of the time, which my scoping framing did not allow
     for. dnaG's collapse (3210646 / 3210712 / 3210735) is a genuine distinct-promoter case.
+findings:
+- summary: 'DECISIVE: LexA''s operator is at rpsUp3, the promoter the dedup DISCARDED. The model represses
+    a promoter LexA does not regulate.'
+  status: novel
+  evidence:
+    from_run: tu-dedup-promoter-collapse__phase-A
+    observed: 3210735
+    units: TU00435 start vs implied rpsUp3 TSS 3210734.5
+  explanation: 'From EcoCyc''s TF binding-site export (references/all-transcription-factor-binding-sites.txt,
+    4356 sites): the only LexA site at this locus is ''LexA DNA-binding-site 4.5 bases downstream of rpsUp3'',
+    spanning 3210729-3210749 on the + strand, attributed to the rpsU-dnaG-rpoD operon. Its centre at 3210739
+    minus 4.5 puts rpsUp3''s TSS at 3210734.5 -- TU00435''s start of 3210735, to within half a base.
+
+    The model kept TU00352 (start 3210646, 88 bp UPSTREAM of the operator) and discarded both TU00434
+    and TU00435. rna_id_to_regulating_tfs then assigned LexA to TU00352 because it contains rpoD. So dnaG
+    is silenced through rpsUp1, a promoter LexA has no site at, while the promoter LexA actually represses
+    was removed from the model.
+
+    Two defects compose exactly: the dedup removed the regulated promoter, and cistron-content regulation
+    reassigned its repressor to an unregulated one.'
+- summary: Promoter-specific regulation ALONE would free dnaG, because the surviving TU is not a LexA
+    target.
+  status: novel
+  evidence:
+    from_run: tu-dedup-promoter-collapse__phase-A
+  explanation: 'This reorders the candidate fixes. If regulation were assigned by promoter rather than
+    by cistron content, TU00352 -- the only surviving dnaG-bearing TU -- would carry NO LexA delta at
+    all, since LexA''s site is at rpsUp3. dnaG would be unrepressed and the constraint-pinned delta would
+    never touch it. That is cheaper than restoring TUs and does not require changing the TU set.
+
+    It is also slightly WRONG biologically: the correct model has three promoters with LexA repressing
+    one of them, so dnaG should lose roughly a third of its supply under SOS, not none. The faithful fix
+    is both changes together -- restore the promoters AND assign regulation by promoter. Restoration alone
+    would not help, because the cistron-content rule would hand LexA to all three.'

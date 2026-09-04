@@ -288,10 +288,17 @@ decisions_needed:
 - question: Make TF regulation promoter-specific rather than cistron-content-based.
   raised_by: tu-coverage-loss
   status: open
-  why: rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a
+  why: 'rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a
     repressor silences transcripts initiated from promoters it cannot physically block. This is why no
     dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic
     operon with an internal promoter, not just this one.
+
+
+    ESCALATED 2026-09-04 by EcoCyc data: this is now the HIGHEST-VALUE fix, not merely a correctness issue.
+    LexA''s only site at the dnaG locus is at rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), which
+    the dedup discarded. The surviving TU00352 has its TSS 88 bp upstream of that operator and carries
+    NO LexA site -- yet the cistron-content rule assigns LexA to it. Promoter-specific regulation alone
+    would free dnaG; restoring TUs alone would NOT, because the rule would hand LexA to all three.'
 - question: Re-measure foldchange-to-delta-fidelity with the occupancy-swing correction applied.
   raised_by: activator-overshoot
   status: resolved

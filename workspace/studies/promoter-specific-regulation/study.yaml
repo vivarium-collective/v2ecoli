@@ -3,14 +3,14 @@ name: promoter-specific-regulation
 title: Regulating the promoter, not the gene
 investigation: transcription-rewiring
 study_type: fix_validation
-phase: Design
+phase: Decide
 created: '2026-09-04'
-status: planned
+status: complete
 design_status: complete
-implementation_status: not_started
+implementation_status: complete
 simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
+evaluation_status: evaluated
+gate_status: failed
 expert_review_status: not_requested
 question: EcoCyc's binding-site data shows LexA's only operator at the rpsU-dnaG-rpoD locus is at rpsUp3
   (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the dedup discards -- while the model applies
@@ -65,7 +65,10 @@ behavior_tests:
       kind: theory
       note: Bounded above by 1.0; 70% tolerates missing TU coordinates without tolerating an abstaining
         rule.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 0.9327
+  evaluated_by: agent
 - name: misattributed-lexa-edges-are-removed
   classification: primary
   gate_class: acceptance_criterion
@@ -95,7 +98,10 @@ behavior_tests:
       kind: theory
       note: 'A fraction bounded above by 1.0. Definitional: a repressor cannot occlude initiation at a
         promoter that fires upstream of its operator.'
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 1.0
+  evaluated_by: agent
 - name: most-edges-are-unchanged
   classification: primary
   gate_class: acceptance_criterion
@@ -126,8 +132,11 @@ behavior_tests:
         has half-width equal to its midpoint and can never satisfy the discrimination check -- the fourth
         time this investigation has needed that reformulation. Identical claim, gradeable form. 65% is
         a deliberately loose floor so only a genuinely disruptive rule fails.'
-  status: pending
+  status: failed
   control: negative
+  result: FAIL
+  measured_value: 0.1049
+  evaluated_by: agent
 - name: dnag-transcription-recovers
   classification: primary
   gate_class: acceptance_criterion
@@ -227,7 +236,10 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: Read from the EcoCyc export; a drift pin on the reference data.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 3210729
+  evaluated_by: agent
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-04T19:00:00Z'
@@ -409,8 +421,8 @@ controls:
   kind: negative
   hypothesis: A rule that reassigns most of the network is a different model, not a correction.
   expected: at most 35% of adjudicated edges change assignment.
-  observed: ''
-  result: PENDING
+  observed: Only 10.5% of adjudicated edges retained; the rule strips 89.5%.
+  result: FAIL
 - name: rescue-is-not-a-global-growth-artefact
   kind: negative
   hypothesis: Survival for network-wide reasons is not evidence about dnaG.
@@ -431,9 +443,31 @@ limitations:
 - 'Even a full rescue would show promoter-specific attribution is SUFFICIENT here, not that the other
   three defects are harmless: the constraint boundary, the dedup and the 2.13x activator residual all
   remain.'
-claim: ''
-conclusion: ''
-confidence: Planned
+- Phase B was not run because the disruption control failed, so this study says nothing about whether
+  removing the LexA edge would rescue the lineage. That remains untested.
+claim: The promoter-specific rule removes the LexA edge that silences dnaG, exactly as predicted -- but
+  strips 89.5% of the adjudicated network, so it cannot be applied generally from this data.
+conclusion: 'Phase A settles the approach without a simulation, and the answer is a qualified no.
+
+  The rule works where it was aimed: applied uniformly, with no special-casing and stated in full beforehand,
+  it removes the LexA edge on TU00352 -- the prediction recorded before running -- and adjudicates 93%
+  of the edges it can reach.
+
+  But the disruption control FAILS at 0.1049 against a band of [0.65, 1.0]: it strips 89.5% of adjudicated
+  edges. That is a different model, not a correction, and any Phase B rescue would have been uninterpretable.
+  Phase B is not run.
+
+  The cause is diagnosed and is not the tolerance -- distances are bimodal, p10 = 0.5 bp against p50 =
+  14376 bp, and loosening the window a hundredfold barely moves retention. Two readings survive: the model''s
+  assignments are largely unsupported, or the export is incomplete and the rule strips real regulation
+  where a site is missing. The bimodality and the coverage both favour incompleteness, and this file cannot
+  settle it. Presenting the 89.5% as evidence against the model would be the wrong conclusion from an
+  absence.
+
+  dnaG is unaffected by that ambiguity, because its evidence is a PRESENT site matching TU00435 to 0.5
+  bp rather than a missing one. So a TARGETED correction at this locus is supported by the data; a network-wide
+  one is not, and needs the complete regulation table the outstanding Pathway Tools licence would provide.'
+confidence: Refuted
 attribution_rule:
   recorded_at: '2026-09-04T20:15:00Z'
   recorded_before_applying: true
@@ -473,3 +507,113 @@ attribution_rule:
     under this rule. That contradicts what I assumed when scoping tu-dedup-promoter-collapse.
   - Most edges should be unchanged, because most TUs have a single promoter and the two attribution schemes
     then agree. If the rule removes most of the network it is disruptive and axis 3 fails.
+runs:
+- name: promoter-specific-regulation__phase-A
+  status: complete
+  canonical: false
+  started_at: '2026-09-04T20:45:00Z'
+  started_at_iso: '2026-09-04T20:45:00Z'
+  note: 'PHASE A ONLY -- static attribution, no cache edit and no simulation. The rule and its rejected
+    coordinate-window alternative were committed (0468efcf) BEFORE any edge was re-attributed. Phase B
+    is NOT run and will not be: the disruption control failed.'
+  outcomes:
+    attribution-rule-adjudicates-most-covered-edges:
+      result: PASS
+      measured_value: 0.9327
+      evaluated_by: agent
+      operator: derived/band [0.7, 1.0]
+      gate_class: acceptance_criterion
+      detail: 610 of the 654 edges whose TF has positioned, offset-stating sites were adjudicated (0.9327);
+        44 failed only because the TU had no usable start coordinate. 808 further edges abstained because
+        their TF is absent from the export. Adjudication is feasible.
+    misattributed-lexa-edges-are-removed:
+      result: PASS
+      measured_value: 1.0
+      evaluated_by: agent
+      operator: derived/band [0.99, 1.0]
+      gate_class: acceptance_criterion
+      detail: The rule, applied uniformly and with no special-casing, REMOVES the LexA edge on TU00352
+        -- the outcome predicted before it was run. 28 of LexA's 40 adjudicated edges are removed. The
+        rule reproduces the judgement the EcoCyc coordinates imply without having been built to.
+    most-edges-are-unchanged:
+      result: FAIL
+      measured_value: 0.1049
+      evaluated_by: agent
+      operator: derived/band [0.65, 1.0]
+      gate_class: acceptance_criterion
+      detail: 'THE CONTROL FIRES, decisively. Only 10.5% of adjudicated edges are retained; the rule strips
+        89.5% of them. That is not a correction, it is a different model, and it voids any rescue Phase
+        B could have produced -- exactly the failure mode this axis was carried over from ppgpp-off-rescue
+        to catch.
+
+        The cause is diagnosed and is NOT the tolerance. Distances are BIMODAL: p5 and p10 are 0.5 bp
+        while p25 is 1568 bp, p50 is 14376 bp and p75 is 103123 bp. Loosening the tolerance from 5 bp
+        to 500 bp moves retention only 0.1049 -> 0.1770. So a tenth of edges match a site exactly and
+        the rest have no site of that TF anywhere near them.'
+    lexa-site-position:
+      result: PASS
+      measured_value: 3210729
+      evaluated_by: agent
+      operator: derived/<= 3210729
+      gate_class: regression_pin
+      detail: LexA's site at the locus reads 3210729-3210749 as recorded.
+findings:
+- summary: 'The rule gets dnaG right and the network wrong: it removes the LexA/TU00352 edge but strips
+    89.5% of adjudicated edges.'
+  status: contradicts
+  evidence:
+    from_test: most-edges-are-unchanged
+    observed: 0.1049
+    units: fraction retained
+  explanation: Applied uniformly, the rule reproduces the LexA judgement the EcoCyc coordinates imply
+    -- TU00352 loses its edge, as predicted before running. But it also removes 89.5% of every other adjudicated
+    edge, which makes it a different model rather than a correction and voids any rescue Phase B could
+    have shown. The disruption control was carried over from ppgpp-off-rescue precisely to catch this,
+    and it did.
+- summary: 'The failure is NOT the tolerance. Distances are bimodal: a tenth of edges match a site exactly,
+    the rest have no nearby site at all.'
+  status: novel
+  evidence:
+    from_test: most-edges-are-unchanged
+    observed: 0.177
+    units: retention at a 500 bp tolerance
+  explanation: p5 and p10 of |implied TSS - TU start| are 0.5 bp, while p25 is 1568 bp, p50 14376 bp and
+    p75 103123 bp. Loosening the tolerance a hundredfold moves retention only 0.1049 -> 0.1770, so no
+    window rescues it. A smooth distribution would indicate a calibration problem; a sharp mode at 0.5
+    bp plus a long tail indicates the export covers SOME promoters exactly and misses others entirely.
+- summary: Two readings remain open and this data cannot separate them.
+  status: novel
+  evidence:
+    from_run: promoter-specific-regulation__phase-A
+  explanation: 'Either (a) the model''s TF-TU assignments are largely unsupported by binding-site evidence,
+    or (b) the export is an incomplete subset and the rule strips real regulation wherever a site is missing.
+    The bimodality favours (b), and so does the coverage: only 9 of 23 model TFs appear at all, 29.2%
+    of sites name no promoter, and 11.6% name one without an offset. I cannot distinguish them from this
+    file, and it would be wrong to present the 89.5% as evidence against the model.
+
+    The dnaG case is unaffected either way: LexA''s site IS in the export and matches TU00435 to 0.5 bp,
+    so the evidence there is positive rather than an absence.'
+conclusion_verdicts:
+- claim: The rule removes the misattributed LexA edge (H1's first step)
+  verdict: supported
+  basis: TU00352's LexA edge removed by the uniform rule, as predicted before running.
+- claim: Positional attribution is applicable network-wide from this data
+  verdict: refuted
+  basis: Retention 0.1049 against a required 0.65; the rule strips 89.5% of adjudicated edges.
+- claim: The disruption is a tolerance artefact
+  verdict: refuted
+  basis: Bimodal distances; a 100x looser tolerance moves retention only 0.1049 -> 0.1770.
+- claim: The 89.5% shows the model's assignments are wrong
+  verdict: undetermined
+  basis: Indistinguishable from an incomplete export; coverage and bimodality favour incompleteness.
+discovery_implications:
+- 'A targeted correction at the dnaG locus IS supported: LexA''s site is present in the data and matches
+  TU00435 to 0.5 bp, so removing its edge from TU00352 rests on positive evidence rather than an absence.'
+- A network-wide promoter-specific fix is NOT supportable from this export. It needs the complete regulation
+  table -- regulation.dat from the Pathway Tools distribution -- so that a missing site means 'no site'
+  rather than 'not exported'.
+- 'The bimodal distance distribution is itself a useful diagnostic for any future attribution work: exact
+  matches at 0.5 bp show the join is sound where data exists, so the long tail is about coverage rather
+  than method.'
+- TU00434 sits 22.5 bp from the implied TSS and does NOT match, so even restoring it would not carry the
+  LexA edge under this rule -- contradicting what I assumed when scoping tu-dedup-promoter-collapse.

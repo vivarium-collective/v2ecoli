@@ -374,7 +374,7 @@ conclusion: 'Refuted, as the design anticipated and said so in advance. dnaG has
   term of promoter_init_probs, or the normalisation applied after it. The repaired deriver emits bound_TF_indexes,
   bound_TF_coordinates and bound_TF_domains, so that term is directly observable for the first time and
   the next study can measure it rather than reason about it.'
-confidence: Accepted
+confidence: Refuted
 preliminary_observations:
 - note: 'FIRST EVER promoter-count measurement, from the req-1 verification smoke (generation 1 only,
     6-minute cap, single seed): dnaG TU00352[c] holds a CONSTANT 2 promoters (min 2, max 2) and is never

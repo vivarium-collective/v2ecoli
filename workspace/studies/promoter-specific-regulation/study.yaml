@@ -457,7 +457,7 @@ conclusion: 'Phase A settles the approach without a simulation, and the answer i
   dnaG is unaffected by that ambiguity, because its evidence is a PRESENT site matching TU00435 to 0.5
   bp rather than a missing one. So a TARGETED correction at this locus is supported by the data; a network-wide
   one is not, and needs the complete regulation table the outstanding Pathway Tools licence would provide.'
-confidence: Investigating
+confidence: Refuted
 attribution_rule:
   recorded_at: '2026-09-04T20:15:00Z'
   recorded_before_applying: true

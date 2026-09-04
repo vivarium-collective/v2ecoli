@@ -447,7 +447,7 @@ conclusion: 'Phase A localised the defect and refuted two of four hypotheses wit
   ppGpp basal RISES 14% while its output collapses -- so the defect is unambiguously downstream. The next
   target is dnaG''s promoter COUNT, since promoter_init_probs is indexed by promoter and a vanishing promoter
   contributes nothing however healthy its probability.'
-confidence: Accepted
+confidence: Refuted
 runs:
 - name: dnag-generational-decay__phase-A
   status: complete

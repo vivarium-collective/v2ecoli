@@ -28,36 +28,26 @@ legacy path never does.
 Both changes are additive and back-compatible: an edge with no declared
 relation behaves exactly as before.
 
-## authored `confidence:` was unreachable
+## authored `confidence:` is unreachable — left unpatched, deliberately
 
-Same shape as the edge bug, one field over. `/viva-study` documents `confidence:`
-as **"Authored in: Decide (when the derived value is wrong)"**, but no code path
-could read an authored value:
+`derive_confidence()` reads gate verdict -> `report.verdict` -> lifecycle
+`status` and never consults `spec["confidence"]`, while the graph view assigns
+it unconditionally. So `/viva-study`'s documented "Authored in: **Decide** (when
+the derived value is wrong)" path cannot be exercised. That is a real upstream
+bug and worth reporting.
 
-1. `lib/investigation_graph_views.py` sets `_node["confidence"] =
-   derive_confidence(study_spec)` unconditionally.
-2. `viva_superpowers.study_verdict.derive_confidence()` reads gate verdict ->
-   `report.verdict` -> lifecycle `status`. It never consults
-   `spec["confidence"]`.
-3. `static/walkthrough.js:10407` does `s.confidence || <fallback>` — but the
-   server always populates `s.confidence`, so the fallback never fires and the
-   authored value never reaches the renderer.
+**We are NOT patching it here.** A patch was written and then reverted on the
+2026-09-04 review: making the authored value win lets a stale scaffold entry
+(e.g. a `confidence: Planned` left from study creation) outlive the run that
+superseded it and mask a real gate change. For an investigation with studies
+actively re-running, derivation staying the single source of truth is worth more
+than the ability to hand-author a badge.
 
-The source comment at (1) claims "the frontend prefers this over its own
-status-fallback derivation (`s.confidence || ...`)", which reads as though the
-authored field wins. It does not; it is overwritten before the frontend sees it.
-
-Consequence: `confidence` is a pure function of `gate_status`, so **any study
-whose pre-registered hypothesis failed renders `Refuted`** — even when the study
-executed exactly as designed and its `claim` (the knowledge it produced) stands.
-That conflates *"this gate failed"* with *"this claim is false"*, which are
-different things, and makes a healthy pre-registered investigation look like a
-wall of failures.
-
-**Patch:** prefer an authored `confidence:` when it is one of the four enums
-(`Accepted | Investigating | Refuted | Planned`); fall back to
-`derive_confidence()` when absent or invalid. Additive — a study with no
-authored `confidence:` behaves exactly as before.
+The consequence is accepted knowingly: a study whose pre-registered hypothesis
+failed renders `Refuted` even when its `claim` stands. That conflates "this gate
+failed" with "this claim is false" — which are different things — but the fix
+belongs upstream, in a form where a divergence carries a recorded warrant rather
+than resting on an editor's judgment.
 
 ## the left rail painted every failed gate red
 
@@ -80,8 +70,7 @@ Consequence: a pre-registered study whose hypothesis failed carries
 `invalid` and `blocked`. A healthy investigation that had done its job read as a
 wall of errors.
 
-**Patch:** ship `confidence` on the study row (authored value preferred, derived
-as fallback — same rule as the graph patch); colour the rail dot by it via a new
+**Patch:** ship the DERIVED `confidence` on the study row; colour the rail dot by it via a new
 `_railConfidenceColor()` covering all four enums; keep the gate outcome in the
 tooltip (`Accepted (gate: failed)`) so nothing is hidden. Falls back to the old
 status colour when no confidence is shipped.

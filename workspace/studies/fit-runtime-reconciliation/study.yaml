@@ -783,4 +783,4 @@ findings:
   next_action: Decide which side of the fit-runtime mismatch should change.
   next_action_type: escalate_model
   seeded_study: ppgpp-off-rescue
-confidence: Investigating
+confidence: Refuted

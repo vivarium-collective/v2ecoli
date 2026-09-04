@@ -22,14 +22,6 @@ if "e.relation ||" not in s:
                 """        relation: e.relation || (e.artifact ? 'model-input' : 'leads-to'),""")
     f.write_text(s); print("client patched")
 
-f=P/"vivarium_workbench/lib/investigation_graph_views.py"; s=f.read_text()
-if '_authored = str(study_spec.get("confidence")' not in s:
-    s=s.replace('''            _node["confidence"] = _dc(study_spec)''',
-'''            _authored = str(study_spec.get("confidence") or "").strip()
-            _valid = {"Accepted", "Investigating", "Refuted", "Planned"}
-            _node["confidence"] = _authored if _authored in _valid else _dc(study_spec)''')
-    f.write_text(s); print("confidence patched")
-
 # --- rail dot: colour by confidence, not raw gate status ---
 f=P/"vivarium_workbench/lib/investigations_index.py"; s=f.read_text()
 if "_display_confidence" not in s:
@@ -38,9 +30,8 @@ if "_display_confidence" not in s:
                 '            "confidence": _display_confidence(spec),')
     s=s.replace("def _conclusions_excerpt(spec: dict, limit: int = 240) -> str:",
         'def _display_confidence(spec: dict):\n'
-        '    authored = str(spec.get("confidence") or "").strip()\n'
-        '    if authored in {"Accepted", "Investigating", "Refuted", "Planned"}:\n'
-        '        return authored\n'
+        '    # DERIVED only -- an authored confidence: is deliberately ignored, so a\n'
+        '    # stale scaffold value cannot outlive the run that superseded it.\n'
         '    try:\n'
         '        from viva_superpowers.study_verdict import derive_confidence\n'
         '        return derive_confidence(spec)\n'

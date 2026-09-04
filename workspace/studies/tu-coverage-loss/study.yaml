@@ -334,7 +334,7 @@ conclusion: 'Largely a refutation, including of my own framing, and the study is
   any restored dnaG-bearing TU would inherit LexA, all three containing rpoD. The fix is therefore promoter-specific
   regulation, not TU restoration: the three dnaG-bearing TUs have three distinct 5'' ends, and an operator
   blocking one promoter should not silence transcripts initiated from the others.'
-confidence: Accepted
+confidence: Refuted
 runs:
 - name: tu-coverage-loss__static-plus-reuse
   status: complete

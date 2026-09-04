@@ -17,16 +17,6 @@ question: 'promoter-specific-regulation showed the attribution rule removes the 
   the dnaG locus the evidence is POSITIVE rather than an absence: LexA''s site is present at 3210729-3210749
   and matches TU00435''s start to 0.5 bp, while TU00352''s start lies 88.5 bp away. Does removing that
   single misattributed edge rescue the lineage?'
-parent_studies:
-- study: promoter-specific-regulation
-  condition: complete
-  relation: refines
-- study: pc00010-repression-arithmetic
-  condition: complete
-  relation: supports
-- study: replisome-gate-sufficiency
-  condition: tests-passed
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -303,3 +293,19 @@ baseline:
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     config_overrides: *id001
+pipeline_gate:
+  prerequisites:
+  - study: promoter-specific-regulation
+    condition: complete
+    relation: refines
+    note: Narrows that study's network-wide rule, whose disruption control failed, to the one locus where
+      the evidence is positive.
+  - study: pc00010-repression-arithmetic
+    condition: complete
+    relation: calibrates-threshold
+    note: Its 47.4x deficit is this study's control-arm pin.
+  - study: replisome-gate-sufficiency
+    condition: complete
+    relation: evidence
+    note: Its DnaG-ablation arm reaching 12/12 is the evidence that restoring DnaG supply should rescue
+      the lineage.

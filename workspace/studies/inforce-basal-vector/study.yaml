@@ -17,16 +17,6 @@ question: 'Four candidate mechanisms for dnaG''s 1e+05-fold transcription collap
   remains is a flat contradiction. The ppGpp basal probability assigned to dnaG, RECONSTRUCTED offline,
   is ~3e-05 and rising; the measured target_rna_synth_prob is ~1.35e-11. No surviving step accounts for
   the 4e+06 gap. Is the reconstruction wrong, or is a step missing from our account of the pipeline?'
-parent_studies:
-- study: dnag-promoter-availability
-  condition: complete
-  relation: leads-to
-- study: dnag-generational-decay
-  condition: complete
-  relation: refines
-- study: probability-in-force-reference
-  condition: tests-passed
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -420,3 +410,15 @@ baseline:
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     config_overrides: *id001
+pipeline_gate:
+  prerequisites:
+  - study: dnag-generational-decay
+    condition: complete
+    relation: refutes-alternative
+    note: Audits and would have overturned that study's reconstructed in-force vector; the per-timestep
+      check vindicated it instead.
+  - study: probability-in-force-reference
+    condition: complete
+    relation: evidence
+    note: Supplies the precedent that a reconstructed reference had already corrected a headline number
+      once.

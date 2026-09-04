@@ -16,13 +16,6 @@ question: dnag-generational-decay established that dnaG's transcription collapse
   3 while its ppGpp basal probability RISES 14% -- so the defect is downstream of the ppGpp vector. transcript_initiation
   computes promoter_init_probs indexed BY PROMOTER and sets p_i to 0 for a TU that lacks a chromosomal
   promoter. Does dnaG lose its promoters, and does that account for the collapse?
-parent_studies:
-- study: dnag-generational-decay
-  condition: complete
-  relation: leads-to
-- study: silent-transcription-units
-  condition: ran
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -616,3 +609,14 @@ conclusion_logic:
       seeded_study: inforce-basal-vector
       note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
         invented to clear the flag.
+pipeline_gate:
+  prerequisites:
+  - study: dnag-generational-decay
+    condition: complete
+    relation: leads-to
+    note: Takes up the downstream localisation this study left open.
+  - study: silent-transcription-units
+    condition: complete
+    relation: evidence
+    note: Supplies the record that promoter_copy_number was empty on all timesteps, which motivated the
+      deriver repair.

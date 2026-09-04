@@ -17,13 +17,6 @@ question: 'deltav-conversion-diagnosis explained the repressor half of ParCa''s 
   activating entries sit at any boundary, yet they are encoded 4.77x too strongly -- 60.8% of the regulatory
   network. Does the gap between the occupancy ParCa ASSUMED when fitting (pPromoterBound, median 0.444)
   and the occupancy the simulation PRODUCES (LexA: 0.963-1.000 against an assumed 0.5192) explain it?'
-parent_studies:
-- study: deltav-conversion-diagnosis
-  condition: complete
-  relation: leads-to
-- study: foldchange-to-delta-fidelity
-  condition: complete
-  relation: supports
 units_and_time:
   tick: not applicable for the fit-side analysis; runtime occupancy is read per simulated second.
   quantities:
@@ -571,3 +564,16 @@ conclusion_logic:
         and the partial-swing effect (this study), affects 60.8% of the regulatory network, and has no
         candidate mechanism. The flag on this study is CORRECT and should stay until a diagnostic study
         is actually run.
+pipeline_gate:
+  prerequisites:
+  - study: deltav-conversion-diagnosis
+    condition: complete
+    relation: refutes-alternative
+    note: 'Refutes that study''s recorded prediction that the upper constraint binds for activators: zero
+      of 343 do.'
+  - study: foldchange-to-delta-fidelity
+    condition: complete
+    relation: model-input
+    outputs_used:
+    - 564-entry join; activator subgroup median 4.7727
+    note: Consumes the same join; the 4.7727 is this study's pin.

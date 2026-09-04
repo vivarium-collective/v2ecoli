@@ -19,16 +19,6 @@ question: dnaG's transcription collapse has been traced to a single term. The TF
   so b*(1+delta) retains 4.3e-08 of dnaG's assigned probability. Does that arithmetic close quantitatively,
   is the generational collapse simply occupancy rising from 96.3% to 100%, and how many other transcripts
   does this affect?
-parent_studies:
-- study: inforce-basal-vector
-  condition: complete
-  relation: refines
-- study: dnag-promoter-availability
-  condition: complete
-  relation: leads-to
-- study: dnag-generational-decay
-  condition: complete
-  relation: leads-to
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -620,3 +610,15 @@ conclusion_logic:
       seeded_study: foldchange-to-delta-fidelity
       note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
         invented to clear the flag.
+pipeline_gate:
+  prerequisites:
+  - study: dnag-promoter-availability
+    condition: complete
+    relation: model-input
+    outputs_used:
+    - '6-seed sweep parquet: target_rna_synth_prob, promoter_copy_number, bound_TF_*'
+    note: Consumes that study's sweep directly; no new simulation.
+  - study: dnag-generational-decay
+    condition: complete
+    relation: calibrates-threshold
+    note: Its 47.4x peer deficit and the -0.999999957 delta set this study's bands.

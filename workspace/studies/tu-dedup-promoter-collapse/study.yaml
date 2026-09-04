@@ -19,16 +19,6 @@ question: tu-coverage-loss measured that 760 of 3766 source transcription units 
   alternative transcripts TU00434 (start 3210712) and TU00435 (3210735) are two of them, collapsed into
   TU00352 (3210646). Does restoring them give dnaG a transcript that escapes the constraint, and does
   the lineage then live?
-parent_studies:
-- study: tu-coverage-loss
-  condition: complete
-  relation: refines
-- study: deltav-conversion-diagnosis
-  condition: complete
-  relation: supports
-- study: pc00010-repression-arithmetic
-  condition: complete
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time for the lineage axes; the coverage axes read static artefacts.
   quantities:
@@ -510,3 +500,17 @@ conclusion_logic:
       seeded_study: promoter-specific-regulation
       note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
         invented to clear the flag.
+pipeline_gate:
+  prerequisites:
+  - study: tu-coverage-loss
+    condition: complete
+    relation: refines
+    note: Identifies the mechanism behind the coverage loss that study measured but did not explain.
+  - study: pc00010-repression-arithmetic
+    condition: complete
+    relation: calibrates-threshold
+    note: Its 47.4x deficit sets this study's recovery band.
+  - study: deltav-conversion-diagnosis
+    condition: complete
+    relation: evidence
+    note: Supplies the constraint-boundary evidence that makes restoration non-obvious.

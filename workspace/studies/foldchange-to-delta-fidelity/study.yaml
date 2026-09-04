@@ -16,13 +16,6 @@ question: dnaG is silenced because the LexA delta on its operon retains 4.3e-08 
   the measured datum ParCa fit that delta from is lexA->rpoD at log2FC = -0.65, which means retaining
   0.637 -- a 1.48e+07-fold distortion between the input and its encoding. Is that isolated to this entry,
   or does the TF-regulation layer systematically misrepresent the fold-change data it is fit from?
-parent_studies:
-- study: pc00010-repression-arithmetic
-  condition: ran
-  relation: refines
-- study: dnag-generational-decay
-  condition: complete
-  relation: supports
 units_and_time:
   tick: not applicable -- this study reads static fit artefacts, not a simulation.
   quantities:
@@ -667,3 +660,13 @@ conclusion_logic:
       seeded_study: deltav-conversion-diagnosis
       note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
         invented to clear the flag.
+pipeline_gate:
+  prerequisites:
+  - study: pc00010-repression-arithmetic
+    condition: complete
+    relation: calibrates-threshold
+    note: Its lexA->rpoD measurement became this study's regression pin.
+  - study: dnag-generational-decay
+    condition: complete
+    relation: evidence
+    note: Supplies the in-force-vector method this study's join reuses.

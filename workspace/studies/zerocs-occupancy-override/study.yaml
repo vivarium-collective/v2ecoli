@@ -17,16 +17,6 @@ question: 'The amended foldchange-to-delta-fidelity showed ParCa''s encoding is 
   = -0.99999996 leaves a survivable 0.34 of expression at the fitted occupancy of 0.6615 but 4.3e-08 at
   1.0. tf_binding.py:393 sets pPromoterBound = 1.0 unconditionally for TFs typed 0CS, and LexA is 0CS
   while ParCa fitted it at 0.5192/0.6615. Does honouring the fitted occupancy rescue the lineage?'
-parent_studies:
-- study: foldchange-to-delta-fidelity
-  condition: complete
-  relation: leads-to
-- study: deltav-conversion-diagnosis
-  condition: complete
-  relation: supports
-- study: activator-overshoot
-  condition: complete
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time; generations delimited by division events.
   quantities:
@@ -393,3 +383,10 @@ baseline:
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     config_overrides: *id001
+pipeline_gate:
+  prerequisites:
+  - study: foldchange-to-delta-fidelity
+    condition: complete
+    relation: refutes-alternative
+    note: Retired unrun once that study's amendment showed the fit is nearly faithful and occupancy is
+      the trigger, not the cause.

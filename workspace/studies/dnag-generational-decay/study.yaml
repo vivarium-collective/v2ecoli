@@ -16,13 +16,6 @@ question: 'dnaG''s transcription falls generation over generation while its ribo
   hold steady. ppgpp-off-rescue explained the LEVEL -- removing ppGpp regulation recovers 16.6x of the
   deficit -- but nothing explains the TRAJECTORY. Where does the generational decay originate: in the
   ppGpp basal vector, or downstream of it?'
-parent_studies:
-- study: ppgpp-off-rescue
-  condition: complete
-  relation: leads-to
-- study: dnag-protein-mass-balance
-  condition: tests-passed
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time; generations are variable-length and delimited by division events.
   quantities:
@@ -716,6 +709,17 @@ pipeline_gate:
     - ppgpp-predicts-the-decay
     evaluated_by: code
     diverges_from_authored: false
+  prerequisites:
+  - study: ppgpp-off-rescue
+    condition: complete
+    relation: refutes-alternative
+    note: 'Refutes ppGpp as the cause of the generational collapse: ppgpp-off-rescue established ppGpp
+      sets dnaG''s LEVEL, this study showed it does not drive the trajectory.'
+  - study: dnag-protein-mass-balance
+    condition: complete
+    relation: evidence
+    note: Supplies the held-out mass balance showing no production mechanism is missing, so the collapse
+      must be transcriptional.
 baseline:
 - name: ppgpp-on-mechanistic
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline

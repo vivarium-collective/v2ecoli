@@ -18,16 +18,6 @@ question: EcoCyc's binding-site data shows LexA's only operator at the rpsU-dnaG
   has regulatory DIRECTION right and sign-constrained; what it lacks is POSITION. Does re-attributing
   each delta_prob edge to the TUs whose start site lies downstream of the operator free dnaG, without
   disturbing the rest of the network?
-parent_studies:
-- study: tu-dedup-promoter-collapse
-  condition: complete
-  relation: leads-to
-- study: pc00010-repression-arithmetic
-  condition: complete
-  relation: supports
-- study: deltav-conversion-diagnosis
-  condition: complete
-  relation: supports
 units_and_time:
   tick: 1 s of simulated time for the lineage axes; attribution axes read static artefacts.
   quantities:
@@ -651,3 +641,17 @@ conclusion_logic:
       seeded_study: dnag-locus-targeted-fix
       note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
         invented to clear the flag.
+pipeline_gate:
+  prerequisites:
+  - study: tu-dedup-promoter-collapse
+    condition: complete
+    relation: leads-to
+    note: Takes up the fix that study's Phase A showed restoration alone cannot deliver.
+  - study: pc00010-repression-arithmetic
+    condition: complete
+    relation: calibrates-threshold
+    note: Its 47.4x deficit sets the recovery band.
+  - study: deltav-conversion-diagnosis
+    condition: complete
+    relation: evidence
+    note: Supplies the constraint mechanism the re-attribution must not disturb.

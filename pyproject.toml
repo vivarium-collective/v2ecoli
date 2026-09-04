@@ -175,7 +175,7 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
 
 [tool.uv.sources]
-process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", branch = "main" }
+process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", tag = "v1.8.4" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
 viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }

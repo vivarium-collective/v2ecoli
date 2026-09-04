@@ -236,9 +236,28 @@ decisions_needed:
     were reading a disabled listener, not the model.
 - question: Is the LexA delta on dnaG's operon a faithful encoding of its source fold change?
   raised_by: pc00010-repression-arithmetic
-  status: open
+  status: resolved
   why: lexA->rpoD carries a measured log2FC of -0.65, i.e. retain 0.637, but the in-force delta on TU00352
     (rpsU-dnaG-rpoD) retains 4.3167e-08 -- a 1.48e+07-fold distortion. dnaG is silenced as an operon passenger
     of rpoD. Whether this is one bad entry or a systematic property of the TF-regulation layer is scoped
     as foldchange-to-delta-fidelity and would, if systematic, affect every result in this investigation
     that leaned on delta_prob.
+  resolution: 'No. foldchange-to-delta-fidelity measured it across the whole network: the median encoded
+    retained fraction is 2.01x its source fold change, only ~20% of entries land within a factor of 1.5,
+    activators are distorted 4.77x and repressors 0.628x, and six entries encode a negative probability.
+    dnaG''s silencing is one instance of a systematic encoding defect, reaching dnaG only because rpoD
+    shares its operon. pc00010-repression-arithmetic then confirmed the runtime consequence: all 10 near-totally-repressed
+    LexA targets silenced, unregulated peers untouched.'
+- question: Locate the ParCa stage that converts fold changes into deltaV.
+  why: foldchange-to-delta-fidelity CHARACTERISED the defect (median 2.01x, both directions, uniform in
+    magnitude) but did not LOCATE it. deltaV arrives precomputed in sim_data; transcription_regulation.py
+    only reshapes it. Until the conversion is found the defect cannot be fixed, only measured.
+  raised_by: pc00010-repression-arithmetic
+  status: open
+- question: Add a per-promoter occupancy listener.
+  why: pc00010-repression-arithmetic's quantitative axis fails at 0.211 because occupancy can only be
+    measured per-TU while delta is applied per promoter; two copies of one promoter share a replication
+    coordinate, so bound_TF_coordinates cannot separate them. This is the one instrumentation gap blocking
+    a closed arithmetic.
+  raised_by: pc00010-repression-arithmetic
+  status: open

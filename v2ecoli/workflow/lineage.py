@@ -142,6 +142,25 @@ class LineageProcess(Process):
         "initial_carry_state_path": {"_type": "string", "_default": ""},
         "initial_generation_index": {"_type": "integer", "_default": 0},
         "daughter_state_out_path": {"_type": "string", "_default": ""},
+        # Item 115: a SINGLE-lineage-run caller (chain-dispatch, one process
+        # invocation per generation) already gets per-generation resume via the
+        # three fields above -- an external scheduler computes each generation's
+        # own literal daughter_state_out_path before submitting that generation's
+        # job. A pbg-native lineage has no such external scheduler: ALL of a
+        # lineage's generations run inside ONE continuous process invocation, so
+        # no caller can pre-compute N literal per-generation paths ahead of time
+        # -- the process itself must derive each one as it goes. When set, this
+        # is a DIRECTORY PREFIX (not a literal file path): each generation's own
+        # checkpoint is written to "{checkpoint_dir}/gen_{generation:04d}.pkl",
+        # a distinct key per generation so a write failure at generation N can
+        # never corrupt generation N-1's already-durable checkpoint (an
+        # overwrite-in-place scheme would risk exactly that -- the one thing a
+        # checkpoint meant to survive a crash cannot afford). Takes priority
+        # over daughter_state_out_path when both are set (real precedence, not
+        # silently ignored) since a literal path can only ever describe ONE
+        # generation's own destination. Empty by default: unused, so an existing
+        # single-generation caller (chain-dispatch) is entirely unaffected.
+        "checkpoint_dir": {"_type": "string", "_default": ""},
         "experiment_id": {"_type": "string", "_default": "default"},
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
@@ -590,7 +609,11 @@ class LineageProcess(Process):
         # "complete" branch below, but still needs THIS generation's daughter
         # written out. No daughter (timed out without dividing) means nothing
         # to hand off, mirroring self._carry_state staying None in that case.
-        out_path = str(self.config.get("daughter_state_out_path") or "")
+        checkpoint_dir = str(self.config.get("checkpoint_dir") or "")
+        if checkpoint_dir:
+            out_path = f"{checkpoint_dir.rstrip('/')}/gen_{self._generation:04d}.pkl"
+        else:
+            out_path = str(self.config.get("daughter_state_out_path") or "")
         if out_path and daughter is not None:
             from v2ecoli.cache import save_initial_state
             payload = dict(daughter)

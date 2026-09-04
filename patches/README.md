@@ -59,4 +59,31 @@ wall of failures.
 `derive_confidence()` when absent or invalid. Additive — a study with no
 authored `confidence:` behaves exactly as before.
 
+## the left rail painted every failed gate red
+
+Third instance of the same class. `derive_confidence()`'s docstring states the
+intent plainly — the value exists so that "the left-rail dot, the
+investigation-graph node, and the study badge" all read one thing "**so they
+never disagree**". The rail does not read it:
+
+1. `static/walkthrough.js:_railStudyItem()` colours its dot with
+   `_railStatusColor(s.status)` — the raw gate outcome.
+2. `lib/investigations_index.py` never put a `confidence` key in the study row
+   at all, so the rail *could* not read one.
+3. `_railStatusColor()` also can't render the confidence vocabulary: `Refuted`
+   and `Investigating` match none of its substrings and both fall through to
+   gray, so naively passing confidence into it silently loses two of four
+   states.
+
+Consequence: a pre-registered study whose hypothesis failed carries
+`status: failed` — accurate — and the rail painted it the same red it uses for
+`invalid` and `blocked`. A healthy investigation that had done its job read as a
+wall of errors.
+
+**Patch:** ship `confidence` on the study row (authored value preferred, derived
+as fallback — same rule as the graph patch); colour the rail dot by it via a new
+`_railConfidenceColor()` covering all four enums; keep the gate outcome in the
+tooltip (`Accepted (gate: failed)`) so nothing is hidden. Falls back to the old
+status colour when no confidence is shipped.
+
 Originals: `*.orig` in this directory.

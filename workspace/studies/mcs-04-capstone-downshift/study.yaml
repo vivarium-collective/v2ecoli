@@ -49,6 +49,12 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
+- artifact: mcs-02-metabolism-energy-balance
+  from: mcs-02-metabolism-energy-balance
+- artifact: mcs-03-single-cell-heterogeneity
+  from: mcs-03-single-cell-heterogeneity
 expected_behavior:
 - name: three-complexities-co-occur
   observable: "ppgpp_conc + exchange_fluxes + division_time"
@@ -149,14 +155,6 @@ findings:
 
 pipeline_gate:
   enables: []
-  prerequisites:
-  - study: mcs-01-ppgpp-replication-coupling
-    condition: tests-passed
-  - study: mcs-02-metabolism-energy-balance
-    condition: tests-passed
-  - study: mcs-03-single-cell-heterogeneity
-    condition: tests-passed
-
 biological_summary: >-
   A whole-cell model earns its complexity where one perturbation moves many scales. Across the
   nutrient axis, a single change shifts the ppGpp signal, replication, growth, and metabolic

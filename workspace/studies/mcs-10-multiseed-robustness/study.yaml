@@ -31,11 +31,6 @@ objective: >-
   interdivision-time CV as mean +/- CI. Replace the single-seed point estimates in mcs-01,
   mcs-03 and the capstone with these bands; state which effects survive and which do not.
 
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-01-ppgpp-replication-coupling, condition: tests-passed}
-  - {study: mcs-03-single-cell-heterogeneity, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -53,6 +48,10 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
+- artifact: mcs-03-single-cell-heterogeneity
+  from: mcs-03-single-cell-heterogeneity
 readouts:
 - "origins_per_cell mean +/- 95% CI at basal and with_aa (Cooper-Helmstetter scaling with error bars)"
 - "ppgpp_conc and growth_rate mean +/- CI at both conditions (the anti-correlation with bands)"

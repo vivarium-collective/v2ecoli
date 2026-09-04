@@ -30,10 +30,6 @@ objective: >-
   fraction vs growth rate, compare the slope to the Scott-Hwa C-line, and correct the
   allocation gain if it diverges.
 
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-01-ppgpp-replication-coupling, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -47,6 +43,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
 readouts:
 - "ribosome_conc / active-ribosome fraction vs growth rate across the carbon ladder"
 - "slope of ribosome fraction vs growth rate vs the Scott-Hwa C-line"

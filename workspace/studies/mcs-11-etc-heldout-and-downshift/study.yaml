@@ -34,11 +34,6 @@ objective: >-
   without having been tuned. (2) Run the rich->minimal media downshift (resume a rich-adapted
   lineage into minimal media) and record the ppGpp / flux / growth transient.
 
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-05-etc-stoichiometry-fix, condition: tests-passed}
-  - {study: mcs-04-capstone-downshift, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -59,6 +54,10 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-05-etc-stoichiometry-fix
+  from: mcs-05-etc-stoichiometry-fix
+- artifact: mcs-04-capstone-downshift
+  from: mcs-04-capstone-downshift
 readouts:
 - "acetate secretion vs growth rate with the ETC fix on (held-out overflow-onset curve; the cap was tuned to YIELD, never to acetate)"
 - "ppgpp_conc, growth_rate and central-carbon flux transient across a rich->minimal downshift"

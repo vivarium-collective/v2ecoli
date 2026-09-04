@@ -52,6 +52,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
 expected_behavior:
 - name: division-time-cv-in-band
   observable: division_time
@@ -168,10 +170,6 @@ findings:
 
 pipeline_gate:
   enables: [mcs-04-capstone-downshift]
-  prerequisites:
-  - study: mcs-01-ppgpp-replication-coupling
-    condition: tests-passed
-
 biological_summary: >-
   Stochastic gene expression and replication initiation should make no two cells identical,
   giving an interdivision-time CV of ~10–30% and adder-like size homeostasis. v2ecoli

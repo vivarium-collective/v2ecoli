@@ -35,10 +35,6 @@ objective: >-
   compare the cross-condition coordination (the coupling slope / response magnitude) between
   ppGpp-competent and ppGpp-suppressed cells. This is the falsification control for H1.
 
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-01-ppgpp-replication-coupling, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -58,6 +54,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
 readouts:
 - "ppgpp_conc: native baseline vs RelA-knockdown (confirms the knockdown actually lowers ppGpp)"
 - "ribosome_conc and origins_per_cell response to a nutrient change, ppGpp-competent vs suppressed"

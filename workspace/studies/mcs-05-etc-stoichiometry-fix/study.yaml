@@ -33,10 +33,6 @@ objective: >-
 
 # Parent: mcs-02. This is the MODEL-UPDATE follow-up its finding (next_action_type:
 # escalate_model) called for.
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-02-metabolism-energy-balance, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -54,6 +50,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-02-metabolism-energy-balance
+  from: mcs-02-metabolism-energy-balance
 readouts:
 - "ATP production per FBA reaction; effective P/O ratio (ATP made per O2 consumed)"
 - "biomass_yield, RQ, O2:glucose before/after the stoichiometry correction"
@@ -379,6 +377,10 @@ conclusion: >-
   ## Re-execution caveat
 
   The reverse-cap FIX did not robustly reproduce on independent re-run (yield 0.395 vs 0.819 at the same cap 4.5 — FBA optimum degeneracy). The diagnosis is solid; the fix needs reformulation to FORCE forward ATP synthase, not merely bound the reverse. See mcs-11.
+
+  ## Code status
+
+  The reverse-cap code change (atp_synthase_reverse_cap in metabolism.py) has been REVERTED from the branch: mcs-11 showed it is not a robust correction (the defect is a thermodynamic FBA loop, not a flux bound), so it is documented here as a refuted attempt, not landed in the model. The mcs-06 chromosome_replication.py change (default-off) is retained.
 simulation_set:
 - name: mcs05-etc-atp-budget-diagnostic
   kind: simulation

@@ -65,6 +65,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-01-ppgpp-replication-coupling
+  from: mcs-01-ppgpp-replication-coupling
 expected_behavior:
 - name: biomass-yield-in-measured-band
   observable: biomass_yield
@@ -220,10 +222,6 @@ findings:
 
 pipeline_gate:
   enables: [mcs-04-capstone-downshift]
-  prerequisites:
-  - study: mcs-01-ppgpp-replication-coupling
-    condition: tests-passed
-
 biological_summary: >-
   The baseline builds ~1.8× more biomass per gram of glucose than carbon/energy balance permit,
   because it barely respires (RQ 2.94, near-zero O2). This study tests the prior investigation's

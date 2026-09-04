@@ -30,10 +30,6 @@ objective: >-
   default-off knob; run a seed ensemble with the noise OFF (baseline) and ON, and re-measure the
   interdivision-time CV (target 0.10-0.30) with the mean generation time held out.
 
-pipeline_gate:
-  prerequisites:
-  - {study: mcs-03-single-cell-heterogeneity, condition: tests-passed}
-
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -61,6 +57,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-03-single-cell-heterogeneity
+  from: mcs-03-single-cell-heterogeneity
 readouts:
 - "interdivision-time CV across the ensemble, noise OFF vs ON (target 0.10-0.30)"
 - "mean generation time and mean mass (held-out — must be preserved)"

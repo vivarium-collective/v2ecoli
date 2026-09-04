@@ -33,7 +33,6 @@ objective: >-
 # Multiscale role: a single molecular signal (ppGpp) coordinating replication (cell
 # cycle) and growth (single cell) — cross-scale CONTROL.
 
-parent_studies: []
 
 conditions:
   baseline:

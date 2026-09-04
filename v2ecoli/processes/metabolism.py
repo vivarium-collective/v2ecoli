@@ -433,15 +433,6 @@ class Metabolism(Step):
 
         # Use information from the environment and sim
         self.get_import_constraints = self.parameters["get_import_constraints"]
-        # Upper bound on ATP synthase's REVERSE (ATPase / hydrolysis) flux. Left
-        # unconstrained the FBA runs ATP synthase backwards to dump an ATP surplus,
-        # so the cell never respires (RQ ~3, biomass yield ~1.8x over the measured
-        # band; investigated in mcs-05). Capping the reverse direction forces
-        # net-forward (respiratory) operation. Default 4.5 is calibrated so biomass
-        # yield lands in the measured 0.355-0.444 gDW/g glucose band; RQ->~1 and growth
-        # rate are held-out (not tuned). None disables the cap (pre-fix behaviour).
-        self.atp_synthase_reverse_cap = self.parameters.get(
-            "atp_synthase_reverse_cap", 4.5)
         self.nutrientToDoublingTime = self.parameters["nutrientToDoublingTime"]
         self.use_trna_charging = self.parameters["use_trna_charging"]
         self.include_ppgpp = self.parameters["include_ppgpp"]
@@ -897,21 +888,6 @@ class Metabolism(Step):
         relaxed_reactions = self._apply_flux_pins(
             fba, states.get("pinned_flux_targets", {})
         )
-
-        # Force net-forward ATP synthase (see self.atp_synthase_reverse_cap): cap the
-        # reverse (ATPase) direction so the cell must respire rather than dissipate an
-        # ATP surplus. Applied last, right before solve, so the enzyme-presence bound
-        # sweep cannot override it. Guarded — the reverse reaction is absent in some
-        # media/model variants.
-        if self.atp_synthase_reverse_cap is not None:
-            try:
-                fba.setReactionFluxBounds(
-                    ["ATPSYN-RXN (reverse)"],
-                    lowerBounds=[0.0],
-                    upperBounds=[float(self.atp_synthase_reverse_cap)],
-                )
-            except Exception:
-                pass
 
         fba.solve(n_retries)
 

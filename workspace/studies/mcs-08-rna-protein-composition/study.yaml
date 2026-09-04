@@ -50,6 +50,8 @@ inputs:
   from: parca
   into: cache_dir
 
+- artifact: mcs-07-ribosome-allocation-law
+  from: mcs-07-ribosome-allocation-law
 expected_behavior:
 - name: rna-protein-rises-with-growth
   observable: rna_protein_ratio
@@ -157,7 +159,3 @@ simulation_set:
   result: PASS
   pass_fail_tests:
   - rna-protein-rises-with-growth
-pipeline_gate:
-  prerequisites:
-  - study: mcs-07-ribosome-allocation-law
-    condition: tests-passed

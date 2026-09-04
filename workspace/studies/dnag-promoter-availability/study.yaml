@@ -12,7 +12,10 @@ simulation_status: complete
 evaluation_status: evaluated
 gate_status: failed
 expert_review_status: not_requested
-question: dnag-generational-decay established that dnaG's transcription collapses ~3e+05-fold by generation 3 while its ppGpp basal probability RISES 14% -- so the defect is downstream of the ppGpp vector. transcript_initiation computes promoter_init_probs indexed BY PROMOTER and sets p_i to 0 for a TU that lacks a chromosomal promoter. Does dnaG lose its promoters, and does that account for the collapse?
+question: dnag-generational-decay established that dnaG's transcription collapses ~3e+05-fold by generation
+  3 while its ppGpp basal probability RISES 14% -- so the defect is downstream of the ppGpp vector. transcript_initiation
+  computes promoter_init_probs indexed BY PROMOTER and sets p_i to 0 for a TU that lacks a chromosomal
+  promoter. Does dnaG lose its promoters, and does that account for the collapse?
 parent_studies:
 - study: dnag-generational-decay
   condition: complete
@@ -34,20 +37,28 @@ behavior_tests:
   description: 'promoter_copy_number is a length-3277 array on at least 99% of emitted timesteps.
 
 
-    The gate on req-1, and it is listed as a TEST rather than left to the requirement because this study''s every other axis reads a quantity that is currently EMPTY on 100% of timesteps. Silence here is indistinguishable from a promoter count of zero, which is precisely the hypothesis under test -- so an unrepaired deriver would manufacture a spurious confirmation. Checked FIRST for that reason.
+    The gate on req-1, and it is listed as a TEST rather than left to the requirement because this study''s
+    every other axis reads a quantity that is currently EMPTY on 100% of timesteps. Silence here is indistinguishable
+    from a promoter count of zero, which is precisely the hypothesis under test -- so an unrepaired deriver
+    would manufacture a spurious confirmation. Checked FIRST for that reason.
 
 
     Threshold provenance: definitional. The array either has the TU dimension or it does not.'
   measure:
     kind: derived
-    path: fraction of timesteps where transcript_initiation's promoter_copy_number observable is full length (n_TU), dnaG and ppGpp arms alike
-    detail: fraction of timesteps with a full-length promoter_copy_number array, ppGpp-on arm, generations 1-4.
+    path: fraction of timesteps where transcript_initiation's promoter_copy_number observable is full
+      length (n_TU), dnaG and ppGpp arms alike
+    detail: fraction of timesteps with a full-length promoter_copy_number array, ppGpp-on arm, generations
+      1-4.
   pass_if:
     low: 0.99
     high: 1.0
     provenance:
       kind: theory
-      note: 'Expressed as a band because the quantity is a FRACTION, bounded above by 1.0 by construction, so ''>= 0.99'' and the interval [0.99, 1.0] are the same statement; the band form simply makes the upper bound explicit. Definitional either way: the array carries the TU dimension or the observable does not exist.'
+      note: 'Expressed as a band because the quantity is a FRACTION, bounded above by 1.0 by construction,
+        so ''>= 0.99'' and the interval [0.99, 1.0] are the same statement; the band form simply makes
+        the upper bound explicit. Definitional either way: the array carries the TU dimension or the observable
+        does not exist.'
   status: passed
   result: PASS
   measured_value: 1.0
@@ -59,20 +70,28 @@ behavior_tests:
   description: 'dnaG has ZERO promoter records on at least half of generation-4 timesteps.
 
 
-    Reformulated from a gen4/gen1 count ratio, which was both unbandable (a band anchored at 0 always has half-width equal to its midpoint, so it can never satisfy the discrimination check) and the wrong question. transcript_initiation''s mechanism is not ''fewer promoters'' but a SWITCH: p_i <- 0 for a TU that lacks a chromosomal promoter. The occupancy fraction tests that switch directly, is naturally bounded in [0,1], and cleanly separates the hypotheses -- H1 drives it toward 1, H2 toward 0.
+    Reformulated from a gen4/gen1 count ratio, which was both unbandable (a band anchored at 0 always
+    has half-width equal to its midpoint, so it can never satisfy the discrimination check) and the wrong
+    question. transcript_initiation''s mechanism is not ''fewer promoters'' but a SWITCH: p_i <- 0 for
+    a TU that lacks a chromosomal promoter. The occupancy fraction tests that switch directly, is naturally
+    bounded in [0,1], and cleanly separates the hypotheses -- H1 drives it toward 1, H2 toward 0.
 
 
-    Threshold provenance: theory. Half is the weakest version of ''dnaG is usually without a promoter'' that could plausibly produce a floor rather than a gradient in transcript_initiation''s promoter_init_probs.'
+    Threshold provenance: theory. Half is the weakest version of ''dnaG is usually without a promoter''
+    that could plausibly produce a floor rather than a gradient in transcript_initiation''s promoter_init_probs.'
   measure:
     kind: derived
-    path: fraction of generation-4 timesteps where dnaG's promoter_copy_number entry is 0, feeding transcript_initiation's promoter_init_probs zero-promoter branch
-    detail: fraction of timesteps in generation 4 on which promoter_copy_number[TU00352[c]] == 0, median over seeds.
+    path: fraction of generation-4 timesteps where dnaG's promoter_copy_number entry is 0, feeding transcript_initiation's
+      promoter_init_probs zero-promoter branch
+    detail: fraction of timesteps in generation 4 on which promoter_copy_number[TU00352[c]] == 0, median
+      over seeds.
   pass_if:
     low: 0.5
     high: 1.0
     provenance:
       kind: theory
-      note: 'Bounded in [0,1] by construction, spans 2x, and discriminates: H1 (promoter loss) drives the occupancy fraction toward 1, H2 (per-promoter probability collapse) toward 0.'
+      note: 'Bounded in [0,1] by construction, spans 2x, and discriminates: H1 (promoter loss) drives
+        the occupancy fraction toward 1, H2 (per-promoter probability collapse) toward 0.'
   status: failed
   result: FAIL
   measured_value: 0.0
@@ -81,23 +100,29 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Is promoter loss specific to dnaG?
-  description: 'The 41 idx_rprotein peers'' median promoter copy number changes by less than 1.5x over generations 1-4.
+  description: 'The 41 idx_rprotein peers'' median promoter copy number changes by less than 1.5x over
+    generations 1-4.
 
 
-    The discriminating control. dnaG''s peers hold their transcription steady (their synthesis RISES 1.474x while dnaG collapses), so if promoter loss is the mechanism they must NOT be losing promoters. If they lose promoters too, promoter count cannot be what distinguishes dnaG and the hypothesis is dead regardless of what dnaG''s own count does.
+    The discriminating control. dnaG''s peers hold their transcription steady (their synthesis RISES 1.474x
+    while dnaG collapses), so if promoter loss is the mechanism they must NOT be losing promoters. If
+    they lose promoters too, promoter count cannot be what distinguishes dnaG and the hypothesis is dead
+    regardless of what dnaG''s own count does.
 
 
     Threshold provenance: theory. Two-sided, mirroring the equivalent control in dnag-generational-decay.'
   measure:
     kind: derived
-    path: idx_rprotein peer median promoter_copy_number entering promoter_init_probs, generation 4 over generation 1, ppGpp unchanged
+    path: idx_rprotein peer median promoter_copy_number entering promoter_init_probs, generation 4 over
+      generation 1, ppGpp unchanged
     detail: median promoter copy number across the 41 peer TUs per generation, gen4/gen1.
   pass_if:
     low: 0.67
     high: 1.5
     provenance:
       kind: theory
-      note: Two-sided so the control cannot be satisfied by the peers COLLAPSING -- the one-sided form of this exact control was a real defect caught in dnag-generational-decay's audit.
+      note: Two-sided so the control cannot be satisfied by the peers COLLAPSING -- the one-sided form
+        of this exact control was a real defect caught in dnag-generational-decay's audit.
   status: failed
   control: negative
   result: FAIL
@@ -107,23 +132,33 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Does promoter count account for the collapse, or only part of it?
-  description: 'Decomposing dnaG''s synthesis collapse into (promoter count) x (per-promoter probability), the promoter-count factor accounts for at least two-thirds of the collapse in log space.
+  description: 'Decomposing dnaG''s synthesis collapse into (promoter count) x (per-promoter probability),
+    the promoter-count factor accounts for at least two-thirds of the collapse in log space.
 
 
-    The quantitative discriminator, and the axis most likely to REFUTE the hypothesis. dnaG''s synthesis falls ~3e+05-fold. A promoter count is a small integer, so unless it reaches exactly zero it cannot supply five orders of magnitude on its own -- and the observed floor is 1.3e-11 rather than exactly 0, which is already evidence against the strongest form. A PASS means promoter loss is the mechanism; a FAIL localises the collapse to the per-promoter probability instead and sends the next study to the delta_prob/bound_TF term.
+    The quantitative discriminator, and the axis most likely to REFUTE the hypothesis. dnaG''s synthesis
+    falls ~3e+05-fold. A promoter count is a small integer, so unless it reaches exactly zero it cannot
+    supply five orders of magnitude on its own -- and the observed floor is 1.3e-11 rather than exactly
+    0, which is already evidence against the strongest form. A PASS means promoter loss is the mechanism;
+    a FAIL localises the collapse to the per-promoter probability instead and sends the next study to
+    the delta_prob/bound_TF term.
 
 
-    Threshold provenance: theory. Two-thirds in log space is the standard for ''accounts for most of'' used when a residual is tolerated but the factor must dominate.'
+    Threshold provenance: theory. Two-thirds in log space is the standard for ''accounts for most of''
+    used when a residual is tolerated but the factor must dominate.'
   measure:
     kind: derived
-    path: log promoter_copy_number fold-change over log actual_rna_synth_prob fold-change for dnaG, decomposing transcript_initiation's promoter_init_probs into count x per-promoter probability, at fixed ppGpp
-    detail: ratio of log-fold change in promoter count to log-fold change in synthesis, dnaG, generations 1-4.
+    path: log promoter_copy_number fold-change over log actual_rna_synth_prob fold-change for dnaG, decomposing
+      transcript_initiation's promoter_init_probs into count x per-promoter probability, at fixed ppGpp
+    detail: ratio of log-fold change in promoter count to log-fold change in synthesis, dnaG, generations
+      1-4.
   pass_if:
     low: 0.67
     high: 1.5
     provenance:
       kind: theory
-      note: 'Two-sided: below 0.67 promoter loss is not the dominant factor; above 1.5 it OVER-predicts the collapse, which would mean the decomposition is wrong rather than confirmed.'
+      note: 'Two-sided: below 0.67 promoter loss is not the dominant factor; above 1.5 it OVER-predicts
+        the collapse, which would mean the decomposition is wrong rather than confirmed.'
   status: failed
   result: FAIL
   measured_value: 0.0633
@@ -132,10 +167,15 @@ behavior_tests:
   classification: supporting
   gate_class: regression_pin
   question: How many promoters does dnaG start with, given the TU dedup?
-  description: 'dnaG''s generation-1 mean promoter copy number is recorded, with the pin allowing 0 to 8.
+  description: 'dnaG''s generation-1 mean promoter copy number is recorded, with the pin allowing 0 to
+    8.
 
 
-    POST-HOC in the sense that no value has ever been observed -- the listener has been empty on every timestep ever emitted -- so this is a pin that ESTABLISHES a baseline rather than defending one. It matters because TU00352[c] is the transcript whose three promoters (rpsUp1/2/3) the known TU dedup collapses into a single TU record; if dnaG carries markedly fewer promoter copies than its peers from the start, that is the dedup''s quantitative cost, measured for the first time.'
+    POST-HOC in the sense that no value has ever been observed -- the listener has been empty on every
+    timestep ever emitted -- so this is a pin that ESTABLISHES a baseline rather than defending one. It
+    matters because TU00352[c] is the transcript whose three promoters (rpsUp1/2/3) the known TU dedup
+    collapses into a single TU record; if dnaG carries markedly fewer promoter copies than its peers from
+    the start, that is the dedup''s quantitative cost, measured for the first time.'
   measure:
     kind: derived
     path: dnaG mean promoter_copy_number at generation 1
@@ -160,25 +200,31 @@ preregistered:
       high: 1.0
       provenance:
         kind: theory
-        note: 'Expressed as a band because the quantity is a FRACTION, bounded above by 1.0 by construction, so ''>= 0.99'' and the interval [0.99, 1.0] are the same statement; the band form simply makes the upper bound explicit. Definitional either way: the array carries the TU dimension or the observable does not exist.'
+        note: 'Expressed as a band because the quantity is a FRACTION, bounded above by 1.0 by construction,
+          so ''>= 0.99'' and the interval [0.99, 1.0] are the same statement; the band form simply makes
+          the upper bound explicit. Definitional either way: the array carries the TU dimension or the
+          observable does not exist.'
     dnag-has-zero-promoters-at-generation-4:
       low: 0.5
       high: 1.0
       provenance:
         kind: theory
-        note: 'Bounded in [0,1] by construction, spans 2x, and discriminates: H1 (promoter loss) drives the occupancy fraction toward 1, H2 (per-promoter probability collapse) toward 0.'
+        note: 'Bounded in [0,1] by construction, spans 2x, and discriminates: H1 (promoter loss) drives
+          the occupancy fraction toward 1, H2 (per-promoter probability collapse) toward 0.'
     peers-keep-their-promoters:
       low: 0.67
       high: 1.5
       provenance:
         kind: theory
-        note: Two-sided so the control cannot be satisfied by the peers COLLAPSING -- the one-sided form of this exact control was a real defect caught in dnag-generational-decay's audit.
+        note: Two-sided so the control cannot be satisfied by the peers COLLAPSING -- the one-sided form
+          of this exact control was a real defect caught in dnag-generational-decay's audit.
     promoter-loss-explains-the-collapse:
       low: 0.67
       high: 1.5
       provenance:
         kind: theory
-        note: 'Two-sided: below 0.67 promoter loss is not the dominant factor; above 1.5 it OVER-predicts the collapse, which would mean the decomposition is wrong rather than confirmed.'
+        note: 'Two-sided: below 0.67 promoter loss is not the dominant factor; above 1.5 it OVER-predicts
+          the collapse, which would mean the decomposition is wrong rather than confirmed.'
     dnag-promoter-count-at-generation-1:
       op: <=
       value: 8
@@ -199,34 +245,65 @@ implementation_requirements:
   status: complete
   blocking: true
   summary: Repair the rna_synth_prob deriver — ALL of its outputs are currently empty.
-  detail: 'Diagnosed 2026-09-03. Every field written by the rna_synth_prob_listener deriver is empty on 100% of emitted timesteps: promoter_copy_number, gene_copy_number, bound_TF_indexes, bound_TF_coordinates, bound_TF_domains, n_bound_TF_per_TU, n_bound_TF_per_cistron, expected_rna_init_per_cistron, actual_rna_synth_prob_per_cistron, target_rna_synth_prob_per_cistron. Fields written by transcript_initiation itself (actual_rna_synth_prob, target_rna_synth_prob, n_actual_bound) ARE populated, so the emitter works and the problem is specific to this deriver: it sits in FLOW_ORDER and in the composite, and derivers/rna_synth_prob.py:127 computes np.bincount(TU_indexes, minlength=n_TU), but the update never lands. Root-cause before patching -- do NOT simply re-emit from a second site, because a duplicate writer would mask whatever is discarding the first. This repairs ten observables at once, not just this study''s.
+  detail: 'Diagnosed 2026-09-03. Every field written by the rna_synth_prob_listener deriver is empty on
+    100% of emitted timesteps: promoter_copy_number, gene_copy_number, bound_TF_indexes, bound_TF_coordinates,
+    bound_TF_domains, n_bound_TF_per_TU, n_bound_TF_per_cistron, expected_rna_init_per_cistron, actual_rna_synth_prob_per_cistron,
+    target_rna_synth_prob_per_cistron. Fields written by transcript_initiation itself (actual_rna_synth_prob,
+    target_rna_synth_prob, n_actual_bound) ARE populated, so the emitter works and the problem is specific
+    to this deriver: it sits in FLOW_ORDER and in the composite, and derivers/rna_synth_prob.py:127 computes
+    np.bincount(TU_indexes, minlength=n_TU), but the update never lands. Root-cause before patching --
+    do NOT simply re-emit from a second site, because a duplicate writer would mask whatever is discarding
+    the first. This repairs ten observables at once, not just this study''s.
 
 
-    RESOLVED 2026-09-03. Root cause: the deriver''s first-tick guard required n_bound_TF_per_TU to be full length, but that field is OPTIONAL -- TfBinding emits it only when emit_n_bound_TF_per_TU is set, which defaults to False because the matrix is n_TU x n_TF (~900 KB/tick). The guard was therefore never satisfied on a default build, so update() returned {} on every tick of every simulation ever run. One performance toggle for a single heavy debug listener was disabling nine unrelated observables. Fix: drop the optional field from the guard and gate only n_bound_TF_per_cistron, the sole output that needs it, on its availability. Verified: nine fields now populate on 361/361 timesteps, and an A/B at identical parameters is BIT-IDENTICAL across the full 3277-TU actual_rna_synth_prob array (max |diff| = 0.0), so the repair is observational and does not perturb any prior result.'
+    RESOLVED 2026-09-03. Root cause: the deriver''s first-tick guard required n_bound_TF_per_TU to be
+    full length, but that field is OPTIONAL -- TfBinding emits it only when emit_n_bound_TF_per_TU is
+    set, which defaults to False because the matrix is n_TU x n_TF (~900 KB/tick). The guard was therefore
+    never satisfied on a default build, so update() returned {} on every tick of every simulation ever
+    run. One performance toggle for a single heavy debug listener was disabling nine unrelated observables.
+    Fix: drop the optional field from the guard and gate only n_bound_TF_per_cistron, the sole output
+    that needs it, on its availability. Verified: nine fields now populate on 361/361 timesteps, and an
+    A/B at identical parameters is BIT-IDENTICAL across the full 3277-TU actual_rna_synth_prob array (max
+    |diff| = 0.0), so the repair is observational and does not perturb any prior result.'
 - id: req-2
   status: complete
   blocking: true
   summary: Fix the generation-1 seed defect (carried from dnag-generational-decay req-1).
-  detail: 'run_condition_multigen_parquet.py''s no-perturbation generation-1 path calls build_composite without seed=, so generation 1 always runs at seed 0. This study needs new runs and reads a per-generation trajectory across seeds, so correlated generation-1 states would bias it.
+  detail: 'run_condition_multigen_parquet.py''s no-perturbation generation-1 path calls build_composite
+    without seed=, so generation 1 always runs at seed 0. This study needs new runs and reads a per-generation
+    trajectory across seeds, so correlated generation-1 states would bias it.
 
 
-    RESOLVED 2026-09-03: build_composite now receives seed=args.seed. Verified that seeds 0 and 1 yield distinct TranscriptInitiation RNG streams. A no-op at seed 0 by construction (baseline()''s default was 0), which is what made the deriver A/B above a clean test of the deriver change alone.'
+    RESOLVED 2026-09-03: build_composite now receives seed=args.seed. Verified that seeds 0 and 1 yield
+    distinct TranscriptInitiation RNG streams. A no-op at seed 0 by construction (baseline()''s default
+    was 0), which is what made the deriver A/B above a clean test of the deriver change alone.'
 - id: req-3
   status: not_started
   blocking: false
   summary: Extend generational_decay.py to carry promoter counts.
-  detail: Add promoter_copy_number and the derived per-promoter probability to the per-generation record returned by v2ecoli/library/generational_decay.py, so every axis reads one aggregation.
+  detail: Add promoter_copy_number and the derived per-promoter probability to the per-generation record
+    returned by v2ecoli/library/generational_decay.py, so every axis reads one aggregation.
 alternative_hypotheses:
 - name: H1 promoter loss
   discriminator: promoter-loss-explains-the-collapse
-  statement: dnaG's promoters disappear from the unique store across generations; p_i goes to 0 and the TU contributes nothing. Predicts dnag-has-zero-promoters-at-generation-4 PASSES and the decomposition attributes most of the collapse to the count.
+  statement: dnaG's promoters disappear from the unique store across generations; p_i goes to 0 and the
+    TU contributes nothing. Predicts dnag-has-zero-promoters-at-generation-4 PASSES and the decomposition
+    attributes most of the collapse to the count.
 - name: H2 per-promoter probability collapse
   discriminator: promoter-loss-explains-the-collapse
-  statement: 'Promoter count is roughly steady and the per-promoter probability collapses instead, sending the next study to the delta_prob/bound_TF term. Predicts dnag-has-zero-promoters-at-generation-4 FAILS or the decomposition attributes little to the count. Favoured a priori: a small-integer count cannot supply 5 orders of magnitude unless it hits exactly zero, and the observed floor is 1.3e-11, not 0.'
+  statement: 'Promoter count is roughly steady and the per-promoter probability collapses instead, sending
+    the next study to the delta_prob/bound_TF term. Predicts dnag-has-zero-promoters-at-generation-4 FAILS
+    or the decomposition attributes little to the count. Favoured a priori: a small-integer count cannot
+    supply 5 orders of magnitude unless it hits exactly zero, and the observed floor is 1.3e-11, not 0.'
 - name: H3 class-level promoter loss
   discriminator: peers-keep-their-promoters
-  statement: The whole rProtein class loses promoters, which would mean promoter count cannot explain what distinguishes dnaG from peers whose synthesis RISES. Predicts peers-keep-their-promoters FAILS.
-falsifiability: 'The hypothesis this study is named for is the one it is most likely to refute, and that is deliberate: a promoter count is a small integer and cannot supply five orders of magnitude unless it reaches exactly zero, whereas the observed floor is 1.3e-11 rather than 0. promoter-loss-explains-the-collapse is written to detect that failure quantitatively rather than let a directional ''promoters fell'' reading stand in for an explanation.'
+  statement: The whole rProtein class loses promoters, which would mean promoter count cannot explain
+    what distinguishes dnaG from peers whose synthesis RISES. Predicts peers-keep-their-promoters FAILS.
+falsifiability: 'The hypothesis this study is named for is the one it is most likely to refute, and that
+  is deliberate: a promoter count is a small integer and cannot supply five orders of magnitude unless
+  it reaches exactly zero, whereas the observed floor is 1.3e-11 rather than 0. promoter-loss-explains-the-collapse
+  is written to detect that failure quantitatively rather than let a directional ''promoters fell'' reading
+  stand in for an explanation.'
 simulation_set:
 - name: ppgpp-on-mechanistic
   kind: single
@@ -234,14 +311,18 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides:
+    config_overrides: &id006
       ecoli-chromosome-replication.mechanistic_replisome: true
   note: Identical to dnag-generational-decay's arm so the two studies' generations are comparable.
 planned_runs:
 - name: promoter-trajectory
   status: running
   n_steps: 6
-  details: '6 seeds x 5 generations, mechanistic gate ON, AFTER req-1 and req-2 land. NEW RUNS ARE UNAVOIDABLE: promoter_copy_number is empty in every existing parquet, so unlike dnag-generational-decay''s Phase A there is no reuse path. Runs stall at generation 4-5 by construction, so each is ~30 min; ~1.5 h at 2 concurrent (one sim costs ~5.5 GB RSS; a 16 GB machine fits 2 -- check for sims in OTHER worktrees before launching).'
+  details: '6 seeds x 5 generations, mechanistic gate ON, AFTER req-1 and req-2 land. NEW RUNS ARE UNAVOIDABLE:
+    promoter_copy_number is empty in every existing parquet, so unlike dnag-generational-decay''s Phase
+    A there is no reuse path. Runs stall at generation 4-5 by construction, so each is ~30 min; ~1.5 h
+    at 2 concurrent (one sim costs ~5.5 GB RSS; a 16 GB machine fits 2 -- check for sims in OTHER worktrees
+    before launching).'
 robustness:
   n_replicates: 6
   seeds:
@@ -252,34 +333,63 @@ robustness:
   - 4
   - 5
   parameter_sweep: false
-  note: 6 properly seeded replicates, which this study can have because req-2 is blocking here. Promoter counts are small integers, so seed-to-seed variance matters more than it did for a probability.
+  note: 6 properly seeded replicates, which this study can have because req-2 is blocking here. Promoter
+    counts are small integers, so seed-to-seed variance matters more than it did for a probability.
 controls:
 - name: peers-keep-their-promoters
   kind: negative
   hypothesis: If the peers lose promoters too, promoter count cannot be what distinguishes dnaG.
   expected: peer median promoter count changes by less than 1.5x over generations 1-4.
-  observed: Peers fall 2.09-2.23 -> 1.000 in all 6 seeds (0.460), identically to dnaG, while their transcription rises. The control fires.
+  observed: Peers fall 2.09-2.23 -> 1.000 in all 6 seeds (0.460), identically to dnaG, while their transcription
+    rises. The control fires.
   result: FAIL
 - name: deriver-outputs-are-non-empty
   kind: positive
-  hypothesis: An unrepaired deriver emits empty arrays, which are indistinguishable from a promoter count of zero -- i.e. from this study's own hypothesis. The observable must be shown to exist before it is read.
+  hypothesis: An unrepaired deriver emits empty arrays, which are indistinguishable from a promoter count
+    of zero -- i.e. from this study's own hypothesis. The observable must be shown to exist before it
+    is read.
   expected: promoter_copy_number is full-length on >= 99% of timesteps.
   observed: Full-length on 100% of timesteps, all seeds, all generations.
   result: PASS
 limitations:
-- The lineage stalls at generation 4-5, so the trajectory is 4-5 points and cannot separate an abrupt promoter loss from a steep gradual one.
-- promoter_copy_number counts promoter RECORDS per TU. If the dedup means dnaG's three native promoters are represented by one record, the count understates the biology in a way this study measures but does not correct.
-- Every quantity is read from a stalling lineage, so a mechanism found here is a mechanism of the failure and need not describe healthy growth.
-- req-1 repairs ten observables at once. If the repair changes what any of them report, prior studies that relied on their ABSENCE (silent-transcription-units left an axis ungraded for exactly this reason) may need revisiting.
-- '''Collapse generation'' uses a 1e-9 threshold chosen by the agent after seeing the data; it is not pre-registered and the timing observation built on it is an observation only.'
-- All six lineages stall by generation 4-5, so the trajectory is 4-5 points and cannot distinguish an abrupt collapse from a very steep gradual one.
-claim: dnaG never lacks a promoter and its promoter count tracks its unaffected class-mates exactly, so promoter availability explains 6% of a 100,000-fold collapse. The defect is in the per-promoter probability.
-conclusion: 'Refuted, as the design anticipated and said so in advance. dnaG has zero promoters on 0.0000 of ~120,000 timesteps across 6 seeds, so the p_i <- 0 branch the hypothesis rests on is never reached; promoter count accounts for 6.3% of the collapse in log space; and the discriminating control fires, because the peers lose promoters identically while their transcription rises. The 2 -> 1 promoter loss is real but generic -- gene dosage as tau stretches to 200 min -- and it is a red herring for this question. Two incidental results stand: dnaG is NOT promoter-poor despite the TU dedup (2.04 against a peer median of 2.17), closing a standing suspicion; and the stall clock is insensitive to collapse timing, which undercuts the tempting story that dnaG''s collapse causes the stall.
+- The lineage stalls at generation 4-5, so the trajectory is 4-5 points and cannot separate an abrupt
+  promoter loss from a steep gradual one.
+- promoter_copy_number counts promoter RECORDS per TU. If the dedup means dnaG's three native promoters
+  are represented by one record, the count understates the biology in a way this study measures but does
+  not correct.
+- Every quantity is read from a stalling lineage, so a mechanism found here is a mechanism of the failure
+  and need not describe healthy growth.
+- req-1 repairs ten observables at once. If the repair changes what any of them report, prior studies
+  that relied on their ABSENCE (silent-transcription-units left an axis ungraded for exactly this reason)
+  may need revisiting.
+- '''Collapse generation'' uses a 1e-9 threshold chosen by the agent after seeing the data; it is not
+  pre-registered and the timing observation built on it is an observation only.'
+- All six lineages stall by generation 4-5, so the trajectory is 4-5 points and cannot distinguish an
+  abrupt collapse from a very steep gradual one.
+claim: dnaG never lacks a promoter and its promoter count tracks its unaffected class-mates exactly, so
+  promoter availability explains 6% of a 100,000-fold collapse. The defect is in the per-promoter probability.
+conclusion: 'Refuted, as the design anticipated and said so in advance. dnaG has zero promoters on 0.0000
+  of ~120,000 timesteps across 6 seeds, so the p_i <- 0 branch the hypothesis rests on is never reached;
+  promoter count accounts for 6.3% of the collapse in log space; and the discriminating control fires,
+  because the peers lose promoters identically while their transcription rises. The 2 -> 1 promoter loss
+  is real but generic -- gene dosage as tau stretches to 200 min -- and it is a red herring for this question.
+  Two incidental results stand: dnaG is NOT promoter-poor despite the TU dedup (2.04 against a peer median
+  of 2.17), closing a standing suspicion; and the stall clock is insensitive to collapse timing, which
+  undercuts the tempting story that dnaG''s collapse causes the stall.
 
-  By elimination the collapse now sits in the per-promoter probability itself -- the delta_prob/bound_TF term of promoter_init_probs, or the normalisation applied after it. The repaired deriver emits bound_TF_indexes, bound_TF_coordinates and bound_TF_domains, so that term is directly observable for the first time and the next study can measure it rather than reason about it.'
+  By elimination the collapse now sits in the per-promoter probability itself -- the delta_prob/bound_TF
+  term of promoter_init_probs, or the normalisation applied after it. The repaired deriver emits bound_TF_indexes,
+  bound_TF_coordinates and bound_TF_domains, so that term is directly observable for the first time and
+  the next study can measure it rather than reason about it.'
 confidence: Refuted
 preliminary_observations:
-- note: 'FIRST EVER promoter-count measurement, from the req-1 verification smoke (generation 1 only, 6-minute cap, single seed): dnaG TU00352[c] holds a CONSTANT 2 promoters (min 2, max 2) and is never at zero, and the idx_rprotein peer median is also exactly 2.000 (all-TU median 1.662). Recorded as the regression pin''s baseline and as context, NOT as a result: this study''s hypothesis concerns promoter LOSS by generation 4 across 6 seeds, and one truncated generation-1 run cannot speak to it. It is, however, consistent with H2 being favoured a priori -- at generation 1 dnaG carries no promoter deficit relative to its peers whatsoever.'
+- note: 'FIRST EVER promoter-count measurement, from the req-1 verification smoke (generation 1 only,
+    6-minute cap, single seed): dnaG TU00352[c] holds a CONSTANT 2 promoters (min 2, max 2) and is never
+    at zero, and the idx_rprotein peer median is also exactly 2.000 (all-TU median 1.662). Recorded as
+    the regression pin''s baseline and as context, NOT as a result: this study''s hypothesis concerns
+    promoter LOSS by generation 4 across 6 seeds, and one truncated generation-1 run cannot speak to it.
+    It is, however, consistent with H2 being favoured a priori -- at generation 1 dnaG carries no promoter
+    deficit relative to its peers whatsoever.'
 sweep_started_at: '2026-09-03T23:20:00Z'
 runs:
 - name: dnag-promoter-availability__promoter-trajectory
@@ -287,7 +397,11 @@ runs:
   canonical: true
   started_at: '2026-09-04T00:05:00Z'
   started_at_iso: '2026-09-04T00:05:00Z'
-  note: 6 seeds x 5 generations requested, mechanistic gate ON, cache out/cache. Every seed stalled at generation 4 except seed 1 at generation 5. THE FIRST RUNS IN THIS INVESTIGATION WITH GENUINELY INDEPENDENT SEEDS (req-2) and the first able to observe promoter_copy_number at all (req-1); generation-1 synthesis spans 5.44e-07 to 5.41e-06 across seeds, a 10x spread that the old correlated seeds could not have shown.
+  note: 6 seeds x 5 generations requested, mechanistic gate ON, cache out/cache. Every seed stalled at
+    generation 4 except seed 1 at generation 5. THE FIRST RUNS IN THIS INVESTIGATION WITH GENUINELY INDEPENDENT
+    SEEDS (req-2) and the first able to observe promoter_copy_number at all (req-1); generation-1 synthesis
+    spans 5.44e-07 to 5.41e-06 across seeds, a 10x spread that the old correlated seeds could not have
+    shown.
   outcomes:
     deriver-outputs-are-non-empty: &id001
       result: PASS
@@ -295,35 +409,49 @@ runs:
       evaluated_by: agent
       operator: derived/band [0.99, 1.0]
       gate_class: acceptance_criterion
-      detail: promoter_copy_number is full length (3277) on 100% of timesteps in all 6 seeds and all generations. The req-1 repair holds under real multi-generation load, so every axis below reads a real observable rather than the empty array that would have been indistinguishable from a promoter count of zero.
+      detail: promoter_copy_number is full length (3277) on 100% of timesteps in all 6 seeds and all generations.
+        The req-1 repair holds under real multi-generation load, so every axis below reads a real observable
+        rather than the empty array that would have been indistinguishable from a promoter count of zero.
     dnag-has-zero-promoters-at-generation-4: &id002
       result: FAIL
       measured_value: 0.0
       evaluated_by: agent
       operator: derived/band [0.5, 1.0]
       gate_class: acceptance_criterion
-      detail: dnaG has zero promoters on 0.0000 of timesteps -- in every seed, every generation, without a single exception across ~120,000 emitted timesteps. transcript_initiation's p_i <- 0 branch for a TU lacking a chromosomal promoter is NEVER REACHED for dnaG. The mechanism this study was named for does not occur.
+      detail: dnaG has zero promoters on 0.0000 of timesteps -- in every seed, every generation, without
+        a single exception across ~120,000 emitted timesteps. transcript_initiation's p_i <- 0 branch
+        for a TU lacking a chromosomal promoter is NEVER REACHED for dnaG. The mechanism this study was
+        named for does not occur.
     peers-keep-their-promoters: &id003
       result: FAIL
       measured_value: 0.4597
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: The discriminating control fires. The 41 idx_rprotein peers lose promoters exactly as dnaG does -- 2.09-2.23 down to 1.000 in all 6 seeds, a ratio of 0.460 -- while their transcription RISES. Promoter count therefore cannot be what distinguishes dnaG from peers that are unaffected, independently of anything dnaG's own count does. This is the cleanest refutation in the study.
+      detail: The discriminating control fires. The 41 idx_rprotein peers lose promoters exactly as dnaG
+        does -- 2.09-2.23 down to 1.000 in all 6 seeds, a ratio of 0.460 -- while their transcription
+        RISES. Promoter count therefore cannot be what distinguishes dnaG from peers that are unaffected,
+        independently of anything dnaG's own count does. This is the cleanest refutation in the study.
     promoter-loss-explains-the-collapse: &id004
       result: FAIL
       measured_value: 0.0633
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: 'Decomposing the collapse into (promoter count) x (per-promoter probability), the count factor accounts for 6.3% of it in log space against a required 67%. dnaG''s promoters fall ~2.04x while its synthesis falls ~1e+05x. Quantitatively decisive: a small-integer count cannot supply five orders of magnitude unless it reaches zero, and axis 2 shows it never does.'
+      detail: 'Decomposing the collapse into (promoter count) x (per-promoter probability), the count
+        factor accounts for 6.3% of it in log space against a required 67%. dnaG''s promoters fall ~2.04x
+        while its synthesis falls ~1e+05x. Quantitatively decisive: a small-integer count cannot supply
+        five orders of magnitude unless it reaches zero, and axis 2 shows it never does.'
     dnag-promoter-count-at-generation-1: &id005
       result: PASS
       measured_value: 2.0388
       evaluated_by: agent
       operator: derived/<= 8
       gate_class: regression_pin
-      detail: 'First promoter count ever measured in this model: dnaG carries 2.04 promoters at generation 1, against a peer median of 2.17. Recorded as a baseline. Notably dnaG is NOT promoter-poor relative to its class despite the TU dedup collapsing rpsUp1/2/3 into one TU record -- so whatever the dedup costs dnaG, it is not promoter copies.'
+      detail: 'First promoter count ever measured in this model: dnaG carries 2.04 promoters at generation
+        1, against a peer median of 2.17. Recorded as a baseline. Notably dnaG is NOT promoter-poor relative
+        to its class despite the TU dedup collapsing rpsUp1/2/3 into one TU record -- so whatever the
+        dedup costs dnaG, it is not promoter copies.'
   computed_outcomes:
     deriver-outputs-are-non-empty: *id001
     dnag-has-zero-promoters-at-generation-4: *id002
@@ -333,14 +461,20 @@ runs:
 canonical_runs:
 - dnag-promoter-availability__promoter-trajectory
 findings:
-- summary: Promoter availability does not explain dnaG's collapse. H1 refuted on every axis that tests it.
+- summary: Promoter availability does not explain dnaG's collapse. H1 refuted on every axis that tests
+    it.
   status: contradicts
   evidence:
     from_test: promoter-loss-explains-the-collapse
     observed: 0.0633
     units: fraction of the collapse in log space
     divergence_factor: 0.90552239
-  explanation: 'Three independent refutations agree. dnaG has zero promoters on 0.0000 of ~120,000 timesteps across 6 seeds, so transcript_initiation''s p_i <- 0 branch is never reached. The promoter loss that does occur accounts for 6.3% of the collapse in log space against a required 67% -- promoters fall ~2.04x while synthesis falls ~1e+05x. And the discriminating control fires: the peers lose promoters identically (2.09-2.23 -> 1.000) while their transcription RISES, so promoter count cannot be what distinguishes dnaG at all.'
+  explanation: 'Three independent refutations agree. dnaG has zero promoters on 0.0000 of ~120,000 timesteps
+    across 6 seeds, so transcript_initiation''s p_i <- 0 branch is never reached. The promoter loss that
+    does occur accounts for 6.3% of the collapse in log space against a required 67% -- promoters fall
+    ~2.04x while synthesis falls ~1e+05x. And the discriminating control fires: the peers lose promoters
+    identically (2.09-2.23 -> 1.000) while their transcription RISES, so promoter count cannot be what
+    distinguishes dnaG at all.'
   expected:
     range:
     - 0.67
@@ -355,7 +489,11 @@ findings:
     observed: 0.4597
     units: peer gen-last/gen-1 ratio
     divergence_factor: 0.3138806
-  explanation: Every TU goes 2 -> 1 as the lineage stalls, which is exactly get_average_copy_number's 2**(((1 - relative_pos) * C + D) / tau) collapsing toward 1 as tau stretches to 200 min. It is the whole chromosome losing multi-fork replication, and it happens to dnaG and its unaffected class-mates alike. Worth recording because it is a real, first-measured effect that is nonetheless a red herring for this question.
+  explanation: Every TU goes 2 -> 1 as the lineage stalls, which is exactly get_average_copy_number's
+    2**(((1 - relative_pos) * C + D) / tau) collapsing toward 1 as tau stretches to 200 min. It is the
+    whole chromosome losing multi-fork replication, and it happens to dnaG and its unaffected class-mates
+    alike. Worth recording because it is a real, first-measured effect that is nonetheless a red herring
+    for this question.
   expected:
     range:
     - 0.67
@@ -363,13 +501,18 @@ findings:
   provenance:
     run_ids:
     - dnag-promoter-availability__promoter-trajectory
-- summary: dnaG is not promoter-poor despite the TU dedup. Whatever the dedup costs it, it is not promoter copies.
+- summary: dnaG is not promoter-poor despite the TU dedup. Whatever the dedup costs it, it is not promoter
+    copies.
   status: novel
   evidence:
     from_test: dnag-promoter-count-at-generation-1
     observed: 2.0388
     units: promoter records
-  explanation: 'The first promoter counts ever measured in this model: dnaG holds 2.04 at generation 1 against a peer median of 2.17 -- statistically indistinguishable. TU00352[c] is the transcript whose three native promoters (rpsUp1/2/3) the dedup collapses into a single TU record, and it was reasonable to expect that to show up as fewer promoter copies. It does not. That closes a standing suspicion about the dedup''s quantitative cost at this point in the pipeline.'
+  explanation: 'The first promoter counts ever measured in this model: dnaG holds 2.04 at generation 1
+    against a peer median of 2.17 -- statistically indistinguishable. TU00352[c] is the transcript whose
+    three native promoters (rpsUp1/2/3) the dedup collapses into a single TU record, and it was reasonable
+    to expect that to show up as fewer promoter copies. It does not. That closes a standing suspicion
+    about the dedup''s quantitative cost at this point in the pipeline.'
   expected: {}
   provenance:
     run_ids:
@@ -378,16 +521,37 @@ findings:
   status: novel
   evidence:
     from_run: dnag-promoter-availability__promoter-trajectory
-  explanation: 'Across 6 seeds the stall generation is nearly invariant (4, 5, 4, 4, 4, 4) while the collapse generation ranges widely (3, 5, 4, 2, 4, 2). Seeds 3 and 5 collapse at generation 2 and still stall at generation 4, the same generation as seeds that collapse two or three generations later. If dnaG''s collapse drove the stall, an earlier collapse should bring the stall forward; it does not. The precedence tally splits exactly 3 precedes / 3 coincides.
+  explanation: 'Across 6 seeds the stall generation is nearly invariant (4, 5, 4, 4, 4, 4) while the collapse
+    generation ranges widely (3, 5, 4, 2, 4, 2). Seeds 3 and 5 collapse at generation 2 and still stall
+    at generation 4, the same generation as seeds that collapse two or three generations later. If dnaG''s
+    collapse drove the stall, an earlier collapse should bring the stall forward; it does not. The precedence
+    tally splits exactly 3 precedes / 3 coincides.
 
-    So neither ''collapse causes stall'' nor ''stall causes collapse'' is supported -- they look like two consequences of the same deterioration on different clocks. Recorded as an observation because ''collapse generation'' uses a post-hoc 1e-9 threshold of the agent''s choosing and no pre-registered axis tests it. It deserves its own study before it is relied upon.'
-biological_summary: 'If a gene is not being transcribed, an obvious explanation is that RNA polymerase has nowhere to land: the promoters are gone. This study tested that for dnaG, whose transcription collapses a hundred-thousand-fold over four generations, and the answer is a clean no. dnaG has at least one promoter at every single moment of every simulated cell cycle -- across six independent lineages and roughly 120,000 sampled timesteps, not one instance of a promoterless dnaG.
+    So neither ''collapse causes stall'' nor ''stall causes collapse'' is supported -- they look like
+    two consequences of the same deterioration on different clocks. Recorded as an observation because
+    ''collapse generation'' uses a post-hoc 1e-9 threshold of the agent''s choosing and no pre-registered
+    axis tests it. It deserves its own study before it is relied upon.'
+biological_summary: 'If a gene is not being transcribed, an obvious explanation is that RNA polymerase
+  has nowhere to land: the promoters are gone. This study tested that for dnaG, whose transcription collapses
+  a hundred-thousand-fold over four generations, and the answer is a clean no. dnaG has at least one promoter
+  at every single moment of every simulated cell cycle -- across six independent lineages and roughly
+  120,000 sampled timesteps, not one instance of a promoterless dnaG.
 
 
-  Promoter copies do fall, from about two to exactly one, but that happens to every gene on the chromosome. It is the ordinary consequence of a cell that has stopped growing fast: rapidly dividing bacteria carry several copies of genes near the replication origin because new rounds of replication begin before earlier ones finish, and as the doubling time stretches toward three hours that multiplicity decays to one. The forty-one ribosomal-protein transcripts dnaG shares an allocation class with lose promoters at exactly the same rate, and their transcription goes UP.
+  Promoter copies do fall, from about two to exactly one, but that happens to every gene on the chromosome.
+  It is the ordinary consequence of a cell that has stopped growing fast: rapidly dividing bacteria carry
+  several copies of genes near the replication origin because new rounds of replication begin before earlier
+  ones finish, and as the doubling time stretches toward three hours that multiplicity decays to one.
+  The forty-one ribosomal-protein transcripts dnaG shares an allocation class with lose promoters at exactly
+  the same rate, and their transcription goes UP.
 
 
-  So the polymerase has somewhere to land, the cell is assigning dnaG a healthy and even rising probability, and dnaG is still not transcribed. The failure is in neither the instruction nor the landing site but in what happens between them. One long-standing suspicion can also be retired: dnaG''s operon is one whose three natural promoters this model merges into a single record, and it was reasonable to think that left it short-changed. Measured for the first time, it is not -- dnaG carries as many promoter copies as its healthy neighbours.'
+  So the polymerase has somewhere to land, the cell is assigning dnaG a healthy and even rising probability,
+  and dnaG is still not transcribed. The failure is in neither the instruction nor the landing site but
+  in what happens between them. One long-standing suspicion can also be retired: dnaG''s operon is one
+  whose three natural promoters this model merges into a single record, and it was reasonable to think
+  that left it short-changed. Measured for the first time, it is not -- dnaG carries as many promoter
+  copies as its healthy neighbours.'
 conclusion_verdicts:
 - claim: dnaG loses its promoters (H1)
   verdict: refuted
@@ -402,10 +566,15 @@ conclusion_verdicts:
   verdict: refuted
   basis: 2.04 promoters against a peer median of 2.17 at generation 1.
 discovery_implications:
-- 'The defect is now cornered: not the ParCa fit, not ppGpp, not the class rescaling, not promoter availability. What remains is the delta_prob/bound_TF term of promoter_init_probs and the normalisation after it -- and the repaired deriver makes that term observable for the first time.'
-- Gene dosage collapses 2 -> 1 for EVERY TU as the lineage stalls. Any future study reading a per-TU quantity across generations must normalise for this or it will attribute a chromosome-wide effect to its gene of interest.
+- 'The defect is now cornered: not the ParCa fit, not ppGpp, not the class rescaling, not promoter availability.
+  What remains is the delta_prob/bound_TF term of promoter_init_probs and the normalisation after it --
+  and the repaired deriver makes that term observable for the first time.'
+- Gene dosage collapses 2 -> 1 for EVERY TU as the lineage stalls. Any future study reading a per-TU quantity
+  across generations must normalise for this or it will attribute a chromosome-wide effect to its gene
+  of interest.
 - The TU dedup does not cost dnaG promoter copies. Its cost, if any, is elsewhere in the pipeline.
-- The stall clock does not move when dnaG collapses earlier, so the intuitive 'dnaG collapse starves the forks and stalls the cell' story is not supported by the timing and needs its own study.
+- The stall clock does not move when dnaG collapses earlier, so the intuitive 'dnaG collapse starves the
+  forks and stalls the cell' story is not supported by the timing and needs its own study.
 readouts:
 - name: dnag_promoter_count
   units: promoter records
@@ -432,4 +601,11 @@ embed_visualizations:
   title: dnaG keeps its promoters and still stops being transcribed
   path: analyses/dnag_promoters_vs_collapse.html
   kind: html
-  caption: 'Paired panels on one generation axis. Above: dnaG and its 41 rProtein class-mates lose promoter copies IDENTICALLY (2 -> 1, ordinary gene dosage). Below, log scale: dnaG falls ~1e+05x while the same peers RISE 1.77x. Medians over this study''s own 6 seeds.'
+  caption: 'Paired panels on one generation axis. Above: dnaG and its 41 rProtein class-mates lose promoter
+    copies IDENTICALLY (2 -> 1, ordinary gene dosage). Below, log scale: dnaG falls ~1e+05x while the
+    same peers RISE 1.77x. Medians over this study''s own 6 seeds.'
+baseline:
+- name: ppgpp-on-mechanistic
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides: *id006

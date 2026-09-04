@@ -339,7 +339,7 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides:
+    config_overrides: &id003
       ecoli-chromosome-replication.mechanistic_replisome: true
   note: The existing cache ea05ac9b23b1d843. Its stall at generation 4-5 must be re-verified on matched
     seeds rather than assumed, since the comparison is across caches.
@@ -498,3 +498,8 @@ findings:
     one of them, so dnaG should lose roughly a third of its supply under SOS, not none. The faithful fix
     is both changes together -- restore the promoters AND assign regulation by promoter. Restoration alone
     would not help, because the cistron-content rule would hand LexA to all three.'
+baseline:
+- name: dedup-control
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides: *id003

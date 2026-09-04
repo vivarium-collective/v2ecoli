@@ -259,7 +259,7 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides:
+    config_overrides: &id001
       ecoli-chromosome-replication.mechanistic_replisome: true
   note: The unmodified cache, re-run on matched seeds.
 planned_runs:
@@ -298,3 +298,8 @@ claim: ''
 conclusion: ''
 confidence: Planned
 sweep_started_at: '2026-09-04T21:40:00Z'
+baseline:
+- name: unmodified-control
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides: *id001

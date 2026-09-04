@@ -295,7 +295,7 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides:
+    config_overrides: &id001
       ecoli-chromosome-replication.mechanistic_replisome: true
   note: Unmodified. Must reproduce the existing stall at generation 4-5 and be bit-identical to dnag-promoter-availability
     at matched seed.
@@ -388,3 +388,8 @@ findings:
     3 dying is q moving from 0.988 to 1.000. With r = -0.3627, the value lexA->rpoD's log2FC of -0.65
     implies, dnaG retains 0.637 across the whole occupancy range and is insensitive to q. Fixing occupancy
     treats the trigger.
+baseline:
+- name: override-control
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides: *id001

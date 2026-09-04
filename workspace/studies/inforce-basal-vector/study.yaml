@@ -326,7 +326,7 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides:
+    config_overrides: &id001
       ecoli-chromosome-replication.mechanistic_replisome: true
   note: Identical to dnag-promoter-availability's arm so generations are directly comparable.
 planned_runs:
@@ -415,3 +415,8 @@ findings:
     emitter is built from listeners_schema, declared in _helpers.py, so a leaf absent from that schema
     is dropped without error. Emitting a new listener in this codebase REQUIRES touching the cache-hashed
     file and rebuilding, which no study sharing fingerprint ea05ac9b23b1d843 can do cheaply.'
+baseline:
+- name: ppgpp-on-mechanistic
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides: *id001

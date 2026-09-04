@@ -8,7 +8,7 @@ created: '2026-09-04'
 status: planned
 design_status: complete
 implementation_status: not_started
-simulation_status: not_run
+simulation_status: partial
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
@@ -65,7 +65,10 @@ behavior_tests:
     provenance:
       kind: theory
       note: Bounded above by 1.0; 0.9 tolerates a few true duplicates without tolerating a false premise.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 0.8399
+  evaluated_by: agent
 - name: restored-dnag-tus-escape-the-constraint
   classification: primary
   gate_class: acceptance_criterion
@@ -200,7 +203,10 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: 1.5x the 637 measured while scoping; pin only.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 637
+  evaluated_by: agent
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-04T16:00:00Z'
@@ -395,3 +401,41 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+runs:
+- name: tu-dedup-promoter-collapse__phase-A
+  status: complete
+  canonical: false
+  started_at: '2026-09-04T17:30:00Z'
+  started_at_iso: '2026-09-04T17:30:00Z'
+  note: PHASE A ONLY -- static, no simulation and no ParCa rebuild. Reads transcription_units.tsv and
+    replays getter_functions' gene-set dedup. Phases B and C (refit, then lineage) are NOT run; axes 2-5
+    remain pending.
+  outcomes:
+    dedup-discards-distinct-promoters:
+      result: FAIL
+      measured_value: 0.8399
+      evaluated_by: agent
+      operator: derived/band [0.9, 1.0]
+      gate_class: acceptance_criterion
+      detail: '535 of 637 discarded TUs (0.8399) differ from their retained twin in left or right end
+        position; 102 have byte-identical coordinates and are genuine duplicates the dedup is right to
+        remove. Below the 0.9 I pre-registered, so my characterisation of the dedup as discarding distinct
+        promoters is 84% accurate rather than near-universal. Recording the FAIL rather than reinterpreting
+        the band.
+
+        The study''s own mechanism is unaffected: dnaG''s three TUs differ in start coordinate (3210646
+        / 3210712 / 3210735), so dnaG sits squarely in the 84%. What changes is the generalisation --
+        any claim that ''the dedup removes 637 promoters'' overstates it by about a sixth.'
+    dedup-discarded-tu-count:
+      result: PASS
+      measured_value: 637
+      evaluated_by: agent
+      operator: derived/<= 956
+      gate_class: regression_pin
+      detail: 637 TUs discarded across 428 gene-set groups, from 3766 source TUs to 3129 kept. Reproduces
+        the scoping measurement. The largest single group holds 8 TUs collapsed to one.
+preliminary_observations:
+- note: Phase A, recorded before Phases B/C exist. The dedup collapses 637 TUs from 428 groups, the largest
+    group being 8 TUs reduced to one. 84% of the discards are distinct promoters and 16% are true duplicates
+    -- so the dedup is doing legitimate work part of the time, which my scoping framing did not allow
+    for. dnaG's collapse (3210646 / 3210712 / 3210735) is a genuine distinct-promoter case.

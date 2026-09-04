@@ -15,6 +15,7 @@ cells have been run.
 
 from __future__ import annotations
 
+import copy
 import warnings
 from v2ecoli.library.quantity_helpers import fg_magnitude
 
@@ -81,6 +82,35 @@ def apply_carry_state(agent, carry_state):
             agent[key] = carry_state[key]
 
 
+def _apply_lineage_offset(injected_processes, offset):
+    """Expose the cumulative lineage-time ``offset`` (summed duration of the
+    generations completed before the current one) to every injected process.
+
+    The inner composite's ``global_time`` RESTARTS at 0 each generation (each
+    generation is a freshly-built composite — see :class:`LineageProcess`), so
+    an injected process that needs to reason about ABSOLUTE / cumulative lineage
+    time cannot get it from ``global_time`` alone. This sets
+    ``lineage_time_offset`` on EVERY injected process config so any such process
+    can read ``global_time + lineage_time_offset``; a process that does not
+    declare/read the key simply ignores it. Domain- and process-agnostic: no
+    process is named here.
+
+    Returns a COPY (the caller's dict is never mutated). A no-op for an
+    empty/None injected block; for generation 0 / single-generation runs the
+    offset is 0.0, which every reader treats as "use local time" — unchanged
+    behavior.
+    """
+    if not injected_processes:
+        return injected_processes
+    out = copy.deepcopy(injected_processes)
+    pcfg = out.get("process_configs")
+    if isinstance(pcfg, dict):
+        for process_config in pcfg.values():
+            if isinstance(process_config, dict):
+                process_config["lineage_time_offset"] = float(offset)
+    return out
+
+
 # Default xarray view: scalar mass gauges (no vector coord arrays needed).
 # Override via emitter_arg["view"] (JSON list roots are accepted). Leaves the
 # composite doesn't emit are filtered out at open time (xarray is strict).
@@ -123,16 +153,23 @@ class LineageProcess(Process):
         # the internal parquet emitter AND drives the external XArrayEmitter.
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
+        # Config-declared EXTRA emit store paths (domain-agnostic): a list of
+        # store paths (each a list of store-node segments, e.g.
+        # ["some_store", "sub_key"]) to persist beyond the baseline parquet set.
+        # `quote` keeps the nested list verbatim (same reason as
+        # injected_processes below). Threaded to the per-generation parquet
+        # emitter override, which honors it via _merge_emit_paths.
+        "emit_paths": {"_type": "quote", "_default": []},
         # `quote` (NOT a bare {"_default": {}}): the injected-processes block is a
-        # heterogeneous, config-shaped dict — it carries a fork's antibiotic
-        # `process_configs` whose `field_timeline.timeline` is list-shaped
-        # (`[[time, {drug: conc}]]`). Without an explicit `_type`, bigraph-schema
-        # infers a schema for this key from its `{}` default and coerces the value
-        # against it, mangling the nested timeline (`[[100, {"drug": 1.0}]]` ->
-        # `[[100, 100]]`) — which then crashes the generation-1 composite rebuild
-        # that re-realizes this config. `quote` stores the block verbatim (the same
-        # reason antibiotic_transport_odeint's own `reactions`/`initial_reaction_
-        # parameters` config keys are quoted), so a dynamic dose survives realize.
+        # heterogeneous, config-shaped dict — it carries each injected process's
+        # own `process_configs`, some of which are list- or nested-shaped (e.g. a
+        # per-process schedule like `[[time, {key: value}]]`). Without an explicit
+        # `_type`, bigraph-schema infers a schema for this key from its `{}`
+        # default and coerces the value against it, mangling a nested list
+        # (`[[100, {"key": 1.0}]]` -> `[[100, 100]]`) — which then crashes the
+        # generation-1 composite rebuild that re-realizes this config. `quote`
+        # stores the block verbatim, so an injected process's structured config
+        # survives realize.
         "injected_processes": {"_type": "quote", "_default": {}},
         # Per-cell biological build kwargs, forwarded to each generation's
         # baseline() build so a batch/lineage run engages the SAME biology as the
@@ -175,6 +212,13 @@ class LineageProcess(Process):
         # per-seed prefix) for a collision on a supposedly-fresh store.
         self._agent_id = "0" * (gen_index + 1)
         self._gen_elapsed = 0.0
+        # Cumulative duration (s) of the generations completed BEFORE the
+        # current one — the lineage-time offset exposed to every injected process
+        # (as `lineage_time_offset`) so one that reasons about cumulative lineage
+        # time can add it to the inner composite's per-generation `global_time`
+        # (which restarts at 0 each generation). 0.0 for generation 0; grows by
+        # each generation's duration as it completes (see update()).
+        self._lineage_offset = 0.0
         self._carry_state: dict | None = None
         if carry_path:
             from v2ecoli.cache import load_initial_state
@@ -233,7 +277,7 @@ class LineageProcess(Process):
         # boundary.outer_surface_area so a downstream mol/(volume*N_A) conversion
         # does not divide by zero) ride generically inside `injected_processes`
         # (`seed_bulk_species` / `requires_features`) — the engine reads them, so
-        # nothing drug-specific is threaded here. The harness forwards `features`
+        # nothing subsystem-specific is threaded here. The harness forwards `features`
         # under `injected_processes`; fall back to a top-level config key.
         _injected = self.config.get("injected_processes") or {}
 
@@ -241,6 +285,15 @@ class LineageProcess(Process):
             return _injected.get(key, self.config.get(key, default))
 
         _features = _feature_flag("features", None)
+
+        # Expose this generation's cumulative lineage-time offset to every
+        # injected process (as `lineage_time_offset`), so one that reasons about
+        # cumulative lineage time can add it to the per-generation `global_time`
+        # (which restarts at 0 here). Process-agnostic; offset 0.0 (generation 0
+        # / single-generation runs) is a no-op for every reader — see
+        # _apply_lineage_offset.
+        _injected_for_build = _apply_lineage_offset(
+            self.config.get("injected_processes"), self._lineage_offset)
 
         # Per-cell biological build kwargs, shared by both emitter branches below
         # so an injected batch/lineage run builds every generation cell with the
@@ -253,7 +306,7 @@ class LineageProcess(Process):
             config_overrides=overrides,
             media=self.config.get("media", "minimal"),
             features=_features,
-            injected_processes=self.config.get("injected_processes"),
+            injected_processes=_injected_for_build,
             ppgpp_regulation=bool(_feature_flag("ppgpp_regulation", True)),
             trna_attenuation=bool(_feature_flag("trna_attenuation", False)),
             supercoiling=bool(_feature_flag("supercoiling", False)),
@@ -286,6 +339,12 @@ class LineageProcess(Process):
                 agent_id=self._agent_id,
                 generation=self._generation,
             )
+            # Config-declared EXTRA emit store paths, passed through generically
+            # so a run can persist stores beyond the baseline set (the emitter
+            # honors them via _merge_emit_paths — domain-agnostic).
+            emit_paths = self.config.get("emit_paths")
+            if emit_paths:
+                emitter_cfg["emit_paths"] = list(emit_paths)
             set_parquet_emitter_override(emitter_cfg)
             try:
                 doc = baseline(core=core, seed=gen_seed, **_bio_kwargs)
@@ -516,6 +575,12 @@ class LineageProcess(Process):
             "dry_mass": dry_mass,
             "divided": bool(divided),
         })
+        # This generation is done: fold its duration into the cumulative
+        # lineage-time offset so the NEXT generation's injected processes see the
+        # correct cumulative lineage time (see _apply_lineage_offset /
+        # _build_generation). Mirrors the analyses' own per-generation cumulative
+        # reconstruction (sum of prior-generation durations).
+        self._lineage_offset += self._gen_elapsed
 
         # Per-generation checkpoint hand-off (backlog item 34): persist whatever
         # would otherwise only ever live in self._carry_state, so a wave

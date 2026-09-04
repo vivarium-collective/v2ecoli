@@ -41,6 +41,7 @@ studies:
 - dnag-promoter-availability
 - inforce-basal-vector
 - pc00010-repression-arithmetic
+- foldchange-to-delta-fidelity
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -233,3 +234,11 @@ decisions_needed:
     arrays; n_bound_TF_per_cistron alone is gated on the optional matrix. A/B at identical parameters
     is bit-identical, so no prior result changes -- but readings that treated any of these arrays as absent-because-zero
     were reading a disabled listener, not the model.
+- question: Is the LexA delta on dnaG's operon a faithful encoding of its source fold change?
+  raised_by: pc00010-repression-arithmetic
+  status: open
+  why: lexA->rpoD carries a measured log2FC of -0.65, i.e. retain 0.637, but the in-force delta on TU00352
+    (rpsU-dnaG-rpoD) retains 4.3167e-08 -- a 1.48e+07-fold distortion. dnaG is silenced as an operon passenger
+    of rpoD. Whether this is one bad entry or a systematic property of the TF-regulation layer is scoped
+    as foldchange-to-delta-fidelity and would, if systematic, affect every result in this investigation
+    that leaned on delta_prob.

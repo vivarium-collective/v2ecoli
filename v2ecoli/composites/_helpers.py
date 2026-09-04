@@ -405,6 +405,40 @@ def set_default_emitter_decl(decl: dict | None) -> None:
     _DEFAULT_EMITTER_DECL = decl
 
 
+def _merge_emit_paths(emit_schema: dict, topo: dict, emit_paths) -> None:
+    """Add caller-declared EXTRA emit store paths to a parquet emit
+    schema/topology, in place — a general, domain-agnostic capability.
+
+    The baseline parquet emitter captures a fixed set (``global_time`` /
+    ``bulk`` / ``listeners``). A composite or config that wants to persist
+    additional stores declares them via the emitter config's ``emit_paths``: a
+    list of store paths, each a sequence of store-node segments (e.g.
+    ``["some_store", "sub_key"]`` or ``["compartment", "global", "volume"]``).
+    This honors them without any subsystem-specific schema baked into the
+    framework — the declaring config owns which stores matter.
+
+    Emit-schema leaf types collapse to ``node`` in the emitter, so only the
+    topology (store roots) selects what is captured: each path's first segment
+    becomes a top-level emit key wired to its own store root, and the nested
+    schema carries ``node`` at the path's leaf. Paths sharing a prefix merge.
+    """
+    for path in emit_paths or []:
+        segments = [str(s) for s in path]
+        if not segments:
+            continue
+        node = emit_schema
+        for segment in segments[:-1]:
+            child = node.get(segment)
+            if not isinstance(child, dict):
+                child = {}
+                node[segment] = child
+            node = child
+        leaf = segments[-1]
+        if not isinstance(node.get(leaf), dict):
+            node[leaf] = "node"
+        topo[segments[0]] = (segments[0],)
+
+
 def _build_declared_emitter(decl: dict, listeners_schema: dict, core,
                              *, allow_ram_fallback: bool = False):
     """Materialise the generator-declared default emitter step.
@@ -513,6 +547,9 @@ def _build_declared_emitter(decl: dict, listeners_schema: dict, core,
             "bulk": ("bulk",),
             "listeners": ("listeners",),
         }
+        # Config-declared EXTRA emit store paths (domain-agnostic; see
+        # _merge_emit_paths). Popped so it does not reach the emitter config.
+        _merge_emit_paths(emit_schema, topo, cfg_in.pop("emit_paths", None))
         cfg = {"emit": emit_schema, **preset, **cfg_in}
         return ParquetEmitter(cfg, core), topo
 
@@ -1402,6 +1439,12 @@ def _get_special_step(loader, step_name, core):
                 'bulk': ('bulk',),
                 'listeners': ('listeners',),
             }
+            # Config-declared EXTRA emit store paths (domain-agnostic; see
+            # _merge_emit_paths). Popped so it does not reach the emitter config.
+            _merge_emit_paths(
+                emit_schema, topo, dict(parquet_override).pop("emit_paths", None))
+            parquet_override = {k: v for k, v in parquet_override.items()
+                                if k != "emit_paths"}
             cfg = {'emit': emit_schema, **parquet_override}
             instance = ParquetEmitter(cfg, core)
             # Register under the override's metadata.agent_id (the runner's

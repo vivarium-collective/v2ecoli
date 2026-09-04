@@ -11,6 +11,7 @@ Uses bigraph-schema's serialize/realize for numpy array round-tripping.
 import os
 import gzip
 import json
+import pickle
 import tempfile
 
 import numpy as np
@@ -200,8 +201,94 @@ def load_json(path):
         return json.load(f, object_hook=numpy_json_hook)
 
 
+_PICKLE_EXTS = ('.pkl', '.pickle')
+
+
+def _is_pickle_path(path):
+    """True if `path` names a pickle file (`.pkl`/`.pickle`, optionally `.gz`).
+
+    A trailing `.partial` is stripped first, so the atomic-write temp file some
+    callers use (`f"{target}.partial"`, e.g. xarray_run's carry-state write)
+    picks the same format as its final target rather than silently falling back
+    to JSON.
+    """
+    stem = path[:-len('.partial')] if path.endswith('.partial') else path
+    stem = stem[:-3] if stem.endswith('.gz') else stem
+    return stem.endswith(_PICKLE_EXTS)
+
+
+def _read_bytes(path):
+    """Read raw bytes from a local path or s3:// URI, gunzipping if `.gz`.
+
+    Mirrors `load_json`'s s3/gz handling but returns bytes, so a caller can
+    sniff the serialization format (pickle vs JSON) before decoding.
+    """
+    if is_s3_uri(path):
+        suffix = ".gz" if path.endswith(".gz") else ""
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        try:
+            _s3_download(path, tmp_path)
+            return _read_bytes(tmp_path)
+        finally:
+            os.remove(tmp_path)
+    if path.endswith('.gz'):
+        with gzip.open(path, 'rb') as f:
+            return f.read()
+    with open(path, 'rb') as f:
+        return f.read()
+
+
+def _write_bytes(data, path):
+    """Write raw bytes to a local path or s3:// URI, gzipping if `.gz`.
+
+    Mirrors `save_json`'s s3/gz staging (local write then explicit upload) for
+    the binary pickle checkpoint path.
+    """
+    if is_s3_uri(path):
+        suffix = ".gz" if path.endswith(".gz") else ""
+        fd, tmp_path = tempfile.mkstemp(suffix=suffix)
+        os.close(fd)
+        try:
+            _write_bytes(data, tmp_path)
+            _s3_upload(tmp_path, path)
+            print(f"Saved {path} ({os.path.getsize(tmp_path) // 1024}KB)")
+        finally:
+            os.remove(tmp_path)
+        return
+    os.makedirs(os.path.dirname(path) or '.', exist_ok=True)
+    if path.endswith('.gz'):
+        with gzip.open(path, 'wb') as f:
+            f.write(data)
+    else:
+        with open(path, 'wb') as f:
+            f.write(data)
+    print(f"Saved {path} ({os.path.getsize(path) // 1024}KB)")
+
+
 def save_initial_state(initial_state, path='out/initial_state.json'):
-    """Save the E. coli initial state (bulk, unique, environment, boundary) as JSON."""
+    """Save the E. coli initial state (bulk, unique, environment, boundary).
+
+    A `.pkl`/`.pickle` path is written as a binary pickle; anything else (the
+    default `.json`) is written as JSON.
+
+    The pickle path exists for the per-generation lineage checkpoint
+    (`gen_XXXX.pkl`, sms-ecoli#210 / dispatch 313). The daughter state is
+    dominated by the unique-molecule structured arrays, which grow each
+    generation; JSON-encoding it through `NumpyJSONEncoder` turns every array
+    into a native Python object graph via `ndarray.tolist()` and pretty-prints
+    it, which is both slow and memory-heavy enough to stall a long lineage.
+    Pickle round-trips numpy natively — and `MetadataArray` via its `__reduce__`
+    — with no `tolist()` blow-up and a far smaller file. The JSON path is kept
+    unchanged because the ParCa cache's `initial_state.json` is read as JSON
+    text elsewhere (build_cache.py, the cache-verify tests).
+    """
+    if _is_pickle_path(path):
+        # MetadataArray.__reduce__/__setstate__ preserve `.metadata`, so the
+        # raw state round-trips without the JSON path's array/metadata dance.
+        _write_bytes(
+            pickle.dumps(initial_state, protocol=pickle.HIGHEST_PROTOCOL), path)
+        return
     # Convert MetadataArray objects to regular arrays with metadata preserved
     state = {}
     for key, value in initial_state.items():
@@ -224,8 +311,20 @@ def save_initial_state(initial_state, path='out/initial_state.json'):
 
 
 def load_initial_state(path='out/initial_state.json'):
-    """Load E. coli initial state from JSON."""
-    state = load_json(path)
+    """Load an E. coli initial state saved by `save_initial_state`.
+
+    The format is detected from the file contents, not the extension: a binary
+    pickle begins with 0x80 (protocol 2+), everything else is parsed as JSON.
+    Sniffing rather than trusting the extension means a checkpoint written as
+    JSON *before* the pickle switch — an in-flight `gen_XXXX.pkl` that actually
+    holds JSON — still resumes after this change deploys.
+    """
+    raw = _read_bytes(path)
+    if raw[:1] == b'\x80':
+        # Binary pickle: MetadataArrays come back reconstructed via __setstate__.
+        return pickle.loads(raw)
+
+    state = json.loads(raw.decode('utf-8'), object_hook=numpy_json_hook)
 
     # Reconstruct MetadataArray objects for unique molecules
     if 'unique' in state and isinstance(state['unique'], dict):

@@ -94,6 +94,7 @@ def build_lineage_ray_batch_document(
     variants: dict | None = None,
     injected_processes: dict | None = None,
     config_overrides: dict | None = None,
+    emitter_arg: dict | None = None,
 ) -> dict:
     """Build a document with N real ``ray:LineageProcess`` nodes, one per seed.
 
@@ -152,6 +153,8 @@ def build_lineage_ray_batch_document(
             config["config_overrides"] = dict(config_overrides)
         if injected_processes:
             config["injected_processes"] = dict(injected_processes)
+        if emitter_arg:
+            config["emitter_arg"] = dict(emitter_arg)
 
         state[node_name] = {
             "_type": "process",

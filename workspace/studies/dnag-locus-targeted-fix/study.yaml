@@ -5,10 +5,10 @@ investigation: transcription-rewiring
 study_type: fix_validation
 phase: Design
 created: '2026-09-04'
-status: planned
+status: running
 design_status: complete
-implementation_status: not_started
-simulation_status: not_run
+implementation_status: complete
+simulation_status: running
 evaluation_status: not_evaluated
 gate_status: pending
 expert_review_status: not_requested
@@ -214,15 +214,20 @@ preregistered:
     prior: Is any rescue attributable to dnaG?
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: Zero the LexA entry for TU00352 in a COPY of the cache.
   detail: 'Remove exactly one nonzero delta_prob entry -- row TU00352, column 14 (PC00010) -- from a copied
     sim_data_cache.dill, leaving basal_prob and everything else untouched. No ParCa refit: the magnitudes
     are already fitted and only this attribution is wrong. Verify the copy differs from the original in
-    exactly one entry before running anything.'
+    exactly one entry before running anything.
+
+
+    DONE and VERIFIED: out/cache_lexafix differs from out/cache in exactly ONE delta_prob entry, (row
+    2837 = TU00352[c], column 14 = PC00010), value -1.2128e-04 removed. basal_prob is bit-identical. Axis
+    1 therefore measures 1.0.'
 - id: req-2
-  status: not_started
+  status: complete
   blocking: true
   summary: Re-verify the control on matched seeds.
   detail: The corrected cache is a modified copy, so its fingerprint differs from ea05ac9b23b1d843 and
@@ -292,3 +297,4 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+sweep_started_at: '2026-09-04T21:40:00Z'

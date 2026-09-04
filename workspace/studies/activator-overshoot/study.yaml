@@ -12,11 +12,7 @@ simulation_status: complete
 evaluation_status: evaluated
 gate_status: failed
 expert_review_status: not_requested
-question: 'deltav-conversion-diagnosis explained the repressor half of ParCa''s encoding defect as an
-  active constraint, and refuted my prediction that the same mechanism covers activators: ZERO of 343
-  activating entries sit at any boundary, yet they are encoded 4.77x too strongly -- 60.8% of the regulatory
-  network. Does the gap between the occupancy ParCa ASSUMED when fitting (pPromoterBound, median 0.444)
-  and the occupancy the simulation PRODUCES (LexA: 0.963-1.000 against an assumed 0.5192) explain it?'
+question: 'deltav-conversion-diagnosis explained the repressor half of ParCa''s encoding defect as an active constraint, and refuted my prediction that the same mechanism covers activators: ZERO of 343 activating entries sit at any boundary, yet they are encoded 4.77x too strongly -- 60.8% of the regulatory network. Does the gap between the occupancy ParCa ASSUMED when fitting (pPromoterBound, median 0.444) and the occupancy the simulation PRODUCES (LexA: 0.963-1.000 against an assumed 0.5192) explain it?'
 parent_studies:
 - study: deltav-conversion-diagnosis
   condition: complete
@@ -35,36 +31,23 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Does the occupancy the fit assumed match the occupancy the simulation produces?
-  description: 'The ratio of runtime TF occupancy to the fit''s pPromoterBound[''basal''] value lies in
-    [1.5, 4.5] for the median measurable TF -- runtime exceeding the fit''s assumption by roughly the
-    factor LexA shows.
+  description: 'The ratio of runtime TF occupancy to the fit''s pPromoterBound[''basal''] value lies in [1.5, 4.5] for the median measurable TF -- runtime exceeding the fit''s assumption by roughly the factor LexA shows.
 
 
-    The premise of the whole study, and it is stated as a DISAGREEMENT so that a PASS here means the defect
-    exists. ParCa fits alpha and delta with each TF at an assumed basal binding probability (median 0.444
-    across the 23 TFs); the runtime then applies delta at whatever occupancy the simulation actually produces.
-    For LexA the fit assumed 0.5192 while the simulation measured 0.963 rising to 1.000, so the delta
-    is applied roughly twice as hard as the fit intended. If that gap is general, alpha is calibrated
-    for one world and delta applied in another.
+    The premise of the whole study, and it is stated as a DISAGREEMENT so that a PASS here means the defect exists. ParCa fits alpha and delta with each TF at an assumed basal binding probability (median 0.444 across the 23 TFs); the runtime then applies delta at whatever occupancy the simulation actually produces. For LexA the fit assumed 0.5192 while the simulation measured 0.963 rising to 1.000, so the delta is applied roughly twice as hard as the fit intended. If that gap is general, alpha is calibrated for one world and delta applied in another.
 
 
-    Threshold provenance: theory. The standing agreement band, inverted -- agreement would REFUTE the
-    study''s premise.'
+    Threshold provenance: theory. The standing agreement band, inverted -- agreement would REFUTE the study''s premise.'
   measure:
     kind: derived
-    path: median over measurable TFs of runtime occupancy divided by the fit's pPromoterBound basal value,
-      for the activator overshoot
+    path: median over measurable TFs of runtime occupancy divided by the fit's pPromoterBound basal value, for the activator overshoot
     detail: median runtime/assumed occupancy ratio across TFs whose binding is observable in bound_TF_coordinates.
   pass_if:
     low: 1.5
     high: 4.5
     provenance:
       kind: theory
-      note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that
-        runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192
-        = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something
-        other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should
-        not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
+      note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192 = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
   status: passed
   result: PASS
   measured_value: 1.914
@@ -73,23 +56,16 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Does accounting for assumed-vs-actual occupancy bring activators into agreement?
-  description: 'Recomputing the expected retained fraction as the fit intended it -- alpha already containing
-    pPromoterBound worth of TF effect, with delta applied only for the OCCUPANCY INCREMENT -- moves the
-    activator median ratio into [0.67, 1.5] from 4.7727.
+  description: 'Recomputing the expected retained fraction as the fit intended it -- alpha already containing pPromoterBound worth of TF effect, with delta applied only for the OCCUPANCY INCREMENT -- moves the activator median ratio into [0.67, 1.5] from 4.7727.
 
 
-    The discriminating axis. If alpha is calibrated at partial occupancy, then comparing delta/alpha against
-    2**log2FC double-counts the effect already baked into alpha, and activators would appear inflated
-    by roughly the amount of activation the basal condition already carried. This predicts the over-shoot
-    without any boundary involvement, which is required since ZERO activating entries are at a constraint.
+    The discriminating axis. If alpha is calibrated at partial occupancy, then comparing delta/alpha against 2**log2FC double-counts the effect already baked into alpha, and activators would appear inflated by roughly the amount of activation the basal condition already carried. This predicts the over-shoot without any boundary involvement, which is required since ZERO activating entries are at a constraint.
 
 
-    Threshold provenance: theory. The band foldchange-to-delta-fidelity used to judge fidelity, so corrected
-    and uncorrected read on one scale.'
+    Threshold provenance: theory. The band foldchange-to-delta-fidelity used to judge fidelity, so corrected and uncorrected read on one scale.'
   measure:
     kind: derived
-    path: activator median implied/expected retained fraction after correcting for the fit's assumed basal
-      occupancy
+    path: activator median implied/expected retained fraction after correcting for the fit's assumed basal occupancy
     detail: median ratio across the 343 activating entries, occupancy-corrected.
   pass_if:
     low: 0.67
@@ -105,14 +81,10 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Does the same correction leave the already-faithful repressors alone?
-  description: 'Applying the identical occupancy correction, the FREE (non-boundary) repressors keep a
-    median ratio within [0.67, 1.5], having measured 0.9959 uncorrected.
+  description: 'Applying the identical occupancy correction, the FREE (non-boundary) repressors keep a median ratio within [0.67, 1.5], having measured 0.9959 uncorrected.
 
 
-    The discriminating control, and a strict one. deltav-conversion-diagnosis showed free repressors are
-    already essentially perfect at 0.9959. A correction that fixes activators by breaking them is not
-    a correction, it is a refit. This axis is what stops an occupancy adjustment being tuned until the
-    activator number looks right.
+    The discriminating control, and a strict one. deltav-conversion-diagnosis showed free repressors are already essentially perfect at 0.9959. A correction that fixes activators by breaking them is not a correction, it is a refit. This axis is what stops an occupancy adjustment being tuned until the activator number looks right.
 
 
     Threshold provenance: theory. The same band, applied to a group already inside it.'
@@ -125,8 +97,7 @@ behavior_tests:
     high: 1.5
     provenance:
       kind: theory
-      note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify
-        it.
+      note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify it.
   status: passed
   control: negative
   result: PASS
@@ -139,16 +110,13 @@ behavior_tests:
   description: 'Zero activating entries sit at the upper constraint Z@R <= 1.
 
 
-    Confirms that deltav-conversion-diagnosis''s mechanism genuinely does not reach activators, so this
-    study is not re-explaining a solved problem. Diagnostic because it discriminates no hypothesis here
-    -- it fences off territory already covered.
+    Confirms that deltav-conversion-diagnosis''s mechanism genuinely does not reach activators, so this study is not re-explaining a solved problem. Diagnostic because it discriminates no hypothesis here -- it fences off territory already covered.
 
 
     Threshold provenance: definitional.'
   measure:
     kind: derived
-    path: count of activating delta entries with all-TFs-bound probability at the upper constraint, for
-      the overshoot
+    path: count of activating delta entries with all-TFs-bound probability at the upper constraint, for the overshoot
     detail: number of the 343 activating entries with Z@R >= 1 - 1e-6.
   pass_if:
     op: <=
@@ -167,8 +135,7 @@ behavior_tests:
   description: 'The uncorrected activator median ratio stays within a factor of 2 of the recorded 4.7727.
 
 
-    POST-HOC: measured in foldchange-to-delta-fidelity. A drift pin on the quantity this study exists
-    to explain.'
+    POST-HOC: measured in foldchange-to-delta-fidelity. A drift pin on the quantity this study exists to explain.'
   measure:
     kind: derived
     path: uncorrected activator median implied/expected retained fraction for the overshoot
@@ -193,25 +160,19 @@ preregistered:
       high: 4.5
       provenance:
         kind: theory
-        note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that
-          runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192
-          = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something
-          other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should
-          not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
+        note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192 = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
     occupancy-correction-explains-the-overshoot:
       low: 0.67
       high: 1.5
       provenance:
         kind: theory
-        note: Identical to the band the uncorrected activators failed at 4.7727, so the comparison is
-          direct.
+        note: Identical to the band the uncorrected activators failed at 4.7727, so the comparison is direct.
     correction-preserves-repressor-fidelity:
       low: 0.67
       high: 1.5
       provenance:
         kind: theory
-        note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify
-          it.
+        note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify it.
     overshoot-is-not-boundary-related:
       op: <=
       value: 0
@@ -238,54 +199,35 @@ implementation_requirements:
   status: complete
   blocking: true
   summary: Extract pPromoterBound['basal'] per TF and pair it with measured runtime occupancy.
-  detail: 'pPromoterBound recovers from models/parca/parca_state.pkl.gz (23 TFs; median basal 0.444, LexA
-    0.5192). Runtime occupancy comes from bound_TF_coordinates in dnag-promoter-availability''s sweep,
-    matched to each TU''s replication_coordinate. Only TFs whose sites are observable that way can be
-    paired -- the count of unpairable TFs must be reported, not silently dropped.
+  detail: 'pPromoterBound recovers from models/parca/parca_state.pkl.gz (23 TFs; median basal 0.444, LexA 0.5192). Runtime occupancy comes from bound_TF_coordinates in dnag-promoter-availability''s sweep, matched to each TU''s replication_coordinate. Only TFs whose sites are observable that way can be paired -- the count of unpairable TFs must be reported, not silently dropped.
 
 
-    RESOLVED: pPromoterBound recovers from parca_state.pkl.gz with a ''<TF>__active'' / ''<TF>__inactive''
-    pair per TF (LexA 0.0 -> 0.6615; CPLX-125 0.500 -> 0.945; basal LexA 0.5192).'
+    RESOLVED: pPromoterBound recovers from parca_state.pkl.gz with a ''<TF>__active'' / ''<TF>__inactive'' pair per TF (LexA 0.0 -> 0.6615; CPLX-125 0.500 -> 0.945; basal LexA 0.5192).'
 - id: req-2
   status: complete
   blocking: true
   summary: State the occupancy-corrected expected value BEFORE computing it.
-  detail: 'The correction to be graded: if alpha already embodies pPromoterBound worth of TF effect, then
-    the quantity comparable to 2**log2FC is not 1 + delta/alpha but the ratio between the fully-bound
-    and basal-occupancy states. Writing the formula into the record before evaluating it, exactly as deltav-conversion-diagnosis''s
-    req-2 required, because that discipline is what let its failed prediction stand as a refutation rather
-    than be quietly narrowed.
+  detail: 'The correction to be graded: if alpha already embodies pPromoterBound worth of TF effect, then the quantity comparable to 2**log2FC is not 1 + delta/alpha but the ratio between the fully-bound and basal-occupancy states. Writing the formula into the record before evaluating it, exactly as deltav-conversion-diagnosis''s req-2 required, because that discipline is what let its failed prediction stand as a refutation rather than be quietly narrowed.
 
 
-    SATISFIED: the correction formula and its four predictions are in the candidate_correction block above,
-    recorded before any corrected value was computed.'
+    SATISFIED: the correction formula and its four predictions are in the candidate_correction block above, recorded before any corrected value was computed.'
 alternative_hypotheses:
 - name: H1 occupancy calibration offset
   discriminator: occupancy-correction-explains-the-overshoot
-  statement: 'alpha is fitted with TFs at pPromoterBound occupancy, delta is applied at runtime occupancy,
-    and comparing delta/alpha to 2**log2FC double-counts what alpha already contains. Predicts activators
-    inflate and free repressors stay put. Leading candidate: LexA''s assumed 0.5192 against a measured
-    0.963-1.000 is exactly this gap.'
+  statement: 'alpha is fitted with TFs at pPromoterBound occupancy, delta is applied at runtime occupancy, and comparing delta/alpha to 2**log2FC double-counts what alpha already contains. Predicts activators inflate and free repressors stay put. Leading candidate: LexA''s assumed 0.5192 against a measured 0.963-1.000 is exactly this gap.'
 - name: H2 a separate activator-specific defect
   discriminator: occupancy-correction-explains-the-overshoot
-  statement: The occupancy correction fails to bring activators into band, meaning something in the activating
-    branch of the fit is wrong for another reason. Predicts the correction axis FAILS while the repressor
-    control PASSES.
+  statement: The occupancy correction fails to bring activators into band, meaning something in the activating branch of the fit is wrong for another reason. Predicts the correction axis FAILS while the repressor control PASSES.
 - name: H3 the comparison target is wrong for activators
   discriminator: correction-preserves-repressor-fidelity
-  statement: 2**log2FC is simply not what an activator's delta encodes, making the over-shoot an artefact
-    of foldchange-to-delta-fidelity. Would likely also disturb repressors under the same correction, which
-    the control detects.
-falsifiability: 'The repressor control is what makes this study falsifiable rather than a fitting exercise:
-  free repressors already sit at 0.9959, so any correction tuned until activators look right will break
-  them and be caught. req-2 forces the correction to be written down first.'
+  statement: 2**log2FC is simply not what an activator's delta encodes, making the over-shoot an artefact of foldchange-to-delta-fidelity. Would likely also disturb repressors under the same correction, which the control detects.
+falsifiability: 'The repressor control is what makes this study falsifiable rather than a fitting exercise: free repressors already sit at 0.9959, so any correction tuned until activators look right will break them and be caught. req-2 forces the correction to be written down first.'
 simulation_set: []
 planned_runs:
 - name: reuse-promoter-sweep
   status: planned
   n_steps: 0
-  details: NO NEW SIMULATION. Fit side from parca_state.pkl.gz; runtime occupancy from dnag-promoter-availability's
-    6-seed sweep; the 564-entry join reused from foldchange-to-delta-fidelity.
+  details: NO NEW SIMULATION. Fit side from parca_state.pkl.gz; runtime occupancy from dnag-promoter-availability's 6-seed sweep; the 564-entry join reused from foldchange-to-delta-fidelity.
 robustness:
   n_replicates: 6
   seeds:
@@ -300,70 +242,40 @@ robustness:
 controls:
 - name: correction-preserves-repressor-fidelity
   kind: negative
-  hypothesis: A correction that fixes activators by breaking the already-faithful repressors is a refit,
-    not a fix.
+  hypothesis: A correction that fixes activators by breaking the already-faithful repressors is a refit, not a fix.
   expected: free repressors stay within [0.67, 1.5], from 0.9959.
   observed: Free repressors 0.9959 -> 1.0923, still inside the band, as predicted.
   result: PASS
 limitations:
-- Only TFs whose binding sites are observable in bound_TF_coordinates can be paired with a pPromoterBound
-  value; the unpairable count is reported but those TFs contribute nothing.
+- Only TFs whose binding sites are observable in bound_TF_coordinates can be paired with a pPromoterBound value; the unpairable count is reported but those TFs contribute nothing.
 - Runtime occupancy is per-TU, inheriting the per-promoter limitation identified in pc00010-repression-arithmetic.
 - All runtime occupancy is measured in a stalling lineage, so it may not represent healthy growth.
-- If H3 holds, the fold-change comparison is wrong for activators and this study's premise -- inherited
-  from foldchange-to-delta-fidelity -- is itself the error.
-- Only LexA's occupancy is directly observable at runtime, so axis 1 rests on one TF; the other 22 are
-  assumed to share the pattern, not shown to.
-- The correction uses each TF's active/inactive pair as stored. Whether those occupancies are themselves
-  correct is not examined here.
+- If H3 holds, the fold-change comparison is wrong for activators and this study's premise -- inherited from foldchange-to-delta-fidelity -- is itself the error.
+- Only LexA's occupancy is directly observable at runtime, so axis 1 rests on one TF; the other 22 are assumed to share the pattern, not shown to.
+- The correction uses each TF's active/inactive pair as stored. Whether those occupancies are themselves correct is not examined here.
 - The 2.13x residual is isolated but not explained; this study bounds it rather than identifying it.
-claim: The fold change is measured across a partial TF occupancy swing, and correcting for that explains
-  about half the activator over-shoot (4.77 -> 2.13) while leaving the already-faithful repressors untouched.
+claim: The fold change is measured across a partial TF occupancy swing, and correcting for that explains about half the activator over-shoot (4.77 -> 2.13) while leaving the already-faithful repressors untouched.
 conclusion: 'Partial, and the partiality is the result rather than a shortfall.
 
-  The mechanism is real: pPromoterBound stores an active/inactive occupancy pair per TF, the fit calibrates
-  delta against the expression ratio across THAT swing, and comparing the full-swing 1 + delta/alpha to
-  2**log2FC overstates it whenever the swing is partial. Correcting for it moves activators from 4.7727
-  to 2.1314 -- 52% of the over-shoot in log space.
+  The mechanism is real: pPromoterBound stores an active/inactive occupancy pair per TF, the fit calibrates delta against the expression ratio across THAT swing, and comparing the full-swing 1 + delta/alpha to 2**log2FC overstates it whenever the swing is partial. Correcting for it moves activators from 4.7727 to 2.1314 -- 52% of the over-shoot in log space.
 
-  Two pre-registered checks make that credible rather than tuned. The 160 entries whose TFs swing a full
-  0->1 are unchanged to four decimals, which is what the arithmetic demands. And the free repressors,
-  already at 0.9959, move only to 1.0923 -- a correction invented to fix activators had no reason to spare
-  them.
+  Two pre-registered checks make that credible rather than tuned. The 160 entries whose TFs swing a full 0->1 are unchanged to four decimals, which is what the arithmetic demands. And the free repressors, already at 0.9959, move only to 1.0923 -- a correction invented to fix activators had no reason to spare them.
 
-  But it does not close: 2.13x remains, outside the band, so a further activator-specific defect is live.
-  And one recorded prediction failed -- boundary repressors do NOT stay pinned at 0 under the correction,
-  moving to 0.5476, because the constraint pins delta/alpha rather than the swing-corrected ratio.
+  But it does not close: 2.13x remains, outside the band, so a further activator-specific defect is live. And one recorded prediction failed -- boundary repressors do NOT stay pinned at 0 under the correction, moving to 0.5476, because the constraint pins delta/alpha rather than the swing-corrected ratio.
 
-  Combined with deltav-conversion-diagnosis, ParCa''s encoding defect now has two identified contributors
-  -- an active probability-validity constraint for repressors and a partial-swing comparison for activators
-  -- and one unexplained residual.'
+  Combined with deltav-conversion-diagnosis, ParCa''s encoding defect now has two identified contributors -- an active probability-validity constraint for repressors and a partial-swing comparison for activators -- and one unexplained residual.'
 confidence: Investigating
 candidate_correction:
   recorded_at: '2026-09-04T13:00:00Z'
   recorded_before_measuring: true
-  statement: 'The fold change is measured across the TF''s ACTIVE-vs-INACTIVE occupancy swing, not a 0->1
-    swing, so 1 + delta/alpha is not the quantity 2**log2FC describes.
+  statement: 'The fold change is measured across the TF''s ACTIVE-vs-INACTIVE occupancy swing, not a 0->1 swing, so 1 + delta/alpha is not the quantity 2**log2FC describes.
 
-    pPromoterBound stores an occupancy per TF per condition, including a ''<TF>__active'' and ''<TF>__inactive''
-    pair. LexA runs 0.0 -> 0.6615; CPLX-125 runs 0.500 -> 0.945. The fit therefore chooses delta so that
-    the expression ratio ACROSS THAT SWING matches the measurement, whereas foldchange-to-delta-fidelity
-    compared the FULL-swing ratio 1 + delta/alpha against it. A partial swing means the full-swing effect
-    is more extreme than the measured fold change, which inflates activators above 1 and drives repressors
-    further below it -- the observed bidirectional signature.'
-  formula: "With r = delta/alpha, p_a = pPromoterBound[TF__active][TF] and p_i = pPromoterBound[TF__inactive][TF],\
-    \ the fit's own predicted fold change is\n    FC_pred = (1 + r * p_a) / (1 + r * p_i)\nand the corrected\
-    \ fidelity ratio to be graded is FC_pred / 2**log2FC, replacing the uncorrected (1 + r) / 2**log2FC.\
-    \ Entries whose TF swings a full 0->1 are unchanged by this correction (p_a=1, p_i=0 gives FC_pred\
-    \ = 1 + r), which is a useful internal check."
+    pPromoterBound stores an occupancy per TF per condition, including a ''<TF>__active'' and ''<TF>__inactive'' pair. LexA runs 0.0 -> 0.6615; CPLX-125 runs 0.500 -> 0.945. The fit therefore chooses delta so that the expression ratio ACROSS THAT SWING matches the measurement, whereas foldchange-to-delta-fidelity compared the FULL-swing ratio 1 + delta/alpha against it. A partial swing means the full-swing effect is more extreme than the measured fold change, which inflates activators above 1 and drives repressors further below it -- the observed bidirectional signature.'
+  formula: "With r = delta/alpha, p_a = pPromoterBound[TF__active][TF] and p_i = pPromoterBound[TF__inactive][TF], the fit's own predicted fold change is\n    FC_pred = (1 + r * p_a) / (1 + r * p_i)\nand the corrected fidelity ratio to be graded is FC_pred / 2**log2FC, replacing the uncorrected (1 + r) / 2**log2FC. Entries whose TF swings a full 0->1 are unchanged by this correction (p_a=1, p_i=0 gives FC_pred = 1 + r), which is a useful internal check."
   predictions:
-  - Activators move from a median ratio of 4.7727 toward 1, because their full-swing over-statement is
-    removed.
-  - 'FREE repressors, already at 0.9959, should barely move: their TFs'' swings must be near-complete
-    or the uncorrected comparison would not already have been faithful. If they move a lot, the correction
-    is wrong.'
-  - Boundary repressors stay at ~0 regardless -- they are pinned by the constraint, not by the swing,
-    so this correction cannot and should not rescue them.
+  - Activators move from a median ratio of 4.7727 toward 1, because their full-swing over-statement is removed.
+  - 'FREE repressors, already at 0.9959, should barely move: their TFs'' swings must be near-complete or the uncorrected comparison would not already have been faithful. If they move a lot, the correction is wrong.'
+  - Boundary repressors stay at ~0 regardless -- they are pinned by the constraint, not by the swing, so this correction cannot and should not rescue them.
   - TFs with p_a=1 and p_i=0 show no change at all; that subgroup is the internal control on the arithmetic.
   note: Recorded per req-2 BEFORE computing any corrected value.
 runs:
@@ -372,114 +284,102 @@ runs:
   canonical: true
   started_at: '2026-09-04T13:30:00Z'
   started_at_iso: '2026-09-04T13:30:00Z'
-  note: NO NEW SIMULATION. pPromoterBound from parca_state.pkl.gz, runtime occupancy from dnag-promoter-availability's
-    sweep, the 564-entry join reused from foldchange-to-delta-fidelity. The correction formula and its
-    four predictions were committed (1ef8dbba) BEFORE any corrected value was computed. All 564 entries
-    had a computable TF swing -- none dropped.
+  note: NO NEW SIMULATION. pPromoterBound from parca_state.pkl.gz, runtime occupancy from dnag-promoter-availability's sweep, the 564-entry join reused from foldchange-to-delta-fidelity. The correction formula and its four predictions were committed (1ef8dbba) BEFORE any corrected value was computed. All 564 entries had a computable TF swing -- none dropped.
   outcomes:
-    fit-occupancy-differs-from-runtime:
+    fit-occupancy-differs-from-runtime: &id001
       result: PASS
       measured_value: 1.914
       evaluated_by: agent
       operator: derived/band [1.5, 4.5]
       gate_class: acceptance_criterion
-      detail: 'LexA is the one TF whose binding is directly observable in bound_TF_coordinates. The fit
-        assumed a basal occupancy of 0.5192; the simulation measured 0.988 rising to 1.000, a ratio of
-        1.90-1.93. The premise holds: alpha is calibrated at an occupancy the runtime does not reproduce.
-        Only one TF is pairable this way, which is a real limitation of the axis rather than a strong
-        network-wide result.'
-    occupancy-correction-explains-the-overshoot:
+      detail: 'LexA is the one TF whose binding is directly observable in bound_TF_coordinates. The fit assumed a basal occupancy of 0.5192; the simulation measured 0.988 rising to 1.000, a ratio of 1.90-1.93. The premise holds: alpha is calibrated at an occupancy the runtime does not reproduce. Only one TF is pairable this way, which is a real limitation of the axis rather than a strong network-wide result.'
+    occupancy-correction-explains-the-overshoot: &id002
       result: FAIL
       measured_value: 2.1314
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: The correction is real and substantial but INCOMPLETE. Activators move from 4.7727 to 2.1314,
-        closing 52% of the over-shoot in log space, and stop short of the band. So the active/inactive
-        occupancy swing is a genuine contributor -- the fold change is measured across a partial swing
-        (LexA 0.0 -> 0.6615, CPLX-125 0.500 -> 0.945) while 1 + delta/alpha is the full-swing ratio --
-        but a residual 2.13x remains unexplained. H1 is supported in part and H2, a further activator-specific
-        defect, stays live.
-    correction-preserves-repressor-fidelity:
+      detail: The correction is real and substantial but INCOMPLETE. Activators move from 4.7727 to 2.1314, closing 52% of the over-shoot in log space, and stop short of the band. So the active/inactive occupancy swing is a genuine contributor -- the fold change is measured across a partial swing (LexA 0.0 -> 0.6615, CPLX-125 0.500 -> 0.945) while 1 + delta/alpha is the full-swing ratio -- but a residual 2.13x remains unexplained. H1 is supported in part and H2, a further activator-specific defect, stays live.
+    correction-preserves-repressor-fidelity: &id003
       result: PASS
       measured_value: 1.0923
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: The control holds, and it is what makes the correction credible rather than tuned. Free
-        repressors move only from 0.9959 to 1.0923 -- still comfortably inside the band -- exactly as
-        predicted before measuring. A correction invented to fix activators would have had no reason to
-        leave the already-faithful repressors alone, and this one does.
-    overshoot-is-not-boundary-related:
+      detail: The control holds, and it is what makes the correction credible rather than tuned. Free repressors move only from 0.9959 to 1.0923 -- still comfortably inside the band -- exactly as predicted before measuring. A correction invented to fix activators would have had no reason to leave the already-faithful repressors alone, and this one does.
+    overshoot-is-not-boundary-related: &id004
       result: PASS
       measured_value: 0
       evaluated_by: agent
       operator: derived/<= 0
       gate_class: diagnostic
-      detail: Zero of the 343 activating entries sit at the upper constraint, confirming deltav-conversion-diagnosis's
-        mechanism genuinely does not reach activators and that this study is not re-explaining a solved
-        problem.
-    activator-overshoot-magnitude:
+      detail: Zero of the 343 activating entries sit at the upper constraint, confirming deltav-conversion-diagnosis's mechanism genuinely does not reach activators and that this study is not re-explaining a solved problem.
+    activator-overshoot-magnitude: &id005
       result: PASS
       measured_value: 4.7727
       evaluated_by: agent
       operator: derived/<= 9.55
       gate_class: regression_pin
       detail: The uncorrected activator median reproduces foldchange-to-delta-fidelity's 4.7727 exactly.
+  computed_outcomes:
+    fit-occupancy-differs-from-runtime: *id001
+    occupancy-correction-explains-the-overshoot: *id002
+    correction-preserves-repressor-fidelity: *id003
+    overshoot-is-not-boundary-related: *id004
+    activator-overshoot-magnitude: *id005
 findings:
-- summary: The fold change is measured across a PARTIAL occupancy swing, and correcting for it explains
-    about half the activator over-shoot.
+- summary: The fold change is measured across a PARTIAL occupancy swing, and correcting for it explains about half the activator over-shoot.
   status: partial
   evidence:
     from_test: occupancy-correction-explains-the-overshoot
     observed: 2.1314
     units: corrected median ratio
-  explanation: pPromoterBound stores an active/inactive occupancy pair per TF -- LexA 0.0 -> 0.6615, CPLX-125
-    0.500 -> 0.945 -- and the fit chooses delta so the expression ratio across THAT swing matches the
-    measurement. foldchange-to-delta-fidelity compared the full-swing ratio 1 + delta/alpha against it
-    instead, which overstates the effect whenever the swing is partial. Applying FC_pred = (1 + r*p_a)/(1
-    + r*p_i) moves activators from 4.7727 to 2.1314, closing 52% of the over-shoot in log space. Real,
-    substantial, and incomplete.
-- summary: 'The arithmetic is validated by an internal control: TFs that swing fully are unchanged, to
-    four decimals.'
+    divergence_factor: 0.42093333
+  explanation: pPromoterBound stores an active/inactive occupancy pair per TF -- LexA 0.0 -> 0.6615, CPLX-125 0.500 -> 0.945 -- and the fit chooses delta so the expression ratio across THAT swing matches the measurement. foldchange-to-delta-fidelity compared the full-swing ratio 1 + delta/alpha against it instead, which overstates the effect whenever the swing is partial. Applying FC_pred = (1 + r*p_a)/(1 + r*p_i) moves activators from 4.7727 to 2.1314, closing 52% of the over-shoot in log space. Real, substantial, and incomplete.
+  expected:
+    range:
+    - 0.67
+    - 1.5
+  provenance:
+    run_ids:
+    - activator-overshoot__static-plus-reuse
+- summary: 'The arithmetic is validated by an internal control: TFs that swing fully are unchanged, to four decimals.'
   status: confirms
   evidence:
     from_test: correction-preserves-repressor-fidelity
     observed: 0.9998
     units: full-swing subgroup, corrected
-  explanation: '160 entries belong to TFs with p_active = 1 and p_inactive = 0. For them FC_pred reduces
-    algebraically to 1 + r, so the correction must be a no-op -- and it is: 0.9998 before and 0.9998 after.
-    That subgroup was named as the arithmetic check before measuring, and it passing is what separates
-    this correction from a fitted adjustment. The free repressors moving only 0.9959 -> 1.0923 is the
-    second such check.'
+    divergence_factor: 0.0
+  explanation: '160 entries belong to TFs with p_active = 1 and p_inactive = 0. For them FC_pred reduces algebraically to 1 + r, so the correction must be a no-op -- and it is: 0.9998 before and 0.9998 after. That subgroup was named as the arithmetic check before measuring, and it passing is what separates this correction from a fitted adjustment. The free repressors moving only 0.9959 -> 1.0923 is the second such check.'
+  expected:
+    range:
+    - 0.67
+    - 1.5
+  provenance:
+    run_ids:
+    - activator-overshoot__static-plus-reuse
 - summary: A 2.13x activator residual remains, and one recorded prediction was wrong.
   status: contradicts
   evidence:
     from_test: occupancy-correction-explains-the-overshoot
     observed: 2.1314
     units: residual ratio
-  explanation: 'The corrected activator median stops outside the band, so a further activator-specific
-    defect is live (H2). Separately, my third recorded prediction -- that boundary repressors would ''stay
-    at ~0 regardless, pinned by the constraint rather than the swing'' -- is REFUTED: they move from 0.0000
-    to 0.5476, because for r near -1 and p_a = 0.6615 the corrected ratio is (1 - 0.6615)/0.6373 = 0.53.
-    The constraint pins delta/alpha, not the swing-corrected fold change. Three of four predictions held;
-    this one did not.'
-biological_summary: 'The model learns each regulator''s strength by comparing a gene''s expression when
-  the regulator is active against when it is inactive. But ''active'' rarely means fully bound: LexA is
-  fitted as going from 0% to 66% occupied between those two states, and another regulator from 50% to
-  95%. The strength the model stores is the effect of going all the way from 0% to 100%, which is necessarily
-  larger than the effect actually measured across a partial change.
+    divergence_factor: 0.42093333
+  explanation: 'The corrected activator median stops outside the band, so a further activator-specific defect is live (H2). Separately, my third recorded prediction -- that boundary repressors would ''stay at ~0 regardless, pinned by the constraint rather than the swing'' -- is REFUTED: they move from 0.0000 to 0.5476, because for r near -1 and p_a = 0.6615 the corrected ratio is (1 - 0.6615)/0.6373 = 0.53. The constraint pins delta/alpha, not the swing-corrected fold change. Three of four predictions held; this one did not.'
+  expected:
+    range:
+    - 0.67
+    - 1.5
+  provenance:
+    run_ids:
+    - activator-overshoot__static-plus-reuse
+biological_summary: 'The model learns each regulator''s strength by comparing a gene''s expression when the regulator is active against when it is inactive. But ''active'' rarely means fully bound: LexA is fitted as going from 0% to 66% occupied between those two states, and another regulator from 50% to 95%. The strength the model stores is the effect of going all the way from 0% to 100%, which is necessarily larger than the effect actually measured across a partial change.
 
 
-  Comparing the two directly therefore makes every regulator look stronger than its measurement, and for
-  genes being turned UP that shows as expression roughly five-fold too high. Accounting for how far each
-  regulator actually swings removes about half of that discrepancy.
+  Comparing the two directly therefore makes every regulator look stronger than its measurement, and for genes being turned UP that shows as expression roughly five-fold too high. Accounting for how far each regulator actually swings removes about half of that discrepancy.
 
 
-  Two checks say this is a real correction rather than a convenient one. Regulators that genuinely do
-  swing from fully unbound to fully bound are left completely untouched by it, exactly as the arithmetic
-  requires. And repressed genes, which were already encoded accurately, stay accurate. Half the problem
-  remains unexplained, and that half is now the clearest open question left in this investigation.'
+  Two checks say this is a real correction rather than a convenient one. Regulators that genuinely do swing from fully unbound to fully bound are left completely untouched by it, exactly as the arithmetic requires. And repressed genes, which were already encoded accurately, stay accurate. Half the problem remains unexplained, and that half is now the clearest open question left in this investigation.'
 conclusion_verdicts:
 - claim: The fit assumes an occupancy the runtime does not reproduce
   verdict: supported
@@ -492,19 +392,12 @@ conclusion_verdicts:
   basis: 2.13x residual after a correction validated by two internal controls.
 - claim: The comparison target is wrong for activators (H3)
   verdict: refuted
-  basis: Free repressors stay faithful under the same correction (1.0923), so the target is not generally
-    wrong.
+  basis: Free repressors stay faithful under the same correction (1.0923), so the target is not generally wrong.
 discovery_implications:
-- Any future comparison of a fitted delta against a fold change must use the TF's active/inactive occupancy
-  pair. Comparing the full-swing ratio is wrong by construction whenever the swing is partial, and foldchange-to-delta-fidelity's
-  headline 2.006 inherits that error.
-- A 2.13x activator residual is the clearest remaining unexplained quantity in this investigation, now
-  isolated from both the constraint mechanism and the swing correction.
-- The correction lifts boundary repressors from 0.0000 to 0.5476, so the constraint artefact and the swing
-  effect are not independent -- a fix for one changes the apparent size of the other, and they should
-  be evaluated together rather than sequentially.
-- Only one TF's occupancy is directly observable at runtime, so the fit-versus-runtime occupancy gap is
-  established for LexA alone and assumed, not measured, for the other 22.
+- Any future comparison of a fitted delta against a fold change must use the TF's active/inactive occupancy pair. Comparing the full-swing ratio is wrong by construction whenever the swing is partial, and foldchange-to-delta-fidelity's headline 2.006 inherits that error.
+- A 2.13x activator residual is the clearest remaining unexplained quantity in this investigation, now isolated from both the constraint mechanism and the swing correction.
+- The correction lifts boundary repressors from 0.0000 to 0.5476, so the constraint artefact and the swing effect are not independent -- a fix for one changes the apparent size of the other, and they should be evaluated together rather than sequentially.
+- Only one TF's occupancy is directly observable at runtime, so the fit-versus-runtime occupancy gap is established for LexA alone and assumed, not measured, for the other 22.
 readouts:
 - name: activator_median_uncorrected
   units: implied/expected

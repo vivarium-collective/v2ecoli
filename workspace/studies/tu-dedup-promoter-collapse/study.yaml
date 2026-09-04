@@ -433,7 +433,7 @@ runs:
     replays getter_functions' gene-set dedup. Phases B and C (refit, then lineage) are NOT run; axes 2-5
     remain pending.
   outcomes:
-    dedup-discards-distinct-promoters:
+    dedup-discards-distinct-promoters: &id001
       result: FAIL
       measured_value: 0.8399
       evaluated_by: agent
@@ -448,7 +448,7 @@ runs:
         The study''s own mechanism is unaffected: dnaG''s three TUs differ in start coordinate (3210646
         / 3210712 / 3210735), so dnaG sits squarely in the 84%. What changes is the generalisation --
         any claim that ''the dedup removes 637 promoters'' overstates it by about a sixth.'
-    dedup-discarded-tu-count:
+    dedup-discarded-tu-count: &id002
       result: PASS
       measured_value: 637
       evaluated_by: agent
@@ -456,6 +456,9 @@ runs:
       gate_class: regression_pin
       detail: 637 TUs discarded across 428 gene-set groups, from 3766 source TUs to 3129 kept. Reproduces
         the scoping measurement. The largest single group holds 8 TUs collapsed to one.
+  computed_outcomes:
+    dedup-discards-distinct-promoters: *id001
+    dedup-discarded-tu-count: *id002
 preliminary_observations:
 - note: Phase A, recorded before Phases B/C exist. The dedup collapses 637 TUs from 428 groups, the largest
     group being 8 TUs reduced to one. 84% of the discards are distinct promoters and 16% are true duplicates

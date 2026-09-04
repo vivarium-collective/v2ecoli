@@ -486,6 +486,45 @@ class LineageProcess(Process):
             warnings.warn(f"LineageProcess: xarray emit failed at generation "
                           f"{self._generation} t={self._gen_elapsed}: {e}")
 
+    def _finalize_parquet(self) -> None:
+        """Close this generation's parquet emitter, however the generation ended.
+
+        Two DISJOINT cases, so both are attempted (``close()`` is idempotent and
+        ``finalize_emitter_for_agent`` pops, so the redundant one is a no-op):
+
+        * **Timed out, no division** — the agent subtree is still in
+          ``self._composite``, so ``flush_parquet`` finds the live emitter.
+        * **Divided** — ``Division`` has already returned
+          ``{'agents': {'_remove': [...]}}`` and torn the subtree out, so
+          ``flush_parquet`` finds nothing to close. The emitter is still in the
+          process-global registry under the metadata ``agent_id`` it was built
+          with (``self._agent_id``: "0", "00", ...).
+
+        ``Division`` cannot derive that key. Inside the composite the cell is
+        always the ``agents/0`` key, and the parquet override it reads to
+        recover the runner's identity is already cleared by
+        ``_build_generation`` before the composite is constructed -- so its
+        lookup falls back to "0" and MISSES for every generation after the
+        first. The finalize therefore happens here, in the object that owns the
+        key. Without it a generation >= 1 silently loses its trailing batch AND
+        its ``success/`` sentinel while the summary still records
+        ``divided: true`` with a full duration -- and a missing sentinel drops
+        the whole generation from any analysis that filters on ``success_sql``,
+        not just its last few hundred ticks (v2ecoli#687).
+        """
+        from v2ecoli.composites._helpers import (
+            finalize_emitter_for_agent, flush_parquet)
+        try:
+            flush_parquet(self._composite, success=True)
+        except Exception as e:
+            warnings.warn(f"LineageProcess: parquet flush failed for "
+                          f"generation {self._generation} ({self._agent_id}): {e}")
+        try:
+            finalize_emitter_for_agent(self._agent_id, success=True)
+        except Exception as e:
+            warnings.warn(f"LineageProcess: parquet finalize failed for "
+                          f"generation {self._generation} ({self._agent_id}): {e}")
+
     def _run_until_division(self, interval):
         """Run the internal composite for ``interval`` seconds. Returns
         ``(divided, daughter_cell_data_or_None, final_dry_mass)``."""
@@ -581,12 +620,7 @@ class LineageProcess(Process):
         if self._is_xarray():
             self._xarray_pending = False
         if self._is_parquet():
-            from v2ecoli.composites._helpers import flush_parquet
-            try:
-                flush_parquet(self._composite, success=True)
-            except Exception as e:
-                warnings.warn(f"LineageProcess: parquet flush failed for "
-                              f"generation {self._generation} ({self._agent_id}): {e}")
+            self._finalize_parquet()
         self._summaries.append({
             "generation": self._generation,
             "agent_id": self._agent_id,

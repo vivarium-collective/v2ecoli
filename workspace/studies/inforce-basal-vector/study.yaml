@@ -3,14 +3,14 @@ name: inforce-basal-vector
 title: What probability is dnaG actually assigned?
 investigation: transcription-rewiring
 study_type: mechanism_localisation
-phase: Design
+phase: Decide
 created: '2026-09-04'
-status: planned
+status: superseded
 design_status: complete
 implementation_status: not_started
 simulation_status: not_run
-evaluation_status: not_evaluated
-gate_status: pending
+evaluation_status: evaluated
+gate_status: not_applicable
 expert_review_status: not_requested
 question: 'Four candidate mechanisms for dnaG''s 1e+05-fold transcription collapse have now been eliminated:
   promoter availability, the ppGpp concentration channel, the footprint cap and the class rescaling. What
@@ -374,6 +374,44 @@ limitations:
   absence of one.
 - req-1 edits a process file. It is expected to be observational and req-1 requires bit-identical verification,
   but a failure of that check would block the study rather than merely caveat it.
-claim: ''
-conclusion: ''
-confidence: Planned
+claim: Superseded before running. Its H1 was refuted for free and its blocking requirement proved both
+  impossible and unnecessary.
+conclusion: 'Retired without a run, and it earned its keep anyway. Two of its three hypotheses were settled
+  during implementation, at no simulation cost.
+
+  H1 (the reconstruction was wrong) is REFUTED: reconstructing the in-force vector per TIMESTEP rather
+  than at a per-generation MEAN changes dnaG''s value by a factor of 1.0003, so the Jensen concern that
+  motivated this study is negligible and dnag-generational-decay''s reconstruction stands.
+
+  req-1 is IMPOSSIBLE as designed: the listeners schema is declared centrally in composites/_helpers.py,
+  which is cache-hashed, so an output added to the ppgpp-initiation step''s existing listeners port has
+  no leaf to land in and is silently dropped. The edit was made, shown to emit nothing, and reverted.
+
+  H2 (a missing pipeline step) was then answered from existing data, because target/promoter_count IS
+  the per-promoter probability and both are emitted: dnaG receives 8.7% of its assigned probability at
+  generation 1 and 2.2e-07 by generation 3, while its peers receive 54-108%. The missing term is TF PC00010,
+  bound at dnaG''s promoter on 96.3% then 100% of timesteps, with an in-force delta of -0.999999957.
+
+  Superseded by pc00010-repression-arithmetic, which grades that account quantitatively.'
+confidence: Refuted
+findings:
+- summary: The mean-vs-in-force concern is quantitatively negligible; study 11's reconstruction stands.
+  status: confirms
+  evidence:
+    from_run: analysis-only
+    observed: 1.0003
+    units: per-timestep over mean-based
+  explanation: Reconstructing at each timestep's ppGpp concentration and averaging gives 3.2844e-05 against
+    3.2833e-05 for the mean-based route. This investigation was right to be suspicious of the substitution
+    -- probability-in-force-reference had to correct a headline number for exactly it -- but here it changes
+    nothing, and checking cost no simulation time.
+- summary: A new listener cannot be added from a step; the schema is centrally declared in a cache-hashed
+    file.
+  status: novel
+  evidence:
+    from_run: analysis-only
+  explanation: 'ppgpp_initiation already declares a `listeners` port, so adding basal_prob as an output
+    there looked like a way around the StaleCacheError that blocked editing _helpers.py. It is not: the
+    emitter is built from listeners_schema, declared in _helpers.py, so a leaf absent from that schema
+    is dropped without error. Emitting a new listener in this codebase REQUIRES touching the cache-hashed
+    file and rebuilding, which no study sharing fingerprint ea05ac9b23b1d843 can do cheaply.'

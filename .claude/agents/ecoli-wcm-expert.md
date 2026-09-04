@@ -113,14 +113,18 @@ cache artifact vs. calibrated full-mode reality, see below).
    K_fliA=600.0`.
 2. **`v2ecoli/processes/flagella_flgm_secretion.py`** —
    `ecoli-flagella-flgm-secretion`, the Class II→Class III timing gate.
-   Depletes cytoplasmic FlgM (`G369-MONOMER[c]`) proportional to complete
-   flagella count (`CPLX0-7452[j]`, not `FLAGELLAR-MOTOR-COMPLEX[j]` — the
-   motor complex gets consumed as a subunit of the complete flagellum, so
-   `CPLX0-7452[j]` is the persistent structure to secrete through).
-   `exported = min(FlgM, round(n_flagella * secretion_rate * timestep))`,
-   `secretion_rate=0.1` molecules/flagellum/s, calibrated from FlgM
-   half-life dropping ~30 min (no HBB) → ~2 min (with HBB). Falling FlgM
-   shifts the `FLGM-FLIA-CPLX` sequestration equilibrium
+   Depletes cytoplasmic FlgM (`G369-MONOMER[c]`) once the hook-basal body is
+   complete. Trigger (since 2026-08-27) is `count(nascent_flagellum)` — the
+   unique molecule created at HBB completion, before filament growth — not
+   `CPLX0-7452[j]` (fully complete flagellum, filament included), which made
+   the gate almost never engage. Rate (since 2026-09-02) is first-order in
+   the current FlgM pool: `exported = min(FlgM, round(FlgM *
+   turnover_rate_per_s * timestep))` if `hbb_count > 0` else 0 —
+   `turnover_rate_per_s ≈ 0.00158/s = ln(2)/7.3min`, from Karlinsey, Tsui,
+   Winkler & Hughes (1998) *J Bacteriol* 180:5384 (pulse-chase FlgM
+   turnover, strain TH2592; HBB-incomplete ring mutants showed no detectable
+   turnover, hence the on/off gate rather than a further per-HBB scaling).
+   Falling FlgM shifts the `FLGM-FLIA-CPLX` sequestration equilibrium
    (`equilibrium_reactions.tsv`) to release free FliA.
 
 Composite ordering: `ecoli-tf-binding → ecoli-flagella-transcription-

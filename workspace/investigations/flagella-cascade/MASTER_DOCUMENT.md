@@ -1,6 +1,6 @@
 # Flagella-Cascade Investigation — Master Document
 
-*Living document. Started 2026-08-28, last updated 2026-09-01. Current
+*Living document. Started 2026-08-28, last updated 2026-09-03. Current
 State, Parameters, History Appendix, and References sections are all up
 to date as of this date — this consolidates and supersedes the older
 per-date (`CHANGES_*.md`) and per-study (`study.yaml`) notes. Those
@@ -44,10 +44,12 @@ resulting dynamics is not yet understood).
 `count(CPLX0-7452)` (fully complete flagella including filament). This
 matches the real, direct literature finding that the substrate-specificity
 switch enabling FlgM export happens at HBB completion, before the filament
-is built (see §2 citations). The `secretion_rate` constant (0.1
-molecules/HBB/s) is flagged **UNVERIFIED** — its original justifying
-comment cited no real source; the real half-life data that should ground
-it has been found but not yet converted into a corrected rate.
+is built (see §2 citations). As of 2026-09-02, the export rate is
+**first-order in the current FlgM pool** (`turnover_rate_per_s ≈
+0.00158/s = ln(2)/7.3min`, Karlinsey et al. 1998, see §2), gated on
+`hbb_count > 0` — replacing an earlier zero-order, uncited placeholder
+(`secretion_rate=0.1/HBB/s`) that scaled export with completed-HBB count,
+an assumption the real half-life data never supported.
 
 ### 1.2 Assembly cascade (NFsim / BNGL rule-based network)
 
@@ -135,14 +137,24 @@ much raw FliS (see History §3.1).
 
 ### 1.4 Known open problems (unresolved, as of 2026-08-28)
 
-1. FliS:FliC exact-equilibrium fix is implemented and validated across
-   real division events at population scale (2026-08-30, see §3.1). **Not
-   yet validated** across a full multi-seed batch (the standard validation
-   protocol used throughout this investigation).
+1. ~~FliS:FliC exact-equilibrium fix is implemented and validated across
+   real division events at population scale (2026-08-30, see §3.1). Not
+   yet validated across a full multi-seed batch.~~ — **resolved
+   2026-09-03**: 6-seed sweep (`run_nfsim_population_seedsweep.py`,
+   seeds 0-5, 2-generation target, `cache_full_flit_v12_flisflic_test2`),
+   all 6 seeds completed cleanly via the real generation-count stop
+   condition (not the time cap), landing within a tight t_cum range
+   (5280-5520s across all seeds) — only 1 `GLP_NOFEAS` warning total
+   across all 6 runs, no crashes. Same run also serves as the first
+   multi-seed validation of the flgm-secretion turnover-rate fix (§3.1,
+   2026-09-02), which was implemented after FliS:FliC and had no batch
+   validation of its own yet either.
 2. FlgM:FliA remains on the shared, general ODE solver with a relaxed Kd.
    Same class of fix (dedicated exact-solve Step) has not yet been applied.
-3. `secretion_rate` (FlgM secretion) is an unverified placeholder pending
-   proper recalibration from real half-life data.
+3. ~~`secretion_rate` (FlgM secretion) is an unverified placeholder pending
+   proper recalibration from real half-life data.~~ — **resolved
+   2026-09-02**, see History §3.1. Not yet re-validated across a
+   multi-seed population batch under the new first-order rate.
 4. `complexation_reactions_modified.tsv` (a separate, ParCa-facing static
    file) may still record the old motor-complex stoichiometry, stator
    included — not yet checked against the new rod/P-ring/L-ring order.
@@ -198,9 +210,9 @@ is therefore a bookkeeping choice, not a biology-accuracy question.
 | L-ring (FlgH) copy number | 26 | Real, confirmed structural literature |
 | Hook (FlgE) copy number | 120 | Real, structural (~55 nm hook, 11 protofilaments) |
 | FliC degradation half-life (unprotected) | 7.4 min (k=0.00156/s) | Nagar et al. 2022, pulsed-SILAC |
-| FlgM half-life, HBB-complete (Fla+) | 7.3 min | Karlinsey et al. 1998, *J Bacteriol* 180:5384 (*Salmonella*, strain TH2592) |
+| FlgM half-life, HBB-complete (Fla+) | 7.3 min | Karlinsey, Tsui, Winkler & Hughes 1998, *J Bacteriol* 180:5384-5397 (*Salmonella*, strain TH2592) — see citation-correction note below |
 | FlgM half-life, HBB-incomplete | no detectable turnover | Same source, ring-mutant strains (ΔflgHI, flgB) |
-| FlgM `secretion_rate` (current model) | 0.1 /HBB/s | **Unverified placeholder** — not yet derived from the Karlinsey et al. 1998 numbers above |
+| FlgM `turnover_rate_per_s` (current model) | 0.00158/s = ln(2)/7.3min | Derived directly from the half-life row above (2026-09-02 fix, see History §3.1). First-order, gated on `hbb_count > 0`; no per-HBB multiplier — replaces the old, uncited `secretion_rate=0.1/HBB/s` zero-order placeholder. |
 | Hook-basal-body dependency on L-ring | rod-to-hook transition requires L-ring | Cohen & Hughes 2014, *J Bacteriol* 196:2387 (*Salmonella*) |
 | Stator not required for structural completion | confirmed | General literature on *motA*/*motB* mutants — paralyzed but structurally complete flagella |
 | Flagella split binomially at division | confirmed, direct imaging | Aizawa & Kubori 1998, *Genes to Cells* 3:625 (*Salmonella*, live dark-field imaging through real division events) |
@@ -209,6 +221,17 @@ is therefore a bookkeeping choice, not a biology-accuracy question.
 — used because the mechanism is treated as conserved across these closely
 related species, and no direct E. coli data was found (checked directly,
 not assumed) for several of them. This is flagged per-row, not hidden.*
+
+*Citation correction (2026-09-02): earlier versions of this table and §4
+merged two distinct Karlinsey et al. papers into one incorrect composite
+citation (right year/journal, wrong title and author list). Verified
+against CrossRef directly: the FlgM half-life data (TH2592, 7.3 min) is
+from Karlinsey, Tsui, Winkler & Hughes (1998) *J Bacteriol* 180:5384-5397,
+"Flk Couples flgM Translation to Flagellar Ring Assembly in Salmonella
+typhimurium." The HBB-completion-coupled-to-secretion mechanism (§1.1) is a
+separate paper: Karlinsey, Tanaka, Bettenworth, Yamaguchi, Boos, Aizawa &
+Hughes (2000) *Mol Microbiol* 37:1220-1231. Both are now cited correctly
+throughout this document and in `flagella_flgm_secretion.py`.*
 
 ---
 
@@ -433,7 +456,7 @@ session history.
   reaction has an exact quadratic solution; this Step computes it directly,
   every firing, with no tolerance to get wrong and no possible overshoot.
   Confirmed by direct testing: free FliS/FliC never go negative, by
-  construction. Not yet validated across a multi-seed batch (§1.4).
+  construction. Validated across a 6-seed batch 2026-09-03 (§1.4 item 1).
 - **FliS:FliC fix validated at population scale, and a real, separate
   elongation-side fix found in the process (2026-08-30)** — a 2-generation
   population test first caught running against the wrong cache (`v11`,
@@ -504,6 +527,52 @@ session history.
   chunk firing so repeated firings within one run don't all reuse the
   same seed. Verified byte-identical trajectories across a full
   92-minute, multi-generation run at a fixed seed.
+- **FlgM secretion rate: zero-order per-HBB placeholder replaced with a
+  first-order, literature-derived rate (2026-09-02)** — the old
+  `secretion_rate=0.1/HBB/s` formula (`exported = n_hbb * secretion_rate *
+  dt`) was uncited and scaled export with completed-HBB count, an
+  assumption never supported by the underlying data. Karlinsey et al.
+  1998's pulse-chase measurement (7.3-min FlgM half-life in Fla+ cells,
+  no detectable turnover in HBB-incomplete ring mutants) is a first-order
+  turnover rate constant, not a per-channel capacity — converted directly
+  (`k = ln(2)/438s ≈ 0.00158/s`) into `turnover_rate_per_s`, applied as
+  `exported = min(FlgM, round(FlgM * turnover_rate_per_s * dt))`, gated on
+  `hbb_count > 0` (matching the no-turnover-when-incomplete result) with
+  no further per-HBB multiplier. In the process, also caught and fixed a
+  real citation error in this document (see §2's citation-correction
+  note) and found `tests/test_behavior_flagella_cascade.py`'s FlgM-secretion
+  tests had been silently broken since the 2026-08-27 trigger fix (stale
+  `CPLX0-7452`-based fixtures, no `nascent_flagellum` state supplied at
+  all -- `KeyError` on every one of the 5 tests, unrelated to this specific
+  change). Rewrote the fixtures against the real `nascent_flagellum`
+  trigger and replaced the now-false `test_export_scales_with_hbb` with
+  `test_export_independent_of_hbb_count` / `test_export_scales_with_flgm_pool`;
+  all 11 tests in the file pass. Also updated `sim_data.py`'s
+  `get_flagella_flgm_secretion_config` (the actual runtime config source,
+  separate from the Step's own config_schema default) and the
+  `ecoli-wcm-expert` subagent's flagella section, both of which still had
+  the old formula/value. Regenerating the cache (`save_cache()` re-run,
+  same session) surfaced one more real, separate infra gap: the FliS:FliC
+  exact-equilibrium Step (2026-08-28) never had a real `get_config_by_name`
+  entry in `LoadSimData` — its cache entry had only ever existed via a
+  manual, one-off `sim_data_cache.dill` patch (same class of gap flagged
+  for both flis-flic and flgm-flia when first added, see `core.py`'s
+  `_CACHE_CONFIG_NAMES` comment). A from-scratch `save_cache()` regenerate
+  (not a hand-patch) silently dropped that Step's config, which would have
+  broken the very cache this fix was meant to update. Fixed properly:
+  added a real `get_flagella_flis_flic_equilibrium_config` (`sim_data.py`)
+  returning `{}` — correct, since that Step's config_schema is fully
+  self-contained — and registered it in `LoadSimData`'s dispatch dict.
+  Verified: `save_cache()` re-run again cleanly (no omitted configs), and
+  a short (10s) full-55-process composite smoke test
+  (`run_nfsim_wired_test.py --seconds 10`) built and ran without error
+  against the regenerated cache. Population-scale, 6-seed batch validation
+  done 2026-09-03 (§1.4 item 1) — all 6 seeds completed cleanly, no crashes.
+  Same-day session also found and parked a separate, unrelated
+  reproducibility bug in `run_nfsim_population_multigen.py` (History §3.3)
+  while investigating a specific chart, and re-examined (analytically,
+  not implemented) the FlgM:FliA real-Kd question (History §3.3) --
+  neither blocks this fix's own validation, which is complete.
 - **Cumulative ("ever formed") tracker fix for C-ring/export
   apparatus/rod/hook (2026-09-01)** — population charts were showing a
   flat 0 for several intermediate assembly stages despite real completions
@@ -632,6 +701,74 @@ session history.
 
 ### 3.3 Still undecided / parked
 
+- **FlgM:FliA real-Kd re-attempt, parked before implementation (2026-09-03)**
+  — revisited why the 2026-09-01 exact-Kd Step attempt (History §3.2) was
+  judged wrong. Analytical check against the one available real data point
+  (control run, relaxed Kd, t=2400s: free FliA=6551, FlgM=87,
+  FLGM-FLIA-CPLX=2281) confirms the current relaxed Kd IS under-sequestering
+  FliA as expected -- effective Kd implied by these counts is ~250
+  molecules, consistent with the relaxed 2e-7 M value (~182 molecules at
+  this cell's volume), not the real 1.8e-10 M value (~0.16 molecules).
+  However, applying the real Kd to this SAME late-generation snapshot's
+  totals (FliA_tot=8832, FlgM_tot=2368) predicts free FliA would only drop
+  to ~6464 -- barely below the current 6551 -- because by t=2400s FliA_tot
+  already far outnumbers FlgM_tot, leaving too little FlgM to sequester
+  much more even at perfect binding. This suggests the real Kd's practical
+  effect is concentrated EARLY in a generation (near the t=0 reference,
+  FliA_tot=2487 vs FlgM_tot=1496, a much closer ratio), not a permanent
+  suppression -- but this is inferred from one late snapshot, not a real
+  early-timepoint trace. The standalone reduced ODE model
+  (flagella-06) that would have let this be checked cheaply, without
+  touching the live WCM, was deleted by Maya (didn't like it) -- no longer
+  available. **Parked, not implemented**: re-wiring the exact-Kd Step
+  into ecoli_baseline.py was started and then explicitly reverted per
+  Maya's direction (wanted to discuss the approach before any code
+  changes, not have it done unilaterally) -- `git diff` confirmed clean
+  revert. If revisited, agreed approach is a properly-instrumented
+  single-cell diagnostic with a full per-tick trace of free FliA/FlgM/Y/
+  Class III override from t=0 (not just an endpoint snapshot), so that if
+  the dynamics look wrong again there's actually data to explain why,
+  rather than reverting a third time without understanding it. Deprioritized
+  in favor of the multi-seed validation batch (below) that was already owed
+  on two completed fixes.
+- **Same-seed reproducibility breaks depending on unrelated stop-condition
+  CLI args (found 2026-09-03, not root-caused)** — `run_nfsim_population_
+  multigen.py --seed 0` should produce a byte-identical trajectory
+  regardless of `--generations`/`--seconds-cap`/`--max-agents` (all three
+  are pure loop-exit comparisons, checked only against the CURRENT
+  simulated state, never passed into `build_composite`, `comp.run`, or any
+  seed derivation). Empirically this is false: bisected by holding two of
+  the three fixed and varying one at a time against a common baseline
+  (`--generations 3 --seconds-cap 10800 --seed 0 --max-agents 8`,
+  `cache_full_flit_v12_flisflic_test2`, dry_mass_mean=368.6fg at t=6000s).
+  Result: `--seconds-cap` alone (10800->6600) changes the t=6000s value to
+  367.4fg; `--max-agents` alone (8->12, holding the shortened 6600 cap)
+  changes it back to 368.6fg; `--generations` alone (3->6, holding the
+  shortened cap) has NO effect (stays 367.4fg). So two of the three
+  supposedly-inert stop-condition parameters do change the simulated
+  trajectory before they could possibly be evaluated (population/generation
+  state was nowhere near either threshold at t=6000s in any variant), and
+  one doesn't -- not a clean single-parameter culprit. Checked
+  `_derive_process_seed` (`ecoli_baseline.py`) as the obvious suspect -- it
+  only hashes `(master_seed, process_name)`, no CLI args -- so that's not
+  the mechanism either. **Root cause not found.** Parked at Maya's explicit
+  call (2026-09-03) rather than continuing to dig via more black-box
+  comparisons -- would need instrumenting the composite build itself
+  (logging a fingerprint of every derived seed/config at build time and
+  diffing between two runs) to actually localize it.
+  **Practical implication, real and immediate:** any same-seed "before/after"
+  comparison in this investigation's history that didn't hold every one of
+  these three parameters fixed between the two runs being compared should
+  be treated with reduced confidence until this is resolved -- this
+  specifically threatens the "clean A/B" comparisons this document cites
+  repeatedly (e.g. History §3.1's FliS:FliC and flgm-secretion-trigger
+  fixes) IF their before/after runs differed in generation/time/agent-count
+  targets, not just confirmed multi-seed-VALUE sweeps (different actual
+  `--seed` integers), which this bug does not appear to threaten -- those
+  don't rely on re-running the identical seed twice and getting the same
+  answer, only on each individual seed's own run being internally
+  consistent, which isn't in question here.
+
 - **FliO's structural role in the export apparatus** — real literature
   describes FliO as a transient assembly scaffold, not part of the final
   mature complex (a Δ*fliO* mutant is rescued to wild-type motility by
@@ -676,11 +813,6 @@ session history.
   acceptance criteria (rule-based vs. Gillespie complexation as a distinct
   methods thread) rather than staying inside flagella-cascade as Aim 2B?
   Maintainers'/Maya's call, not yet made.
-- **`secretion_rate` (FlgM export) recalibration** — currently an
-  unverified 0.1/HBB/s placeholder with no original citation. The real
-  half-life data needed to correct it (Karlinsey et al. 1998: 7.3 min
-  HBB-complete vs. no detectable turnover HBB-incomplete) has been found
-  but not yet converted into a corrected rate (§1.1, §1.4).
 - **`complexation_reactions_modified.tsv` motor-complex stoichiometry
   audit** — this ParCa-facing static file may still record the pre-2026-
   08-27/28 motor-complex stoichiometry (stator included); not yet checked
@@ -739,12 +871,17 @@ session history.
 - Kalir S & Alon U (2004). Using a quantitative blueprint to reprogram the
   dynamics of the flagella gene network. *Cell* 117:713-720. (Class I/II/III
   regulatory hierarchy and the SUM-gate promoter model.)
-- Karlinsey JE, Tanaka S, Bettenworth V, Yamaguchi S, Boos W, Aizawa SI &
-  Hughes KT (1998). Completion of the hook-basal body complex of the
-  Salmonella typhimurium flagellum is coupled to FlgM secretion and fliC
-  transcription. *J Bacteriol* 180:5384-5397. (Strain TH2592; FlgM
+- Karlinsey JE, Tsui HC, Winkler ME & Hughes KT (1998). Flk Couples flgM
+  Translation to Flagellar Ring Assembly in Salmonella typhimurium.
+  *J Bacteriol* 180:5384-5397. (Strain TH2592, pulse-chase; FlgM
   half-life 7.3 min when HBB-complete, no detectable turnover when
-  HBB-incomplete.)
+  HBB-incomplete. Corrected 2026-09-02 — previously mis-cited under this
+  entry's year/journal but with the title/authors of the 2000 paper below;
+  see §2's citation-correction note.)
+- Karlinsey JE, Tanaka S, Bettenworth V, Yamaguchi S, Boos W, Aizawa SI &
+  Hughes KT (2000). Completion of the hook-basal body complex of the
+  Salmonella typhimurium flagellum is coupled to FlgM secretion and fliC
+  transcription. *Mol Microbiol* 37:1220-1231.
 - Kuhlen L et al. (2018). Structure of the core of the type III secretion
   system export apparatus. *Nat Struct Mol Biol* 25:583-590. (Cryo-EM,
   building on Fukumura et al. 2017; FliP:FliQ:FliR 5:4:1.)

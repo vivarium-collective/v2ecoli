@@ -203,6 +203,15 @@ def run_population(n_gens, sample, seconds_cap, seed, cache_dir, max_agents, nfs
                   f"max_gen={max_gen_seen} flag_total={row['flag_total']:.0f} "
                   f"flag_mean={row['flag_mean']:.2f} n_nascent_total={row['n_nascent_total']:.0f} "
                   f"dry_mass_mean={row['dry_mass_mean']:.1f}fg")
+            # Per-agent breakdown at the same cadence (added 2026-09-03,
+            # tracing why n_nascent_total jumped 1->7 in one sample of an
+            # earlier run -- the aggregate line alone can't distinguish a
+            # gradual per-lineage buildup from a sudden population-wide
+            # event; only the final sample got a per-agent print before this).
+            for aid, stats in sorted(row["per_agent"].items()):
+                print(f"        agent '{aid}': n_nascent={stats['n_nascent']} "
+                      f"max_len={stats['max_len']} flag={stats['flag']} "
+                      f"dry_mass={stats['dry_mass']:.1f}fg")
 
         if n_agents >= max_agents:
             print(f"  reached MAX_AGENTS={max_agents} at t_cum={total:.0f}s ({total/60:.0f}min) — stopping")

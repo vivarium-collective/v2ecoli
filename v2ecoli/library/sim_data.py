@@ -628,6 +628,7 @@ class LoadSimData:
             "ecoli-tf-binding": self.get_tf_config,
             "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
             "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
+            "ecoli-flagella-flis-flic-equilibrium": self.get_flagella_flis_flic_equilibrium_config,
             # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
             # 2026-08-10 -- see archive/flit-flhdc-regulation-2026-08/.
             # ecoli-flagella-motor-switch-assembly / export-apparatus-assembly /
@@ -888,8 +889,30 @@ class LoadSimData:
             "bulk_molecule_ids": self.sim_data.internal_state.bulk_molecules.bulk_data["id"],
             "flgM_id": "G369-MONOMER[c]",
             "hbb_id": "CPLX0-7452[j]",
-            "secretion_rate": 0.1,
+            # "secretion_rate": 0.1,  # old zero-order placeholder, superseded 2026-09-02
+            # First-order FlgM turnover, k = ln(2)/7.3min (Karlinsey et al.
+            # 1998) -- see flagella_flgm_secretion.py config_schema.
+            "turnover_rate_per_s": 0.0015823,
         }
+
+    def get_flagella_flis_flic_equilibrium_config(self, time_step=1):
+        """Config for the FliS:FliC exact-equilibrium Step (added 2026-08-28).
+
+        Real registration added 2026-09-02: this Step's config_schema is
+        fully self-contained (kd_molar, bulk-species ids, etc. all have real,
+        cited defaults -- see flagella_flis_flic_equilibrium.py), so it never
+        needed ParCa-derived values. Before this method existed, the Step's
+        entry in the cache bundle was added by hand-patching
+        sim_data_cache.dill directly after the fact (see core.py's
+        _CACHE_CONFIG_NAMES comment) rather than through a real getter --
+        discovered when a routine save_cache() re-run (for the unrelated
+        flgm_secretion turnover-rate fix) silently dropped this Step's
+        config, since LoadSimData.get_config_by_name had no entry for it.
+        Returning {} here lets the Step's own schema defaults apply, exactly
+        matching the old hand-patched behavior, but through a real,
+        reproducible path instead of a manual one-off cache edit.
+        """
+        return {}
 
     def get_flagella_nfsim_complexation_config(self, time_step=1):
         """Config for the NFsim-based flagellar complexation Step.

@@ -4,8 +4,8 @@ investigation: multiscale-complexity-showcase
 title: "Follow-up (Arc 2) — locate & correct the ATP-supply defect"
 created: '2026-09-03'
 status: evaluated
-confidence: Accepted
-gate_status: passed
+confidence: Investigating
+gate_status: mixed
 
 cites:
 - {key: Feist2007iAF1260, claim: "genome-scale E. coli stoichiometry incl. oxidative phosphorylation P/O coupling"}
@@ -207,7 +207,7 @@ runs:
     atp-supply-defect-localized:
       result: PASS
     corrected-yield-in-band:
-      result: PASS
+      result: FAIL
     rq-approaches-one:
       result: PASS
     growth-physiological-after-fix:
@@ -216,16 +216,7 @@ runs:
       result: PASS
   emitter: parquet
 claim: >-
-  Root cause found, fix landed, INTEGRATED and centred in-band. The ATP-supply defect localizes one
-  level deeper than Arc 2: ATP synthase runs in REVERSE (hydrolysis 7.48, synthesis 0), so the model
-  makes no respiratory ATP and over-supplies it by substrate-level phosphorylation — exactly WHY
-  maintenance ATP was irrelevant (Arc 2). Capping ATP synthase's reverse (ATPase) flux forces
-  net-forward (respiratory) operation; calibrating the cap to 4.5 and committing it to metabolism.py
-  moves biomass yield 0.816 -> 0.390 (squarely in the measured 0.355-0.444 band, flipping the graded
-  axis from first_principles_violation to passing) while RQ falls 2.94 -> 1.11 and growth is preserved
-  (0.97/h) — both HELD-OUT. Respiration turns on (O2 0.89 -> 16.9) and acetate overflow appears, as
-  biology requires. The loop is fully closed: refute the wrong fix (Arc 2) -> find the mechanism
-  (reverse ATP synthase) -> apply, refine and integrate the correction -> validate on held-out metrics.
+  Root cause found, fix landed, INTEGRATED and centred in-band. The ATP-supply defect localizes one level deeper than Arc 2: ATP synthase runs in REVERSE (hydrolysis 7.48, synthesis 0), so the model makes no respiratory ATP and over-supplies it by substrate-level phosphorylation — exactly WHY maintenance ATP was irrelevant (Arc 2). Capping ATP synthase's reverse (ATPase) flux forces net-forward (respiratory) operation; calibrating the cap to 4.5 and committing it to metabolism.py moves biomass yield 0.816 -> 0.390 (squarely in the measured 0.355-0.444 band, flipping the graded axis from first_principles_violation to passing) while RQ falls 2.94 -> 1.11 and growth is preserved (0.97/h) — both HELD-OUT. Respiration turns on (O2 0.89 -> 16.9) and acetate overflow appears, as biology requires. The loop is fully closed: refute the wrong fix (Arc 2) -> find the mechanism (reverse ATP synthase) -> apply, refine and integrate the correction -> validate on held-out metrics.  [RE-EXECUTION UPDATE (mcs-11): the in-band yield does NOT robustly reproduce — the reverse-cap admits a non-respiring FBA optimum (yield 0.819) at the same cap, so 0.390 is solve-path dependent. The ATP-synthase-reversal DIAGNOSIS stands; the one-parameter FIX is downgraded to not-robust and must force forward respiration.]
 
 findings:
 - id: atp-synthase-runs-in-reverse
@@ -305,6 +296,7 @@ findings:
   provenance:
     run_ids: [mcs05-etc-fix-applied, mcs05-etc-fix-refined-and-integrated]
   caveats:
+  - 'RE-EXECUTION CAVEAT (mcs-11): on independent re-run the committed reverse-cap (4.5) did NOT robustly reproduce this in-band yield. At the same cap the FBA admits two optima — a respiring one (yield 0.395, via the explicit solve-wrapping diagnostic) and a NON-respiring one (yield 0.819, reverse pinned at 4.5, forward ATP synthase 0, via the committed-default path). Capping the reverse direction PERMITS but does not FORCE respiration, so the 0.390 result is solve-path dependent. The diagnosis (ATP synthase runs in reverse) is unaffected; the one-parameter fix must be reformulated to force forward respiration.'
   - "The reverse cap (4.5) is calibrated to the measured yield band; RQ->1.1 and growth preservation are the held-out (untuned) validations."
   - "Validated with the single-cell in-process probe (same estimator/axis as the basal card, ~2% vs the committed diagnostic)."
 
@@ -357,8 +349,8 @@ behavior_tests:
   measure: "biomass yield after the integrated fix (cap=4.5, committed to metabolism.py)"
   pass_if: "0.355–0.444"
   expected: "in band"
-  observed: "0.390 — centered in band (from 0.816)"
-  verdict: pass
+  observed: "0.390 (one solve path) but NOT robust — re-execution also lands 0.819 at the same cap (see mcs-11); solve-path dependent"
+  verdict: fail
 - name: rq-approaches-one
   classification: primary
   measure: "RQ after fix"
@@ -382,13 +374,11 @@ behavior_tests:
   verdict: pass
 
 conclusion: >-
-  ## Final model
-  A calibrated cap on ATP synthase's reverse flux (atp_synthase_reverse_cap=4.5) is committed to
-  v2ecoli/processes/metabolism.py. Yield 0.816→0.390 (in band), RQ 2.94→1.11, growth preserved,
-  regression-clean.
-  ## Result
-  Root cause found, fix landed, integrated, held-out-validated, and regression-checked. The
-  gap→fix→validate loop is fully closed.
+  ## Final model A calibrated cap on ATP synthase's reverse flux (atp_synthase_reverse_cap=4.5) is committed to v2ecoli/processes/metabolism.py. Yield 0.816→0.390 (in band), RQ 2.94→1.11, growth preserved, regression-clean. ## Result Root cause found, fix landed, integrated, held-out-validated, and regression-checked. The gap→fix→validate loop is fully closed.
+
+  ## Re-execution caveat
+
+  The reverse-cap FIX did not robustly reproduce on independent re-run (yield 0.395 vs 0.819 at the same cap 4.5 — FBA optimum degeneracy). The diagnosis is solid; the fix needs reformulation to FORCE forward ATP synthase, not merely bound the reverse. See mcs-11.
 simulation_set:
 - name: mcs05-etc-atp-budget-diagnostic
   kind: simulation

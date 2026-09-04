@@ -126,12 +126,7 @@ runs:
       result: SKIP
   emitter: parquet
 claim: >-
-  v2ecoli under-produces single-cell heterogeneity: interdivision-time CV is ~7% (mean tau
-  49 min) against a biological 10-30%, accumulating slowly across generations (0%->5% over
-  gens 2-4). The cells stay more synchronized than real E. coli, and birth-size variation is
-  too small to classify size homeostasis. The gap is structural (the model runs many
-  processes at expected rather than fully stochastic rates), not a small parameter — a
-  landed correction would require enabling additional stochastic mechanisms.
+  v2ecoli under-produces single-cell heterogeneity: interdivision-time CV is ~7% (mean tau 49 min) against a biological 10-30%, accumulating slowly across generations (0%->5% over gens 2-4). The cells stay more synchronized than real E. coli, and birth-size variation is too small to classify size homeostasis. The gap is structural (the model runs many processes at expected rather than fully stochastic rates), not a small parameter — a landed correction would require enabling additional stochastic mechanisms. [Follow-ups: mcs-10 confirms the under-dispersion is robust across 6 seeds (pooled CV 0.048) and resolves adder-like homeostasis (slope ~0); mcs-06 then LANDS a fix — a stochastic D-period lifts the CV to 0.115, into the biological 0.10-0.30 band, with the mean generation time approximately preserved.]
 
 findings:
 - id: heterogeneity-under-dispersed-vs-biology

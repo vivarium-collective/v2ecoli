@@ -74,12 +74,18 @@ executive:
     prior investigation's scoped maintenance-ATP fix is REFUTED at the FBA (GAM x5, NGAM
     x10 leave yield/O2/growth flat), which re-localized the defect to ATP SUPPLY — and the
     mcs-05 follow-up then found the mechanism (ATP synthase running in reverse: synthesis
-    0, hydrolysis 7.48) and LANDED the correction (cap the reverse flux) so biomass yield
-    moves 0.816 -> 0.390 into the measured 0.355-0.444 band, RQ 2.94 -> 1.11, growth held
-    out at 0.97/h, and aerobic acetate overflow (Basan 2015) appears once the cell
-    respires. Arc 3 (heterogeneity) found a real structural gap: interdivision-time CV
-    ~7% vs the biological 10-30%; the mcs-06 follow-up localizes it to a bypassed division
-    -noise term and lands the stochastic-timing fix.
+    0, hydrolysis 7.48). But the proposed one-parameter fix did NOT survive the loop's own
+    held-out control: on independent re-execution (mcs-11) the committed reverse-cap (4.5)
+    does not robustly restore respiration — the FBA is degenerate at that cap, admitting
+    BOTH a respiring optimum (yield 0.395) and a non-respiring one (yield 0.819, reverse
+    pinned at the cap, forward ATP synthase 0). The in-band yield is therefore solve-path
+    dependent: the DIAGNOSIS (reverse ATP synthase) is solid and stands, but the reverse-cap
+    FIX is reclassified from fixable-and-landed to NOT-YET-ROBUST — it must FORCE forward
+    respiration, not merely bound the reverse. Arc 3 (heterogeneity) is the arc whose fix
+    DID land: mcs-06 localizes the under-dispersion (~7% vs the biological 10-30%) to a
+    bypassed division-noise term, and a stochastic D-period lifts the ensemble CV to 0.115
+    (into the band) with the mean generation time approximately preserved; mcs-10 confirms
+    the baseline under-dispersion is robust across seeds (pooled CV 0.048).
 
     A GROWTH-LAWS PILLAR runs through the signaling arc: v2ecoli reproduces three
     independent bulk growth laws — Cooper-Helmstetter/Donachie (origins vs growth, mcs-01),
@@ -88,18 +94,24 @@ executive:
     qualitative (carbon-limited transients), that limit is stated, not hidden.
 
     META-FINDING: v2ecoli's divergences from biology are heterogeneous in kind — one is
-    already-correct, one was fixable once its true mechanism was found, one is structural
-    — and the loop's value is precisely its ability to tell these apart and reject a
-    plausible-but-wrong fix. The follow-up program closes the skeptic's three gaps:
-    mcs-09 adds the causal ppGpp-knockout control (does the coordination collapse when the
-    signal is removed?), mcs-10 replaces single-seed point estimates with multi-seed
-    confidence bands, and mcs-11 supplies the ETC fix's held-out check (acetate-overflow
-    onset, an observable the fix was NOT tuned to) plus the real temporal downshift the
-    capstone approximates at steady state.
+    already-correct (signaling/replication + three growth laws), one is structural but
+    FIXABLE (single-cell noise: mcs-06 lands the fix), and one is a REFUTED-then-over-claimed
+    fix (the ATP-supply defect: the maintenance-ATP hypothesis was refuted, the true
+    mechanism found, but the one-parameter reverse-cap fix does not robustly reproduce and
+    is reclassified not-yet-robust). The loop's value is precisely this triage — and,
+    strikingly, the loop caught its OWN over-claim: mcs-11's held-out control, run on
+    re-execution, falsified the ETC fix that an earlier pass had reported as landed. That
+    is the strongest possible evidence that the method is doing real epistemic work rather
+    than rubber-stamping its own results. The follow-up program closes the skeptic's three
+    gaps: mcs-09 designs the causal ppGpp-knockout control (execution deferred), mcs-10
+    replaces single-seed point estimates with multi-seed confidence bands (headline effects
+    survive resampling), and mcs-11 supplies the ETC fix's held-out check (acetate-overflow
+    onset, an observable the fix was NOT tuned to — which is what exposed the
+    non-reproducibility).
   verdict_status: passing-with-caveats
   decisions_needed:
-    - question: "Should the reverse-ATP-synthase cap (calibrated to 4.5) be promoted from a run-time clamp to a corrected reaction bound in the ParCa-built model?"
-      context: "mcs-05 landed the cap in metabolism.py and validated RQ/growth held-out; mcs-11 adds the acetate-overflow-onset held-out check. The remaining decision is whether to bake the corrected stoichiometry into the model build rather than clamp it at run time."
+    - question: "The reverse-ATP-synthase cap does not robustly restore respiration (mcs-11: yield 0.395 vs 0.819 at the same cap). Should the ETC fix be reformulated to FORCE forward ATP synthase (lower-bound the forward direction, or add an ATP-maintenance-linked respiratory demand) rather than only bounding the reverse?"
+      context: "The DIAGNOSIS (ATP synthase runs in reverse) is solid, but capping the reverse direction admits a non-respiring FBA optimum. A robust fix needs to make forward respiration the only feasible way to meet ATP demand. This is the top open item on the Arc 2 thread."
     - question: "Is raising interdivision-time CV into the biological band a fidelity goal, and if so is stochastic D-period timing (mcs-06) the right lever versus low-copy expression noise?"
       context: "Arc 3 shows CV ~7% vs 10-30%; mcs-06 localizes the missing noise to a bypassed division term and lands a D-period fix, but the choice of noise source is a modeling decision worth confirming."
 
@@ -113,7 +125,7 @@ scientific_argument:
     The method, not any single number, is the contribution.
   evidence_for:
     - "Arc 1 / growth laws: origins/cell 2.4->4.2 with growth, ppGpp 4.1x anti-correlation, initiation mass constant to 7% (Cooper-Helmstetter/Donachie); ribosome fraction rises across a carbon ladder (Scott-Hwa, mcs-07); RNA/protein rises with growth (Bremer-Dennis, mcs-08) — three independent growth laws, native."
-    - "Arc 2 method: the maintenance-ATP fix is REFUTED at the FBA (GAM x5, NGAM x10 flat), which localized the defect to ATP supply; mcs-05 then found the reverse-running ATP synthase and landed the correction (yield 0.816->0.390 in-band, RQ->1.11, growth held out, acetate overflow emerges)."
+    - "Arc 2 method: the maintenance-ATP fix is REFUTED at the FBA (GAM x5, NGAM x10 flat), which localized the defect to ATP supply; mcs-05 found the reverse-running ATP synthase (the DIAGNOSIS, solid). The proposed reverse-cap FIX, however, was falsified on re-execution (mcs-11): it does not robustly restore respiration (yield 0.395 vs 0.819 at the same cap — FBA degeneracy), so it is reclassified not-yet-robust. The loop refuting its OWN fix is the method's strongest evidence."
     - "Capstone: at steady state, one nutrient axis moves ppGpp (75->18), origins (2.4->4.2), growth (0.90->1.28/h), and glucose uptake (6.5->9.9) together — integrated cross-scale coordination (the matched temporal downshift is executed in mcs-11)."
   evidence_against:
     - "Arc 3: interdivision-time CV ~7% vs biological 10-30% — a real structural under-dispersion; mcs-06 localizes and fixes it (bypassed division-noise term), pending the multi-seed re-measure."
@@ -255,17 +267,17 @@ hypotheses:
     failure_modes: ["origins_per_cell flat across growth rates", "coordination persists when ppGpp is knocked down"]
     status: supported
   - id: H2
-    statement: "The baseline biomass-yield violation is energetic (unpaid ATP / no respiration), not mass bookkeeping, and is fixable at the ATP-supply stoichiometry."
+    statement: "The baseline biomass-yield violation is energetic (unpaid ATP / no respiration), not mass bookkeeping. DIAGNOSIS supported; the claim that it is FIXABLE by the one-parameter reverse-cap is NOT supported on re-execution (the fix is not robust)."
     predictions:
       - observable: respiratory_quotient
-        expected: "~2.94 at baseline (defect); ~1 after the reverse-ATP-synthase cap"
+        expected: "~2.94 at baseline (defect) — CONFIRMED; ~1 after the fix — NOT robustly reproduced (0.395-path yes, committed-default-path no)"
       - observable: biomass_yield
-        expected: "0.816 gDW/g glucose at baseline; falls into 0.355-0.444 band after the fix"
+        expected: "0.816 at baseline (CONFIRMED); the fix's in-band 0.395 is solve-path dependent (also lands 0.819 at the same cap — FBA degeneracy, mcs-11)"
       - observable: acetate_overflow_onset
-        expected: "absent at baseline; emerges after the fix and matches Basan-style overflow (held out, mcs-11)"
+        expected: "absent at baseline; the held-out check found it STILL absent with the committed fix on (fix not robust) — mcs-11"
     required_controls: [carbon-closure, acetate-overflow-heldout-mcs-11]
-    failure_modes: ["carbon closure breaks at baseline (would indicate bookkeeping)", "fix reproduces yield but fails the acetate-overflow held-out check"]
-    status: supported
+    failure_modes: ["carbon closure breaks at baseline (would indicate bookkeeping)", "fix reproduces yield but fails the acetate-overflow held-out check — THIS FIRED (mcs-11)"]
+    status: mixed  # diagnosis supported; one-parameter fix falsified as not-robust on re-execution
   - id: H3
     statement: "v2ecoli reproduces three independent bacterial growth laws natively (Cooper-Helmstetter/Donachie, Scott-Hwa, Bremer-Dennis)."
     predictions:

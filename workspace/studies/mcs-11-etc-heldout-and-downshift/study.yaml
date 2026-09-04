@@ -3,13 +3,13 @@ name: mcs-11-etc-heldout-and-downshift
 investigation: multiscale-complexity-showcase
 title: "Held-out ETC-fix check + the real temporal downshift"
 created: '2026-09-04'
-status: investigating
-confidence: Investigating
-gate_status: running
+status: evaluated
+confidence: Accepted
+gate_status: failed
 
 cites:
-  - {key: Basan2015Nature, claim: "aerobic acetate overflow onset above a growth-rate threshold"}
-  - {key: Feist2007iAF1260, claim: "genome-scale oxidative-phosphorylation stoichiometry"}
+- {key: Basan2015Nature, claim: "aerobic acetate overflow onset above a growth-rate threshold"}
+- {key: Feist2007iAF1260, claim: "genome-scale oxidative-phosphorylation stoichiometry"}
 
 question: >-
   Two loose ends from Arc 2 and the capstone. (1) The mcs-05 ETC fix centres biomass yield in
@@ -36,92 +36,132 @@ objective: >-
 
 pipeline_gate:
   prerequisites:
-    - {study: mcs-05-etc-stoichiometry-fix, condition: tests-passed}
-    - {study: mcs-04-capstone-downshift, condition: tests-passed}
+  - {study: mcs-05-etc-stoichiometry-fix, condition: tests-passed}
+  - {study: mcs-04-capstone-downshift, condition: tests-passed}
 
 conditions:
   baseline:
     composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
     params: {}
   variants:
-    - name: overflow-onset-sweep
-      detail: "ETC fix on; measure acetate secretion vs growth rate across conditions (acetate/succinate/glucose/+AA) — the held-out overflow-onset curve."
-    - name: temporal-downshift
-      detail: >-
-        Resume a rich/with_aa-adapted lineage (gen dill) into minimal/basal media and record the
-        transient ppGpp spike and central-carbon flux reallocation. (Time-varying media is not a
-        native runner flag; the downshift is staged as a resume-into-new-condition, which is the
-        feasible approximation of a step downshift.)
+  - name: overflow-onset-sweep
+    detail: "ETC fix on; measure acetate secretion vs growth rate across conditions (acetate/succinate/glucose/+AA) — the held-out overflow-onset curve."
+  - name: temporal-downshift
+    detail: >-
+      Resume a rich/with_aa-adapted lineage (gen dill) into minimal/basal media and record the
+      transient ppGpp spike and central-carbon flux reallocation. (Time-varying media is not a
+      native runner flag; the downshift is staged as a resume-into-new-condition, which is the
+      feasible approximation of a step downshift.)
   model_settings: []
 
 inputs:
-  - artifact: sim_data
-    from: parca
-    into: cache_dir
+- artifact: sim_data
+  from: parca
+  into: cache_dir
 
 readouts:
-  - "acetate secretion vs growth rate with the ETC fix on (held-out overflow-onset curve; the cap was tuned to YIELD, never to acetate)"
-  - "ppgpp_conc, growth_rate and central-carbon flux transient across a rich->minimal downshift"
+- "acetate secretion vs growth rate with the ETC fix on (held-out overflow-onset curve; the cap was tuned to YIELD, never to acetate)"
+- "ppgpp_conc, growth_rate and central-carbon flux transient across a rich->minimal downshift"
 
 expected_behavior:
-  - name: acetate-overflow-onset-held-out
-    observable: acetate_secretion
-    condition: overflow-onset-sweep
-    rationale: "A mechanistic ETC fix should secrete acetate in a growth-dependent way whose onset was not part of the calibration — an independent confirmation."
-  - name: downshift-transient-ppgpp-spike
-    observable: ppgpp_conc
-    condition: temporal-downshift
-    rationale: "A genuine downshift should transiently spike ppGpp before re-equilibration, the dynamic signature the steady-state capstone only approximated."
+- name: acetate-overflow-onset-held-out
+  observable: acetate_secretion
+  condition: overflow-onset-sweep
+  rationale: "A mechanistic ETC fix should secrete acetate in a growth-dependent way whose onset was not part of the calibration — an independent confirmation."
+- name: downshift-transient-ppgpp-spike
+  observable: ppgpp_conc
+  condition: temporal-downshift
+  rationale: "A genuine downshift should transiently spike ppGpp before re-equilibration, the dynamic signature the steady-state capstone only approximated."
 
 tests:
-  - name: acetate-overflow-onset-held-out
-    classification: primary
-    kind: held_out
-    question: "With the ETC fix on, does acetate secretion rise with growth rate (overflow onset) though the cap was tuned only to yield?"
-    measure: {kind: derived, detail: "acetate secretion vs growth across conditions (metabolism_probe.py), fix on."}
-  - name: downshift-transient-ppgpp-spike
-    classification: primary
-    question: "Does a rich->minimal downshift transiently spike ppGpp and reroute flux?"
-    measure: {kind: derived, detail: "ppgpp_conc + flux time-course across a resume-into-minimal downshift."}
+- name: acetate-overflow-onset-held-out
+  classification: primary
+  kind: held_out
+  question: "With the ETC fix on, does acetate secretion rise with growth rate (overflow onset) though the cap was tuned only to yield?"
+  measure: {kind: derived, detail: "acetate secretion vs growth across conditions (metabolism_probe.py), fix on."}
+- name: downshift-transient-ppgpp-spike
+  classification: primary
+  question: "Does a rich->minimal downshift transiently spike ppGpp and reroute flux?"
+  measure: {kind: derived, detail: "ppgpp_conc + flux time-course across a resume-into-minimal downshift."}
 
 planned_runs:
-  - name: mcs11-overflow-onset-sweep
-    status: planned
-    n_steps: "in-process probe x conditions"
-    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    details: "ETC fix on; acetate secretion vs growth across conditions — the held-out overflow-onset curve (reuses mcs-05 fix + carbon-ladder caches)."
-  - name: mcs11-temporal-downshift
-    status: planned
-    n_steps: "resume rich->minimal, transient"
-    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    details: "Resume a with_aa-adapted lineage into basal media; record the ppGpp / flux / growth transient."
+- name: mcs11-overflow-onset-sweep
+  status: planned
+  n_steps: "in-process probe x conditions"
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  details: "ETC fix on; acetate secretion vs growth across conditions — the held-out overflow-onset curve (reuses mcs-05 fix + carbon-ladder caches)."
+- name: mcs11-temporal-downshift
+  status: planned
+  n_steps: "resume rich->minimal, transient"
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  details: "Resume a with_aa-adapted lineage into basal media; record the ppGpp / flux / growth transient."
 
 simulation_set:
-  - name: mcs11-overflow-onset-sweep
-    kind: simulation
-    status: running
-    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    duration_steps: "in-process probe"
-    seeds: [0]
-    metrics: [acetate_secretion, growth_rate]
-    pass_fail_tests: [acetate-overflow-onset-held-out]
-  - name: mcs11-temporal-downshift
-    kind: simulation
-    status: planned
-    base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
-    duration_steps: "resume transient"
-    seeds: [20]
-    metrics: [ppgpp_conc, growth_rate]
-    pass_fail_tests: [downshift-transient-ppgpp-spike]
+- name: mcs11-overflow-onset-sweep
+  kind: simulation
+  status: completed
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  duration_steps: "in-process probe"
+  seeds: [0]
+  metrics: [acetate_secretion, growth_rate]
+  pass_fail_tests: [acetate-overflow-onset-held-out]
+- name: mcs11-temporal-downshift
+  kind: simulation
+  status: planned
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  duration_steps: "resume transient"
+  seeds: [20]
+  metrics: [ppgpp_conc, growth_rate]
+  pass_fail_tests: [downshift-transient-ppgpp-spike]
 
-runs: []
+runs:
+- name: mcs11-overflow-onset-heldout
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  kind: simulation
+  canonical: true
+  status: completed
+  result: FAIL
+  emitter: in-process
+  description: 'In-process metabolism probes with the committed ETC fix on (atp_synthase_reverse_cap=4.5), across conditions, plus a controlled comparison of the committed-default path vs the explicit solve-wrapping diagnostic at the same cap. Provenance: analysis/mcs05_reexecution_reproducibility.json.'
+  outcomes:
+    acetate-overflow-onset-held-out:
+      result: FAIL
+    downshift-transient-ppgpp-spike:
+      result: SKIP
 
 claim: >-
-  Designed held-out + dynamics study (running). Turns the ETC fix's calibrated headline into a
-  falsifiable claim by testing acetate-overflow onset — an observable the cap never saw — and
-  runs the real temporal downshift the capstone only approximated at steady state.
+  The held-out check did its job — and FALSIFIED the fix as characterized. With the committed ETC fix on, acetate secretion stayed at 0 and RQ at ~2.85 (no overflow, no respiration): the held-out observable the cap was never tuned to REVEALED that the committed default reads as un-fixed physiology (yield ~0.82). A controlled comparison pins the cause: at the same cap (4.5) the explicit solve-wrapping diagnostic lands a respiring optimum (yield 0.395, RQ 1.10) while the committed-default path lands a NON-respiring optimum (reverse pinned at 4.5, forward ATP synthase 0, yield 0.819). The reverse-cap does not UNIQUELY force respiration — the FBA is degenerate at that cap — so mcs-05's in-band yield is solve-path dependent, not robust. This is the meta-finding in action: the loop's own held-out control caught an over-claimed fix on re-execution. The temporal downshift is deferred.
 
-findings: []
+findings:
+- id: etc-fix-not-robustly-reproducible
+  kind: computational
+  status: contradicts
+  statement: 'The held-out acetate-overflow-onset check falsifies the mcs-05 fix AS CHARACTERIZED. Run with the committed reverse-cap (4.5) on, the cell does not respire (acetate 0, RQ 2.85, yield 0.819) — the overflow the fix should produce is absent. A controlled two-path comparison at the SAME cap shows why: the explicit solve-wrapping path reaches a respiring optimum (yield 0.395, RQ 1.10, matching mcs-05), while the committed-default path reaches a non-respiring optimum (reverse flux pinned at the cap 4.5, forward ATP synthase 0). Capping the REVERSE direction to 4.5 permits but does not FORCE forward (respiratory) operation, so the FBA optimum — and the biomass yield — is solve-path dependent. The ATP-synthase-in-reverse DIAGNOSIS (mcs-05 finding 1) stands; the one-parameter reverse-cap FIX is not robust and must be reformulated to reward/force forward ATP synthase, not merely bound the reverse.'
+  evidence:
+    from_run: mcs11-overflow-onset-heldout
+    from_test: acetate-overflow-onset-held-out
+    committed_default_cap4.5:
+      yield: 0.819
+      RQ: 2.85
+      acetate: 0.0
+      reverse_flux: 4.5
+      forward_flux: 0.0
+    explicit_wrap_cap4.5:
+      yield: 0.395
+      RQ: 1.1
+    no_fix:
+      yield: 0.819
+      RQ: 2.85
+    artifact: analysis/mcs05_reexecution_reproducibility.json
+  expected:
+    summary: A robust respiratory fix should secrete acetate in a growth-dependent way (overflow) regardless of solve path; instead overflow is absent under the committed default.
+  next_action: Reformulate the ETC fix to lower-bound FORWARD ATP synthase (or set an ATP-maintenance-linked respiratory demand) so respiration is forced, not merely permitted; re-run the overflow-onset held-out check.
+  next_action_type: escalate_model
+  provenance:
+    run_ids:
+    - mcs11-overflow-onset-heldout
+  caveats:
+  - The reverse ATP-synthase diagnosis is unaffected and solid; only the one-parameter cap FIX is falsified as non-robust.
 
 biological_summary: >-
   The mcs-05 ETC fix centres biomass yield in-band, but the cap was calibrated to that band, so
@@ -131,23 +171,22 @@ biological_summary: >-
   spike and flux reallocation as a transient rather than a between-condition contrast.
 
 behavior_tests:
-  - name: acetate-overflow-onset-held-out
-    classification: primary
-    measure: "acetate secretion vs growth with the ETC fix on (HELD-OUT — cap tuned to yield only)"
-    pass_if: "acetate rises with growth (overflow onset emerges)"
-    expected: "growth-dependent overflow"
-    observed: "(sweep running)"
-    verdict: pending
-  - name: downshift-transient-ppgpp-spike
-    classification: primary
-    measure: "ppGpp / flux transient across a rich->minimal downshift"
-    pass_if: "transient ppGpp spike then re-equilibration"
-    expected: "dynamic stringent-response transient"
-    observed: "(downshift staged)"
-    verdict: pending
+- name: acetate-overflow-onset-held-out
+  classification: primary
+  measure: "acetate secretion vs growth with the ETC fix on (HELD-OUT — cap tuned to yield only)"
+  pass_if: "acetate rises with growth (overflow onset emerges)"
+  expected: "growth-dependent overflow"
+  observed: "acetate 0 / RQ 2.85 with the committed fix on — overflow ABSENT; fix not robustly reproduced (0.395 vs 0.819 at same cap)"
+  verdict: fail
+- name: downshift-transient-ppgpp-spike
+  classification: primary
+  measure: "ppGpp / flux transient across a rich->minimal downshift"
+  pass_if: "transient ppGpp spike then re-equilibration"
+  expected: "dynamic stringent-response transient"
+  observed: "(deferred — temporal media-switch not run)"
+  verdict: skip
 
 conclusion: >-
-  ## Plan
-  The ETC fix is put to a held-out test (acetate-overflow onset, which the cap never saw) and the
-  capstone's steady-state coordination is upgraded to a genuine temporal downshift. Running; the
-  overflow-onset check is the decisive test that the fix is mechanistic, not a fitted knob.
+  ## Result
+
+  The held-out check FALSIFIED the mcs-05 fix as characterized: with the committed reverse-cap on, respiration is absent (acetate 0, yield 0.82). The reverse-cap admits a non-respiring FBA optimum, so the in-band yield (0.395) is solve-path dependent, not robust — the same cap gives 0.395 or 0.82. The ATP-synthase-reversal diagnosis stands; the one-parameter fix must be reformulated to force forward respiration. The temporal downshift is deferred. This is the loop catching its own over-claim.

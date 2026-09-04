@@ -163,9 +163,7 @@ report_cards:
 - viz/arc1_ppgpp_replication.html
 
 claim: >-
-  v2ecoli reproduces the ppGpp-mediated coupling of replication to growth NATIVELY:
-  origins-per-cell scale with growth rate (2.4->4.2), ppGpp anti-correlates (75->18,
-  4.1x), and initiation mass stays ~constant (648->696 fg). No correction needed.
+  v2ecoli reproduces the ppGpp-mediated coupling of replication to growth NATIVELY: origins-per-cell scale with growth rate (2.4->4.2), ppGpp anti-correlates (75->18, 4.1x), and initiation mass stays ~constant (648->696 fg). No correction needed. [Robustness: mcs-10 re-runs this as a 6-seed ensemble — origins 2.38+/-0.03 (basal) vs 3.55+/-0.004 (with_aa), ppGpp 72.2+/-4.8 vs 21.7+/-1.8, all with non-overlapping 95% CIs, so the scaling is not a single-seed artifact.]
 
 findings:
 - id: origins-scale-with-growth-via-ppgpp

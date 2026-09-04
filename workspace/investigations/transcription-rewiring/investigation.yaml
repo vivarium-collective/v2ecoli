@@ -3,29 +3,13 @@ name: transcription-rewiring
 title: Transcription rewiring — promoter-resolved transcription
 created: '2026-09-01'
 status: active
-question: Does resolving transcription by promoter rather than by transcription unit fix DnaG production,
-  and with it the multi-generation replication arrest that appears once initiation has to acquire real
-  replisome subunits?
-hypothesis: The arrest is not a replication defect. It is a transcription defect that surfaces at the
-  replisome. ParCa deduplicates transcription units by gene tuple, so the three promoters of the rpsU-dnaG-rpoD
-  operon collapse into one TU. Regulation measured at one promoter is then applied to all of them, and
-  dnaG is transcribed under the wrong regulatory context. DnaG falls far enough below its true abundance
-  that replisomes cannot be assembled, and a lineage run with mechanistic_replisome=True arrests at a
-  reproducible generation. Separating promoters from transcripts should restore DnaG without special-casing
-  the operon.
-description: 'Ordered as a causal chain, so each link is falsifiable on its own rather than standing or
-  falling with the conclusion:
+question: Does resolving transcription by promoter rather than by transcription unit fix DnaG production, and with it the multi-generation replication arrest that appears once initiation has to acquire real replisome subunits?
+hypothesis: The arrest is not a replication defect. It is a transcription defect that surfaces at the replisome. ParCa deduplicates transcription units by gene tuple, so the three promoters of the rpsU-dnaG-rpoD operon collapse into one TU. Regulation measured at one promoter is then applied to all of them, and dnaG is transcribed under the wrong regulatory context. DnaG falls far enough below its true abundance that replisomes cannot be assembled, and a lineage run with mechanistic_replisome=True arrests at a reproducible generation. Separating promoters from transcripts should restore DnaG without special-casing the operon.
+description: 'Ordered as a causal chain, so each link is falsifiable on its own rather than standing or falling with the conclusion:
 
-  1. mechanistic_replisome=True arrests a 12-generation lineage at a reproducible generation; the permissive
-  setting does not. 2. The arrest coincides with DnaG depletion, not with a shortage of some other replisome
-  subunit. 3. The model''s DnaG abundance is low against independent proteomics (Schmidt 2016, Soufi 2015,
-  Mori 2021, Li 2014), not merely low against one dataset. 4. The cause is architectural — a transcription
-  unit serves as both promoter and transcript, so operons with several promoters need several transcript
-  species whose physical properties no measurement constrains. 5. Promoter-resolved transcription restores
-  DnaG and the lineage survives 12 generations.
+  1. mechanistic_replisome=True arrests a 12-generation lineage at a reproducible generation; the permissive setting does not. 2. The arrest coincides with DnaG depletion, not with a shortage of some other replisome subunit. 3. The model''s DnaG abundance is low against independent proteomics (Schmidt 2016, Soufi 2015, Mori 2021, Li 2014), not merely low against one dataset. 4. The cause is architectural — a transcription unit serves as both promoter and transcript, so operons with several promoters need several transcript species whose physical properties no measurement constrains. 5. Promoter-resolved transcription restores DnaG and the lineage survives 12 generations.
 
-  Link 4 is the contribution. Links 1-3 establish that the architecture has a measurable cost; link 5
-  is the test.'
+  Link 4 is the contribution. Links 1-3 establish that the architecture has a measurable cost; link 5 is the test.'
 studies:
 - mechanistic-replisome-arrest
 - replisome-gate-sufficiency
@@ -49,103 +33,52 @@ studies:
 - tu-dedup-promoter-collapse
 - promoter-specific-regulation
 - dnag-locus-targeted-fix
+- ppgpp-basal-residual
 executive:
-  what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
-    assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
-    the subunits to actually be present — and the cell line dies out after a few generations. This investigation
-    asks why, and the answer appears to sit upstream of replication entirely: in how the model decides
-    which stretches of DNA are transcribed, and under whose regulatory control.'
-  verdict: The opening hypothesis is CONFIRMED. ParCa deduplicates transcription units by gene tuple,
-    collapsing the three promoters of the rpsU-dnaG-rpoD operon into one; regulation measured at one promoter
-    is then applied to the survivor. LexA's operator is at rpsUp3, which the dedup discards -- so dnaG
-    is silenced through TU00352, a promoter LexA has no site at.
+  what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model assumes the proteins that build a replisome are always on hand. Turn that assumption off — require the subunits to actually be present — and the cell line dies out after a few generations. This investigation asks why, and the answer appears to sit upstream of replication entirely: in how the model decides which stretches of DNA are transcribed, and under whose regulatory control.'
+  verdict: The opening hypothesis is CONFIRMED. ParCa deduplicates transcription units by gene tuple, collapsing the three promoters of the rpsU-dnaG-rpoD operon into one; regulation measured at one promoter is then applied to the survivor. LexA's operator is at rpsUp3, which the dedup discards -- so dnaG is silenced through TU00352, a promoter LexA has no site at.
   verdict_status: supported
   verdict_detail: 'Twenty-one studies. The chain is closed end to end and every link is measured.
 
 
-    1. getter_functions keys TUs on their sorted GENE SET and keeps only the first, discarding 637 across
-    428 groups. dnaG''s TU00434 (start 3210712) and TU00435 (3210735) go; TU00352 (3210646) survives.
+    1. getter_functions keys TUs on their sorted GENE SET and keeps only the first, discarding 637 across 428 groups. dnaG''s TU00434 (start 3210712) and TU00435 (3210735) go; TU00352 (3210646) survives.
 
-    2. EcoCyc''s binding-site data places LexA''s only operator at this locus at 3210729-3210749 -- 4.5
-    bases downstream of rpsUp3, whose TSS matches TU00435''s start to 0.5 bp. The discarded TU is the
-    regulated one.
+    2. EcoCyc''s binding-site data places LexA''s only operator at this locus at 3210729-3210749 -- 4.5 bases downstream of rpsUp3, whose TSS matches TU00435''s start to 0.5 bp. The discarded TU is the regulated one.
 
-    3. rna_id_to_regulating_tfs assigns TFs by CISTRON CONTENT, so LexA is handed to TU00352 because it
-    contains rpoD -- a promoter 88 bp upstream of the operator, which LexA cannot occlude.
+    3. rna_id_to_regulating_tfs assigns TFs by CISTRON CONTENT, so LexA is handed to TU00352 because it contains rpoD -- a promoter 88 bp upstream of the operator, which LexA cannot occlude.
 
-    4. ParCa''s convex fit minimises norm(G@R - k) subject to 0 <= Z@R <= 1. For TU00352 that lower bound
-    is ACTIVE, pinning delta/alpha at -0.99999996. All ten near-totally-repressed LexA targets sit at
-    Z@R = 5.23e-12 -- one boundary, not ten coincidences.
+    4. ParCa''s convex fit minimises norm(G@R - k) subject to 0 <= Z@R <= 1. For TU00352 that lower bound is ACTIVE, pinning delta/alpha at -0.99999996. All ten near-totally-repressed LexA targets sit at Z@R = 5.23e-12 -- one boundary, not ten coincidences.
 
-    5. tf_binding hard-codes p_bound = 1.0 for 0CS TFs, and LexA is 0CS. retained = 1 + r*q gives 0.34
-    at the fitted occupancy of 0.66 but 4.3e-08 at q = 1.0. The response collapses in the last few percent.
+    5. tf_binding hard-codes p_bound = 1.0 for 0CS TFs, and LexA is 0CS. retained = 1 + r*q gives 0.34 at the fitted occupancy of 0.66 but 4.3e-08 at q = 1.0. The response collapses in the last few percent.
 
-    6. DnaG protein depletes, the mechanistic replisome gate is never satisfied, and the lineage stalls
-    at generation 4-5 in 8 of 8 seeds. Dropping DnaG from the gate restores 12/12.
+    6. DnaG protein depletes, the mechanistic replisome gate is never satisfied, and the lineage stalls at generation 4-5 in 8 of 8 seeds. Dropping DnaG from the gate restores 12/12.
 
 
-    Neither defect is lethal alone. With the delta the measured log2FC implies (r = -0.363) dnaG retains
-    0.637 even at full occupancy; with the fitted occupancy it retains 0.34 even at r = -1. It is the
-    CONJUNCTION -- a misattributed edge, pinned at the constraint, applied at saturating occupancy --
-    that kills the cell.
+    Neither defect is lethal alone. With the delta the measured log2FC implies (r = -0.363) dnaG retains 0.637 even at full occupancy; with the fitted occupancy it retains 0.34 even at r = -1. It is the CONJUNCTION -- a misattributed edge, pinned at the constraint, applied at saturating occupancy -- that kills the cell.
 
 
-    Corrections made along the way, all recorded in the studies rather than quietly dropped: the deficit
-    was restated 52x -> 5.4x -> 47x as the comparison group and reference vector were fixed; the claim
-    that ParCa misencodes fold changes ''by a median factor of 2 in both directions'' did NOT survive
-    the occupancy-swing correction (repressors are near-perfect at 0.9998, and lexA->rpoD is 1.88x off,
-    not 1.5e+07x); ''179 orphaned genes'' was an accounting error, there are none; and DnaG being ''limiting
-    first, not uniquely'' was retracted when the ablation arm showed HolA never blocks anything.'
+    Corrections made along the way, all recorded in the studies rather than quietly dropped: the deficit was restated 52x -> 5.4x -> 47x as the comparison group and reference vector were fixed; the claim that ParCa misencodes fold changes ''by a median factor of 2 in both directions'' did NOT survive the occupancy-swing correction (repressors are near-perfect at 0.9998, and lexA->rpoD is 1.88x off, not 1.5e+07x); ''179 orphaned genes'' was an accounting error, there are none; and DnaG being ''limiting first, not uniquely'' was retracted when the ablation arm showed HolA never blocks anything.'
   decisions_needed:
-  - Whether keying transcription initiation by promoter is an acceptable divergence from upstream vEcoli,
-    which keys everything by transcription unit. AGENTS.md requires this to be justified explicitly rather
-    than assumed.
-  - Whether to patch the initiation gate from == to >= on this branch and re-run the paired arms before
-    pursuing the transcription-unit link. Until the operator is fixed, the mechanistic arm tests the operator
-    rather than subunit availability, so the DnaG question is not testable here.
-  - 'Whether to treat the never-synthesised TU00352 as the investigation''s primary target: establish
-    why an idx_rprotein TU receives zero synthesis, and whether the dedup removed dnaG''s alternative
-    transcripts.'
-  - Whether a ~6x deficit still explains DnaG's protein shortfall, which was argued from a ~25x figure.
-    If it does not, the replication story needs re-deriving at the corrected magnitude.
-  - 'Reconcile the ParCa fit with the ppGpp runtime: the fit assumes ~6.85x more dnaG transcription than
-    the model delivers, and that single disagreement may account for the entire deficit.'
-  - 'Which side of the fit-runtime mismatch should change: should ParCa fit against the in-force ppGpp
-    vector, or should TranscriptInitiation stop substituting? This governs every downstream number in
-    the investigation.'
-  summary: dnaG is silenced by a repressor acting on a promoter it does not regulate, because a deduplication
-    step removed the promoter it does. Three further model choices -- regulation assigned by gene content,
-    a fitting constraint that pins the resulting edge at total repression, and saturating TF occupancy
-    -- turn that misattribution into a lethal one.
+  - Whether keying transcription initiation by promoter is an acceptable divergence from upstream vEcoli, which keys everything by transcription unit. AGENTS.md requires this to be justified explicitly rather than assumed.
+  - Whether to patch the initiation gate from == to >= on this branch and re-run the paired arms before pursuing the transcription-unit link. Until the operator is fixed, the mechanistic arm tests the operator rather than subunit availability, so the DnaG question is not testable here.
+  - 'Whether to treat the never-synthesised TU00352 as the investigation''s primary target: establish why an idx_rprotein TU receives zero synthesis, and whether the dedup removed dnaG''s alternative transcripts.'
+  - Whether a ~6x deficit still explains DnaG's protein shortfall, which was argued from a ~25x figure. If it does not, the replication story needs re-deriving at the corrected magnitude.
+  - 'Reconcile the ParCa fit with the ppGpp runtime: the fit assumes ~6.85x more dnaG transcription than the model delivers, and that single disagreement may account for the entire deficit.'
+  - 'Which side of the fit-runtime mismatch should change: should ParCa fit against the in-force ppGpp vector, or should TranscriptInitiation stop substituting? This governs every downstream number in the investigation.'
+  summary: dnaG is silenced by a repressor acting on a promoter it does not regulate, because a deduplication step removed the promoter it does. Three further model choices -- regulation assigned by gene content, a fitting constraint that pins the resulting edge at total repression, and saturating TF occupancy -- turn that misattribution into a lethal one.
 scientific_argument:
-  main_claim: A transcription unit cannot serve as both promoter and transcript without forcing ParCa
-    to invent per-transcript physical properties that no measurement constrains; separating the two removes
-    that class of error and restores DnaG production.
+  main_claim: A transcription unit cannot serve as both promoter and transcript without forcing ParCa to invent per-transcript physical properties that no measurement constrains; separating the two removes that class of error and restores DnaG production.
   evidence_for:
-  - The input data has a fixed resolution structure. Only initiation is promoter-resolved (Thomason 2015
-    dRNA-seq TSS); abundance (RNA-seq TPM) and decay (half-life tables) are gene-resolved. Several transcript
-    species per operon therefore introduces state no measurement can constrain.
-  - Splitting promoter from transcript is exactly conservative — summing promoter-keyed synthesis probabilities
-    back over each transcript reproduces the TU-keyed array to 8.7e-19 — so the change can be made without
-    perturbing aggregate behaviour.
-  - 87.5% of transcripts (2881 of 3277) have exactly one promoter, so the split is a no-op for most of
-    the model and does real work only on the 417 operons with more than one.
+  - The input data has a fixed resolution structure. Only initiation is promoter-resolved (Thomason 2015 dRNA-seq TSS); abundance (RNA-seq TPM) and decay (half-life tables) are gene-resolved. Several transcript species per operon therefore introduces state no measurement can constrain.
+  - Splitting promoter from transcript is exactly conservative — summing promoter-keyed synthesis probabilities back over each transcript reproduces the TU-keyed array to 8.7e-19 — so the change can be made without perturbing aggregate behaviour.
+  - 87.5% of transcripts (2881 of 3277) have exactly one promoter, so the split is a no-op for most of the model and does real work only on the 417 operons with more than one.
   evidence_against:
-  - The transcripts a multi-promoter operon produces are not strictly identical. They share a 3' end but
-    differ in 5' UTR length, by 23-289 nt in the operons examined. The 5' UTR carries the ribosome binding
-    site and can affect both stability and translation, so treating them as one species is itself an approximation.
-  - Keying regulation by promoter diverges from upstream vEcoli. The divergence looks defensible but it
-    is a real cost and has not been agreed.
+  - The transcripts a multi-promoter operon produces are not strictly identical. They share a 3' end but differ in 5' UTR length, by 23-289 nt in the operons examined. The 5' UTR carries the ribosome binding site and can affect both stability and translation, so treating them as one species is itself an approximation.
+  - Keying regulation by promoter diverges from upstream vEcoli. The divergence looks defensible but it is a real cost and has not been agreed.
   key_figures: []
   caveats:
-  - Every initiation share on this branch is uniform (1/N). The Thomason-derived ratios exist only on
-    the plasmids branch and were deliberately not carried over; they need re-deriving as promoter data.
-    Uniform is exactly conservative, so this does not bias the conservation result, but the model carries
-    no promoter-level measurement yet.
-  - Earlier evidence for this chain came from a branch that also removed four Covert-lab regulation workarounds
-    and added a dedup exemption. None of that is present here. Anything observed on this branch is attributable
-    to the split alone — which is the point — but it also means earlier numbers cannot be quoted as if
-    they were produced here.
+  - Every initiation share on this branch is uniform (1/N). The Thomason-derived ratios exist only on the plasmids branch and were deliberately not carried over; they need re-deriving as promoter data. Uniform is exactly conservative, so this does not bias the conservation result, but the model carries no promoter-level measurement yet.
+  - Earlier evidence for this chain came from a branch that also removed four Covert-lab regulation workarounds and added a dedup exemption. None of that is present here. Anything observed on this branch is attributable to the split alone — which is the point — but it also means earlier numbers cannot be quoted as if they were produced here.
 acceptance_criteria:
 - study: mechanistic-replisome-arrest
   behavior: lineage-arrests-under-mechanistic-replisome
@@ -175,22 +108,14 @@ inputs:
   - bib_key: li2014
     title: Li et al. 2014 -- ribosome profiling / translation efficiency
     kind: dataset
-    role: DnaG validation (98 copies) AND the source of the translation-efficiency ParCa input this study
-      identifies as the anomalous step -- so it is both a validation set and a model input, and must not
-      be treated as independent confirmation of the quantity it parameterises
+    role: DnaG validation (98 copies) AND the source of the translation-efficiency ParCa input this study identifies as the anomalous step -- so it is both a validation set and a model input, and must not be treated as independent confirmation of the quantity it parameterises
     local_path: ~/Documents/Proteomics data/Li et al 2014
     used_by: scripts/proteome_compare.py; ParCa translation_efficiencies
     status: provided
   - bib_key: ecocyc-tfbs-29.1
     title: EcoCyc v29.1 -- all transcription-factor binding sites (SmartTable export)
     kind: dataset
-    role: 'The TF -> binding-site -> promoter chain the repo''s own flat files lack. dna_sites.tsv carries
-      5046 site coordinates with NO TF attribution, and fold_changes.tsv carries TF -> target cistron
-      with no positions, so nothing in the repo could say WHICH promoter a TF acts on. This export settled
-      the investigation''s central question: LexA''s only site at the rpsU-dnaG-rpoD locus is at rpsUp3
-      (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the getter_functions dedup DISCARDS -- while
-      the model applies LexA''s repression to the surviving TU00352, whose TSS is 88 bp upstream and which
-      has no LexA site.'
+    role: 'The TF -> binding-site -> promoter chain the repo''s own flat files lack. dna_sites.tsv carries 5046 site coordinates with NO TF attribution, and fold_changes.tsv carries TF -> target cistron with no positions, so nothing in the repo could say WHICH promoter a TF acts on. This export settled the investigation''s central question: LexA''s only site at the rpsU-dnaG-rpoD locus is at rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the getter_functions dedup DISCARDS -- while the model applies LexA''s repression to the surviving TU00352, whose TSS is 88 bp upstream and which has no LexA site.'
     local_path: references/all-transcription-factor-binding-sites.txt
     vendored: true
     sha256_prefix: fad5b4709a146e49
@@ -199,11 +124,7 @@ inputs:
     used_by: tu-dedup-promoter-collapse (Phase A); the promoter-specific-regulation decision
     provided_by: user (EcoCyc subscription, SmartTable export, 2026-09-04)
     status: provided
-    caveats: Gives site coordinates and the OPERON each is attributed to, but NOT per-TU regulation. The
-      rpsUp3-to-TU00435 identification therefore rests on matching the site name's stated '4.5 bases downstream'
-      offset against TU00435's start coordinate -- agreement is 0.5 bp, but it is an inference from a
-      name string rather than a declared mapping. Many rows have empty Left/Right coordinates, so positional
-      analysis covers only the subset that carries them.
+    caveats: Gives site coordinates and the OPERON each is attributed to, but NOT per-TU regulation. The rpsUp3-to-TU00435 identification therefore rests on matching the site name's stated '4.5 bases downstream' offset against TU00435's start coordinate -- agreement is 0.5 bp, but it is an inference from a name string rather than a declared mapping. Many rows have empty Left/Right coordinates, so positional analysis covers only the subset that carries them.
   notes: 'Proteomics datasets live outside the repo in the user''s local archive; paths are
 
     recorded rather than the data vendored. scripts/proteome_compare.py in the sibling
@@ -216,153 +137,65 @@ inputs:
     others read 53-98, so a single-dataset comparison inverts the conclusion.
 
 
-    The EcoCyc TF binding-site export IS vendored into the repo (unlike the proteomics datasets, which
-    are referenced by path), because it is small and because the investigation''s conclusions now rest
-    on specific coordinates in it. A Pathway Tools licence request is outstanding; regulation.dat from
-    the flat-file distribution would state TF -> promoter mapping directly and remove the name-string
-    inference this export requires.'
+    The EcoCyc TF binding-site export IS vendored into the repo (unlike the proteomics datasets, which are referenced by path), because it is small and because the investigation''s conclusions now rest on specific coordinates in it. A Pathway Tools licence request is outstanding; regulation.dat from the flat-file distribution would state TF -> promoter mapping directly and remove the name-string inference this export requires.'
 decisions_needed:
 - question: Recompute every transcription-deficit figure against dnaG's own allocation class.
-  why: inforce_reference's comparison group is the top-300 mRNAs with fixed-allocation classes REMOVED,
-    but TU00352[c] is itself in idx_rprotein. The 5.40x deficit that studies 8-10 build on therefore compares
-    dnaG against a class it does not belong to. Against its 41 rProtein peers the ppGpp-on deficit measures
-    47.4x, not 5.40x.
+  why: inforce_reference's comparison group is the top-300 mRNAs with fixed-allocation classes REMOVED, but TU00352[c] is itself in idx_rprotein. The 5.40x deficit that studies 8-10 build on therefore compares dnaG against a class it does not belong to. Against its 41 rProtein peers the ppGpp-on deficit measures 47.4x, not 5.40x.
   raised_by: ppgpp-off-rescue
   status: open
 - question: Fix the generation-1 seed defect and amend study 2's replication claim.
-  why: run_condition_multigen_parquet.py's no-perturbation generation-1 path omits seed=, so every run's
-    generation 1 executes at seed 0. replisome-gate-sufficiency's four seeds are bit-identical in generation
-    1, so its '8 of 8 seeds, seed-independent' overstates the replication. One-line fix; the separate
-    question of whether gen 2+ should use hash(seed,gen) instead of seed+gen_idx (whose streams overlap
-    across seeds) is a behaviour change affecting prior studies.
+  why: run_condition_multigen_parquet.py's no-perturbation generation-1 path omits seed=, so every run's generation 1 executes at seed 0. replisome-gate-sufficiency's four seeds are bit-identical in generation 1, so its '8 of 8 seeds, seed-independent' overstates the replication. One-line fix; the separate question of whether gen 2+ should use hash(seed,gen) instead of seed+gen_idx (whose streams overlap across seeds) is a behaviour change affecting prior studies.
   raised_by: ppgpp-off-rescue
   status: resolved
-  resolution: build_composite now receives seed=args.seed. Verified distinct RNG streams per seed. Study
-    2's '8 of 8 seeds, seed-independent' still needs amending -- the runs behind it were made with the
-    defect and their generation 1 is bit-identical. The separate hash(seed, gen) question for generation
-    2+ remains OPEN and out of scope.
+  resolution: build_composite now receives seed=args.seed. Verified distinct RNG streams per seed. Study 2's '8 of 8 seeds, seed-independent' still needs amending -- the runs behind it were made with the defect and their generation 1 is bit-identical. The separate hash(seed, gen) question for generation 2+ remains OPEN and out of scope.
 - question: Is DnaG uniquely limiting, or merely first?
-  why: With DnaG partly relieved, HolA (delta) becomes the worst gate pool in off-arm generations 3-4.
-    replisome-gate-sufficiency's limiting-resource claim may need narrowing to 'limiting first'.
+  why: With DnaG partly relieved, HolA (delta) becomes the worst gate pool in off-arm generations 3-4. replisome-gate-sufficiency's limiting-resource claim may need narrowing to 'limiting first'.
   raised_by: ppgpp-off-rescue
   status: resolved
-  resolution: Resolved without new runs. DnaG is limiting; HolA is not. The dnag-ablation arm dropped
-    only DnaG and left HolA gated, yet 5/5 seeds completed 12 generations while HolA's margin still went
-    negative in 3 of 30 sampled generations. Min-margin is not a limiting-factor test -- initiation is
-    mass-triggered and the gate is a veto, so a pool is limiting only if it blocks an initiation mass
-    would have fired. replisome-gate-sufficiency's original claim stands unamended.
+  resolution: Resolved without new runs. DnaG is limiting; HolA is not. The dnag-ablation arm dropped only DnaG and left HolA gated, yet 5/5 seeds completed 12 generations while HolA's margin still went negative in 3 of 30 sampled generations. Min-margin is not a limiting-factor test -- initiation is mass-triggered and the gate is a veto, so a pool is limiting only if it blocks an initiation mass would have fired. replisome-gate-sufficiency's original claim stands unamended.
 - question: 'Repair the rna_synth_prob deriver: ten observables are empty on every timestep ever emitted.'
   raised_by: dnag-promoter-availability
   status: resolved
-  why: 'Every field written by the rna_synth_prob_listener deriver is empty on 100% of timesteps: promoter_copy_number,
-    gene_copy_number, bound_TF_indexes/coordinates/domains, n_bound_TF_per_TU, n_bound_TF_per_cistron,
-    and the three _per_cistron probability arrays. Fields written by transcript_initiation itself are
-    populated, so the emitter is fine and the fault is specific to this deriver. This is investigation-wide:
-    silent-transcription-units already left an axis ungraded because of it, and any prior reading that
-    treated one of these as absent-because-zero needs revisiting.'
-  resolution: Fixed. The first-tick guard required the OPTIONAL n_bound_TF_per_TU (TfBinding emits it
-    only under emit_n_bound_TF_per_TU, default False, ~900 KB/tick), so update() returned {} on every
-    tick and nine unrelated observables sat empty. Guard now requires only the two mandatory probability
-    arrays; n_bound_TF_per_cistron alone is gated on the optional matrix. A/B at identical parameters
-    is bit-identical, so no prior result changes -- but readings that treated any of these arrays as absent-because-zero
-    were reading a disabled listener, not the model.
+  why: 'Every field written by the rna_synth_prob_listener deriver is empty on 100% of timesteps: promoter_copy_number, gene_copy_number, bound_TF_indexes/coordinates/domains, n_bound_TF_per_TU, n_bound_TF_per_cistron, and the three _per_cistron probability arrays. Fields written by transcript_initiation itself are populated, so the emitter is fine and the fault is specific to this deriver. This is investigation-wide: silent-transcription-units already left an axis ungraded because of it, and any prior reading that treated one of these as absent-because-zero needs revisiting.'
+  resolution: Fixed. The first-tick guard required the OPTIONAL n_bound_TF_per_TU (TfBinding emits it only under emit_n_bound_TF_per_TU, default False, ~900 KB/tick), so update() returned {} on every tick and nine unrelated observables sat empty. Guard now requires only the two mandatory probability arrays; n_bound_TF_per_cistron alone is gated on the optional matrix. A/B at identical parameters is bit-identical, so no prior result changes -- but readings that treated any of these arrays as absent-because-zero were reading a disabled listener, not the model.
 - question: Is the LexA delta on dnaG's operon a faithful encoding of its source fold change?
   raised_by: pc00010-repression-arithmetic
   status: resolved
-  why: lexA->rpoD carries a measured log2FC of -0.65, i.e. retain 0.637, but the in-force delta on TU00352
-    (rpsU-dnaG-rpoD) retains 4.3167e-08 -- a 1.48e+07-fold distortion. dnaG is silenced as an operon passenger
-    of rpoD. Whether this is one bad entry or a systematic property of the TF-regulation layer is scoped
-    as foldchange-to-delta-fidelity and would, if systematic, affect every result in this investigation
-    that leaned on delta_prob.
-  resolution: 'No. foldchange-to-delta-fidelity measured it across the whole network: the median encoded
-    retained fraction is 2.01x its source fold change, only ~20% of entries land within a factor of 1.5,
-    activators are distorted 4.77x and repressors 0.628x, and six entries encode a negative probability.
-    dnaG''s silencing is one instance of a systematic encoding defect, reaching dnaG only because rpoD
-    shares its operon. pc00010-repression-arithmetic then confirmed the runtime consequence: all 10 near-totally-repressed
-    LexA targets silenced, unregulated peers untouched.'
+  why: lexA->rpoD carries a measured log2FC of -0.65, i.e. retain 0.637, but the in-force delta on TU00352 (rpsU-dnaG-rpoD) retains 4.3167e-08 -- a 1.48e+07-fold distortion. dnaG is silenced as an operon passenger of rpoD. Whether this is one bad entry or a systematic property of the TF-regulation layer is scoped as foldchange-to-delta-fidelity and would, if systematic, affect every result in this investigation that leaned on delta_prob.
+  resolution: 'No. foldchange-to-delta-fidelity measured it across the whole network: the median encoded retained fraction is 2.01x its source fold change, only ~20% of entries land within a factor of 1.5, activators are distorted 4.77x and repressors 0.628x, and six entries encode a negative probability. dnaG''s silencing is one instance of a systematic encoding defect, reaching dnaG only because rpoD shares its operon. pc00010-repression-arithmetic then confirmed the runtime consequence: all 10 near-totally-repressed LexA targets silenced, unregulated peers untouched.'
 - question: Locate the ParCa stage that converts fold changes into deltaV.
-  why: foldchange-to-delta-fidelity CHARACTERISED the defect (median 2.01x, both directions, uniform in
-    magnitude) but did not LOCATE it. deltaV arrives precomputed in sim_data; transcription_regulation.py
-    only reshapes it. Until the conversion is found the defect cannot be fixed, only measured.
+  why: foldchange-to-delta-fidelity CHARACTERISED the defect (median 2.01x, both directions, uniform in magnitude) but did not LOCATE it. deltaV arrives precomputed in sim_data; transcription_regulation.py only reshapes it. Until the conversion is found the defect cannot be fixed, only measured.
   raised_by: pc00010-repression-arithmetic
   status: in_progress
-  resolution: 'Located in source: calculateRnapRecruitment (fit_sim_data_1.py:4022) reads deltaV from
-    r[col_names_to_index[rnaId + ''__'' + tf]] and basal_prob from the matching ''__alpha'' column, where
-    r = cell_specs[''basal''][''r_vector''] (line 3705). deltaV is NOT converted from a fold change by
-    any formula -- it is a fitted regression coefficient, and the fold changes enter far upstream as constraints
-    on that fit. Scoped as deltav-conversion-diagnosis; open until that study runs.'
+  resolution: 'Located in source: calculateRnapRecruitment (fit_sim_data_1.py:4022) reads deltaV from r[col_names_to_index[rnaId + ''__'' + tf]] and basal_prob from the matching ''__alpha'' column, where r = cell_specs[''basal''][''r_vector''] (line 3705). deltaV is NOT converted from a fold change by any formula -- it is a fitted regression coefficient, and the fold changes enter far upstream as constraints on that fit. Scoped as deltav-conversion-diagnosis; open until that study runs.'
 - question: Add a per-promoter occupancy listener.
-  why: pc00010-repression-arithmetic's quantitative axis fails at 0.211 because occupancy can only be
-    measured per-TU while delta is applied per promoter; two copies of one promoter share a replication
-    coordinate, so bound_TF_coordinates cannot separate them. This is the one instrumentation gap blocking
-    a closed arithmetic.
+  why: pc00010-repression-arithmetic's quantitative axis fails at 0.211 because occupancy can only be measured per-TU while delta is applied per promoter; two copies of one promoter share a replication coordinate, so bound_TF_coordinates cannot separate them. This is the one instrumentation gap blocking a closed arithmetic.
   raised_by: pc00010-repression-arithmetic
   status: open
 - question: Should the omitted 760 transcription units be restored, or the regulation made promoter-specific?
   raised_by: tu-coverage-loss
   status: resolved
-  why: dnaG is silenced because LexA represses the only TU carrying it, while rpsU escapes via a dedicated
-    un-repressed TU. The model omits 760 of 3766 source TUs, leaving 179 genes with none and 563 reduced
-    to one. Restoring TUs and making regulation promoter-specific are different fixes with different costs,
-    and which applies depends on whether dnaG ever had a dedicated promoter in the source data.
-  resolution: 'Promoter-specific regulation, not TU restoration -- and the reason matters. dnaG does not
-    need a dnaG-only TU, only an unrepressed dnaG-bearing one. But rna_id_to_regulating_tfs assigns TFs
-    by CISTRON CONTENT: both rpoD-bearing model TUs carry PC00010, while TU00472 at the same start coordinate
-    escapes solely by excluding rpoD. All three dnaG-bearing source TUs contain rpoD, so restoring TU00434/TU00435
-    would give them the LexA delta too. No dnaG-bearing TU can escape while the rule is content-based.
-    The three have three distinct 5'' ends, so representing the operator as blocking ONE promoter is the
-    minimal fix.'
+  why: dnaG is silenced because LexA represses the only TU carrying it, while rpsU escapes via a dedicated un-repressed TU. The model omits 760 of 3766 source TUs, leaving 179 genes with none and 563 reduced to one. Restoring TUs and making regulation promoter-specific are different fixes with different costs, and which applies depends on whether dnaG ever had a dedicated promoter in the source data.
+  resolution: 'Promoter-specific regulation, not TU restoration -- and the reason matters. dnaG does not need a dnaG-only TU, only an unrepressed dnaG-bearing one. But rna_id_to_regulating_tfs assigns TFs by CISTRON CONTENT: both rpoD-bearing model TUs carry PC00010, while TU00472 at the same start coordinate escapes solely by excluding rpoD. All three dnaG-bearing source TUs contain rpoD, so restoring TU00434/TU00435 would give them the LexA delta too. No dnaG-bearing TU can escape while the rule is content-based. The three have three distinct 5'' ends, so representing the operator as blocking ONE promoter is the minimal fix.'
 - question: Make TF regulation promoter-specific rather than cistron-content-based.
   raised_by: tu-coverage-loss
   status: in_progress
-  why: 'rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a
-    repressor silences transcripts initiated from promoters it cannot physically block. This is why no
-    dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic
-    operon with an internal promoter, not just this one.
+  why: 'rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a repressor silences transcripts initiated from promoters it cannot physically block. This is why no dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic operon with an internal promoter, not just this one.
 
 
-    ESCALATED 2026-09-04 by EcoCyc data: this is now the HIGHEST-VALUE fix, not merely a correctness issue.
-    LexA''s only site at the dnaG locus is at rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), which
-    the dedup discarded. The surviving TU00352 has its TSS 88 bp upstream of that operator and carries
-    NO LexA site -- yet the cistron-content rule assigns LexA to it. Promoter-specific regulation alone
-    would free dnaG; restoring TUs alone would NOT, because the rule would hand LexA to all three.'
-  resolution: 'Scoped as promoter-specific-regulation. Feasibility is PARTIAL: the EcoCyc export positions
-    3642 of 4356 sites, but only 9 of the model''s 23 TFs appear among them (argR, cytR, fis, fnr, leuO,
-    lexA, lrhA, lrp, putA) -- and only case-insensitively, since the export writes ''LexA'' where transcription_factors.tsv
-    writes ''lexA''. The other 14, including crp, arcA and hns, keep their cistron-content assignment,
-    so any fix from this data is a hybrid.'
+    ESCALATED 2026-09-04 by EcoCyc data: this is now the HIGHEST-VALUE fix, not merely a correctness issue. LexA''s only site at the dnaG locus is at rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), which the dedup discarded. The surviving TU00352 has its TSS 88 bp upstream of that operator and carries NO LexA site -- yet the cistron-content rule assigns LexA to it. Promoter-specific regulation alone would free dnaG; restoring TUs alone would NOT, because the rule would hand LexA to all three.'
+  resolution: 'Scoped as promoter-specific-regulation. Feasibility is PARTIAL: the EcoCyc export positions 3642 of 4356 sites, but only 9 of the model''s 23 TFs appear among them (argR, cytR, fis, fnr, leuO, lexA, lrhA, lrp, putA) -- and only case-insensitively, since the export writes ''LexA'' where transcription_factors.tsv writes ''lexA''. The other 14, including crp, arcA and hns, keep their cistron-content assignment, so any fix from this data is a hybrid.'
 - question: Re-measure foldchange-to-delta-fidelity with the occupancy-swing correction applied.
   raised_by: activator-overshoot
   status: resolved
-  why: activator-overshoot showed the fold change is measured across a TF's ACTIVE-vs-INACTIVE occupancy
-    swing, not a 0->1 swing, so comparing the full-swing 1 + delta/alpha against 2**log2FC is wrong by
-    construction whenever the swing is partial. foldchange-to-delta-fidelity's headline network median
-    of 2.006 inherits that error and should be recomputed with FC_pred = (1 + r*p_a)/(1 + r*p_i). Its
-    qualitative conclusions -- bidirectional, magnitude-uniform -- may or may not survive.
-  resolution: 'Done. Network median 2.006 -> 1.538, activators 4.773 -> 2.131, negative-probability entries
-    6 -> 2, lexA->rpoD 1.476e+07 -> 1.8828, repressor median 0.6276 -> 0.9998. Bands unchanged. distortion-grows-with-repression-strength
-    FLIPS from PASS to FAIL (1.166 -> 1.660). The headline ''misencodes by a median factor of 2 in both
-    directions'' does NOT survive: repressors are near-perfect and the asymmetry was a comparison artefact.
-    The fit is nearly faithful; dnaG''s silencing is a runtime occupancy effect.'
+  why: activator-overshoot showed the fold change is measured across a TF's ACTIVE-vs-INACTIVE occupancy swing, not a 0->1 swing, so comparing the full-swing 1 + delta/alpha against 2**log2FC is wrong by construction whenever the swing is partial. foldchange-to-delta-fidelity's headline network median of 2.006 inherits that error and should be recomputed with FC_pred = (1 + r*p_a)/(1 + r*p_i). Its qualitative conclusions -- bidirectional, magnitude-uniform -- may or may not survive.
+  resolution: 'Done. Network median 2.006 -> 1.538, activators 4.773 -> 2.131, negative-probability entries 6 -> 2, lexA->rpoD 1.476e+07 -> 1.8828, repressor median 0.6276 -> 0.9998. Bands unchanged. distortion-grows-with-repression-strength FLIPS from PASS to FAIL (1.166 -> 1.660). The headline ''misencodes by a median factor of 2 in both directions'' does NOT survive: repressors are near-perfect and the asymmetry was a comparison artefact. The fit is nearly faithful; dnaG''s silencing is a runtime occupancy effect.'
 - question: Why does runtime LexA occupancy reach 1.0 when the fit assumes 0.52-0.66?
   raised_by: foldchange-to-delta-fidelity (amended)
   status: resolved
-  why: THE decisive question now. The fit is nearly faithful -- lexA->rpoD is 1.88x off, not 1.5e+07x
-    -- and a delta of r = -1 yields a survivable retained fraction of 0.34 at the fit's own active occupancy
-    of 0.6615. It becomes total silencing (4.3e-08) only at q = 1.0, which is where the simulation puts
-    it. So the lethal defect is in TF BINDING at runtime, not in the ParCa encoding. Why the model binds
-    LexA at ~100% when the fit assumed 52-66% is now the highest-value open question in this investigation.
-  resolution: 'Answered, and demoted. tf_binding.py:393 hard-codes p_bound=1.0 for 0CS TFs, and that is
-    DELIBERATE: getter_functions'' fit computes min(1, counts*factor/targets) commented ''If TF exists,
-    the promoter is always bound'' -- so the fitted 0.5192 is a SCARCITY ratio, not an affinity, and both
-    sides intend always-bound-if-present. More importantly occupancy is the trigger, not the cause: with
-    the correct delta (r = -0.363) dnaG retains 0.637 even at q = 1.0. zerocs-occupancy-override was retired
-    unrun on this basis.'
+  why: THE decisive question now. The fit is nearly faithful -- lexA->rpoD is 1.88x off, not 1.5e+07x -- and a delta of r = -1 yields a survivable retained fraction of 0.34 at the fit's own active occupancy of 0.6615. It becomes total silencing (4.3e-08) only at q = 1.0, which is where the simulation puts it. So the lethal defect is in TF BINDING at runtime, not in the ParCa encoding. Why the model binds LexA at ~100% when the fit assumed 52-66% is now the highest-value open question in this investigation.
+  resolution: 'Answered, and demoted. tf_binding.py:393 hard-codes p_bound=1.0 for 0CS TFs, and that is DELIBERATE: getter_functions'' fit computes min(1, counts*factor/targets) commented ''If TF exists, the promoter is always bound'' -- so the fitted 0.5192 is a SCARCITY ratio, not an affinity, and both sides intend always-bound-if-present. More importantly occupancy is the trigger, not the cause: with the correct delta (r = -0.363) dnaG retains 0.637 even at q = 1.0. zerocs-occupancy-override was retired unrun on this basis.'
 - question: Relax the getter_functions gene-set dedup so distinct promoters survive.
   raised_by: tu-dedup-promoter-collapse
   status: open
-  why: getter_functions.py:220 keys TUs on their sorted GENE SET and keeps only the first, discarding
-    637 TUs across 428 groups -- explicitly those covering the same genes with different end coordinates,
-    i.e. distinct promoters. It is the dominant reason 760 source TUs are absent, and it is why dnaG has
-    one transcript instead of three. Unlike the constraint artefact and the cistron-content regulation
-    rule, this one DISCARDS EVIDENCED DATA rather than modelling it debatably.
+  why: getter_functions.py:220 keys TUs on their sorted GENE SET and keeps only the first, discarding 637 TUs across 428 groups -- explicitly those covering the same genes with different end coordinates, i.e. distinct promoters. It is the dominant reason 760 source TUs are absent, and it is why dnaG has one transcript instead of three. Unlike the constraint artefact and the cistron-content regulation rule, this one DISCARDS EVIDENCED DATA rather than modelling it debatably.

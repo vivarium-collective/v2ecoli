@@ -1516,7 +1516,7 @@ wheels = [
 [[package]]
 name = "investigation-contracts"
 version = "0.2.0"
-source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#65c793fd231d952e49a9cfe4244797dadde1bedc" }
+source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?rev=65c793fd231d952e49a9cfe4244797dadde1bedc#65c793fd231d952e49a9cfe4244797dadde1bedc" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "pydantic" },
@@ -2899,6 +2899,17 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/be/44/ed13eccdd0519eff265f44b670d46fbb0ec813e2274932dc1c0e48520f7d/patsy-1.0.2.tar.gz", hash = "sha256:cdc995455f6233e90e22de72c37fcadb344e7586fb83f06696f54d92f8ce74c0", size = 399942, upload-time = "2025-10-20T16:17:37.535Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f1/70/ba4b949bdc0490ab78d545459acd7702b211dfccf7eb89bbc1060f52818d/patsy-1.0.2-py2.py3-none-any.whl", hash = "sha256:37bfddbc58fcf0362febb5f54f10743f8b21dd2aa73dec7e7ef59d1b02ae668a", size = 233301, upload-time = "2025-10-20T16:17:36.563Z" },
+]
+
+[[package]]
+name = "pbg-basic-processes"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#af83ccc834a84af4e4b3bb5d114aca79713cf401" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+    { name = "sympy" },
 ]
 
 [[package]]
@@ -4553,6 +4564,9 @@ ray = [
 relax = [
     { name = "pbg-openmm" },
 ]
+report = [
+    { name = "vivarium-workbench" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -4590,8 +4604,9 @@ requires-dist = [
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
     { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
+    { name = "vivarium-workbench", marker = "extra == 'report'", git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6" },
 ]
-provides-extras = ["dev", "parquet", "xarray", "emitters", "ray", "relax"]
+provides-extras = ["dev", "report", "parquet", "xarray", "emitters", "ray", "relax"]
 
 [[package]]
 name = "vecoli"
@@ -4715,6 +4730,11 @@ xarray = [
 ]
 
 [[package]]
+name = "viva-marketplace"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-marketplace.git?branch=main#3e43bc60b89c15c393abc3f4022acfb71b23d732" }
+
+[[package]]
 name = "viva-munk"
 version = "0.0.2"
 source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#93d2808bf444eb7a709ab5901b1a232c8d0e6795" }
@@ -4771,6 +4791,31 @@ dependencies = [
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca3036152fe5df56860a57e70f3e68ac0198dbd7df60fcb/vivarium-core-1.6.5.tar.gz", hash = "sha256:1d83faa60005304b548f623447ab8675a06bb7ed8f6b7c0bd25b4aaa3381fccb", size = 136102, upload-time = "2024-12-03T21:49:29.797Z" }
+
+[[package]]
+name = "vivarium-workbench"
+version = "0.3.78"
+source = { git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6#0e7c24b497218e7f38c70e9fe3222f999bb48ef6" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "fastapi" },
+    { name = "investigation-contracts" },
+    { name = "jinja2" },
+    { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "numpy" },
+    { name = "pbg-basic-processes" },
+    { name = "process-bigraph" },
+    { name = "pydantic" },
+    { name = "pypdf" },
+    { name = "pyyaml" },
+    { name = "uvicorn" },
+    { name = "viva-emitters", extra = ["xarray"] },
+    { name = "viva-marketplace" },
+    { name = "viva-superpowers" },
+    { name = "viva-workspace" },
+    { name = "xarray" },
+    { name = "zarr" },
+]
 
 [[package]]
 name = "vl-convert-python"

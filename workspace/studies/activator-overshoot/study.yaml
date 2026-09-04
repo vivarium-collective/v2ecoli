@@ -1,0 +1,294 @@
+schema_version: 4
+name: activator-overshoot
+title: Why activated genes get too much
+investigation: transcription-rewiring
+study_type: fit_validation
+phase: Design
+created: '2026-09-04'
+status: planned
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+question: 'deltav-conversion-diagnosis explained the repressor half of ParCa''s encoding defect as an
+  active constraint, and refuted my prediction that the same mechanism covers activators: ZERO of 343
+  activating entries sit at any boundary, yet they are encoded 4.77x too strongly -- 60.8% of the regulatory
+  network. Does the gap between the occupancy ParCa ASSUMED when fitting (pPromoterBound, median 0.444)
+  and the occupancy the simulation PRODUCES (LexA: 0.963-1.000 against an assumed 0.5192) explain it?'
+parent_studies:
+- study: deltav-conversion-diagnosis
+  condition: complete
+  relation: leads-to
+- study: foldchange-to-delta-fidelity
+  condition: complete
+  relation: supports
+units_and_time:
+  tick: not applicable for the fit-side analysis; runtime occupancy is read per simulated second.
+  quantities:
+    pPromoterBound: probability a TF is bound in a given condition (dimensionless)
+    occupancy: measured fraction of timesteps a TF is bound at a promoter coordinate
+    retained fraction: 1 + delta/alpha
+behavior_tests:
+- name: fit-occupancy-differs-from-runtime
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the occupancy the fit assumed match the occupancy the simulation produces?
+  description: 'The ratio of runtime TF occupancy to the fit''s pPromoterBound[''basal''] value lies in
+    [1.5, 4.5] for the median measurable TF -- runtime exceeding the fit''s assumption by roughly the
+    factor LexA shows.
+
+
+    The premise of the whole study, and it is stated as a DISAGREEMENT so that a PASS here means the defect
+    exists. ParCa fits alpha and delta with each TF at an assumed basal binding probability (median 0.444
+    across the 23 TFs); the runtime then applies delta at whatever occupancy the simulation actually produces.
+    For LexA the fit assumed 0.5192 while the simulation measured 0.963 rising to 1.000, so the delta
+    is applied roughly twice as hard as the fit intended. If that gap is general, alpha is calibrated
+    for one world and delta applied in another.
+
+
+    Threshold provenance: theory. The standing agreement band, inverted -- agreement would REFUTE the
+    study''s premise.'
+  measure:
+    kind: derived
+    path: median over measurable TFs of runtime occupancy divided by the fit's pPromoterBound basal value,
+      for the activator overshoot
+    detail: median runtime/assumed occupancy ratio across TFs whose binding is observable in bound_TF_coordinates.
+  pass_if:
+    low: 1.5
+    high: 4.5
+    provenance:
+      kind: theory
+      note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that
+        runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192
+        = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something
+        other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should
+        not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
+  status: pending
+- name: occupancy-correction-explains-the-overshoot
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does accounting for assumed-vs-actual occupancy bring activators into agreement?
+  description: 'Recomputing the expected retained fraction as the fit intended it -- alpha already containing
+    pPromoterBound worth of TF effect, with delta applied only for the OCCUPANCY INCREMENT -- moves the
+    activator median ratio into [0.67, 1.5] from 4.7727.
+
+
+    The discriminating axis. If alpha is calibrated at partial occupancy, then comparing delta/alpha against
+    2**log2FC double-counts the effect already baked into alpha, and activators would appear inflated
+    by roughly the amount of activation the basal condition already carried. This predicts the over-shoot
+    without any boundary involvement, which is required since ZERO activating entries are at a constraint.
+
+
+    Threshold provenance: theory. The band foldchange-to-delta-fidelity used to judge fidelity, so corrected
+    and uncorrected read on one scale.'
+  measure:
+    kind: derived
+    path: activator median implied/expected retained fraction after correcting for the fit's assumed basal
+      occupancy
+    detail: median ratio across the 343 activating entries, occupancy-corrected.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Identical to the band the uncorrected activators failed at 4.7727, so the comparison is direct.
+  status: pending
+- name: correction-preserves-repressor-fidelity
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the same correction leave the already-faithful repressors alone?
+  description: 'Applying the identical occupancy correction, the FREE (non-boundary) repressors keep a
+    median ratio within [0.67, 1.5], having measured 0.9959 uncorrected.
+
+
+    The discriminating control, and a strict one. deltav-conversion-diagnosis showed free repressors are
+    already essentially perfect at 0.9959. A correction that fixes activators by breaking them is not
+    a correction, it is a refit. This axis is what stops an occupancy adjustment being tuned until the
+    activator number looks right.
+
+
+    Threshold provenance: theory. The same band, applied to a group already inside it.'
+  measure:
+    kind: derived
+    path: free-repressor median implied/expected retained fraction after the same occupancy correction
+    detail: median ratio across the 175 non-boundary repressing entries, occupancy-corrected.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify
+        it.
+  status: pending
+  control: negative
+- name: overshoot-is-not-boundary-related
+  classification: diagnostic
+  gate_class: acceptance_criterion
+  question: Is any part of the activator over-shoot a constraint artefact after all?
+  description: 'Zero activating entries sit at the upper constraint Z@R <= 1.
+
+
+    Confirms that deltav-conversion-diagnosis''s mechanism genuinely does not reach activators, so this
+    study is not re-explaining a solved problem. Diagnostic because it discriminates no hypothesis here
+    -- it fences off territory already covered.
+
+
+    Threshold provenance: definitional.'
+  measure:
+    kind: derived
+    path: count of activating delta entries with all-TFs-bound probability at the upper constraint, for
+      the overshoot
+    detail: number of the 343 activating entries with Z@R >= 1 - 1e-6.
+  pass_if:
+    op: <=
+    value: 0
+    provenance:
+      kind: theory
+      note: Definitional; measured at 0 in the sibling study.
+  status: pending
+- name: activator-overshoot-magnitude
+  classification: supporting
+  gate_class: regression_pin
+  question: Does the baseline over-shoot still measure as recorded?
+  description: 'The uncorrected activator median ratio stays within a factor of 2 of the recorded 4.7727.
+
+
+    POST-HOC: measured in foldchange-to-delta-fidelity. A drift pin on the quantity this study exists
+    to explain.'
+  measure:
+    kind: derived
+    path: uncorrected activator median implied/expected retained fraction for the overshoot
+    detail: median ratio across the 343 activating entries, uncorrected.
+  pass_if:
+    op: <=
+    value: 9.55
+    provenance:
+      kind: post_hoc
+      note: 2x the 4.7727 measured previously; pin only.
+  status: pending
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-04T11:00:00Z'
+  date: '2026-09-04'
+  thresholds:
+    fit-occupancy-differs-from-runtime:
+      low: 1.5
+      high: 4.5
+      provenance:
+        kind: theory
+        note: Bounded rather than left as '> 1.5'. The claim is not merely that the two disagree but that
+          runtime occupancy EXCEEDS the fit's assumption by a factor consistent with what LexA shows (0.963/0.5192
+          = 1.855), which is what could inflate an activator's delta. A ratio above 4.5 would mean something
+          other than a calibration offset -- e.g. occupancy saturating for unrelated reasons -- and should
+          not count as confirming this mechanism. Spans 3x, the discrimination ceiling.
+    occupancy-correction-explains-the-overshoot:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Identical to the band the uncorrected activators failed at 4.7727, so the comparison is
+          direct.
+    correction-preserves-repressor-fidelity:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Two-sided; the correction can break these by over- or under-shooting and both would disqualify
+          it.
+    overshoot-is-not-boundary-related:
+      op: <=
+      value: 0
+      provenance:
+        kind: theory
+        note: Definitional; measured at 0 in the sibling study.
+    activator-overshoot-magnitude:
+      op: <=
+      value: 9.55
+      provenance:
+        kind: post_hoc
+        note: 2x the 4.7727 measured previously; pin only.
+  criteria:
+  - test: fit-occupancy-differs-from-runtime
+    prior: Does the occupancy the fit assumed match the occupancy the simulation produces?
+  - test: occupancy-correction-explains-the-overshoot
+    prior: Does accounting for assumed-vs-actual occupancy bring activators into agreement?
+  - test: correction-preserves-repressor-fidelity
+    prior: Does the same correction leave the already-faithful repressors alone?
+  - test: overshoot-is-not-boundary-related
+    prior: Is any part of the activator over-shoot a constraint artefact after all?
+implementation_requirements:
+- id: req-1
+  status: not_started
+  blocking: true
+  summary: Extract pPromoterBound['basal'] per TF and pair it with measured runtime occupancy.
+  detail: pPromoterBound recovers from models/parca/parca_state.pkl.gz (23 TFs; median basal 0.444, LexA
+    0.5192). Runtime occupancy comes from bound_TF_coordinates in dnag-promoter-availability's sweep,
+    matched to each TU's replication_coordinate. Only TFs whose sites are observable that way can be paired
+    -- the count of unpairable TFs must be reported, not silently dropped.
+- id: req-2
+  status: not_started
+  blocking: true
+  summary: State the occupancy-corrected expected value BEFORE computing it.
+  detail: 'The correction to be graded: if alpha already embodies pPromoterBound worth of TF effect, then
+    the quantity comparable to 2**log2FC is not 1 + delta/alpha but the ratio between the fully-bound
+    and basal-occupancy states. Writing the formula into the record before evaluating it, exactly as deltav-conversion-diagnosis''s
+    req-2 required, because that discipline is what let its failed prediction stand as a refutation rather
+    than be quietly narrowed.'
+alternative_hypotheses:
+- name: H1 occupancy calibration offset
+  discriminator: occupancy-correction-explains-the-overshoot
+  statement: 'alpha is fitted with TFs at pPromoterBound occupancy, delta is applied at runtime occupancy,
+    and comparing delta/alpha to 2**log2FC double-counts what alpha already contains. Predicts activators
+    inflate and free repressors stay put. Leading candidate: LexA''s assumed 0.5192 against a measured
+    0.963-1.000 is exactly this gap.'
+- name: H2 a separate activator-specific defect
+  discriminator: occupancy-correction-explains-the-overshoot
+  statement: The occupancy correction fails to bring activators into band, meaning something in the activating
+    branch of the fit is wrong for another reason. Predicts the correction axis FAILS while the repressor
+    control PASSES.
+- name: H3 the comparison target is wrong for activators
+  discriminator: correction-preserves-repressor-fidelity
+  statement: 2**log2FC is simply not what an activator's delta encodes, making the over-shoot an artefact
+    of foldchange-to-delta-fidelity. Would likely also disturb repressors under the same correction, which
+    the control detects.
+falsifiability: 'The repressor control is what makes this study falsifiable rather than a fitting exercise:
+  free repressors already sit at 0.9959, so any correction tuned until activators look right will break
+  them and be caught. req-2 forces the correction to be written down first.'
+simulation_set: []
+planned_runs:
+- name: reuse-promoter-sweep
+  status: planned
+  n_steps: 0
+  details: NO NEW SIMULATION. Fit side from parca_state.pkl.gz; runtime occupancy from dnag-promoter-availability's
+    6-seed sweep; the 564-entry join reused from foldchange-to-delta-fidelity.
+robustness:
+  n_replicates: 6
+  seeds:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  parameter_sweep: false
+  note: Occupancy is stochastic, so the 6 independent seeds matter; the fit side is deterministic.
+controls:
+- name: correction-preserves-repressor-fidelity
+  kind: negative
+  hypothesis: A correction that fixes activators by breaking the already-faithful repressors is a refit,
+    not a fix.
+  expected: free repressors stay within [0.67, 1.5], from 0.9959.
+  observed: ''
+  result: PENDING
+limitations:
+- Only TFs whose binding sites are observable in bound_TF_coordinates can be paired with a pPromoterBound
+  value; the unpairable count is reported but those TFs contribute nothing.
+- Runtime occupancy is per-TU, inheriting the per-promoter limitation identified in pc00010-repression-arithmetic.
+- All runtime occupancy is measured in a stalling lineage, so it may not represent healthy growth.
+- If H3 holds, the fold-change comparison is wrong for activators and this study's premise -- inherited
+  from foldchange-to-delta-fidelity -- is itself the error.
+claim: ''
+conclusion: ''
+confidence: Planned

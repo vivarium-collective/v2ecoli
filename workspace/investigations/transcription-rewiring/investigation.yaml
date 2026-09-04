@@ -43,6 +43,8 @@ studies:
 - pc00010-repression-arithmetic
 - foldchange-to-delta-fidelity
 - deltav-conversion-diagnosis
+- activator-overshoot
+- tu-coverage-loss
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -267,3 +269,10 @@ decisions_needed:
     a closed arithmetic.
   raised_by: pc00010-repression-arithmetic
   status: open
+- question: Should the omitted 760 transcription units be restored, or the regulation made promoter-specific?
+  raised_by: tu-coverage-loss
+  status: open
+  why: dnaG is silenced because LexA represses the only TU carrying it, while rpsU escapes via a dedicated
+    un-repressed TU. The model omits 760 of 3766 source TUs, leaving 179 genes with none and 563 reduced
+    to one. Restoring TUs and making regulation promoter-specific are different fixes with different costs,
+    and which applies depends on whether dnaG ever had a dedicated promoter in the source data.

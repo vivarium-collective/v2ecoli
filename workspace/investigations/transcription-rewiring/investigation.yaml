@@ -45,6 +45,7 @@ studies:
 - deltav-conversion-diagnosis
 - activator-overshoot
 - tu-coverage-loss
+- zerocs-occupancy-override
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -305,9 +306,14 @@ decisions_needed:
     The fit is nearly faithful; dnaG''s silencing is a runtime occupancy effect.'
 - question: Why does runtime LexA occupancy reach 1.0 when the fit assumes 0.52-0.66?
   raised_by: foldchange-to-delta-fidelity (amended)
-  status: open
+  status: in_progress
   why: THE decisive question now. The fit is nearly faithful -- lexA->rpoD is 1.88x off, not 1.5e+07x
     -- and a delta of r = -1 yields a survivable retained fraction of 0.34 at the fit's own active occupancy
     of 0.6615. It becomes total silencing (4.3e-08) only at q = 1.0, which is where the simulation puts
     it. So the lethal defect is in TF BINDING at runtime, not in the ParCa encoding. Why the model binds
     LexA at ~100% when the fit assumed 52-66% is now the highest-value open question in this investigation.
+  resolution: 'Located: tf_binding.py:393 sets pPromoterBound = 1.0 unconditionally for TFs typed 0CS,
+    bypassing the fitted p_promoter_bound_tf. LexA is 0CS. 7 of 23 TFs are 0CS, but 5 were also FITTED
+    at 1.0 so the override is harmless for them; only PC00010 (LexA, 0.5192/0.6615) and PD00519 (0.3600)
+    are contradicted. Scoped as zerocs-occupancy-override, which tests whether honouring the fitted value
+    rescues the lineage.'

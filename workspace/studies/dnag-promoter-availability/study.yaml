@@ -609,3 +609,10 @@ baseline:
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
     config_overrides: *id006
+conclusion_logic:
+  if_primary_tests_fail:
+    diagnose:
+    - question: Why did dnag-promoter-availability's primary criteria fail, and what does that leave open?
+      seeded_study: inforce-basal-vector
+      note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not
+        invented to clear the flag.

@@ -390,6 +390,10 @@ conclusion_logic:
     diagnose:
     - question: Which step of the production chain carries the loss?
       note: Answered by the chain percentiles in this study's own measurement.
+    - question: What did dnag-production-deficit's failure leave unresolved, and where was it taken up?
+      seeded_study: silent-transcription-units
+      note: Chronological successor in this investigation's chain. The existing diagnose entry above records
+        what this study answered INTERNALLY; this one records where the remaining question went next.
 discovery_implications:
   resolved_uncertainties:
   - 'Where DnaG is lost: transcription. TU00352 is synthesised 0 times per generation and its mRNA is
@@ -607,6 +611,7 @@ findings:
   next_action: 'Trace why translated output falls so far below the fitted target: compare mRNA copy number
     and ribosome occupancy on TU00352 against what the fitted efficiency implies.'
   next_action_type: escalate_model
+  seeded_study: silent-transcription-units
 - id: F-02
   kind: biological
   status: contradicts
@@ -674,6 +679,7 @@ findings:
     from ''never transcribed'' to ''transcribed ~51x below its assigned rate''.
 
     '
+  seeded_study: runtime-synthesis-probability
 - id: F-03
   kind: biological
   status: contradicts
@@ -907,6 +913,7 @@ findings:
     from ''never transcribed'' to ''transcribed ~51x below its assigned rate''.
 
     '
+  seeded_study: tu-dedup-promoter-collapse
 conclusion: "CORRECTED after expert challenge. The first version of this conclusion claimed the\ndeficit\
   \ was a translation-side execution gap and that the dedup hypothesis was\nrefuted. Both claims were\
   \ wrong. They rested on static ParCa parameters rather than\non what the simulation does, in a study\

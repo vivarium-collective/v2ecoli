@@ -562,3 +562,12 @@ baseline:
 - name: baseline
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params: {}
+conclusion_logic:
+  if_primary_tests_fail:
+    diagnose:
+    - question: What accounts for the 2.13x activator residual that survives the occupancy-swing correction?
+      note: DELIBERATELY UNSEEDED. No successor study exists and none is invented to clear the dashboard
+        flag. The residual is isolated from both the constraint mechanism (deltav-conversion-diagnosis)
+        and the partial-swing effect (this study), affects 60.8% of the regulatory network, and has no
+        candidate mechanism. The flag on this study is CORRECT and should stay until a diagnostic study
+        is actually run.

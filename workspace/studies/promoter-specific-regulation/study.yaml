@@ -296,7 +296,7 @@ preregistered:
     prior: Is any rescue attributable to dnaG rather than to perturbing the network generally?
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: complete
   blocking: true
   summary: STATE THE ATTRIBUTION RULE IN FULL BEFORE APPLYING IT.
   detail: 'The rule must be written into this record before it touches any edge, because the LexA/TU00352
@@ -306,7 +306,11 @@ implementation_requirements:
     handling; and what happens when a TF has sites at several promoters of one operon. It must then be
     applied uniformly to all 9 covered TFs with NO special-casing of dnaG. This is the same discipline
     deltav-conversion-diagnosis''s req-2 imposed, which is what let its failed prediction stand as a genuine
-    refutation.'
+    refutation.
+
+
+    SATISFIED: the rule, its tolerance justification, the REJECTED coordinate-window alternative and three
+    predictions are recorded in the attribution_rule block above, before any edge was re-attributed.'
 - id: req-2
   status: not_started
   blocking: true
@@ -317,13 +321,16 @@ implementation_requirements:
     fitted WITH those edges in place, so removing one from a TU leaves its alpha slightly mis-calibrated.
     Record that as a known approximation and, if the rescue works, note that the faithful version refits.'
 - id: req-3
-  status: not_started
+  status: complete
   blocking: false
   summary: Resolve TF name matching case-insensitively and report the unmatched.
-  detail: The export writes 'LexA', transcription_factors.tsv writes 'lexA'; a case-sensitive join returns
-    ZERO of 23 model TFs and a case-insensitive one returns 9. The 14 unmatched -- crp, arcA, hns, ihfA,
-    metJ, narL, trpR, dnaA, baeR, bglJ, dcuR and three complex ids -- must be REPORTED and left on their
-    existing cistron-content assignment, never silently dropped.
+  detail: 'The export writes ''LexA'', transcription_factors.tsv writes ''lexA''; a case-sensitive join
+    returns ZERO of 23 model TFs and a case-insensitive one returns 9. The 14 unmatched -- crp, arcA,
+    hns, ihfA, metJ, narL, trpR, dnaA, baeR, bglJ, dcuR and three complex ids -- must be REPORTED and
+    left on their existing cistron-content assignment, never silently dropped.
+
+
+    RESOLVED: matching is case-insensitive; the 14 unmatched TFs abstain under rule 4.'
 alternative_hypotheses:
 - name: H1 promoter-specific attribution frees dnaG
   discriminator: lineage-completes
@@ -427,3 +434,42 @@ limitations:
 claim: ''
 conclusion: ''
 confidence: Planned
+attribution_rule:
+  recorded_at: '2026-09-04T20:15:00Z'
+  recorded_before_applying: true
+  rule: '1. PARSE. For each binding site whose name states ''N bases upstream|downstream of <promoter>'',
+    compute the promoter''s TSS as site_centre - N (downstream counted positive, upstream negative). site_centre
+    = (Left+Right)/2.
+
+    2. MATCH. An edge (TF, TU) is RETAINED iff that TF has at least one such site whose implied TSS lies
+    within +/-5 bp of the TU''s start coordinate.
+
+    3. REMOVE. An edge is REMOVED iff the TF has at least one positioned, offset-stating site somewhere
+    in the genome but none matching that TU''s start.
+
+    4. ABSTAIN. An edge is UNADJUDICATED and left EXACTLY as the model has it iff the TF has no positioned,
+    offset-stating site at all. This covers the 14 of 23 model TFs absent from the export.
+
+    5. UNIFORM. Applied to every covered TF with no special-casing of dnaG, LexA or the rpsU-dnaG-rpoD
+    locus.'
+  tolerance_justification: +/-5 bp accommodates the half-base offsets EcoCyc states (e.g. '4.5 bases downstream')
+    and coordinate rounding between the two artefacts. It is a factor of four smaller than the 22.5 bp
+    gap to the nearest non-matching TU at the dnaG locus, so it discriminates rather than absorbs.
+  rejected_alternative: A COORDINATE-WINDOW rule was tried first and REJECTED, and the rejection is the
+    honest part. The window was derived BLIND from the distribution of stated offsets across 2576 sites
+    with the dnaG locus EXCLUDED, giving a central-95% range of -297.8 to +117.2 bases, i.e. [-300, +120].
+    Applied to the dnaG locus that window RETAINS the LexA edge on TU00352, whose site sits at +83 --
+    unremarkable against a median offset of -49.8. So a positional window cannot discriminate here, and
+    had I picked a plausible-looking narrow window instead of deriving one, I would have got the answer
+    I wanted for the wrong reason. The name-based rule uses EcoCyc's own attribution instead of re-deriving
+    it from coordinates.
+  coverage: 59.2% of the 4356 sites state an offset from a named promoter (TSS computable); a further
+    11.6% name a promoter without an offset (promoter known, TSS not, so unadjudicable under this rule);
+    29.2% name no promoter.
+  predictions:
+  - The LexA edge on TU00352 is REMOVED; TU00435 would match if it existed in the model, but the dedup
+    discarded it, so dnaG's surviving TU ends with NO LexA edge and is unrepressed.
+  - TU00434, at 22.5 bp from the implied TSS, does NOT match -- so even restoring it would not carry LexA
+    under this rule. That contradicts what I assumed when scoping tu-dedup-promoter-collapse.
+  - Most edges should be unchanged, because most TUs have a single promoter and the two attribution schemes
+    then agree. If the rule removes most of the network it is disruptive and axis 3 fails.

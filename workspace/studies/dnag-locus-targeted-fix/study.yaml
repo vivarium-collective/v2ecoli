@@ -260,6 +260,7 @@ limitations:
 - The corrected cache is a modified copy, so this is a cache-family comparison; the control is re-run rather than reused.
 - A rescue would show the misattributed edge is SUFFICIENT to cause the stall, not that the other defects are harmless -- the dedup, the constraint boundary and the 2.13x activator residual all remain.
 - 'It also would NOT show the model is then correct: biologically LexA should repress rpsUp3, so dnaG ought to lose roughly a third of its supply under SOS. Removing the edge entirely leaves it unrepressed, which is closer to right than total silencing but still wrong.'
+- 'Run output was distilled on 2026-09-04 to free disk: out/dnag-locus-targeted-fix (35 GB, 729 parquet files) was replaced by out/dnag-locus-targeted-fix-distilled (8.1 MB). Retained per (arm, seed, generation): the generation-mean actual_rna_synth_prob and target_rna_synth_prob vectors, mean ppgpp_conc, and the timestep count -- exactly the quantities generational_decay.per_generation derives, plus run.log, run_identity.json and the run summaries verbatim. Every figure in this study was re-derived from the distilled data and matches to 1e-9 BEFORE the originals were removed. What is gone is the per-timestep time series: a NEW time-resolved question requires re-running the sweep (~9 h wall). scripts/distill_study_runs.py + the distilled MANIFEST.json record what was dropped.'
 claim: 'Removing the LexA edge from dnaG''s only transcript is a clean single-edge change that fully rescues the lineage -- 12/12 generations in 3/3 seeds against a stall at generation 4-5, with no growth penalty -- and abolishes the generational decay, holding the peer deficit flat at ~8x instead of collapsing to 1.9e+07. But it does NOT restore dnaG to its peers: the pre-registered prediction of near-total recovery is refuted at 45.5%. LexA explains dnaG''s progressive collapse, not its baseline 8x shortfall, which has another cause.'
 conclusion: ''
 confidence: Planned
@@ -319,3 +320,4 @@ computed_outcomes:
     threshold:
       op: <=
       value: 142.2
+run_output_location: out/dnag-locus-targeted-fix-distilled (distilled; see limitations)

@@ -309,6 +309,9 @@ limitations:
 - Only 4 of 237 repressed genes are silenced at all, so the relative-risk comparison rests on very small
   counts (3 and 1). It cannot exclude a modest real effect -- only the 3x one the design required.
 - '''Essential'' uses the model''s own class lists as a proxy, not an external essentiality dataset.'
+- Whether TU00434/TU00435 would in reality escape the LexA operator depends on the operator's position
+  relative to their transcription start sites, which this study did not establish -- it shows only that
+  under the current cistron-content rule they could not escape regardless of position.
 claim: There are no orphaned genes and single-TU genes are not more silenceable; dnaG is a genuine special
   case -- the only one of its operon with no promoter of its own.
 conclusion: 'Largely a refutation, including of my own framing, and the study is more useful for it.
@@ -328,7 +331,16 @@ conclusion: 'Largely a refutation, including of my own framing, and the study is
   dedicated source TUs. So dnaG''s silencing is a CONJUNCTION of two unusual things, a gene with no promoter
   of its own and an operon TU that landed on ParCa''s constraint boundary, not a systematic structural
   failure. That decides the fix: restoring omitted TUs would not help dnaG, because there is no dnaG-only
-  TU to restore.'
+  TU to restore.
+
+
+  CORRECTED after review: the claim that restoring TUs would not help dnaG stands, but my reason for it
+  was wrong. dnaG does not need a dnaG-only TU, only an unrepressed dnaG-bearing one. The real barrier
+  is that rna_id_to_regulating_tfs assigns TFs to TUs by CISTRON CONTENT -- both rpoD-bearing model TUs
+  are LexA-regulated, while TU00472 at the same start coordinate escapes solely by excluding rpoD -- so
+  any restored dnaG-bearing TU would inherit LexA, all three containing rpoD. The fix is therefore promoter-specific
+  regulation, not TU restoration: the three dnaG-bearing TUs have three distinct 5'' ends, and an operator
+  blocking one promoter should not silence transcripts initiated from the others.'
 confidence: Refuted
 runs:
 - name: tu-coverage-loss__static-plus-reuse
@@ -440,6 +452,28 @@ findings:
     genes -- slightly less exposed, not more. The rpsU-dnaG-rpoD locus losing 5 of its 8 source TUs is
     not representative. Combined with there being no orphans at all, the model's TU coverage is not the
     fragility I suspected when scoping.
+- summary: 'CORRECTED ROOT CAUSE: regulation is assigned by cistron content, not promoter position, so
+    no dnaG-bearing TU can escape LexA.'
+  status: novel
+  evidence:
+    from_run: tu-coverage-loss__static-plus-reuse
+    observed: 2
+    units: of 2 rpoD-bearing model TUs LexA-regulated
+  explanation: 'Added after the user challenged this study''s conclusion, and it replaces my reasoning
+    rather than refining it. I had written that restoring the omitted TUs would not rescue dnaG ''because
+    there is no dnaG-only TU to restore''. That was the wrong reason: dnaG does not need a dnaG-ONLY TU,
+    it needs any dnaG-bearing TU that is not repressed.
+
+    The actual barrier is that rna_id_to_regulating_tfs assigns a TF to a TU by CISTRON CONTENT. Both
+    rpoD-bearing model TUs carry PC00010; TU00472 starts at the SAME coordinate as TU00352 (3210646) and
+    is unregulated purely because it excludes rpoD. Since all three dnaG-bearing source TUs also contain
+    rpoD, restoring TU00434 or TU00435 would give them the LexA delta too. No dnaG-bearing TU can escape
+    while the rule is cistron-content-based.
+
+    That is the promoter-specificity defect: a repressor binding one operator should silence only transcripts
+    initiated from the promoter it blocks, not every transcript containing a downstream gene. The three
+    dnaG-bearing TUs have three different 5'' ends (3210646 / 3210712 / 3210735) -- three distinct promoters
+    -- and the model cannot represent an operator that blocks one of them.'
 biological_summary: 'The question this study set out to answer was whether the model routinely strips
   genes of their alternative promoters, leaving them at the mercy of a single regulator. The answer is
   no. Every gene in the model can be transcribed from at least one transcription unit, genes that lost
@@ -471,9 +505,12 @@ conclusion_verdicts:
   verdict: refuted
   basis: Essential single-TU rate 0.729 vs 0.847 overall.
 discovery_implications:
-- 'Restoring the omitted transcription units would NOT rescue dnaG: there is no dnaG-only TU in the source
-  data to restore. The fix has to be at the ParCa constraint, or in making LexA regulation promoter-specific
-  within the operon.'
+- THE FIX IS PROMOTER-SPECIFIC REGULATION. rna_id_to_regulating_tfs assigns a TF to every TU containing
+  a regulated cistron, so a repressor silences transcripts initiated from promoters it cannot physically
+  block. Restoring omitted TUs cannot help while that rule holds, because all three dnaG-bearing TUs contain
+  rpoD.
+- The three dnaG-bearing TUs have three distinct 5' ends (3210646 / 3210712 / 3210735) -- the rpsUp promoter
+  set. Representing an operator as blocking ONE of them is the minimal change that would let dnaG escape.
 - The model's TU coverage is not a systemic fragility, which removes a whole line of suspicion this investigation
   was about to pursue.
 - dnaG's silencing is a conjunction of two unusual properties, so other genes at risk would need BOTH

@@ -276,10 +276,17 @@ decisions_needed:
     un-repressed TU. The model omits 760 of 3766 source TUs, leaving 179 genes with none and 563 reduced
     to one. Restoring TUs and making regulation promoter-specific are different fixes with different costs,
     and which applies depends on whether dnaG ever had a dedicated promoter in the source data.
-  resolution: 'Neither, on the evidence. tu-coverage-loss found ZERO genes without a model TU -- the ''179
-    orphans'' raised when scoping was a source-vs-model accounting error, since the model carries 271
-    TUs the source file lacks. Genes reduced to a single TU are NOT more silenceable (relative risk 0.95
-    against a required 3x) and essential genes are slightly LESS exposed than average. Restoring omitted
-    TUs would not help dnaG in any case: all 3 of its source TUs carry rpoD, so there is no dnaG-only
-    TU to restore. The fix must be at the ParCa constraint boundary, or in making LexA regulation promoter-specific
-    within the operon.'
+  resolution: 'Promoter-specific regulation, not TU restoration -- and the reason matters. dnaG does not
+    need a dnaG-only TU, only an unrepressed dnaG-bearing one. But rna_id_to_regulating_tfs assigns TFs
+    by CISTRON CONTENT: both rpoD-bearing model TUs carry PC00010, while TU00472 at the same start coordinate
+    escapes solely by excluding rpoD. All three dnaG-bearing source TUs contain rpoD, so restoring TU00434/TU00435
+    would give them the LexA delta too. No dnaG-bearing TU can escape while the rule is content-based.
+    The three have three distinct 5'' ends, so representing the operator as blocking ONE promoter is the
+    minimal fix.'
+- question: Make TF regulation promoter-specific rather than cistron-content-based.
+  raised_by: tu-coverage-loss
+  status: open
+  why: rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a
+    repressor silences transcripts initiated from promoters it cannot physically block. This is why no
+    dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic
+    operon with an internal promoter, not just this one.

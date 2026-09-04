@@ -290,3 +290,11 @@ decisions_needed:
     repressor silences transcripts initiated from promoters it cannot physically block. This is why no
     dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic
     operon with an internal promoter, not just this one.
+- question: Re-measure foldchange-to-delta-fidelity with the occupancy-swing correction applied.
+  raised_by: activator-overshoot
+  status: open
+  why: activator-overshoot showed the fold change is measured across a TF's ACTIVE-vs-INACTIVE occupancy
+    swing, not a 0->1 swing, so comparing the full-swing 1 + delta/alpha against 2**log2FC is wrong by
+    construction whenever the swing is partial. foldchange-to-delta-fidelity's headline network median
+    of 2.006 inherits that error and should be recomputed with FC_pred = (1 + r*p_a)/(1 + r*p_i). Its
+    qualitative conclusions -- bidirectional, magnitude-uniform -- may or may not survive.

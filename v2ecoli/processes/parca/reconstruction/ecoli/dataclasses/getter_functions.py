@@ -224,6 +224,24 @@ class GetterFunctions(object):
         # codes are added to the list of evidence codes of the first TU.
         gene_tuple_to_tu_index = {}
 
+        # NARROW dedup relaxation -- tu-dedup-promoter-collapse req-1/req-2.
+        #
+        # The dedup above keys TUs on their sorted GENE SET, so alternative
+        # PROMOTERS for the same operon collapse into whichever TU is listed
+        # first. dnaG's locus has three: TU00352 (TSS 3210646), TU00434
+        # (3210712) and TU00435 (3210735, = rpsUp3). Only TU00352 survives, and
+        # rna_id_to_regulating_tfs then reassigns LexA onto it by cistron
+        # content -- even though LexA's site (3210729-3210749, EcoCyc) lies in
+        # rpsUp3, 88 bp downstream of TU00352's TSS. The model therefore applies
+        # a real regulator to a promoter that does not carry its binding site.
+        #
+        # Exempting these two TUs keys them on (gene tuple, coordinates) instead,
+        # so they survive as distinct promoters. Deliberately NARROW: 637 TUs
+        # across 428 groups are discarded by this rule, and restoring all of them
+        # would shift the transcriptome-wide basal allocation and make any dnaG
+        # result uninterpretable. Recorded as NARROW before the refit was run.
+        dedup_exempt_tu_ids = frozenset({"TU00434", "TU00435"})
+
         # Add sequences from transcription_units file
         gene_id_to_left_end_pos = {
             gene["id"]: gene["left_end_pos"] for gene in raw_data.genes
@@ -254,10 +272,17 @@ class GetterFunctions(object):
             if len(gene_tuple) == 0:
                 continue
 
+            # Distinct promoters for the same gene set collide on gene_tuple
+            # alone; exempted TUs are keyed on their coordinates too, so they
+            # do not collide and survive as separate transcripts.
+            dedup_key = gene_tuple
+            if tu["id"] in dedup_exempt_tu_ids:
+                dedup_key = (gene_tuple, tu["left_end_pos"], tu["right_end_pos"])
+
             # Skip duplicate TUs but compile all evidence codes
-            if gene_tuple in gene_tuple_to_tu_index:
+            if dedup_key in gene_tuple_to_tu_index:
                 evidence_list = raw_data.transcription_units[
-                    gene_tuple_to_tu_index[gene_tuple]
+                    gene_tuple_to_tu_index[dedup_key]
                 ]["evidence"]
                 new_evidence = tu["evidence"]
 
@@ -265,7 +290,7 @@ class GetterFunctions(object):
                 evidence_list.extend(list(set(new_evidence) - set(evidence_list)))
                 continue
             else:
-                gene_tuple_to_tu_index[gene_tuple] = i
+                gene_tuple_to_tu_index[dedup_key] = i
 
             # Use gene coordinates if left and right end positions are not given
             if not isinstance(tu["left_end_pos"], int):

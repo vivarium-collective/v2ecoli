@@ -64,7 +64,7 @@ behavior_tests:
         needed. [0.67, 1.5] is the factor-of-1.5 agreement band used across this investigation.
   status: failed
   result: FAIL
-  measured_value: 2.0063
+  measured_value: 1.538
   evaluated_by: agent
 - name: distortion-grows-with-repression-strength
   classification: primary
@@ -94,9 +94,9 @@ behavior_tests:
       note: Tightened from [0.5, 2.0], which spanned 4x and exceeded the discrimination check's 3x ceiling.
         [0.67, 1.5] is the agreement band used by every other axis here, so the subgroup comparison reads
         on the same scale as the fidelity measurements.
-  status: passed
-  result: PASS
-  measured_value: 1.1659
+  status: failed
+  result: FAIL
+  measured_value: 1.6602
   evaluated_by: agent
 - name: delta-respects-the-probability-bound
   classification: diagnostic
@@ -134,7 +134,7 @@ behavior_tests:
       note: 'Definitional: an initiation probability cannot be negative.'
   status: failed
   result: FAIL
-  measured_value: 6
+  measured_value: 2
   evaluated_by: agent
 - name: activators-are-encoded-faithfully
   classification: primary
@@ -167,7 +167,7 @@ behavior_tests:
   status: failed
   control: negative
   result: FAIL
-  measured_value: 4.7727
+  measured_value: 2.1314
   evaluated_by: agent
 - name: lexa-rpod-discrepancy
   classification: supporting
@@ -192,7 +192,7 @@ behavior_tests:
       note: 10x the 1.476e+07 measured while scoping the sibling study; a drift pin, not a gate.
   status: passed
   result: PASS
-  measured_value: 14764919.0
+  measured_value: 1.8828
   evaluated_by: agent
 preregistered:
   declared_before_runs: true
@@ -342,8 +342,9 @@ limitations:
   another branch. This study is therefore the discovery of the defect in an unfixed cache, not a check
   that the fix works; whether that fix addresses the systematic distortion measured here is a separate
   question.
-claim: ParCa's TF-regulation layer misencodes its own fold-change data by a median factor of 2 and in
-  both directions, and dnaG's silencing is one instance of that defect rather than a special case.
+claim: 'AMENDED: repressors are near-perfectly encoded (0.9998) and lexA->rpoD is 1.88x off, not 1.5e+07x.
+  dnaG is silenced because runtime LexA occupancy reaches 1.0, where a constraint-pinned delta of -1 becomes
+  catastrophic -- not because ParCa misencoded the fold change.'
 conclusion: 'Refuted, and more broadly than the motivating case. Across 564 joined entries the median
   encoded retained fraction is 2.01x its source fold change, with only ~20% landing within a factor of
   1.5. The activator control FAILS alongside the repressors -- activators receive 4.77x what their fold
@@ -360,7 +361,24 @@ conclusion: 'Refuted, and more broadly than the motivating case. Across 564 join
 
   What this study does NOT establish: which side is right. A faithful encoding of a wrong fold change
   would pass every axis here, and locating the responsible ParCa stage (req-2) was not blocking and was
-  not done.'
+  not done.
+
+
+  AMENDED 2026-09-04 after activator-overshoot. Every number above was computed with the wrong comparison
+  -- a full-swing 1 + delta/alpha against a fold change measured across a PARTIAL occupancy swing. Recomputed
+  with FC_pred = (1 + r*p_a)/(1 + r*p_i) against the unchanged pre-registered bands: the network median
+  falls 2.006 -> 1.538, activators 4.773 -> 2.131, negative-probability entries 6 -> 2, and the lexA->rpoD
+  pin 1.476e+07 -> 1.8828. The repressor median goes 0.6276 -> 0.9998.
+
+  What survives: activators are genuinely over-encoded at 2.13x, and two entries still imply a negative
+  probability. What does NOT survive is this study''s headline -- ParCa does not misencode fold changes
+  by a median factor of 2 in both directions. Repressors are near-perfect, and the bidirectional asymmetry
+  was my comparison error.
+
+  The reframe matters more than the numbers: the FIT is nearly faithful and dnaG''s silencing is a RUNTIME
+  occupancy effect. The constraint pins r at -1, harmless at the fitted occupancy of 0.66, and the simulation
+  then drives occupancy to 1.0 where that same delta means total silencing. Two defects that are individually
+  survivable and jointly lethal.'
 confidence: Refuted
 runs:
 - name: foldchange-to-delta-fidelity__static
@@ -377,57 +395,112 @@ runs:
   outcomes:
     distortion-is-systematic:
       result: FAIL
-      measured_value: 2.0063
+      measured_value: 1.538
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: 'Median implied/expected retained fraction is 2.006 across 564 joined entries -- outside
-        the band, and the median hides worse: only 22.6% of repressing entries and 15.5% of activating
-        entries land within a factor of 1.5 of their source fold change. The TF-regulation layer does
-        not faithfully encode the data it is fit from. This is not the LexA/dnaG entry being unlucky.'
+      detail: 'AMENDED. Corrected for the occupancy swing the measurement is 1.5380, not 2.0063 -- still
+        marginally outside the band but a quarter of the apparent defect was my comparison error, not
+        ParCa''s. The repressor median in particular goes from 0.6276 to 0.9998, i.e. essentially PERFECT:
+        repressors were never misencoded at all. The residual is carried almost entirely by activators
+        at 2.1314.
+
+
+        SUPERSEDED VALUE (uncorrected full-swing comparison): {''result'': ''FAIL'', ''measured_value'':
+        2.0063}'
+      superseded_measurement:
+        result: FAIL
+        measured_value: 2.0063
     distortion-grows-with-repression-strength:
-      result: PASS
-      measured_value: 1.1659
+      result: FAIL
+      measured_value: 1.6602
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: 'Strong repressors (log2FC <= -1) are distorted 1.17x as much as weak ones (-0.5 <= log2FC
-        < 0) in log space -- effectively uniform. REFUTES H3: this is not saturation or clipping on strong
-        regulation. It also matches what the motivating case already suggested, since a MODEST -0.65 became
-        total silencing.'
+      detail: 'AMENDED, and this verdict FLIPS from PASS to FAIL. Corrected, strong repressors are distorted
+        1.66x as much as weak ones, against 1.166 uncorrected. So the distortion DOES grow with fold-change
+        magnitude once measured properly, which weakens the argument deltav-conversion-diagnosis built
+        on magnitude-uniformity to refute transform-error explanations. That study''s own axis still passes
+        on the corrected number (1.256/1.660 = 0.757, inside [0.67, 1.5]), but its REASONING was partly
+        resting on a number that was wrong.
+
+
+        SUPERSEDED VALUE (uncorrected full-swing comparison): {''result'': ''PASS'', ''measured_value'':
+        1.1659}'
+      superseded_measurement:
+        result: PASS
+        measured_value: 1.1659
     delta-respects-the-probability-bound:
       result: FAIL
-      measured_value: 6
+      measured_value: 2
       evaluated_by: agent
       operator: derived/<= 0
       gate_class: acceptance_criterion
-      detail: 'SIX entries carry an implied retained fraction below zero, i.e. a negative initiation probability:
-        hns->leuO (-2.16e-06), argR->carA and argR->carB (-3.09e-11 each, same TU), argR->artJ (-1.03e-08),
-        arcA->lpd (-8.01e-10), ihfA->glpT (-7.19e-09). A multinomial cannot accept a negative probability,
-        so either something clips these silently at runtime or the distribution is malformed. Six distinct
-        TFs are involved, so this is not one pathological pair.'
+      detail: 'AMENDED: 2 entries rather than 6 produce a negative predicted fold change once the occupancy
+        swing is applied. Still a violation, but a third of the apparent count was the comparison error.
+
+
+        SUPERSEDED VALUE (uncorrected full-swing comparison): {''result'': ''FAIL'', ''measured_value'':
+        6}'
+      superseded_measurement:
+        result: FAIL
+        measured_value: 6
     activators-are-encoded-faithfully:
       result: FAIL
-      measured_value: 4.7727
+      measured_value: 2.1314
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: 'THE CONTROL FIRES, and informatively. Activators are distorted 4.77x -- they receive far
-        MORE than their fold change specifies -- while repressors sit at 0.628x, receiving less. So the
-        defect is not confined to the repression branch: the conversion is wrong in BOTH directions, and
-        REFUTES H4. Only 15.5% of activating entries land within a factor of 1.5.'
+      detail: 'AMENDED: 2.1314 rather than 4.7727. Roughly half the apparent activator defect was my comparison
+        error. The residual is real and is the subject of activator-overshoot.
+
+
+        SUPERSEDED VALUE (uncorrected full-swing comparison): {''result'': ''FAIL'', ''measured_value'':
+        4.7727}'
+      superseded_measurement:
+        result: FAIL
+        measured_value: 4.7727
     lexa-rpod-discrepancy:
       result: PASS
-      measured_value: 14764919.0
+      measured_value: 1.8828
       evaluated_by: agent
       operator: derived/<= 1.476e8
       gate_class: regression_pin
-      detail: The motivating case reproduces exactly at 1.476e+07 for TU00352[c], dnaG's operon. NOTE
-        rpoD sits in TWO TUs and the other, TU0-14460[c], gives 1.849e+07; the pin selects TU00352 explicitly
-        rather than taking whichever the join emits first.
+      detail: 'AMENDED, AND THIS IS THE MOST IMPORTANT CORRECTION IN THE INVESTIGATION. The lexA->rpoD
+        encoding is 1.88x off, NOT the 1.476e+07 I recorded -- I was wrong by seven orders of magnitude.
+        At the occupancy the fit assumed (p_active = 0.6615) the delta predicts a retained fraction of
+        0.3385 against a measured 0.6373. The fit is nearly right. The catastrophe is entirely a RUNTIME
+        phenomenon: retained = 1 + r*q with r = -0.99999996 gives 0.34 at q=0.66, 0.012 at q=0.988, and
+        4.3e-08 at q=1.0. dnaG is silenced because the simulation drives LexA occupancy to 1.0, not because
+        ParCa encoded the fold change wrongly.
+
+
+        SUPERSEDED VALUE (uncorrected full-swing comparison): {''result'': ''PASS'', ''measured_value'':
+        14764919.0}'
+      superseded_measurement:
+        result: PASS
+        measured_value: 14764919.0
 canonical_runs:
 - foldchange-to-delta-fidelity__static
 findings:
+- summary: 'AMENDED: the fit is nearly faithful. dnaG''s silencing is a RUNTIME occupancy effect, not
+    an encoding error.'
+  status: contradicts
+  evidence:
+    from_test: lexa-rpod-discrepancy
+    observed: 1.8828
+    units: expected/predicted at the fit's occupancy
+  explanation: 'The single largest correction in this investigation. I reported the lexA->rpoD encoding
+    as 1.476e+07-fold wrong; corrected for the occupancy swing it is 1.88x wrong. At the occupancy ParCa
+    assumed (p_active = 0.6615) the delta predicts a retained fraction of 0.3385 against a measured 0.6373.
+
+    The same delta is catastrophic only at full occupancy: retained = 1 + r*q with r = -0.99999996 gives
+    0.481 at the fit''s basal q=0.5192, 0.3385 at its active q=0.6615, 0.0120 at the runtime generation-1
+    q=0.988, and 4.3e-08 at q=1.0. The response is nearly linear in q until it collapses in the last percent.
+
+    So the two defects COMBINE and neither is lethal alone: deltav-conversion-diagnosis''s constraint
+    pins r at -1, which is harmless at the fitted occupancy, and the runtime then drives q to 1.0, where
+    r = -1 means total silencing. Repressors overall are essentially perfectly encoded (median 0.9998).'
 - summary: The TF-regulation layer does not faithfully encode its own fold-change data, in either direction.
   status: contradicts
   evidence:
@@ -534,3 +607,17 @@ readouts:
   units: expected/implied
   source: the motivating case, dnaG's operon
   value: '1.476e+07'
+amendment:
+  date: '2026-09-04'
+  by: activator-overshoot
+  summary: 'Every fidelity number in this study was computed with the FULL-SWING comparison (1 + delta/alpha)
+    against 2**log2FC. activator-overshoot showed the fold change is measured across a TF''s ACTIVE-vs-INACTIVE
+    occupancy swing, so the correct comparison is FC_pred = (1 + r*p_a)/(1 + r*p_i). All five axes are
+    recomputed here; the pre-registered bands are UNCHANGED, only the measurement is corrected. Two verdicts
+    change: the lexA-rpod pin goes from 1.476e+07 to 1.8828, and distortion-grows-with-repression-strength
+    flips from PASS to FAIL.'
+  what_survives: Activators are genuinely over-encoded (2.13x) and 2 entries still imply a negative probability.
+    The encoding is not perfect.
+  what_does_not: The headline claim that ParCa misencodes fold changes 'by a median factor of 2, in both
+    directions' is substantially wrong. Repressors are near-perfect at 0.9998, and the direction-asymmetry
+    was an artefact of comparing a full-swing ratio against a partial-swing measurement.

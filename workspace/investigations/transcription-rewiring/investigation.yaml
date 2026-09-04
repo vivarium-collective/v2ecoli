@@ -292,9 +292,22 @@ decisions_needed:
     operon with an internal promoter, not just this one.
 - question: Re-measure foldchange-to-delta-fidelity with the occupancy-swing correction applied.
   raised_by: activator-overshoot
-  status: open
+  status: resolved
   why: activator-overshoot showed the fold change is measured across a TF's ACTIVE-vs-INACTIVE occupancy
     swing, not a 0->1 swing, so comparing the full-swing 1 + delta/alpha against 2**log2FC is wrong by
     construction whenever the swing is partial. foldchange-to-delta-fidelity's headline network median
     of 2.006 inherits that error and should be recomputed with FC_pred = (1 + r*p_a)/(1 + r*p_i). Its
     qualitative conclusions -- bidirectional, magnitude-uniform -- may or may not survive.
+  resolution: 'Done. Network median 2.006 -> 1.538, activators 4.773 -> 2.131, negative-probability entries
+    6 -> 2, lexA->rpoD 1.476e+07 -> 1.8828, repressor median 0.6276 -> 0.9998. Bands unchanged. distortion-grows-with-repression-strength
+    FLIPS from PASS to FAIL (1.166 -> 1.660). The headline ''misencodes by a median factor of 2 in both
+    directions'' does NOT survive: repressors are near-perfect and the asymmetry was a comparison artefact.
+    The fit is nearly faithful; dnaG''s silencing is a runtime occupancy effect.'
+- question: Why does runtime LexA occupancy reach 1.0 when the fit assumes 0.52-0.66?
+  raised_by: foldchange-to-delta-fidelity (amended)
+  status: open
+  why: THE decisive question now. The fit is nearly faithful -- lexA->rpoD is 1.88x off, not 1.5e+07x
+    -- and a delta of r = -1 yields a survivable retained fraction of 0.34 at the fit's own active occupancy
+    of 0.6615. It becomes total silencing (4.3e-08) only at q = 1.0, which is where the simulation puts
+    it. So the lethal defect is in TF BINDING at runtime, not in the ParCa encoding. Why the model binds
+    LexA at ~100% when the fit assumed 52-66% is now the highest-value open question in this investigation.

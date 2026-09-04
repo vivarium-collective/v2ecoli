@@ -437,7 +437,16 @@ conclusion: 'Half solved, precisely, and the other half now sharply posed.
   activating entries is at any boundary, and their 4.77x over-shoot has a separate cause. Repairing the
   constraint would take repressors to a median of exactly 1.0000 and the network only from 2.006 to 1.968,
   because activators are 60.8% of entries. The one axis that cannot be evaluated -- what dnaG''s entry
-  would become once released -- needs the ECOS program re-solved and is left ungraded rather than estimated.'
+  would become once released -- needs the ECOS program re-solved and is left ungraded rather than estimated.
+
+
+  AMENDED 2026-09-04: this study''s conclusion stands on its direct evidence, but two of its framing numbers
+  came from foldchange-to-delta-fidelity''s uncorrected comparison. The magnitude-uniformity it leaned
+  on is 1.660 corrected rather than 1.166 (its own axis still passes at 0.757), and more importantly the
+  lexA->rpoD encoding is 1.88x off rather than 1.476e+07x. The constraint artefact is REAL -- r is pinned
+  at -1 -- but it is not by itself the catastrophe: at the fit''s own occupancy of 0.6615 a delta of -1
+  yields a retained fraction of 0.34, which is survivable. It becomes lethal only when runtime occupancy
+  reaches 1.0.'
 confidence: Investigating
 candidate_diagnosis:
   recorded_at: '2026-09-04T09:40:00Z'
@@ -523,11 +532,20 @@ runs:
       evaluated_by: agent
       operator: derived/band [0.67, 1.5]
       gate_class: acceptance_criterion
-      detail: The candidate predicts a strong-vs-weak distortion ratio of 1.256 against the measured 1.166,
-        agreeing to 1.077. Constraint activity is about twice as common in strong repressors (0.241 vs
-        0.121), but because fewer than half of either group is at the boundary the MEDIAN entry is free
-        in both, so median distortion stays nearly flat -- which is exactly the uniformity foldchange-to-delta-fidelity
+      detail: 'The candidate predicts a strong-vs-weak distortion ratio of 1.256 against the measured
+        1.166, agreeing to 1.077. Constraint activity is about twice as common in strong repressors (0.241
+        vs 0.121), but because fewer than half of either group is at the boundary the MEDIAN entry is
+        free in both, so median distortion stays nearly flat -- which is exactly the uniformity foldchange-to-delta-fidelity
         measured and which refutes every transform-error explanation.
+
+
+        AMENDED NOTE 2026-09-04: the measured uniformity this axis was graded against (1.166) was computed
+        with the uncorrected full-swing comparison. Corrected for the occupancy swing it is 1.660, so
+        the axis now reads 1.256/1.660 = 0.757 -- still inside [0.67, 1.5], so the VERDICT stands. But
+        the surrounding argument does not fully: I used magnitude-uniformity to refute an entire family
+        of transform-error explanations, and corrected, the distortion does grow somewhat with magnitude.
+        The constraint mechanism remains supported by the direct evidence (all 10 targets at Z@R = 5.23e-12,
+        free repressors at 0.9959), not by that argument.'
     corrected-conversion-restores-fidelity:
       result: FAIL
       measured_value: 1.968

@@ -2251,6 +2251,22 @@ def baseline(
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
         assert_injection_sourcing(injected_processes)
+        # Thread baseline()'s own cache_dir onto the injection spec. The native
+        # resolver builds an injected process's config from the bundle sim_data
+        # (build_native_redux_config), gated on the spec carrying `cache_dir` —
+        # but resolve_injections sees only the spec, never baseline()'s own args.
+        # Without this seed the redux SWAP gets an empty config (0 metabolites,
+        # 0 homeostatic targets) and collapses to one tick while reporting success
+        # (sms-ecoli#210 Gate 0). A caller-supplied cache_dir on the spec wins
+        # (deliberate override, e.g. a per-seed cache); else seed baseline's.
+        # Copy, don't mutate — the same spec is reused across per-seed builds.
+        # (v2ecoli#667: right for the deployment; that PR closed for the wrong
+        # reason — its no-op was only against the in-repo resolver, while the
+        # image's resolver consumes this key.)
+        injected_processes = {
+            **injected_processes,
+            "cache_dir": injected_processes.get("cache_dir") or cache_dir,
+        }
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))

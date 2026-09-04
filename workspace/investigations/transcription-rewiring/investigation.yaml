@@ -2,7 +2,7 @@ schema_version: 2
 name: transcription-rewiring
 title: Transcription rewiring — promoter-resolved transcription
 created: '2026-09-01'
-status: planning
+status: active
 question: Does resolving transcription by promoter rather than by transcription unit fix DnaG production,
   and with it the multi-generation replication arrest that appears once initiation has to acquire real
   replisome subunits?
@@ -54,54 +54,47 @@ executive:
     the subunits to actually be present — and the cell line dies out after a few generations. This investigation
     asks why, and the answer appears to sit upstream of replication entirely: in how the model decides
     which stretches of DNA are transcribed, and under whose regulatory control.'
-  verdict: 'The chain closes on one structural fact: ParCa fits against basal_prob while the runtime transcribes
-    per the ppGpp-adjusted vector. For dnaG that accounts for the whole deficit; it does not generalise.'
-  verdict_status: in-progress
-  verdict_detail: 'Eight studies. The causal chain holds end to end at corrected magnitudes.
+  verdict: The opening hypothesis is CONFIRMED. ParCa deduplicates transcription units by gene tuple,
+    collapsing the three promoters of the rpsU-dnaG-rpoD operon into one; regulation measured at one promoter
+    is then applied to the survivor. LexA's operator is at rpsUp3, which the dedup discards -- so dnaG
+    is silenced through TU00352, a promoter LexA has no site at.
+  verdict_status: supported
+  verdict_detail: 'Twenty-one studies. The chain is closed end to end and every link is measured.
 
 
-    The initiation gate stalls the lineage (8/8 seeds); DnaG is the only pool short and
+    1. getter_functions keys TUs on their sorted GENE SET and keeps only the first, discarding 637 across
+    428 groups. dnaG''s TU00434 (start 3210712) and TU00435 (3210735) go; TU00352 (3210646) survives.
 
-    removing it from the gate restores 12/12; DnaG is scarce because its sole transcript
+    2. EcoCyc''s binding-site data places LexA''s only operator at this locus at 3210729-3210749 -- 4.5
+    bases downstream of rpsUp3, whose TSS matches TU00435''s start to 0.5 bp. The discarded TU is the
+    regulated one.
 
-    TU00352 is barely transcribed; and that scarcity follows QUANTITATIVELY from the
+    3. rna_id_to_regulating_tfs assigns TFs by CISTRON CONTENT, so LexA is handed to TU00352 because it
+    contains rpoD -- a promoter 88 bp upstream of the operator, which LexA cannot occlude.
 
-    transcription deficit -- a mass balance calibrated on 200 held-out control proteins
+    4. ParCa''s convex fit minimises norm(G@R - k) subject to 0 <= Z@R <= 1. For TU00352 that lower bound
+    is ACTIVE, pinning delta/alpha at -0.99999996. All ten near-totally-repressed LexA targets sit at
+    Z@R = 5.23e-12 -- one boundary, not ten coincidences.
 
-    predicts DnaG at 0.694 of observed, so no mechanism is missing.
+    5. tf_binding hard-codes p_bound = 1.0 for 0CS TFs, and LexA is 0CS. retained = 1 + r*q gives 0.34
+    at the fitted occupancy of 0.66 but 4.3e-08 at q = 1.0. The response collapses in the last few percent.
 
-
-    The one open defect: ParCa''s fit implies a transcription rate 6.85x higher than the
-
-    ppGpp runtime delivers, which matches the 5.40x deficit measured independently
-
-    against the in-force reference. Two routes to the same number suggest a single
-
-    disagreement between fit and runtime explains the whole phenomenon.
-
-
-    Magnitudes were corrected twice and both corrections mattered. The deficit is ~5.4x,
-
-    not the ~52x reported while dividing by the cache''s basal_prob, which ppGpp replaces
-
-    at runtime. DnaG protein is 7.996 copies, not the 1.76 free-monomer bulk figure
-
-    carried through five studies.
+    6. DnaG protein depletes, the mechanistic replisome gate is never satisfied, and the lineage stalls
+    at generation 4-5 in 8 of 8 seeds. Dropping DnaG from the gate restores 12/12.
 
 
-    Methodological record, kept because it shaped every result: this investigation was
+    Neither defect is lethal alone. With the delta the measured log2FC implies (r = -0.363) dnaG retains
+    0.637 even at full occupancy; with the fitted occupancy it retains 0.34 even at r = -1. It is the
+    CONJUNCTION -- a misattributed edge, pinned at the constraint, applied at saturating occupancy --
+    that kills the cell.
 
-    corrected FIVE times, and each time by the same failure -- a convenient observable
 
-    standing in for the correct one. The == operator read as sufficiency; basal_prob read
-
-    as the probability in force; one generation read as ''never''; free-monomer bulk read as
-
-    protein; the bulk store read as mRNA. In every case the right observable was already
-
-    emitted. Four of the five were caught by expert challenge rather than by the analysis.
-
-    '
+    Corrections made along the way, all recorded in the studies rather than quietly dropped: the deficit
+    was restated 52x -> 5.4x -> 47x as the comparison group and reference vector were fixed; the claim
+    that ParCa misencodes fold changes ''by a median factor of 2 in both directions'' did NOT survive
+    the occupancy-swing correction (repressors are near-perfect at 0.9998, and lexA->rpoD is 1.88x off,
+    not 1.5e+07x); ''179 orphaned genes'' was an accounting error, there are none; and DnaG being ''limiting
+    first, not uniquely'' was retracted when the ablation arm showed HolA never blocks anything.'
   decisions_needed:
   - Whether keying transcription initiation by promoter is an acceptable divergence from upstream vEcoli,
     which keys everything by transcription unit. AGENTS.md requires this to be justified explicitly rather
@@ -119,6 +112,10 @@ executive:
   - 'Which side of the fit-runtime mismatch should change: should ParCa fit against the in-force ppGpp
     vector, or should TranscriptInitiation stop substituting? This governs every downstream number in
     the investigation.'
+  summary: dnaG is silenced by a repressor acting on a promoter it does not regulate, because a deduplication
+    step removed the promoter it does. Three further model choices -- regulation assigned by gene content,
+    a fitting constraint that pins the resulting edge at total repression, and saturating TF occupancy
+    -- turn that misattribution into a lethal one.
 scientific_argument:
   main_claim: A transcription unit cannot serve as both promoter and transcript without forcing ParCa
     to invent per-transcript physical properties that no measurement constrains; separating the two removes

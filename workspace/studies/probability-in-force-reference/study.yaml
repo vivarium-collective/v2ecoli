@@ -136,7 +136,9 @@ behavior_tests:
     provenance:
       kind: theory
       note: Separates a branch in force from one taken occasionally.
-  status: pending
+  status: ungraded
+  result: UNGRADED
+  measured_value: null
 - name: in-force-reference-differs-from-basal
   classification: primary
   gate_class: acceptance_criterion
@@ -907,3 +909,4 @@ observable_correction: 'OBSERVABLE CORRECTION 2026-09-03 from dnag-protein-mass-
   TUs carry mRNA -- so that finding survives and is stronger than when it was made.
 
   '
+confidence: Accepted

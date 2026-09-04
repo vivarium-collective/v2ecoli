@@ -772,3 +772,4 @@ findings:
     - fit-runtime-reconciliation__analysis
   next_action: Decide which side of the fit-runtime mismatch should change.
   next_action_type: escalate_model
+confidence: Refuted

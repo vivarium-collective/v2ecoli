@@ -803,3 +803,4 @@ findings:
     - dnag-protein-mass-balance__analysis
   next_action: Reconcile the ParCa fit with the ppGpp runtime transcription rate.
   next_action_type: escalate_model
+confidence: Refuted

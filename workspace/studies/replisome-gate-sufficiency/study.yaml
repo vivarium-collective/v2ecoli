@@ -1448,3 +1448,4 @@ embed_visualizations:
   title: 'Gate-sufficiency arms: stall, permissive and DnaG ablation'
   path: viz/gate_sufficiency_arms.html
   kind: html
+confidence: Accepted

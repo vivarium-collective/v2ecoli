@@ -812,4 +812,4 @@ findings:
   next_action: Reconcile the ParCa fit with the ppGpp runtime transcription rate.
   next_action_type: escalate_model
   seeded_study: fit-runtime-reconciliation
-confidence: Refuted
+confidence: Accepted

@@ -372,7 +372,7 @@ conclusion: 'Refuted, and more broadly than the motivating case. Across 564 join
   occupancy effect. The constraint pins r at -1, harmless at the fitted occupancy of 0.66, and the simulation
   then drives occupancy to 1.0 where that same delta means total silencing. Two defects that are individually
   survivable and jointly lethal.'
-confidence: Refuted
+confidence: Accepted
 runs:
 - name: foldchange-to-delta-fidelity__static
   status: complete

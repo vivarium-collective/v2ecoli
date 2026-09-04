@@ -104,6 +104,22 @@ from v2ecoli.workflow.batch_lineage_ray import (
                 "cannot get it without this."
             ),
         },
+        "seed_overrides": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Per-seed overrides (item 115), keyed by seed number (int or str). A seed's own "
+                "entry may set 'initial_carry_state_path' + 'initial_generation_index' to resume "
+                "that ONE lineage from a specific prior checkpoint instead of generation 0, and/or "
+                "'cache_dir' to point it at a strain-specific ParCa cache instead of the batch-wide "
+                "default -- real, needed for a genuine variant sweep (e.g. Run1/Run2's own K4/J3 "
+                "strains, each with its own cache). Every lineage already gets a real, working "
+                "per-generation checkpoint directory automatically (no config needed for that half) "
+                "-- this is only for a caller that wants to explicitly resume a specific seed or "
+                "vary its cache. Omitted entirely: every lineage starts fresh against the shared "
+                "cache_dir, today's exact behavior, unchanged."
+            ),
+        },
     },
     visualizations=[],
     core_extensions=[register_ray_lineage],
@@ -126,6 +142,7 @@ def lineage_ray_batch(
     injected_processes: dict | None = None,
     config_overrides: dict | None = None,
     emitter_arg: dict | None = None,
+    seed_overrides: dict | None = None,
 ) -> dict:
     """Build the lineage_ray_batch composite document.
 
@@ -163,5 +180,6 @@ def lineage_ray_batch(
         injected_processes=injected_processes,
         config_overrides=config_overrides,
         emitter_arg=emitter_arg,
+        seed_overrides=seed_overrides,
     )
     return doc

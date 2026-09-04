@@ -217,11 +217,13 @@ findings:
     artifact: analysis/etc_root_cause.json
   expected:
     summary: A thermodynamically-consistent FBA (loopless) cannot generate proton-motive force from an internal cycle, forcing the cell to respire (O2-coupled) to make ATP.
-  next_action: Apply loopless-FBA / thermodynamic loop-law constraints to the metabolism FBA (or curate out the infeasible proton-coupled transport cycles), then re-validate yield/RQ/growth/acetate together.
+  next_action: 'Build a MetabolismLoopless process module that applies general loop-law / chemiosmotic constraints (only the ETC may net-pump protons) so no internal free-energy-generating cycle is feasible; validate yield/RQ/growth/acetate together across conditions, then offer it as a drop-in replacement for the current metabolism process. Prototype scaffold: analysis/loopless_test.py.'
   next_action_type: escalate_model
   provenance:
     run_ids:
     - mcs11-overflow-onset-heldout
+  caveats:
+  - "Prototype loopless constraint tested (analysis/loopless_test.py): a chemiosmotic loop-law constraint enforcing 'net proton translocation by transport <= 0' (a pseudo-metabolite over 461 transport reactions + a relief source) was added at build time. It correctly ELIMINATES the primary succinate futile cycle (TRANS-RXN-300 flux 18.1 -> 0), confirming the approach binds — but the FBA reroutes to another free-proton source and the yield stays ~0.83. So a name/subset-targeted constraint is not enough; a GENERAL loopless / thermodynamic FBA (loop-law constraints over all internal cycles, or the full non-ETC proton-translocation set) is required. That is a dedicated metabolism-process module (a MetabolismLoopless drop-in replacement), correctly scoped as its own effort — not a parameter or a single constraint."
 biological_summary: >-
   The mcs-05 ETC fix centres biomass yield in-band, but the cap was calibrated to that band, so
   a skeptic can call it a fitted knob. This study checks the fix against acetate-overflow ONSET

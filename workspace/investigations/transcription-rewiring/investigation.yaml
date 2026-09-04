@@ -47,6 +47,7 @@ studies:
 - tu-coverage-loss
 - zerocs-occupancy-override
 - tu-dedup-promoter-collapse
+- promoter-specific-regulation
 executive:
   what_is_this: 'v2ecoli can normally start chromosome replication whenever it is due, because the model
     assumes the proteins that build a replisome are always on hand. Turn that assumption off — require
@@ -315,7 +316,7 @@ decisions_needed:
     minimal fix.'
 - question: Make TF regulation promoter-specific rather than cistron-content-based.
   raised_by: tu-coverage-loss
-  status: open
+  status: in_progress
   why: 'rna_id_to_regulating_tfs assigns a TF to every TU containing a cistron that TF regulates, so a
     repressor silences transcripts initiated from promoters it cannot physically block. This is why no
     dnaG-bearing TU can escape LexA and why TU restoration cannot help. It affects every polycistronic
@@ -327,6 +328,11 @@ decisions_needed:
     the dedup discarded. The surviving TU00352 has its TSS 88 bp upstream of that operator and carries
     NO LexA site -- yet the cistron-content rule assigns LexA to it. Promoter-specific regulation alone
     would free dnaG; restoring TUs alone would NOT, because the rule would hand LexA to all three.'
+  resolution: 'Scoped as promoter-specific-regulation. Feasibility is PARTIAL: the EcoCyc export positions
+    3642 of 4356 sites, but only 9 of the model''s 23 TFs appear among them (argR, cytR, fis, fnr, leuO,
+    lexA, lrhA, lrp, putA) -- and only case-insensitively, since the export writes ''LexA'' where transcription_factors.tsv
+    writes ''lexA''. The other 14, including crp, arcA and hns, keep their cistron-content assignment,
+    so any fix from this data is a hybrid.'
 - question: Re-measure foldchange-to-delta-fidelity with the occupancy-swing correction applied.
   raised_by: activator-overshoot
   status: resolved

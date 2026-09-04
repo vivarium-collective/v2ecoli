@@ -1,0 +1,429 @@
+schema_version: 4
+name: promoter-specific-regulation
+title: Regulating the promoter, not the gene
+investigation: transcription-rewiring
+study_type: fix_validation
+phase: Design
+created: '2026-09-04'
+status: planned
+design_status: complete
+implementation_status: not_started
+simulation_status: not_run
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+question: EcoCyc's binding-site data shows LexA's only operator at the rpsU-dnaG-rpoD locus is at rpsUp3
+  (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the dedup discards -- while the model applies
+  LexA's repression to TU00352, whose TSS is 88 bp upstream and which has no LexA site. The model already
+  has regulatory DIRECTION right and sign-constrained; what it lacks is POSITION. Does re-attributing
+  each delta_prob edge to the TUs whose start site lies downstream of the operator free dnaG, without
+  disturbing the rest of the network?
+parent_studies:
+- study: tu-dedup-promoter-collapse
+  condition: complete
+  relation: leads-to
+- study: pc00010-repression-arithmetic
+  condition: complete
+  relation: supports
+- study: deltav-conversion-diagnosis
+  condition: complete
+  relation: supports
+units_and_time:
+  tick: 1 s of simulated time for the lineage axes; attribution axes read static artefacts.
+  quantities:
+    edge: a nonzero delta_prob entry, one TF acting on one TU
+    adjudicated: an edge the positional rule assigns a definite TU set
+    deficit: peer-median over dnaG of actual/basal transcription (dimensionless)
+behavior_tests:
+- name: attribution-rule-adjudicates-most-covered-edges
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Can the binding-site data actually decide where each regulatory edge belongs?
+  description: 'For the 9 model TFs with positioned sites, at least 70% of their delta_prob edges are
+    adjudicated -- the rule assigns each to a definite set of TUs rather than abandoning it as undecidable.
+
+
+    The feasibility gate, checked FIRST. The export carries 4356 sites of which 3642 (83.6%) have coordinates,
+    but only 9 of the model''s 23 TFs appear among them: argR, cytR, fis, fnr, leuO, lexA, lrhA, lrp,
+    putA. The remaining 14 -- including crp, arcA and hns -- cannot be re-attributed at all and must keep
+    their current cistron-content assignment. If even the covered TFs cannot be adjudicated, the fix is
+    not implementable from this data and the study stops here rather than after a refit.
+
+
+    Threshold provenance: theory. 70% leaves room for edges whose TU has no usable start coordinate without
+    tolerating a rule that mostly abstains.'
+  measure:
+    kind: derived
+    path: fraction of delta_prob edges for positioned TFs adjudicated by operator position, across rpsU/dnaG/rpoD
+      and the wider network
+    detail: of the model's 1462 edges, those whose TF has positioned sites, the fraction assigned a definite
+      TU set.
+  pass_if:
+    low: 0.7
+    high: 1.0
+    provenance:
+      kind: theory
+      note: Bounded above by 1.0; 70% tolerates missing TU coordinates without tolerating an abstaining
+        rule.
+  status: pending
+- name: misattributed-lexa-edges-are-removed
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Applied blind and uniformly, does the rule strip LexA from promoters it has no site at?
+  description: 'Every LexA edge on a TU whose start lies UPSTREAM of the nearest LexA operator is removed
+    -- at least 99% of them, including the TU00352 edge that silences dnaG.
+
+
+    Generalised from the single TU00352 case so it tests the RULE rather than the fact. That LexA''s site
+    is at rpsUp3 and not at TU00352''s promoter is already established and recorded here as a PIN; what
+    is not established is whether a uniform positional rule -- one that must also behave sensibly for
+    argR, cytR, fis, fnr, leuO, lrhA, lrp and putA -- reproduces that judgement without being built to.
+    A rule that only gets dnaG right because it was tuned to is worthless.
+
+
+    Threshold provenance: definitional. An edge whose TU starts upstream of the operator cannot be physically
+    occluded by it.'
+  measure:
+    kind: derived
+    path: fraction of LexA delta_prob edges on upstream-start TUs removed by the rule, including the rpsU-dnaG-rpoD
+      TU00352 edge whose operator is at rpsUp3
+    detail: removed over total LexA edges whose TU start lies upstream of the nearest LexA site.
+  pass_if:
+    low: 0.99
+    high: 1.0
+    provenance:
+      kind: theory
+      note: 'A fraction bounded above by 1.0. Definitional: a repressor cannot occlude initiation at a
+        promoter that fires upstream of its operator.'
+  status: pending
+- name: most-edges-are-unchanged
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the rule leave the rest of the regulatory network alone?
+  description: 'At least 65% of the adjudicated edges KEEP their TU assignment.
+
+
+    THE DISCRIMINATING CONTROL. A positional rule that reassigns most of the network is not a correction,
+    it is a different model -- and any downstream rescue would be uninterpretable, exactly as ppgpp-off-rescue''s
+    was. Most TF-TU pairs should be unaffected because most TUs have a single promoter, so the cistron-content
+    assignment and the positional one agree. dnaG is unusual precisely because its operon has three.
+
+
+    Threshold provenance: theory. 35% is generous -- 428 of 3129 gene-set groups are multi-promoter, so
+    a well-behaved rule should change far fewer -- and is set loose deliberately so the axis fails only
+    on a genuinely disruptive rule.'
+  measure:
+    kind: derived
+    path: fraction of adjudicated delta_prob edges whose TU assignment is UNCHANGED under promoter-specific
+      attribution, across rpsU/dnaG/rpoD-style multi-promoter operons and the rest
+    detail: unchanged edges over adjudicated edges, across the 9 covered TFs.
+  pass_if:
+    low: 0.65
+    high: 1.0
+    provenance:
+      kind: theory
+      note: 'Stated as the UNCHANGED fraction rather than the changed one: a band anchored at zero always
+        has half-width equal to its midpoint and can never satisfy the discrimination check -- the fourth
+        time this investigation has needed that reformulation. Identical claim, gradeable form. 65% is
+        a deliberately loose floor so only a genuinely disruptive rule fails.'
+  status: pending
+  control: negative
+- name: dnag-transcription-recovers
+  classification: primary
+  gate_class: acceptance_criterion
+  question: With LexA no longer on its promoter, does dnaG get transcribed?
+  description: 'dnaG''s deficit against its idx_rprotein peers closes by at least half in log space, from
+    47.4x.
+
+
+    The functional test, using pc00010-repression-arithmetic''s peer group and method so the two are directly
+    comparable. If the LexA edge is removed from TU00352 the TU has no regulator at all, so promoter_init_probs
+    reduces to basal_prob and dnaG should be transcribed at its fitted rate. Expressed as a closed fraction
+    rather than a residual deficit, because a band anchored at zero cannot be graded -- the reformulation
+    three earlier studies in this investigation each needed.
+
+
+    Threshold provenance: theory. Half is the weakest recovery that demonstrates the mechanism.'
+  measure:
+    kind: derived
+    path: fraction of dnaG's log-space peer deficit closed once LexA is attributed to rpsUp3 rather than
+      to the rpsU-dnaG-rpoD TU00352
+    detail: 1 - log(deficit_after)/log(47.4), refitted arm, last generation.
+  pass_if:
+    low: 0.5
+    high: 1.0
+    provenance:
+      kind: theory
+      note: Bounded above by 1.0 (deficit fully closed), spanning 2x.
+  status: pending
+- name: lineage-completes
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the cell live?
+  description: 'Lineages complete at least 8 generations, against the 4-5 they currently reach.
+
+
+    The payoff. Matches the band the retired zerocs-occupancy-override and tu-dedup-promoter-collapse
+    both used, so the three candidate fixes are directly comparable on one scale.
+
+
+    Threshold provenance: theory. 8 is comfortably past the 4-5 stall and short of 12, so a partial rescue
+    counts.'
+  measure:
+    kind: derived
+    path: minimum generations divided across seeds under promoter-specific regulation
+    detail: minimum divided-generation count across seeds, corrected arm.
+  pass_if:
+    low: 8
+    high: 12
+    provenance:
+      kind: theory
+      note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix
+        studies.
+  status: pending
+- name: rescue-is-not-a-global-growth-artefact
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is any rescue attributable to dnaG rather than to perturbing the network generally?
+  description: 'Generation time stays within 50% of the paired control''s.
+
+
+    Carried from ppgpp-off-rescue, where this axis fired and correctly voided a rescue claim. Re-attributing
+    edges across 9 TFs shifts regulation beyond dnaG''s operon, so a lineage that survives because the
+    whole network shifted is not evidence about dnaG.
+
+
+    Threshold provenance: theory. The same 50% band, so the studies read on one scale.'
+  measure:
+    kind: derived
+    path: generation-time ratio, corrected arm over control, under promoter-specific regulation
+    detail: median tau corrected over median tau control, generations 1-3.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Two-sided at roughly 50%, matching ppgpp-off-rescue.
+  status: pending
+  control: negative
+- name: lexa-site-position
+  classification: supporting
+  gate_class: regression_pin
+  question: Does the binding-site evidence still read as recorded?
+  description: 'LexA''s only site at the rpsU-dnaG-rpoD locus spans 3210729-3210749, placing rpsUp3''s
+    TSS at 3210734.5 against TU00435''s start of 3210735 and TU00352''s of 3210646.
+
+
+    POST-HOC: read from the EcoCyc export while scoping tu-dedup-promoter-collapse. A pin so the evidence
+    underpinning this whole study is caught if the reference file changes.'
+  measure:
+    kind: derived
+    path: left coordinate of the LexA operator at rpsUp3 in the rpsU-dnaG-rpoD operon, against the rpoD-bearing
+      TU starts
+    detail: Left column of the single LexA site in 3209000-3216000.
+  pass_if:
+    op: <=
+    value: 3210729
+    provenance:
+      kind: post_hoc
+      note: Read from the EcoCyc export; a drift pin on the reference data.
+  status: pending
+preregistered:
+  declared_before_runs: true
+  registered_at: '2026-09-04T19:00:00Z'
+  date: '2026-09-04'
+  thresholds:
+    attribution-rule-adjudicates-most-covered-edges:
+      low: 0.7
+      high: 1.0
+      provenance:
+        kind: theory
+        note: Bounded above by 1.0; 70% tolerates missing TU coordinates without tolerating an abstaining
+          rule.
+    misattributed-lexa-edges-are-removed:
+      low: 0.99
+      high: 1.0
+      provenance:
+        kind: theory
+        note: 'A fraction bounded above by 1.0. Definitional: a repressor cannot occlude initiation at
+          a promoter that fires upstream of its operator.'
+    most-edges-are-unchanged:
+      low: 0.65
+      high: 1.0
+      provenance:
+        kind: theory
+        note: 'Stated as the UNCHANGED fraction rather than the changed one: a band anchored at zero always
+          has half-width equal to its midpoint and can never satisfy the discrimination check -- the fourth
+          time this investigation has needed that reformulation. Identical claim, gradeable form. 65%
+          is a deliberately loose floor so only a genuinely disruptive rule fails.'
+    dnag-transcription-recovers:
+      low: 0.5
+      high: 1.0
+      provenance:
+        kind: theory
+        note: Bounded above by 1.0 (deficit fully closed), spanning 2x.
+    lineage-completes:
+      low: 8
+      high: 12
+      provenance:
+        kind: theory
+        note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling fix
+          studies.
+    rescue-is-not-a-global-growth-artefact:
+      low: 0.67
+      high: 1.5
+      provenance:
+        kind: theory
+        note: Two-sided at roughly 50%, matching ppgpp-off-rescue.
+    lexa-site-position:
+      op: <=
+      value: 3210729
+      provenance:
+        kind: post_hoc
+        note: Read from the EcoCyc export; a drift pin on the reference data.
+  criteria:
+  - test: attribution-rule-adjudicates-most-covered-edges
+    prior: Can the binding-site data actually decide where each regulatory edge belongs?
+  - test: misattributed-lexa-edges-are-removed
+    prior: Applied blind and uniformly, does the rule strip LexA from promoters it has no site at?
+  - test: most-edges-are-unchanged
+    prior: Does the rule leave the rest of the regulatory network alone?
+  - test: dnag-transcription-recovers
+    prior: With LexA no longer on its promoter, does dnaG get transcribed?
+  - test: lineage-completes
+    prior: Does the cell live?
+  - test: rescue-is-not-a-global-growth-artefact
+    prior: Is any rescue attributable to dnaG rather than to perturbing the network generally?
+implementation_requirements:
+- id: req-1
+  status: not_started
+  blocking: true
+  summary: STATE THE ATTRIBUTION RULE IN FULL BEFORE APPLYING IT.
+  detail: 'The rule must be written into this record before it touches any edge, because the LexA/TU00352
+    answer is already known and a rule tuned to reproduce it would be worthless. It must specify: the
+    window around a TU''s start within which an operator counts as acting on that promoter; how an operator
+    lying INSIDE a transcript but downstream of its start is treated (occlusion versus no effect); strand
+    handling; and what happens when a TF has sites at several promoters of one operon. It must then be
+    applied uniformly to all 9 covered TFs with NO special-casing of dnaG. This is the same discipline
+    deltav-conversion-diagnosis''s req-2 imposed, which is what let its failed prediction stand as a genuine
+    refutation.'
+- id: req-2
+  status: not_started
+  blocking: true
+  summary: Re-attribute delta_prob by REMAPPING, and decide whether a refit is needed.
+  detail: 'The edges already carry correct, sign-constrained magnitudes; only their TU assignment is wrong.
+    So the minimal change remaps deltaI (the TU index) for affected entries and needs NO ParCa refit --
+    much cheaper than tu-dedup-promoter-collapse''s Phase B. It is not fully faithful: basal_prob was
+    fitted WITH those edges in place, so removing one from a TU leaves its alpha slightly mis-calibrated.
+    Record that as a known approximation and, if the rescue works, note that the faithful version refits.'
+- id: req-3
+  status: not_started
+  blocking: false
+  summary: Resolve TF name matching case-insensitively and report the unmatched.
+  detail: The export writes 'LexA', transcription_factors.tsv writes 'lexA'; a case-sensitive join returns
+    ZERO of 23 model TFs and a case-insensitive one returns 9. The 14 unmatched -- crp, arcA, hns, ihfA,
+    metJ, narL, trpR, dnaA, baeR, bglJ, dcuR and three complex ids -- must be REPORTED and left on their
+    existing cistron-content assignment, never silently dropped.
+alternative_hypotheses:
+- name: H1 promoter-specific attribution frees dnaG
+  discriminator: lineage-completes
+  statement: 'Re-attribution removes LexA from TU00352, which then has no regulator, so dnaG is transcribed
+    at its fitted basal rate and the lineage completes. Predicts all primary axes pass. Favoured: the
+    edge is demonstrably on the wrong promoter.'
+- name: H2 the rule cannot be stated generally
+  discriminator: attribution-rule-adjudicates-most-covered-edges
+  statement: No uniform positional rule adjudicates most edges -- operators sit at ambiguous distances,
+    or TU start coordinates are missing too often. The fix is then not implementable from this data, whatever
+    is true of dnaG.
+- name: H3 the rule is disruptive
+  discriminator: most-edges-are-unchanged
+  statement: Positional attribution reassigns much of the network, making it a different model rather
+    than a correction and any rescue uninterpretable.
+- name: H4 dnaG recovers but the lineage still stalls
+  discriminator: lineage-completes
+  statement: Transcription recovers while something else limits growth -- the 2.13x activator residual,
+    or another subunit. A partial result worth having, and it would show the LexA edge is necessary but
+    not sufficient.
+falsifiability: The rule is stated before it is applied and must behave sensibly for 9 TFs, so it cannot
+  be tuned to the dnaG answer that is already known -- that known answer is a PIN here, not a criterion.
+  The disruption control can void the whole approach, and the feasibility gate can stop it before any
+  simulation.
+assumptions:
+- assumption: Remapping delta_prob without refitting is an adequate first test.
+  basis: The magnitudes are already fitted and sign-constrained; only attribution is wrong. But basal_prob
+    was fitted WITH the misattributed edges, so alphas are slightly off after removal. Adequate to test
+    whether the mechanism rescues dnaG; not the shippable fix.
+  risk: medium
+- assumption: An operator acts on promoters whose start lies downstream of it.
+  basis: Standard for a repressor occluding initiation, and it is what distinguishes TU00435 (start inside
+    the site) from TU00352 (start 88 bp upstream). But the export gives position only, not mechanism,
+    so a site acting by DNA looping or on an upstream promoter would be misassigned by this rule.
+  risk: high
+simulation_set:
+- name: promoter-specific
+  kind: single
+  status: planned
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+  note: Built from a cache whose delta_prob edges have been re-attributed by operator position.
+- name: cistron-content-control
+  kind: single
+  is_baseline: true
+  status: planned
+  base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+  note: The existing cache ea05ac9b23b1d843, unmodified.
+planned_runs:
+- name: phase-A-attribution
+  status: planned
+  n_steps: 0
+  details: NO SIMULATION. States the rule (req-1), applies it, and grades the feasibility, LexA-edge and
+    disruption axes. Can stop the study before any run, and is where H2 and H3 are decided.
+- name: phase-B-lineage
+  status: planned
+  n_steps: 6
+  details: 3 seeds x 2 arms x 12 generations, only if Phase A passes. ~30-60 min per run. Disk is at 56
+    GB with out/ holding 51 GB; distil dnag-promoter-availability's 28 GB first. Check for sims in other
+    worktrees before choosing concurrency.
+robustness:
+  n_replicates: 3
+  seeds:
+  - 0
+  - 1
+  - 2
+  parameter_sweep: false
+  note: 3 independent seeds per arm, enough to separate a 12-generation completion from a 4-5 stall.
+controls:
+- name: most-edges-are-unchanged
+  kind: negative
+  hypothesis: A rule that reassigns most of the network is a different model, not a correction.
+  expected: at most 35% of adjudicated edges change assignment.
+  observed: ''
+  result: PENDING
+- name: rescue-is-not-a-global-growth-artefact
+  kind: negative
+  hypothesis: Survival for network-wide reasons is not evidence about dnaG.
+  expected: generation time within 50% of control.
+  observed: ''
+  result: PENDING
+limitations:
+- Only 9 of the model's 23 TFs have positioned sites in the export, so 14 -- including crp, arcA and hns
+  -- keep their cistron-content assignment. This is a PARTIAL fix by construction, and the network it
+  produces is a hybrid of two attribution schemes.
+- The export gives site positions but no mechanism, so activation by looping or action on an upstream
+  promoter would be misassigned. Marked a high-risk assumption.
+- Remapping without refitting leaves alphas calibrated for the old attribution. Adequate to test the mechanism,
+  not shippable.
+- The rpsUp3-to-TU00435 identification underpinning the whole study is an inference from a site-name offset
+  (0.5 bp agreement), not a declared mapping. The outstanding Pathway Tools licence would supply regulation.dat
+  and settle it directly.
+- 'Even a full rescue would show promoter-specific attribution is SUFFICIENT here, not that the other
+  three defects are harmless: the constraint boundary, the dedup and the 2.13x activator residual all
+  remain.'
+claim: ''
+conclusion: ''
+confidence: Planned

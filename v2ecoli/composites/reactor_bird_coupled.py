@@ -437,17 +437,24 @@ def add_reactor_coupling(
             # S3 output at all. It only ever emitted locally because
             # scripts/run_mbp_tracked.py bolts an emitter on externally.
             #
-            # Declare a ParquetEmitter over the top-level coupled-run deliverable:
-            # the `reactor` stores (dissolved O2/CO2, biomass, glucose) and the
-            # `population` aggregate (biomass_concentration_gL), plus global_time.
-            # out_dir is omitted on purpose — run_pbg resolves it to the synced
-            # results dir (same contract as ecoli_baseline). Scoped to top-level
-            # stores, NOT the whole `agents` subtree, to stay clear of the
-            # whole-cell emit-path OOM class; widen with per-agent listeners if a
-            # run needs per-cell observables.
+            # Roots chosen to carry Run 1's deliverable (cplong90, #700 / handoff
+            # §R5): six named leaves — listeners/mass/{dry_mass,cell_mass} and
+            # boundary/external/OXYGEN-MOLECULE (per-agent), plus
+            # environment/exchange/{OXYGEN-MOLECULE,GLC,VIOLACEIN} (top-level).
+            # A declared emitter roots each path at its FIRST segment as a
+            # top-level store (_helpers._merge_emit_paths), and agent ids are
+            # dynamic, so the per-agent leaves cannot be named directly — they are
+            # carried by the `agents` root. That is safe here, not the OOM class:
+            # the agents subtree emits scalars only (array-valued leaves drop
+            # silently), confirmed on the Run 1 artifact. `environment` carries
+            # the exchange scalars. out_dir omitted so run_pbg resolves it to the
+            # synced results dir (same contract as ecoli_baseline).
+            # ⚠ A declared path that yields no column is silent — verify the
+            # actual column list on a real coupled artifact (§R5), not the exit
+            # code.
             "address": "local:ParquetEmitter",
             "config": {},
-            "paths": ["global_time", "reactor", "population"],
+            "paths": ["global_time", "environment", "agents"],
         },
     ],
 )

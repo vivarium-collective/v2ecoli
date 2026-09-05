@@ -15,7 +15,13 @@ from v2ecoli.workflow.variants import expand_branches, BranchSpec
 def register_workflow_processes(core) -> None:
     """Register workflow Processes/Steps so ``local:`` addresses resolve."""
     from v2ecoli.workflow.lineage import LineageProcess
+    from v2ecoli.workflow.lineage_step import LineageStep
+
     core.register_link("LineageProcess", LineageProcess)
+    # A whole lineage as one atomic task node (see lineage_step.py): the Step is
+    # what a task-granularity dispatcher addresses, the Process is what runs the
+    # generations inside it.
+    core.register_link("LineageStep", LineageStep)
 
 
 def _branch_key(spec: BranchSpec) -> str:

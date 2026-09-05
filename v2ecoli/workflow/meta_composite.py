@@ -22,6 +22,13 @@ def register_workflow_processes(core) -> None:
     # what a task-granularity dispatcher addresses, the Process is what runs the
     # generations inside it.
     core.register_link("LineageStep", LineageStep)
+    # Task DECLARATIONS for the rendered campaign DAG (composites/workflow_nf.py):
+    # ports plus a nextflow_script(), no simulation logic. Registered so a
+    # local: address resolves when the document is constructed for rendering.
+    from v2ecoli.composites.workflow_nf import AnalysisTaskStep, ParcaTaskStep
+
+    core.register_link("ParcaTaskStep", ParcaTaskStep)
+    core.register_link("AnalysisTaskStep", AnalysisTaskStep)
 
 
 def _branch_key(spec: BranchSpec) -> str:

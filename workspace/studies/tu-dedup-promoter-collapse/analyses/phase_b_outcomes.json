@@ -1,0 +1,74 @@
+{
+  "cache": "out/cache_tudedup_full",
+  "n_tus": 3279,
+  "missing": [],
+  "why": {
+    "state": "out/parca_tudedup_full/parca_state.pkl",
+    "expression": {
+      "TU00352": 5.430830885881879e-06,
+      "TU00434": 0.0,
+      "TU00435": 0.0
+    },
+    "regulating_tfs": {
+      "TU00352": [
+        "PC00010"
+      ],
+      "TU00434": [
+        "PC00010"
+      ],
+      "TU00435": [
+        "PC00010"
+      ]
+    },
+    "identical_cistron_set_groups": 1,
+    "winner_takes_all_groups": 1
+  },
+  "axis2": {
+    "per_tu": {
+      "TU00352": {
+        "row": 2837,
+        "rna_id": "TU00352[c]",
+        "basal": 0.0001249862160317201,
+        "sum_delta": -0.9999999684857455,
+        "ZR_all_bound": -0.9998749822697137,
+        "off_boundary": false,
+        "tfs": {
+          "PC00010": -0.9999999684857455
+        }
+      },
+      "TU00434": {
+        "row": 2878,
+        "rna_id": "TU00434[c]",
+        "basal": 0.0,
+        "sum_delta": 0.0,
+        "ZR_all_bound": 0.0,
+        "off_boundary": false,
+        "tfs": {}
+      },
+      "TU00435": {
+        "row": 2879,
+        "rna_id": "TU00435[c]",
+        "basal": 0.0,
+        "sum_delta": 0.0,
+        "ZR_all_bound": 0.0,
+        "off_boundary": false,
+        "tfs": {}
+      }
+    },
+    "n_off_boundary": 0,
+    "band": [
+      2,
+      3
+    ]
+  },
+  "axis3": {
+    "edges": {
+      "TU00352": -0.9999999684857455,
+      "TU00434": 0.0,
+      "TU00435": 0.0
+    },
+    "n_edges": 1,
+    "on_TU00435": 0,
+    "fraction": 0.0
+  }
+}

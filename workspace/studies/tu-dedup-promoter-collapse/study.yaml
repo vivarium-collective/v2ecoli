@@ -3,16 +3,22 @@ name: tu-dedup-promoter-collapse
 title: The dedup that removes dnaG's other promoters
 investigation: transcription-rewiring
 study_type: root_cause
-phase: Design
+phase: Decide
 created: '2026-09-04'
-status: planned
+status: complete
 design_status: complete
-implementation_status: not_started
-simulation_status: partial
-evaluation_status: not_evaluated
-gate_status: pending
+implementation_status: complete
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: failed
 expert_review_status: not_requested
-question: tu-coverage-loss measured that 760 of 3766 source transcription units are absent from the model but did not identify why. The mechanism is getter_functions.py:220, which keys TUs on their sorted GENE SET and keeps only the first, discarding 637 TUs across 428 groups -- explicitly those that 'cover the same set of genes but have different left & right end coordinates', i.e. distinct promoters. dnaG's alternative transcripts TU00434 (start 3210712) and TU00435 (3210735) are two of them, collapsed into TU00352 (3210646). Does restoring them give dnaG a transcript that escapes the constraint, and does the lineage then live?
+question: tu-coverage-loss measured that 760 of 3766 source transcription units are absent from the
+  model but did not identify why. The mechanism is getter_functions.py:220, which keys TUs on their
+  sorted GENE SET and keeps only the first, discarding 637 TUs across 428 groups -- explicitly those
+  that 'cover the same set of genes but have different left & right end coordinates', i.e. distinct
+  promoters. dnaG's alternative transcripts TU00434 (start 3210712) and TU00435 (3210735) are two
+  of them, collapsed into TU00352 (3210646). Does restoring them give dnaG a transcript that escapes
+  the constraint, and does the lineage then live?
 units_and_time:
   tick: 1 s of simulated time for the lineage axes; the coverage axes read static artefacts.
   quantities:
@@ -24,23 +30,33 @@ behavior_tests:
   classification: primary
   gate_class: acceptance_criterion
   question: Do the discarded TUs really differ only by start coordinate, i.e. are they distinct promoters?
-  description: 'At least 90% of the 637 TUs discarded by gene-set dedup differ from their retained twin in left_end_pos, right_end_pos, or both.
+  description: 'At least 90% of the 637 TUs discarded by gene-set dedup differ from their retained
+    twin in left_end_pos, right_end_pos, or both.
 
 
-    Establishes that the dedup discards PROMOTERS rather than genuine duplicates. getter_functions.py:220 keys on the sorted gene tuple and keeps only the first TU per key, commented as removing ''duplicate TUs that cover the same set of genes but have different left & right end coordinates''. If they are byte-identical records the dedup is harmless bookkeeping; if they differ in position they are separate transcripts with separate transcription start sites, and discarding them removes evidenced biology.
+    Establishes that the dedup discards PROMOTERS rather than genuine duplicates. getter_functions.py:220
+    keys on the sorted gene tuple and keeps only the first TU per key, commented as removing ''duplicate
+    TUs that cover the same set of genes but have different left & right end coordinates''. If they
+    are byte-identical records the dedup is harmless bookkeeping; if they differ in position they
+    are separate transcripts with separate transcription start sites, and discarding them removes
+    evidenced biology.
 
 
-    Threshold provenance: theory. 90% tolerates a handful of genuine duplicates without tolerating a wrong premise.'
+    Threshold provenance: theory. 90% tolerates a handful of genuine duplicates without tolerating
+    a wrong premise.'
   measure:
     kind: derived
-    path: fraction of getter_functions dedup-discarded TUs whose coordinates differ from their retained twin, for dnaG's collapsed promoters
-    detail: of the 637 discarded TUs, the fraction differing in left or right end position from their kept twin.
+    path: fraction of getter_functions dedup-discarded TUs whose coordinates differ from their retained
+      twin, for dnaG's collapsed promoters
+    detail: of the 637 discarded TUs, the fraction differing in left or right end position from their
+      kept twin.
   pass_if:
     low: 0.9
     high: 1.0
     provenance:
       kind: theory
-      note: Bounded above by 1.0; 0.9 tolerates a few true duplicates without tolerating a false premise.
+      note: Bounded above by 1.0; 0.9 tolerates a few true duplicates without tolerating a false
+        premise.
   status: failed
   result: FAIL
   measured_value: 0.8399
@@ -48,17 +64,25 @@ behavior_tests:
 - name: restored-dnag-tus-escape-the-constraint
   classification: primary
   gate_class: acceptance_criterion
-  question: Refitted with the dnaG transcripts restored, do their deltas land off the probability-validity boundary?
-  description: 'At least 2 of the 3 dnaG-bearing TUs have an all-TFs-bound probability Z@R above 1e-9, i.e. are NOT pinned at the constraint.
+  question: Refitted with the dnaG transcripts restored, do their deltas land off the probability-validity
+    boundary?
+  description: 'At least 2 of the 3 dnaG-bearing TUs have an all-TFs-bound probability Z@R above
+    1e-9, i.e. are NOT pinned at the constraint.
 
 
-    The mechanistic crux, and the reason restoring TUs is not obviously futile. I previously dismissed restoration on the grounds that TU00434/TU00435 also contain rpoD and would inherit LexA -- but carrying a TF is not the same as landing on the boundary. Only 10 of LexA''s 45 targets are pinned there. Each TU gets its OWN fitted delta, and with three dnaG-bearing TUs the gene''s transcription is their SUM, so one pinned TU does not silence the gene.
+    The mechanistic crux, and the reason restoring TUs is not obviously futile. I previously dismissed
+    restoration on the grounds that TU00434/TU00435 also contain rpoD and would inherit LexA -- but
+    carrying a TF is not the same as landing on the boundary. Only 10 of LexA''s 45 targets are pinned
+    there. Each TU gets its OWN fitted delta, and with three dnaG-bearing TUs the gene''s transcription
+    is their SUM, so one pinned TU does not silence the gene.
 
 
-    Threshold provenance: theory. 2 of 3 is the weakest result that leaves dnaG a working transcript; requiring all 3 would fail on a single pinned TU that costs the gene nothing.'
+    Threshold provenance: theory. 2 of 3 is the weakest result that leaves dnaG a working transcript;
+    requiring all 3 would fail on a single pinned TU that costs the gene nothing.'
   measure:
     kind: derived
-    path: count of dnaG-bearing TUs off the constraint boundary after relaxing the getter_functions gene-set dedup
+    path: count of dnaG-bearing TUs off the constraint boundary after relaxing the getter_functions
+      gene-set dedup
     detail: number of TU00352, TU00434, TU00435 not at the constraint boundary in the refitted cache.
   pass_if:
     low: 2
@@ -66,45 +90,95 @@ behavior_tests:
     provenance:
       kind: theory
       note: Spans 1.5x, bounded above by 3. Two suffices because transcription sums across TUs.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 0
+  evaluated_by: agent
+  detail: 'Zero of the three dnaG-bearing TUs escape the boundary. TU00352 basal 1.249862e-04 with
+    a LexA delta of -0.9999999684857455 gives Z@R = -9.998750e-01; TU00434 and TU00435 both give
+    Z@R = 0.0 exactly. Graded against out/cache_tudedup_full, the full-mode refit (978 delta_prob
+    edges, 727 TUs carrying a TF, 45 LexA edges -- all three matching out/cache, so the fitted TF
+    structure is intact).
+
+    H2 is confirmed in outcome but REFUTED in mechanism, and the difference is the result. H2 predicted
+    the restored TUs would be pinned because they share a gene set and so nearly share an alpha and
+    a LexA delta. They are not pinned for that reason: they receive no alpha at all. cell_specs[basal][expression]
+    allocates 5.430831e-06 to TU00352 and EXACTLY 0.0 to both restored TUs, so their alpha is zero,
+    every fitted delta is zero, and they sit at the boundary by having no probability mass rather
+    than by having it cancelled. Regulation was wired correctly -- rna_id_to_regulating_tfs assigns
+    PC00010 to all three -- but a TF edge on a TU with zero expression fits to zero.'
 - name: lexa-still-regulates-rpsup3
   gate_class: acceptance_criterion
   classification: diagnostic
   given: the getter_functions gene-set dedup relaxed so rpsUp3 (TU00435) survives, and ParCa refit
   measure:
     kind: derived
-    path: fraction of the dnaG locus's LexA delta_prob edges that sit on rpsUp3 (TU00435) rather than TU00352 after restoring the deduplicated promoters
-    detail: LexA (PC00010) edges on TU00352/TU00434/TU00435 in the refitted cache; 1.0 means the regulator moved to the promoter carrying its binding site.
-  expect: LexA regulates rpsUp3, the promoter whose site EcoCyc places at 3210729-3210749, and no longer TU00352, whose TSS is 88 bp upstream and carries no LexA site
+    path: fraction of the dnaG locus's LexA delta_prob edges that sit on rpsUp3 (TU00435) rather
+      than TU00352 after restoring the deduplicated promoters
+    detail: LexA (PC00010) edges on TU00352/TU00434/TU00435 in the refitted cache; 1.0 means the
+      regulator moved to the promoter carrying its binding site.
+  expect: LexA regulates rpsUp3, the promoter whose site EcoCyc places at 3210729-3210749, and no
+    longer TU00352, whose TSS is 88 bp upstream and carries no LexA site
   pass_if: &id002
     low: 0.99
     high: 1.0
     provenance:
       kind: literature
-      note: This is what separates restoration from deletion. dnag-locus-targeted-fix removed the LexA edge entirely, leaving dnaG with ZERO regulators -- biologically wrong, since LexA does regulate this locus. Restoration must keep the regulator and move it onto the promoter it actually binds. Bounded above by 1.0; a fraction rather than a count so the band is gradeable.
+      note: This is what separates restoration from deletion. dnag-locus-targeted-fix removed the
+        LexA edge entirely, leaving dnaG with ZERO regulators -- biologically wrong, since LexA does
+        regulate this locus. Restoration must keep the regulator and move it onto the promoter it
+        actually binds. Bounded above by 1.0; a fraction rather than a count so the band is gradeable.
       cites:
       - ecocyc-tf-binding-sites-smarttable
+  status: failed
+  result: FAIL
+  measured_value: 0.0
+  evaluated_by: agent
+  detail: 'LexA did not move. The locus''s only fitted LexA edge is still on TU00352 (-0.9999999684857455,
+    versus -0.999999956832897 in the unmodified out/cache -- unchanged to 7 significant figures);
+    TU00434 and TU00435 carry 0.0. Fraction on rpsUp3 = 0.0 against a band of [0.99, 1.0].
+
+    Restoring the promoter is NOT sufficient to relocate the regulator, because rna_id_to_regulating_tfs
+    assigns TFs by CISTRON CONTENT, not by whether the promoter contains the binding site. It duly
+    assigned PC00010 to all three TUs -- including TU00352, whose TSS is 88 bp upstream of LexA''s
+    site. The assignment rule is the defect, and adding promoters does not touch it.'
 - name: dnag-transcription-recovers
   classification: primary
   gate_class: acceptance_criterion
   question: Does dnaG actually get transcribed once it has more than one transcript?
-  description: 'At least half of dnaG''s transcription deficit is closed in log space, from the 47.4x measured against its idx_rprotein peers with the single deduplicated TU.
+  description: 'At least half of dnaG''s transcription deficit is closed in log space, from the 47.4x
+    measured against its idx_rprotein peers with the single deduplicated TU.
 
 
-    The functional test of the mechanism, on the same peer group and method pc00010-repression-arithmetic used so the two are directly comparable. Expressed as the FRACTION OF THE DEFICIT CLOSED rather than as a residual deficit, because a band anchored at zero can never satisfy the discrimination check -- the same reformulation dnag-promoter-availability and foldchange-to-delta-fidelity both needed.
+    The functional test of the mechanism, on the same peer group and method pc00010-repression-arithmetic
+    used so the two are directly comparable. Expressed as the FRACTION OF THE DEFICIT CLOSED rather
+    than as a residual deficit, because a band anchored at zero can never satisfy the discrimination
+    check -- the same reformulation dnag-promoter-availability and foldchange-to-delta-fidelity both
+    needed.
 
 
-    Threshold provenance: theory. Half is the weakest recovery that would show the mechanism working, on a change that alters promoter count, basal allocation and regulation at once.'
+    Threshold provenance: theory. Half is the weakest recovery that would show the mechanism working,
+    on a change that alters promoter count, basal allocation and regulation at once.'
   measure:
     kind: derived
-    path: fraction of dnaG's log-space peer deficit closed after restoring the promoters getter_functions discarded
-    detail: "1 - log(deficit_after)/log(47.4), basal-normalised idx_rprotein peer deficit in the refitted arm's last COMPLETE generation. Normalise each TU by its own basal_prob before the peer median: a raw actual-value ratio measures a different quantity (134x where the normalised reads 47.4x)."
+    path: fraction of dnaG's log-space peer deficit closed after restoring the promoters getter_functions
+      discarded
+    detail: '1 - log(deficit_after)/log(47.4), basal-normalised idx_rprotein peer deficit in the
+      refitted arm''s last COMPLETE generation. Normalise each TU by its own basal_prob before the
+      peer median: a raw actual-value ratio measures a different quantity (134x where the normalised
+      reads 47.4x).'
   pass_if: &id001
     low: 0.35
     high: 0.55
     provenance:
       kind: measured
-      note: "Re-scoped 2026-09-04 against dnag-locus-targeted-fix, which measured LexA's ENTIRE contribution at the dnaG locus. Deleting the edge outright -- the maximum relief any promoter restoration can achieve -- closes 0.455 of the log-space deficit, because the deficit factorises as 2.6x static basal_prob x 8.2x ppGpp adjustment x 6.2x LexA, and restoration touches only the LexA term. The previous [0.5, 1.0] band therefore sat entirely ABOVE the achievable maximum and could only ever fail. Band now brackets that ceiling: 0.35 excludes a null result, 0.55 allows modest upside from the refit redistributing basal_prob across the three TUs."
+      note: 'Re-scoped 2026-09-04 against dnag-locus-targeted-fix, which measured LexA''s ENTIRE
+        contribution at the dnaG locus. Deleting the edge outright -- the maximum relief any promoter
+        restoration can achieve -- closes 0.455 of the log-space deficit, because the deficit factorises
+        as 2.6x static basal_prob x 8.2x ppGpp adjustment x 6.2x LexA, and restoration touches only
+        the LexA term. The previous [0.5, 1.0] band therefore sat entirely ABOVE the achievable maximum
+        and could only ever fail. Band now brackets that ceiling: 0.35 excludes a null result, 0.55
+        allows modest upside from the refit redistributing basal_prob across the three TUs.'
       source_study: dnag-locus-targeted-fix
       ceiling_measured: 0.455
   status: pending
@@ -115,10 +189,15 @@ behavior_tests:
   description: 'Lineages complete at least 8 generations, against the 4-5 they currently reach.
 
 
-    The payoff, and the first genuinely predictive test in this investigation: it predicts survival from a data-side change with no runtime knob touched. replisome-gate-sufficiency''s DnaG-ablation arm completed 12 of 12 once the gate stopped waiting on DnaG, so restoring dnaG''s supply should do the same by supplying it rather than by removing the requirement.
+    The payoff, and the first genuinely predictive test in this investigation: it predicts survival
+    from a data-side change with no runtime knob touched. replisome-gate-sufficiency''s DnaG-ablation
+    arm completed 12 of 12 once the gate stopped waiting on DnaG, so restoring dnaG''s supply should
+    do the same by supplying it rather than by removing the requirement.
 
 
-    Threshold provenance: theory. 8 is comfortably past the 4-5 stall and short of 12, so a partial rescue still counts. Matches the band the retired zerocs-occupancy-override used, so the two fixes are comparable.'
+    Threshold provenance: theory. 8 is comfortably past the 4-5 stall and short of 12, so a partial
+    rescue still counts. Matches the band the retired zerocs-occupancy-override used, so the two
+    fixes are comparable.'
   measure:
     kind: derived
     path: minimum generations divided across seeds with the deduplicated dnaG promoters restored
@@ -128,7 +207,8 @@ behavior_tests:
     high: 12
     provenance:
       kind: theory
-      note: Spans 1.5x; anchored at 8 so a partial rescue is recognised, matching the retired study's band.
+      note: Spans 1.5x; anchored at 8 so a partial rescue is recognised, matching the retired study's
+        band.
   status: pending
 - name: restoration-is-not-a-global-growth-artefact
   classification: primary
@@ -137,10 +217,14 @@ behavior_tests:
   description: 'Generation time in the restored arm stays within 50% of the paired control''s.
 
 
-    The negative control, carried from ppgpp-off-rescue where the equivalent axis fired and correctly voided a rescue claim. Restoring 637 TUs -- or even the 2 dnaG ones -- changes basal allocation across the transcriptome, so a lineage that survives because everything shifted is not evidence about dnaG.
+    The negative control, carried from ppgpp-off-rescue where the equivalent axis fired and correctly
+    voided a rescue claim. Restoring 637 TUs -- or even the 2 dnaG ones -- changes basal allocation
+    across the transcriptome, so a lineage that survives because everything shifted is not evidence
+    about dnaG.
 
 
-    Threshold provenance: theory. The same 50% band ppgpp-off-rescue used, so the studies read on one scale.'
+    Threshold provenance: theory. The same 50% band ppgpp-off-rescue used, so the studies read on
+    one scale.'
   measure:
     kind: derived
     path: generation-time ratio, restored arm over control, for the dnaG promoter restoration
@@ -157,10 +241,13 @@ behavior_tests:
   classification: supporting
   gate_class: regression_pin
   question: How much of the model's TU loss is the dedup?
-  description: '637 TUs across 428 gene-set groups are discarded by the dedup, within a factor of 1.5.
+  description: '637 TUs across 428 gene-set groups are discarded by the dedup, within a factor of
+    1.5.
 
 
-    POST-HOC: measured while scoping. Records the blast radius -- 637 of the 760 TUs tu-coverage-loss found absent are dedup casualties, so the dedup is the dominant reason the model''s TU set is smaller than the source.'
+    POST-HOC: measured while scoping. Records the blast radius -- 637 of the 760 TUs tu-coverage-loss
+    found absent are dedup casualties, so the dedup is the dominant reason the model''s TU set is
+    smaller than the source.'
   measure:
     kind: derived
     path: count of TUs discarded by the getter_functions gene-set dedup
@@ -185,7 +272,8 @@ preregistered:
       high: 1.0
       provenance:
         kind: theory
-        note: Bounded above by 1.0; 0.9 tolerates a few true duplicates without tolerating a false premise.
+        note: Bounded above by 1.0; 0.9 tolerates a few true duplicates without tolerating a false
+          premise.
     restored-dnag-tus-escape-the-constraint:
       low: 2
       high: 3
@@ -198,7 +286,8 @@ preregistered:
       high: 12
       provenance:
         kind: theory
-        note: Spans 1.5x; anchored at 8 so a partial rescue is recognised, matching the retired study's band.
+        note: Spans 1.5x; anchored at 8 so a partial rescue is recognised, matching the retired study's
+          band.
     restoration-is-not-a-global-growth-artefact:
       low: 0.67
       high: 1.5
@@ -216,53 +305,120 @@ preregistered:
   - test: dedup-discards-distinct-promoters
     prior: Do the discarded TUs really differ only by start coordinate, i.e. are they distinct promoters?
   - test: restored-dnag-tus-escape-the-constraint
-    prior: Refitted with the dnaG transcripts restored, do their deltas land off the probability-validity boundary?
+    prior: Refitted with the dnaG transcripts restored, do their deltas land off the probability-validity
+      boundary?
   - test: dnag-transcription-recovers
-    prior: Restoring the discarded promoters should relieve LexA repression of dnaG to about the same degree as deleting the edge outright (0.455), and cannot exceed it by much, because the 2.6x basal and 8.2x ppGpp layers are untouched by any promoter change.
+    prior: Restoring the discarded promoters should relieve LexA repression of dnaG to about the
+      same degree as deleting the edge outright (0.455), and cannot exceed it by much, because the
+      2.6x basal and 8.2x ppGpp layers are untouched by any promoter change.
   - test: lineage-completes-with-restored-tus
     prior: Does the cell live?
   - test: restoration-is-not-a-global-growth-artefact
     prior: Is any rescue attributable to dnaG rather than to perturbing the model generally?
   - test: lexa-still-regulates-rpsup3
-    prior: Does restoration put LexA back on the promoter that carries its binding site, instead of deleting the regulator?
+    prior: Does restoration put LexA back on the promoter that carries its binding site, instead
+      of deleting the regulator?
   rescoped_at: '2026-09-04T23:37:21Z'
-  rescoped_because: "Re-scoped 2026-09-04 against dnag-locus-targeted-fix, which measured LexA's ENTIRE contribution at the dnaG locus. Deleting the edge outright -- the maximum relief any promoter restoration can achieve -- closes 0.455 of the log-space deficit, because the deficit factorises as 2.6x static basal_prob x 8.2x ppGpp adjustment x 6.2x LexA, and restoration touches only the LexA term. The previous [0.5, 1.0] band therefore sat entirely ABOVE the achievable maximum and could only ever fail. Band now brackets that ceiling: 0.35 excludes a null result, 0.55 allows modest upside from the refit redistributing basal_prob across the three TUs."
+  rescoped_because: 'Re-scoped 2026-09-04 against dnag-locus-targeted-fix, which measured LexA''s
+    ENTIRE contribution at the dnaG locus. Deleting the edge outright -- the maximum relief any promoter
+    restoration can achieve -- closes 0.455 of the log-space deficit, because the deficit factorises
+    as 2.6x static basal_prob x 8.2x ppGpp adjustment x 6.2x LexA, and restoration touches only the
+    LexA term. The previous [0.5, 1.0] band therefore sat entirely ABOVE the achievable maximum and
+    could only ever fail. Band now brackets that ceiling: 0.35 excludes a null result, 0.55 allows
+    modest upside from the refit redistributing basal_prob across the three TUs.'
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: done
   blocking: true
   summary: Relax the gene-set dedup for the dnaG locus and REBUILD ParCa.
-  detail: 'getter_functions.py:220-262 keys on the sorted gene tuple and `continue`s past later TUs. The minimal intervention is to key on (gene tuple, left_end_pos, right_end_pos) so distinct promoters survive, applied narrowly first -- restoring only TU00434 and TU00435 -- so the arm changes ONE thing. This REQUIRES A FULL ParCa REBUILD: the TU set changes, so basal_prob, delta_prob and the whole r_vector are refitted. The resulting cache will NOT be fingerprint ea05ac9b23b1d843, so the control arm must be the EXISTING cache and every comparison must be stated as across-cache. That is a real weakness of this design and is recorded as a limitation rather than glossed.'
+  detail: 'getter_functions.py:220-262 keys on the sorted gene tuple and `continue`s past later TUs.
+    The minimal intervention is to key on (gene tuple, left_end_pos, right_end_pos) so distinct promoters
+    survive, applied narrowly first -- restoring only TU00434 and TU00435 -- so the arm changes ONE
+    thing. This REQUIRES A FULL ParCa REBUILD: the TU set changes, so basal_prob, delta_prob and
+    the whole r_vector are refitted. The resulting cache will NOT be fingerprint ea05ac9b23b1d843,
+    so the control arm must be the EXISTING cache and every comparison must be stated as across-cache.
+    That is a real weakness of this design and is recorded as a limitation rather than glossed.'
 - id: req-2
-  status: not_started
+  status: done
   blocking: true
   summary: Decide narrow-vs-global restoration BEFORE running, and record it.
-  detail: Restoring all 637 dedup casualties changes the transcriptome-wide basal allocation and would make any dnaG result uninterpretable. Restoring only the 2 dnaG TUs is the clean experiment. Recording the choice -- NARROW -- before running, so a global restoration cannot be substituted later if the narrow one fails to rescue.
+  detail: Restoring all 637 dedup casualties changes the transcriptome-wide basal allocation and
+    would make any dnaG result uninterpretable. Restoring only the 2 dnaG TUs is the clean experiment.
+    Recording the choice -- NARROW -- before running, so a global restoration cannot be substituted
+    later if the narrow one fails to rescue.
 - id: req-3
   status: not_started
   blocking: false
   summary: Reuse the deficit and margin measurements verbatim.
-  detail: pc00010-repression-arithmetic's peer-deficit method and replisome_arrest's gate-margin helper are reused unchanged so the refitted arm is measured exactly as the existing runs were.
+  detail: pc00010-repression-arithmetic's peer-deficit method and replisome_arrest's gate-margin
+    helper are reused unchanged so the refitted arm is measured exactly as the existing runs were.
+- id: req-4
+  status: done
+  blocking: true
+  summary: Re-run the TU-dedup ParCa refit in FULL mode -- the 2026-09-04 refit ran in debug mode
+    and carries no transcription regulation.
+  detail: 'out/cache_tudedup was built by scripts/parca_run.py in fast/debug mode. step_02_input_adjustments.py:228
+    prunes tf_to_active_inactive_conditions to a SINGLE key when debug=True, so the promoter-binding
+    fit at step 6 saw one TF. Verified in the cache: 6 nonzero delta_prob entries versus 979 in out/cache,
+    6 TUs carrying any TF versus 727, and ZERO LexA (PC00010) edges versus 45. Every surviving edge
+    is CPLX-125. TU00352 therefore shows LexA delta 0.0 in the refit where the same extraction reads
+    -0.999999956832897 from out/cache, and the two restored TUs (TU00434 idx 2878, TU00435 idx 2879)
+    carry basal_prob 0.0 and no TFs at all. Axes 2 and 3 both read the fitted TF structure, so neither
+    can be graded from this cache: the numbers it yields (1 of 3 off the boundary, LexA fraction
+    0.0) are artefacts of regulation being absent globally, not evidence about the dnaG locus. The
+    refit must be redone with debug=False before Phase B resumes -- roughly 4-8 h rather than the
+    80 s this one took.'
+  unblocks: restored-dnag-tus-escape-the-constraint, lexa-still-regulates-rpsup3, dnag-transcription-recovers,
+    lineage-completes-with-restored-tus
+  launched: '2026-09-05T10:45:41Z'
+  launch_note: v2ecoli-parca --mode full --cpus 8 -o out/parca_tudedup_full --cache-dir out/cache_tudedup_full.
+    Same inputs as the debug refit (operons=True, new_genes=off, rnaseq_source=reference, defaults-only
+    overrides) with --mode full the only change, and --allow-partial-fit deliberately NOT passed
+    so a failed step-9 fit aborts rather than writing a partially-fit state. The debug refit is kept
+    at out/cache_tudedup as the contrast arm.
 alternative_hypotheses:
 - name: H1 promoter collapse is the root cause
   discriminator: lineage-completes-with-restored-tus
-  statement: With three transcripts dnaG's supply is the sum, at least one escapes the constraint, DnaG accumulates and the lineage completes. Predicts all four primary axes pass.
+  statement: With three transcripts dnaG's supply is the sum, at least one escapes the constraint,
+    DnaG accumulates and the lineage completes. Predicts all four primary axes pass.
 - name: H2 all three TUs land on the boundary
   discriminator: restored-dnag-tus-escape-the-constraint
-  statement: 'The refit pins every dnaG-bearing TU at Z@R ~ 0, because they share a gene set and so nearly share an alpha. Restoration then changes nothing and the constraint is the sole cause. Plausible: the three TUs are near-identical, and the 10 currently-pinned targets include BOTH surviving rpoD-bearing TUs.'
+  statement: 'The refit pins every dnaG-bearing TU at Z@R ~ 0, because they share a gene set and
+    so nearly share an alpha. Restoration then changes nothing and the constraint is the sole cause.
+    Plausible: the three TUs are near-identical, and the 10 currently-pinned targets include BOTH
+    surviving rpoD-bearing TUs.'
+  status: outcome confirmed, mechanism refuted
+  resolution: 'Confirmed in outcome: 0 of 3 dnaG-bearing TUs escape the boundary, so restoration
+    changes nothing and Phase C is not worth running. Refuted in mechanism, and the difference is
+    the study''s real result. H2 said the restored TUs would be pinned because they share a gene
+    set and so nearly share an alpha and a LexA delta. They are not pinned that way -- they receive
+    no alpha at all. The basal fit allocates 5.430831e-06 to TU00352 and exactly 0.0 to both restored
+    TUs, so every fitted delta on them is zero too. They sit at the boundary by holding no probability
+    mass, not by having it cancelled.'
 - name: H3 transcription recovers but the lineage still stalls
   discriminator: lineage-completes-with-restored-tus
-  statement: dnaG's deficit falls but something else limits the lineage -- the activator residual, or another subunit. Predicts the deficit axis passes while the lineage axis fails, which would still be a real advance.
+  statement: dnaG's deficit falls but something else limits the lineage -- the activator residual,
+    or another subunit. Predicts the deficit axis passes while the lineage axis fails, which would
+    still be a real advance.
 - name: H4 the rescue is a global artefact
   discriminator: restoration-is-not-a-global-growth-artefact
-  statement: Refitting shifts basal allocation broadly and the lineage survives for reasons unrelated to dnaG. This is how ppgpp-off-rescue's apparent rescue was voided.
-falsifiability: H2 is a genuine and quite likely outcome -- the three dnaG TUs share a gene set and so nearly share an alpha, and both surviving rpoD-bearing TUs are already pinned -- so this study can fail on its own central mechanism at the second axis, before any simulation. That is why the escape axis is graded separately from the lineage axis instead of being folded into it.
+  statement: Refitting shifts basal allocation broadly and the lineage survives for reasons unrelated
+    to dnaG. This is how ppgpp-off-rescue's apparent rescue was voided.
+falsifiability: H2 is a genuine and quite likely outcome -- the three dnaG TUs share a gene set and
+  so nearly share an alpha, and both surviving rpoD-bearing TUs are already pinned -- so this study
+  can fail on its own central mechanism at the second axis, before any simulation. That is why the
+  escape axis is graded separately from the lineage axis instead of being folded into it.
 assumptions:
 - assumption: Restoring TUs is a data-side change with no runtime component.
-  basis: The dedup runs in getter_functions during ParCa, so the change is entirely upstream of simulation. That is what makes this cheaper than re-solving the convex program's constraint, though it still needs a full refit.
+  basis: The dedup runs in getter_functions during ParCa, so the change is entirely upstream of simulation.
+    That is what makes this cheaper than re-solving the convex program's constraint, though it still
+    needs a full refit.
   risk: low
 - assumption: An across-cache comparison is admissible here.
-  basis: 'It has to be: the refit necessarily produces a different cache. Every prior study in this investigation compared arms WITHIN one cache, so this is the first that cannot, and the control arm''s stall generation must be re-verified on the new cache rather than assumed from the old runs.'
+  basis: 'It has to be: the refit necessarily produces a different cache. Every prior study in this
+    investigation compared arms WITHIN one cache, so this is the first that cannot, and the control
+    arm''s stall generation must be re-verified on the new cache rather than assumed from the old
+    runs.'
   risk: high
 simulation_set:
 - name: restored-promoters
@@ -279,22 +435,28 @@ simulation_set:
   status: planned
   base_model: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides: &id005
+    config_overrides: &id006
       ecoli-chromosome-replication.mechanistic_replisome: true
-  note: The existing cache ea05ac9b23b1d843. Its stall at generation 4-5 must be re-verified on matched seeds rather than assumed, since the comparison is across caches.
+  note: The existing cache ea05ac9b23b1d843. Its stall at generation 4-5 must be re-verified on matched
+    seeds rather than assumed, since the comparison is across caches.
 planned_runs:
 - name: phase-A-static
   status: planned
   n_steps: 0
-  details: NO SIMULATION. Confirms the dedup discards distinct promoters (axis 1) and records the blast radius. Runs before any rebuild, and can refute the premise cheaply.
+  details: NO SIMULATION. Confirms the dedup discards distinct promoters (axis 1) and records the
+    blast radius. Runs before any rebuild, and can refute the premise cheaply.
 - name: phase-B-refit
   status: planned
   n_steps: 0
-  details: 'ParCa rebuild with TU00434/TU00435 restored, then axis 2 read statically from the new cache. This is the decision point: if all three dnaG TUs are still pinned at the boundary, H2 holds and Phase C is not worth running.'
+  details: 'ParCa rebuild with TU00434/TU00435 restored, then axis 2 read statically from the new
+    cache. This is the decision point: if all three dnaG TUs are still pinned at the boundary, H2
+    holds and Phase C is not worth running.'
 - name: phase-C-lineage
   status: planned
   n_steps: 6
-  details: 3 seeds x 2 arms x 12 generations, only if Phase B shows an escape. ~30-60 min per run. Disk is at 56 GB with out/ holding 51 GB, so distil dnag-promoter-availability's 28 GB first; a ParCa rebuild also needs room.
+  details: 3 seeds x 2 arms x 12 generations, only if Phase B shows an escape. ~30-60 min per run.
+    Disk is at 56 GB with out/ holding 51 GB, so distil dnag-promoter-availability's 28 GB first;
+    a ParCa rebuild also needs room.
 robustness:
   n_replicates: 3
   seeds:
@@ -302,11 +464,13 @@ robustness:
   - 1
   - 2
   parameter_sweep: false
-  note: 3 independent seeds per arm, enough to separate a 12-generation completion from a 4-5 stall. The across-cache comparison is the dominant uncertainty here, not seed variance.
+  note: 3 independent seeds per arm, enough to separate a 12-generation completion from a 4-5 stall.
+    The across-cache comparison is the dominant uncertainty here, not seed variance.
 controls:
 - name: restoration-is-not-a-global-growth-artefact
   kind: negative
-  hypothesis: A refit shifts basal allocation broadly; survival for unrelated reasons is not evidence about dnaG.
+  hypothesis: A refit shifts basal allocation broadly; survival for unrelated reasons is not evidence
+    about dnaG.
   expected: generation time within 50% of control.
   observed: ''
   result: PENDING
@@ -317,27 +481,136 @@ controls:
   observed: ''
   result: PENDING
 limitations:
-- THE COMPARISON IS ACROSS CACHES. Restoring TUs forces a full ParCa refit, so the restored arm cannot share fingerprint ea05ac9b23b1d843 with the control. Every prior study here compared arms within one cache; this one cannot, and the control's stall must be re-verified on matched seeds rather than assumed.
-- Restoring only the 2 dnaG TUs is the clean experiment but is not the fix a modeller would ship; the general fix restores all 637 and changes transcriptome-wide allocation, which this study deliberately does not test.
-- 'The study can show restoration is SUFFICIENT to rescue dnaG without showing the dedup is the only defect: the constraint artefact, the cistron-content regulation rule and the 2.13x activator residual are all untouched by it.'
-- Whether the discarded TUs are biologically real distinct promoters rests on the source data's coordinates and evidence codes. The repo carries no TF-binding-site-to-promoter mapping, so this study cannot verify that LexA's operator lies upstream of TU00352 and not of TU00434/TU00435 -- which is the fact that would make the biology decisive.
-- The EcoCyc export gives site positions and the operon each is attributed to, but not per-TU regulation, so the rpsUp3-to-TU00435 identification rests on matching the site name's stated offset (4.5 bases downstream) against TU00435's start coordinate. The agreement is 0.5 bp, but it is an inference from a name string, not a declared mapping.
-claim: LexA's operator is at rpsUp3, which the dedup discarded; the model then applied LexA's repression to TU00352, a promoter LexA does not regulate. dnaG is silenced through the wrong promoter.
-conclusion: 'Phase A answers the study''s question without the ParCa refit it was scoped to need, using EcoCyc''s binding-site export.
+- THE COMPARISON IS ACROSS CACHES. Restoring TUs forces a full ParCa refit, so the restored arm cannot
+  share fingerprint ea05ac9b23b1d843 with the control. Every prior study here compared arms within
+  one cache; this one cannot, and the control's stall must be re-verified on matched seeds rather
+  than assumed.
+- Restoring only the 2 dnaG TUs is the clean experiment but is not the fix a modeller would ship;
+  the general fix restores all 637 and changes transcriptome-wide allocation, which this study deliberately
+  does not test.
+- 'The study can show restoration is SUFFICIENT to rescue dnaG without showing the dedup is the only
+  defect: the constraint artefact, the cistron-content regulation rule and the 2.13x activator residual
+  are all untouched by it.'
+- Whether the discarded TUs are biologically real distinct promoters rests on the source data's coordinates
+  and evidence codes. The repo carries no TF-binding-site-to-promoter mapping, so this study cannot
+  verify that LexA's operator lies upstream of TU00352 and not of TU00434/TU00435 -- which is the
+  fact that would make the biology decisive.
+- The EcoCyc export gives site positions and the operon each is attributed to, but not per-TU regulation,
+  so the rpsUp3-to-TU00435 identification rests on matching the site name's stated offset (4.5 bases
+  downstream) against TU00435's start coordinate. The agreement is 0.5 bp, but it is an inference
+  from a name string, not a declared mapping.
+claim: LexA's operator is at rpsUp3, which the dedup discarded; the model then applied LexA's repression
+  to TU00352, a promoter LexA does not regulate. Restoring the discarded promoters does not fix it
+  -- the cistron-to-TU expression fit is degenerate for identical cistron sets and leaves the restored
+  pair at exactly zero expression, so the repair has to be made in how regulation is assigned, not
+  in which TUs exist.
+conclusion: '## Claims
 
-  The dedup collapses 637 TUs across 428 groups; 84% of the discards are distinct promoters and 16% genuine duplicates, so the axis as pre-registered FAILS at 0.8399 and my characterisation was too sweeping. But dnaG''s case is far worse than a generic collapse. The only LexA site at this locus is at rpsUp3, TSS 3210734.5, matching TU00435''s start of 3210735 -- and TU00435 is one of the two DISCARDED TUs. The model kept TU00352, whose TSS is 88 bp upstream of the operator, and rna_id_to_regulating_tfs handed it LexA anyway because it contains rpoD.
 
-  So dnaG is silenced through a promoter LexA does not regulate, having lost the one it does. That reorders the fixes: promoter-specific regulation ALONE would free dnaG entirely, since the surviving TU carries no LexA site -- cheaper than restoring TUs, and it makes restoration alone useless, because the cistron-content rule would reassign LexA to all three. The faithful fix is both together: restore rpsUp1/p2/p3 and assign regulation by promoter, giving dnaG two unrepressed transcripts and one repressed.
+  dnaG is silenced through the wrong promoter, and restoring the right one does not repair it.
 
-  Phases B and C are NOT run and axes 2-5 stay pending. Phase B as designed -- refit with the TUs restored -- would now test the WRONG fix on its own.'
-confidence: Planned
+
+  Phase A established the misassignment: the only LexA site at this locus is at rpsUp3 (TSS 3210734.5,
+  matching TU00435''s start of 3210735), and TU00435 is one of the two TUs the gene-set dedup discards.
+  The model kept TU00352, whose TSS is 88 bp upstream of the operator, and `rna_id_to_regulating_tfs`
+  handed it LexA anyway because it contains rpoD.
+
+
+  Phase B tested the obvious repair -- restore the discarded promoters and refit -- and it fails
+  on both axes. Zero of the three dnaG-bearing TUs escape the probability-validity boundary (band
+  [2, 3]), and LexA does not move: the locus''s single fitted edge stays on TU00352 at -0.9999999684857455,
+  essentially unchanged from -0.999999956832897 in the unmodified cache (band [0.99, 1.0], measured
+  0.0).
+
+
+  The reason is not the one the study pre-registered as H2. H2 predicted the restored TUs would be
+  pinned because they share a gene set and so nearly share an alpha and a LexA delta. They are not
+  pinned that way -- they receive no alpha at all. The three TUs map to an identical cistron set
+  (EG10239_RNA, EG10896_RNA, EG10920_RNA), and cistron-level abundance cannot distinguish three columns
+  that contribute to it identically. The fit is degenerate, the solver returns a vertex of the solution
+  set, and one TU takes everything: 5.430831e-06 to TU00352, exactly 0.0 to both restored TUs. A
+  TU with zero expression gets alpha 0, and `calculateRnapRecruitment` then writes 0 for every one
+  of its TF deltas. The restored promoters are structurally present and completely inert.
+
+
+  Regulation itself was wired correctly -- `rna_id_to_regulating_tfs` assigns PC00010 to all three
+  TUs. It is the expression allocation, not the regulation assignment, that strands them.
+
+
+  This also explains why the dedup exists at all. Collapsing identical-gene-set TUs is what keeps
+  the fit determinate; relaxing it without a rule for splitting expression between promoters relocates
+  the problem rather than solving it.
+
+
+  ## Evidence
+
+
+  Graded against `out/cache_tudedup_full` (full-mode ParCa, 178.5 s, then `scripts/build_cache.py`),
+  via `analyses/phase_b.py`, which takes the cache directory as `argv[1]` so the same code produced
+  every arm.
+
+
+  | | unmodified `out/cache` | debug refit (discarded) | full refit (graded) |
+
+  |---|---|---|---|
+
+  | TUs | 3277 | 3279 | 3279 |
+
+  | delta_prob edges | 979 | 6 | 978 |
+
+  | TUs carrying a TF | 727 | 6 | 727 |
+
+  | LexA (PC00010) edges | 45 | 0 | 45 |
+
+
+  A first refit on 2026-09-04 was discarded before grading rather than reported: it ran in ParCa
+  fast/debug mode, which prunes `tf_to_active_inactive_conditions` to a single key (`step_02_input_adjustments.py:228`),
+  so it carried almost no transcription regulation. Both axes read the fitted TF structure and would
+  have been graded against regulation that was globally absent. The control that caught it was running
+  the identical extraction against the unmodified cache, where it reproduces TU00352''s known LexA
+  delta; the debug cache returned 0.0 for the same read.
+
+
+  Degeneracy measurement: 1 TU group in the model has an identical cistron set (the 3 dnaG TUs --
+  every other such group is still collapsed by the dedup), and 1 of 1 is winner-take-all.
+
+
+  ## Limitations
+
+
+  - The narrow relaxation restores 2 of the 637 discarded TUs. Nothing here measures what a global
+  restoration would do, and the degeneracy result predicts it would be worse, not better: it would
+  create 428 winner-take-all groups instead of one.
+
+  - Phase C (the lineage arm) was not run, so axes 4-6 stay pending. That follows the rule pre-registered
+  at design time -- if all three dnaG TUs remain pinned, H2 holds and Phase C is not worth running
+  -- and not a resource decision made after seeing the result.
+
+  - The refitted cache is a different fingerprint from the control, so every comparison here is across-cache.
+  This was recorded as a design weakness before the refit was run.
+
+  - The winner-take-all result rests on a single group, because the narrow relaxation deliberately
+  created only one. It is a mechanism demonstrated once, not a rate measured over many.
+
+
+  ## Next steps
+
+
+  Assign regulation by promoter coordinates rather than by cistron content. Phase A already pointed
+  here, and Phase B now rules out the alternative: if regulation were assigned by whether a promoter
+  contains the binding site, TU00352 would carry no LexA delta at all, dnaG would be unrepressed,
+  and no change to the TU set would be needed -- which matters, because changing the TU set is exactly
+  what the degeneracy makes unworkable.'
+confidence: Refuted
 runs:
 - name: tu-dedup-promoter-collapse__phase-A
   status: complete
   canonical: false
   started_at: '2026-09-04T17:30:00Z'
   started_at_iso: '2026-09-04T17:30:00Z'
-  note: PHASE A ONLY -- static, no simulation and no ParCa rebuild. Reads transcription_units.tsv and replays getter_functions' gene-set dedup. Phases B and C (refit, then lineage) are NOT run; axes 2-5 remain pending.
+  note: PHASE A ONLY -- static, no simulation and no ParCa rebuild. Reads transcription_units.tsv
+    and replays getter_functions' gene-set dedup. Phases B and C (refit, then lineage) are NOT run;
+    axes 2-5 remain pending.
   outcomes:
     dedup-discards-distinct-promoters: &id003
       result: FAIL
@@ -345,51 +618,169 @@ runs:
       evaluated_by: agent
       operator: derived/band [0.9, 1.0]
       gate_class: acceptance_criterion
-      detail: '535 of 637 discarded TUs (0.8399) differ from their retained twin in left or right end position; 102 have byte-identical coordinates and are genuine duplicates the dedup is right to remove. Below the 0.9 I pre-registered, so my characterisation of the dedup as discarding distinct promoters is 84% accurate rather than near-universal. Recording the FAIL rather than reinterpreting the band.
+      detail: '535 of 637 discarded TUs (0.8399) differ from their retained twin in left or right
+        end position; 102 have byte-identical coordinates and are genuine duplicates the dedup is
+        right to remove. Below the 0.9 I pre-registered, so my characterisation of the dedup as discarding
+        distinct promoters is 84% accurate rather than near-universal. Recording the FAIL rather
+        than reinterpreting the band.
 
-        The study''s own mechanism is unaffected: dnaG''s three TUs differ in start coordinate (3210646 / 3210712 / 3210735), so dnaG sits squarely in the 84%. What changes is the generalisation -- any claim that ''the dedup removes 637 promoters'' overstates it by about a sixth.'
+        The study''s own mechanism is unaffected: dnaG''s three TUs differ in start coordinate (3210646
+        / 3210712 / 3210735), so dnaG sits squarely in the 84%. What changes is the generalisation
+        -- any claim that ''the dedup removes 637 promoters'' overstates it by about a sixth.'
     dedup-discarded-tu-count: &id004
       result: PASS
       measured_value: 637
       evaluated_by: agent
       operator: derived/<= 956
       gate_class: regression_pin
-      detail: 637 TUs discarded across 428 gene-set groups, from 3766 source TUs to 3129 kept. Reproduces the scoping measurement. The largest single group holds 8 TUs collapsed to one.
+      detail: 637 TUs discarded across 428 gene-set groups, from 3766 source TUs to 3129 kept. Reproduces
+        the scoping measurement. The largest single group holds 8 TUs collapsed to one.
   computed_outcomes:
     dedup-discards-distinct-promoters: *id003
     dedup-discarded-tu-count: *id004
+- name: tu-dedup-promoter-collapse__phase-B
+  status: complete
+  canonical: true
+  started_at: '2026-09-05T10:45:41Z'
+  started_at_iso: '2026-09-05T10:45:41Z'
+  note: 'PHASE B -- narrow dedup relaxation plus a FULL-MODE ParCa refit, no simulation. v2ecoli-parca
+    --mode full --cpus 8 -o out/parca_tudedup_full --cache-dir out/cache_tudedup_full, 178.5 s, then
+    scripts/build_cache.py on the resulting parca_state.pkl. Graded by analyses/phase_b.py, which
+    takes the cache dir as argv[1] so the same code produced the control arm.
+
+
+    A FIRST refit on 2026-09-04 (out/cache_tudedup) was discarded before grading: it ran in ParCa
+    fast/debug mode, which prunes tf_to_active_inactive_conditions to a single key, so it carried
+    6 delta_prob edges instead of 979 and no LexA at all. Both axes here read the fitted TF structure
+    and would have been graded against regulation that was globally absent. The full-mode cache used
+    instead reproduces the unmodified cache on all three structural controls -- 978 delta_prob edges
+    (vs 979), 727 TUs carrying a TF (vs 727), 45 LexA edges (vs 45) -- so the TF fit is intact and
+    the axes are gradeable.
+
+
+    Phase C (the lineage arm) is NOT run: the design pre-registered that if all three dnaG TUs remain
+    pinned, H2 holds and Phase C is not worth running. It does, so axes 4-6 stay pending by design
+    rather than by omission.'
+  outcomes: &id005
+    restored-dnag-tus-escape-the-constraint:
+      result: FAIL
+      measured_value: 0
+      evaluated_by: agent
+      operator: derived/band [2, 3]
+      gate_class: acceptance_criterion
+      detail: 'Z@R with all TFs bound: TU00352 -9.998750e-01 (basal 1.249862e-04, LexA delta -0.9999999684857455),
+        TU00434 0.0, TU00435 0.0. None escapes. The restored pair is pinned by having zero fitted
+        expression, not by a cancelled alpha.'
+    lexa-still-regulates-rpsup3:
+      result: FAIL
+      measured_value: 0.0
+      evaluated_by: agent
+      operator: derived/band [0.99, 1.0]
+      gate_class: acceptance_criterion
+      detail: The locus's single fitted LexA edge stays on TU00352 at -0.9999999684857455, versus
+        -0.999999956832897 in the unmodified cache. TU00434 and TU00435 carry 0.0. Restoring the
+        promoter does not relocate the regulator.
+  computed_outcomes: *id005
 preliminary_observations:
-- note: Phase A, recorded before Phases B/C exist. The dedup collapses 637 TUs from 428 groups, the largest group being 8 TUs reduced to one. 84% of the discards are distinct promoters and 16% are true duplicates -- so the dedup is doing legitimate work part of the time, which my scoping framing did not allow for. dnaG's collapse (3210646 / 3210712 / 3210735) is a genuine distinct-promoter case.
+- note: Phase A, recorded before Phases B/C exist. The dedup collapses 637 TUs from 428 groups, the
+    largest group being 8 TUs reduced to one. 84% of the discards are distinct promoters and 16%
+    are true duplicates -- so the dedup is doing legitimate work part of the time, which my scoping
+    framing did not allow for. dnaG's collapse (3210646 / 3210712 / 3210735) is a genuine distinct-promoter
+    case.
+- note: 'Phase B attempted 2026-09-05 against out/cache_tudedup and ABANDONED: the cache is not gradeable.
+    The dedup relaxation itself worked -- the TU set went 3277 -> 3279 and only TU00434/TU00435 were
+    added, exactly the narrow restoration req-2 pre-registered. But the refit ran in ParCa debug
+    mode, which prunes the TF set to one key before the promoter fit, so the cache carries almost
+    no transcription regulation (6 delta_prob edges versus 979; no LexA at all). The control that
+    caught it: the identical extraction run against out/cache reproduces TU00352''s known LexA delta
+    of -0.999999956832897, and against out/cache_tudedup returns 0.0. Axes 2 and 3 stay pending,
+    now blocked on req-4 rather than on analysis effort. Script: analyses/phase_b.py (takes a cache
+    dir as argv[1], so the control arm is one flag away).'
 findings:
-- summary: 'DECISIVE: LexA''s operator is at rpsUp3, the promoter the dedup DISCARDED. The model represses a promoter LexA does not regulate.'
+- summary: 'DECISIVE: LexA''s operator is at rpsUp3, the promoter the dedup DISCARDED. The model
+    represses a promoter LexA does not regulate.'
   status: novel
   evidence:
     from_run: tu-dedup-promoter-collapse__phase-A
     observed: 3210735
     units: TU00435 start vs implied rpsUp3 TSS 3210734.5
-  explanation: 'From EcoCyc''s TF binding-site export (references/all-transcription-factor-binding-sites.txt, 4356 sites): the only LexA site at this locus is ''LexA DNA-binding-site 4.5 bases downstream of rpsUp3'', spanning 3210729-3210749 on the + strand, attributed to the rpsU-dnaG-rpoD operon. Its centre at 3210739 minus 4.5 puts rpsUp3''s TSS at 3210734.5 -- TU00435''s start of 3210735, to within half a base.
+  explanation: 'From EcoCyc''s TF binding-site export (references/all-transcription-factor-binding-sites.txt,
+    4356 sites): the only LexA site at this locus is ''LexA DNA-binding-site 4.5 bases downstream
+    of rpsUp3'', spanning 3210729-3210749 on the + strand, attributed to the rpsU-dnaG-rpoD operon.
+    Its centre at 3210739 minus 4.5 puts rpsUp3''s TSS at 3210734.5 -- TU00435''s start of 3210735,
+    to within half a base.
 
-    The model kept TU00352 (start 3210646, 88 bp UPSTREAM of the operator) and discarded both TU00434 and TU00435. rna_id_to_regulating_tfs then assigned LexA to TU00352 because it contains rpoD. So dnaG is silenced through rpsUp1, a promoter LexA has no site at, while the promoter LexA actually represses was removed from the model.
+    The model kept TU00352 (start 3210646, 88 bp UPSTREAM of the operator) and discarded both TU00434
+    and TU00435. rna_id_to_regulating_tfs then assigned LexA to TU00352 because it contains rpoD.
+    So dnaG is silenced through rpsUp1, a promoter LexA has no site at, while the promoter LexA actually
+    represses was removed from the model.
 
-    Two defects compose exactly: the dedup removed the regulated promoter, and cistron-content regulation reassigned its repressor to an unregulated one.'
-- summary: Promoter-specific regulation ALONE would free dnaG, because the surviving TU is not a LexA target.
+    Two defects compose exactly: the dedup removed the regulated promoter, and cistron-content regulation
+    reassigned its repressor to an unregulated one.'
+- summary: Promoter-specific regulation ALONE would free dnaG, because the surviving TU is not a
+    LexA target.
   status: novel
   evidence:
     from_run: tu-dedup-promoter-collapse__phase-A
-  explanation: 'This reorders the candidate fixes. If regulation were assigned by promoter rather than by cistron content, TU00352 -- the only surviving dnaG-bearing TU -- would carry NO LexA delta at all, since LexA''s site is at rpsUp3. dnaG would be unrepressed and the constraint-pinned delta would never touch it. That is cheaper than restoring TUs and does not require changing the TU set.
+  explanation: 'This reorders the candidate fixes. If regulation were assigned by promoter rather
+    than by cistron content, TU00352 -- the only surviving dnaG-bearing TU -- would carry NO LexA
+    delta at all, since LexA''s site is at rpsUp3. dnaG would be unrepressed and the constraint-pinned
+    delta would never touch it. That is cheaper than restoring TUs and does not require changing
+    the TU set.
 
-    It is also slightly WRONG biologically: the correct model has three promoters with LexA repressing one of them, so dnaG should lose roughly a third of its supply under SOS, not none. The faithful fix is both changes together -- restore the promoters AND assign regulation by promoter. Restoration alone would not help, because the cistron-content rule would hand LexA to all three.'
+    It is also slightly WRONG biologically: the correct model has three promoters with LexA repressing
+    one of them, so dnaG should lose roughly a third of its supply under SOS, not none. The faithful
+    fix is both changes together -- restore the promoters AND assign regulation by promoter. Restoration
+    alone would not help, because the cistron-content rule would hand LexA to all three.'
+- summary: 'Restoring a deduplicated promoter is inert: the cistron-to-TU expression fit is degenerate
+    for TUs with identical cistron sets and gives the restored pair exactly zero expression.'
+  status: novel
+  tier: mechanism
+  mechanism_origin: emergent
+  evidence:
+    from_run: tu-dedup-promoter-collapse__phase-B
+    from_tests:
+    - restored-dnag-tus-escape-the-constraint
+    - lexa-still-regulates-rpsup3
+    observed: basal expression 5.430831e-06 / 0.0 / 0.0 across TU00352 / TU00434 / TU00435; 1 of
+      1 identical-cistron-set TU groups is winner-take-all; LexA edge count 45 in both the unmodified
+      and the refitted cache, with the locus's single edge still on TU00352
+    units: basal expression fraction (dimensionless); TU groups; delta_prob edges
+  explanation: 'TU00352, TU00434 and TU00435 map to an identical cistron set -- EG10239_RNA, EG10896_RNA,
+    EG10920_RNA -- and after the narrow relaxation they are the ONLY such group left in the model
+    (1 group, 3 TUs; every other identical-set group is still collapsed by the dedup). Cistron-level
+    abundance cannot distinguish three columns that contribute identically to it, so the fit is degenerate:
+    any split of the operon''s expression across the three is equally consistent with the data. The
+    solver returns a vertex of that solution set, putting all the mass on one TU. Measured: 1 of
+    1 such groups is winner-take-all.
+
+
+    The consequence is that restoration cannot help on its own. A TU with zero expression gets alpha
+    0, and calculateRnapRecruitment then writes 0 for every one of its TF deltas -- so the restored
+    promoters are structurally present and completely inert. Regulation was in fact wired correctly:
+    rna_id_to_regulating_tfs assigns PC00010 to all three TUs. It is the expression allocation, not
+    the regulation assignment, that strands them.
+
+
+    This also explains why the dedup exists. Collapsing identical-gene-set TUs is what keeps the
+    fit determinate; relaxing it without supplying a rule for splitting expression between promoters
+    just moves the problem. Any real fix needs either promoter-resolved expression data to break
+    the tie, or -- cheaper, and the direction this study''s Phase A finding already pointed at --
+    assigning regulation by promoter coordinates rather than by cistron content, which needs no change
+    to the TU set at all.'
 baseline:
 - name: dedup-control
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
   params:
-    config_overrides: *id005
+    config_overrides: *id006
 conclusion_logic:
   if_primary_tests_fail:
     diagnose:
-    - question: Why did tu-dedup-promoter-collapse's primary criteria fail, and what does that leave open?
+    - question: Why did tu-dedup-promoter-collapse's primary criteria fail, and what does that leave
+        open?
       seeded_study: promoter-specific-regulation
-      note: Seeded from this study's declared successor (parent_studies relation leads-to/refines), not invented to clear the flag.
+      note: Seeded from this study's declared successor (parent_studies relation leads-to/refines),
+        not invented to clear the flag.
 pipeline_gate:
   prerequisites:
   - study: tu-coverage-loss
@@ -404,3 +795,56 @@ pipeline_gate:
     condition: complete
     relation: evidence
     note: Supplies the constraint-boundary evidence that makes restoration non-obvious.
+conclusion_verdicts:
+  regression_compatibility:
+    verdict: passed
+    basis: 'The full-mode refit reproduces the unmodified cache on every structural control: 978
+      delta_prob edges vs 979, 727 TUs carrying a TF vs 727, 45 LexA edges vs 45, and TU00352''s
+      LexA delta unchanged to 7 significant figures. The narrow relaxation adds exactly the two intended
+      TUs and nothing else (3277 -> 3279).'
+  biological_validation:
+    verdict: failed
+    basis: Both Phase B acceptance criteria fail. 0 of 3 dnaG TUs escape the constraint boundary
+      (band [2, 3]) and the LexA edge does not move to rpsUp3 (0.0 against band [0.99, 1.0]). The
+      model still represses dnaG through a promoter that carries no LexA site.
+  explanatory_gain:
+    verdict: passed
+    basis: The failure is mechanistically informative and was not the pre-registered one. H2 predicted
+      pinning by a shared alpha; the measured cause is a degenerate cistron-to-TU expression fit
+      that allocates exactly zero to both restored TUs, making them inert. That both rules out promoter
+      restoration as a repair and explains why the dedup exists.
+report:
+  verdict: failed
+  basis: 'Restoration is refuted as a repair: both Phase B acceptance criteria fail, and the measured
+    cause -- a degenerate cistron-to-TU expression fit leaving the restored promoters at exactly
+    zero expression -- rules out the whole approach rather than this instance of it. Phase C not
+    run, per the rule pre-registered at design time.'
+discovery_implications:
+  resolved_uncertainties:
+  - 'Whether restoring deduplicated promoters can relieve dnaG''s repression: it cannot. The restored
+    TUs receive exactly zero fitted expression and are inert.'
+  - 'Why the gene-set dedup exists: it keeps the cistron-to-TU expression fit determinate. TUs with
+    identical cistron sets are indistinguishable to cistron-level abundance data.'
+  remaining_uncertainties:
+  - Whether assigning regulation by promoter coordinates gives dnaG a working transcript -- untested
+    here, and now the only candidate repair left standing.
+  - Whether the winner-take-all allocation generalises beyond the single group this study created;
+    the narrow relaxation deliberately produced only one.
+  - 'What the residual deficit is once LexA is off dnaG: dnag-locus-targeted-fix measured LexA''s
+    whole contribution at 0.455 of the log-space deficit, leaving the 2.6x basal and 8.2x ppGpp terms
+    untouched by any promoter fix.'
+  followup_study_proposals:
+  - id: promoter-specific-regulation
+    title: Assign transcription-factor regulation by promoter coordinates rather than cistron content
+    motivation: 'Phase B rules out the TU-set repair, leaving this as the only candidate. rna_id_to_regulating_tfs
+      assigns a TF to every TU containing a regulated cistron, so TU00352 inherits LexA because it
+      carries rpoD -- even though LexA''s site sits 88 bp downstream, inside a promoter the dedup
+      removed. Keying the assignment on whether the TU''s span contains the binding site would drop
+      the LexA edge from TU00352 without changing the TU set, which matters because the degeneracy
+      measured here makes changing the TU set unworkable. It is also the cheaper intervention: no
+      ParCa TU-set change, and the existing cache is a valid control.'
+    mechanism: If regulation is assigned by coordinate containment, TU00352 (TSS 3210646, LexA site
+      3210729-3210749) carries no LexA delta, dnaG's surviving transcript is unrepressed, and the
+      6.2x LexA term in the measured deficit factorisation goes to 1. Predicts recovery bounded by
+      the 0.455 log-space ceiling dnag-locus-targeted-fix measured, since the basal and ppGpp terms
+      are untouched.

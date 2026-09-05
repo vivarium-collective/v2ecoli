@@ -133,6 +133,33 @@ paraphrased form looks plausible but won't grep against the runs.db
 state — listener paths that reference a non-existent key silently
 produce empty charts. Always include the EcoCyc ID alongside the
 biological name.
+### Running simulations: take a slot first
+
+Every worktree on this machine shares one RAM budget. A multi-generation sim
+peaks around 5.5 GB, so a 16 GB laptop fits two; a third pushes it into swap and
+everything runs slower than if the third had waited. Worktrees cannot see each
+other's processes, so this is not something to manage by eye.
+
+Wrap every sim in `scripts/simlock.py`, which holds its registry outside any
+worktree (`~/.v2ecoli/simlock/`) so all checkouts share one view:
+
+```bash
+python3 scripts/simlock.py run --label my-run -- \
+    .venv/bin/python3 scripts/run_condition_multigen_parquet.py --cache-dir ...
+```
+
+It blocks until a slot frees, releases on exit including Ctrl-C and SIGTERM, and
+reclaims slots whose holder was `kill -9`'d. `simlock.py status` shows who holds
+what and for how long; `--no-wait` fails fast (exit 75) instead of queueing.
+
+Capacity is 2 by default (`V2ECOLI_SIM_SLOTS`). It also refuses to start when
+free memory is under `V2ECOLI_SIM_MIN_FREE_GB` (default 3) and something else is
+already running — slots assume every sim is full-size, and that guard catches
+the case where something large and unslotted is running.
+
+Batch scripts should launch everything at once and let simlock serialise, rather
+than throttling themselves — see `scripts/run_promspec_sweep.sh`.
+
 - **ParCa** (Parameter Calculator) builds `sim_data` from raw EcoCyc-derived
   knowledge bases. It's expensive (minutes to hours). Never run ParCa in CI —
   CI uses a frozen gzipped cache at `tests/fixtures/cache/`.

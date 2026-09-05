@@ -212,7 +212,25 @@ behavior_tests:
       kind: theory
       note: Bounded above by 1.0; 20% is the floor below which the arbitrariness is buffered before
         it reaches phenotype.
-  status: pending
+  status: blocked
+  blocked_detail: 'BLOCKED, not deferred: the design is confounded and running it would produce an
+    uninterpretable number.
+
+    The study declared a positive control -- TUs in full-rank blocks must NOT move between arms,
+    since their expression is uniquely determined. It FAILS. Of 3279 TUs, 2846 differ between the
+    vertex and min-norm ParCa builds; only 236 of those are underdetermined. 2610 well-determined
+    TUs moved, which is not a finding but a confound.
+
+    Cause, diagnosed rather than assumed: the tie-break is applied INSIDE fit_rna_expression, which
+    runs inside ParCa''s iterative fit. Degenerate TUs are identical to the cistron mapping but NOT
+    to the rest of the model -- they differ 25x in median degradation rate and 3.5x in median length
+    -- so redistributing expression changes total RNA mass and degradation flux, which perturbs the
+    whole coupled fit downstream. Any phenotype difference would then reflect a globally different
+    parameterisation, not the tie-break.
+
+    FIX (req-5): apply the tie-break ONCE to the converged expression vector after the fit has settled,
+    instead of inside the fit loop. That isolates the split and should restore the positive control.
+    Only then are these two axes interpretable.'
 - name: tie-break-is-not-a-global-growth-artefact
   classification: primary
   gate_class: acceptance_criterion
@@ -237,7 +255,25 @@ behavior_tests:
     provenance:
       kind: theory
       note: Two-sided at roughly 50%, matching the sibling studies in this investigation.
-  status: pending
+  status: blocked
+  blocked_detail: 'BLOCKED, not deferred: the design is confounded and running it would produce an
+    uninterpretable number.
+
+    The study declared a positive control -- TUs in full-rank blocks must NOT move between arms,
+    since their expression is uniquely determined. It FAILS. Of 3279 TUs, 2846 differ between the
+    vertex and min-norm ParCa builds; only 236 of those are underdetermined. 2610 well-determined
+    TUs moved, which is not a finding but a confound.
+
+    Cause, diagnosed rather than assumed: the tie-break is applied INSIDE fit_rna_expression, which
+    runs inside ParCa''s iterative fit. Degenerate TUs are identical to the cistron mapping but NOT
+    to the rest of the model -- they differ 25x in median degradation rate and 3.5x in median length
+    -- so redistributing expression changes total RNA mass and degradation flux, which perturbs the
+    whole coupled fit downstream. Any phenotype difference would then reflect a globally different
+    parameterisation, not the tie-break.
+
+    FIX (req-5): apply the tie-break ONCE to the converged expression vector after the fit has settled,
+    instead of inside the fit loop. That isolates the split and should restore the positive control.
+    Only then are these two axes interpretable.'
 - name: optimal-face-width-pin
   classification: supporting
   gate_class: regression_pin
@@ -263,6 +299,31 @@ behavior_tests:
   evaluated_by: agent
   detail: 198 of 307. Median face width 14.2% of the block's total expression, mean 24.6%, and 48
     TUs (15.6%) exceed 50% of their block's total.
+- name: degenerate-tus-differ-in-physics-pin
+  classification: primary
+  gate_class: regression_pin
+  question: Are the TUs the cistron fit cannot distinguish actually interchangeable in the model?
+  description: 'Within-block spread in RNA degradation rate across rank-deficient blocks. A PIN:
+    measured after the fact, while diagnosing why the positive control failed. But it is the study''s
+    most consequential number, and it was not anticipated at design time.'
+  measure:
+    kind: derived
+    path: max/min deg_rate among TUs within each rank-deficient NNLS block
+    detail: 77 blocks with more than one nonzero deg_rate; from rna_data.deg_rate on the vertex arm.
+  pass_if:
+    op: '>='
+    value: 10.0
+    provenance:
+      kind: post_hoc
+      note: Pins the median 25.4x well above the 10x that every block already exceeds; drift-catching
+        only.
+  status: passed
+  result: PASS
+  measured_value: 25.4
+  evaluated_by: agent
+  detail: 'Median within-block spread 25.4x, mean 40.8x, max 228x. ALL 77 blocks exceed 10x. Length
+    spread median 3.47x, max 53x. Worked case, the dnaG locus: TU00352 deg_rate 0.005251/s against
+    TU00434 and TU00435 at 0.000127/s — 41x, for three TUs the cistron fit treats as identical.'
 preregistered:
   declared_before_runs: true
   date: '2026-09-05'
@@ -367,14 +428,17 @@ robustness:
     seed variance.
 implementation_requirements:
 - id: req-1
-  status: not_started
+  status: partial
   blocking: true
   summary: Add a deterministic minimum-norm tie-break to fit_rna_expression, behind a flag.
-  detail: transcription.py:1310 calls fast_nnls and returns the vertex. Add a second mode that, having
-    found an optimum, projects onto the minimum-norm point of the optimal face (equivalently, an
-    L2-regularised solve with the regulariser taken to zero). Gate it so the default is unchanged
-    and the vertex arm is the same code path -- the confound that made tu-dedup-promoter-collapse's
+  detail: 'transcription.py:1310 calls fast_nnls and returns the vertex. Add a second mode that,
+    having found an optimum, projects onto the minimum-norm point of the optimal face (equivalently,
+    an L2-regularised solve with the regulariser taken to zero). Gate it so the default is unchanged
+    and the vertex arm is the same code path -- the confound that made tu-dedup-promoter-collapse''s
     comparison across-cache must not be repeated.
+
+    IMPLEMENTED and verified active (312 TUs redistributed), but hooked INSIDE the fit loop, which
+    breaks the positive control. See req-5.'
 - id: req-2
   status: done
   blocking: true
@@ -394,6 +458,15 @@ implementation_requirements:
   summary: Report marginal-rank blocks separately.
   detail: matrix_rank uses an SVD tolerance; blocks near the threshold should be listed rather than
     silently bucketed, per the floating-point assumption.
+- id: req-5
+  status: not_started
+  blocking: true
+  summary: Apply the min-norm tie-break AFTER fit convergence, not inside the fit loop.
+  detail: The current hook in fit_rna_expression (transcription.py) runs on every fit iteration,
+    so the redistributed expression feeds back through the coupled fit and 2610 well-determined TUs
+    move -- the declared positive control fails. Applying it once to the converged vector isolates
+    the split, which is what axes 5 and 6 need. Keep the in-loop path behind the same flag for comparison;
+    the difference between the two is itself informative about how strongly the fit is coupled.
 limitations:
 - The minimum-norm split is a PROBE, not a proposed fix. An even split across promoters has no more
   biological warrant than an arbitrary vertex. This study can show that the choice matters; it cannot
@@ -407,6 +480,10 @@ limitations:
   at the tolerance margin are a known soft spot.
 - Nothing here addresses WHY the model has multiple TUs per cistron set in the first place, nor whether
   the TU set should be different. That is tu-dedup-promoter-collapse's territory.
+- The min-norm probe is NOT a null intervention, which the design assumed it was. Degenerate TUs
+  are interchangeable to the cistron fit but differ 25x in median degradation rate and 3.5x in length,
+  so redistributing expression among them changes RNA mass and turnover and perturbs the coupled
+  ParCa fit globally. Any tie-break study has to apply the change post-convergence to isolate it.
 parent_studies:
 - study: tu-dedup-promoter-collapse
   condition: complete
@@ -425,7 +502,15 @@ pipeline_gate:
     relation: evidence
     note: 'Supplies the worked case: three TUs, identical cistron set, winner-take-all allocation.'
 discovery_implications:
-  resolved_uncertainties: []
+  resolved_uncertainties:
+  - 'Whether the vertex zeros are arbitrary or forced: ARBITRARY. 90 of 105 are liftable at equal
+    cost (exact LP over the optimal face), so the model''s hard zeros encode a solver choice, not
+    data.'
+  - 'Whether the degenerate TUs are interchangeable: NO, and this was not anticipated. They are identical
+    to the cistron fit but differ by a median 25.4x in degradation rate -- every one of the 77 blocks
+    exceeds 10x, and the worst is 228x. So the arbitrary vertex choice decides which of several transcripts
+    with wildly different half-lives carries an operon''s expression: the same synthesis probability
+    yields a ~25x different steady-state RNA level depending on a tie the data never broke.'
   remaining_uncertainties:
   - Whether the arbitrary zeros are liftable or forced -- the axis that decides whether this is a
     defect or a misreading on our part.
@@ -433,6 +518,8 @@ discovery_implications:
   - What data would break the ties. TSS-resolved 5' end sequencing apportioning an operon's transcripts
     across its promoters is the obvious candidate, but whether a suitable dataset exists for K-12
     has not been checked.
+  - Whether the phenotype consequence survives once the tie-break is isolated post-convergence (req-5).
+    The deg_rate spread makes a real consequence more likely than the design assumed, not less.
   followup_study_proposals:
   - id: promoter-resolved-expression-data
     title: Break the ties with 5' end sequencing data
@@ -463,7 +550,10 @@ runs:
   note: 'Axes 1-4 on the SHIPPED fixture models/parca/parca_state.pkl.gz — exact linear algebra,
     no simulation, deterministic. analyses/identifiability.py takes the state path as argv so any
     arm runs through identical code. Axes 5-6 (phenotype and growth) remain PENDING: they need the
-    min-norm tie-break wired into ParCa (req-1) and two simulated arms.'
+    min-norm tie-break wired into ParCa (req-1) and two simulated arms.
+
+    A second static comparison (vertex vs min-norm ParCa builds) was run afterwards and is recorded
+    on the blocked axes: it FAILED the positive control and revealed the deg_rate spread.'
   outcomes:
     underdetermined-tu-count:
       result: PASS

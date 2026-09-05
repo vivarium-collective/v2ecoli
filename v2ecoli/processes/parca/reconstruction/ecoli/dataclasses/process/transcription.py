@@ -1311,9 +1311,76 @@ class Transcription(object):
         """
         Calculates the expression of RNA transcription units that best fits the
         given expression levels of cistrons using nonnegative least squares.
+
+        Where several TUs contribute identically to the same cistrons the
+        objective cannot separate them: the optimum is a face, not a point, and
+        NNLS returns an arbitrary vertex of it — which is why some TUs come back
+        at exactly 0.0 while a sibling takes the operon's whole expression. On
+        the shipped TU set that affects 307 of 3277 TUs, with 95 free parameters
+        the cistron data never constrains (tu-expression-identifiability).
+
+        With V2ECOLI_MIN_NORM_TU_FIT set, the vertex is replaced by the
+        MINIMUM-NORM point of the same face, which spreads expression across
+        degenerate columns instead of concentrating it. This is a PROBE for
+        whether the choice matters, NOT a claim that an even split is right: it
+        has no more biological warrant than a vertex. Breaking the tie properly
+        needs promoter-resolved data.
         """
         rna_exp, res = fast_nnls(self.cistron_tu_mapping_matrix, cistron_expression)
+
+        import os
+
+        if os.environ.get("V2ECOLI_MIN_NORM_TU_FIT", "").lower() in ("1", "true", "yes"):
+            rna_exp = self._min_norm_on_optimal_face(rna_exp)
         return rna_exp, res
+
+    def _min_norm_on_optimal_face(self, rna_exp, eps=1e-10):
+        """Move to the minimum-norm point of the SAME optimal face.
+
+        The face is {x >= 0 : M x = M x*} — every point on it has an identical
+        cistron-level fit. Only rank-deficient blocks are touched, so a uniquely
+        determined TU cannot move; that doubles as an internal control.
+        """
+        import numpy as np
+        import scipy.sparse as sp
+        from scipy.optimize import nnls
+        from scipy.sparse.csgraph import connected_components
+
+        M = sp.csc_matrix(self.cistron_tu_mapping_matrix).astype(float)
+        n_cistrons, n_tus = M.shape
+        out = np.asarray(rna_exp, dtype=float).copy()
+
+        # Same independent blocks fast_nnls itself solves over.
+        bipartite = sp.bmat([[None, M], [M.T, None]]).tocsr()
+        _, label = connected_components(bipartite, directed=False)
+        blocks: dict = {}
+        for j in range(n_tus):
+            blocks.setdefault(label[n_cistrons + j], ([], []))[1].append(j)
+        for i in range(n_cistrons):
+            blocks.setdefault(label[i], ([], []))[0].append(i)
+
+        n_moved = 0
+        for rows, cols in blocks.values():
+            if len(cols) < 2 or not rows:
+                continue
+            sub = M[rows][:, cols].toarray()
+            if np.linalg.matrix_rank(sub) >= len(cols):
+                continue                      # uniquely determined; leave it alone
+            target = sub @ out[cols]          # the projection every optimum shares
+            augmented = np.vstack([sub, np.sqrt(eps) * np.eye(len(cols))])
+            rhs = np.concatenate([target, np.zeros(len(cols))])
+            solution, _ = nnls(augmented, rhs)
+            out[cols] = solution
+            n_moved += len(cols)
+
+        # fit_rna_expression is called once per condition per fit iteration —
+        # hundreds of times in a full ParCa — so announce the tie-break once
+        # rather than flooding the log with an identical line each call.
+        if not getattr(type(self), "_min_norm_announced", False):
+            type(self)._min_norm_announced = True
+            print(f"    min-norm TU tie-break ACTIVE: redistributing {n_moved} TUs "
+                  f"across rank-deficient blocks (logged once per process)")
+        return out
 
     def fit_trna_expression(self, tRNA_cistron_expression):
         """

@@ -1,0 +1,29 @@
+{
+  "lineage": {
+    "promoter-specific": [
+      12,
+      12,
+      12
+    ],
+    "attribution-control": [
+      4,
+      8,
+      3
+    ]
+  },
+  "tau_ratio": 0.9782608695652174,
+  "tau_medians": {
+    "test": 45.0,
+    "control": 46.0
+  },
+  "deficit": {
+    "promoter-specific": {
+      "deficit": 6.931428980567327,
+      "closed": 0.49824940631752224
+    },
+    "attribution-control": {
+      "deficit": 19471.004033894857,
+      "closed": -1.5596394463873189
+    }
+  }
+}

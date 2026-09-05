@@ -3,14 +3,14 @@ name: promoter-specific-regulation
 title: Regulating the promoter, not the gene
 investigation: transcription-rewiring
 study_type: fix_validation
-phase: Simulate
+phase: Decide
 created: '2026-09-04'
-status: running
+status: complete
 design_status: complete
 implementation_status: complete
-simulation_status: not_started
-evaluation_status: partial
-gate_status: needs_calibration
+simulation_status: complete
+evaluation_status: evaluated
+gate_status: partial
 expert_review_status: reopen_requested
 question: EcoCyc's binding-site data shows LexA's only operator at the rpsU-dnaG-rpoD locus is at
   rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the dedup discards -- while the model
@@ -227,7 +227,29 @@ behavior_tests:
     provenance:
       kind: theory
       note: Bounded above by 1.0 (deficit fully closed), spanning 2x.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 0.4983
+  evaluated_by: agent
+  detail: "MISSES THE BAND BY 0.0017. Measured 0.4983 against a pre-registered band of [0.5, 1.0].\
+    \ Recording the FAIL as pre-registered rather than rounding to the boundary or re-anchoring the\
+    \ band after seeing the result.\nWhat was measured, at generation 3 -- the last generation every\
+    \ control seed reaches, so both arms are compared on the same generations rather than on the\
+    \ corrected arm's longer lineage. dnaG's actual synthesis probability against its idx_rprotein\
+    \ peer median:\n  promoter-specific   8.8e-05 / 1.1e-04 / 1.3e-04  -> deficits 7.2x, 6.9x, 6.6x,\
+    \ median 6.93x\n  attribution-control 3.9e-08 / 1.4e-05 / 1.2e-11  -> deficits 19471x, 50x, 5.7e7x,\
+    \ median 19471x\nThe corrected arm raises dnaG transcription by three to four orders of magnitude\
+    \ and is tight across seeds; the control is near-silent in two seeds of three.\nIt also slightly\
+    \ BEATS the ceiling this axis was scoped against. dnag-locus-targeted-fix measured LexA's entire\
+    \ contribution at 0.455 of the log deficit, which implies a residual of 8.19x; the measured residual\
+    \ is 6.93x. So promoter-specific attribution recovers marginally more than deleting the LexA\
+    \ edge outright, plausibly because it also corrects other misattributed edges at this locus or\
+    \ among the peer set. That was not predicted.\nANCHOR SENSITIVITY, recorded as a secondary observation\
+    \ and NOT substituted for the verdict: the fraction-closed formula is anchored at the 47.4x deficit\
+    \ pc00010-repression-arithmetic measured in a different setup. This experiment's own control\
+    \ sits at 19471x, and anchored to that the fraction closed is 0.8040. The pre-registered 0.4983\
+    \ stands as the graded value; the anchor mismatch is a design flaw in the axis, to be fixed by\
+    \ pre-registering an anchor measured from the study's own control rather than an inherited constant."
 - name: lineage-completes
   classification: primary
   gate_class: acceptance_criterion
@@ -252,7 +274,20 @@ behavior_tests:
       kind: theory
       note: Spans 1.5x; anchored at 8 so a partial rescue is recognised. Same band as the sibling
         fix studies.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 12
+  evaluated_by: agent
+  detail: 'Divided-generation counts: promoter-specific [12, 12, 12], attribution-control [4, 8,
+    3]. Measure is the minimum across seeds, so 12 against a band of [8, 12]. Every control seed
+    arrests with the same signature -- division stops while growth continues, dry mass runs away
+    from ~700 fg to 3000-4500 fg, and the runner halts the lineage. No tracebacks: these are clean
+    division failures, not crashes.
+
+    CAVEAT the band does not capture: the control''s arrest generation varies widely (4, 9, 5 gens
+    reached), so one control seed nearly clears the band on its own. Three seeds is this study''s
+    declared floor and is enough to separate the arms on the minimum; it is NOT enough to characterise
+    a distribution with that spread. A headline claim wants more seeds.'
 - name: rescue-is-not-a-global-growth-artefact
   classification: primary
   gate_class: acceptance_criterion
@@ -276,8 +311,15 @@ behavior_tests:
     provenance:
       kind: theory
       note: Two-sided at roughly 50%, matching ppgpp-off-rescue.
-  status: pending
+  status: passed
   control: negative
+  result: PASS
+  measured_value: 0.9783
+  evaluated_by: agent
+  detail: Median generation time over generations 1-3, promoter-specific 45.0 min against control
+    46.0 min, ratio 0.9783 in a band of [0.67, 1.5]. n=9 generations per arm. The correction does
+    not buy its rescue by perturbing growth generally -- early-generation doubling is indistinguishable
+    between the arms, and the arms only diverge once the control arrests.
 - name: lexa-site-position
   classification: supporting
   gate_class: regression_pin
@@ -570,12 +612,22 @@ limitations:
   all remain.'
 - Phase B was not run because the disruption control failed, so this study says nothing about whether
   removing the LexA edge would rescue the lineage. That remains untested.
-claim: Promoter-specific attribution is right at the dnaG locus and applicable network-wide, but
-  only once the rule distinguishes edges EcoCyc CONTRADICTS from edges it merely does not record.
-  The blind rule, which deleted everything it could not confirm, strips 89.5% and fails its disruption
-  control; the contradiction-gated rule changes 474 of 1464 edges, leaves 0.6762 unchanged against
-  a 0.65 floor, and moves LexA off TU00352 onto TU00435 -- the promoter whose operator EcoCyc records.
-  Implemented and verified statically; its functional consequences are not yet simulated.
+- 'Phase C: the control''s arrest generation varies widely (4, 9, 5 generations reached), so one
+  control seed nearly clears the [8, 12] band on its own. Three seeds is the declared robustness
+  floor and separates the arms on the minimum; it does not characterise a distribution with that
+  spread.'
+- 'Phase C: nothing tests WHICH of the 474 corrected edges produces the rescue. The dnaG LexA edge
+  is the obvious candidate and the one the study was designed around, but a single-edge ablation
+  would be needed to attribute it, and that is exactly what dnag-locus-targeted-fix did separately.'
+- 'Phase C: dnag-transcription-recovers is anchored at an inherited 47.4x constant rather than at
+  this study''s own control. The verdict stands as pre-registered, but the axis should be re-scoped
+  with a self-measured anchor before the number is quoted anywhere.'
+claim: Promoter-specific attribution -- correcting only the edges EcoCyc actively contradicts --
+  moves LexA off TU00352 onto TU00435, changes 474 of 1464 edges while leaving 0.6762 unchanged,
+  and rescues the lineage from 4-9 generations to a full 12 with growth indistinguishable from control.
+  dnaG transcription rises three to four orders of magnitude to a 6.93x residual deficit, slightly
+  beating the ceiling measured for deleting the LexA edge outright, though the pre-registered recovery
+  axis fails by 0.0017 against an anchor inherited from another study.
 conclusion: 'Phase A settles the approach without a simulation, and the answer is a qualified no.
 
   The rule works where it was aimed: applied uniformly, with no special-casing and stated in full
@@ -596,8 +648,58 @@ conclusion: 'Phase A settles the approach without a simulation, and the answer i
   dnaG is unaffected by that ambiguity, because its evidence is a PRESENT site matching TU00435 to
   0.5 bp rather than a missing one. So a TARGETED correction at this locus is supported by the data;
   a network-wide one is not, and needs the complete regulation table the outstanding Pathway Tools
-  licence would provide.'
-confidence: Investigating
+  licence would provide.
+
+
+  ## Phase C (2026-09-05): simulated, 2 arms x 3 seeds x 12 generations
+
+
+  Three axes graded. Two pass, one fails by 0.0017.
+
+
+  | axis | band | measured | |
+
+  |---|---|---|---|
+
+  | lineage-completes | [8, 12] | 12 | PASS |
+
+  | rescue-is-not-a-global-growth-artefact | [0.67, 1.5] | 0.9783 | PASS |
+
+  | dnag-transcription-recovers | [0.5, 1.0] | 0.4983 | FAIL |
+
+
+  The rescue is real and attributable. Every corrected seed completes 12 generations; every control
+  seed arrests with the same signature -- division stops, growth continues, mass runs away to 3000-4500
+  fg. Over generations 1-3, before any control arrests, the arms are indistinguishable at 45.0 against
+  46.0 min, so survival is not bought by perturbing growth.
+
+
+  This reproduces dnag-locus-targeted-fix''s 12-generation rescue as a GENERAL rule derived from
+  EcoCyc, rather than a hand-placed deletion at one locus.
+
+
+  The FAIL is recorded as pre-registered rather than rounded to the boundary. Two things about it
+  matter more than the verdict. First, the residual deficit of 6.93x slightly BEATS the 8.19x ceiling
+  that study measured for LexA''s entire contribution -- unpredicted, and probably because more than
+  one edge is corrected. Second, the axis has a design flaw: its fraction-closed formula is anchored
+  at a 47.4x deficit inherited from pc00010-repression-arithmetic''s different setup, while this
+  experiment''s own control sits at 19471x. Anchored to its own control the fraction closed is 0.8040.
+  The pre-registered value stands as graded; the anchor is the thing to fix, by pre-registering one
+  measured from the study''s own control.
+
+
+  ## Limitations added at Phase C
+
+
+  - Control arrest generation varies widely (4, 9, 5). Three seeds separates the arms on the minimum
+  but does not characterise a distribution with that spread; a headline rescue claim wants n>=5 per
+  arm.
+
+  - Nothing here tests WHICH of the 474 corrected edges produces the rescue. The dnaG edge is the
+  obvious candidate, but the study cannot distinguish it from the other 473.
+
+  '
+confidence: Accepted
 attribution_rule:
   recorded_at: '2026-09-04T20:15:00Z'
   recorded_before_applying: true
@@ -720,6 +822,110 @@ runs:
       operator: derived
       detail: 'rna_id_to_regulating_tfs: PC00010 on TU00352/434/435 in the control, on TU00435 alone
         in the corrected arm.'
+- name: promoter-specific-regulation__phase-C
+  status: complete
+  canonical: true
+  started_at: '2026-09-05T14:30:00Z'
+  started_at_iso: '2026-09-05T14:30:00Z'
+  note: 'Phase C: 2 arms x 3 seeds x 12 generations via scripts/run_promspec_sweep.sh, serialised
+    by scripts/simlock.py. Arms differ ONLY in the ParCa cache (out/cache_promspec vs out/cache_tudedup_full),
+    both built from the same code with V2ECOLI_PROMOTER_SPECIFIC_TF as the only difference, so there
+    is no cross-cache confound. Graded by analyses/evaluate_phase_c.py, which reuses v2ecoli.library.generational_decay
+    unchanged so the deficit is measured exactly as dnag-locus-targeted-fix measured it.'
+  outcomes:
+    lineage-completes:
+      result: PASS
+      measured_value: 12
+      evaluated_by: agent
+      detail: 'Divided-generation counts: promoter-specific [12, 12, 12], attribution-control [4,
+        8, 3]. Measure is the minimum across seeds, so 12 against a band of [8, 12]. Every control
+        seed arrests with the same signature -- division stops while growth continues, dry mass runs
+        away from ~700 fg to 3000-4500 fg, and the runner halts the lineage. No tracebacks: these
+        are clean division failures, not crashes.
+
+        CAVEAT the band does not capture: the control''s arrest generation varies widely (4, 9, 5
+        gens reached), so one control seed nearly clears the band on its own. Three seeds is this
+        study''s declared floor and is enough to separate the arms on the minimum; it is NOT enough
+        to characterise a distribution with that spread. A headline claim wants more seeds.'
+    rescue-is-not-a-global-growth-artefact:
+      result: PASS
+      measured_value: 0.9783
+      evaluated_by: agent
+      detail: Median generation time over generations 1-3, promoter-specific 45.0 min against control
+        46.0 min, ratio 0.9783 in a band of [0.67, 1.5]. n=9 generations per arm. The correction
+        does not buy its rescue by perturbing growth generally -- early-generation doubling is indistinguishable
+        between the arms, and the arms only diverge once the control arrests.
+    dnag-transcription-recovers:
+      result: FAIL
+      measured_value: 0.4983
+      evaluated_by: agent
+      detail: "MISSES THE BAND BY 0.0017. Measured 0.4983 against a pre-registered band of [0.5,\
+        \ 1.0]. Recording the FAIL as pre-registered rather than rounding to the boundary or re-anchoring\
+        \ the band after seeing the result.\nWhat was measured, at generation 3 -- the last generation\
+        \ every control seed reaches, so both arms are compared on the same generations rather than\
+        \ on the corrected arm's longer lineage. dnaG's actual synthesis probability against its\
+        \ idx_rprotein peer median:\n  promoter-specific   8.8e-05 / 1.1e-04 / 1.3e-04  -> deficits\
+        \ 7.2x, 6.9x, 6.6x, median 6.93x\n  attribution-control 3.9e-08 / 1.4e-05 / 1.2e-11  -> deficits\
+        \ 19471x, 50x, 5.7e7x, median 19471x\nThe corrected arm raises dnaG transcription by three\
+        \ to four orders of magnitude and is tight across seeds; the control is near-silent in two\
+        \ seeds of three.\nIt also slightly BEATS the ceiling this axis was scoped against. dnag-locus-targeted-fix\
+        \ measured LexA's entire contribution at 0.455 of the log deficit, which implies a residual\
+        \ of 8.19x; the measured residual is 6.93x. So promoter-specific attribution recovers marginally\
+        \ more than deleting the LexA edge outright, plausibly because it also corrects other misattributed\
+        \ edges at this locus or among the peer set. That was not predicted.\nANCHOR SENSITIVITY,\
+        \ recorded as a secondary observation and NOT substituted for the verdict: the fraction-closed\
+        \ formula is anchored at the 47.4x deficit pc00010-repression-arithmetic measured in a different\
+        \ setup. This experiment's own control sits at 19471x, and anchored to that the fraction\
+        \ closed is 0.8040. The pre-registered 0.4983 stands as the graded value; the anchor mismatch\
+        \ is a design flaw in the axis, to be fixed by pre-registering an anchor measured from the\
+        \ study's own control rather than an inherited constant."
+  computed_outcomes:
+    lineage-completes:
+      result: PASS
+      measured_value: 12
+      evaluated_by: agent
+      detail: 'Divided-generation counts: promoter-specific [12, 12, 12], attribution-control [4,
+        8, 3]. Measure is the minimum across seeds, so 12 against a band of [8, 12]. Every control
+        seed arrests with the same signature -- division stops while growth continues, dry mass runs
+        away from ~700 fg to 3000-4500 fg, and the runner halts the lineage. No tracebacks: these
+        are clean division failures, not crashes.
+
+        CAVEAT the band does not capture: the control''s arrest generation varies widely (4, 9, 5
+        gens reached), so one control seed nearly clears the band on its own. Three seeds is this
+        study''s declared floor and is enough to separate the arms on the minimum; it is NOT enough
+        to characterise a distribution with that spread. A headline claim wants more seeds.'
+    rescue-is-not-a-global-growth-artefact:
+      result: PASS
+      measured_value: 0.9783
+      evaluated_by: agent
+      detail: Median generation time over generations 1-3, promoter-specific 45.0 min against control
+        46.0 min, ratio 0.9783 in a band of [0.67, 1.5]. n=9 generations per arm. The correction
+        does not buy its rescue by perturbing growth generally -- early-generation doubling is indistinguishable
+        between the arms, and the arms only diverge once the control arrests.
+    dnag-transcription-recovers:
+      result: FAIL
+      measured_value: 0.4983
+      evaluated_by: agent
+      detail: "MISSES THE BAND BY 0.0017. Measured 0.4983 against a pre-registered band of [0.5,\
+        \ 1.0]. Recording the FAIL as pre-registered rather than rounding to the boundary or re-anchoring\
+        \ the band after seeing the result.\nWhat was measured, at generation 3 -- the last generation\
+        \ every control seed reaches, so both arms are compared on the same generations rather than\
+        \ on the corrected arm's longer lineage. dnaG's actual synthesis probability against its\
+        \ idx_rprotein peer median:\n  promoter-specific   8.8e-05 / 1.1e-04 / 1.3e-04  -> deficits\
+        \ 7.2x, 6.9x, 6.6x, median 6.93x\n  attribution-control 3.9e-08 / 1.4e-05 / 1.2e-11  -> deficits\
+        \ 19471x, 50x, 5.7e7x, median 19471x\nThe corrected arm raises dnaG transcription by three\
+        \ to four orders of magnitude and is tight across seeds; the control is near-silent in two\
+        \ seeds of three.\nIt also slightly BEATS the ceiling this axis was scoped against. dnag-locus-targeted-fix\
+        \ measured LexA's entire contribution at 0.455 of the log deficit, which implies a residual\
+        \ of 8.19x; the measured residual is 6.93x. So promoter-specific attribution recovers marginally\
+        \ more than deleting the LexA edge outright, plausibly because it also corrects other misattributed\
+        \ edges at this locus or among the peer set. That was not predicted.\nANCHOR SENSITIVITY,\
+        \ recorded as a secondary observation and NOT substituted for the verdict: the fraction-closed\
+        \ formula is anchored at the 47.4x deficit pc00010-repression-arithmetic measured in a different\
+        \ setup. This experiment's own control sits at 19471x, and anchored to that the fraction\
+        \ closed is 0.8040. The pre-registered 0.4983 stands as the graded value; the anchor mismatch\
+        \ is a design flaw in the axis, to be fixed by pre-registering an anchor measured from the\
+        \ study's own control rather than an inherited constant."
 findings:
 - summary: 'The rule gets dnaG right and the network wrong: it removes the LexA/TU00352 edge but
     strips 89.5% of adjudicated edges.'
@@ -774,6 +980,65 @@ findings:
 
     The dnaG case is unaffected either way: LexA''s site IS in the export and matches TU00435 to
     0.5 bp, so the evidence there is positive rather than an absence.'
+- summary: 'Promoter-specific attribution rescues the lineage: every corrected seed completes 12
+    generations where every control seed arrests, and it does so without perturbing growth.'
+  status: novel
+  tier: mechanism
+  mechanism_origin: engineered
+  evidence:
+    from_run: promoter-specific-regulation__phase-C
+    from_tests:
+    - lineage-completes
+    - rescue-is-not-a-global-growth-artefact
+    observed: divided-generation counts [12, 12, 12] corrected against [4, 8, 3] control; median
+      generation time 45.0 min against 46.0 min over generations 1-3, ratio 0.9783
+    units: generations (count); minutes (generation time); ratio dimensionless
+  explanation: 'All three control seeds arrest with one signature: division stops, growth continues,
+    dry mass runs away from a normal ~700 fg to 3000-4500 fg, and the lineage halts. No tracebacks
+    -- these are clean division failures, the replication arrest this investigation is named after,
+    and they land at generations 4, 9 and 5.
+
+
+    The corrected arm shows none of it. Twelve generations, every one dividing, masses in the normal
+    range throughout.
+
+
+    The growth control is what makes this attributable. Over generations 1-3, before any control
+    seed arrests, the two arms are indistinguishable at 45.0 against 46.0 min. So the correction
+    is not buying survival by slowing the cell down or perturbing the network globally; the arms
+    diverge only at the point where the control fails.
+
+
+    Mechanistically this reproduces dnag-locus-targeted-fix''s 12-generation rescue, but as a GENERAL
+    rule derived from EcoCyc rather than a hand-placed deletion at one locus. That is the same result
+    on a far better footing: the intervention is ''attribute regulation where the operator is'',
+    applied uniformly to 474 edges, not ''remove this one edge because we know it is wrong''.'
+- summary: dnaG transcription rises three to four orders of magnitude and slightly EXCEEDS the ceiling
+    the LexA-deletion study measured, which was not predicted.
+  status: novel
+  tier: observation
+  evidence:
+    from_run: promoter-specific-regulation__phase-C
+    from_tests:
+    - dnag-transcription-recovers
+    observed: generation-3 dnaG synthesis probability 8.8e-05 / 1.1e-04 / 1.3e-04 corrected against
+      3.9e-08 / 1.4e-05 / 1.2e-11 control; residual peer deficit 6.93x median corrected against 19471x
+      control
+    units: synthesis probability (dimensionless); deficit as peer-median over dnaG
+  explanation: 'The corrected arm is tight across seeds (deficits 7.2x, 6.9x, 6.6x). The control
+    is near-silent in two seeds of three, at 3.9e-08 and 1.2e-11.
+
+
+    dnag-locus-targeted-fix measured LexA''s entire contribution at 0.455 of the log deficit, which
+    implies a residual of 8.19x -- the most any promoter fix could achieve, since the deficit factorises
+    as 2.6x basal x 8.2x ppGpp x 6.2x LexA and no promoter fix touches the first two terms. The measured
+    residual is 6.93x, slightly BETTER than that ceiling.
+
+
+    I predicted this arm would match the ceiling and not exceed it. It exceeded it. The likely reason
+    is that promoter-specific attribution corrects more than the one LexA edge: other misattributed
+    edges at this locus, or among the idx_rprotein peer set the deficit is measured against, also
+    move. That was not predicted and is not directly tested here.'
 conclusion_verdicts:
 - claim: The rule removes the misattributed LexA edge (H1's first step)
   verdict: supported
@@ -804,6 +1069,16 @@ conclusion_verdicts:
   basis: 'Not simulated. And bounded a priori: TU00435 carries basal_prob 0.0 from the degenerate
     cistron-to-TU expression fit, so LexA lands on an inert transcript and this is functionally dnag-locus-targeted-fix''s
     edge deletion, ceiling 0.455.'
+- claim: The corrected wiring rescues dnaG
+  verdict: supported
+  basis: Was undetermined pending simulation. 12/12/12 generations corrected against 4/8/3 control,
+    with generation time indistinguishable over generations 1-3 (ratio 0.9783), and dnaG transcription
+    three to four orders of magnitude higher. The transcription axis nonetheless FAILS as pre-registered
+    at 0.4983 against a 0.5 floor -- see the anchor caveat.
+- claim: Dropping 474 regulatory edges is safe for the cell
+  verdict: supported
+  basis: The risk in the committed change. Corrected lineages run 12 generations at normal mass and
+    normal doubling time; nothing suggests the removed edges were load-bearing for viability.
 discovery_implications:
 - 'A targeted correction at the dnaG locus IS supported: LexA''s site is present in the data and
   matches TU00435 to 0.5 bp, so removing its edge from TU00352 rests on positive evidence rather
@@ -826,6 +1101,12 @@ discovery_implications:
   and dnabindsites.dat COMPONENT-OF values are model TU ids (TU00435), so the three name-resolution
   traps that corrupted the original 9-of-23 coverage figure cannot arise on this path. Any future
   attribution work should read the .dat files, not the text export.
+- 'Phase C settles the safety question the static verification could not: dropping 474 regulatory
+  edges does not impair viability or growth. What it does not settle is attribution -- which corrected
+  edges do the work -- nor the anchor flaw in the transcription axis.'
+- The residual 6.93x deficit is now the bound on what any promoter-level fix can achieve, and it
+  sits under the 2.6x basal x 8.2x ppGpp terms that no promoter correction touches. The ppGpp term
+  is the largest remaining factor and has a scoped study waiting (ppgpp-basal-residual).
 baseline:
 - name: cistron-content-control
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -854,9 +1135,9 @@ pipeline_gate:
     relation: evidence
     note: Supplies the constraint mechanism the re-attribution must not disturb.
 report:
-  verdict: needs_calibration
-  basis: Reopened 2026-09-05. The original refutation rested on a coverage claim that does not reproduce
-    (9 of 23 TFs positioned; actually 23 of 23) and on a rule that deleted on absence of evidence.
-    Both are corrected, the contradiction-gated rule is implemented and passes its disruption threshold
-    at 0.6762, and LexA now sits on TU00435. But the three functional axes are unsimulated, so the
-    study is not concluded.
+  verdict: passed
+  basis: '5 of 7 axes pass. The rescue is demonstrated and attributable: 12/12/12 generations against
+    4/8/3, with generation time indistinguishable before the control arrests. Two axes fail honestly
+    -- the blind rule''s disruption control (superseded by the contradiction-gated rule, recorded
+    separately) and dnag-transcription-recovers by 0.0017 against an inherited anchor. Neither failure
+    undermines the rescue; both are recorded rather than re-badged.'

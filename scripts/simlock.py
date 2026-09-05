@@ -19,6 +19,7 @@ It blocks until a slot frees, runs the command, and releases the slot on exit,
 including on Ctrl-C or SIGTERM. Other subcommands:
 
     python3 scripts/simlock.py status         # who holds what, and for how long
+    python3 scripts/simlock.py adopt 1234     # put an already-running sim under the lock
     python3 scripts/simlock.py wait           # block until a slot is free, then exit 0
     python3 scripts/simlock.py reap           # drop entries whose process is gone
 
@@ -164,6 +165,49 @@ def cmd_status(_args) -> int:
     return 0
 
 
+def cmd_adopt(args) -> int:
+    """Register an already-running process as holding a slot.
+
+    Needed whenever sims were started before the lock existed, or from a
+    checkout that predates it: simlock would otherwise see free slots that the
+    machine does not actually have, which is worse than no lock at all.
+    """
+    claimed, skipped = [], []
+    with registry_lock():
+        entries = _reap(_read())
+        held = {e.get("pid") for e in entries}
+        for pid in args.pids:
+            if not alive(pid):
+                skipped.append((pid, "not running"))
+                continue
+            if pid in held:
+                skipped.append((pid, "already held"))
+                continue
+            try:
+                cmdline = subprocess.run(["ps", "-p", str(pid), "-o", "command="],
+                                         capture_output=True, text=True, timeout=5).stdout.strip()
+            except Exception:
+                cmdline = ""
+            entries.append({
+                "pid": pid, "host": socket.gethostname(), "worktree": "(adopted)",
+                "label": args.label or (cmdline.split()[1] if len(cmdline.split()) > 1
+                                        else f"pid-{pid}").split("/")[-1],
+                "command": cmdline, "adopted": True,
+                "started_at": time.strftime("%Y-%m-%dT%H:%M:%S"), "started_epoch": time.time(),
+            })
+            held.add(pid)
+            claimed.append(pid)
+        _write(entries)
+    for pid in claimed:
+        print(f"adopted pid {pid}")
+    for pid, why in skipped:
+        print(f"skipped pid {pid}: {why}")
+    if len(entries) > capacity():
+        print(f"note: {len(entries)} holders now exceed capacity {capacity()}; "
+              f"new runs will queue until it drops", file=sys.stderr)
+    return 0
+
+
 def cmd_reap(_args) -> int:
     with registry_lock():
         before = _read()
@@ -247,6 +291,11 @@ def main() -> int:
     p_wait.add_argument("--label", default=None)
     p_wait.add_argument("--timeout", type=float, default=None)
     p_wait.set_defaults(func=cmd_wait)
+
+    p_adopt = sub.add_parser("adopt", help="register already-running pids as slot holders")
+    p_adopt.add_argument("pids", nargs="+", type=int)
+    p_adopt.add_argument("--label", default=None)
+    p_adopt.set_defaults(func=cmd_adopt)
 
     sub.add_parser("status", help="show slot occupancy").set_defaults(func=cmd_status)
     sub.add_parser("reap", help="drop entries whose process is gone").set_defaults(func=cmd_reap)

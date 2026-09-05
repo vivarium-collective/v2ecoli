@@ -3,14 +3,14 @@ name: promoter-specific-regulation
 title: Regulating the promoter, not the gene
 investigation: transcription-rewiring
 study_type: fix_validation
-phase: Decide
+phase: Simulate
 created: '2026-09-04'
-status: complete
+status: running
 design_status: complete
 implementation_status: complete
-simulation_status: not_run
-evaluation_status: evaluated
-gate_status: failed
+simulation_status: not_started
+evaluation_status: partial
+gate_status: needs_calibration
 expert_review_status: reopen_requested
 question: EcoCyc's binding-site data shows LexA's only operator at the rpsU-dnaG-rpoD locus is at
   rpsUp3 (3210729-3210749, TSS 3210734.5 = TU00435), a promoter the dedup discards -- while the model
@@ -570,8 +570,12 @@ limitations:
   all remain.'
 - Phase B was not run because the disruption control failed, so this study says nothing about whether
   removing the LexA edge would rescue the lineage. That remains untested.
-claim: The promoter-specific rule removes the LexA edge that silences dnaG, exactly as predicted
-  -- but strips 89.5% of the adjudicated network, so it cannot be applied generally from this data.
+claim: Promoter-specific attribution is right at the dnaG locus and applicable network-wide, but
+  only once the rule distinguishes edges EcoCyc CONTRADICTS from edges it merely does not record.
+  The blind rule, which deleted everything it could not confirm, strips 89.5% and fails its disruption
+  control; the contradiction-gated rule changes 474 of 1464 edges, leaves 0.6762 unchanged against
+  a 0.65 floor, and moves LexA off TU00352 onto TU00435 -- the promoter whose operator EcoCyc records.
+  Implemented and verified statically; its functional consequences are not yet simulated.
 conclusion: 'Phase A settles the approach without a simulation, and the answer is a qualified no.
 
   The rule works where it was aimed: applied uniformly, with no special-casing and stated in full
@@ -593,7 +597,7 @@ conclusion: 'Phase A settles the approach without a simulation, and the answer i
   0.5 bp rather than a missing one. So a TARGETED correction at this locus is supported by the data;
   a network-wide one is not, and needs the complete regulation table the outstanding Pathway Tools
   licence would provide.'
-confidence: Refuted
+confidence: Investigating
 attribution_rule:
   recorded_at: '2026-09-04T20:15:00Z'
   recorded_before_applying: true
@@ -690,6 +694,32 @@ runs:
     misattributed-lexa-edges-are-removed: *id002
     most-edges-are-unchanged: *id003
     lexa-site-position: *id004
+- name: promoter-specific-regulation__phase-B-implementation
+  status: complete
+  canonical: true
+  started_at: '2026-09-05T11:45:00Z'
+  started_at_iso: '2026-09-05T11:45:00Z'
+  note: 'STATIC ONLY -- ParCa builds, no simulation. Corrected arm out/cache_promspec built with
+    V2ECOLI_PROMOTER_SPECIFIC_TF=1; matched control out/cache_tudedup_full built from the same code
+    with the flag off, both 3279 TUs, so the flag is the only difference and there is no cross-cache
+    confound. Verified by analyses/verify_promspec.py. The three functional axes (dnag-transcription-recovers,
+    lineage-completes, rescue-is-not-a-global-growth-artefact) remain PENDING: nothing has been simulated,
+    and dropping 474 regulatory edges could plausibly affect growth. Showing the wiring changes as
+    intended is not showing the cell still lives.'
+  outcomes:
+    edges_kept:
+      result: PASS
+      measured_value: 990
+      evaluated_by: agent
+      operator: derived
+      detail: unchanged fraction 0.6762 vs 0.65 floor; 474 dropped, predicted 473.
+    lexa_moved_to_TU00435:
+      result: PASS
+      measured_value: 1.0
+      evaluated_by: agent
+      operator: derived
+      detail: 'rna_id_to_regulating_tfs: PC00010 on TU00352/434/435 in the control, on TU00435 alone
+        in the corrected arm.'
 findings:
 - summary: 'The rule gets dnaG right and the network wrong: it removes the LexA/TU00352 edge but
     strips 89.5% of adjudicated edges.'
@@ -747,16 +777,33 @@ findings:
 conclusion_verdicts:
 - claim: The rule removes the misattributed LexA edge (H1's first step)
   verdict: supported
-  basis: TU00352's LexA edge removed by the uniform rule, as predicted before running.
-- claim: Positional attribution is applicable network-wide from this data
+  basis: 'TU00352''s LexA edge removed by the uniform rule, as predicted before running. Confirmed
+    again in the implemented arm: fitted delta -1.000000 -> 0.0.'
+- claim: The BLIND rule (delete every unconfirmed edge) is applicable network-wide
   verdict: refuted
-  basis: Retention 0.1049 against a required 0.65; the rule strips 89.5% of adjudicated edges.
+  basis: Retention 0.1049 against a required 0.65. Re-measured with correct TF name resolution it
+    is 0.2353 at 50 bp and only 0.6409 at 5 kb -- higher, still failing. This verdict stands.
 - claim: The disruption is a tolerance artefact
   verdict: refuted
   basis: Bimodal distances; a 100x looser tolerance moves retention only 0.1049 -> 0.1770.
 - claim: The 89.5% shows the model's assignments are wrong
+  verdict: partly supported
+  basis: 'Was undetermined -- ''indistinguishable from an incomplete export''. Now determined against
+    EcoCyc''s primary flatfiles: of 1464 declared edges, 44.4% are CONFIRMED, 32.4% are CONTRADICTED
+    (recorded at the operon but on a different TU) and 23.3% are UNRECORDED. So roughly a third of
+    the model''s assignments are positionally wrong and a quarter are simply unattested -- not the
+    near-universal error the 89.5% implied, and not nothing.'
+- claim: The CONTRADICTION-GATED rule is applicable network-wide
+  verdict: supported
+  basis: 474 of 1464 edges changed, unchanged fraction 0.6762 against the 0.65 floor, verified against
+    a matched control (both 3279 TUs, flag the only difference). Offline prediction and in-model
+    implementation agree to within one edge. NOTE this is a DIFFERENT rule from the one the pre-registered
+    axis graded; it is not that axis passing on re-measurement.
+- claim: The corrected wiring rescues dnaG
   verdict: undetermined
-  basis: Indistinguishable from an incomplete export; coverage and bimodality favour incompleteness.
+  basis: 'Not simulated. And bounded a priori: TU00435 carries basal_prob 0.0 from the degenerate
+    cistron-to-TU expression fit, so LexA lands on an inert transcript and this is functionally dnag-locus-targeted-fix''s
+    edge deletion, ceiling 0.455.'
 discovery_implications:
 - 'A targeted correction at the dnaG locus IS supported: LexA''s site is present in the data and
   matches TU00435 to 0.5 bp, so removing its edge from TU00352 rests on positive evidence rather
@@ -806,3 +853,10 @@ pipeline_gate:
     condition: complete
     relation: evidence
     note: Supplies the constraint mechanism the re-attribution must not disturb.
+report:
+  verdict: needs_calibration
+  basis: Reopened 2026-09-05. The original refutation rested on a coverage claim that does not reproduce
+    (9 of 23 TFs positioned; actually 23 of 23) and on a rule that deleted on absence of evidence.
+    Both are corrected, the contradiction-gated rule is implemented and passes its disruption threshold
+    at 0.6762, and LexA now sits on TU00435. But the three functional axes are unsimulated, so the
+    study is not concluded.

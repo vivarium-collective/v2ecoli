@@ -165,6 +165,40 @@ behavior_tests:
       are model assignments with no operator for that TF anywhere near the promoter. That resolves
       the ambiguity the study left open in favour of its first reading: the cistron-content assignments
       are largely unsupported positionally. It is the dnaG finding generalised, not an artefact.'
+    edge_evidence_split_2026_09_05:
+      script: analyses/edge_evidence_split.py
+      source: EcoCyc 30.0 regulation.dat + dnabindsites.dat + transunits.dat (frame-id join, no name
+        matching)
+      edges_total: 1462
+      CONFIRMED: 548
+      CONTRADICTED: 409
+      UNRECORDED: 326
+      tf_not_joined: 179
+      unchanged_if_only_contradicted_edges_change: 0.7202
+      unchanged_conservative_336_id_confirmable: 0.7702
+      unchanged_worst_case_if_all_179_contradicted: 0.5978
+      note: 'The blind rule''s disruption number conflates three cases. Split against EcoCyc''s primary
+        data: 37.48% of the model''s edges are CONFIRMED (EcoCyc records that TF on that exact TU),
+        27.98% are CONTRADICTED (EcoCyc records the TF at that operon but on a DIFFERENT TU -- real
+        misattributions, the dnaG case), and 22.30% are UNRECORDED (EcoCyc says nothing; absence
+        of evidence, and the fold-change data may still be right). Only the contradicted pile justifies
+        changing the model.
+
+        A rule restricted to contradicted edges leaves 1053 of 1462 edges untouched, unchanged =
+        0.7202, which CLEARS the 0.65 floor the blind rule failed at 0.1049. On the conservative
+        subset -- the 336 contradicted edges carried on TU* ids, which can be confirmed by identity
+        rather than by gene overlap -- it is 0.7702.
+
+        NOT YET SETTLED: 179 edges (12.24%) could not be joined because their model TF id never appears
+        as a regulation.dat REGULATOR. Two are id-form mismatches (PUTA-CPLX vs PUTA-MONOMER) but
+        FNR-4FE-4S-CPLX and PHOSPHO-DCUR have no regulator entry at all, which sits oddly against
+        FNR''s 129 positioned sites in the text export -- so this is a gap in my join, not established
+        absence. If every one of those 179 turned out contradicted, unchanged would fall to 0.5978
+        and the gate would still fail. The conclusion is therefore likely but not yet secure; resolving
+        the FNR and DcuR regulator ids is what would settle it.
+
+        The dnaG edge classifies exactly as predicted: model puts PC00010 on TU00352[c]; EcoCyc records
+        it on TU00435.'
 - name: dnag-transcription-recovers
   classification: primary
   gate_class: acceptance_criterion
@@ -373,6 +407,40 @@ implementation_requirements:
 
 
     RESOLVED: matching is case-insensitive; the 14 unmatched TFs abstain under rule 4.'
+- id: req-promoter-specific-attribution-implemented
+  status: done
+  blocking: false
+  summary: Promoter-specific TF attribution implemented in ParCa and verified against a matched control.
+  detail: 'relation.py::_build_RNA_to_tf_mapping now applies a three-way rule behind V2ECOLI_PROMOTER_SPECIFIC_TF:
+    keep an edge EcoCyc confirms on this TU, keep one EcoCyc says nothing about (absence of evidence
+    is not evidence against the fold-change data), drop one EcoCyc records at this operon but on
+    a DIFFERENT TU. That middle case is the whole difference from the rule this study originally
+    graded, which deleted everything it could not confirm and so failed the disruption control at
+    0.1049.
+
+    Evidence, promspec (out/cache_promspec) against the MATCHED control out/cache_tudedup_full --
+    both 3279 TUs, same code path, flag off in the control, so no cross-cache confound: 1464 declared
+    edges -> 990 kept, 474 dropped, unchanged fraction 0.6762 against the 0.65 floor. The offline
+    split predicted 473 dropped and 0.6765, so implementation and analysis agree to within one edge.
+
+    At the dnaG locus the regulator MOVES rather than vanishing: rna_id_to_regulating_tfs goes from
+    PC00010 on all three of TU00352/TU00434/TU00435 to PC00010 on TU00435 alone -- the promoter whose
+    operator EcoCyc records at ABS-CENTER-POS 3210738.5. TU00352''s fitted LexA delta goes -1.000000
+    -> 0.0. LexA edges network-wide 45 -> 25.
+
+    CAVEAT, and it bounds what this buys at dnaG: TU00435 carries basal_prob 0.0 because the cistron-to-TU
+    expression fit is degenerate for identical cistron sets (tu-dedup-promoter-collapse). So LexA
+    now sits on an inert transcript and dnaG is effectively unrepressed -- functionally the same
+    intervention as dnag-locus-targeted-fix''s single-edge deletion, whose measured ceiling is 0.455
+    of the log deficit. The value of this change is therefore NOT a bigger dnaG rescue; it is the
+    other 473 edges, corrected on positional evidence across the network. That is a general correctness
+    claim and it needs its own validation: the network arm has to be shown not to break growth.'
+  artifacts:
+  - v2ecoli/processes/parca/reconstruction/ecoli/dataclasses/relation.py
+  - scripts/build_tf_tu_reattribution.py
+  - references/tf_tu_reattribution.tsv
+  - workspace/studies/promoter-specific-regulation/analyses/edge_evidence_split.py
+  - workspace/studies/promoter-specific-regulation/analyses/verify_promspec.py
 alternative_hypotheses:
 - name: H1 promoter-specific attribution frees dnaG
   discriminator: lineage-completes
@@ -488,9 +556,15 @@ limitations:
   promoter would be misassigned. Marked a high-risk assumption.
 - Remapping without refitting leaves alphas calibrated for the old attribution. Adequate to test
   the mechanism, not shippable.
-- The rpsUp3-to-TU00435 identification underpinning the whole study is an inference from a site-name
-  offset (0.5 bp agreement), not a declared mapping. The outstanding Pathway Tools licence would
-  supply regulation.dat and settle it directly.
+- 'RESOLVED 2026-09-05. This limitation read: ''The rpsUp3-to-TU00435 identification underpinning
+  the whole study is an inference from a site-name offset (0.5 bp agreement), not a declared mapping.
+  The outstanding Pathway Tools licence would supply regulation.dat and settle it directly.'' Pathway
+  Tools 30.0 with EcoCyc 30.0 is now installed and the flatfiles were generated with (create-flat-files-for-current-kb).
+  regulation.dat carries exactly ONE LexA transcription-factor-binding record at this locus, REG0-5384:
+  REGULATOR PC00010, REGULATED-ENTITY PM00583, ASSOCIATED-BINDING-SITE BS00652. In dnabindsites.dat
+  BS00652 has ABS-CENTER-POS 3210738.5 and COMPONENT-OF TU00435. That is a DECLARED mapping in EcoCyc''s
+  own vocabulary -- the same TU identifiers the model uses -- not an offset inference, and it names
+  TU00435, not TU00352. The study''s central premise is confirmed at the source.'
 - 'Even a full rescue would show promoter-specific attribution is SUFFICIENT here, not that the other
   three defects are harmless: the constraint boundary, the dedup and the 2.13x activator residual
   all remain.'
@@ -687,14 +761,24 @@ discovery_implications:
 - 'A targeted correction at the dnaG locus IS supported: LexA''s site is present in the data and
   matches TU00435 to 0.5 bp, so removing its edge from TU00352 rests on positive evidence rather
   than an absence.'
-- A network-wide promoter-specific fix is NOT supportable from this export. It needs the complete
-  regulation table -- regulation.dat from the Pathway Tools distribution -- so that a missing site
-  means 'no site' rather than 'not exported'.
+- 'SUPERSEDED 2026-09-05. This read: ''A network-wide promoter-specific fix is NOT supportable from
+  this export. It needs the complete regulation table -- regulation.dat from the Pathway Tools distribution
+  -- so that a missing site means no site rather than not exported.'' That table is now in hand (references/ecocyc-30.0/,
+  gitignored as licensed data). regulation.dat holds 5803 Transcription-Factor-Binding records keyed
+  on REGULATOR ids the model already uses, and dnabindsites.dat resolves each site to a TU id the
+  model already uses. So the distinction this limitation asked for can now be made per edge: an edge
+  is CONTRADICTED when EcoCyc records that TF at that operon but on a different promoter, and UNRECORDED
+  when EcoCyc says nothing. Only the contradicted pile justifies changing the model. That measurement
+  has not been run yet.'
 - 'The bimodal distance distribution is itself a useful diagnostic for any future attribution work:
   exact matches at 0.5 bp show the join is sound where data exists, so the long tail is about coverage
   rather than method.'
 - TU00434 sits 22.5 bp from the implied TSS and does NOT match, so even restoring it would not carry
   the LexA edge under this rule -- contradicting what I assumed when scoping tu-dedup-promoter-collapse.
+- The join needs no name matching. regulation.dat REGULATOR values are model TF ids (PC00010, CPLX0-7740)
+  and dnabindsites.dat COMPONENT-OF values are model TU ids (TU00435), so the three name-resolution
+  traps that corrupted the original 9-of-23 coverage figure cannot arise on this path. Any future
+  attribution work should read the .dat files, not the text export.
 baseline:
 - name: cistron-content-control
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline

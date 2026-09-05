@@ -114,10 +114,20 @@ class Relation(object):
         Builds a dictionary that maps RNA IDs to a list of all transcription
         factor IDs that regulate the given RNA. All TFs that target any of the
         constituent cistrons in the RNA are added to each list.
+
+        With promoter-specific attribution enabled (see
+        ``_load_tf_tu_attribution``), a TF is additionally dropped from any TU
+        that EcoCyc CONTRADICTS -- one where the factor is recorded acting at
+        the same operon, but on a different transcription unit. Assignments
+        EcoCyc confirms, and assignments it says nothing about, are left alone:
+        absence of a record is not evidence against the fold-change data that
+        put the edge there.
         """
         cistron_ids = sim_data.process.transcription.cistron_data["id"]
+        attribution = self._load_tf_tu_attribution()
 
         self.rna_id_to_regulating_tfs = {}
+        self.tf_tu_reattribution_dropped = []
         for rna_id in sim_data.process.transcription.rna_data["id"]:
             tf_list = []
             for (
@@ -129,8 +139,77 @@ class Relation(object):
                     )
                 )
 
-            # Remove duplicates and sort
-            self.rna_id_to_regulating_tfs[rna_id] = sorted(set(tf_list))
+            tf_list = sorted(set(tf_list))
+            if attribution is not None:
+                genes = {
+                    str(cistron_ids[i]).replace("_RNA", "")
+                    for i in sim_data.process.transcription.rna_id_to_cistron_indexes(
+                        rna_id
+                    )
+                }
+                this_tu = str(rna_id)[:-3] if str(rna_id).endswith("[c]") else str(rna_id)
+                kept = []
+                for tf in tf_list:
+                    recorded = set()
+                    for gene in genes:
+                        recorded |= attribution.get((tf, gene), set())
+                    # No record at this operon -> absence of evidence, keep it.
+                    # Recorded here -> keep. Recorded only elsewhere -> drop.
+                    if not recorded or this_tu in recorded:
+                        kept.append(tf)
+                    else:
+                        self.tf_tu_reattribution_dropped.append(
+                            (str(rna_id), tf, sorted(recorded))
+                        )
+                tf_list = kept
+
+            self.rna_id_to_regulating_tfs[rna_id] = tf_list
+
+    @staticmethod
+    def _load_tf_tu_attribution():
+        """
+        Load references/tf_tu_reattribution.tsv as {(tf_id, gene): {tu, ...}}.
+
+        Returns None -- leaving the cistron-content assignment untouched --
+        unless V2ECOLI_PROMOTER_SPECIFIC_TF is set to a truthy value. The table
+        is derived from the EcoCyc PGDB by
+        scripts/build_tf_tu_reattribution.py; the PGDB export itself is
+        licensed and not committed.
+        """
+        import os
+
+        if os.environ.get("V2ECOLI_PROMOTER_SPECIFIC_TF", "").lower() not in (
+            "1",
+            "true",
+            "yes",
+        ):
+            return None
+
+        here = os.path.dirname(os.path.abspath(__file__))
+        root = here
+        for _ in range(8):
+            candidate = os.path.join(root, "references", "tf_tu_reattribution.tsv")
+            if os.path.exists(candidate):
+                break
+            root = os.path.dirname(root)
+        else:
+            raise FileNotFoundError(
+                "V2ECOLI_PROMOTER_SPECIFIC_TF is set but "
+                "references/tf_tu_reattribution.tsv was not found. Generate it "
+                "with scripts/build_tf_tu_reattribution.py."
+            )
+
+        table = {}
+        with open(candidate) as handle:
+            for line in handle:
+                if line.startswith("#") or line.startswith("tf_id\t"):
+                    continue
+                parts = line.rstrip("\n").split("\t")
+                if len(parts) != 4:
+                    continue
+                tf_id, _eco, tu, gene = parts
+                table.setdefault((tf_id, gene), set()).add(tu)
+        return table
 
     def _build_tf_to_RNA_mapping(self, raw_data, sim_data):
         """

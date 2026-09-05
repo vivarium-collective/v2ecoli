@@ -87,3 +87,7 @@ docs/report_cards/**/*_reference.json
 workspace/investigations/*/studies/*/viz/report_card/
 
 .parsimony/
+
+# EcoCyc 30.0 PGDB flatfile export (licensed data — do NOT commit to this public repo).
+# Regenerate locally: pathway-tools -lisp, (so (quote ECOLI)), (create-flat-files-for-current-kb)
+references/ecocyc-30.0/

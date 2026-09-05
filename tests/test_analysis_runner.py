@@ -362,25 +362,34 @@ def test_parallel_analyses_use_distinct_cursors_not_shared_connection(monkeypatc
     ar = _duckdb_test_ctx(monkeypatch, tmp_path)
     from v2ecoli.workflow.analysis import Analysis
 
-    seen_conn_ids = []
+    # Hold the CONNECTIONS THEMSELVES, not their id()s. An id() is only unique
+    # among objects that are simultaneously alive: once a cursor is garbage
+    # collected CPython may hand its address to the next allocation, so three
+    # genuinely distinct cursors can report two distinct ids. That made this
+    # test intermittently fail in CI (observed ids [x, y, x] with the first and
+    # third identical) while passing locally -- a flake that accused the
+    # thread-safety design of a bug it did not have. Keeping strong references
+    # makes distinctness a property of the objects rather than of GC timing.
+    seen_conns = []
 
-    class _RecordsConnId(Analysis):
+    class _RecordsConn(Analysis):
         scale = "multiseed"
 
         def update(self, state, interval=None):
-            seen_conn_ids.append(id(state["conn"]))
+            seen_conns.append(state["conn"])
             return {"data": {"ok": True}}
 
     for n in ("c1", "c2", "c3"):
-        _register_fake(monkeypatch, ar, n, _RecordsConnId)
+        _register_fake(monkeypatch, ar, n, _RecordsConn)
     opts = {"multiseed": {n: {} for n in ("c1", "c2", "c3")}}
     ar.run_analyses(str(tmp_path), opts, max_workers=3)
 
-    assert len(seen_conn_ids) == 3
-    assert len(set(seen_conn_ids)) == 3, (
+    assert len(seen_conns) == 3
+    # every reference is still live here, so identity is unambiguous
+    assert len({id(c) for c in seen_conns}) == 3, (
         "two or more modules were handed the identical connection/cursor "
-        f"object (ids: {seen_conn_ids}) — concurrent queries on a shared "
-        "DuckDB connection are not safe")
+        f"object (ids: {[id(c) for c in seen_conns]}) — concurrent queries on a "
+        "shared DuckDB connection are not safe")
 
 
 # ---------------------------------------------------------------------------

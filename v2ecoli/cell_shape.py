@@ -98,6 +98,49 @@ def zero_shape():
 class ShapeStep(Step):
     """Compute capsule cell shape from mass (fixed width, density, periplasm frac)."""
 
+    # Formal description surfaced by the workbench/loom inspector (Edge.describe()).
+    description = (
+        "Capsule cell geometry from mass (Skalnik et al. 2023, Whole-cell modeling "
+        "of E. coli colonies, PLoS Comput. Biol., §3.1). The cell is a cylinder "
+        "capped by two hemispheres of fixed width w and fixed density; it grows "
+        "purely by elongation, so length derives from volume v = mass/density. Each "
+        "step it reports length, inner/outer membrane areas, and periplasm/cytoplasm "
+        "subvolumes, plus the pbg-parsimony Capsule (in Angstrom) for the 3D build."
+    )
+
+    # Structured contract for the loom process card (governing equations + symbols).
+    contract = {
+        "summary": "Capsule cell geometry from mass: a cylinder plus two hemispherical "
+                   "caps of fixed width and density, growing by elongation so length "
+                   "derives from volume (Skalnik et al. 2023, §3.1).",
+        "description": (
+            "The cell is a capsule (cylinder + two hemispherical caps) of fixed width w "
+            "and fixed density. It grows purely by elongation, so length derives from "
+            "volume v = mass/density; the step recomputes length, outer/inner membrane "
+            "areas, and periplasm/cytoplasm subvolumes from the current cell_mass each "
+            "tick, and also emits the pbg-parsimony Capsule (Angstrom) for the 3D build."
+        ),
+        "math": [
+            "v = mass / density            (density = 1.1 g/mL)",
+            "l = (v - 4/3*pi*(w/2)^3) / (pi*(w/2)^2) + w",
+            "a_o = 4*pi*(w/2)^2 + 2*pi*(w/2)*(l - w)",
+            "a_i = a_o * (1 - f_p)^(2/3)",
+            "v_p = v*f_p ,   v_c = v*(1 - f_p)",
+        ],
+        "symbols": {
+            "mass": "cell mass (fg)",
+            "density": "cell density (1.1 g/mL, fixed)",
+            "v": "cell volume (fL = um^3)",
+            "w": "cell width / diameter (um, fixed)",
+            "l": "cell length, tip to tip (um)",
+            "a_o": "outer-membrane surface area (um^2)",
+            "a_i": "inner-membrane surface area (um^2)",
+            "f_p": "periplasm volume fraction",
+            "v_p": "periplasm volume (fL)",
+            "v_c": "cytoplasm volume (fL)",
+        },
+    }
+
     config_schema = {
         "width_um": {"_type": "float", "_default": 1.0},          # fixed cell width (diameter)
         "density_g_per_ml": {"_type": "float", "_default": 1.1},   # fixed cell density

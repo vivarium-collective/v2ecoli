@@ -428,6 +428,28 @@ def add_reactor_coupling(
                            "baseline_population -> baseline().",
         },
     },
+    emitters=[
+        {
+            # db 322: without a DECLARED emitter this composite emits nothing on
+            # the pbg-native composite route. run_pbg._redirect_emitters can only
+            # redirect an emitter the generator declared (the way ecoli_baseline
+            # does), so a real coupled reactor run completed clean and produced no
+            # S3 output at all. It only ever emitted locally because
+            # scripts/run_mbp_tracked.py bolts an emitter on externally.
+            #
+            # Declare a ParquetEmitter over the top-level coupled-run deliverable:
+            # the `reactor` stores (dissolved O2/CO2, biomass, glucose) and the
+            # `population` aggregate (biomass_concentration_gL), plus global_time.
+            # out_dir is omitted on purpose — run_pbg resolves it to the synced
+            # results dir (same contract as ecoli_baseline). Scoped to top-level
+            # stores, NOT the whole `agents` subtree, to stay clear of the
+            # whole-cell emit-path OOM class; widen with per-agent listeners if a
+            # run needs per-cell observables.
+            "address": "local:ParquetEmitter",
+            "config": {},
+            "paths": ["global_time", "reactor", "population"],
+        },
+    ],
 )
 def reactor_bird_coupled(
     core: Any = None,

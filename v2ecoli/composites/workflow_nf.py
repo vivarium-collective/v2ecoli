@@ -250,8 +250,14 @@ def build_workflow_nf(
                 "bundle_overrides": spec.get("bundle_overrides", ""),
                 "mode": parca_mode,
                 "cpus": parca_cpus,
-                "cache_dir": f"out/cache_v{vi}",
-                "simdata_dir": f"out/parca_v{vi}",
+                # TASK-LOCAL RELATIVE PATHS, matching nextflow_port_decls. Nextflow
+                # captures `path "cache"` by NAME in the task's own work dir: a
+                # config writing to out/cache_v0 would leave nothing called
+                # `cache`, and the task fails with "Missing output file(s)".
+                # Per-variant identity lives in the config and the emitted
+                # partitioning, not in the directory name. (@eagmon, review of #694.)
+                "cache_dir": "cache",
+                "simdata_dir": "parca",
             },
             "inputs": {},
             "outputs": {"cache_dir": [cache_store]},
@@ -274,7 +280,10 @@ def build_workflow_nf(
                 "generations": int(n_generations),
                 "max_duration_per_gen": float(max_duration_per_gen),
                 "experiment_id": experiment_id,
-                "out_dir": f"{out_dir}/v{vi}/seed_{seed}",
+                # Task-local, matching `path "sweep"` -- see the ParCa note above.
+                # Identity is preserved by the hive partitioning the emitters write
+                # (experiment_id/variant/lineage_seed/generation), not by this name.
+                "out_dir": "sweep",
                 "variant_index": vi,
                 "variant_name": vname,
             }

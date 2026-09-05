@@ -56,6 +56,16 @@ _FORWARDED = (
     "features",
     "ppgpp_regulation",
     "trna_attenuation",
+    # Biology the ray: and single-cell paths already support. Omitting these
+    # would drop them SILENTLY -- and exchange_fluxes/exchange_flux_basis is the
+    # violacein-exchange KPI readout CD2 Run 2 reads, on the strain sweeps this
+    # node exists to run. (@eagmon, review of #694.)
+    "exchange_fluxes",
+    "exchange_flux_basis",
+    "supercoiling",
+    "mass_conservation",
+    "transcript_initiation_mode",
+    "polypeptide_initiation_mode",
 )
 
 # Forwarded ONLY when non-empty. "no swap requested" and "swap requested, empty"
@@ -94,6 +104,12 @@ class LineageStep(Step):
         "features": {"_default": []},
         "ppgpp_regulation": {"_type": "boolean", "_default": True},
         "trna_attenuation": {"_type": "boolean", "_default": False},
+        "exchange_fluxes": {"_default": {}},
+        "exchange_flux_basis": {"_type": "string", "_default": ""},
+        "supercoiling": {"_type": "boolean", "_default": False},
+        "mass_conservation": {"_type": "boolean", "_default": False},
+        "transcript_initiation_mode": {"_type": "string", "_default": "discrete"},
+        "polypeptide_initiation_mode": {"_type": "string", "_default": "discrete"},
         # A task that emits nothing must fail rather than report success
         # (plan-nextflow-dispatch.md, Phase 2). run_composite ships no such
         # guard, so adopting a DAG engine would otherwise drop the protection
@@ -135,6 +151,13 @@ class LineageStep(Step):
 
         core = build_core()
         core.register_link("LineageProcess", LineageProcess)
+        # `interval` is NOT optional. A process node without one defaults to 1.0,
+        # so Composite.run(total) would call update() once per SIMULATED SECOND --
+        # 7200 framework ticks for generations=2 x 3600s, each paying view/project/
+        # apply, instead of one tick per generation. LineageProcess self-limits at
+        # `generations`, so the result stays correct; the cost is pure overhead on
+        # the production dispatch path. batch_lineage_ray sets the same value for
+        # the same reason (see its docstring). (@eagmon, review of #694.)
         composite = Composite(
             {
                 "state": {
@@ -142,6 +165,7 @@ class LineageStep(Step):
                         "_type": "process",
                         "address": "local:LineageProcess",
                         "config": config,
+                        "interval": float(self.config.get("max_duration_per_gen", 3600.0)),
                         "inputs": {},
                         "outputs": {"summary": ["summary"], "complete": ["complete"]},
                     }

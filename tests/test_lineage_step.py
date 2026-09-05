@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import pytest
 
+from process_bigraph import Process
+
 from v2ecoli.workflow.lineage_step import LineageStep
 
 
@@ -125,3 +127,73 @@ def test_zero_byte_parquet_does_not_count(core, tmp_path) -> None:
     (tmp_path / "empty.pq").write_bytes(b"")
     with pytest.raises(SystemExit):
         _step(core, out_dir=str(tmp_path)).update({"cache_dir": "/c"})
+
+
+# --- integration: the ONE property this class exists to guarantee -----------
+#
+# Every test above stubs _run_lineage, so none of them exercise the real
+# Composite.run path. That gap hid an interval bug (@eagmon, review of #694):
+# a process node with no `interval` defaults to 1.0, so Composite.run(total)
+# ticks once per SIMULATED SECOND rather than once per generation. The result
+# stayed correct because LineageProcess self-limits, which is exactly why a
+# stub-only suite could not see it.
+
+
+class _CountingLineage(Process):
+    """Stands in for LineageProcess: counts update() calls, self-limits."""
+
+    calls = 0
+    intervals: list = []
+
+    config_schema = {
+        "generations": {"_type": "integer", "_default": 1},
+        "cache_dir": {"_type": "string", "_default": ""},
+        "seed": {"_type": "integer", "_default": 0},
+    }
+
+    def __init__(self, config=None, core=None):
+        super().__init__(config, core)
+        self._generation = 0
+
+    def inputs(self):
+        return {}
+
+    def outputs(self):
+        return {"summary": "map", "complete": "boolean"}
+
+    def update(self, state, interval):
+        type(self).calls += 1
+        type(self).intervals.append(interval)
+        self._generation += 1
+        if self._generation >= int(self.config.get("generations", 1)):
+            return {"complete": True, "summary": {"generations": self._generation}}
+        return {"complete": False, "summary": {"generations": self._generation}}
+
+
+def test_one_invoke_drives_every_generation_through_composite_run(core, monkeypatch, tmp_path) -> None:
+    """The closed loop: a REAL _run_lineage, a real Composite.run, and a fake
+    lineage that counts. Asserts both halves of the contract -- every generation
+    runs, and it costs one outer tick per generation rather than one per second."""
+    import v2ecoli.workflow.lineage as lineage_mod
+
+    _CountingLineage.calls = 0
+    _CountingLineage.intervals = []
+    monkeypatch.setattr(lineage_mod, "LineageProcess", _CountingLineage)
+
+    (tmp_path / "history").mkdir()
+    (tmp_path / "history" / "0.pq").write_bytes(b"nonempty")
+
+    step = LineageStep(config={
+        "generations": 3,
+        "max_duration_per_gen": 600.0,
+        "out_dir": str(tmp_path),
+    }, core=core)
+    result = step.update({"cache_dir": "/staged/cache"})
+
+    assert result == {"sweep_dir": str(tmp_path)}
+    # every generation ran -- not just the first (the silent truncation this
+    # whole wrapper exists to prevent)
+    assert _CountingLineage.calls == 3
+    # and each tick advanced a GENERATION, not a second: with interval=1.0 this
+    # would have been 3 * 600 = 1800 calls
+    assert set(_CountingLineage.intervals) == {600.0}

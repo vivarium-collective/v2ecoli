@@ -250,6 +250,43 @@ behavior_tests:
     \ sits at 19471x, and anchored to that the fraction closed is 0.8040. The pre-registered 0.4983\
     \ stands as the graded value; the anchor mismatch is a design flaw in the axis, to be fixed by\
     \ pre-registering an anchor measured from the study's own control rather than an inherited constant."
+  anchor_reanalysis_2026_09_05:
+    verdict_unchanged: true
+    pre_registered_value: 0.4983
+    self_anchored_paired_per_seed:
+      seed0: 0.7996
+      seed1: 0.5052
+      seed2: 0.8942
+      median: 0.7996
+    control_deficit_per_seed:
+      seed0: 19471.0
+      seed1: 50.0
+      seed2: 57100000.0
+    corrected_deficit_per_seed:
+      seed0: 7.23
+      seed1: 6.93
+      seed2: 6.62
+    note: 'Re-scoping the anchor was expected to correct a wrong constant. It found something worse:
+      the MEASURE is unsound, not just its anchor.
+
+      Self-anchoring to this experiment''s own control, paired per seed, gives 0.7996 / 0.5052 /
+      0.8942 -- a range of 0.39 in a quantity bounded by 1.0. The cause is the denominator: the control''s
+      residual deficit spans 50x to 5.71e7x across three seeds, a 1.14-MILLION-fold range, because
+      dnaG collapses to 1.2e-11 in one seed and only 1.4e-5 in another. Taking logs does not tame
+      that.
+
+      The corrected arm meanwhile is stable: 7.23 / 6.93 / 6.62, a 1.09x spread. So the informative,
+      reproducible quantity is the ABSOLUTE residual deficit of the treated arm, not a fraction of
+      a control-derived baseline. Pinned as dnag-residual-deficit-pin.
+
+      The pre-registered 0.4983 FAIL stands unchanged. Neither anchor is adopted: the inherited one
+      is wrong, the self-measured one is too noisy to grade against, and swapping to either after
+      seeing the data would be post-hoc regardless.
+
+      CARRIES BEYOND THIS STUDY: dnag-locus-targeted-fix''s 0.455 ceiling, and any other axis in
+      this investigation phrased as ''fraction of the log deficit closed'', rest on the same ratio-of-a-collapsing-denominator
+      construction. Those numbers are not necessarily wrong, but their seed-stability has not been
+      checked and should be before any is quoted.'
 - name: lineage-completes
   classification: primary
   gate_class: acceptance_criterion
@@ -345,6 +382,31 @@ behavior_tests:
   result: PASS
   measured_value: 3210729
   evaluated_by: agent
+- name: dnag-residual-deficit-pin
+  classification: supporting
+  gate_class: regression_pin
+  question: What residual deficit does the corrected arm actually leave, measured without dividing
+    by the control?
+  description: 'Median residual peer deficit for dnaG in the corrected arm at generation 3, pinned
+    so it cannot drift silently. A PIN, not evidence the value is right: the threshold was set after
+    seeing the runs, which is exactly what gate_class exists to distinguish.'
+  measure:
+    kind: derived
+    path: median over seeds of idx_rprotein peer-median divided by dnaG actual synthesis probability,
+      generation 3, corrected arm
+    detail: per-seed 7.23, 6.93, 6.62; measured by analyses/evaluate_phase_c.py.
+  pass_if:
+    op: <=
+    value: 10.4
+    provenance:
+      kind: post_hoc
+      note: 1.5x the 6.93x measured; pin only. Chosen because the ABSOLUTE residual is stable across
+        seeds (1.09x range) where the fraction-closed measure is not.
+  status: passed
+  result: PASS
+  measured_value: 6.93
+  evaluated_by: agent
+  detail: Corrected arm 7.23 / 6.93 / 6.62 across seeds 0/1/2 — a 1.09x spread.
 preregistered:
   declared_before_runs: true
   registered_at: '2026-09-04T19:00:00Z'
@@ -622,6 +684,10 @@ limitations:
 - 'Phase C: dnag-transcription-recovers is anchored at an inherited 47.4x constant rather than at
   this study''s own control. The verdict stands as pre-registered, but the axis should be re-scoped
   with a self-measured anchor before the number is quoted anywhere.'
+- The 'fraction of log deficit closed' measure used by this axis -- and inherited by several sibling
+  studies -- divides by a control quantity that collapses toward zero and varies a million-fold across
+  seeds. It is not a gradeable statistic in that regime. Future studies should gate on the treated
+  arm's absolute residual deficit, which is stable, and pre-register a threshold for it.
 claim: Promoter-specific attribution -- correcting only the edges EcoCyc actively contradicts --
   moves LexA off TU00352 onto TU00435, changes 474 of 1464 edges while leaving 0.6762 unchanged,
   and rescues the lineage from 4-9 generations to a full 12 with growth indistinguishable from control.
@@ -1107,6 +1173,9 @@ discovery_implications:
 - The residual 6.93x deficit is now the bound on what any promoter-level fix can achieve, and it
   sits under the 2.6x basal x 8.2x ppGpp terms that no promoter correction touches. The ppGpp term
   is the largest remaining factor and has a scoped study waiting (ppgpp-basal-residual).
+- 'Methodological: the fraction-of-log-deficit-closed construction is unsound wherever the control
+  collapses toward zero. Sibling axes built on it (notably dnag-locus-targeted-fix''s 0.455 ceiling)
+  should have their seed-stability checked before the numbers are quoted.'
 baseline:
 - name: cistron-content-control
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline

@@ -296,6 +296,7 @@ same biological processes and differ only in how cells are scheduled and embedde
 | `reactor_bird_coupled` | v2ecoli baseline_population coupled to the BiRD bioreactor (BiRDTransportProcess) via ReactorCellCoupler. |
 | `reactor_bird_coupled_millard` | v2ecoli Millard kinetic-metabolism cell (baseline_millard) + PopulationAggregator coupled to the BiRD bioreactor (BiRDTransportHours) via ReactorCellCoupler. |
 | `vecoli` | Genuine upstream vEcoli, run on its own vivarium-core Engine inside ONE process-bigraph node (agents/<agent_id>/vivarium_ecoli) — the REFERENCE model for the v2ecoli<->vEcoli comparison. |
+| `workflow_nf` | The campaign DAG for task-granularity dispatch: one ParCa per variant, each feeding that variant's M LineageStep tasks, all N x M gathering into one analysis. |
 <!-- END:composites -->
 
 Reach a generator by name — `build_composite("<name>")`; a `*.composite.yaml`

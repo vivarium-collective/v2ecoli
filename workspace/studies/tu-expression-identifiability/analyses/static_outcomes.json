@@ -1,0 +1,14 @@
+{
+  "state": "models/parca/parca_state.pkl.gz",
+  "n_tus": 3277,
+  "axis1_underdetermined_tus": 307,
+  "axis1_blocks": 76,
+  "axis1_nullity": 95,
+  "axis1_marginal_blocks": 0,
+  "axis2_residual_change": 7.724940478959219e-19,
+  "axis3_zeros": 105,
+  "axis3_lifted": 90,
+  "axis3_value": 0.8571428571428571,
+  "axis4_moved": 56,
+  "axis4_value": 0.18241042345276873
+}

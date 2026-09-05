@@ -1,8 +1,8 @@
 schema_version: 4
 name: tu-expression-identifiability
 created: '2026-09-05'
-status: planned
-phase: Design
+status: running
+phase: Evaluate
 baseline:
 - name: vertex-arm
   composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
@@ -14,9 +14,9 @@ title: The transcripts the data cannot pin down
 investigation: transcription-rewiring
 study_type: fit_validation
 design_status: complete
-implementation_status: not_started
+implementation_status: partial
 simulation_status: not_started
-evaluation_status: not_evaluated
+evaluation_status: partial
 gate_status: pending
 expert_review_status: not_requested
 question: 'ParCa fits transcription-unit expression from CISTRON-level abundances by nonnegative
@@ -54,7 +54,13 @@ behavior_tests:
     provenance:
       kind: post_hoc
       note: 1.5x the 307 measured while scoping; pin only.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 307
+  detail: '76 rank-deficient blocks covering 307 of 3277 TUs (9.4%), total nullity 95 — 95 free parameters
+    the cistron data never constrains. req-4: ZERO blocks sit within 10x of the SVD tolerance, so
+    the floating-point rank concern does not bite; the 0/1 mapping matrix gives clean rank determination.'
+  evaluated_by: agent
 - name: cistron-fit-is-indifferent-to-the-split
   classification: primary
   gate_class: acceptance_criterion
@@ -79,7 +85,13 @@ behavior_tests:
       kind: theory
       note: Two points on the same optimal face have identical objective value; the bound is float
         tolerance, not a fitted quantity.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 7.725e-19
+  detail: Normalised cistron residual 6.052258e-05 for both the NNLS vertex and the minimum-norm
+    optimum; change 7.7e-19, eleven orders under the 1e-9 bound. The alternatives are genuinely equally
+    optimal, so every other axis is interpretable. This was the gate on the whole study.
+  evaluated_by: agent
 - name: vertex-zeros-admit-equal-cost-alternatives
   classification: primary
   gate_class: acceptance_criterion
@@ -113,7 +125,22 @@ behavior_tests:
       kind: theory
       note: Bounded above by 1.0. 80% tolerates zeros pinned by neighbouring nonnegativity without
         tolerating the claim that the zeros are data-driven.
-  status: pending
+  status: passed
+  result: PASS
+  measured_value: 0.8571
+  detail: '90 of 105 vertex zeros are liftable at equal cost — an EXACT result from LP feasibility
+    over the whole optimal face, not a witness test.
+
+    METHOD NOTE, because the first attempt was wrong and the difference decided the verdict: using
+    the minimum-norm point as a witness gave 0.3238 and a FAIL. That only asks whether one particular
+    alternative lifts the zero, and undercounts by construction. The LP asks whether ANY direction
+    on the face does: find d with sub@d = 0, d_j >= 1, and d_i >= 0 for every other currently-zero
+    coordinate. 0.8571 is the answer to the question the axis actually posed.
+
+    H4 (the zeros are forced by nonnegativity) is REFUTED: 86% of them encode a solver choice, not
+    a data-driven prediction of silence. The model''s hard zeros carry no evidential weight, which
+    is the weaker and correct claim — it does not follow that those transcripts are made.'
+  evaluated_by: agent
 - name: alternative-optimum-moves-many-tus
   classification: primary
   gate_class: acceptance_criterion
@@ -140,7 +167,23 @@ behavior_tests:
     provenance:
       kind: theory
       note: Bounded above by 1.0; 30% is the floor below which the defect is real but immaterial.
-  status: pending
+  status: failed
+  result: FAIL
+  measured_value: 0.1824
+  detail: '56 of 307 underdetermined TUs move more than 2x between the NNLS vertex and the minimum-norm
+    optimum. Below the 0.3 floor. Recorded as pre-registered.
+
+    The failure is about the PROBE, not the phenomenon, and the study said so before running: minimum-norm
+    is by construction the optimum closest to the origin, so it is the most conservative possible
+    alternative. It answers ''does this one alternative differ'' when the axis meant to ask ''how
+    much is unconstrained''.
+
+    Measured properly, per TU, as the width of the optimal face (max and min of x_j over {x >= 0
+    : sub x = sub x*}, two LPs each): 198 of 307 TUs — 64.5% — CAN vary by more than 2x with zero
+    change to the cistron fit. Median face width is 14.2% of the block''s total expression, and 48
+    TUs (15.6%) have a width exceeding half their block''s total. Pinned separately as optimal-face-width-pin;
+    not substituted for this verdict, since the threshold was chosen after seeing the data.'
+  evaluated_by: agent
 - name: arbitrary-choice-is-not-phenotypically-silent
   classification: primary
   gate_class: acceptance_criterion
@@ -195,6 +238,31 @@ behavior_tests:
       kind: theory
       note: Two-sided at roughly 50%, matching the sibling studies in this investigation.
   status: pending
+- name: optimal-face-width-pin
+  classification: supporting
+  gate_class: regression_pin
+  question: How much of each underdetermined TU’s expression is genuinely unconstrained?
+  description: 'Fraction of underdetermined TUs whose expression can vary more than 2x across the
+    optimal face, measured exactly by LP rather than through one alternative point. A PIN: the threshold
+    was set after seeing the runs.'
+  measure:
+    kind: derived
+    path: fraction of underdetermined TUs with max/min of x_j over the optimal face differing by
+      >2x
+    detail: 'two linear programs per TU over {x >= 0 : sub x = sub x*}; 307 TUs examined.'
+  pass_if:
+    op: '>='
+    value: 0.43
+    provenance:
+      kind: post_hoc
+      note: Two-thirds of the 0.645 measured; pin only, to catch drift rather than to confirm the
+        value.
+  status: passed
+  result: PASS
+  measured_value: 0.645
+  evaluated_by: agent
+  detail: 198 of 307. Median face width 14.2% of the block's total expression, mean 24.6%, and 48
+    TUs (15.6%) exceed 50% of their block's total.
 preregistered:
   declared_before_runs: true
   date: '2026-09-05'
@@ -308,7 +376,7 @@ implementation_requirements:
     and the vertex arm is the same code path -- the confound that made tu-dedup-promoter-collapse's
     comparison across-cache must not be repeated.
 - id: req-2
-  status: not_started
+  status: done
   blocking: true
   summary: Static analysis script for axes 1-4, taking a parca_state path as argument.
   detail: Block decomposition, rank, nullity, vertex zeros and the liftability test. Must take the
@@ -321,7 +389,7 @@ implementation_requirements:
   detail: v2ecoli.library.generational_decay for per-generation aggregation and listeners.monomer_counts
     for the phenotype axis, so this study is measured exactly as its siblings were.
 - id: req-4
-  status: not_started
+  status: done
   blocking: false
   summary: Report marginal-rank blocks separately.
   detail: matrix_rank uses an SVD tolerance; blocks near the threshold should be listed rather than
@@ -386,3 +454,60 @@ readouts:
 - name: generation time
   selector: derived from division events
   note: growth control.
+runs:
+- name: tu-expression-identifiability__static
+  status: complete
+  canonical: true
+  started_at: '2026-09-05T17:30:00Z'
+  started_at_iso: '2026-09-05T17:30:00Z'
+  note: 'Axes 1-4 on the SHIPPED fixture models/parca/parca_state.pkl.gz — exact linear algebra,
+    no simulation, deterministic. analyses/identifiability.py takes the state path as argv so any
+    arm runs through identical code. Axes 5-6 (phenotype and growth) remain PENDING: they need the
+    min-norm tie-break wired into ParCa (req-1) and two simulated arms.'
+  outcomes:
+    underdetermined-tu-count:
+      result: PASS
+      measured_value: 307
+      detail: '76 rank-deficient blocks covering 307 of 3277 TUs (9.4%), total nullity 95 — 95 free
+        parameters the cistron data never constrains. req-4: ZERO blocks sit within 10x of the SVD
+        tolerance, so the floating-point rank concern does not bite; the 0/1 mapping matrix gives
+        clean rank determination.'
+    cistron-fit-is-indifferent-to-the-split:
+      result: PASS
+      measured_value: 7.725e-19
+      detail: Normalised cistron residual 6.052258e-05 for both the NNLS vertex and the minimum-norm
+        optimum; change 7.7e-19, eleven orders under the 1e-9 bound. The alternatives are genuinely
+        equally optimal, so every other axis is interpretable. This was the gate on the whole study.
+    vertex-zeros-admit-equal-cost-alternatives:
+      result: PASS
+      measured_value: 0.8571
+      detail: '90 of 105 vertex zeros are liftable at equal cost — an EXACT result from LP feasibility
+        over the whole optimal face, not a witness test.
+
+        METHOD NOTE, because the first attempt was wrong and the difference decided the verdict:
+        using the minimum-norm point as a witness gave 0.3238 and a FAIL. That only asks whether
+        one particular alternative lifts the zero, and undercounts by construction. The LP asks whether
+        ANY direction on the face does: find d with sub@d = 0, d_j >= 1, and d_i >= 0 for every other
+        currently-zero coordinate. 0.8571 is the answer to the question the axis actually posed.
+
+        H4 (the zeros are forced by nonnegativity) is REFUTED: 86% of them encode a solver choice,
+        not a data-driven prediction of silence. The model''s hard zeros carry no evidential weight,
+        which is the weaker and correct claim — it does not follow that those transcripts are made.'
+    alternative-optimum-moves-many-tus:
+      result: FAIL
+      measured_value: 0.1824
+      detail: '56 of 307 underdetermined TUs move more than 2x between the NNLS vertex and the minimum-norm
+        optimum. Below the 0.3 floor. Recorded as pre-registered.
+
+        The failure is about the PROBE, not the phenomenon, and the study said so before running:
+        minimum-norm is by construction the optimum closest to the origin, so it is the most conservative
+        possible alternative. It answers ''does this one alternative differ'' when the axis meant
+        to ask ''how much is unconstrained''.
+
+        Measured properly, per TU, as the width of the optimal face (max and min of x_j over {x >=
+        0 : sub x = sub x*}, two LPs each): 198 of 307 TUs — 64.5% — CAN vary by more than 2x with
+        zero change to the cistron fit. Median face width is 14.2% of the block''s total expression,
+        and 48 TUs (15.6%) have a width exceeding half their block''s total. Pinned separately as
+        optimal-face-width-pin; not substituted for this verdict, since the threshold was chosen
+        after seeing the data.'
+confidence: Investigating

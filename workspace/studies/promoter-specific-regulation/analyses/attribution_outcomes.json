@@ -1,0 +1,50 @@
+{
+  "50": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 0.23529411764705882,
+    "lexa_upstream_removed": 0.875,
+    "adjudicated": 1462,
+    "kept": 344,
+    "lexa_upstream": 8
+  },
+  "200": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 0.4548563611491108,
+    "lexa_upstream_removed": 0.75,
+    "adjudicated": 1462,
+    "kept": 665,
+    "lexa_upstream": 8
+  },
+  "1000": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 0.5177838577291382,
+    "lexa_upstream_removed": 0.75,
+    "adjudicated": 1462,
+    "kept": 757,
+    "lexa_upstream": 8
+  },
+  "5000": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 0.6409028727770177,
+    "lexa_upstream_removed": 0.625,
+    "adjudicated": 1462,
+    "kept": 937,
+    "lexa_upstream": 8
+  },
+  "20000": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 0.7435020519835841,
+    "lexa_upstream_removed": 0.625,
+    "adjudicated": 1462,
+    "kept": 1087,
+    "lexa_upstream": 8
+  },
+  "inf": {
+    "adjudicated_fraction": 1.0,
+    "unchanged_fraction": 1.0,
+    "lexa_upstream_removed": 0.0,
+    "adjudicated": 1462,
+    "kept": 1462,
+    "lexa_upstream": 8
+  }
+}

@@ -778,9 +778,9 @@ conclusion_logic:
     diagnose:
     - question: Why did tu-dedup-promoter-collapse's primary criteria fail, and what does that leave
         open?
-      seeded_study: promoter-specific-regulation
-      note: Seeded from this study's declared successor (parent_studies relation leads-to/refines),
-        not invented to clear the flag.
+      seeded_study: ppgpp-basal-residual
+      note: 'Redirected from promoter-specific-regulation, which is already closed (gate failed:
+        the rule strips 89.5% of the network). The open successor is the ppGpp residual.'
 pipeline_gate:
   prerequisites:
   - study: tu-coverage-loss
@@ -834,17 +834,21 @@ discovery_implications:
     whole contribution at 0.455 of the log-space deficit, leaving the 2.6x basal and 8.2x ppGpp terms
     untouched by any promoter fix.'
   followup_study_proposals:
-  - id: promoter-specific-regulation
-    title: Assign transcription-factor regulation by promoter coordinates rather than cistron content
-    motivation: 'Phase B rules out the TU-set repair, leaving this as the only candidate. rna_id_to_regulating_tfs
-      assigns a TF to every TU containing a regulated cistron, so TU00352 inherits LexA because it
-      carries rpoD -- even though LexA''s site sits 88 bp downstream, inside a promoter the dedup
-      removed. Keying the assignment on whether the TU''s span contains the binding site would drop
-      the LexA edge from TU00352 without changing the TU set, which matters because the degeneracy
-      measured here makes changing the TU set unworkable. It is also the cheaper intervention: no
-      ParCa TU-set change, and the existing cache is a valid control.'
-    mechanism: If regulation is assigned by coordinate containment, TU00352 (TSS 3210646, LexA site
-      3210729-3210749) carries no LexA delta, dnaG's surviving transcript is unrepressed, and the
-      6.2x LexA term in the measured deficit factorisation goes to 1. Predicts recovery bounded by
-      the 0.455 log-space ceiling dnag-locus-targeted-fix measured, since the basal and ppGpp terms
-      are untouched.
+  - id: ppgpp-basal-residual
+    title: Attack the 8.2x ppGpp term -- the largest remaining factor in dnaGs deficit
+    motivation: 'Correction to this proposal as first written, which named promoter-specific-regulation
+      as the candidate repair. That study already exists and is CLOSED: the promoter-coordinate rule
+      does remove the misattributed LexA edge (misattributed-lexa-edges-are-removed = 1.0) but strips
+      89.5% of the adjudicated network, so it cannot be applied generally from this export. dnag-locus-targeted-fix
+      then applied it narrowly as a single-edge deletion and measured the ceiling: the lineage completes
+      12 generations with no global growth artefact, but dnaG recovers only 0.455 of the deficit.
+
+
+      So all three routes to the 6.2x LexA term are now closed -- global rule refuted, narrow deletion
+      at its ceiling, TU restoration refuted here. The deficit factorises 2.6x basal x 8.2x ppGpp
+      x 6.2x LexA, and ppGpp is the largest term still untouched. ppgpp-basal-residual is already
+      scoped with four authored tests and zero runs.'
+    mechanism: Removing the LexA edge leaves a flat ~8x shortfall across all twelve generations,
+      and the runtime is not responsible -- delivered probability matches target to three decimal
+      places. That points at the ppGpp-adjusted basal vector as the carrier. Predicts the residual
+      is in the target rather than the runtime, and that disabling ppGpp removes it.

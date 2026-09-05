@@ -1,0 +1,388 @@
+schema_version: 4
+name: tu-expression-identifiability
+created: '2026-09-05'
+status: planned
+phase: Design
+baseline:
+- name: vertex-arm
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    config_overrides:
+      ecoli-chromosome-replication.mechanistic_replisome: true
+variants: []
+title: The transcripts the data cannot pin down
+investigation: transcription-rewiring
+study_type: fit_validation
+design_status: complete
+implementation_status: not_started
+simulation_status: not_started
+evaluation_status: not_evaluated
+gate_status: pending
+expert_review_status: not_requested
+question: 'ParCa fits transcription-unit expression from CISTRON-level abundances by nonnegative
+  least squares on the cistron-to-TU mapping matrix (transcription.py:1310, scipy nnls). Where several
+  TUs contribute identically to the same cistrons, the objective cannot distinguish them: the optimum
+  is a face, not a point, and NNLS returns an arbitrary vertex of it. Measured on the shipped fixture,
+  76 of the independent NNLS blocks are rank-deficient, covering 307 of 3277 TUs (9.4%) with a total
+  nullity of 95 -- 95 degrees of freedom in the expression vector that the input data does not constrain.
+  NNLS resolves them by driving TUs to hard zero, which silences transcripts outright. How much of
+  the model''s transcriptome rests on these arbitrary values, what does it change downstream, and
+  what data would break the ties?'
+units_and_time:
+  tick: 1 s of simulated time for the downstream axes; the identifiability axes read static artefacts.
+  quantities:
+    nullity: dimension of the NNLS solution face for one independent block (count, dimensionless)
+    expression: basal TU expression fraction (dimensionless, normalised over TUs)
+    underdetermined TU: a TU in a block whose matrix rank is below its column count
+    vertex zero: a TU assigned exactly 0.0 expression while its block has nonzero total
+behavior_tests:
+- name: underdetermined-tu-count
+  classification: supporting
+  gate_class: regression_pin
+  question: How much of the TU set has expression the cistron data cannot determine?
+  description: Number of TUs sitting in a rank-deficient NNLS block in the shipped fixture. Measured
+    while scoping (307 of 3277, nullity 95, 76 blocks), so this is a PIN, not evidence that the number
+    is right -- it locks the defect's size so it cannot drift silently.
+  measure:
+    kind: derived
+    path: count of TUs in connected NNLS blocks where matrix rank < number of TU columns
+    detail: cistron_tu_mapping_matrix decomposed into the same independent blocks fast_nnls uses;
+      rank by numpy.linalg.matrix_rank.
+  pass_if:
+    op: <=
+    value: 460
+    provenance:
+      kind: post_hoc
+      note: 1.5x the 307 measured while scoping; pin only.
+  status: pending
+- name: cistron-fit-is-indifferent-to-the-split
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Are the alternative solutions genuinely equally optimal, or merely worse?
+  description: 'The control that makes every other axis meaningful. Re-solving with a minimum-norm
+    tie-break instead of the NNLS vertex must leave the cistron-level residual unchanged to numerical
+    precision. If it does not, the alternatives are not equally optimal and the degeneracy claim
+    collapses into an ordinary accuracy trade-off.
+
+
+    Threshold provenance: theory. Equality of objective is definitional, so the bound is numerical,
+    not empirical.'
+  measure:
+    kind: derived
+    path: change in ||M @ expression - cistron_target||_2 between the NNLS vertex and the minimum-norm
+      optimum
+    detail: both solutions normalised the same way before comparison.
+  pass_if:
+    op: <=
+    value: 1.0e-09
+    provenance:
+      kind: theory
+      note: Two points on the same optimal face have identical objective value; the bound is float
+        tolerance, not a fitted quantity.
+  status: pending
+- name: vertex-zeros-admit-equal-cost-alternatives
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Are the hard zeros a statement about biology, or an artefact of which optimum the solver
+    returned?
+  description: 'At least 80% of TUs assigned exactly 0.0 expression inside an underdetermined block
+    with nonzero block total admit an equally optimal solution in which they are nonzero.
+
+
+    This is the crux. A zero that no equally-good alternative can lift is FORCED by the data and
+    is a real prediction of no transcription. A zero that any number of equally-good alternatives
+    lift is an arbitrary choice the solver made, and reading it as biology is a category error --
+    which is what the model currently does, since dnaG''s restored promoters were dismissed on exactly
+    such a zero.
+
+
+    Threshold provenance: theory. Stated before measuring. Within a rank-deficient block a nullspace
+    direction with a component on that TU permits movement off zero while staying optimal and nonnegative,
+    so most such zeros should be liftable; 80% leaves room for zeros pinned by the nonnegativity
+    constraints of neighbouring TUs.'
+  measure:
+    kind: derived
+    path: fraction of vertex-zero TUs in underdetermined blocks for which a nonnegative, equally
+      optimal solution with nonzero expression exists
+    detail: per block, test whether any nullspace direction admits a feasible nonnegative step off
+      zero.
+  pass_if:
+    low: 0.8
+    high: 1.0
+    provenance:
+      kind: theory
+      note: Bounded above by 1.0. 80% tolerates zeros pinned by neighbouring nonnegativity without
+        tolerating the claim that the zeros are data-driven.
+  status: pending
+- name: alternative-optimum-moves-many-tus
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is the arbitrariness large enough to matter, or confined to negligible transcripts?
+  description: 'At least 30% of the underdetermined TUs change basal expression by more than two-fold
+    between the NNLS vertex and the minimum-norm optimum.
+
+
+    Underdetermined does not automatically mean materially different: a block could be technically
+    rank-deficient while every optimum is numerically close. This axis separates a formal curiosity
+    from a defect with consequences.
+
+
+    Threshold provenance: theory, stated before measuring. Anchored at 30% so a result confined to
+    a handful of TUs is recognised as such rather than reported as model-wide.'
+  measure:
+    kind: derived
+    path: fraction of underdetermined TUs whose basal expression changes by more than 2x under the
+      minimum-norm optimum
+    detail: ratio computed on normalised expression; TUs at zero in both arms count as unchanged.
+  pass_if:
+    low: 0.3
+    high: 1.0
+    provenance:
+      kind: theory
+      note: Bounded above by 1.0; 30% is the floor below which the defect is real but immaterial.
+  status: pending
+- name: arbitrary-choice-is-not-phenotypically-silent
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Does the tie-break reach the simulated cell, or wash out?
+  description: 'At least 20% of the protein products of underdetermined TUs change mean count by
+    more than two-fold between a lineage simulated on the vertex arm and one on the minimum-norm
+    arm, same seeds.
+
+
+    The axis that decides whether this matters to anyone using the model. A difference confined to
+    the parameter file is a documentation problem; a difference in protein counts is a modelling
+    one. FAILING this axis is a genuinely useful result -- it would mean the degeneracy is real but
+    buffered downstream, and that the dnaG zero is a special case rather than a systemic hazard.
+
+
+    Threshold provenance: theory, stated before any simulation.'
+  measure:
+    kind: derived
+    path: fraction of monomers encoded by underdetermined TUs whose generation-mean count changes
+      more than 2x between arms
+    detail: listeners.monomer_counts, steady generations only, median over seeds.
+  pass_if:
+    low: 0.2
+    high: 1.0
+    provenance:
+      kind: theory
+      note: Bounded above by 1.0; 20% is the floor below which the arbitrariness is buffered before
+        it reaches phenotype.
+  status: pending
+- name: tie-break-is-not-a-global-growth-artefact
+  classification: primary
+  gate_class: acceptance_criterion
+  question: Is any difference attributable to the tie-break rather than to breaking the cell?
+  description: 'Generation-time ratio between the minimum-norm arm and the vertex arm stays within
+    [0.67, 1.5] over the steady generations.
+
+
+    The negative control. Redistributing expression across degenerate TUs must not itself wreck growth,
+    or the phenotype axis above measures damage rather than the tie-break.
+
+
+    Threshold provenance: theory, two-sided at roughly 50%, matching ppgpp-off-rescue and tu-dedup-promoter-collapse
+    so the three are directly comparable.'
+  measure:
+    kind: derived
+    path: median generation time, minimum-norm arm over vertex arm, steady generations
+    detail: generations 3 onward, median across seeds.
+  pass_if:
+    low: 0.67
+    high: 1.5
+    provenance:
+      kind: theory
+      note: Two-sided at roughly 50%, matching the sibling studies in this investigation.
+  status: pending
+preregistered:
+  declared_before_runs: true
+  date: '2026-09-05'
+  criteria:
+  - test: cistron-fit-is-indifferent-to-the-split
+    prior: the minimum-norm optimum leaves the cistron residual unchanged to float tolerance, because
+      both points lie on the same optimal face
+  - test: vertex-zeros-admit-equal-cost-alternatives
+    prior: most hard zeros in rank-deficient blocks are liftable at equal objective value, so they
+      encode a solver choice rather than a data-driven prediction of silence
+  - test: alternative-optimum-moves-many-tus
+    prior: 'the arbitrariness is material, not numerically negligible: a substantial minority of
+      underdetermined TUs move more than two-fold'
+  - test: arbitrary-choice-is-not-phenotypically-silent
+    prior: the difference survives into protein counts rather than being buffered away
+  - test: tie-break-is-not-a-global-growth-artefact
+    prior: redistributing expression within the optimal face does not itself impair growth
+alternative_hypotheses:
+- name: H1 the zeros are arbitrary and consequential
+  discriminator: vertex-zeros-admit-equal-cost-alternatives
+  statement: The hard zeros are vertex artefacts, they move under an equally optimal tie-break, and
+    the difference reaches protein counts. The model is silently reporting solver output as biology.
+- name: H2 underdetermined but numerically tight
+  discriminator: alternative-optimum-moves-many-tus
+  statement: 'The blocks are formally rank-deficient but every optimum is numerically close, so the
+    arbitrariness is a curiosity with no consequence. Plausible: rank deficiency says nothing about
+    the DIAMETER of the optimal face, and a face can be technically nonzero-dimensional yet tiny.'
+- name: H3 real but buffered
+  discriminator: arbitrary-choice-is-not-phenotypically-silent
+  statement: 'TU expression differs materially but downstream regulation, degradation and the metabolic
+    fit absorb it, so protein counts and growth are unchanged. Plausible: the ParCa re-fits several
+    quantities after expression, and the model has homeostatic machinery that could compensate. This
+    would make dnaG''s zero a special case -- one where nothing downstream can compensate for a transcript
+    that is never made -- rather than a systemic hazard.'
+- name: H4 the zeros are forced
+  discriminator: vertex-zeros-admit-equal-cost-alternatives
+  statement: The nonnegativity constraints pin most zeros, so they are genuine data-driven predictions
+    and the whole framing is wrong. This would mean TU00435's zero IS the data speaking, and tu-dedup-promoter-collapse's
+    conclusion needs revisiting rather than reinforcing.
+falsifiability: 'The study fails at its own second axis if the minimum-norm solution does not reproduce
+  the cistron residual, because then the alternatives were never equally optimal and the degeneracy
+  framing is wrong. It fails more interestingly at H4: if most vertex zeros cannot be lifted at equal
+  cost, the zeros are forced by the data and the model is right to treat them as silence -- which
+  would also overturn this investigation''s reading of TU00435. Both outcomes are reachable from
+  static artefacts before any simulation is run.'
+assumptions:
+- name: the NNLS block decomposition is the right unit
+  detail: fast_nnls splits the problem into connected components and solves each independently, so
+    identifiability is a per-block property. Verified by reading fast_nonnegative_least_squares.py
+    rather than assumed.
+  risk: low
+- name: minimum-norm is a legitimate alternative optimum, not a better fit
+  detail: It is used here purely as a second point on the same optimal face, chosen because it is
+    deterministic and spreads mass across degenerate columns instead of concentrating it. Axis 2
+    tests this rather than assuming it.
+  risk: low
+- name: the minimum-norm split is NOT proposed as the correct biology
+  detail: An even split across promoters is no more biologically justified than a vertex. It is a
+    PROBE for whether the choice matters, not a remedy. A remedy needs promoter-resolved data or
+    a declared modelling decision, and this study is scoped to establish the need, not to supply
+    it.
+  risk: medium
+- name: rank computed in floating point
+  detail: matrix_rank uses an SVD tolerance, so near-degenerate blocks may be classified either way
+    at the margin. The mapping matrix is 0/1, so this is unlikely to bite, but marginal blocks should
+    be reported separately.
+  risk: low
+conditions:
+  baseline:
+    name: vertex-arm
+    composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+    params:
+      config_overrides:
+        ecoli-chromosome-replication.mechanistic_replisome: true
+    note: 'The shipped behaviour: fit_rna_expression returns whatever vertex scipy nnls lands on.'
+  variants:
+  - name: min-norm-arm
+    base_composite: vertex-arm
+    note: Identical except that fit_rna_expression resolves ties by the minimum-norm optimum on the
+      same optimal face. Requires a ParCa rebuild; both arms built from the same code with the tie-break
+      flag as the only difference, so there is no cross-cache confound.
+  model_settings: []
+controls:
+- name: cistron-residual control (negative)
+  kind: negative
+  detail: Axis 2. If the two arms did not fit the cistron data equally well, the comparison would
+    be measuring accuracy rather than identifiability. This control must pass before any other axis
+    is interpretable.
+- name: well-determined TUs (positive/invariant)
+  kind: positive
+  detail: TUs in full-rank blocks must NOT move between arms -- their expression is uniquely determined,
+    so any change there indicates a bug in the tie-break implementation rather than a finding. Acts
+    as an internal positive control on every run.
+- name: growth control
+  kind: negative
+  detail: Axis 6, tie-break-is-not-a-global-growth-artefact.
+robustness:
+  seeds: 3
+  note: 3 seeds per arm for the phenotype axes; the static axes are deterministic and need none.
+  parameter_sweep: false
+  rationale: Static identifiability axes are exact linear algebra. Only the two simulated axes carry
+    seed variance.
+implementation_requirements:
+- id: req-1
+  status: not_started
+  blocking: true
+  summary: Add a deterministic minimum-norm tie-break to fit_rna_expression, behind a flag.
+  detail: transcription.py:1310 calls fast_nnls and returns the vertex. Add a second mode that, having
+    found an optimum, projects onto the minimum-norm point of the optimal face (equivalently, an
+    L2-regularised solve with the regulariser taken to zero). Gate it so the default is unchanged
+    and the vertex arm is the same code path -- the confound that made tu-dedup-promoter-collapse's
+    comparison across-cache must not be repeated.
+- id: req-2
+  status: not_started
+  blocking: true
+  summary: Static analysis script for axes 1-4, taking a parca_state path as argument.
+  detail: Block decomposition, rank, nullity, vertex zeros and the liftability test. Must take the
+    state path as argv so control and test arms run through identical code -- the lesson from phase_b.py,
+    where taking the cache dir as an argument is what caught the debug-mode cache.
+- id: req-3
+  status: not_started
+  blocking: false
+  summary: Reuse the existing generational and monomer-count helpers unchanged.
+  detail: v2ecoli.library.generational_decay for per-generation aggregation and listeners.monomer_counts
+    for the phenotype axis, so this study is measured exactly as its siblings were.
+- id: req-4
+  status: not_started
+  blocking: false
+  summary: Report marginal-rank blocks separately.
+  detail: matrix_rank uses an SVD tolerance; blocks near the threshold should be listed rather than
+    silently bucketed, per the floating-point assumption.
+limitations:
+- The minimum-norm split is a PROBE, not a proposed fix. An even split across promoters has no more
+  biological warrant than an arbitrary vertex. This study can show that the choice matters; it cannot
+  say what the right choice is.
+- Establishing that a zero is liftable does not establish that the transcript is made. It shows the
+  model's zero carries no evidential weight, which is weaker and is the honest claim.
+- The 307/95 figures are pinned from the shipped fixture at one point in time. They are a property
+  of the current TU set and cistron mapping and will move if either changes -- as our own dedup exemption
+  already moved them to 312/97.
+- Rank is computed in floating point. The mapping matrix is 0/1 so this should be safe, but blocks
+  at the tolerance margin are a known soft spot.
+- Nothing here addresses WHY the model has multiple TUs per cistron set in the first place, nor whether
+  the TU set should be different. That is tu-dedup-promoter-collapse's territory.
+parent_studies:
+- study: tu-dedup-promoter-collapse
+  condition: complete
+  relation: leads-to
+  note: Found the degeneracy at one locus while testing something else; this study asks how general
+    it is.
+- study: promoter-specific-regulation
+  condition: ran
+  relation: regulatory
+  note: Its correction puts LexA on TU00435, whose expression is one of the arbitrary zeros -- so
+    that fix is bounded by this defect.
+pipeline_gate:
+  prerequisites:
+  - study: tu-dedup-promoter-collapse
+    condition: complete
+    relation: evidence
+    note: 'Supplies the worked case: three TUs, identical cistron set, winner-take-all allocation.'
+discovery_implications:
+  resolved_uncertainties: []
+  remaining_uncertainties:
+  - Whether the arbitrary zeros are liftable or forced -- the axis that decides whether this is a
+    defect or a misreading on our part.
+  - Whether the arbitrariness reaches phenotype or is buffered by downstream re-fitting.
+  - What data would break the ties. TSS-resolved 5' end sequencing apportioning an operon's transcripts
+    across its promoters is the obvious candidate, but whether a suitable dataset exists for K-12
+    has not been checked.
+  followup_study_proposals:
+  - id: promoter-resolved-expression-data
+    title: Break the ties with 5' end sequencing data
+    motivation: If this study shows the choice matters, the remedy is data, not a better solver.
+      A TSS-resolved dataset apportioning transcripts across an operon's promoters would turn 95
+      free parameters into fitted ones. Scoping whether such a dataset exists for MG1655, and what
+      coverage it has over the 307 affected TUs, is the natural successor.
+    mechanism: Constrain the NNLS with per-promoter observations, converting the rank-deficient blocks
+      to full rank.
+readouts:
+- name: basal TU expression
+  selector: 'static: cell_specs["basal"]["expression"]'
+  note: read from parca_state, not a run.
+- name: cistron residual
+  selector: 'static: cistron_tu_mapping_matrix @ expression vs fit_cistron_expression'
+- name: monomer counts
+  selector: listeners__monomer_counts
+  note: phenotype axis; validate with check-observables before running.
+- name: generation time
+  selector: derived from division events
+  note: growth control.

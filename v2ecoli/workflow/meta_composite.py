@@ -27,6 +27,11 @@ def register_workflow_processes(core) -> None:
     # local: address resolves when the document is constructed for rendering.
     from v2ecoli.composites.workflow_nf import AnalysisTaskStep, ParcaTaskStep
 
+    # A nested Composite node (address local:composite) is how a document expresses
+    # a sub-scope; #201 renders one as a Nextflow sub-workflow with take:/emit:.
+    from process_bigraph.composite import Composite as _Composite
+
+    core.register_link("composite", _Composite)
     core.register_link("ParcaTaskStep", ParcaTaskStep)
     core.register_link("AnalysisTaskStep", AnalysisTaskStep)
 

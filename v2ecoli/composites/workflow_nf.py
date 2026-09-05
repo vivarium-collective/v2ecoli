@@ -20,23 +20,29 @@ Two deliberate choices, both recorded because the obvious alternative is wrong:
 * **Analysis is not wrapped.** ``v2ecoli-analyze`` is already atomic and
   ``s3://``-capable; wrapping it would duplicate ``run_analyses``' own fan-out.
 
-⛔ **The gather does not construct yet, and this is a document-model limit, not a bug
-here.** Wiring one ``sweep_dirs`` port to a *list* of stores — the obvious spelling of an
-N×M→1 fan-in — fails inside ``Composite.__init__`` → ``core.realize`` → ``resolve`` with
-``TypeError: unhashable type: 'list'``, **before the renderer ever runs**. That is the same
-error process-bigraph#201 recorded for ``Mix``, and it has the same cause: a port maps to
-one store path, so a flat sibling list cannot express a fan-in at all.
+**Why each variant's lineages are NESTED rather than flat siblings.** A port maps to ONE
+store path, so the obvious spelling of an N×M→1 fan-in — one ``sweep_dirs`` port wired to a
+*list* of stores — cannot be constructed at all: it raises ``TypeError: unhashable type:
+'list'`` inside ``Composite.__init__`` → ``core.realize`` → ``resolve``, **before the
+renderer runs**. Same error process-bigraph#201 recorded for ``Mix``, same cause.
 
-The scatter half is unaffected and renders correctly — measured at 2 variants × 2 seeds:
-six process blocks, each lineage consuming *its own* variant's cache channel. So
-``include_analysis`` defaults to **False**: the generator produces a document that builds
-and renders, and the gather is gated behind a flag that currently raises, rather than
-shipping a generator nobody can construct.
+Nesting is what expresses it. Each variant's M lineages live in a sub-Composite, which #201
+renders as a DSL2 sub-workflow::
 
-The route through is #201's sub-workflow emission, which requires the lineages to be a
-**nested Composite** rather than flat siblings — ``take:``/``emit:`` with chained binary
-mixes. That is the next change, and it is a restructuring of this document rather than a
-new framework feature.
+    workflow runs_v0 {
+        take: cache
+        main:
+        ch_sweep_s0 = lineage_s0(cache, ...)
+        ch_sweep_s1 = lineage_s1(cache, ...)
+        _merged = ch_sweep_s0
+        _merged = _merged.mix(ch_sweep_s1)
+        emit: _merged.collect()
+    }
+
+so M channels arrive at the parent as ONE. The analysis then takes one named port per
+variant. Measured at Run 4 scale — 84 variants × 4 seeds = **336 lineages**: 421 process
+blocks, 84 sub-workflows, rendered in 2.5 s, with the parent call at 84 arguments (under
+Java's 255-parameter limit) and every mix binary.
 
 The per-variant ParCa node is what makes a *strain* sweep real rather than nominal:
 ``new_genes`` / ``bundle_overrides`` reach **ParCa**, so each variant gets its own
@@ -125,13 +131,28 @@ class AnalysisTaskStep(Step):
         "experiment_id": {"_type": "string", "_default": "default"},
         "out_dir": {"_type": "string", "_default": "out/analysis"},
         "modules": {"_type": "quote", "_default": []},
+        # One input port per variant. A port maps to ONE store path, so a single
+        # port wired to a LIST of stores cannot be constructed at all
+        # (TypeError: unhashable type: 'list', raised in core.realize before the
+        # renderer runs). N named ports, each fed by one variant sub-workflow's
+        # already-collected channel, is the shape the document model supports.
+        "variant_indices": {"_type": "quote", "_default": [0]},
     }
 
-    nextflow_port_decls = {"sweep_dirs": "path sweeps", "report": 'path "analysis"'}
+    # Only the OUTPUT needs an override. The per-variant inputs are declared with
+    # `_is_file: True`, which the renderer already turns into `path <name>` — and
+    # this override is read off the CLASS (`_class_annotation` → `getattr(type(...))`),
+    # so it cannot depend on config anyway.
+    nextflow_port_decls = {"report": 'path "analysis"'}
+
+    def _variants(self) -> list[int]:
+        return [int(i) for i in (self.config.get("variant_indices") or [0])]
 
     def inputs(self) -> dict[str, Any]:
-        # _cardinality many: this is the N x M -> 1 fan-in.
-        return {"sweep_dirs": {"_type": "string", "_is_file": True, "_cardinality": "many"}}
+        return {
+            f"sweep_v{i}": {"_type": "string", "_is_file": True, "_cardinality": "many"}
+            for i in self._variants()
+        }
 
     def outputs(self) -> dict[str, Any]:
         return {"report": {"_type": "string", "_is_file": True}}
@@ -236,11 +257,15 @@ def build_workflow_nf(
             "outputs": {"cache_dir": [cache_store]},
         }
 
+        # Each variant's M lineages live in a NESTED composite, which #201 renders
+        # as a Nextflow sub-workflow: `take: cache` / `emit: <chained mixes>.collect()`.
+        # That is what turns M sibling channels into ONE collected channel the
+        # analysis can consume -- flat siblings cannot express the fan-in.
+        inner_state: dict[str, Any] = {"cache": ""}
         for m in range(int(n_seeds)):
             seed = int(base_seed) + m
-            node = f"lineage_v{vi}_s{seed}"
-            sweep_store = f"sweep_v{vi}_s{seed}"
-            sweep_paths.append([sweep_store])
+            node = f"lineage_s{seed}"
+            sweep_store = f"sweep_s{seed}"
             # Everything that distinguishes this lineage lives in THIS config,
             # which is staged as its own file. No sibling shares it.
             config: dict[str, Any] = {
@@ -259,20 +284,38 @@ def build_workflow_nf(
             if spec.get("config_overrides"):
                 config["config_overrides"] = spec["config_overrides"]
 
-            state[node] = {
+            inner_state[sweep_store] = ""
+            inner_state[node] = {
                 "_type": "step",
                 "address": "local:LineageStep",
                 "config": config,
-                "inputs": {"cache_dir": [cache_store]},
+                # inside the sub-composite, `cache` is the take: port
+                "inputs": {"cache_dir": ["cache"]},
                 "outputs": {"sweep_dir": [sweep_store]},
             }
 
+        results_store = f"results_v{vi}"
+        sweep_paths.append([results_store])
+        state[f"runs_v{vi}"] = {
+            "_type": "process",
+            "address": "local:composite",
+            "config": {"state": inner_state},
+            "inputs": {"cache": [cache_store]},
+            "outputs": {"results": [results_store]},
+        }
+
     if include_analysis:
+        indices = [int(s["variant_index"]) for s in _variant_specs(variants)]
         state["analysis"] = {
             "_type": "step",
             "address": "local:AnalysisTaskStep",
-            "config": {"experiment_id": experiment_id, "out_dir": f"{out_dir}/analysis"},
-            "inputs": {"sweep_dirs": sweep_paths},
+            "config": {
+                "experiment_id": experiment_id,
+                "out_dir": f"{out_dir}/analysis",
+                "variant_indices": indices,
+            },
+            # one named port per variant, each fed by that variant's sub-workflow
+            "inputs": {f"sweep_v{i}": [f"results_v{i}"] for i in indices},
             "outputs": {"report": ["report"]},
         }
     return {"state": state}

@@ -32,13 +32,14 @@ def _render(core, doc):
 def test_shape_is_one_parca_per_variant_feeding_its_own_seeds() -> None:
     doc = build_workflow_nf(n_seeds=2, variants=[{"variant_name": "a"}, {"variant_name": "b"}])
     state = doc["state"]
-    assert sorted(state) == [
-        "lineage_v0_s0", "lineage_v0_s1", "lineage_v1_s0", "lineage_v1_s1",
-        "parca_v0", "parca_v1",
-    ]
-    # each lineage reads ITS OWN variant's cache -- the whole point of a strain sweep
-    assert state["lineage_v0_s1"]["inputs"]["cache_dir"] == ["cache_v0"]
-    assert state["lineage_v1_s0"]["inputs"]["cache_dir"] == ["cache_v1"]
+    assert sorted(state) == ["parca_v0", "parca_v1", "runs_v0", "runs_v1"]
+    # each variant's sub-composite reads ITS OWN cache -- the point of a strain sweep
+    assert state["runs_v0"]["inputs"]["cache"] == ["cache_v0"]
+    assert state["runs_v1"]["inputs"]["cache"] == ["cache_v1"]
+    # and the M lineages live inside it, wired to the take: port
+    inner = state["runs_v0"]["config"]["state"]
+    assert sorted(k for k in inner if k.startswith("lineage")) == ["lineage_s0", "lineage_s1"]
+    assert inner["lineage_s1"]["inputs"]["cache_dir"] == ["cache"]
 
 
 def test_strain_inputs_reach_PARCA_not_the_lineage() -> None:
@@ -50,22 +51,23 @@ def test_strain_inputs_reach_PARCA_not_the_lineage() -> None:
     parca_cfg = doc["state"]["parca_v0"]["config"]
     assert parca_cfg["new_genes"] == "violacein_MG1655_M5"
     assert parca_cfg["bundle_overrides"] == "/m.json"
-    assert "new_genes" not in doc["state"]["lineage_v0_s0"]["config"]
+    inner = doc["state"]["runs_v0"]["config"]["state"]
+    assert "new_genes" not in inner["lineage_s0"]["config"]
 
 
 def test_no_variants_means_one_baseline_not_zero() -> None:
     """Zero variants would render an empty workflow that exits 0."""
     doc = build_workflow_nf(n_seeds=1, variants=None)
-    assert "parca_v0" in doc["state"] and "lineage_v0_s0" in doc["state"]
+    assert "parca_v0" in doc["state"] and "runs_v0" in doc["state"]
 
 
 def test_renders_the_two_level_scatter(core) -> None:
     doc = build_workflow_nf(n_seeds=2, variants=[{"variant_name": "a"}, {"variant_name": "b"}])
     nf = _render(core, doc)
-    assert nf.count("process ") == 6
-    # each variant's seeds consume that variant's cache channel
-    assert "lineage_v0_s0(ch_cache_v0" in nf and "lineage_v0_s1(ch_cache_v0" in nf
-    assert "lineage_v1_s0(ch_cache_v1" in nf and "lineage_v1_s1(ch_cache_v1" in nf
+    # 2 parca + 2 lineage process blocks (one per node inside the sub-workflows)
+    assert nf.count("workflow runs_v") == 2
+    assert "ch_results_v0 = runs_v0(ch_cache_v0)" in nf
+    assert "ch_results_v1 = runs_v1(ch_cache_v1)" in nf
 
 
 def test_parca_script_carries_the_strain_flags_and_the_hydrate_step(core) -> None:
@@ -103,14 +105,35 @@ def test_gather_is_off_by_default() -> None:
     assert "analysis" not in build_workflow_nf(n_seeds=2)["state"]
 
 
-def test_gather_cannot_be_constructed_yet(core) -> None:
-    """Documents the wall precisely so nobody re-derives it: a port wired to a LIST
-    of stores fails in Composite.__init__ -> realize -> resolve, BEFORE the renderer
-    runs. Same error process-bigraph#201 recorded for Mix. The route through is
-    sub-workflow emission over a NESTED composite, not a flat sibling list."""
-    from process_bigraph import Composite
+def test_each_variant_collects_its_seeds_into_ONE_channel(core) -> None:
+    """The fan-in, and why it needs nesting: M sibling channels cannot be wired to
+    one port (a port maps to ONE store path -- the flat spelling raises
+    `TypeError: unhashable type: 'list'` inside realize, before the renderer runs).
+    A nested composite emits `take:`/`emit:` with CHAINED BINARY mixes, so M
+    channels arrive at the parent as one."""
+    nf = _render(core, build_workflow_nf(n_seeds=3, include_analysis=True))
+    assert "workflow runs_v0 {" in nf
+    assert "take:" in nf and "emit:" in nf
+    assert nf.count("_merged = _merged.mix(") == 2      # 3 units -> 2 binary mixes
+    assert "_merged.collect()" in nf
 
-    doc = build_workflow_nf(n_seeds=2, include_analysis=True)
-    assert "analysis" in doc["state"]
-    with pytest.raises(TypeError, match="unhashable type"):
-        Composite(doc, core=core)
+
+def test_analysis_takes_one_port_per_variant(core) -> None:
+    """N named ports, each fed by a variant's already-collected channel. One port
+    wired to N stores is what the document model cannot express."""
+    nf = _render(core, build_workflow_nf(
+        n_seeds=2, include_analysis=True,
+        variants=[{"variant_name": "a"}, {"variant_name": "b"}]))
+    assert "analysis(ch_results_v0, ch_results_v1" in nf
+
+
+def test_renders_at_run4_scale_without_hitting_the_255_wall(core) -> None:
+    """go/no-go 4: 84 variants x 4 seeds = 336 lineages. The unrolled form died at
+    256 arguments (`bad parameter count 257`); nesting keeps the parent call at one
+    argument per VARIANT and the mixes binary."""
+    variants = [{"variant_name": f"v{i}"} for i in range(84)]
+    nf = _render(core, build_workflow_nf(n_seeds=4, include_analysis=True, variants=variants))
+    assert nf.count("workflow runs_v") == 84
+    assert nf.count("= lineage_s") == 336
+    # chained binary, never one n-ary call
+    assert ".mix(" in nf and all("," not in seg[:seg.index(")")] for seg in nf.split(".mix(")[1:])

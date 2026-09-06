@@ -307,6 +307,84 @@ def write_verdict(verdict: dict[str, Any], out_path: str) -> None:
     Path(out_path).write_text(json.dumps(verdict, indent=2))
 
 
+# The report-card verdict vocabulary (viva_superpowers.card_grade): within_tol
+# (pass) / drift (warn) / mismatch (fail) / ungraded. Kept here as plain strings
+# so the engine has no import dependency on the report-card layer -- the
+# translation below lets a card express a gate result in that one shared schema.
+_PASS, _WARN, _FAIL, _NA = "within_tol", "drift", "mismatch", "ungraded"
+_RANK = {"mismatch": 3, "drift": 2, "within_tol": 1, "ungraded": 0}
+
+
+def report_from_gate_verdict(verdict: dict[str, Any]) -> dict[str, Any]:
+    """Translate a :func:`run_gate` verdict into a grade_card-shaped report
+    (``{overall, axes: {path: {group, label, verdict, value, meter, detail}}}``),
+    the input :func:`viva_superpowers.card_grade.verdict_json` expects.
+
+    This is the seam that unifies the gate with the report cards: the gate stays a
+    route-independent check engine, and a report card feeds this report through the
+    SAME verdict_json / render_verdict_html the science cards use -- one schema,
+    one report surface, no parallel verdict format. Each check becomes one axis;
+    ``overall`` is the worst axis verdict, so a card built from this dominates a
+    study's worst-verdict rollup on any failure.
+    """
+    axes: dict[str, dict] = {}
+
+    def add(path: str, group: str, label: str, verdict_: str,
+            value: Any = None, meter: str = "", detail: dict | None = None) -> None:
+        axes[path] = {"group": group, "label": label, "verdict": verdict_,
+                      "value": value, "meter": meter, "detail": detail or {},
+                      "path": path}
+
+    cc = verdict.get("columns_check", {})
+    if "error" in cc:
+        add("output/history", "Output", "hive history parquet", _FAIL,
+            meter=cc["error"])
+    must_vary = set(cc.get("must_vary", []) or [])
+    must_equal = cc.get("must_equal", {}) or {}
+    for col, info in (cc.get("columns") or {}).items():
+        present = info.get("present")
+        nn = info.get("nonnull_rows", 0)
+        dist = info.get("distinct", 0)
+        if not (present and nn > 0):
+            v, meter = _FAIL, ("absent" if not present else "present but all-null")
+        elif col in must_vary and dist <= 1:
+            v, meter = _FAIL, f"dead channel (distinct={dist})"
+        elif col in must_equal and info.get("mismatch_rows", 0) > 0:
+            v, meter = _FAIL, f"{info['mismatch_rows']} rows != {must_equal[col]!r}"
+        else:
+            meter = f"{nn} non-null" + (f", distinct={dist}" if col in must_vary else "")
+            v = _PASS
+        add(f"columns/{col}", "Output columns", col, v, meter=meter, detail=dict(info))
+
+    comp = verdict.get("composition_check")
+    if comp is not None:
+        missing = set(comp.get("missing", []) or [])
+        for d in comp.get("declared", []) or []:
+            gone = d in missing
+            add(f"composition/{d}", "Composition", f"{d} ran",
+                _FAIL if gone else _PASS, meter="absent" if gone else "present")
+        for f in comp.get("forbidden_present", []) or []:
+            add(f"composition/forbidden/{f}", "Composition", f"{f} absent",
+                _FAIL, meter="present (should be absent after the swap)")
+
+    sp = verdict.get("species_check")
+    if sp is not None:
+        ok = sp.get("passed")
+        add("strain/species_count", "Strain", "bulk species count",
+            _PASS if ok else _FAIL, value=sp.get("count"),
+            meter=f"{sp.get('count')} vs expected {sp.get('expected')}", detail=dict(sp))
+
+    worst = _NA
+    for ax in axes.values():
+        if _RANK[ax["verdict"]] > _RANK[worst]:
+            worst = ax["verdict"]
+    if not axes:
+        add("acceptance/status", "Acceptance", "no checks declared", _NA,
+            meter="the acceptance block declared nothing to check")
+        worst = _NA
+    return {"overall": worst, "axes": axes}
+
+
 def _sql_str(s: str) -> str:
     return "'" + str(s).replace("'", "''") + "'"
 

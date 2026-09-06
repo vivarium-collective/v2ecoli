@@ -137,3 +137,54 @@ def test_renders_at_run4_scale_without_hitting_the_255_wall(core) -> None:
     assert nf.count("= lineage_s") == 336
     # chained binary, never one n-ary call
     assert ".mix(" in nf and all("," not in seg[:seg.index(")")] for seg in nf.split(".mix(")[1:])
+
+
+# --- the generator must stand on its own ------------------------------------
+
+
+def _spec_for_workflow_nf():
+    from process_bigraph.composite_spec import discover_specs
+    from process_bigraph.composite_spec import get as get_spec
+
+    key = "v2ecoli.composites.workflow_nf.workflow_nf"
+    spec = get_spec(key)
+    if spec is None:
+        discover_specs()
+        spec = get_spec(key)
+    assert spec is not None, f"{key} is not registered"
+    return spec
+
+
+def test_generator_declares_the_core_extensions_its_document_needs() -> None:
+    """Every node this generator emits is a `local:` address someone must register.
+
+    The `core` fixture above calls register_workflow_processes BY HAND, so these
+    tests passed while the real path -- resolving through the generator, which is
+    what run_pbg and viva-api's render_nf do -- could not construct the document
+    at all.
+    """
+    from v2ecoli.workflow.meta_composite import register_workflow_processes
+
+    spec = _spec_for_workflow_nf()
+    assert register_workflow_processes in (spec.core_extensions or [])
+
+
+def test_document_realizes_against_a_core_built_ONLY_from_the_generator() -> None:
+    """The effect check, and the one that actually failed on real infrastructure.
+
+    Builds the core the way the dispatcher does -- build_core() plus the
+    generator's declared extensions, nothing hand-added -- and constructs the
+    document. Without core_extensions this raises
+
+        Exception: no link found at address: {'protocol': 'local', 'data': 'composite'}
+
+    which is the nested Composite, i.e. every sub-workflow this path exists for.
+    """
+    from process_bigraph import Composite
+    from process_bigraph.composite_generator import apply_core_extensions
+
+    from v2ecoli.core import build_core
+
+    core = apply_core_extensions(_spec_for_workflow_nf(), build_core())
+    doc = build_workflow_nf(n_seeds=1, n_generations=1)
+    Composite(doc, core=core)  # must not raise

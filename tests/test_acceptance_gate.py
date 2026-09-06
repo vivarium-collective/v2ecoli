@@ -38,6 +38,7 @@ def sweep(tmp_path):
         "listeners__mass__dry_mass": [430.0, 431.0, 432.0],
         "environment__exchange__VIOLACEIN": [0.0, 0.01, 0.02],
         "all_null_col": pa.array([None, None, None], type=pa.float64()),
+        "dead_const_col": [7.0, 7.0, 7.0],
     }))
     return str(tmp_path)
 
@@ -51,7 +52,7 @@ def test_present_columns_pass(sweep):
 def test_missing_column_fails_and_is_named(sweep):
     r = check_columns(sweep, ["listeners__mass__dry_mass", "listeners__mass__cell_mass"])
     assert not r["passed"]
-    assert r["columns"]["listeners__mass__cell_mass"] == {"present": False, "nonnull_rows": 0}
+    assert r["columns"]["listeners__mass__cell_mass"] == {"present": False, "nonnull_rows": 0, "distinct": 0}
 
 
 def test_all_null_column_fails(sweep):
@@ -60,6 +61,28 @@ def test_all_null_column_fails(sweep):
     assert not r["passed"]
     assert r["columns"]["all_null_col"]["present"] is True
     assert r["columns"]["all_null_col"]["nonnull_rows"] == 0
+
+
+def test_constant_column_fails_when_must_vary(sweep):
+    """A present, non-null, but constant column is a dead channel wearing a name."""
+    r = check_columns(sweep, ["dead_const_col"], must_vary=["dead_const_col"])
+    assert not r["passed"]
+    assert r["columns"]["dead_const_col"] == {"present": True, "nonnull_rows": 3, "distinct": 1}
+
+
+def test_constant_column_passes_when_not_required_to_vary(sweep):
+    """distinct is always reported so a reviewer sees a dead channel, but it only
+    fails when the column is declared must_vary."""
+    r = check_columns(sweep, ["dead_const_col"])  # not in must_vary
+    assert r["passed"]
+    assert r["columns"]["dead_const_col"]["distinct"] == 1
+
+
+def test_varying_column_passes_must_vary(sweep):
+    r = check_columns(sweep, ["listeners__mass__dry_mass"],
+                      must_vary=["listeners__mass__dry_mass"])
+    assert r["passed"]
+    assert r["columns"]["listeners__mass__dry_mass"]["distinct"] == 3
 
 
 def test_no_hive_parquet_fails(tmp_path):

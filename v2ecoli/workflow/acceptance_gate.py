@@ -38,25 +38,37 @@ from typing import Any, Iterable
 from v2ecoli.library.sweep_io import configure_duckdb_s3, history_files, is_s3_uri
 
 
-def check_columns(sweep_dir: str, required_columns: Iterable[str]) -> dict[str, Any]:
+def check_columns(
+    sweep_dir: str,
+    required_columns: Iterable[str],
+    *,
+    must_vary: Iterable[str] = (),
+) -> dict[str, Any]:
     """Assert each required column exists in the sweep's history parquet with at
-    least one non-null row.
+    least one non-null row, and (for ``must_vary`` columns) that it actually
+    varies.
 
     Column names are the double-underscore-flattened emit paths the parquet
     carries (e.g. ``listeners__mass__dry_mass``), NOT slash paths. Returns a dict
-    with ``passed`` and a per-column ``{present, nonnull_rows}`` map. A missing
-    column and a present-but-all-null column both fail -- both are the silent
-    failure this gate exists to catch.
+    with ``passed`` and a per-column ``{present, nonnull_rows, distinct}`` map.
+
+    A missing column and a present-but-all-null column both fail. For any column
+    named in ``must_vary``, ``distinct <= 1`` also fails: a column pinned at its
+    seed value is a dead channel wearing a column name (cplong90, sms-ecoli#210),
+    and it passes a bare presence check. ``distinct`` is reported for every column
+    so a reviewer can spot a dead channel even when it is not enforced.
     """
     import duckdb
 
     required = list(required_columns)
+    must_vary_set = set(must_vary)
     files = history_files(sweep_dir)
     if not files:
         return {
             "passed": False,
             "error": f"no hive history parquet under {sweep_dir!r}",
-            "columns": {c: {"present": False, "nonnull_rows": 0} for c in required},
+            "columns": {c: {"present": False, "nonnull_rows": 0, "distinct": 0}
+                        for c in required},
             "n_files": 0,
         }
     con = duckdb.connect()
@@ -69,14 +81,24 @@ def check_columns(sweep_dir: str, required_columns: Iterable[str]) -> dict[str, 
     columns: dict[str, Any] = {}
     for col in required:
         if col not in available:
-            columns[col] = {"present": False, "nonnull_rows": 0}
+            columns[col] = {"present": False, "nonnull_rows": 0, "distinct": 0}
             continue
-        n = con.execute(f"SELECT count({_sql_ident(col)}) FROM {src}").fetchone()[0]
-        columns[col] = {"present": True, "nonnull_rows": int(n)}
-    passed = bool(required) and all(
-        c["present"] and c["nonnull_rows"] > 0 for c in columns.values()
-    )
-    return {"passed": passed, "columns": columns, "n_files": len(files)}
+        ident = _sql_ident(col)
+        n, distinct = con.execute(
+            f"SELECT count({ident}), count(DISTINCT {ident}) FROM {src}"
+        ).fetchone()
+        columns[col] = {"present": True, "nonnull_rows": int(n), "distinct": int(distinct)}
+
+    def _ok(name: str, c: dict) -> bool:
+        if not (c["present"] and c["nonnull_rows"] > 0):
+            return False
+        if name in must_vary_set and c["distinct"] <= 1:
+            return False
+        return True
+
+    passed = bool(required) and all(_ok(name, c) for name, c in columns.items())
+    return {"passed": passed, "columns": columns, "n_files": len(files),
+            "must_vary": sorted(must_vary_set)}
 
 
 def process_names_from_state(state: dict) -> set[str]:
@@ -137,6 +159,7 @@ def run_gate(
     sweep_dir: str,
     required_columns: Iterable[str],
     *,
+    must_vary: Iterable[str] = (),
     ran_processes: Iterable[str] | None = None,
     declared_processes: Iterable[str] | None = None,
 ) -> dict[str, Any]:
@@ -146,7 +169,7 @@ def run_gate(
         "passed": False,
         "sweep_dir": sweep_dir,
         "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        "columns_check": check_columns(sweep_dir, required_columns),
+        "columns_check": check_columns(sweep_dir, required_columns, must_vary=must_vary),
     }
     passed = verdict["columns_check"]["passed"]
     if declared_processes is not None:
@@ -195,6 +218,7 @@ def _self_test() -> int:
                 "global_time": [0.0, 1.0],
                 "listeners__mass__dry_mass": [430.0, 431.0],
                 "all_null_col": pa.array([None, None], type=pa.float64()),
+                "const_col": [7.0, 7.0],
             }),
             str(leaf / "0.pq"),
         )
@@ -214,8 +238,14 @@ def _self_test() -> int:
             print(f"SELF-TEST FAIL: an all-null column must fail: {allnull}")
             ok = False
 
-    print("SELF-TEST PASS: gate flags missing and all-null columns" if ok
-          else "SELF-TEST FAILED")
+        # a present, non-null, but CONSTANT column is a dead channel when it must vary
+        dead = check_columns(d, ["const_col"], must_vary=["const_col"])
+        if dead["passed"] or dead["columns"]["const_col"]["distinct"] != 1:
+            print(f"SELF-TEST FAIL: a constant must_vary column must fail: {dead}")
+            ok = False
+
+    print("SELF-TEST PASS: gate flags missing, all-null, and dead-constant columns"
+          if ok else "SELF-TEST FAILED")
     return 0 if ok else 1
 
 
@@ -223,6 +253,10 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--sweep-dir", help="Run output dir (local or s3://), hive history under it.")
     p.add_argument("--required-columns", help="JSON list of required column names, or @file.")
+    p.add_argument("--must-vary", default=None,
+                   help="JSON list of required columns that must also VARY (distinct>1); "
+                        "a column pinned at its seed value is a dead channel that passes "
+                        "a bare presence check.")
     p.add_argument("--declared-processes", default=None,
                    help="JSON list of process names/addresses the submission declared (optional).")
     p.add_argument("--process-table", default=None,
@@ -241,6 +275,7 @@ def main(argv: list[str] | None = None) -> int:
 
     spec = args.required_columns
     required = json.loads(Path(spec[1:]).read_text() if spec.startswith("@") else spec)
+    must_vary = json.loads(args.must_vary) if args.must_vary else []
 
     ran = None
     declared = None
@@ -251,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
             state = json.loads(Path(args.process_table).read_text())
             ran = sorted(process_names_from_state(state))
 
-    verdict = run_gate(args.sweep_dir, required,
+    verdict = run_gate(args.sweep_dir, required, must_vary=must_vary,
                        ran_processes=ran, declared_processes=declared)
     print(json.dumps(verdict, indent=2))
     if args.out:

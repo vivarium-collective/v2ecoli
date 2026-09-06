@@ -283,6 +283,17 @@ def candidate_repo_roots() -> list[str]:
     the old single-root behavior.
     """
     roots: list[str] = []
+    # An EXPLICITLY DECLARED root wins, because the usual discovery cannot work
+    # everywhere: ``find_workspace_root`` walks up from CWD for a workspace.yaml,
+    # and a task scheduler gives each task its own working directory with no
+    # workspace above it. Nextflow is the case that forced this -- the walk
+    # raised, the `except` below swallowed it, and the only remaining root was
+    # site-packages, where `models/` is not shipped. The failure surfaced as
+    # "INPUT_FILES entry does not exist ... tried roots: ['…/site-packages']",
+    # which reads like a renamed data file rather than an unresolved workspace.
+    declared = os.environ.get("V2E_ROOT", "").strip()
+    if declared and os.path.isdir(declared):
+        roots.append(declared)
     try:
         from viva_workspace import find_workspace_root
         roots.append(str(find_workspace_root()))

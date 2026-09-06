@@ -57,11 +57,9 @@ import numpy as np
 from bigraph_schema.contract import ProcessContract
 
 from v2ecoli.library.schema import (
-    numpy_schema,
     counts,
     attrs,
     bulk_name_to_idx,
-    listener_schema,
 )
 
 from v2ecoli.types.quantity import ureg as units

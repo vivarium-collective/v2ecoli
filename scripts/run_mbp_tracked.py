@@ -13,10 +13,9 @@ Each run is also tagged with ``study_slug`` + ``investigation_slug`` so
 the dashboard's Simulations DB tab groups them under the
 ``multiscale-bioprocess`` investigation.
 
-Currently runnable variants. (This list once excluded anything needing
-the upstream ``pbg-bioreactor-transport-fork`` PR for mbp-03's
-BiRDTransportProcess; that merged 2026-07-27, so the coupled composite is
-runnable here now.)
+Currently runnable variants. mbp-03's reactor coupling runs fork-free via the
+local ``BiRDTransportHours`` adapter registered in ``v2ecoli/core.py`` (no
+upstream bioreactor-transport fork needed).
 
   mbp-01-time-varying-environment:
     static-env-baseline   — baseline_time_varying_env (env_driver_mode=static)

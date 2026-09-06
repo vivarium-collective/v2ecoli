@@ -2,7 +2,7 @@
 ParCa Pipeline as Process-Bigraph Steps
 ========================================
 
-Runs the full v2parca pipeline — 9 Steps wired to a nested bigraph store
+Runs the full v2ecoli ParCa pipeline — 9 Steps wired to a nested bigraph store
 mirroring ``SimulationDataEcoli``'s structure — and pickles the final
 store state.
 
@@ -127,7 +127,7 @@ def main():
     cache_dir = args.cache_dir or os.path.join(outdir, "cache")
     os.makedirs(cache_dir, exist_ok=True)
 
-    print(f"\n{'=' * 60}\n  v2parca — {args.mode} mode (cpus={args.cpus})\n{'=' * 60}")
+    print(f"\n{'=' * 60}\n  v2ecoli ParCa — {args.mode} mode (cpus={args.cpus})\n{'=' * 60}")
 
     resume_state = None
     if args.resume_from_step > 1:

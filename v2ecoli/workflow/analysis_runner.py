@@ -205,7 +205,10 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
         # folded into the cross-generation aggregation and contaminate it — a
         # ~1% flux shift, and a stub whose estimated_exchange_dmdt column set
         # mismatches the lineage can block the read entirely (schema mismatch).
-        conds.append("agent_id NOT LIKE '%1%'")
+        # CAST because hive can read agent_id as BIGINT (0/1/10/…) rather than
+        # VARCHAR ("00"); NOT LIKE needs VARCHAR. All-zeros → "0"/"00" (no '1');
+        # a stub daughter → contains '1' either way.
+        conds.append("CAST(agent_id AS VARCHAR) NOT LIKE '%1%'")
     where = (" WHERE " + " AND ".join(conds)) if conds else ""
     return f"SELECT * FROM {from_clause}{where} ORDER BY global_time"
 

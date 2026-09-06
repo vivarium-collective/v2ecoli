@@ -14,13 +14,13 @@ def test_multiseed_sql_filters_variant_and_canonical_lineage():
     assert "variant = 3" in sql
     assert "lineage_seed" not in sql
     # lineage-collapsing scale: restrict to the all-zeros single-daughter chain
-    assert "agent_id NOT LIKE '%1%'" in sql
+    assert "NOT LIKE '%1%'" in sql
 
 
 def test_multivariant_sql_filters_canonical_lineage_only():
     sql = scale_history_sql("multivariant", _FROM, ())
     # No variant/seed key, but still restrict to the canonical all-zeros lineage
-    assert "agent_id NOT LIKE '%1%'" in sql
+    assert "NOT LIKE '%1%'" in sql
     assert _FROM in sql
 
 
@@ -29,7 +29,7 @@ def test_multigeneration_sql_excludes_birth_stubs():
     assert "variant = 0" in sql and "lineage_seed = 1" in sql
     # the d?1 birth-stub partitions (agent_id containing '1') must be excluded
     # so they don't contaminate the cross-generation aggregation
-    assert "agent_id NOT LIKE '%1%'" in sql
+    assert "NOT LIKE '%1%'" in sql
 
 
 def test_multidaughter_keeps_sisters_not_allzeros_filter():

@@ -17,6 +17,7 @@ from v2ecoli.workflow.acceptance_gate import (
     check_composition,
     check_species_count,
     process_names_from_state,
+    report_from_gate_verdict,
     run_gate,
     _self_test,
 )
@@ -213,6 +214,53 @@ def test_run_gate_must_equal_wrong_condition_sinks_good_columns(sweep):
     v = run_gate(sweep, ["listeners__mass__dry_mass"],
                  must_equal={"dead_const_col": 999.0})
     assert not v["passed"]
+
+
+def test_report_translation_pass(sweep):
+    """A clean gate verdict becomes a within_tol report in the card schema."""
+    v = run_gate(sweep, ["listeners__mass__dry_mass"],
+                 must_vary=["listeners__mass__dry_mass"])
+    r = report_from_gate_verdict(v)
+    assert r["overall"] == "within_tol"
+    ax = r["axes"]["columns/listeners__mass__dry_mass"]
+    assert ax["verdict"] == "within_tol" and ax["group"] == "Output columns"
+
+
+def test_report_translation_missing_column_is_mismatch(sweep):
+    r = report_from_gate_verdict(run_gate(sweep, ["listeners__mass__cell_mass"]))
+    assert r["overall"] == "mismatch"
+    assert r["axes"]["columns/listeners__mass__cell_mass"]["verdict"] == "mismatch"
+
+
+def test_report_translation_dead_channel_composition_and_strain(sweep):
+    v = run_gate(sweep, ["dead_const_col"], must_vary=["dead_const_col"],
+                 ran_processes=["local:MetabolismFBA"],
+                 declared_processes=["MetabolismReduxClassic"],
+                 species_count=16321, expected_species_count=16323)
+    r = report_from_gate_verdict(v)
+    assert r["overall"] == "mismatch"
+    assert r["axes"]["columns/dead_const_col"]["verdict"] == "mismatch"
+    assert r["axes"]["composition/MetabolismReduxClassic"]["verdict"] == "mismatch"
+    assert r["axes"]["strain/species_count"]["verdict"] == "mismatch"
+
+
+def test_report_translation_wrong_condition(sweep):
+    v = run_gate(sweep, ["listeners__mass__dry_mass"],
+                 must_equal={"dead_const_col": 999.0})
+    r = report_from_gate_verdict(v)
+    assert r["overall"] == "mismatch"
+    assert r["axes"]["columns/dead_const_col"]["verdict"] == "mismatch"
+
+
+def test_report_translation_no_history_surfaces_error_axis(tmp_path):
+    r = report_from_gate_verdict(run_gate(str(tmp_path), ["global_time"]))
+    assert r["overall"] == "mismatch" and "output/history" in r["axes"]
+
+
+def test_report_translation_empty_is_ungraded():
+    r = report_from_gate_verdict({"columns_check": {"columns": {}, "must_vary": []}})
+    assert r["overall"] == "ungraded"
+    assert "acceptance/status" in r["axes"]
 
 
 def test_self_test_validates_the_verifier():

@@ -25,25 +25,48 @@ import re
 import warnings
 from typing import Any
 
-# Default concurrency ceiling for the DuckDB-backed (Analysis) family's
-# per-module fan-out in run_analyses (see _run_duckdb_names below). Each
-# named analysis is fully independent (own cursor, own query) and DuckDB
-# releases the GIL during query execution, so real threads give real
-# speedup -- empirically confirmed 2026-08-20 (~3x with 4 threads on a
-# genuine aggregation query, not just assumed from docs). Bounded by
-# cpu_count so a container's own vCPU allocation is the natural ceiling;
-# a caller can still force strict serial execution via max_workers=1.
-DEFAULT_ANALYSIS_MAX_WORKERS = os.cpu_count() or 4
-
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
 # here because these names are part of this module's existing surface.
 from v2ecoli.library.sweep_io import (
     _S3_PREFIX,
+    analysis_memory_budget_bytes,
+    apply_analysis_duckdb_config,
     configure_duckdb_s3,
     history_files,
     is_s3_uri,
 )
+
+
+def _default_analysis_workers() -> int:
+    """Default concurrency ceiling for the DuckDB-backed (Analysis) family's
+    per-module fan-out in run_analyses (see _run_duckdb_names below). Each named
+    analysis runs a fully independent cursor+query and DuckDB releases the GIL
+    during execution, so real threads give real speedup -- ~3x with 4 threads on
+    a genuine aggregation query (2026-08-20).
+
+    But each concurrent analysis is a full-hive query that can hold gigabytes, so
+    the CPU count is the wrong ceiling on a memory-bounded container: N cores
+    would stack N full ORDER-BYs into one buffer pool and OOM ("failed to pin
+    block", observed running the 5 ptools views together). Precedence:
+    ``V2E_ANALYSIS_MAX_WORKERS`` env; else, when a memory budget is known
+    (:func:`analysis_memory_budget_bytes`), roughly one worker per 4 GiB (min 1);
+    else the CPU count. A caller can still force strict serial via max_workers=1.
+    """
+    env = os.environ.get("V2E_ANALYSIS_MAX_WORKERS")
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    cpu = os.cpu_count() or 4
+    budget = analysis_memory_budget_bytes()
+    if budget:
+        return max(1, min(cpu, budget // (4 * 1024 ** 3)))
+    return cpu
+
+
+DEFAULT_ANALYSIS_MAX_WORKERS = _default_analysis_workers()
 
 
 def localize(uri: str, cache_dir: str | None = None) -> str:
@@ -304,6 +327,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+    apply_analysis_duckdb_config(conn)
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -453,8 +477,51 @@ def _register_builtin_analyses() -> None:
     empty and silently drops EVERY declared built-in analysis. Importing the
     package here guarantees the built-ins are resolvable regardless of what the
     caller imported. Idempotent — the import is cached after the first call.
+
+    Also loads any analysis packages other installed distributions advertise
+    under the ``v2ecoli.analyses`` entry-point group (see
+    :func:`_register_plugin_analyses`), so a package that ships its own analyses
+    -- e.g. sms_modules' ptools_metabolites -- registers them in the dispatch
+    path without v2ecoli importing it by name (the vendored analysis entrypoints
+    stay byte-identical to these, so they cannot import sms_modules themselves).
     """
     import v2ecoli.workflow.analyses  # noqa: F401 — import registers the suite
+
+    _register_plugin_analyses()
+
+
+def _register_plugin_analyses() -> None:
+    """Import every module advertised under the ``v2ecoli.analyses`` entry-point
+    group so its ``Analysis`` subclasses register in ``ANALYSIS_REGISTRY``.
+
+    An installed distribution declares, in its own ``pyproject.toml``::
+
+        [project.entry-points."v2ecoli.analyses"]
+        sms_modules = "sms_modules.analyses"
+
+    and importing that module fires its registration side effects. A plugin that
+    fails to import is warned about, never fatal: a broken third-party analysis
+    package must not take down the built-in suite. Idempotent -- the imports are
+    cached after the first call.
+    """
+    import importlib
+    import importlib.metadata as importlib_metadata
+
+    try:
+        eps = importlib_metadata.entry_points(group="v2ecoli.analyses")
+    except TypeError:  # Python < 3.10 non-selectable entry_points() API
+        eps = importlib_metadata.entry_points().get("v2ecoli.analyses", [])
+    for ep in eps:
+        # An entry-point value is "pkg.module" or "pkg.module:attr"; the module
+        # is what carries the registration side effect, so import that.
+        module_name = ep.value.split(":", 1)[0].strip()
+        try:
+            importlib.import_module(module_name)
+        except Exception as e:  # noqa: BLE001 -- a bad plugin must not be fatal
+            warnings.warn(
+                f"v2ecoli.analyses plugin {ep.name!r} ({ep.value!r}) failed to "
+                f"import; its analyses stay unregistered: {type(e).__name__}: {e}"
+            )
 
 
 def run_analyses(sweep_dir: str, analysis_options: dict,
@@ -591,6 +658,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
                 from viva_emitters import create_duckdb_conn
                 _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+                apply_analysis_duckdb_config(_ctx["conn"])
                 _ctx["from_clause"] = _history_from_clause(sweep_dir)
                 if sim_data_path is not None:
                     from v2ecoli.library.sim_data import LoadSimData
@@ -667,9 +735,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
         return per_group
 
+    # A declared analysis that never runs is a silent deliverable hole: a study
+    # names an analysis that isn't registered in this runner (e.g. an sms_modules
+    # KPI whose registration import never ran in the analysis container), and the
+    # run reports OK with the plot simply absent. Collect these and surface them
+    # as errors so status goes PARTIAL instead of a clean pass over a missing KPI.
+    unknown_analyses: list[dict] = []
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
+            unknown_analyses.append({
+                "scale": scale, "name": None, "group": None,
+                "error": f"unknown analysis scale {scale!r} not in ANALYSIS_SCALES",
+                "missing_column": None,
+            })
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
@@ -688,7 +767,13 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
-                warnings.warn(f"unknown analysis {name!r} (scale {scale}); skipping")
+                warnings.warn(f"unknown analysis {name!r} (scale {scale})")
+                unknown_analyses.append({
+                    "scale": scale, "name": name, "group": None,
+                    "error": f"unknown analysis {name!r} not in ANALYSIS_REGISTRY "
+                             f"(declared but never registered/imported)",
+                    "missing_column": None,
+                })
                 continue
             if step_cls.scale != scale:
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
@@ -781,7 +866,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                         "missing_column": gval.get("missing_column"),
                     })
 
-    overall_bad = records_error is not None or any(
+    errors.extend(unknown_analyses)
+
+    overall_bad = records_error is not None or bool(unknown_analyses) or any(
         status != "ok" for scale_summary in summary.values()
         for status in scale_summary.values())
     results["status"] = "PARTIAL" if overall_bad else "OK"

@@ -3,11 +3,6 @@
 Upstream-parity architecture: the partitioned model matches the
 vivarium-collective/vEcoli composite tick-for-tick. See AGENTS.md.
 
-Migration note: the document-building body was migrated from
-``v2ecoli/generate.py:build_document`` and
-``v2ecoli/composite.py:_build_from_cache``.  Both legacy files were deleted
-in Task 14.
-
 Shared helpers (``make_edge``, ``inject_flow_dependencies``,
 ``_seed_state_from_defaults``, ``seed_mass_listener``,
 ``_normalize_boundary_units``, ``_make_instance``, ``_get_special_step``,

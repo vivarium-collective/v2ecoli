@@ -667,9 +667,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
         return per_group
 
+    # A declared analysis that never runs is a silent deliverable hole: a study
+    # names an analysis that isn't registered in this runner (e.g. an sms_modules
+    # KPI whose registration import never ran in the analysis container), and the
+    # run reports OK with the plot simply absent. Collect these and surface them
+    # as errors so status goes PARTIAL instead of a clean pass over a missing KPI.
+    unknown_analyses: list[dict] = []
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
+            unknown_analyses.append({
+                "scale": scale, "name": None, "group": None,
+                "error": f"unknown analysis scale {scale!r} not in ANALYSIS_SCALES",
+                "missing_column": None,
+            })
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
@@ -688,7 +699,13 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
-                warnings.warn(f"unknown analysis {name!r} (scale {scale}); skipping")
+                warnings.warn(f"unknown analysis {name!r} (scale {scale})")
+                unknown_analyses.append({
+                    "scale": scale, "name": name, "group": None,
+                    "error": f"unknown analysis {name!r} not in ANALYSIS_REGISTRY "
+                             f"(declared but never registered/imported)",
+                    "missing_column": None,
+                })
                 continue
             if step_cls.scale != scale:
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
@@ -781,7 +798,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                         "missing_column": gval.get("missing_column"),
                     })
 
-    overall_bad = records_error is not None or any(
+    errors.extend(unknown_analyses)
+
+    overall_bad = records_error is not None or bool(unknown_analyses) or any(
         status != "ok" for scale_summary in summary.values()
         for status in scale_summary.values())
     results["status"] = "PARTIAL" if overall_bad else "OK"

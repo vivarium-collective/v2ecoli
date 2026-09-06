@@ -67,12 +67,18 @@ def test_run_analyses_over_synthetic_records(monkeypatch):
     assert os.path.isfile(os.path.join(d, "analysis.json"))
 
 
-def test_run_analyses_unknown_name_skips(monkeypatch):
+def test_run_analyses_unknown_name_is_error(monkeypatch):
+    """A declared analysis that isn't registered is a loud error, not a silent
+    skip: status goes PARTIAL and the name lands in errors, so a missing KPI
+    (e.g. an sms_modules analysis whose registration import never ran in the
+    container) can't pass as a clean run."""
     import v2ecoli.workflow.analysis_runner as ar
     monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: {})
     import tempfile
     out = ar.run_analyses(tempfile.mkdtemp(), {"single": {"nope_not_real": {}}})
     assert out["single"] == {}
+    assert out["status"] == "PARTIAL"
+    assert any(e.get("name") == "nope_not_real" for e in out["errors"])
 
 
 _CACHE = os.environ.get("V2ECOLI_CACHE", "out/cache")

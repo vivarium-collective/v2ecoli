@@ -265,7 +265,13 @@ def test_the_rendered_workflow_actually_compiles(tmp_path) -> None:
     (tmp_path / "nextflow.config").write_text("profiles { local { process { executor='local' } } }\n")
     proc = subprocess.run(
         ["nextflow", "run", "main.nf", "-profile", "local", "-stub-run"],
-        cwd=str(tmp_path), capture_output=True, text=True,
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        # Nextflow's banner is UTF-8; under a C/POSIX locale `text=True` decodes
+        # as ascii and raises UnicodeDecodeError instead of reporting the run.
+        encoding="utf-8",
+        errors="replace",
     )
     combined = proc.stdout + proc.stderr
     assert "Script compilation error" not in combined, combined[:2000]

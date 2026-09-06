@@ -453,8 +453,51 @@ def _register_builtin_analyses() -> None:
     empty and silently drops EVERY declared built-in analysis. Importing the
     package here guarantees the built-ins are resolvable regardless of what the
     caller imported. Idempotent — the import is cached after the first call.
+
+    Also loads any analysis packages other installed distributions advertise
+    under the ``v2ecoli.analyses`` entry-point group (see
+    :func:`_register_plugin_analyses`), so a package that ships its own analyses
+    -- e.g. sms_modules' ptools_metabolites -- registers them in the dispatch
+    path without v2ecoli importing it by name (the vendored analysis entrypoints
+    stay byte-identical to these, so they cannot import sms_modules themselves).
     """
     import v2ecoli.workflow.analyses  # noqa: F401 — import registers the suite
+
+    _register_plugin_analyses()
+
+
+def _register_plugin_analyses() -> None:
+    """Import every module advertised under the ``v2ecoli.analyses`` entry-point
+    group so its ``Analysis`` subclasses register in ``ANALYSIS_REGISTRY``.
+
+    An installed distribution declares, in its own ``pyproject.toml``::
+
+        [project.entry-points."v2ecoli.analyses"]
+        sms_modules = "sms_modules.analyses"
+
+    and importing that module fires its registration side effects. A plugin that
+    fails to import is warned about, never fatal: a broken third-party analysis
+    package must not take down the built-in suite. Idempotent -- the imports are
+    cached after the first call.
+    """
+    import importlib
+    import importlib.metadata as importlib_metadata
+
+    try:
+        eps = importlib_metadata.entry_points(group="v2ecoli.analyses")
+    except TypeError:  # Python < 3.10 non-selectable entry_points() API
+        eps = importlib_metadata.entry_points().get("v2ecoli.analyses", [])
+    for ep in eps:
+        # An entry-point value is "pkg.module" or "pkg.module:attr"; the module
+        # is what carries the registration side effect, so import that.
+        module_name = ep.value.split(":", 1)[0].strip()
+        try:
+            importlib.import_module(module_name)
+        except Exception as e:  # noqa: BLE001 -- a bad plugin must not be fatal
+            warnings.warn(
+                f"v2ecoli.analyses plugin {ep.name!r} ({ep.value!r}) failed to "
+                f"import; its analyses stay unregistered: {type(e).__name__}: {e}"
+            )
 
 
 def run_analyses(sweep_dir: str, analysis_options: dict,

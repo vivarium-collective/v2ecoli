@@ -85,7 +85,17 @@ DB_PATH = REPO_ROOT / ".pbg" / "composite-runs.db"
 # The cross-investigation reference variant (study_slug not a real study)
 # also gets a per-slug directory so the dashboard can still discover it via
 # the same code path, even though no study.yaml lives there.
-STUDIES_ROOT = REPO_ROOT / "studies"
+#
+# Overridable via V2E_STUDIES_ROOT. A remote multi-node entrypoint syncs exactly
+# ONE directory to S3 (sms-api's Ray entrypoint: {V2ECOLI_DIR}/.pbg/runs/
+# phase0-xarray, and nothing else), so a run whose parquet lands under
+# REPO_ROOT/studies/ is computed but never uploaded — dispatch 322 ran
+# reactor_bird_coupled cleanly for ~3h and nothing reached S3 for exactly this
+# reason. Setting V2E_STUDIES_ROOT to a path under the synced directory makes the
+# output land where the entrypoint looks. Unset (the local/dashboard default)
+# keeps REPO_ROOT/studies so vivarium-workbench's _latest_parquet_for_study still
+# discovers runs unchanged.
+STUDIES_ROOT = Path(os.environ.get("V2E_STUDIES_ROOT") or (REPO_ROOT / "studies"))
 
 def _parquet_root_for(study_slug: str) -> Path:
     return STUDIES_ROOT / study_slug / "parquet-runs"

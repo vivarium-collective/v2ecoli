@@ -59,6 +59,7 @@ from typing import Any
 
 from process_bigraph import Step
 from viva_superpowers.composite_generator import composite_generator
+from v2ecoli.workflow.meta_composite import register_workflow_processes
 
 # Mirrors viva-api's production _parca_command chain, which is the proven
 # invocation. The order is load-bearing: v2ecoli-parca emits only the raw
@@ -188,6 +189,19 @@ def _variant_specs(variants: list[dict[str, Any]] | None) -> list[dict[str, Any]
 
 @composite_generator(
     name="workflow_nf",
+    # Without this the document cannot even be CONSTRUCTED: every node it emits
+    # is a `local:` address this registers -- LineageStep, ParcaTaskStep,
+    # AnalysisTaskStep -- and `composite`, the nested-Composite link that #201
+    # renders as a sub-workflow. `build_core()` alone registers none of them, so
+    # resolving through the generator (which is how run_pbg and render_nf do it)
+    # failed with `no link found at address: {'protocol': 'local', 'data':
+    # 'composite'}`.
+    #
+    # The tests below did not catch it because their fixture called
+    # register_workflow_processes BY HAND, which is exactly the gap
+    # `core_extensions` exists to close -- see lineage_ray_batch, which declares
+    # `core_extensions=[register_ray_lineage]` for the same reason.
+    core_extensions=[register_workflow_processes],
     description=(
         "The campaign DAG for task-granularity dispatch: one ParCa per variant, each feeding "
         "that variant's M LineageStep tasks, all N x M gathering into one analysis. Rendered, "

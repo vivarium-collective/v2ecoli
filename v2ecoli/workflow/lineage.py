@@ -15,6 +15,7 @@ cells have been run.
 
 from __future__ import annotations
 
+import copy
 import warnings
 from v2ecoli.library.quantity_helpers import fg_magnitude
 
@@ -81,6 +82,35 @@ def apply_carry_state(agent, carry_state):
             agent[key] = carry_state[key]
 
 
+def _apply_lineage_offset(injected_processes, offset):
+    """Expose the cumulative lineage-time ``offset`` (summed duration of the
+    generations completed before the current one) to every injected process.
+
+    The inner composite's ``global_time`` RESTARTS at 0 each generation (each
+    generation is a freshly-built composite — see :class:`LineageProcess`), so
+    an injected process that needs to reason about ABSOLUTE / cumulative lineage
+    time cannot get it from ``global_time`` alone. This sets
+    ``lineage_time_offset`` on EVERY injected process config so any such process
+    can read ``global_time + lineage_time_offset``; a process that does not
+    declare/read the key simply ignores it. Domain- and process-agnostic: no
+    process is named here.
+
+    Returns a COPY (the caller's dict is never mutated). A no-op for an
+    empty/None injected block; for generation 0 / single-generation runs the
+    offset is 0.0, which every reader treats as "use local time" — unchanged
+    behavior.
+    """
+    if not injected_processes:
+        return injected_processes
+    out = copy.deepcopy(injected_processes)
+    pcfg = out.get("process_configs")
+    if isinstance(pcfg, dict):
+        for process_config in pcfg.values():
+            if isinstance(process_config, dict):
+                process_config["lineage_time_offset"] = float(offset)
+    return out
+
+
 # Default xarray view: scalar mass gauges (no vector coord arrays needed).
 # Override via emitter_arg["view"] (JSON list roots are accepted). Leaves the
 # composite doesn't emit are filtered out at open time (xarray is strict).
@@ -112,6 +142,25 @@ class LineageProcess(Process):
         "initial_carry_state_path": {"_type": "string", "_default": ""},
         "initial_generation_index": {"_type": "integer", "_default": 0},
         "daughter_state_out_path": {"_type": "string", "_default": ""},
+        # Item 115: a SINGLE-lineage-run caller (chain-dispatch, one process
+        # invocation per generation) already gets per-generation resume via the
+        # three fields above -- an external scheduler computes each generation's
+        # own literal daughter_state_out_path before submitting that generation's
+        # job. A pbg-native lineage has no such external scheduler: ALL of a
+        # lineage's generations run inside ONE continuous process invocation, so
+        # no caller can pre-compute N literal per-generation paths ahead of time
+        # -- the process itself must derive each one as it goes. When set, this
+        # is a DIRECTORY PREFIX (not a literal file path): each generation's own
+        # checkpoint is written to "{checkpoint_dir}/gen_{generation:04d}.pkl",
+        # a distinct key per generation so a write failure at generation N can
+        # never corrupt generation N-1's already-durable checkpoint (an
+        # overwrite-in-place scheme would risk exactly that -- the one thing a
+        # checkpoint meant to survive a crash cannot afford). Takes priority
+        # over daughter_state_out_path when both are set (real precedence, not
+        # silently ignored) since a literal path can only ever describe ONE
+        # generation's own destination. Empty by default: unused, so an existing
+        # single-generation caller (chain-dispatch) is entirely unaffected.
+        "checkpoint_dir": {"_type": "string", "_default": ""},
         "experiment_id": {"_type": "string", "_default": "default"},
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
@@ -123,16 +172,23 @@ class LineageProcess(Process):
         # the internal parquet emitter AND drives the external XArrayEmitter.
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
+        # Config-declared EXTRA emit store paths (domain-agnostic): a list of
+        # store paths (each a list of store-node segments, e.g.
+        # ["some_store", "sub_key"]) to persist beyond the baseline parquet set.
+        # `quote` keeps the nested list verbatim (same reason as
+        # injected_processes below). Threaded to the per-generation parquet
+        # emitter override, which honors it via _merge_emit_paths.
+        "emit_paths": {"_type": "quote", "_default": []},
         # `quote` (NOT a bare {"_default": {}}): the injected-processes block is a
-        # heterogeneous, config-shaped dict — it carries a fork's antibiotic
-        # `process_configs` whose `field_timeline.timeline` is list-shaped
-        # (`[[time, {drug: conc}]]`). Without an explicit `_type`, bigraph-schema
-        # infers a schema for this key from its `{}` default and coerces the value
-        # against it, mangling the nested timeline (`[[100, {"drug": 1.0}]]` ->
-        # `[[100, 100]]`) — which then crashes the generation-1 composite rebuild
-        # that re-realizes this config. `quote` stores the block verbatim (the same
-        # reason antibiotic_transport_odeint's own `reactions`/`initial_reaction_
-        # parameters` config keys are quoted), so a dynamic dose survives realize.
+        # heterogeneous, config-shaped dict — it carries each injected process's
+        # own `process_configs`, some of which are list- or nested-shaped (e.g. a
+        # per-process schedule like `[[time, {key: value}]]`). Without an explicit
+        # `_type`, bigraph-schema infers a schema for this key from its `{}`
+        # default and coerces the value against it, mangling a nested list
+        # (`[[100, {"key": 1.0}]]` -> `[[100, 100]]`) — which then crashes the
+        # generation-1 composite rebuild that re-realizes this config. `quote`
+        # stores the block verbatim, so an injected process's structured config
+        # survives realize.
         "injected_processes": {"_type": "quote", "_default": {}},
         # Per-cell biological build kwargs, forwarded to each generation's
         # baseline() build so a batch/lineage run engages the SAME biology as the
@@ -175,6 +231,13 @@ class LineageProcess(Process):
         # per-seed prefix) for a collision on a supposedly-fresh store.
         self._agent_id = "0" * (gen_index + 1)
         self._gen_elapsed = 0.0
+        # Cumulative duration (s) of the generations completed BEFORE the
+        # current one — the lineage-time offset exposed to every injected process
+        # (as `lineage_time_offset`) so one that reasons about cumulative lineage
+        # time can add it to the inner composite's per-generation `global_time`
+        # (which restarts at 0 each generation). 0.0 for generation 0; grows by
+        # each generation's duration as it completes (see update()).
+        self._lineage_offset = 0.0
         self._carry_state: dict | None = None
         if carry_path:
             from v2ecoli.cache import load_initial_state
@@ -233,7 +296,7 @@ class LineageProcess(Process):
         # boundary.outer_surface_area so a downstream mol/(volume*N_A) conversion
         # does not divide by zero) ride generically inside `injected_processes`
         # (`seed_bulk_species` / `requires_features`) — the engine reads them, so
-        # nothing drug-specific is threaded here. The harness forwards `features`
+        # nothing subsystem-specific is threaded here. The harness forwards `features`
         # under `injected_processes`; fall back to a top-level config key.
         _injected = self.config.get("injected_processes") or {}
 
@@ -241,6 +304,15 @@ class LineageProcess(Process):
             return _injected.get(key, self.config.get(key, default))
 
         _features = _feature_flag("features", None)
+
+        # Expose this generation's cumulative lineage-time offset to every
+        # injected process (as `lineage_time_offset`), so one that reasons about
+        # cumulative lineage time can add it to the per-generation `global_time`
+        # (which restarts at 0 here). Process-agnostic; offset 0.0 (generation 0
+        # / single-generation runs) is a no-op for every reader — see
+        # _apply_lineage_offset.
+        _injected_for_build = _apply_lineage_offset(
+            self.config.get("injected_processes"), self._lineage_offset)
 
         # Per-cell biological build kwargs, shared by both emitter branches below
         # so an injected batch/lineage run builds every generation cell with the
@@ -253,7 +325,7 @@ class LineageProcess(Process):
             config_overrides=overrides,
             media=self.config.get("media", "minimal"),
             features=_features,
-            injected_processes=self.config.get("injected_processes"),
+            injected_processes=_injected_for_build,
             ppgpp_regulation=bool(_feature_flag("ppgpp_regulation", True)),
             trna_attenuation=bool(_feature_flag("trna_attenuation", False)),
             supercoiling=bool(_feature_flag("supercoiling", False)),
@@ -286,6 +358,12 @@ class LineageProcess(Process):
                 agent_id=self._agent_id,
                 generation=self._generation,
             )
+            # Config-declared EXTRA emit store paths, passed through generically
+            # so a run can persist stores beyond the baseline set (the emitter
+            # honors them via _merge_emit_paths — domain-agnostic).
+            emit_paths = self.config.get("emit_paths")
+            if emit_paths:
+                emitter_cfg["emit_paths"] = list(emit_paths)
             set_parquet_emitter_override(emitter_cfg)
             try:
                 doc = baseline(core=core, seed=gen_seed, **_bio_kwargs)
@@ -349,6 +427,26 @@ class LineageProcess(Process):
 
         wrapped = {"agents": {"0": emit_cell}}
         view = filter_view_to_existing_leaves(wrapped, raw_view)
+        # required_leaves: declared KPI columns that MUST be present. A required leaf
+        # filtered out of the view means it was absent from composite state -- e.g. the
+        # redux swap / injected process did not apply, so the column is ABSENT (not zero).
+        # Fail loudly rather than silently emitting a wild-type run. Checked BEFORE the
+        # empty-view skip below, so an all-missing view still raises instead of skipping.
+        required = arg.get("required_leaves") or []
+        if required:
+            present_leaves: set[str] = set()
+            for _e in view:
+                present_leaves.update((_e.get("variables") or {}).keys())
+            missing = [leaf for leaf in required
+                       if str(leaf).split(".")[-1] not in present_leaves]
+            if missing:
+                raise ValueError(
+                    f"LineageProcess: required emitter leaf(s) {missing} absent from "
+                    f"composite state at generation {self._generation} (present: "
+                    f"{sorted(present_leaves)}). A missing KPI column usually means an "
+                    f"injected process/swap did not apply -- refusing to emit a "
+                    f"silently-wild-type run. Drop 'required_leaves' from emitter_arg to "
+                    f"downgrade to warn-and-skip.")
         if not view:
             warnings.warn("LineageProcess: xarray view has no leaves present in "
                           "composite state; skipping xarray emission.")
@@ -407,6 +505,45 @@ class LineageProcess(Process):
         except Exception as e:
             warnings.warn(f"LineageProcess: xarray emit failed at generation "
                           f"{self._generation} t={self._gen_elapsed}: {e}")
+
+    def _finalize_parquet(self) -> None:
+        """Close this generation's parquet emitter, however the generation ended.
+
+        Two DISJOINT cases, so both are attempted (``close()`` is idempotent and
+        ``finalize_emitter_for_agent`` pops, so the redundant one is a no-op):
+
+        * **Timed out, no division** — the agent subtree is still in
+          ``self._composite``, so ``flush_parquet`` finds the live emitter.
+        * **Divided** — ``Division`` has already returned
+          ``{'agents': {'_remove': [...]}}`` and torn the subtree out, so
+          ``flush_parquet`` finds nothing to close. The emitter is still in the
+          process-global registry under the metadata ``agent_id`` it was built
+          with (``self._agent_id``: "0", "00", ...).
+
+        ``Division`` cannot derive that key. Inside the composite the cell is
+        always the ``agents/0`` key, and the parquet override it reads to
+        recover the runner's identity is already cleared by
+        ``_build_generation`` before the composite is constructed -- so its
+        lookup falls back to "0" and MISSES for every generation after the
+        first. The finalize therefore happens here, in the object that owns the
+        key. Without it a generation >= 1 silently loses its trailing batch AND
+        its ``success/`` sentinel while the summary still records
+        ``divided: true`` with a full duration -- and a missing sentinel drops
+        the whole generation from any analysis that filters on ``success_sql``,
+        not just its last few hundred ticks (v2ecoli#687).
+        """
+        from v2ecoli.composites._helpers import (
+            finalize_emitter_for_agent, flush_parquet)
+        try:
+            flush_parquet(self._composite, success=True)
+        except Exception as e:
+            warnings.warn(f"LineageProcess: parquet flush failed for "
+                          f"generation {self._generation} ({self._agent_id}): {e}")
+        try:
+            finalize_emitter_for_agent(self._agent_id, success=True)
+        except Exception as e:
+            warnings.warn(f"LineageProcess: parquet finalize failed for "
+                          f"generation {self._generation} ({self._agent_id}): {e}")
 
     def _run_until_division(self, interval):
         """Run the internal composite for ``interval`` seconds. Returns
@@ -503,12 +640,7 @@ class LineageProcess(Process):
         if self._is_xarray():
             self._xarray_pending = False
         if self._is_parquet():
-            from v2ecoli.composites._helpers import flush_parquet
-            try:
-                flush_parquet(self._composite, success=True)
-            except Exception as e:
-                warnings.warn(f"LineageProcess: parquet flush failed for "
-                              f"generation {self._generation} ({self._agent_id}): {e}")
+            self._finalize_parquet()
         self._summaries.append({
             "generation": self._generation,
             "agent_id": self._agent_id,
@@ -516,6 +648,12 @@ class LineageProcess(Process):
             "dry_mass": dry_mass,
             "divided": bool(divided),
         })
+        # This generation is done: fold its duration into the cumulative
+        # lineage-time offset so the NEXT generation's injected processes see the
+        # correct cumulative lineage time (see _apply_lineage_offset /
+        # _build_generation). Mirrors the analyses' own per-generation cumulative
+        # reconstruction (sum of prior-generation durations).
+        self._lineage_offset += self._gen_elapsed
 
         # Per-generation checkpoint hand-off (backlog item 34): persist whatever
         # would otherwise only ever live in self._carry_state, so a wave
@@ -525,7 +663,11 @@ class LineageProcess(Process):
         # "complete" branch below, but still needs THIS generation's daughter
         # written out. No daughter (timed out without dividing) means nothing
         # to hand off, mirroring self._carry_state staying None in that case.
-        out_path = str(self.config.get("daughter_state_out_path") or "")
+        checkpoint_dir = str(self.config.get("checkpoint_dir") or "")
+        if checkpoint_dir:
+            out_path = f"{checkpoint_dir.rstrip('/')}/gen_{self._generation:04d}.pkl"
+        else:
+            out_path = str(self.config.get("daughter_state_out_path") or "")
         if out_path and daughter is not None:
             from v2ecoli.cache import save_initial_state
             payload = dict(daughter)

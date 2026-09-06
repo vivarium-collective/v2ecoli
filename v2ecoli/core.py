@@ -126,8 +126,34 @@ def register_ecoli_core(core):
 
 
 def build_core():
-    """Create and configure a bigraph-schema core with ecoli types."""
-    return register_ecoli_core(allocate_core())
+    """Create and configure a bigraph-schema core with ecoli types.
+
+    Also registers ``LineageProcess`` for the ``ray:`` address protocol (item 101/109) --
+    unlike other composite-specific registrations (colony's ``_register_colony_core``,
+    lineage_ray_batch's ``register_ray_lineage`` via its own ``core_extensions``), this one
+    lives here, on the CORE BUILDER ITSELF, because ``run_pbg.py`` only runs
+    ``apply_core_extensions`` on its ``--composite-id`` branch -- the ``/compose/v1`` raw-document
+    branch has no ``composite_id`` at all, so a raw ``.pbg`` document with a ``ray:LineageProcess``
+    address would otherwise fail to resolve under ``PBG_CORE_BUILDER=v2ecoli.core:build_core``.
+
+    Deliberately calls ONLY ``register_ray_lineage`` (a pure registry write: ``register_types`` +
+    ``register_process_class``, no Ray connection) -- NOT ``prewarm_lineage_pool``. Confirmed
+    directly (``process_bigraph/protocols/ray.py:528-536``): ``RayProtocolRuntime.__init__`` calls
+    ``ray.init()`` eagerly whenever Ray isn't already running. Calling ``prewarm_lineage_pool``
+    unconditionally here would make EVERY caller of ``build_core()`` -- chain-dispatch's per-
+    generation jobs, local scripts, tests, anything -- eagerly try to init Ray, whether or not it
+    ever resolves a ``ray:`` address. Known, accepted trade-off from omitting it: a raw document
+    dispatched through ``/compose/v1/run-document`` (the one path this unblocks) gets the ray:
+    protocol's own DEFAULT pool sizing (``os.cpu_count()``) on first real resolution, not the
+    cluster-derived ``RAY_SHARDS_DEFAULT`` -- callers on that path who need correct sizing must
+    still call ``prewarm_lineage_pool`` themselves before dispatch, same as ``lineage_ray_batch``'s
+    own composite_generator already does via its own ``core_extensions``.
+    """
+    from v2ecoli.workflow.batch_lineage_ray import register_ray_lineage
+
+    core = register_ecoli_core(allocate_core())
+    register_ray_lineage(core)
+    return core
 
 
 # Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite

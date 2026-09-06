@@ -196,6 +196,19 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
     if scale == "multidaughter" and len(key) >= 4:
         # sisters share parent = agent_id without its last phylogeny char
         conds.append(f"agent_id LIKE '{key[3]}_' ESCAPE '\\'")
+    elif scale in ("multigeneration", "multiseed", "multivariant"):
+        # Restrict to the canonical single-daughter lineage — the all-zeros
+        # agent_id chain (gen N = "0"*N). These scales collapse one lineage
+        # across generations, so the transient d?1 birth-stub partitions
+        # (agent_id containing a '1') are never wanted here (unlike multidaughter
+        # above, which deliberately keeps sisters). Without this the stubs get
+        # folded into the cross-generation aggregation and contaminate it — a
+        # ~1% flux shift, and a stub whose estimated_exchange_dmdt column set
+        # mismatches the lineage can block the read entirely (schema mismatch).
+        # CAST because hive can read agent_id as BIGINT (0/1/10/…) rather than
+        # VARCHAR ("00"); NOT LIKE needs VARCHAR. All-zeros → "0"/"00" (no '1');
+        # a stub daughter → contains '1' either way.
+        conds.append("CAST(agent_id AS VARCHAR) NOT LIKE '%1%'")
     where = (" WHERE " + " AND ".join(conds)) if conds else ""
     return f"SELECT * FROM {from_clause}{where} ORDER BY global_time"
 
@@ -697,9 +710,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
         return per_group
 
+    # A declared analysis that never runs is a silent deliverable hole: a study
+    # names an analysis that isn't registered in this runner (e.g. an sms_modules
+    # KPI whose registration import never ran in the analysis container), and the
+    # run reports OK with the plot simply absent. Collect these and surface them
+    # as errors so status goes PARTIAL instead of a clean pass over a missing KPI.
+    unknown_analyses: list[dict] = []
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
+            unknown_analyses.append({
+                "scale": scale, "name": None, "group": None,
+                "error": f"unknown analysis scale {scale!r} not in ANALYSIS_SCALES",
+                "missing_column": None,
+            })
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
@@ -718,7 +742,13 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
-                warnings.warn(f"unknown analysis {name!r} (scale {scale}); skipping")
+                warnings.warn(f"unknown analysis {name!r} (scale {scale})")
+                unknown_analyses.append({
+                    "scale": scale, "name": name, "group": None,
+                    "error": f"unknown analysis {name!r} not in ANALYSIS_REGISTRY "
+                             f"(declared but never registered/imported)",
+                    "missing_column": None,
+                })
                 continue
             if step_cls.scale != scale:
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
@@ -811,7 +841,9 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                         "missing_column": gval.get("missing_column"),
                     })
 
-    overall_bad = records_error is not None or any(
+    errors.extend(unknown_analyses)
+
+    overall_bad = records_error is not None or bool(unknown_analyses) or any(
         status != "ok" for scale_summary in summary.values()
         for status in scale_summary.values())
     results["status"] = "PARTIAL" if overall_bad else "OK"

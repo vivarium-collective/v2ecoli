@@ -299,3 +299,32 @@ def test_build_cache_runs_from_the_checkout_but_writes_to_the_work_dir() -> None
     assert '--cache "\\$WD/cache"' in nf
     # and it must come back, so the trailing cp writes into the work dir
     assert 'cd "\\$WD"' in nf
+
+
+def test_an_explicitly_declared_repo_root_wins(monkeypatch, tmp_path) -> None:
+    """A task scheduler gives each task its own cwd with no workspace above it.
+
+    `find_workspace_root` walks up from CWD, so under Nextflow it raises, the
+    `except` in candidate_repo_roots swallows it, and the only remaining root is
+    site-packages -- where `models/` is not shipped. The failure then reads
+    "INPUT_FILES entry does not exist ... tried roots: ['…/site-packages']",
+    which looks like a renamed data file rather than an unresolved workspace.
+    """
+    import os
+
+    from v2ecoli.library.cache_version import candidate_repo_roots
+
+    declared = tmp_path / "checkout"
+    declared.mkdir()
+    monkeypatch.chdir(tmp_path)  # no workspace.yaml anywhere above
+    monkeypatch.setenv("V2E_ROOT", str(declared))
+    assert candidate_repo_roots()[0] == str(declared)
+
+    # unset, and behaviour is exactly as before
+    monkeypatch.delenv("V2E_ROOT")
+    assert str(declared) not in candidate_repo_roots()
+
+    # a declared-but-nonexistent root is ignored rather than poisoning the list
+    monkeypatch.setenv("V2E_ROOT", str(tmp_path / "nope"))
+    assert str(tmp_path / "nope") not in candidate_repo_roots()
+    assert os.environ["V2E_ROOT"]

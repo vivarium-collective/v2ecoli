@@ -427,6 +427,26 @@ class LineageProcess(Process):
 
         wrapped = {"agents": {"0": emit_cell}}
         view = filter_view_to_existing_leaves(wrapped, raw_view)
+        # required_leaves: declared KPI columns that MUST be present. A required leaf
+        # filtered out of the view means it was absent from composite state -- e.g. the
+        # redux swap / injected process did not apply, so the column is ABSENT (not zero).
+        # Fail loudly rather than silently emitting a wild-type run. Checked BEFORE the
+        # empty-view skip below, so an all-missing view still raises instead of skipping.
+        required = arg.get("required_leaves") or []
+        if required:
+            present_leaves: set[str] = set()
+            for _e in view:
+                present_leaves.update((_e.get("variables") or {}).keys())
+            missing = [leaf for leaf in required
+                       if str(leaf).split(".")[-1] not in present_leaves]
+            if missing:
+                raise ValueError(
+                    f"LineageProcess: required emitter leaf(s) {missing} absent from "
+                    f"composite state at generation {self._generation} (present: "
+                    f"{sorted(present_leaves)}). A missing KPI column usually means an "
+                    f"injected process/swap did not apply -- refusing to emit a "
+                    f"silently-wild-type run. Drop 'required_leaves' from emitter_arg to "
+                    f"downgrade to warn-and-skip.")
         if not view:
             warnings.warn("LineageProcess: xarray view has no leaves present in "
                           "composite state; skipping xarray emission.")

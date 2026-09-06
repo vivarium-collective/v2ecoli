@@ -105,8 +105,20 @@ def _repo_root() -> str:
 _PARCA_CHAIN = (
     "v2ecoli-parca --mode {mode} --cpus {cpus} -o {simdata} --cache-dir {cache}{strain_flags}"
     " && gzip -f -k {simdata}/parca_state.pkl"
-    ' && python "{root}/scripts/build_cache.py"'
-    " --fixture {simdata}/parca_state.pkl.gz --cache {cache}"
+    # build_cache.py imports pbg_v2ecoli, whose apply_upstream_patches() calls
+    # find_workspace_root() -- which walks up from CWD for a workspace.yaml. A
+    # Nextflow task's cwd is its work dir, which has none, so the import dies
+    # with FileNotFoundError AFTER ParCa has already done 2.5 minutes of work.
+    # The workspace root must be the checkout (models/ lives there and is not
+    # shipped in site-packages), so this ONE command runs from there.
+    #
+    # `\$WD` is a SHELL variable, escaped so Groovy emits a literal `$`. The
+    # in/out paths are made absolute from it, so cd-ing does not move the
+    # declared output `cache` out of the work dir where Nextflow looks for it.
+    ' && WD="\$PWD" && cd "{root}"'
+    ' && python scripts/build_cache.py'
+    ' --fixture "\$WD/{simdata}/parca_state.pkl.gz" --cache "\$WD/{cache}"'
+    ' && cd "\$WD"'
     " && cp {simdata}/parca_state.pkl.gz {cache}/parca_state.pkl.gz"
 )
 

@@ -208,18 +208,19 @@ def _render_via_generator(**kwargs):
     return render_composite(Composite(doc, core=core), {"workflow_name": ""})
 
 
-def test_build_cache_is_referenced_by_absolute_path() -> None:
+def test_build_cache_is_never_resolved_against_the_work_dir() -> None:
     """`scripts/` does not ship with the wheel, and a task's cwd is its work dir.
 
-    The chain/Ray path survives a cwd-relative reference by doing `cd
-    /app/v2ecoli` first; a Nextflow task cannot, because its declared outputs
-    are resolved relative to the work dir -- cd-ing away writes the cache
-    somewhere Nextflow never looks and fails with "Missing output file(s)"
-    after doing all the work.
+    So `python scripts/build_cache.py` from the work dir cannot work however the
+    cwd is set. It is invoked from the CHECKOUT instead -- which is also what
+    makes find_workspace_root() succeed (see the test below) -- while its
+    inputs and outputs stay absolute paths into the work dir.
     """
     nf = _render_via_generator(n_seeds=1, n_generations=1)
-    assert '"/app/v2ecoli/scripts/build_cache.py"' in nf
-    assert "python scripts/build_cache.py" not in nf
+    assert 'cd "/app/v2ecoli"' in nf
+    assert "&& python scripts/build_cache.py" in nf
+    # never the bare cwd-relative form that started this
+    assert "&& python scripts/build_cache.py --fixture parca/" not in nf
 
 
 def test_the_repo_root_is_not_a_shell_variable() -> None:
@@ -279,3 +280,22 @@ def test_the_rendered_workflow_actually_compiles(tmp_path) -> None:
     # It reaches EXECUTION: the only failure allowed here is the science CLI
     # being absent from the test machine.
     assert "executor >" in combined, combined[:2000]
+
+
+def test_build_cache_runs_from_the_checkout_but_writes_to_the_work_dir() -> None:
+    """`build_cache.py` imports pbg_v2ecoli, whose apply_upstream_patches() calls
+    find_workspace_root() -- a walk up from CWD for workspace.yaml. A Nextflow
+    task's cwd is its work dir, which has none, so the import died with
+    FileNotFoundError *after* ParCa had already run for 2.5 minutes.
+
+    The workspace root must be the checkout (models/ lives there and is not
+    shipped in site-packages), so that one command runs from there -- with
+    absolute paths built from a shell $PWD captured first, so the declared
+    output `cache` still lands where Nextflow looks for it.
+    """
+    nf = _render_via_generator(n_seeds=1, n_generations=1)
+    assert 'WD="\\$PWD"' in nf, "must be ESCAPED: a bare $ is interpolated by Groovy"
+    assert 'cd "/app/v2ecoli"' in nf
+    assert '--cache "\\$WD/cache"' in nf
+    # and it must come back, so the trailing cp writes into the work dir
+    assert 'cd "\\$WD"' in nf

@@ -437,24 +437,34 @@ def add_reactor_coupling(
             # S3 output at all. It only ever emitted locally because
             # scripts/run_mbp_tracked.py bolts an emitter on externally.
             #
-            # Roots chosen to carry Run 1's deliverable (cplong90, #700 / handoff
-            # §R5): six named leaves — listeners/mass/{dry_mass,cell_mass} and
-            # boundary/external/OXYGEN-MOLECULE (per-agent), plus
-            # environment/exchange/{OXYGEN-MOLECULE,GLC,VIOLACEIN} (top-level).
-            # A declared emitter roots each path at its FIRST segment as a
-            # top-level store (_helpers._merge_emit_paths), and agent ids are
-            # dynamic, so the per-agent leaves cannot be named directly — they are
-            # carried by the `agents` root. That is safe here, not the OOM class:
-            # the agents subtree emits scalars only (array-valued leaves drop
-            # silently), confirmed on the Run 1 artifact. `environment` carries
-            # the exchange scalars. out_dir omitted so run_pbg resolves it to the
-            # synced results dir (same contract as ecoli_baseline).
-            # ⚠ A declared path that yields no column is silent — verify the
-            # actual column list on a real coupled artifact (§R5), not the exit
-            # code.
+            # Run 1's deliverable (cplong90, #700 / handoff §R5): six scalar leaves.
+            # Rooting mirrors run_mbp_tracked's PROVEN runner config on branch
+            # study/cd2-pnnl-03-od10-batch — all six declared agent-relative,
+            # including the environment/exchange ones (none via extra_root_paths).
+            # In the real artifact the emitted columns carry NO `agents` prefix
+            # (top-level prefixes are boundary/environment/global_time/listeners/
+            # population/reactor), so agent-relative leaves land flat. All six are
+            # scalar leaves and survive by the observed "scalars survive, arrays
+            # drop" rule. out_dir omitted so run_pbg resolves it to the synced
+            # results dir (same contract as ecoli_baseline).
+            # ⚠ This is the DECLARED-emitter path, which nobody has run yet (the
+            # proven six were passed at runtime by run_mbp_tracked). Schema
+            # reasoning does not predict silent drops — so the acceptance test is
+            # the actual column list on the first remote coupled artifact (§R5),
+            # not the exit code. If a column is missing, wire the composite route
+            # to the runner emit mechanism instead.
             "address": "local:ParquetEmitter",
-            "config": {},
-            "paths": ["global_time", "environment", "agents"],
+            "config": {
+                "emit_paths": [
+                    ["listeners", "mass", "dry_mass"],
+                    ["listeners", "mass", "cell_mass"],
+                    ["boundary", "external", "OXYGEN-MOLECULE"],
+                    ["environment", "exchange", "OXYGEN-MOLECULE"],
+                    ["environment", "exchange", "GLC"],
+                    ["environment", "exchange", "VIOLACEIN"],
+                ],
+            },
+            "paths": ["global_time"],
         },
     ],
 )

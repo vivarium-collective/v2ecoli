@@ -16,6 +16,7 @@ cells have been run.
 from __future__ import annotations
 
 import copy
+import time
 import warnings
 from v2ecoli.library.quantity_helpers import fg_magnitude
 
@@ -80,6 +81,26 @@ def apply_carry_state(agent, carry_state):
             agent["environment"] = carried_env
         else:
             agent[key] = carry_state[key]
+
+
+def _estimate_state_mb(state) -> float:
+    """Rough MB of a carry/checkpoint state: the summed ``nbytes`` of its numpy
+    arrays (``bulk`` + the ``unique`` structured arrays, which dominate). Cheap
+    enough for the per-generation hot path; used only for the checkpoint log line
+    so an oversized or stalled write is visible in the run log instead of silent.
+    """
+    if not isinstance(state, dict):
+        return 0.0
+    total = 0
+    for key in ("bulk", "unique", "environment", "boundary"):
+        val = state.get(key)
+        if hasattr(val, "nbytes"):
+            total += int(val.nbytes)
+        elif isinstance(val, dict):
+            for v in val.values():
+                if hasattr(v, "nbytes"):
+                    total += int(v.nbytes)
+    return total / 1e6
 
 
 def _apply_lineage_offset(injected_processes, offset):
@@ -630,6 +651,15 @@ class LineageProcess(Process):
         # generation's trailing rows (every row, for a generation shorter than
         # the emitter's 400-row batch) never land and the sweep has no history
         # parquet for the analyses to read.
+        # Observability for the division→checkpoint window. This is exactly where
+        # dispatch 313 stalled — idle, no error, right before the checkpoint write
+        # (sms-ecoli#210). The emitter flush and the checkpoint write are both S3
+        # I/O; without these markers a stall in either is indistinguishable and
+        # invisible. Printed (flushed) so it lands in the run log, and timed so a
+        # slow/blocked step is obvious rather than silent.
+        _t_flush = time.monotonic()
+        print(f"[LineageProcess] gen {self._generation}: end (divided={divided} "
+              f"timed_out={timed_out}); flushing emitters...", flush=True)
         if self._is_xarray() and self._xarray_em is not None:
             try:
                 self._xarray_em.close(success=True)
@@ -641,6 +671,8 @@ class LineageProcess(Process):
             self._xarray_pending = False
         if self._is_parquet():
             self._finalize_parquet()
+        print(f"[LineageProcess] gen {self._generation}: emitters flushed in "
+              f"{time.monotonic() - _t_flush:.1f}s", flush=True)
         self._summaries.append({
             "generation": self._generation,
             "agent_id": self._agent_id,
@@ -672,7 +704,27 @@ class LineageProcess(Process):
             from v2ecoli.cache import save_initial_state
             payload = dict(daughter)
             payload["_prior_summaries"] = list(self._summaries)
+            # Log size + growth BEFORE the write: this is the stall point in 313,
+            # and the size (and its per-generation growth) is the signal that a
+            # lineage is running away — carried in the log so an over-growing run
+            # is visible immediately, not inferred from a hang after the fact.
+            mb = _estimate_state_mb(daughter)
+            prev = getattr(self, "_last_checkpoint_mb", 0.0)
+            if prev and mb > 1.5 * prev:
+                warnings.warn(
+                    f"LineageProcess: gen {self._generation} carry state is "
+                    f"{mb:.1f}MB, up {mb / prev:.1f}x from the previous "
+                    f"generation ({prev:.1f}MB). A lineage whose per-generation "
+                    f"state keeps growing is not reaching steady-state division "
+                    f"size (over-growth); the checkpoint reflects it and the "
+                    f"write gets progressively heavier.")
+            self._last_checkpoint_mb = mb
+            _t_ckpt = time.monotonic()
+            print(f"[LineageProcess] gen {self._generation}: writing checkpoint "
+                  f"(~{mb:.1f}MB) -> {out_path}", flush=True)
             save_initial_state(payload, out_path)
+            print(f"[LineageProcess] gen {self._generation}: checkpoint written "
+                  f"in {time.monotonic() - _t_ckpt:.1f}s", flush=True)
 
         self._generation += 1
         if self._generation >= int(self.config["generations"]):

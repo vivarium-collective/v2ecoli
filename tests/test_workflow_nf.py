@@ -7,6 +7,9 @@ right and share one genotype.
 
 from __future__ import annotations
 
+import shutil
+import subprocess
+
 import pytest
 
 from v2ecoli.composites.workflow_nf import AnalysisTaskStep, ParcaTaskStep, build_workflow_nf
@@ -188,3 +191,140 @@ def test_document_realizes_against_a_core_built_ONLY_from_the_generator() -> Non
     core = apply_core_extensions(_spec_for_workflow_nf(), build_core())
     doc = build_workflow_nf(n_seeds=1, n_generations=1)
     Composite(doc, core=core)  # must not raise
+
+
+# --- what the emitted script assumes about the machine it runs on -----------
+
+
+def _render_via_generator(**kwargs):
+    from process_bigraph import Composite
+    from process_bigraph.composite_generator import apply_core_extensions
+    from process_bigraph.nextflow import render_composite
+
+    from v2ecoli.core import build_core
+
+    core = apply_core_extensions(_spec_for_workflow_nf(), build_core())
+    doc = build_workflow_nf(**kwargs)
+    return render_composite(Composite(doc, core=core), {"workflow_name": ""})
+
+
+def test_build_cache_is_never_resolved_against_the_work_dir() -> None:
+    """`scripts/` does not ship with the wheel, and a task's cwd is its work dir.
+
+    So `python scripts/build_cache.py` from the work dir cannot work however the
+    cwd is set. It is invoked from the CHECKOUT instead -- which is also what
+    makes find_workspace_root() succeed (see the test below) -- while its
+    inputs and outputs stay absolute paths into the work dir.
+    """
+    nf = _render_via_generator(n_seeds=1, n_generations=1)
+    assert 'cd "/app/v2ecoli"' in nf
+    assert "&& python scripts/build_cache.py" in nf
+    # never the bare cwd-relative form that started this
+    assert "&& python scripts/build_cache.py --fixture parca/" not in nf
+
+
+def test_the_repo_root_is_not_a_shell_variable() -> None:
+    """A `script:` block is a GROOVY string, so `${VAR:-default}` is interpolated
+    by Groovy, not bash -- it dies at run time with
+    `No signature of method: java.lang.String.negative()`. Measured, not
+    hypothesised; see _repo_root."""
+    nf = _render_via_generator(n_seeds=1, n_generations=1)
+    assert "V2E_ROOT" not in nf
+
+
+def test_every_task_carries_a_label() -> None:
+    """`withLabel: lineage { cpus/memory/time }` in the executor profile matches
+    NOTHING without these. Every task would take queue defaults and, in
+    particular, no `time` -- the only bound on a runaway task."""
+    nf = _render_via_generator(n_seeds=2, n_generations=1, include_analysis=True)
+    assert nf.count("label 'lineage'") == 2
+    assert "label 'parca'" in nf
+    assert "label 'analysis'" in nf
+
+
+def _pbg_quotes_script_overrides() -> bool:
+    """process-bigraph#205: the renderer wraps a `nextflow_script()` override in a
+    Groovy block. Without it ParcaTaskStep's command lands in `script:` as Groovy
+    SOURCE and the file cannot compile -- which is a defect in the pinned
+    process-bigraph, not in this repo, so the check below reports it as skipped
+    rather than failing this suite for someone else's version."""
+    from process_bigraph import nextflow as _nf
+
+    return hasattr(_nf, "_as_script_block")
+
+
+@pytest.mark.skipif(shutil.which("nextflow") is None, reason="nextflow binary not on PATH")
+@pytest.mark.skipif(not _pbg_quotes_script_overrides(), reason="needs process-bigraph#205")
+def test_the_rendered_workflow_actually_compiles(tmp_path) -> None:
+    """The check that would have caught process-bigraph#205.
+
+    A render can succeed, report a plausible summary and the right sub-workflow
+    structure, and still emit a file Nextflow cannot parse -- an unquoted
+    `script:` block is Groovy source. Only running it tells you.
+    """
+    (tmp_path / "main.nf").write_text(_render_via_generator(n_seeds=2, include_analysis=True))
+    (tmp_path / "nextflow.config").write_text("profiles { local { process { executor='local' } } }\n")
+    proc = subprocess.run(
+        ["nextflow", "run", "main.nf", "-profile", "local", "-stub-run"],
+        cwd=str(tmp_path),
+        capture_output=True,
+        text=True,
+        # Nextflow's banner is UTF-8; under a C/POSIX locale `text=True` decodes
+        # as ascii and raises UnicodeDecodeError instead of reporting the run.
+        encoding="utf-8",
+        errors="replace",
+    )
+    combined = proc.stdout + proc.stderr
+    assert "Script compilation error" not in combined, combined[:2000]
+    assert "No signature of method" not in combined, combined[:2000]
+    # It reaches EXECUTION: the only failure allowed here is the science CLI
+    # being absent from the test machine.
+    assert "executor >" in combined, combined[:2000]
+
+
+def test_build_cache_runs_from_the_checkout_but_writes_to_the_work_dir() -> None:
+    """`build_cache.py` imports pbg_v2ecoli, whose apply_upstream_patches() calls
+    find_workspace_root() -- a walk up from CWD for workspace.yaml. A Nextflow
+    task's cwd is its work dir, which has none, so the import died with
+    FileNotFoundError *after* ParCa had already run for 2.5 minutes.
+
+    The workspace root must be the checkout (models/ lives there and is not
+    shipped in site-packages), so that one command runs from there -- with
+    absolute paths built from a shell $PWD captured first, so the declared
+    output `cache` still lands where Nextflow looks for it.
+    """
+    nf = _render_via_generator(n_seeds=1, n_generations=1)
+    assert 'WD="\\$PWD"' in nf, "must be ESCAPED: a bare $ is interpolated by Groovy"
+    assert 'cd "/app/v2ecoli"' in nf
+    assert '--cache "\\$WD/cache"' in nf
+    # and it must come back, so the trailing cp writes into the work dir
+    assert 'cd "\\$WD"' in nf
+
+
+def test_an_explicitly_declared_repo_root_wins(monkeypatch, tmp_path) -> None:
+    """A task scheduler gives each task its own cwd with no workspace above it.
+
+    `find_workspace_root` walks up from CWD, so under Nextflow it raises, the
+    `except` in candidate_repo_roots swallows it, and the only remaining root is
+    site-packages -- where `models/` is not shipped. The failure then reads
+    "INPUT_FILES entry does not exist ... tried roots: ['…/site-packages']",
+    which looks like a renamed data file rather than an unresolved workspace.
+    """
+    import os
+
+    from v2ecoli.library.cache_version import candidate_repo_roots
+
+    declared = tmp_path / "checkout"
+    declared.mkdir()
+    monkeypatch.chdir(tmp_path)  # no workspace.yaml anywhere above
+    monkeypatch.setenv("V2E_ROOT", str(declared))
+    assert candidate_repo_roots()[0] == str(declared)
+
+    # unset, and behaviour is exactly as before
+    monkeypatch.delenv("V2E_ROOT")
+    assert str(declared) not in candidate_repo_roots()
+
+    # a declared-but-nonexistent root is ignored rather than poisoning the list
+    monkeypatch.setenv("V2E_ROOT", str(tmp_path / "nope"))
+    assert str(tmp_path / "nope") not in candidate_repo_roots()
+    assert os.environ["V2E_ROOT"]

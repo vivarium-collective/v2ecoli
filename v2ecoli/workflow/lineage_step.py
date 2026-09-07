@@ -122,6 +122,10 @@ class LineageStep(Step):
         "cache_dir": "path cache_dir",
         "sweep_dir": 'path "sweep"',
     }
+    # A whole lineage is the long-running task on this path -- hours, not
+    # minutes -- so it is the one that most needs the profile's `time` and
+    # memory. Without a label, `withLabel: lineage` binds to nothing.
+    nextflow_directives = {"label": "lineage"}
 
     def inputs(self) -> dict[str, Any]:
         # _is_file makes ParCa -> lineage a staged edge rather than a shared path.

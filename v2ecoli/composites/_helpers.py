@@ -1,9 +1,5 @@
 """Shared helpers for the v2ecoli composite generators.
 
-These were previously defined in ``v2ecoli/generate.py`` and re-imported by
-``generate_baseline.py``.  Task 14 moves
-them here so the legacy generate*.py files can be deleted.
-
 Exported names (all are considered semi-private implementation details):
   - make_edge
   - inject_flow_dependencies
@@ -137,8 +133,7 @@ ALL_PARTITIONED = list(PARTITIONED_PROCESSES.keys())
 # explicitly in its study.yaml `visualizations:` block. Auto-attaching them
 # here used to be the default, but the panels rendered confusingly empty for
 # planning-not-yet-run studies and for any study whose runs.db wasn't
-# populated yet — see docs/superpowers/notes/2026-05-19-dashboard-runner-friction.md
-# item #17. Re-enable per study by copying the two-entry list below into
+# populated yet. Re-enable per study by copying the two-entry list below into
 # the study's spec, OR opt back into project-wide auto-attach by setting
 # ``visualizations=v2ecoli_default_single_cell_visualizations()`` on the
 # specific @composite_generator call.
@@ -840,16 +835,15 @@ def parquet_emitter(*, out_dir: str | None = None,
             comp.update(...)
             flush_parquet(comp, success=True)   # explicit, no .bind()
 
-    If you neither call .bind() nor flush_parquet(), the context manager
-    silently degrades to the pre-2026-05-28 behaviour: the override
-    clears but the trailing partial batch + success sentinel are lost.
-    Friction note 2026-05-27 #3 for the original incident.
+    If you neither call .bind() nor flush_parquet(), the trailing partial
+    batch and the success sentinel are lost: the override clears but the
+    final rows never flush. Always .bind() (or call flush_parquet explicitly).
 
     Storage trade-off vs ``sqlite_emitter()``: Parquet is column-oriented and
     typically 3-5x smaller on disk for v2ecoli-shaped runs (sparse arrays,
-    listener-heavy schema). The dashboard's Simulations-DB tab does not yet
-    read parquet — for now use ``sqlite_emitter()`` if dashboard inspection
-    is required.
+    listener-heavy schema). The dashboard's Simulations-DB tab reads the sqlite
+    DB, so use ``sqlite_emitter()`` if you need a run to appear there; analyses
+    and the per-study parquet views read the parquet output directly.
     """
     if out_dir is None:
         ws_root = _find_workspace_root()

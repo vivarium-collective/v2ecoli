@@ -25,25 +25,48 @@ import re
 import warnings
 from typing import Any
 
-# Default concurrency ceiling for the DuckDB-backed (Analysis) family's
-# per-module fan-out in run_analyses (see _run_duckdb_names below). Each
-# named analysis is fully independent (own cursor, own query) and DuckDB
-# releases the GIL during query execution, so real threads give real
-# speedup -- empirically confirmed 2026-08-20 (~3x with 4 threads on a
-# genuine aggregation query, not just assumed from docs). Bounded by
-# cpu_count so a container's own vCPU allocation is the natural ceiling;
-# a caller can still force strict serial execution via max_workers=1.
-DEFAULT_ANALYSIS_MAX_WORKERS = os.cpu_count() or 4
-
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
 # here because these names are part of this module's existing surface.
 from v2ecoli.library.sweep_io import (
     _S3_PREFIX,
+    analysis_memory_budget_bytes,
+    apply_analysis_duckdb_config,
     configure_duckdb_s3,
     history_files,
     is_s3_uri,
 )
+
+
+def _default_analysis_workers() -> int:
+    """Default concurrency ceiling for the DuckDB-backed (Analysis) family's
+    per-module fan-out in run_analyses (see _run_duckdb_names below). Each named
+    analysis runs a fully independent cursor+query and DuckDB releases the GIL
+    during execution, so real threads give real speedup -- ~3x with 4 threads on
+    a genuine aggregation query (2026-08-20).
+
+    But each concurrent analysis is a full-hive query that can hold gigabytes, so
+    the CPU count is the wrong ceiling on a memory-bounded container: N cores
+    would stack N full ORDER-BYs into one buffer pool and OOM ("failed to pin
+    block", observed running the 5 ptools views together). Precedence:
+    ``V2E_ANALYSIS_MAX_WORKERS`` env; else, when a memory budget is known
+    (:func:`analysis_memory_budget_bytes`), roughly one worker per 4 GiB (min 1);
+    else the CPU count. A caller can still force strict serial via max_workers=1.
+    """
+    env = os.environ.get("V2E_ANALYSIS_MAX_WORKERS")
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    cpu = os.cpu_count() or 4
+    budget = analysis_memory_budget_bytes()
+    if budget:
+        return max(1, min(cpu, budget // (4 * 1024 ** 3)))
+    return cpu
+
+
+DEFAULT_ANALYSIS_MAX_WORKERS = _default_analysis_workers()
 
 
 def localize(uri: str, cache_dir: str | None = None) -> str:
@@ -304,6 +327,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+    apply_analysis_duckdb_config(conn)
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -634,6 +658,7 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
                 from viva_emitters import create_duckdb_conn
                 _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+                apply_analysis_duckdb_config(_ctx["conn"])
                 _ctx["from_clause"] = _history_from_clause(sweep_dir)
                 if sim_data_path is not None:
                     from v2ecoli.library.sim_data import LoadSimData

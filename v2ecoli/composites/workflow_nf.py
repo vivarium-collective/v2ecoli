@@ -54,6 +54,7 @@ the same genotype wearing different labels.
 
 from __future__ import annotations
 
+import os
 import shlex
 from typing import Any
 
@@ -70,10 +71,54 @@ from v2ecoli.workflow.meta_composite import register_workflow_processes
 # has neither flag (confirmed against a real crash, viva-api#410); its own
 # save_sim_input already writes a correct, strain-specific cache_version.json
 # because ParCa received the flags one command earlier.
+# The repo root, for artefacts that ship in the CHECKOUT rather than the wheel.
+# `scripts/build_cache.py` is one: v2ecoli installs to site-packages and
+# `scripts/` does not go with it, so the path has to be absolute. The default
+# matches this image's WORKDIR; a deployment that puts the checkout elsewhere
+# overrides V2E_ROOT.
+_DEFAULT_ROOT = "/app/v2ecoli"
+
+
+def _repo_root() -> str:
+    """Absolute path to the checkout, resolved when the workflow is RENDERED.
+
+    Deliberately not a shell variable in the emitted script: a `script:` block is
+    a Groovy string, so `${V2E_ROOT:-/app/v2ecoli}` is interpolated by GROOVY, not
+    bash -- it fails at run time with
+    `No signature of method: java.lang.String.negative()`, which names nothing
+    useful. Escaping it (`\${...}`) works but puts a Groovy-quoting subtlety in
+    every Step author's hands, which is the mistake process-bigraph#205 exists to
+    stop making.
+
+    Baking the value in is correct here because the head that renders and the
+    task that runs are the SAME IMAGE; if that ever stops being true, this is the
+    line that has to change.
+    """
+    return os.environ.get("V2E_ROOT", _DEFAULT_ROOT)
+
+# NOT cwd-relative, and NOT prefixed with `cd $V2E_ROOT`. A Nextflow task runs in
+# its own work dir and its declared outputs (`path "cache"`) are resolved
+# relative to that dir -- so cd-ing away would write the cache somewhere Nextflow
+# never looks, and the task would fail with "Missing output file(s)" having done
+# all the work. The chain/Ray path CAN cd because nothing reclaims its outputs by
+# relative path (viva-api `_parca_command`); this one cannot.
 _PARCA_CHAIN = (
     "v2ecoli-parca --mode {mode} --cpus {cpus} -o {simdata} --cache-dir {cache}{strain_flags}"
     " && gzip -f -k {simdata}/parca_state.pkl"
-    " && python scripts/build_cache.py --fixture {simdata}/parca_state.pkl.gz --cache {cache}"
+    # build_cache.py imports pbg_v2ecoli, whose apply_upstream_patches() calls
+    # find_workspace_root() -- which walks up from CWD for a workspace.yaml. A
+    # Nextflow task's cwd is its work dir, which has none, so the import dies
+    # with FileNotFoundError AFTER ParCa has already done 2.5 minutes of work.
+    # The workspace root must be the checkout (models/ lives there and is not
+    # shipped in site-packages), so this ONE command runs from there.
+    #
+    # `\$WD` is a SHELL variable, escaped so Groovy emits a literal `$`. The
+    # in/out paths are made absolute from it, so cd-ing does not move the
+    # declared output `cache` out of the work dir where Nextflow looks for it.
+    ' && WD="\$PWD" && cd "{root}"'
+    ' && python scripts/build_cache.py'
+    ' --fixture "\$WD/{simdata}/parca_state.pkl.gz" --cache "\$WD/{cache}"'
+    ' && cd "\$WD"'
     " && cp {simdata}/parca_state.pkl.gz {cache}/parca_state.pkl.gz"
 )
 
@@ -93,6 +138,11 @@ class ParcaTaskStep(Step):
     }
 
     nextflow_port_decls = {"cache_dir": 'path "cache"'}
+    # Without a label, `withLabel: parca { cpus/memory/time }` in the executor
+    # profile matches NOTHING -- every task silently takes the queue defaults,
+    # and in particular gets NO `time`, which is the only bound on a runaway
+    # task (plan-nextflow-dispatch §11.1).
+    nextflow_directives = {"label": "parca"}
 
     def inputs(self) -> dict[str, Any]:
         return {}
@@ -111,6 +161,7 @@ class ParcaTaskStep(Step):
         if overrides:
             flags += f" --bundle-overrides {shlex.quote(overrides)}"
         return _PARCA_CHAIN.format(
+            root=_repo_root(),
             mode=self.config.get("mode", "fast"),
             cpus=int(self.config.get("cpus", 8)),
             simdata=self.config.get("simdata_dir", "out/parca"),
@@ -145,6 +196,7 @@ class AnalysisTaskStep(Step):
     # this override is read off the CLASS (`_class_annotation` → `getattr(type(...))`),
     # so it cannot depend on config anyway.
     nextflow_port_decls = {"report": 'path "analysis"'}
+    nextflow_directives = {"label": "analysis"}
 
     def _variants(self) -> list[int]:
         return [int(i) for i in (self.config.get("variant_indices") or [0])]

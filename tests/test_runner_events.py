@@ -467,6 +467,32 @@ def test_time_step_is_forwarded_to_the_inner_baseline(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def test_add_sink_prefers_the_engine_public_api_and_falls_back():
+    """process-bigraph main >= 55b70676 (#209) exposes ``EventEmitter.add_sink``;
+    the helper uses it and only reaches into ``_sinks`` on an older engine."""
+    calls = []
+
+    class Modern:
+        _sinks = []                      # present, but must NOT be touched
+
+        def add_sink(self, sink):
+            calls.append(sink)
+            return self
+
+    class Legacy:
+        def __init__(self):
+            self._sinks = []
+
+    sink = object()
+    modern = Modern()
+    assert revents._add_sink(modern, sink) is True
+    assert calls == [sink] and modern._sinks == []
+    legacy = Legacy()
+    assert revents._add_sink(legacy, sink) is True
+    assert legacy._sinks == [sink]
+    assert revents._add_sink(object(), sink) is False
+
+
 def test_runner_helpers_are_noops_without_the_engine(monkeypatch):
     monkeypatch.setattr(revents, "_pbg_events", None)
     em = revents.get_emitter()

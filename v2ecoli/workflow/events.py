@@ -116,7 +116,16 @@ def get_emitter():
 
 
 def _add_sink(emitter, sink) -> bool:
-    """Attach an extra sink to an already-configured emitter."""
+    """Attach an extra sink to an already-configured emitter.
+
+    Uses the engine's public ``EventEmitter.add_sink`` (process-bigraph main
+    >= 55b70676, #209); on an older engine falls back to the private list so
+    a lagging image still gets its file sink.
+    """
+    add = getattr(emitter, "add_sink", None)
+    if callable(add):
+        add(sink)
+        return True
     sinks = getattr(emitter, "_sinks", None)
     if isinstance(sinks, list):
         sinks.append(sink)

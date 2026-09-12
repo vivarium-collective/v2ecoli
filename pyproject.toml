@@ -117,7 +117,7 @@ ray = ["ray>=2.10"]
 # Without it, relaxed structural runs degrade gracefully to raw AlphaFold structures.
 relax = ["pbg-openmm"]
 
-# Engine event-sink plugin (process-bigraph >= 1.9, `process_bigraph.events`):
+# Engine event-sink plugin (process-bigraph main >= 55b70676, `process_bigraph.events`; unreleased):
 # `PBG_EVENT_SINKS="stdout,s3://bucket/prefix/"` resolves `s3:` here. The engine
 # itself ships only stdout/file sinks and imports no cloud SDK; this is the
 # object-store adapter (any fsspec URI; s3:// needs s3fs, a base dependency).
@@ -191,11 +191,14 @@ packages = { find = { where = ["."], include = ["v2ecoli*", "pbg_v2ecoli*"] } }
 
 
 [tool.uv.sources]
-# process-bigraph `main`. #205 merged (78d14883), so this is no longer a PR
-# branch head -- the renderer fixes workflow_nf requires (a `nextflow_script()`
-# override wrapped as Groovy, and `cache = 'lenient'` so `-resume` can match)
-# are on main now. Also picks up #206 (`analyses` on GeneratorEntry).
-process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", rev = "66bccbdd77f0f8622e7d2f1161d2cf9ec755337e" }
+# process-bigraph `main` at 55b70676 = #209 merged (2026-09-12): the events
+# module (`process_bigraph.events`: sinks, spans, opaque baggage, rate-limited
+# run.start/run.end, public `add_sink`). UNRELEASED -- that commit still says
+# 1.8.4 in its pyproject and PyPI is 1.8.4; Eran cuts the next public version,
+# so this stays a SHA pin, not a version. Also carries #205 (renderer fixes:
+# `nextflow_script()` override wrapped as Groovy, `cache = 'lenient'`) and #206
+# (`analyses` on GeneratorEntry), as before.
+process-bigraph = { git = "https://github.com/vivarium-collective/process-bigraph.git", rev = "55b70676cb4d91a03d6cccb32a91b7a0e62f2842" }
 bigraph-schema = { git = "https://github.com/vivarium-collective/bigraph-schema.git", branch = "main" }
 viva-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main" }
 viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.git", branch = "main" }

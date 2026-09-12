@@ -122,6 +122,77 @@ class _MultigenMixin:
             **ctx,
         )
 
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Stream the per-tick feature read ONE GENERATION AT A TIME.
+
+        The single-scale ``_feature_matrix`` materialises every generation's rows —
+        including the wide ``DOUBLE[]`` list columns — in one read and ``np.stack``s
+        them; on a 20-generation lineage that frame is what fills the analysis
+        container's temp-spill DISK (the failure the multigen ptools hit; DISK, not
+        RAM, so no memory class helps).
+
+        But ``per_generation`` consolidation reduces each generation to ONE window,
+        and ``consolidate_timepoints(generations=)`` computes each generation's column
+        independently as the normalised mean over that generation's own ticks. So we
+        call the concrete ``_feature_matrix`` once per generation on a
+        generation-scoped history and reduce that generation to its mean row before
+        moving to the next — peak resident stays at a single generation's rows. The
+        returned ``(n_generations × F)`` matrix (one row per generation, already the
+        per-generation mean) feeds the concrete ``analyze``'s own
+        ``consolidate_timepoints(..., generations=)`` unchanged: with one row per
+        generation that consolidation is an identity, so the rendered table is the
+        bit-for-bit whole-frame result. Mirrors #789's per-seed streaming of the
+        multiseed collapse, reusing the concrete ``_feature_matrix`` as the primitive.
+
+        Only the ``per_generation`` path (the multigeneration default) is streamed —
+        it is the only one whose reduction is per-generation independent. If
+        ``per_generation`` is disabled, or there is no ``generation`` axis, defer to
+        the whole-frame single-scale read (correctness over memory on that rare path).
+        """
+        if not params.get("per_generation") or \
+                "generation" not in available_columns(conn, history_sql):
+            return super()._feature_matrix(history_sql, conn, sim_data, params)
+
+        gens_present = [
+            r[0] for r in conn.sql(
+                f"SELECT DISTINCT generation FROM ({history_sql}) ORDER BY generation"
+            ).fetchall()
+        ]
+        rows: list[np.ndarray] = []
+        times: list[float] = []
+        labels: list = []
+        feature_ids = None
+        for g in gens_present:
+            gen_sql = f"SELECT * FROM ({history_sql}) WHERE generation = {g}"
+            mtx, tvec, fids, _gens = super()._feature_matrix(
+                gen_sql, conn, sim_data, params
+            )
+            if mtx.shape[0] == 0:
+                continue
+            if feature_ids is None:
+                feature_ids = fids
+            elif mtx.shape[1] != rows[0].shape[0]:
+                raise ValueError(
+                    f"feature width differs across generations ({mtx.shape[1]} != "
+                    f"{rows[0].shape[0]}); a generation does not share the sim_data "
+                    "ordering"
+                )
+            # Per-generation mean over its ticks, written as sum/len to match
+            # consolidate_timepoints' normalised block (rows.sum(0)/len) exactly.
+            rows.append(mtx.sum(axis=0) / mtx.shape[0])
+            times.append(float(tvec[0]))   # first tick's time in this generation
+            labels.append(g)
+        if not rows:
+            # Every generation empty after filtering — let the whole-frame path
+            # produce the (empty) result and its error handling.
+            return super()._feature_matrix(history_sql, conn, sim_data, params)
+        return (
+            np.stack(rows, axis=0),
+            np.asarray(times),
+            feature_ids,
+            np.asarray(labels),
+        )
+
 
 class PtoolsRnaMultigeneration(_MultigenMixin, PtoolsRna):
     name = "ptools_rna_multigeneration"

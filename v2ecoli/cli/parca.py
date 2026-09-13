@@ -212,10 +212,31 @@ def main():
                     print(f"    WARN: checkpoint after step {step_n} failed: {e}")
                 return out
             cls.update = update
+        def _span_only(cls, step_name):
+            orig = cls.update
+
+            def update(self, state):
+                with _events.get_emitter().span("parca.step", name=step_name,
+                                                numbered=False):
+                    return orig(self, state)
+            cls.update = update
+
         for name, cls in ALL_STEP_CLASSES.items():
             n = STEP_NUM_BY_CLASS.get(name)
             if n is not None:
                 _wrap(cls, n)
+            else:
+                # A step registered in ALL_STEP_CLASSES but absent from
+                # STEP_NUM_BY_CLASS still gets a span, just no checkpoint or
+                # runtimes entry (those are keyed by step number, which it has
+                # not been assigned). Instrumentation must not inherit the
+                # checkpointer's gap: #668's SimInputWriteStep is exactly this
+                # shape -- registered, deliberately out of STEP_ORDER today, and
+                # slated to be appended to the chain by a follow-up opt-in. When
+                # that lands, a step nobody remembered to number would otherwise
+                # run completely unobserved, which is the same silent-no-op class
+                # as a declared-but-never-read config field.
+                _span_only(cls, name)
 
     t1 = time.time()
     print(f"\n[{time.strftime('%H:%M:%S')}] Running ParCa pipeline ...")

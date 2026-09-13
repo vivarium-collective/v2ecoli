@@ -48,17 +48,15 @@ def test_a_blocked_body_still_reports_progress(capsys):
     def sampler():
         return next(readings, {"duckdb_temp_mb": 999.0})
 
-    emitter = pbg_events.get_emitter()
-    emitter.heartbeat_s = 0  # never throttle, so the test is not a sleep race
     with revents.sampled_span("analysis.group", sampler, interval_s=0.02,
                               name="ptools_rna_multigeneration"):
         time.sleep(0.25)
 
     events = _events_from(capsys)
-    ticks = [e for e in events if e.get("event") == "tick"]
-    assert ticks, "no heartbeat arrived while the body was blocked"
-    seen = [t.get("payload", {}).get("duckdb_temp_mb") for t in ticks]
-    assert any(v is not None for v in seen), f"sampler output never reached a tick: {ticks[:2]}"
+    samples = [e for e in events if e.get("event") == "analysis.sample"]
+    assert samples, "no sample arrived while the body was blocked"
+    seen = [t.get("payload", {}).get("duckdb_temp_mb") for t in samples]
+    assert any(v is not None for v in seen), f"sampler output never reached an event: {samples[:2]}"
 
     names = [e.get("event") for e in events]
     assert "span.start" in names and "span.end" in names

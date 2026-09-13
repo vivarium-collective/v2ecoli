@@ -242,9 +242,28 @@ def sampled_span(span_name: str, /, sampler=None, *, interval_s: float | None = 
     sampled exactly once -- AFTER it returns, which never happens on the path
     that matters.
 
-    So this runs ``sampler()`` on a daemon thread every ``interval_s`` and feeds
-    the result to ``emitter.heartbeat(**sample)``. The heartbeat is itself
-    wall-clock throttled by the engine, so an over-eager interval costs nothing.
+    So this runs ``sampler()`` on a daemon thread every ``interval_s`` and emits
+    each reading as its own ``analysis.sample`` event.
+
+    It deliberately does NOT call ``emitter.heartbeat()``, which was the first
+    draft. ``heartbeat`` carries the engine's own wall-clock throttle and emits
+    a ``tick``, and both are wrong here:
+
+    * ``tick`` means "a Composite advanced". The gather does not tick, so
+      reusing it makes gather samples indistinguishable from simulation ticks
+      in the same stream.
+    * The throttle is process-global. A gather running in the same process as a
+      simulation would have its samples suppressed by that simulation's ticks,
+      and both cadences would be driven by the single ``PBG_EVENT_HEARTBEAT_S``.
+
+    A dedicated unthrottled event with cadence owned here decouples them.
+
+    Measured rate (real gather, local, 2026-09-13): at ``interval_s=0.02`` the
+    inter-sample gaps are 0.025-0.029 s, i.e. a steady ~6 ms of the sampler's own
+    work (``duckdb_memory()`` + ``getrusage``) added to each period. Not drift and
+    not GIL starvation -- DuckDB releases the GIL during query execution, and a
+    0.95 s pure-DuckDB query samples ~45 times at that interval. The overhead is
+    irrelevant at the 30 s default; it only shows at test intervals.
 
     ``sampler`` must be cheap and must never raise into the caller; anything it
     throws is swallowed (observability never breaks the runner). ``interval_s``
@@ -268,7 +287,7 @@ def sampled_span(span_name: str, /, sampler=None, *, interval_s: float | None = 
                 except Exception:  # noqa: BLE001 -- a metric must never fail the run
                     sample = {}
             try:
-                emitter.heartbeat(**sample)
+                emitter.event("analysis.sample", level="debug", **sample)
             except Exception:  # noqa: BLE001
                 return
 

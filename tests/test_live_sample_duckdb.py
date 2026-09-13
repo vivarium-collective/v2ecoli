@@ -74,7 +74,6 @@ def test_sampling_a_separate_cursor_is_safe_while_a_query_runs(capsys):
     wide is the only thing keeping the assertion non-flaky.
     """
     pbg_events.configure("stdout")
-    pbg_events.get_emitter().heartbeat_s = 0
     conn = duckdb.connect()
     query_cursor = conn.cursor()
     probe_cursor = conn.cursor()          # the fix: NOT query_cursor
@@ -92,10 +91,10 @@ def test_sampling_a_separate_cursor_is_safe_while_a_query_runs(capsys):
     assert got[0] == 40_000_000
 
     events = _events_from(capsys)
-    ticks = [e for e in events if e.get("event") == "tick"]
-    assert ticks, "sampler never ran while the query was blocked"
-    assert any("duckdb_temp_mb" in (t.get("payload") or {}) for t in ticks), \
-        f"no DuckDB reading reached a tick: {[t.get('payload') for t in ticks[:2]]}"
+    samples = [e for e in events if e.get("event") == "analysis.sample"]
+    assert samples, "sampler never ran while the query was blocked"
+    assert any("duckdb_temp_mb" in (t.get("payload") or {}) for t in samples), \
+        f"no DuckDB reading reached an event: {[t.get('payload') for t in samples[:2]]}"
 
     ends = [e for e in events if e.get("event") == "span.end"]
     assert ends and ends[-1]["payload"]["status"] == "ok"

@@ -43,6 +43,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import threading
 import time
 import warnings
 from typing import Any
@@ -226,6 +227,63 @@ def generation_span(lp):
         )
     except Exception:
         return _NullSpan()
+
+
+@contextlib.contextmanager
+def sampled_span(span_name: str, /, sampler=None, *, interval_s: float | None = None, **attrs):
+    """A span that also HEARTBEATS while the body is blocked.
+
+    ``emitter.span(...)`` alone gives you start and end. That is enough for work
+    made of many small steps, and useless for the gather, where a single
+    ``step.update(...)`` can block for hours and then die: the span opens, the
+    process is killed, and the only thing anyone learns is that it did not
+    finish. Every number needed to understand the Run 1 wall
+    (``duckdb_temp_mb``, RSS) exists inside that blocked call and is currently
+    sampled exactly once -- AFTER it returns, which never happens on the path
+    that matters.
+
+    So this runs ``sampler()`` on a daemon thread every ``interval_s`` and feeds
+    the result to ``emitter.heartbeat(**sample)``. The heartbeat is itself
+    wall-clock throttled by the engine, so an over-eager interval costs nothing.
+
+    ``sampler`` must be cheap and must never raise into the caller; anything it
+    throws is swallowed (observability never breaks the runner). ``interval_s``
+    defaults to ``PBG_EVENT_HEARTBEAT_S`` so the cadence is the dispatcher's
+    choice, not a second hard-coded constant.
+    """
+    emitter = get_emitter()
+    if interval_s is None:
+        try:
+            interval_s = float(os.environ.get("PBG_EVENT_HEARTBEAT_S") or 30.0)
+        except (TypeError, ValueError):
+            interval_s = 30.0
+    stop = threading.Event()
+
+    def _pump() -> None:
+        while not stop.wait(interval_s):
+            sample: dict[str, Any] = {}
+            if sampler is not None:
+                try:
+                    sample = sampler() or {}
+                except Exception:  # noqa: BLE001 -- a metric must never fail the run
+                    sample = {}
+            try:
+                emitter.heartbeat(**sample)
+            except Exception:  # noqa: BLE001
+                return
+
+    thread: threading.Thread | None = None
+    if getattr(emitter, "enabled", False) and sampler is not None:
+        thread = threading.Thread(target=_pump, name=f"pbg-heartbeat:{span_name}", daemon=True)
+    with emitter.span(span_name, **attrs) as span:
+        if thread is not None:
+            thread.start()
+        try:
+            yield span
+        finally:
+            stop.set()
+            if thread is not None:
+                thread.join(timeout=1.0)
 
 
 def emit(name: str, level: str = "info", **payload) -> None:

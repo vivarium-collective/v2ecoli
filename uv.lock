@@ -2913,61 +2913,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbg-bioreactordesign"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main#aeb59b3bfb4b690dbeec8eb2829ce1cd7bd8c492" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "pbg-superpowers" },
-    { name = "process-bigraph" },
-    { name = "pyyaml" },
-    { name = "scipy" },
-]
-
-[[package]]
-name = "pbg-ketchup"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main#c023e55902e8fa72754118f951bbfde5e2a4deaa" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "cobra" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "process-bigraph" },
-    { name = "pyomo" },
-    { name = "pyyaml" },
-    { name = "scipy" },
-]
-
-[[package]]
-name = "pbg-openmm"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "openmm" },
-    { name = "process-bigraph" },
-    { name = "setuptools" },
-]
-
-[[package]]
 name = "pbg-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
 dependencies = [
     { name = "viva-superpowers" },
-]
-
-[[package]]
-name = "pbg-torch"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#cfee4f06b8fe1ee7575e141150b197ccad0a0908" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "torch" },
 ]
 
 [[package]]
@@ -4532,9 +4482,6 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-bioreactordesign" },
-    { name = "pbg-ketchup" },
-    { name = "pbg-torch" },
     { name = "plotly" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
@@ -4546,10 +4493,13 @@ dependencies = [
     { name = "sympy" },
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
+    { name = "viva-bioreactordesign" },
     { name = "viva-copasi" },
     { name = "viva-emitters", extra = ["parquet", "xarray"] },
+    { name = "viva-ketchup" },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
+    { name = "viva-torch" },
     { name = "viva-workspace" },
 ]
 
@@ -4562,7 +4512,7 @@ ray = [
     { name = "ray" },
 ]
 relax = [
-    { name = "pbg-openmm" },
+    { name = "viva-openmm" },
 ]
 report = [
     { name = "vivarium-workbench" },
@@ -4580,10 +4530,6 @@ requires-dist = [
     { name = "numba", specifier = ">=0.59" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main" },
-    { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
-    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
-    { name = "pbg-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?rev=55b70676cb4d91a03d6cccb32a91b7a0e62f2842" },
@@ -4599,10 +4545,14 @@ requires-dist = [
     { name = "unum" },
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
+    { name = "viva-bioreactordesign", git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main" },
     { name = "viva-copasi", git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main" },
     { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.4.0" },
+    { name = "viva-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
+    { name = "viva-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
+    { name = "viva-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
     { name = "vivarium-workbench", marker = "extra == 'report'", git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6" },
 ]
@@ -4685,6 +4635,19 @@ wheels = [
 ]
 
 [[package]]
+name = "viva-bioreactordesign"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main#9381838aa64e71efe86bd3c4bdb4b0d49f937466" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "viva-copasi"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main#c136e37777cdf48d46054cad2911402d4f4cd373" }
@@ -4730,6 +4693,21 @@ xarray = [
 ]
 
 [[package]]
+name = "viva-ketchup"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main#7a86c15430fe1261f52c743a6c6e5c6de6682e7d" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "cobra" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "process-bigraph" },
+    { name = "pyomo" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "viva-marketplace"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/viva-marketplace.git?branch=main#3e43bc60b89c15c393abc3f4022acfb71b23d732" }
@@ -4751,9 +4729,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "viva-openmm"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#7b7cb6a83122a2d1d2720d42b086417003819910" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "openmm" },
+    { name = "process-bigraph" },
+    { name = "setuptools" },
+]
+
+[[package]]
 name = "viva-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -4765,6 +4754,17 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "viva-emitters" },
     { name = "viva-workspace" },
+]
+
+[[package]]
+name = "viva-torch"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#2e7fd2f1c02c355eeca0c1b2dd0629b4ce1f12b2" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+    { name = "torch" },
 ]
 
 [[package]]

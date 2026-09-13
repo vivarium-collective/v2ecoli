@@ -94,25 +94,28 @@ def register_ecoli_core(core):
             core.register_type(_vec, {'_inherit': 'array', '_data': 'int64'})
         except Exception:
             pass
-    # Pulled-in external composites (pbg-ketchup): register its Process classes
-    # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
-    # pbg_ketchup must never break build_core for the rest of v2ecoli.
+    # Compose pulled-in external repos' cores. Each repo self-registers its OWN
+    # processes via its build_core(core) (the cross-repo core convention), so we
+    # no longer reach DOWN and register their classes here. Guarded per-repo — a
+    # missing/older dep must never break build_core for the rest of v2ecoli.
+    #   - viva_ketchup: KetchupEstimator / KetchupDynamicEstimator
+    #     (local:KetchupEstimator resolution in the ketchup composites)
+    #   - viva_bioreactordesign: BiRDTransportProcess
+    #     (local:BiRDTransportProcess in the mbp-03 coupled-reactor composite)
+    import importlib as _il
+    for _dep in ("viva_ketchup", "viva_bioreactordesign"):
+        try:
+            _m = _il.import_module(_dep)
+            _bc = getattr(_m, "build_core", None) or getattr(
+                _il.import_module(f"{_dep}.core"), "build_core", None)
+            if _bc is not None:
+                _bc(core)
+        except Exception:
+            pass
+    # BiRDTransportHours: v2ecoli's OWN seconds->hours adapter the coupled
+    # composite wires (not part of the bioreactordesign repo), so it stays
+    # registered here. See v2ecoli/steps/bird_transport_hours.py.
     try:
-        from pbg_ketchup import KetchupEstimator, KetchupDynamicEstimator
-        core.register_link("KetchupEstimator", KetchupEstimator)
-        core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
-    except Exception:
-        pass
-    # Pulled-in external reactor physics (pbg-bioreactordesign): register
-    # BiRDTransportProcess so local:BiRDTransportProcess resolves in the mbp-03
-    # coupled-reactor composite. Guarded — a missing pbg_bioreactordesign must
-    # never break build_core for the rest of v2ecoli.
-    try:
-        from pbg_bioreactordesign import BiRDTransportProcess
-        core.register_link("BiRDTransportProcess", BiRDTransportProcess)
-        # BiRDTransportHours: the seconds->hours time-base adapter the coupled
-        # composite actually wires (v2ecoli steps in seconds; the transport math
-        # is in hours). See v2ecoli/steps/bird_transport_hours.py.
         from v2ecoli.steps.bird_transport_hours import BiRDTransportHours
         core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
@@ -211,13 +214,13 @@ def build_core():
     return core
 
 
-# Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite
+# Importing v2ecoli.core also registers the pulled-in viva-ketchup composite
 # *generators* (the @composite_generator decorators fire on import), so the
 # dashboard's run subprocess — which does `from v2ecoli.core import build_core`
 # then looks up the generator in the registry — can resolve ketchup_baseline /
-# ketchup_dynamic. Guarded so it's a no-op when pbg-ketchup isn't installed.
+# ketchup_dynamic. Guarded so it's a no-op when viva-ketchup isn't installed.
 try:
-    import pbg_ketchup.composites  # noqa: F401
+    import viva_ketchup.composites  # noqa: F401
 except Exception:
     pass
 

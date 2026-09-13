@@ -26,6 +26,8 @@ import re
 import warnings
 from typing import Any
 
+from v2ecoli.workflow import events as _events
+
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
 # here because these names are part of this module's existing surface.
@@ -700,6 +702,39 @@ def _register_plugin_analyses() -> None:
             )
 
 
+def _live_sample(cursor: Any) -> dict[str, Any]:
+    """The same numbers as :func:`_runtime_snapshot`, cheap enough to take WHILE
+    a query is still running.
+
+    ``_runtime_snapshot`` is taken after ``step.update`` returns, so on the one
+    path that matters -- the query that exhausts the temp directory and dies --
+    it is never taken at all. Run 1 was diagnosed instead with a hand-dispatched
+    ``du -sm`` loop in a shell wrapper (sms-ecoli#166): the same measurement,
+    taken from outside the process, because nothing took it inside.
+
+    Must be given a cursor that is NOT the one executing the query (see
+    ``_run_duckdb_name``'s docstring on cursor thread-safety).
+    """
+    sample: dict[str, Any] = {}
+    try:
+        import resource
+        sample["rss_mb"] = round(
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
+    except Exception:  # noqa: BLE001 -- a metric must never fail the analysis
+        pass
+    try:
+        row = cursor.execute(
+            "SELECT COALESCE(SUM(memory_usage_bytes), 0), "
+            "COALESCE(SUM(temporary_storage_bytes), 0) FROM duckdb_memory()"
+        ).fetchone()
+        sample["duckdb_memory_mb"] = round((row[0] or 0) / 1024 ** 2, 1)
+        sample["duckdb_temp_mb"] = round((row[1] or 0) / 1024 ** 2, 1)
+    except Exception:  # noqa: BLE001
+        pass
+    return sample
+
+
 def _runtime_snapshot(cursor: Any, t0: float) -> dict[str, Any]:
     """Cost of the module that just ran, for the analysis.json ``runtime`` block.
 
@@ -914,37 +949,52 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         viz_dir = os.path.join(out_dir, "viz")
         os.makedirs(viz_dir, exist_ok=True)
         per_group: dict[str, Any] = {}
-        for gkey in groups:
-            gstr = _group_key_str(scale, gkey)
-            import time as _time
-            _t0 = _time.perf_counter()
-            try:
-                history_sql = scale_history_sql(scale, from_clause, gkey)
-                out = step.update({
-                    "conn": cursor, "history_sql": history_sql,
-                    "config_sql": "", "success_sql": "",
-                    "sim_data": sim_data,
-                    "validation_data": validation_data,
-                    "variant_metadata": params,
-                })
-                if out.get("view"):
-                    vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
-                    with open(vp, "w", encoding="utf-8") as vf:
-                        vf.write(out["view"])
-                data = out.get("data")
-                if isinstance(data, dict) and data.get("tsv"):
-                    ptools_dir = os.path.join(out_dir, "ptools")
-                    os.makedirs(ptools_dir, exist_ok=True)
-                    tsv_path = os.path.join(
-                        ptools_dir,
-                        f"{name}__{gstr.replace('/', '_')}.tsv",
-                    )
-                    with open(tsv_path, "w", encoding="utf-8") as tf:
-                        tf.write(data["tsv"])
-                per_group[gstr] = out.get("data", {})
-            except Exception as e:
-                per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
-            _runtime.setdefault(scale, {}).setdefault(name, {})[gstr] = _runtime_snapshot(cursor, _t0)
+        _emitter = _events.get_emitter()
+        # The sampler runs on its own thread, so it MUST NOT share the cursor the
+        # query is executing on: this function's own docstring is explicit that a
+        # DuckDB cursor is not safe to use from two threads at once (only separate
+        # cursors on one connection are). A dedicated probe cursor costs nothing.
+        probe_cursor = conn.cursor()
+        # One span per named analysis, one per group, plus a heartbeat DURING the
+        # group's blocking query. All three are engine no-ops when no sink is
+        # configured, so this is inert on an undispatched run.
+        with _emitter.span("analysis.name", name=name, scale=scale):
+            for gkey in groups:
+                gstr = _group_key_str(scale, gkey)
+                import time as _time
+                _t0 = _time.perf_counter()
+                try:
+                    history_sql = scale_history_sql(scale, from_clause, gkey)
+                    with _events.sampled_span(
+                        "analysis.group",
+                        lambda c=probe_cursor: _live_sample(c),
+                        name=name, scale=scale, group=gstr,
+                    ):
+                        out = step.update({
+                        "conn": cursor, "history_sql": history_sql,
+                        "config_sql": "", "success_sql": "",
+                        "sim_data": sim_data,
+                        "validation_data": validation_data,
+                        "variant_metadata": params,
+                    })
+                    if out.get("view"):
+                        vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
+                        with open(vp, "w", encoding="utf-8") as vf:
+                            vf.write(out["view"])
+                    data = out.get("data")
+                    if isinstance(data, dict) and data.get("tsv"):
+                        ptools_dir = os.path.join(out_dir, "ptools")
+                        os.makedirs(ptools_dir, exist_ok=True)
+                        tsv_path = os.path.join(
+                            ptools_dir,
+                            f"{name}__{gstr.replace('/', '_')}.tsv",
+                        )
+                        with open(tsv_path, "w", encoding="utf-8") as tf:
+                            tf.write(data["tsv"])
+                    per_group[gstr] = out.get("data", {})
+                except Exception as e:
+                    per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+                _runtime.setdefault(scale, {}).setdefault(name, {})[gstr] = _runtime_snapshot(cursor, _t0)
         return per_group
 
     # A declared analysis that never runs is a silent deliverable hole: a study

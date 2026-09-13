@@ -221,6 +221,113 @@ def test_division_event_reports_signal_and_report(monkeypatch, stdout_events):
     assert lp._last_carry_report["carried"] == p["carried"]
 
 
+def test_an_unattachable_sink_WARNS_instead_of_failing_silently():
+    """Eran's #772 point: a sink that cannot be attached used to return False with
+    no error, so the per-task events.jsonl was simply absent and looked like "this
+    task emitted nothing". Make the failure findable without ever raising.
+    """
+    class _NoSinkEmitter:
+        pass
+
+    with pytest.warns(RuntimeWarning, match="neither add_sink"):
+        assert revents._add_sink(_NoSinkEmitter(), object()) is False
+
+
+def test_the_public_add_sink_is_preferred_over_the_private_list():
+    """The coupling Eran flagged: reaching into engine-private ``_sinks`` means a
+    rename upstream silently stops attaching sinks. With #209 merged the public
+    API exists, so it must win -- and using it must not touch the private list.
+    """
+    class _BothEmitter:
+        def __init__(self):
+            self._sinks = []
+            self.added = []
+
+        def add_sink(self, sink):
+            self.added.append(sink)
+
+    em, sink = _BothEmitter(), object()
+    assert revents._add_sink(em, sink) is True
+    assert em.added == [sink]
+    assert em._sinks == []          # the private path was NOT used
+
+
+def test_falling_back_to_the_private_list_says_the_pin_is_behind():
+    """The fallback still works for a lagging image, but no longer silently."""
+    class _LegacyEmitter:
+        def __init__(self):
+            self._sinks = []
+
+    em, sink = _LegacyEmitter(), object()
+    with pytest.warns(RuntimeWarning, match="engine pin is behind"):
+        assert revents._add_sink(em, sink) is True
+    assert em._sinks == [sink]
+
+
+def test_a_raising_carry_report_NEVER_breaks_the_division(monkeypatch, stdout_events):
+    """The invariant: observability must not raise into the simulation.
+
+    ``_events.emit`` already swallows, but ``carry_report`` is a real computation
+    over the mother/daughter states, it sits on the division path of EVERY
+    production lineage, and it was the one observability call left unwrapped
+    (eagmon, #772 review). If it throws, the division must still return its
+    daughter -- a diagnostic failing is acceptable, a multi-hour run dying for a
+    diagnostic is not.
+    """
+    lp = LineageProcess.__new__(LineageProcess)
+    lp.config = {
+        "cache_dir": "x", "seed": 0, "lineage_seed": 1, "variant_index": 0,
+        "variant_name": "b", "config_overrides": {}, "generations": 2,
+        "single_daughters": True, "experiment_id": "t", "out_dir": "out/t",
+        "max_duration_per_gen": 100.0, "initial_carry_state_path": "",
+        "initial_generation_index": 0, "daughter_state_out_path": "",
+        "checkpoint_dir": "", "require_output": False, "emitter": "parquet",
+    }
+    lp.initialize(lp.config)
+
+    mother = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "fields": {"drug": 2.0}, "listeners": {"mass": {"dry_mass": 500.0}},
+    }
+
+    class _FakeComposite:
+        def __init__(self):
+            self.state = {"global_time": 0.0, "agents": {"0": mother}}
+
+        def run(self, interval):
+            d = {"bulk": "D0", "unique": {}, "environment": {}, "boundary": {},
+                 "fields": {"drug": 0.0}, "listeners": {"mass": {"dry_mass": 250.0}}}
+            self.state = {"global_time": 42.0, "agents": {"00": d, "01": dict(d)}}
+
+    def _boom(*_a, **_k):
+        raise RuntimeError("carry_report exploded")
+
+    monkeypatch.setattr(revents, "carry_report", _boom)
+
+    lp._composite = _FakeComposite()
+    lp._gen_elapsed = 0.0
+    lp._last_carry_report = {"carried": ["stale-from-a-previous-division"]}
+
+    # 1. the division still happens and still hands back its daughter
+    divided, daughter, dry_mass = lp._run_until_division(100.0)
+    assert divided is True
+    assert daughter is not None and daughter["bulk"] == "D0"
+    assert dry_mass == 250.0
+
+    # 2. a stale report is DROPPED, not carried into the next generation's
+    #    ``carried_from_previous`` -- otherwise the next generation would quote
+    #    a report from two divisions ago as if it described this one.
+    assert lp._last_carry_report is None
+
+    # 3. the failure is still visible: the division event is emitted, at warning,
+    #    naming the error rather than silently omitting the event.
+    div = [e for e in stdout_events() if e["event"] == "lineage.division"]
+    assert len(div) == 1
+    assert div[0]["level"] == "warning"
+    assert "RuntimeError: carry_report exploded" in div[0]["payload"]["carry_report_error"]
+    assert div[0]["payload"]["signal"] == "structural"
+
+
 def test_division_with_an_unclassified_root_is_a_warning(monkeypatch, stdout_events):
     lp = LineageProcess.__new__(LineageProcess)
     lp.config = {

@@ -1229,25 +1229,47 @@ class LineageProcess(Process):
             # Report against the FULL mother node (root keys incl. the ones the
             # policy already filtered out of the snapshot), so a dropped store
             # shows up as dropped rather than vanishing from the report.
-            report = _events.carry_report(
-                mother if isinstance(mother, dict) and mother else mother_snapshot, daughter
-            )
-            self._last_carry_report = report
-            unclassified = list(report.get("dropped", {}).get("unclassified", [])) + list(
-                report.get("carried_unclassified", [])
-            )
-            _events.emit(
-                "lineage.division",
-                level="warning" if unclassified else "info",
-                signal="structural" if structural else ("exception" if _exc_signal else "flag"),
-                t_division=float(self._gen_elapsed),
-                dry_mass=float(dry_mass),
-                generation=int(self._generation),
-                agent_id=str(self._agent_id),
-                daughter_keys=sorted(k for k in daughter if not str(k).startswith("_"))
-                if isinstance(daughter, dict) else [],
-                **report,
-            )
+            # EVERYTHING from here to the end of the block is observability, and
+            # observability must never raise into the simulation. ``_events.emit``
+            # already swallows, but ``carry_report`` is a real computation over the
+            # mother and daughter states and CAN raise on an unexpected shape -- and
+            # this is the division path of every production lineage, so an exception
+            # here would kill a multi-hour run for the sake of a diagnostic. Failing
+            # to report is acceptable; failing the run is not. (eagmon, #772 review:
+            # the one observability call not wrapped, on the hot production path.)
+            try:
+                report = _events.carry_report(
+                    mother if isinstance(mother, dict) and mother else mother_snapshot, daughter
+                )
+                self._last_carry_report = report
+                unclassified = list(report.get("dropped", {}).get("unclassified", [])) + list(
+                    report.get("carried_unclassified", [])
+                )
+                _events.emit(
+                    "lineage.division",
+                    level="warning" if unclassified else "info",
+                    signal="structural" if structural else ("exception" if _exc_signal else "flag"),
+                    t_division=float(self._gen_elapsed),
+                    dry_mass=float(dry_mass),
+                    generation=int(self._generation),
+                    agent_id=str(self._agent_id),
+                    daughter_keys=sorted(k for k in daughter if not str(k).startswith("_"))
+                    if isinstance(daughter, dict) else [],
+                    **report,
+                )
+            except Exception as exc:  # noqa: BLE001 -- see the invariant above
+                # Drop the stale report rather than let the NEXT generation's
+                # ``carried_from_previous`` quote a report from two divisions ago.
+                self._last_carry_report = None
+                _events.emit(
+                    "lineage.division",
+                    level="warning",
+                    signal="structural" if structural else ("exception" if _exc_signal else "flag"),
+                    t_division=float(self._gen_elapsed),
+                    generation=int(self._generation),
+                    agent_id=str(self._agent_id),
+                    carry_report_error=f"{type(exc).__name__}: {exc}",
+                )
         return divided, daughter, dry_mass
 
     # --- main tick -------------------------------------------------------

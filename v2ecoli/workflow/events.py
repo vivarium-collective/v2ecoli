@@ -44,6 +44,7 @@ import contextlib
 import json
 import os
 import time
+import warnings
 from typing import Any
 
 COMPONENT = "v2ecoli.lineage"
@@ -121,6 +122,13 @@ def _add_sink(emitter, sink) -> bool:
     Uses the engine's public ``EventEmitter.add_sink`` (process-bigraph main
     >= 55b70676, #209); on an older engine falls back to the private list so
     a lagging image still gets its file sink.
+
+    Returning ``False`` used to be SILENT, which is the failure shape this whole
+    branch exists to remove: the per-task ``events.jsonl`` would simply not be
+    written, nothing would error, and the artifact's absence would look like "the
+    task produced no events" (eagmon, #772 review). If neither path works we now
+    say so -- loudly enough to find, quietly enough that observability still never
+    raises into the simulation.
     """
     add = getattr(emitter, "add_sink", None)
     if callable(add):
@@ -128,8 +136,24 @@ def _add_sink(emitter, sink) -> bool:
         return True
     sinks = getattr(emitter, "_sinks", None)
     if isinstance(sinks, list):
+        # Vestigial: the pinned engine has the public API. Kept for an image whose
+        # engine lags the pin, and narrowed to a warning so the coupling is visible.
+        warnings.warn(
+            "v2ecoli.workflow.events: engine has no public add_sink(); fell back to "
+            "the private _sinks list. The engine pin is behind process-bigraph "
+            "55b70676 (#209).",
+            RuntimeWarning,
+            stacklevel=2,
+        )
         sinks.append(sink)
         return True
+    warnings.warn(
+        f"v2ecoli.workflow.events: could not attach sink {sink!r} -- the emitter "
+        f"({type(emitter).__name__}) exposes neither add_sink() nor _sinks. "
+        "Per-task events will NOT be recorded to that sink.",
+        RuntimeWarning,
+        stacklevel=2,
+    )
     return False
 
 

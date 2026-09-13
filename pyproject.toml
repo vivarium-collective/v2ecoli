@@ -91,7 +91,7 @@ dependencies = [
     # NeuralProcess surrogate of the baseline (investigations/surrogate-modeling).
     # Pulls torch; surfaced in the dashboard Registry via build_core() + the
     # dashboard.registry.include allow-list in workspace.yaml.
-    "pbg-torch @ git+https://github.com/vivarium-collective/viva-torch.git@main",
+    "viva-torch @ git+https://github.com/vivarium-collective/viva-torch.git@main",
 ]
 
 [project.optional-dependencies]
@@ -117,7 +117,7 @@ ray = ["ray>=2.10"]
 # (structural-ecoli). openmm is heavy, so this is opt-in:
 #   uv sync --extra relax
 # Without it, relaxed structural runs degrade gracefully to raw AlphaFold structures.
-relax = ["pbg-openmm"]
+relax = ["viva-openmm"]
 
 [project.scripts]
 v2ecoli-parca = "v2ecoli.cli.parca:main"
@@ -199,16 +199,13 @@ viva-workspace = { git = "https://github.com/vivarium-collective/viva-workspace.
 # repo's shim/ subdir (re-exports viva_superpowers). Kept for safety during the rename.
 pbg-superpowers = { git = "https://github.com/vivarium-collective/viva-superpowers.git", branch = "main", subdirectory = "shim" }
 viva-copasi = { git = "https://github.com/vivarium-collective/viva-copasi.git", branch = "main" }
-# openmm/torch: repos renamed to viva-* (canonical URLs) and their package
-# metadata has also flipped to viva-* on main, BUT the key stays pbg-* here
-# because the lock pins each to a pre-rename commit whose metadata is still
-# pbg-* (so the name matches). Flipping these to viva-* (like ketchup /
-# bioreactordesign above) is a follow-up — it requires bumping their lock to a
-# post-rename commit, which is out of scope for this de-hardcode.
-pbg-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
+# Repos renamed to viva-* upstream with their package metadata also flipped to
+# viva-*; the dependency name matches the new metadata and the lock pins each to
+# a post-rename commit.
+viva-openmm = { git = "https://github.com/vivarium-collective/viva-openmm.git", branch = "main" }
 viva-bioreactordesign = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git", branch = "main" }
 viva-ketchup = { git = "https://github.com/vivarium-collective/viva-ketchup.git", branch = "main" }
-pbg-torch = { git = "https://github.com/vivarium-collective/viva-torch.git", branch = "main" }
+viva-torch = { git = "https://github.com/vivarium-collective/viva-torch.git", branch = "main" }
 investigation-contracts = { git = "https://github.com/vivarium-collective/investigation-contracts.git", branch = "main" }
 viva-munk = { git = "https://github.com/vivarium-collective/Viva-munk.git", branch = "main" }
 spatio-flux = { git = "https://github.com/vivarium-collective/spatio-flux.git", branch = "main" }

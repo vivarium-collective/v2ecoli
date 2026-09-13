@@ -2913,33 +2913,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "pbg-openmm"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "openmm" },
-    { name = "process-bigraph" },
-    { name = "setuptools" },
-]
-
-[[package]]
 name = "pbg-superpowers"
 version = "0.22.0"
 source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
 dependencies = [
     { name = "viva-superpowers" },
-]
-
-[[package]]
-name = "pbg-torch"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#cfee4f06b8fe1ee7575e141150b197ccad0a0908" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "torch" },
 ]
 
 [[package]]
@@ -4504,7 +4482,6 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-torch" },
     { name = "plotly" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
@@ -4522,6 +4499,7 @@ dependencies = [
     { name = "viva-ketchup" },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
+    { name = "viva-torch" },
     { name = "viva-workspace" },
 ]
 
@@ -4534,7 +4512,7 @@ ray = [
     { name = "ray" },
 ]
 relax = [
-    { name = "pbg-openmm" },
+    { name = "viva-openmm" },
 ]
 report = [
     { name = "vivarium-workbench" },
@@ -4552,8 +4530,6 @@ requires-dist = [
     { name = "numba", specifier = ">=0.59" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
-    { name = "pbg-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
     { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?rev=78d14883e8bee2643b646f74f149b9b884442bad" },
@@ -4574,7 +4550,9 @@ requires-dist = [
     { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.4.0" },
     { name = "viva-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
+    { name = "viva-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
+    { name = "viva-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
     { name = "vivarium-workbench", marker = "extra == 'report'", git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6" },
 ]
@@ -4751,6 +4729,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "viva-openmm"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#7b7cb6a83122a2d1d2720d42b086417003819910" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "openmm" },
+    { name = "process-bigraph" },
+    { name = "setuptools" },
+]
+
+[[package]]
 name = "viva-superpowers"
 version = "0.22.0"
 source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
@@ -4765,6 +4754,17 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "viva-emitters" },
     { name = "viva-workspace" },
+]
+
+[[package]]
+name = "viva-torch"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#2e7fd2f1c02c355eeca0c1b2dd0629b4ce1f12b2" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+    { name = "torch" },
 ]
 
 [[package]]

@@ -172,8 +172,8 @@ def _transport_equilibrium(bird_config: dict[str, Any]) -> tuple[float, float]:
     still builds).
     """
     try:
-        from pbg_bioreactordesign import BiRDTransportProcess
-        from pbg_bioreactordesign.transport import compute_transport_state
+        from viva_bioreactordesign import BiRDTransportProcess
+        from viva_bioreactordesign.transport import compute_transport_state
 
         cfg = {k: spec.get("_default")
                for k, spec in BiRDTransportProcess.config_schema.items()}

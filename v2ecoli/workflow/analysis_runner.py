@@ -735,6 +735,48 @@ def _live_sample(cursor: Any) -> dict[str, Any]:
     return sample
 
 
+def resolve_analysis_options(analyses: Any, sweep_dir: str) -> dict:
+    """A config's ``analysis_options`` as a real ``{scale: {name: params}}`` map.
+
+    ``v2ecoli-analyze`` used to take ``cfg.get("analysis_options") or {}`` at face
+    value, so a config carrying the ``"applicable"`` KEYWORD -- which is what
+    viva-api's campaign gather writes when the caller named no modules -- reached
+    ``run_analyses`` as a bare ``str`` and died on ``.items()``:
+
+        AttributeError: 'str' object has no attribute 'items'
+
+    The keyword was never exotic: ``scripts/run_standalone_analysis.py`` and
+    ``scripts/run_multi_node_analysis.py`` both honour it. It simply was not
+    honoured by the entry point the chain-dispatch gather actually invokes, so
+    every such campaign's analysis exited 1 (sim 1318, 2026-09-14).
+
+    Unlike those two scripts, nothing here needs ``--n-seeds``/``--n-generations``
+    flags: the sweep's own hive partitions carry ``lineage_seed`` and
+    ``generation``, and :func:`cell_keys` reads them with a LISTING rather than a
+    scan. Deriving the shape from the data is also more honest than trusting a
+    flag -- it describes what the run actually produced.
+    """
+    if isinstance(analyses, dict):
+        return analyses
+    if not analyses:
+        return {}
+    text = str(analyses).strip()
+    if text.lower() in {"applicable", "none"}:
+        if text.lower() == "none":
+            return {}
+        keys = cell_keys(sweep_dir)
+        seeds = {k.get("lineage_seed") for k in keys if k.get("lineage_seed") is not None}
+        generations = {k.get("generation") for k in keys if k.get("generation") is not None}
+        from v2ecoli.steps.batch_baseline_runner import build_analysis_options
+
+        return build_analysis_options(
+            "applicable",
+            n_seeds=max(1, len(seeds)),
+            n_generations=max(1, len(generations)),
+        )
+    return json.loads(text)
+
+
 def _runtime_snapshot(cursor: Any, t0: float) -> dict[str, Any]:
     """Cost of the module that just ran, for the analysis.json ``runtime`` block.
 
@@ -1189,7 +1231,8 @@ def main() -> None:
     if args.config:
         from v2ecoli.workflow.config import load_config_with_inheritance
         cfg = load_config_with_inheritance(args.config)
-        analysis_options = cfg.get("analysis_options") or {}
+        # NOT `or {}` at face value: the value may be the "applicable" keyword.
+        analysis_options = resolve_analysis_options(cfg.get("analysis_options"), args.sweep_dir)
         # out_dir lives in the config (not a CLI flag) so the argv surface stays
         # `<sweep_dir> [--config]`; a Nextflow task sets it to a task-local name
         # ("analysis") that matches its declared `path` output.

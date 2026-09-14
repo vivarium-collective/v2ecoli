@@ -71,4 +71,10 @@ try:
 except ModuleNotFoundError as _e:
     if (_e.name or "").split(".")[0] != "scripts":
         raise  # a genuinely missing v2ecoli module is still a hard error
-from v2ecoli.workflow.analyses import chromosome_state_view  # noqa: F401  (re-added: #444 on main)
+# chromosome_state_view is intentionally NOT registered here: it renders one HTML
+# per timestep/agent (hundreds per sim — the "t = N min · oriC = K" circles),
+# flooding the gallery with little analytical value. Dropped from the default
+# analysis set so it is not generated. The class stays in
+# analyses/chromosome_state_view.py for explicit opt-in. (It was added as a
+# composite viz in #444 and re-added once before; do not re-register without a
+# reason to bring back the per-timestep flood.)

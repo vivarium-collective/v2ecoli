@@ -782,3 +782,67 @@ def test_a_generation_runs_to_completion_with_no_engine_at_all(monkeypatch, caps
     assert not [ln for ln in text.splitlines() if ln.strip().startswith("{")]
     for g in (0, 1, 2):
         assert f"[LineageProcess] gen {g}: end" in text
+
+
+@pytest.mark.parametrize("flag_on", [False, True])
+def test_lineage_debug_fires_only_when_its_own_flag_is_set(monkeypatch, stdout_events, flag_on):
+    """The per-tick diagnostic must respect LINEAGE_DEBUG_DIVISION.
+
+    It did not. With the flag UNSET it emitted one event per SIMULATED TIMESTEP:
+    measured 3.6/s for a single lineage on sim 1318 (2026-09-14), 946 of the
+    first 1000 rows viva-api stored, and a 3.7 MB S3 object rewritten whole on
+    every flush. viva-api omits the flag by default and pins that with its own
+    test, so the escape defeated a deliberate, tested opt-in -- and the comment
+    above the gate still claimed "silent unless LINEAGE_DEBUG_DIVISION=1".
+
+    Gating it loses nothing observable: a real division is already reported by
+    lineage.division / lineage.generation.* at info level, which this test also
+    asserts still fires in both cases.
+    """
+    if flag_on:
+        monkeypatch.setenv("LINEAGE_DEBUG_DIVISION", "1")
+    else:
+        monkeypatch.delenv("LINEAGE_DEBUG_DIVISION", raising=False)
+
+    lp = LineageProcess.__new__(LineageProcess)
+    lp.config = {
+        "cache_dir": "x", "seed": 0, "lineage_seed": 1, "variant_index": 0,
+        "variant_name": "b", "config_overrides": {}, "generations": 2,
+        "single_daughters": True, "experiment_id": "t", "out_dir": "out/t",
+        "max_duration_per_gen": 100.0, "initial_carry_state_path": "",
+        "initial_generation_index": 0, "daughter_state_out_path": "",
+        "checkpoint_dir": "", "require_output": False, "emitter": "parquet",
+    }
+    lp.initialize(lp.config)
+
+    mother = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "request": {"p": {"bulk": []}}, "fields": {"drug": 2.0},
+        "listeners": {"mass": {"dry_mass": 500.0}},
+        "lineage.division": {"address": "local:Division"},
+    }
+
+    class _FakeComposite:
+        def __init__(self):
+            self.state = {"global_time": 0.0, "agents": {"0": mother}}
+
+        def run(self, interval):
+            d = {"bulk": "D0", "unique": {}, "environment": {}, "boundary": {},
+                 "request": {}, "fields": {"drug": 0.0},
+                 "listeners": {"mass": {"dry_mass": 250.0}}}
+            self.state = {"global_time": 42.0, "agents": {"00": d, "01": dict(d)}}
+
+    lp._composite = _FakeComposite()
+    lp._gen_elapsed = 0.0
+    divided, daughter, _ = lp._run_until_division(100.0)
+    assert divided and daughter is not None
+
+    events = stdout_events()
+    debug = [e for e in events if e["event"] == "lineage.debug"]
+    if flag_on:
+        assert debug, "the diagnostic must still work when explicitly enabled"
+    else:
+        assert not debug, f"lineage.debug escaped its gate: {len(debug)} event(s)"
+
+    # the division itself is reported either way -- gating costs no real signal
+    assert [e for e in events if e["event"] == "lineage.division"]

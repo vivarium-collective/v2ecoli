@@ -86,3 +86,28 @@ def test_an_empty_sweep_still_resolves_to_a_sane_shape(monkeypatch) -> None:
     )
     ar.resolve_analysis_options("applicable", "/sweep")
     assert seen == {"n_seeds": 1, "n_generations": 1}
+
+
+def test_run_analyses_resolves_options_at_the_library_boundary(monkeypatch) -> None:
+    """The gap this closes: ``main()`` resolved the keyword, but ``run_analyses``
+    trusted its arg -- so a direct caller (an old dispatcher, a script, viva-api's
+    submit path) that reached ``run_analyses`` with ``"applicable"`` or a JSON
+    string still hit the ``.items()`` loops as a bare ``str`` and died with the
+    sim-1318 ``AttributeError``. ``run_analyses`` must now route its arg through
+    ``resolve_analysis_options`` BEFORE any ``.items()``.
+
+    Proven by making the resolver raise a unique sentinel: if ``run_analyses``
+    calls it first, that sentinel surfaces; if it skipped straight to ``.items()``
+    on the bare string, we'd get ``AttributeError`` instead.
+    """
+    import v2ecoli.workflow.analysis_runner as ar
+
+    class _ResolverReached(Exception):
+        pass
+
+    def _fake_resolve(analyses, sweep_dir):
+        raise _ResolverReached(repr(analyses))
+
+    monkeypatch.setattr(ar, "resolve_analysis_options", _fake_resolve)
+    with pytest.raises(_ResolverReached, match="applicable"):
+        ar.run_analyses("/sweep", "applicable")

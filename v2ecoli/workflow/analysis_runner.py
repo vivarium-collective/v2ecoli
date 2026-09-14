@@ -804,7 +804,7 @@ def _runtime_snapshot(cursor: Any, t0: float) -> dict[str, Any]:
     return snap
 
 
-def run_analyses(sweep_dir: str, analysis_options: dict,
+def run_analyses(sweep_dir: str, analysis_options: dict | str,
                  sim_data_path: str | None = None,
                  out_dir: str | None = None,
                  max_workers: int | None = None,
@@ -862,6 +862,18 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     """
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
+
+    # Resolve analysis_options at the LIBRARY boundary so EVERY caller is robust,
+    # not just the v2ecoli-analyze CLI (main() also resolves; this is idempotent on
+    # a real dict, so it is a no-op there). A caller that reaches run_analyses
+    # directly with the "applicable" keyword or a JSON string -- an old dispatcher,
+    # a script, a future path that skips main() -- used to hit the `.items()` loops
+    # below as a bare str and take the whole job down with
+    # `AttributeError: 'str' object has no attribute 'items'`, rc=0, AFTER the sweep
+    # had already fanned out. 36 Run-3 jobs died exactly this way (sim 1318). The
+    # resolver turns the keyword / JSON string into the real {scale: {name: params}}
+    # mapping, or raises a clear error, before any work or fan-out.
+    analysis_options = resolve_analysis_options(analysis_options, sweep_dir)
 
     # Populate ANALYSIS_REGISTRY with the built-in suite before resolving any
     # requested name against it — otherwise a bare workflow run finds it empty

@@ -20,11 +20,49 @@ import os
 import time
 import warnings
 from v2ecoli.library.quantity_helpers import fg_magnitude
+from v2ecoli.workflow import events as _events
 
 from process_bigraph import Process
 
 
-def select_carry_daughter(agents_before, agents_now, mother_snapshot):
+def _warn_static(message: str, site: str = "", owner=None, **payload) -> None:
+    """``warnings.warn`` PLUS a ``lineage.warning`` event per occurrence.
+
+    Module-level so it also works when a method is invoked unbound on a
+    duck-typed stand-in (tests call ``LineageProcess._finalize_parquet(ns)``);
+    ``owner`` may be any object with a ``_generation`` attribute."""
+    warnings.warn(message)
+    _events.emit(
+        "lineage.warning", level="warning", message=message, site=site,
+        generation=getattr(owner, "_generation", None), **payload,
+    )
+
+
+def _derive_generation_seed(seed, lineage_seed, generation):
+    """Independent, well-mixed RNG seed for one (base seed, lineage_seed,
+    generation) cell of a multiseed x multigeneration sweep.
+
+    Replaces the historical additive combiner ``(seed + generation) % 2**31``,
+    which had two failures that collapsed a "multiseed" grid's stochastic
+    heterogeneity: it (a) ignored ``lineage_seed`` entirely, so every lineage of
+    a multiseed run drew the SAME per-generation seed, and (b) aliased the
+    ``(seed, generation)`` grid -- e.g. ``(seed=1, gen=4)`` and ``(seed=0,
+    gen=5)`` both mapped to 5. Because the resulting ``gen_seed`` is also the
+    ``master_seed`` from which every stochastic process derives its own seed
+    (``baseline(seed=gen_seed)`` -> ``_get_step_config(master_seed=seed)`` ->
+    ``_derive_process_seed``), the collision made whole grid cells bit-identical.
+
+    ``numpy.random.SeedSequence`` hashes the three axes into a fresh 32-bit seed,
+    so every grid cell is a genuinely independent draw while staying reproducible
+    per ``(seed, lineage_seed, generation)``.
+    """
+    import numpy as np
+
+    ss = np.random.SeedSequence([int(seed), int(lineage_seed), int(generation)])
+    return int(ss.generate_state(1, dtype=np.uint32)[0]) & 0x7FFFFFFF
+
+
+def select_carry_daughter(agents_before, agents_now, mother_snapshot, dividers=None):
     """State to seed the next generation (single-daughter lineage), or None.
 
     The inner baseline composite's Division step already splits the mother
@@ -34,13 +72,39 @@ def select_carry_daughter(agents_before, agents_now, mother_snapshot):
     multigeneration bug this guards against). Only when no structural daughter
     surfaced (a divide-flag / exception signal with no agents-map change) fall
     back to dividing the pre-run mother snapshot exactly once.
+
+    INJECTED agent-root stores (``fields``, ``imposed_flux_bounds``,
+    ``<drug>_env``, ``periplasm``, ``pg_cellwall``, …) follow the one policy in
+    :mod:`v2ecoli.library.division` — copied by default, split by a registered
+    divider — and are taken from the ``mother_snapshot`` rather than from the
+    structural daughter: the Division step REBUILDS each daughter document from
+    ``baseline()``, so the daughter's injected roots are freshly materialized
+    (zeroed) and reading them would carry the zeros forward. The snapshot is
+    taken at the top of the same ``_run_until_division`` call that observed the
+    division, i.e. at most one composite tick (``time_step``, 1 s by default)
+    before it. When there is no snapshot the daughter's own extras are used.
+    Declared carried listener leaves (the ``lysed`` latch) ride along under
+    ``_carried_listeners``.
     """
-    keys = ("bulk", "unique", "environment", "boundary")
+    from v2ecoli.library.division import (
+        CORE_DIVISIBLE_KEYS, collect_carried_listeners, divide_extra_stores)
+
     new_ids = set(agents_now) - set(agents_before)
     d0_id = next((i for i in sorted(new_ids) if i.endswith("0")), None)
     if d0_id is not None:
         dcell = agents_now.get(d0_id, {}) or {}
-        return {k: dcell.get(k) for k in keys}
+        carry = {k: dcell.get(k) for k in CORE_DIVISIBLE_KEYS}
+        extras_source = (
+            mother_snapshot
+            if isinstance(mother_snapshot, dict) and mother_snapshot
+            else dcell
+        )
+        d1_extra, _d2_extra = divide_extra_stores(extras_source, dividers)
+        carry.update(d1_extra)
+        carried_listeners = collect_carried_listeners(extras_source)
+        if carried_listeners:
+            carry["_carried_listeners"] = carried_listeners
+        return carry
     if mother_snapshot and mother_snapshot.get("bulk") is not None:
         from v2ecoli.library.division import divide_cell
 
@@ -70,8 +134,25 @@ def apply_carry_state(agent, carry_state):
     but PRESERVES the fresh agent's derived ``environment`` substores listed in
     :data:`_FRESH_ENVIRONMENT_SUBSTORES` so their overwrite updaters survive the
     daughter rebuild (see the note there).
+
+    Also overlays every INJECTED agent-root store the carry state holds (see
+    :func:`v2ecoli.library.division.extra_store_keys`). Those are MERGED leaf by
+    leaf onto the fresh node rather than replacing it, because the fresh build
+    may have stamped the node with its declared ``_type`` (sms-ecoli's
+    ``fields`` is materialized as
+    ``{"_type": "map[overwrite[array[float]]]", <mol>: zeros}``) — replacing it
+    with a raw dict would drop the type and with it the overwrite updater,
+    exactly the failure :data:`_FRESH_ENVIRONMENT_SUBSTORES` documents. Carried
+    molecule arrays therefore replace the fresh zero seeds while the ``_type``
+    and any un-carried key survive. Declared carried listener leaves are merged
+    back into ``listeners`` last; the caller's subsequent ``listeners.mass``
+    reset is unaffected (it replaces only that one substore).
     """
-    for key in ("bulk", "unique", "environment", "boundary"):
+    from v2ecoli.library.division import (
+        CORE_DIVISIBLE_KEYS, apply_carried_listeners, extra_store_keys,
+        merge_carried_store)
+
+    for key in CORE_DIVISIBLE_KEYS:
         if key not in carry_state:
             continue
         if key == "environment":
@@ -84,6 +165,11 @@ def apply_carry_state(agent, carry_state):
         else:
             agent[key] = carry_state[key]
 
+    for key in extra_store_keys(carry_state):
+        agent[key] = merge_carried_store(agent.get(key), carry_state[key])
+
+    apply_carried_listeners(agent, carry_state.get("_carried_listeners"))
+
 
 def _estimate_state_mb(state) -> float:
     """Rough MB of a carry/checkpoint state: the summed ``nbytes`` of its numpy
@@ -93,8 +179,10 @@ def _estimate_state_mb(state) -> float:
     """
     if not isinstance(state, dict):
         return 0.0
+    from v2ecoli.library.division import CORE_DIVISIBLE_KEYS, extra_store_keys
+
     total = 0
-    for key in ("bulk", "unique", "environment", "boundary"):
+    for key in (*CORE_DIVISIBLE_KEYS, *extra_store_keys(state)):
         val = state.get(key)
         if hasattr(val, "nbytes"):
             total += int(val.nbytes)
@@ -195,6 +283,17 @@ class LineageProcess(Process):
         "experiment_id": {"_type": "string", "_default": "default"},
         "out_dir": {"_type": "string", "_default": "out/workflow"},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
+        # How often (simulated seconds) _run_until_division looks for a division
+        # while running a single-window generation (the LineageStep / Nextflow
+        # path, where ``interval == max_duration_per_gen``). Without it the inner
+        # composite ran the WHOLE window after the mother divided -- both
+        # daughters kept simulating and the next founder was daughter "0" aged
+        # (window - division time) past its birth (sim 955: division at 2,528 s,
+        # ``_gen_elapsed`` booked 1,072 s = 3,600 - 2,528). With it a generation
+        # ends within one slice of the division, like the tick-driven chain path.
+        # The residual overshoot is bounded by this value; ``time_step`` removes
+        # it at the cost of one composite.run() call per tick.
+        "division_poll_interval": {"_type": "float", "_default": 10.0},
         "time_step": {"_type": "float", "_default": 1.0},
         "media": {"_type": "string", "_default": "minimal"},
         # Gate 1b / v2ecoli#693: seeds sharing a cache_dir share a FOUNDER cell,
@@ -345,11 +444,19 @@ class LineageProcess(Process):
         from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
 
         core = build_core()
-        gen_seed = (int(self.config["seed"]) + self._generation) % (2**31)
+        gen_seed = _derive_generation_seed(
+            self.config["seed"], self.config["lineage_seed"], self._generation
+        )
         overrides = dict(self.config.get("config_overrides") or {})
         # Fresh emitted-output bookkeeping for this generation.
         self._parquet_em = None
         self._xarray_emits = 0
+        # Observability (runner layer): bind this generation's identity onto the
+        # engine emitter and open the ``generation[g]`` span; ``generation_start``
+        # is emitted at the end of this build with what was decided here.
+        _emitter = _events.bind_generation(self)
+        self._gen_span = _events.generation_span(self)
+        self._gen_t0 = time.monotonic()
 
         # Forward baseline()'s feature-selection kwargs from the config so an
         # injected candidate arm actually engages the features it declares. The
@@ -403,6 +510,12 @@ class LineageProcess(Process):
             polypeptide_initiation_mode=(
                 _feature_flag("polypeptide_initiation_mode", "discrete") or "discrete"
             ),
+            # The inner cell's tick. Declared in this process's config_schema
+            # (default 1.0) and honoured by baseline(), but it was never forwarded
+            # here, so the inner composite always ran at baseline()'s own default
+            # regardless of config["time_step"]. Forwarding it is a behaviour
+            # change only for a campaign that set time_step != 1.
+            time_step=float(self.config.get("time_step", 1.0) or 1.0),
         )
 
         # The inner composite's own emitter step writes the hive parquet sweep;
@@ -444,6 +557,12 @@ class LineageProcess(Process):
             from v2ecoli.composites._helpers import get_parquet_emitter
 
             self._parquet_em = get_parquet_emitter(self._agent_id)
+            if self._parquet_em is not None and _emitter.enabled:
+                # Observe the (third-party) emitter from outside: chunk_flushed
+                # per 400-emit batch, without editing viva_emitters.
+                self._parquet_em = _events._ObservedEmitter(
+                    self._parquet_em, _emitter, batch_size=int(emitter_cfg.get("batch_size", 400) or 400)
+                )
         else:
             from v2ecoli.composites._helpers import set_null_emitter_override
 
@@ -452,7 +571,13 @@ class LineageProcess(Process):
                 doc = baseline(core=core, seed=gen_seed, **_bio_kwargs)
             finally:
                 set_null_emitter_override(False)
-        if self._is_xarray():
+        if self._is_xarray() and self._xarray_em is None:
+            # The lineage's ONE XArrayEmitter is opened lazily on the first
+            # populated tick of generation 0; every later generation reuses it
+            # via advance_generation (see update()), so it must NOT re-open a
+            # fresh emitter here. (A fallback to a fresh emitter — if a prior
+            # advance failed and nulled _xarray_em — still works: this is reached
+            # only when _xarray_em is None.)
             self._xarray_pending = True
 
         if self._carry_state is not None:
@@ -464,6 +589,22 @@ class LineageProcess(Process):
         self._composite = Composite(doc, core=core)
         self._core = core
         self._gen_elapsed = 0.0
+        _events.emit(
+            "lineage.generation.start",
+            generation=int(self._generation),
+            agent_id=str(self._agent_id),
+            gen_seed=int(gen_seed),
+            lineage_offset=float(self._lineage_offset),
+            emitter={
+                "kind": str(self.config.get("emitter", "parquet")),
+                "target": str(self.config.get("out_dir") or ""),
+                "batch_size": int(getattr(getattr(self, "_parquet_em", None), "batch_size", 0) or 0),
+            },
+            time_step=float(self.config.get("time_step", 1.0) or 1.0),
+            max_duration_per_gen=float(self.config["max_duration_per_gen"]),
+            carried_from_previous=getattr(self, "_last_carry_report", None),
+            features=_features,
+        )
 
     def _open_xarray_emitter(self, emit_cell):
         """Open an XArrayEmitter for the current generation, filtering the view
@@ -530,11 +671,19 @@ class LineageProcess(Process):
                     f"downgrade to warn-and-skip."
                 )
         if not view:
-            warnings.warn(
-                "LineageProcess: xarray view has no leaves present in "
-                "composite state; skipping xarray emission."
-            )
-            self._xarray_pending = False
+            # This tick's composite state has no declared KPI leaves yet. The
+            # docstring's contract is to open "on the first POPULATED tick", so
+            # do NOT give up the generation here: leave _xarray_pending True and
+            # return, so a later populated tick in this same generation opens the
+            # emitter. The old code set _xarray_pending = False on the FIRST empty
+            # tick, abandoning the whole generation even when later ticks would
+            # populate -- and abandoning a generation writes NO group for it,
+            # which breaks the NEXT generation's _check_group linkage ("Missing
+            # path from previous generation"). A generation that stays empty for
+            # ALL ticks is still caught, loudly, by _assert_generation_emitted
+            # (0 populated emits) at this generation's own end -- not by a cryptic
+            # crash one generation later. (Contributing fix to the multi-seed-gang
+            # #777 residual; not on its own the completion fix.)
             return
         output_metadata = extract_output_metadata_from_state(wrapped, view)
 
@@ -562,18 +711,50 @@ class LineageProcess(Process):
             "max_duration": float(self.config["max_duration_per_gen"]),
         }
         self._xarray_view = view
-        self._xarray_em = _build_emitter(
-            core=self._core,
-            store_path=self._xarray_store,
-            view=view,
-            metadata_base=metadata_base,
-            generation=self._generation,
-            agent_id=self._agent_id,
-            buffer_size=buf,
-            output_metadata=output_metadata,
-            writer=writer,
-            predicate=predicate,
-        )
+        try:
+            self._xarray_em = _build_emitter(
+                core=self._core,
+                store_path=self._xarray_store,
+                view=view,
+                metadata_base=metadata_base,
+                generation=self._generation,
+                agent_id=self._agent_id,
+                buffer_size=buf,
+                output_metadata=output_metadata,
+                writer=writer,
+                predicate=predicate,
+            )
+        except Exception as e:
+            # DIAGNOSTIC GUARD (multi-seed-gang #777 residual). A FRESH emitter
+            # open at generation>0 means the single lineage emitter was NOT
+            # carried forward from the previous generation (advance_generation).
+            # The emitter's own _open_store->_check_group then raises a cryptic
+            # zarr "Missing path from previous generation" FileNotFoundError on
+            # the missing prior-gen group. Re-raise with the lineage context so
+            # the exact gen/seed and the two suspected causes are named -- turning
+            # the next gang failure into a precise diagnostic instead of another
+            # opaque _check_group crash. (A fresh open that SUCCEEDS at gen>0 --
+            # e.g. a legitimate checkpoint resume where the prior gen IS on disk
+            # -- is untouched; only a FAILED one is annotated.) This NAMES the
+            # residual; it is NOT the completion fix -- the prior gen is either
+            # empty-view-skipped (see the _open guard above, now fixed to wait
+            # for a populated tick) or advance_generation's consolidate was not
+            # durably visible before this gen read consolidated metadata.
+            if int(self._generation) > 0:
+                raise RuntimeError(
+                    f"LineageProcess: opening a FRESH xarray emitter at generation "
+                    f"{self._generation} (lineage_seed "
+                    f"{self.config.get('lineage_seed')}) failed on the previous "
+                    f"generation's linkage: {type(e).__name__}: {e}\n"
+                    f"  A fresh open at generation>0 means the one lineage emitter "
+                    f"was not carried forward across the last division. The prior "
+                    f"generation's consolidated group is missing -- either its emit "
+                    f"view was empty and the generation was skipped, or "
+                    f"advance_generation's consolidate was not durably visible "
+                    f"before this generation read it. This is the multi-seed-gang "
+                    f"residual to #777 (NOT yet the completion fix)."
+                ) from e
+            raise
         self._xarray_pending = False
 
     def _emit_xarray(self, agents_now):
@@ -599,7 +780,7 @@ class LineageProcess(Process):
             )
             self._xarray_emits += 1
         except Exception as e:
-            warnings.warn(
+            _warn_static(owner=self, site="_emit_xarray", message=
                 f"LineageProcess: xarray emit failed at generation "
                 f"{self._generation} t={self._gen_elapsed}: {e}"
             )
@@ -638,17 +819,56 @@ class LineageProcess(Process):
         try:
             flush_parquet(self._composite, success=True)
         except Exception as e:
-            warnings.warn(
+            _warn_static(owner=self, site="_finalize_parquet", message=
                 f"LineageProcess: parquet flush failed for "
                 f"generation {self._generation} ({self._agent_id}): {e}"
             )
         try:
             finalize_emitter_for_agent(self._agent_id, success=True)
         except Exception as e:
-            warnings.warn(
+            _warn_static(owner=self, site="_finalize_parquet", message=
                 f"LineageProcess: parquet finalize failed for "
                 f"generation {self._generation} ({self._agent_id}): {e}"
             )
+
+    def _finalize_xarray(self) -> None:
+        """Finalize this generation's xarray emitter, however the generation ended.
+
+        ONE XArrayEmitter drives the whole lineage: at each division it is
+        advanced IN PLACE to the next generation's partition -- its trailing
+        buffer is flushed, the division event is marked, and consolidated
+        metadata is written -- so this generation is durably on disk before the
+        next generation opens and passes ``_check_group``. Only the LAST
+        generation ``close()``s it. (Eran's "same emitter, launch a new internal
+        ecoli model per generation" / viva-emitters 0.4.0 advance_generation,
+        #38/#761.)
+
+        Unlike ``_finalize_parquet`` -- independent per-generation emitters,
+        where a failed close is warned and the lineage continues -- a failed
+        xarray advance/close is NOT swallowed. The generations share one store,
+        so an advance that fails to consolidate leaves this generation absent;
+        the old fallback (warn, drop the emitter, rebuild a fresh one next
+        generation) does NOT heal that -- it only DEFERS the failure to the next
+        generation's ``_open_xarray_emitter -> _open_store -> _check_group``,
+        which crashes with a cryptic "Missing path from previous generation"
+        FileNotFoundError that tears down the whole (multi-seed gang) run --
+        reintroducing the exact failure advance_generation exists to prevent,
+        and hiding its own actionable message (e.g. its zero-emit refusal). Fail
+        loud here, at the generation that could not persist.
+        """
+        if self._is_xarray() and self._xarray_em is not None:
+            is_last_gen = (self._generation + 1) >= int(self.config["generations"])
+            if is_last_gen:
+                self._xarray_em.close(success=True)
+                self._xarray_em = None
+            else:
+                from v2ecoli.steps.division import daughter_phylogeny_id
+
+                next_agent_id = daughter_phylogeny_id(self._agent_id)[0]
+                self._xarray_em.advance_generation(
+                    agent_id=next_agent_id, success=True)
+        if self._is_xarray():
+            self._xarray_pending = False
 
     def _assert_generation_emitted(self) -> None:
         """Refuse to close a generation that ran and emitted nothing.
@@ -735,7 +955,7 @@ class LineageProcess(Process):
         except FileNotFoundError:
             entries = []
         except Exception as e:  # noqa: BLE001 -- "could not look" is not "no output"
-            warnings.warn(
+            _warn_static(site="_assert_history_landed", message=
                 f"LineageProcess: could not list {history_dir!r} to verify that "
                 f"{where} persisted its {num_emits} emitted row(s): {e!r}. The "
                 f"generation is recorded, but its output is UNVERIFIED."
@@ -754,8 +974,128 @@ class LineageProcess(Process):
             f"generation."
         )
 
+    # --- observability helpers (runner layer; never raise) ---------------
+
+    def _log(self, line: str, event: str, level: str = "info", **payload) -> None:
+        """Emit a runner event; when no event sink is configured (the local
+        meta-composite path without PBG_EVENT_SINKS) print the legacy log line
+        instead, so nothing that used to be in a run log disappears."""
+        if _events.events_enabled():
+            _events.emit(event, level=level, message=line, **payload)
+        else:
+            print(line, flush=True)
+
+    def _warn(self, message: str, site: str = "", **payload) -> None:
+        """``warnings.warn`` PLUS a ``lineage.warning`` event per occurrence.
+        Python's warnings machinery de-duplicates by call site, so a condition
+        that repeats every generation would otherwise be reported once; the
+        event stream sees every occurrence. See ``_warn_static``."""
+        _warn_static(message, site=site, owner=self, **payload)
+
+    def _check_duration_vs_emits(self, emits) -> None:
+        """The invariant the event stream carries: the parquet emitter fires
+        once per inner tick, so a generation's booked ``duration`` must equal
+        ``emits * time_step`` to within a couple of ticks. Sim 956 (2026-09-10)
+        booked 1,072 s against 2,529 emits (gen 0) and 1,926 s against 1,675
+        (gen 1): a non-zero but wrong daughter ``global_time`` stamp was
+        honoured. This fires on every generation of the single-window
+        ``LineageStep`` path until v2ecoli#773 ends the generation at the
+        division, under which duration == emits by construction. It only
+        reports; the booked value is left alone (precedence is #771's / #773's)."""
+        if emits is None or emits <= 0:
+            return
+        try:
+            time_step = float(self.config.get("time_step", 1.0) or 1.0)
+            duration = float(self._gen_elapsed)
+            expected = float(emits) * time_step
+            tolerance = max(2.0 * time_step, 0.01 * expected)
+            if abs(duration - expected) > tolerance:
+                self._warn(
+                    f"LineageProcess: gen {self._generation} booked duration {duration:.1f}s "
+                    f"but the emitter saw {emits} emits x {time_step}s = {expected:.1f}s "
+                    f"(tolerance {tolerance:.1f}s): the generation clock is wrong "
+                    f"(v2ecoli#771 precedence / #773 window semantics).",
+                    site="generation_end.duration_vs_emits",
+                    check="duration_vs_emits", duration=duration, emits=int(emits),
+                    time_step=time_step, expected=expected, tolerance=tolerance,
+                )
+        except Exception:
+            pass
+
+    def _elapsed_after_run(self, interval, agents_before, agents_now) -> float:
+        """This generation's REAL simulated elapsed time after one inner run.
+
+        On the ``LineageStep`` path the inner composite is run for the whole
+        ``max_duration_per_gen`` window in one call, so ``interval`` is the
+        WINDOW, not the duration. Booking ``_gen_elapsed += interval`` made a
+        generation that divided at 1,734 s count as 3,600 s: ``lineage_time_offset``
+        became 3,600 x generations completed, the summary ``duration`` was wrong,
+        every generation reported ``timed_out``, and a cumulative-time dose
+        (Run 3's ``field_timeline`` onset at 10,000 s) fired ~2,900 s of simulated
+        time early (sim 898, sms-ecoli#166, 2026-09-10).
+
+        Precedence: (1) a division timestamp stamped onto a NEW daughter agent
+        (``global_time``) -- but only if it ADVANCES the clock. The Division step
+        rebuilds each daughter document from ``baseline()``, whose ``global_time``
+        is ``0.0`` (``ecoli_baseline.py``), so on the real composite the stamp is
+        0.0, not the division time. The first version of this method (#767)
+        returned that 0.0: ``_gen_elapsed`` never advanced, ``lineage_time_offset``
+        stayed 0 across every generation, ``summary.json`` recorded
+        ``duration 0.0`` five times, and Run 3's cumulative 10,000 s dose never
+        fired at all (sims 946/947, 2026-09-10) -- #767 had moved the bug from
+        "3,600 x n, early" to "0, never". (2) The inner composite's own clock,
+        which restarts at 0 every generation and stops where the run stopped;
+        on the ``LineageStep`` path the run stops at the division signal, so the
+        clock IS the division time (2,528 s on 898/946/947). (3) The previous
+        value plus ``interval`` -- the old behaviour, kept for a composite that
+        exposes neither (stubs).
+
+        With ``_run_until_division`` polling for the division every
+        ``division_poll_interval`` seconds, the inner clock IS the division time
+        to within one slice on every path, so it is consulted FIRST. The
+        daughter stamp is only a fallback for a composite that does not expose a
+        clock: on the single-window path the daughters have been alive for 0-10 s
+        at the slice break, and ``previous`` is 0.0 there (the whole generation is
+        one ``update()`` call), so a stamp-first rule booked those few seconds as
+        the generation and the lineage offset never advanced (sim 958, five
+        generations, cumulative 14,645 s of simulated time and the 10,000 s dose
+        never fired). On the tick-driven path ``previous`` is already near the
+        division when it lands, which is why the same rule was correct there
+        (sim 952 dosed at 10,001 s).
+        """
+        previous = float(self._gen_elapsed)
+        state = getattr(self._composite, "state", None)
+        clock = state.get("global_time") if isinstance(state, dict) else None
+        if isinstance(clock, (int, float)) and not isinstance(clock, bool) and float(clock) > previous:
+            return float(clock)
+        new_ids = set(agents_now) - set(agents_before or ())
+        for agent_id in sorted(new_ids):
+            agent = agents_now.get(agent_id)
+            stamped = agent.get("global_time") if isinstance(agent, dict) else None
+            if (
+                isinstance(stamped, (int, float))
+                and not isinstance(stamped, bool)
+                and float(stamped) > previous
+            ):
+                return float(stamped)
+        return previous + float(interval)
+
+    def _division_signalled(self, agents_before) -> bool:
+        """True once the inner composite shows a division: the agents map changed
+        (the Division step swapped the mother for daughters) or the surviving
+        cell carries the ``divide`` flag (MarkDPeriod). Read between run slices
+        so a single-window generation stops at the division instead of running
+        both daughters to the end of the window."""
+        state = getattr(self._composite, "state", None)
+        agents_now = (state.get("agents") if isinstance(state, dict) else None) or {}
+        if agents_before and set(agents_now.keys()) != set(agents_before):
+            return True
+        survivor = agents_now.get(self._agent_id) or next(iter(agents_now.values()), {})
+        return isinstance(survivor, dict) and bool(survivor.get("divide"))
+
     def _run_until_division(self, interval):
-        """Run the internal composite for ``interval`` seconds. Returns
+        """Run the internal composite for up to ``interval`` seconds, stopping
+        within one ``division_poll_interval`` slice of a division. Returns
         ``(divided, daughter_cell_data_or_None, final_dry_mass)``."""
         agents = self._composite.state.get("agents") or {}
         agents_before = set(agents.keys())
@@ -764,15 +1104,55 @@ class LineageProcess(Process):
         # reading after the run samples an already-divided daughter. Only the
         # snapshot is used for the exception/divide-flag fallback path.
         mother = agents.get(self._agent_id) or next(iter(agents.values()), {})
-        mother_snapshot = (
-            {k: mother.get(k) for k in ("bulk", "unique", "environment", "boundary")}
-            if isinstance(mother, dict)
-            else None
-        )
+        # The snapshot also captures the INJECTED agent-root stores and any
+        # declared carried listener leaf, because they cannot be recovered after
+        # the run: the mother is removed from the agents map, and the daughters
+        # the Division step adds were rebuilt from baseline() with FRESH
+        # (zeroed) injected roots. select_carry_daughter reads them from here.
+        # Process/step EDGES and per-tick bookkeeping are filtered out by
+        # extra_store_keys, so this stays a state snapshot, not a doc copy.
+        from v2ecoli.library.division import CORE_DIVISIBLE_KEYS, extra_store_keys
+
+        if isinstance(mother, dict):
+            mother_snapshot = {k: mother.get(k) for k in CORE_DIVISIBLE_KEYS}
+            for _extra in extra_store_keys(mother):
+                mother_snapshot[_extra] = mother[_extra]
+            _listeners = mother.get("listeners")
+            if isinstance(_listeners, dict):
+                mother_snapshot["listeners"] = _listeners
+        else:
+            mother_snapshot = None
 
         divided = False
+        # Run in slices and stop at the first division signal. A single
+        # ``run(interval)`` for the whole window (the LineageStep / Nextflow
+        # path) does NOT stop when the mother divides: the Division step swaps
+        # the mother for two daughters and the composite keeps simulating BOTH
+        # of them to the end of the window. The generation then booked the
+        # surviving daughter's own clock as its duration (sim 955, 2026-09-10:
+        # ``DIVISION at t=2528s`` followed by ``[lineage-debug] t=1072.0`` --
+        # exactly 3,600 - 2,528) and carried that daughter aged 1,072 s past
+        # its birth as the next founder, while the tick-driven chain path ended
+        # the generation at the division. Polling every
+        # ``division_poll_interval`` seconds makes both paths agree: a
+        # generation ends within one slice of the division, the founder is the
+        # daughter at (within one slice of) division, and no compute is spent
+        # on the abandoned sibling.
+        slice_s = float(self.config.get("division_poll_interval") or 10.0)
+        if slice_s <= 0:
+            slice_s = float(interval)
+        remaining = float(interval)
+        # Observability: which signal ended the generation (structural change,
+        # the division flag, or a division-signalling exception). Set at the
+        # raise site below and reported on the ``lineage.division`` event.
+        _exc_signal = False
         try:
-            self._composite.run(interval)
+            while remaining > 0:
+                step = min(slice_s, remaining)
+                self._composite.run(step)
+                remaining -= step
+                if self._division_signalled(agents_before):
+                    break
         except Exception as e:
             # A genuine division surfaces as a structural agents-map update that
             # process-bigraph raises through; its message mentions divide/division.
@@ -785,14 +1165,15 @@ class LineageProcess(Process):
 
             if not is_division_exception(e):
                 raise
-            warnings.warn(
+            _warn_static(
                 f"LineageProcess: treating a raised exception as a division "
-                f"signal at t={self._gen_elapsed}: {e!r}"
+                f"signal at t={self._gen_elapsed}: {e!r}",
+                site="_run_until_division", owner=self,
             )
             divided = True
-        self._gen_elapsed += interval
-
+            _exc_signal = True
         agents_now = self._composite.state.get("agents") or {}
+        self._gen_elapsed = self._elapsed_after_run(interval, agents_before, agents_now)
         agents_after = set(agents_now.keys())
         if agents_before and agents_after != agents_before:
             divided = True
@@ -820,13 +1201,33 @@ class LineageProcess(Process):
         # fired plus the real state values behind them, since static reading of
         # this function alone couldn't distinguish the cases. Silent unless
         # LINEAGE_DEBUG_DIVISION=1 is set; never touches production behavior.
+        structural = bool(agents_before and agents_after != agents_before)
+        # The event is the print's structured twin and belongs under the SAME
+        # gate -- it escaped it, and "never touches production behavior" above
+        # stopped being true the moment the event stream became real. Measured on
+        # sim 1318 (2026-09-14) with LINEAGE_DEBUG_DIVISION unset: one event per
+        # simulated timestep, 3.6/s for a single lineage, 946 of the first 1000
+        # rows viva-api stored, and a 3.7 MB S3 object rewritten whole every
+        # flush. viva-api omits the flag by default and has tests pinning that
+        # (test_submit_chain_generation_omits_lineage_debug_division_by_default),
+        # so the escape defeated a deliberate, tested opt-in.
+        #
+        # Nothing observable is lost by gating it: a DIVISION is already carried
+        # by lineage.generation.start/.end at info level. What is gated here is
+        # the per-tick diagnostic, which is exactly what the flag was added for.
         if os.environ.get("LINEAGE_DEBUG_DIVISION") == "1":
             print(
                 f"[lineage-debug] t={self._gen_elapsed} divided={divided} "
-                f"structural_agents_change={agents_before and agents_after != agents_before} "
+                f"structural_agents_change={structural} "
                 f"divide_flag={divide_flag} dry_mass={dry_mass} "
                 f"agents_before={sorted(agents_before)} agents_after={sorted(agents_after)}",
                 flush=True,
+            )
+            _events.emit(
+                "lineage.debug", level="debug", t=float(self._gen_elapsed), divided=bool(divided),
+                structural_agents_change=structural, divide_flag=bool(divide_flag),
+                dry_mass=float(dry_mass), agents_before=sorted(agents_before),
+                agents_after=sorted(agents_after),
             )
 
         if self._is_xarray():
@@ -835,6 +1236,53 @@ class LineageProcess(Process):
         daughter = None
         if divided:
             daughter = select_carry_daughter(agents_before, agents_now, mother_snapshot)
+            # The carry seam, made visible: which roots the daughter inherits,
+            # which the policy dropped, and any root with NO classification (the
+            # #765 class -- request/allocate were silently copied for five hours).
+            # Report against the FULL mother node (root keys incl. the ones the
+            # policy already filtered out of the snapshot), so a dropped store
+            # shows up as dropped rather than vanishing from the report.
+            # EVERYTHING from here to the end of the block is observability, and
+            # observability must never raise into the simulation. ``_events.emit``
+            # already swallows, but ``carry_report`` is a real computation over the
+            # mother and daughter states and CAN raise on an unexpected shape -- and
+            # this is the division path of every production lineage, so an exception
+            # here would kill a multi-hour run for the sake of a diagnostic. Failing
+            # to report is acceptable; failing the run is not. (eagmon, #772 review:
+            # the one observability call not wrapped, on the hot production path.)
+            try:
+                report = _events.carry_report(
+                    mother if isinstance(mother, dict) and mother else mother_snapshot, daughter
+                )
+                self._last_carry_report = report
+                unclassified = list(report.get("dropped", {}).get("unclassified", [])) + list(
+                    report.get("carried_unclassified", [])
+                )
+                _events.emit(
+                    "lineage.division",
+                    level="warning" if unclassified else "info",
+                    signal="structural" if structural else ("exception" if _exc_signal else "flag"),
+                    t_division=float(self._gen_elapsed),
+                    dry_mass=float(dry_mass),
+                    generation=int(self._generation),
+                    agent_id=str(self._agent_id),
+                    daughter_keys=sorted(k for k in daughter if not str(k).startswith("_"))
+                    if isinstance(daughter, dict) else [],
+                    **report,
+                )
+            except Exception as exc:  # noqa: BLE001 -- see the invariant above
+                # Drop the stale report rather than let the NEXT generation's
+                # ``carried_from_previous`` quote a report from two divisions ago.
+                self._last_carry_report = None
+                _events.emit(
+                    "lineage.division",
+                    level="warning",
+                    signal="structural" if structural else ("exception" if _exc_signal else "flag"),
+                    t_division=float(self._gen_elapsed),
+                    generation=int(self._generation),
+                    agent_id=str(self._agent_id),
+                    carry_report_error=f"{type(exc).__name__}: {exc}",
+                )
         return divided, daughter, dry_mass
 
     # --- main tick -------------------------------------------------------
@@ -869,29 +1317,40 @@ class LineageProcess(Process):
         # invisible. Printed (flushed) so it lands in the run log, and timed so a
         # slow/blocked step is obvious rather than silent.
         _t_flush = time.monotonic()
-        print(
+        self._log(
             f"[LineageProcess] gen {self._generation}: end (divided={divided} "
             f"timed_out={timed_out}); flushing emitters...",
-            flush=True,
+            "lineage.generation.flushing",
+            generation=int(self._generation), divided=bool(divided), timed_out=bool(timed_out),
         )
-        if self._is_xarray() and self._xarray_em is not None:
-            try:
-                self._xarray_em.close(success=True)
-            except Exception as e:
-                warnings.warn(
-                    f"LineageProcess: xarray close failed for "
-                    f"generation {self._generation}: {e}"
-                )
-            self._xarray_em = None
-        if self._is_xarray():
-            self._xarray_pending = False
+        self._finalize_xarray()
         if self._is_parquet():
             self._finalize_parquet()
-        print(
-            f"[LineageProcess] gen {self._generation}: emitters flushed in "
-            f"{time.monotonic() - _t_flush:.1f}s",
-            flush=True,
+        _flush_s = time.monotonic() - _t_flush
+        _emits = int(getattr(self._parquet_em, "num_emits", 0) or 0) if self._parquet_em is not None else None
+        self._check_duration_vs_emits(_emits)
+        self._log(
+            f"[LineageProcess] gen {self._generation}: emitters flushed in {_flush_s:.1f}s",
+            "lineage.generation.end",
+            generation=int(self._generation),
+            agent_id=str(self._agent_id),
+            duration=float(self._gen_elapsed),
+            divided=bool(divided),
+            timed_out=bool(timed_out),
+            dry_mass=float(dry_mass),
+            emits=_emits,
+            xarray_emits=int(self._xarray_emits),
+            flush_seconds=round(_flush_s, 3),
+            lineage_offset_after=float(self._lineage_offset + self._gen_elapsed),
+            wall_seconds=round(time.monotonic() - getattr(self, "_gen_t0", _t_flush), 3),
         )
+        _span = getattr(self, "_gen_span", None)
+        if _span is not None:
+            try:
+                _span.end()
+            except Exception:
+                pass
+            self._gen_span = None
         # AFTER the flush (the trailing batch is what lands a short
         # generation's history at all), BEFORE the summary/checkpoint: a
         # generation that emitted nothing must not be recorded as completed.
@@ -937,26 +1396,28 @@ class LineageProcess(Process):
             mb = _estimate_state_mb(daughter)
             prev = getattr(self, "_last_checkpoint_mb", 0.0)
             if prev and mb > 1.5 * prev:
-                warnings.warn(
+                _warn_static(owner=self, site="lineage.checkpoint", message=
                     f"LineageProcess: gen {self._generation} carry state is "
                     f"{mb:.1f}MB, up {mb / prev:.1f}x from the previous "
                     f"generation ({prev:.1f}MB). A lineage whose per-generation "
                     f"state keeps growing is not reaching steady-state division "
                     f"size (over-growth); the checkpoint reflects it and the "
-                    f"write gets progressively heavier."
-                )
+                    f"write gets progressively heavier.")
             self._last_checkpoint_mb = mb
             _t_ckpt = time.monotonic()
-            print(
+            self._log(
                 f"[LineageProcess] gen {self._generation}: writing checkpoint "
                 f"(~{mb:.1f}MB) -> {out_path}",
-                flush=True,
+                "lineage.checkpoint.start",
+                generation=int(self._generation), path=out_path, mb=round(mb, 3),
             )
             save_initial_state(payload, out_path)
-            print(
-                f"[LineageProcess] gen {self._generation}: checkpoint written "
-                f"in {time.monotonic() - _t_ckpt:.1f}s",
-                flush=True,
+            _ckpt_s = time.monotonic() - _t_ckpt
+            self._log(
+                f"[LineageProcess] gen {self._generation}: checkpoint written in {_ckpt_s:.1f}s",
+                "lineage.checkpoint",
+                generation=int(self._generation), path=out_path, mb=round(mb, 3),
+                seconds=round(_ckpt_s, 3), status="written",
             )
 
         self._generation += 1

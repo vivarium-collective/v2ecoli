@@ -35,6 +35,7 @@ from v2ecoli.types import ECOLI_TYPES
 __all__ = [
     "build_core",
     "register_ecoli_core",
+    "register_ecoli_processes",
     "load_cache_bundle",
     "save_cache",
     "save_sim_input",
@@ -93,25 +94,28 @@ def register_ecoli_core(core):
             core.register_type(_vec, {'_inherit': 'array', '_data': 'int64'})
         except Exception:
             pass
-    # Pulled-in external composites (pbg-ketchup): register its Process classes
-    # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
-    # pbg_ketchup must never break build_core for the rest of v2ecoli.
+    # Compose pulled-in external repos' cores. Each repo self-registers its OWN
+    # processes via its build_core(core) (the cross-repo core convention), so we
+    # no longer reach DOWN and register their classes here. Guarded per-repo — a
+    # missing/older dep must never break build_core for the rest of v2ecoli.
+    #   - viva_ketchup: KetchupEstimator / KetchupDynamicEstimator
+    #     (local:KetchupEstimator resolution in the ketchup composites)
+    #   - viva_bioreactordesign: BiRDTransportProcess
+    #     (local:BiRDTransportProcess in the mbp-03 coupled-reactor composite)
+    import importlib as _il
+    for _dep in ("viva_ketchup", "viva_bioreactordesign"):
+        try:
+            _m = _il.import_module(_dep)
+            _bc = getattr(_m, "build_core", None) or getattr(
+                _il.import_module(f"{_dep}.core"), "build_core", None)
+            if _bc is not None:
+                _bc(core)
+        except Exception:
+            pass
+    # BiRDTransportHours: v2ecoli's OWN seconds->hours adapter the coupled
+    # composite wires (not part of the bioreactordesign repo), so it stays
+    # registered here. See v2ecoli/steps/bird_transport_hours.py.
     try:
-        from pbg_ketchup import KetchupEstimator, KetchupDynamicEstimator
-        core.register_link("KetchupEstimator", KetchupEstimator)
-        core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
-    except Exception:
-        pass
-    # Pulled-in external reactor physics (pbg-bioreactordesign): register
-    # BiRDTransportProcess so local:BiRDTransportProcess resolves in the mbp-03
-    # coupled-reactor composite. Guarded — a missing pbg_bioreactordesign must
-    # never break build_core for the rest of v2ecoli.
-    try:
-        from pbg_bioreactordesign import BiRDTransportProcess
-        core.register_link("BiRDTransportProcess", BiRDTransportProcess)
-        # BiRDTransportHours: the seconds->hours time-base adapter the coupled
-        # composite actually wires (v2ecoli steps in seconds; the transport math
-        # is in hours). See v2ecoli/steps/bird_transport_hours.py.
         from v2ecoli.steps.bird_transport_hours import BiRDTransportHours
         core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
@@ -122,7 +126,61 @@ def register_ecoli_core(core):
         core.register_links(REPORT_CARD_STEPS)
     except Exception:  # noqa: BLE001 — never let card registration break build_core
         pass
+    # v2ecoli's own WCM process/step classes as first-class Registry entries.
+    # The composites instantiate these DIRECTLY (the partitioned WCM
+    # architecture), so without this they never enter core.link_registry —
+    # used everywhere yet invisible in the dashboard Registry.
+    try:
+        register_ecoli_processes(core)
+    except Exception:  # noqa: BLE001 — never let it break build_core
+        pass
     return core
+
+
+def register_ecoli_processes(core):
+    """Register v2ecoli's own WCM process/step classes (``v2ecoli.processes.*``)
+    onto ``core`` by class name, so they are first-class, discoverable Registry
+    entries — not merely instantiated inside the composites. The partitioned WCM
+    architecture builds these processes DIRECTLY (import + instantiate), which
+    never enters the core's name registry, so the dashboard Registry couldn't see
+    them even though every baseline run uses them.
+
+    Filters to process-bigraph-native classes (``process_bigraph.Process`` /
+    ``Step`` subclasses — the ``EcoliStep`` ports); vivarium-core Steps and
+    unrelated classes are skipped. Best-effort + idempotent: a module that fails
+    to import, or a class that fails to register, is skipped — never fatal to
+    build_core. Heavy subpackages (e.g. ``v2ecoli.processes.parca``) are not
+    descended into. Returns the number registered.
+    """
+    import importlib
+    import inspect
+    import pkgutil
+
+    import process_bigraph as _pb
+
+    try:
+        pkg = importlib.import_module("v2ecoli.processes")
+    except Exception:
+        return 0
+    n = 0
+    for modinfo in pkgutil.iter_modules(pkg.__path__):
+        if modinfo.ispkg:
+            continue
+        try:
+            mod = importlib.import_module(f"v2ecoli.processes.{modinfo.name}")
+        except Exception:
+            continue
+        for name, obj in vars(mod).items():
+            if not (inspect.isclass(obj) and obj.__module__ == mod.__name__):
+                continue
+            if obj in (_pb.Process, _pb.Step) or not issubclass(obj, (_pb.Process, _pb.Step)):
+                continue
+            try:
+                core.register_link(name, obj)
+                n += 1
+            except Exception:
+                pass
+    return n
 
 
 def build_core():
@@ -156,13 +214,13 @@ def build_core():
     return core
 
 
-# Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite
+# Importing v2ecoli.core also registers the pulled-in viva-ketchup composite
 # *generators* (the @composite_generator decorators fire on import), so the
 # dashboard's run subprocess — which does `from v2ecoli.core import build_core`
 # then looks up the generator in the registry — can resolve ketchup_baseline /
-# ketchup_dynamic. Guarded so it's a no-op when pbg-ketchup isn't installed.
+# ketchup_dynamic. Guarded so it's a no-op when viva-ketchup isn't installed.
 try:
-    import pbg_ketchup.composites  # noqa: F401
+    import viva_ketchup.composites  # noqa: F401
 except Exception:
     pass
 

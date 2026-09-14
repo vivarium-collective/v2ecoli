@@ -86,7 +86,7 @@ def _repo_root() -> str:
     a Groovy string, so `${V2E_ROOT:-/app/v2ecoli}` is interpolated by GROOVY, not
     bash -- it fails at run time with
     `No signature of method: java.lang.String.negative()`, which names nothing
-    useful. Escaping it (`\${...}`) works but puts a Groovy-quoting subtlety in
+    useful. Escaping it (`\\${...}`) works but puts a Groovy-quoting subtlety in
     every Step author's hands, which is the mistake process-bigraph#205 exists to
     stop making.
 
@@ -116,10 +116,10 @@ _PARCA_CHAIN = (
     # `\$WD` is a SHELL variable, escaped so Groovy emits a literal `$`. The
     # in/out paths are made absolute from it, so cd-ing does not move the
     # declared output `cache` out of the work dir where Nextflow looks for it.
-    ' && WD="\$PWD" && cd "{root}"'
+    ' && WD="\\$PWD" && cd "{root}"'
     " && python scripts/build_cache.py"
-    ' --fixture "\$WD/{simdata}/parca_state.pkl.gz" --cache "\$WD/{cache}"'
-    ' && cd "\$WD"'
+    ' --fixture "\\$WD/{simdata}/parca_state.pkl.gz" --cache "\\$WD/{cache}"'
+    ' && cd "\\$WD"'
     " && cp {simdata}/parca_state.pkl.gz {cache}/parca_state.pkl.gz"
 )
 
@@ -142,7 +142,16 @@ class ParcaTaskStep(Step):
         "cache_uri": {"_type": "string", "_default": ""},
     }
 
-    nextflow_port_decls = {"cache_dir": 'path "cache"'}
+    # Blocker 8 (sim 734, 2026-09-09): the gather stages EVERY variant's cache,
+    # and ParCa tasks that all emit a directory literally named `cache` collide
+    # there exactly as the lineages once collided on `sweep` (blocker 5):
+    # "input file name collision -- multiple input files for each of the
+    # following file names: cache". Same fix: a class-level glob (this decl is
+    # read off the class, so it cannot vary per node) and a per-node name,
+    # `cache_v{variant_index}`, set by build_workflow_nf. `type: "dir"` for
+    # the same reason as LineageStep's sweep glob -- run_step writes the port
+    # manifest `cache_dir.json` alongside, and a bare glob would match it.
+    nextflow_port_decls = {"cache_dir": 'path "cache_v*", type: "dir"'}
     # Without a label, `withLabel: parca { cpus/memory/time }` in the executor
     # profile matches NOTHING -- every task silently takes the queue defaults,
     # and in particular gets NO `time`, which is the only bound on a runaway
@@ -226,13 +235,20 @@ class AnalysisTaskStep(Step):
         # renderer runs). N named ports, each fed by one variant sub-workflow's
         # already-collected channel, is the shape the document model supports.
         "variant_indices": {"_type": "quote", "_default": [0]},
+        # Resource knobs the v2ecoli-analyze CLI reads from this same config:
+        # runner.max_workers, runner.duckdb.{threads,temp_dir,max_temp_directory_size}.
+        "runner": {"_type": "quote", "_default": {}},
     }
 
     # Only the OUTPUT needs an override. The per-variant inputs are declared with
     # `_is_file: True`, which the renderer already turns into `path <name>` — and
     # this override is read off the CLASS (`_class_annotation` → `getattr(type(...))`),
     # so it cannot depend on config anyway.
-    nextflow_port_decls = {"report": 'path "analysis"'}
+    # `analysis*`: a campaign now has one gather PER VARIANT (`analysis_v{i}`)
+    # plus, only when multivariant modules are configured, one campaign-level
+    # gather (`analysis`); this decl is read off the class, so it is a glob
+    # (blockers 5 and 8), and `type: "dir"` keeps the `report.json` manifest out.
+    nextflow_port_decls = {"report": 'path "analysis*", type: "dir"'}
     # Published for the same reason as LineageStep's sweep: the gather's report is
     # the deliverable, and an unpublished one is as unreachable as no report.
     nextflow_directives = {
@@ -277,15 +293,53 @@ class AnalysisTaskStep(Step):
         # emit --experiment-id/--out-dir, which the CLI rejects with exit 2 (#722).
         # The per-variant sweeps are staged into the task work dir, so sweep_dir is
         # "." -- history_files globs the hive tree recursively from there. The
-        # analyses to run and the task-local out_dir ride in the staged node config
-        # (analysis.config.json), so nothing else goes on the command line.
-        return "v2ecoli-analyze . --config analysis.config.json"
+        # analyses to run and the task-local out_dir ride in the staged node config,
+        # so nothing else goes on the command line. The renderer stages that config
+        # under the NODE's name (`path config_json, stageAs: '<node>.config.json'`):
+        # `analysis.config.json` for the campaign gather, `analysis_v2.config.json`
+        # for a per-variant one (#752). Reference the staged input by its Nextflow
+        # variable, not a literal -- sim 748 (2026-09-09) lost every per-variant
+        # gather to `FileNotFoundError: analysis.config.json` because this line
+        # hard-coded the single-node name.
+        return 'v2ecoli-analyze . --config "${config_json}"'
 
     def update(self, state: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError(
             "AnalysisTaskStep is a task declaration, not an in-process step; see "
             "ParcaTaskStep.update."
         )
+
+
+# Campaign-level lineage knobs: every one of these is forwarded by LineageStep
+# (its `_FORWARDED`) and honoured by LineageProcess, yet until now a dispatch
+# could not set a single one -- `build_workflow_nf` ends in `**_ignored`, so an
+# undeclared value was swallowed rather than rejected. That bug class escaped
+# five times (#730 analysis_options, #731 independent_founders, #732 cache_uri,
+# and, measured on sim 679, `exchange_fluxes` -- which on this path could only
+# ride inside a variant's `injected_processes`, so a campaign that forgot it
+# lost two KPIs without any error). Declared here once; threaded into every
+# lineage's config ONLY when set, so LineageStep's own defaults still apply
+# and a variant's `injected_processes` still wins per LineageProcess's
+# `_feature_flag` (injected first, then the top-level config key).
+_LINEAGE_KNOBS: tuple[str, ...] = (
+    "media",
+    "time_step",
+    "division_poll_interval",
+    "emitter",
+    "emitter_arg",
+    "single_daughters",
+    "checkpoint_dir",
+    "emit_paths",
+    "exchange_fluxes",
+    "exchange_flux_basis",
+    "features",
+    "ppgpp_regulation",
+    "trna_attenuation",
+    "supercoiling",
+    "mass_conservation",
+    "transcript_initiation_mode",
+    "polypeptide_initiation_mode",
+)
 
 
 def _variant_specs(variants: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -398,6 +452,114 @@ def _variant_specs(variants: list[dict[str, Any]] | None) -> list[dict[str, Any]
                 "constructed at all."
             ),
         },
+        "media": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "Initial growth medium, any condition in the cache's saved_media (LineageStep default 'minimal'). CD2 Run 4's minimal-vs-tryptophan split is exactly this knob."
+            ),
+        },
+        "time_step": {
+            "type": "number",
+            "default": None,
+            "description": (
+                "Simulation time step in seconds (LineageStep default 1.0)."
+            ),
+        },
+        "division_poll_interval": {
+            "type": "number",
+            "default": None,
+            "description": (
+                "Seconds of simulated time per inner-run slice on the single-window "
+                "path, so a generation ends within one slice of its division "
+                "(LineageStep default 10.0; #773). Smaller = tighter residual, more "
+                "run calls."
+            ),
+        },
+        "emitter": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "'parquet' (default), 'xarray', or 'both'. Note the gather reads the hive parquet tree; 'xarray' alone gives it nothing to analyse."
+            ),
+        },
+        "emitter_arg": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Extra emitter configuration merged into the emitter override."
+            ),
+        },
+        "single_daughters": {
+            "type": "boolean",
+            "default": None,
+            "description": ("Follow one daughter per division (default True)."),
+        },
+        "checkpoint_dir": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "Task-local checkpoint directory; relative to the task work dir like every other path here."
+            ),
+        },
+        "emit_paths": {
+            "type": "array",
+            "default": None,
+            "description": (
+                "Emit-path allowlist. Empty/absent means every listener path (which is why the gate-4 runs wrote 244-column history). Undeclared emit paths were behind viva-api#475's global_time-only parquet."
+            ),
+        },
+        "exchange_fluxes": {
+            "type": "object",
+            "default": None,
+            "description": (
+                "Mounts the ExchangeFluxListener, e.g. {glucose_exchange: GLC, violacein_exchange: VIOLACEIN}. Without it the listener does not mount and writes nothing, without refusing -- sim 679 lost two KPIs that way."
+            ),
+        },
+        "exchange_flux_basis": {
+            "type": "string",
+            "default": None,
+            "description": ("Basis for the exchange-flux KPI, e.g. 'gdcw'."),
+        },
+        "features": {
+            "type": "array",
+            "default": None,
+            "description": ("baseline() feature selection."),
+        },
+        "ppgpp_regulation": {
+            "type": "boolean",
+            "default": None,
+            "description": ("baseline() toggle (default True)."),
+        },
+        "trna_attenuation": {
+            "type": "boolean",
+            "default": None,
+            "description": ("baseline() toggle (default False)."),
+        },
+        "supercoiling": {
+            "type": "boolean",
+            "default": None,
+            "description": ("baseline() toggle (default False)."),
+        },
+        "mass_conservation": {
+            "type": "boolean",
+            "default": None,
+            "description": ("baseline() toggle (default False)."),
+        },
+        "transcript_initiation_mode": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "'discrete' (default) or the alternative the composite offers."
+            ),
+        },
+        "polypeptide_initiation_mode": {
+            "type": "string",
+            "default": None,
+            "description": (
+                "'discrete' (default) or the alternative the composite offers."
+            ),
+        },
     },
 )
 def build_workflow_nf(
@@ -414,8 +576,29 @@ def build_workflow_nf(
     analysis_options: dict[str, Any] | None = None,
     independent_founders: bool = False,
     cache_uri: str = "",
+    media: Any = None,
+    time_step: Any = None,
+    division_poll_interval: Any = None,
+    emitter: Any = None,
+    emitter_arg: Any = None,
+    single_daughters: Any = None,
+    checkpoint_dir: Any = None,
+    emit_paths: Any = None,
+    exchange_fluxes: Any = None,
+    exchange_flux_basis: Any = None,
+    features: Any = None,
+    ppgpp_regulation: Any = None,
+    trna_attenuation: Any = None,
+    supercoiling: Any = None,
+    mass_conservation: Any = None,
+    transcript_initiation_mode: Any = None,
+    polypeptide_initiation_mode: Any = None,
     **_ignored: Any,
 ) -> dict[str, Any]:
+    # Campaign-level lineage knobs, applied only when set (see _LINEAGE_KNOBS).
+    _knobs = {
+        k: v for k, v in locals().items() if k in _LINEAGE_KNOBS and v is not None
+    }
     state: dict[str, Any] = {}
     sweep_paths: list[list[str]] = []
 
@@ -441,7 +624,7 @@ def build_workflow_nf(
                 # `cache`, and the task fails with "Missing output file(s)".
                 # Per-variant identity lives in the config and the emitted
                 # partitioning, not in the directory name. (@eagmon, review of #694.)
-                "cache_dir": "cache",
+                "cache_dir": f"cache_v{vi}",
                 "simdata_dir": "parca",
                 # Per-variant wins over the campaign-wide default: a strain sweep
                 # may reuse one cache for some variants and build others.
@@ -483,13 +666,14 @@ def build_workflow_nf(
                 "variant_index": vi,
                 "variant_name": vname,
             }
+            config.update(_knobs)
             if independent_founders:
                 # TASK-LOCAL, like every other path in this config: `cache_dir` is
                 # staged by Nextflow as `path "cache"` and the ParCa task writes
                 # simData.cPickle inside it, so this resolves against the task's
                 # own work dir rather than any repo layout.
                 config["independent_founders"] = True
-                config["founder_sim_data"] = "cache/simData.cPickle"
+                config["founder_sim_data"] = f"cache_v{vi}/simData.cPickle"
             # Omitted, not empty -- see LineageStep for why the distinction matters.
             if spec.get("injected_processes"):
                 config["injected_processes"] = spec["injected_processes"]
@@ -518,24 +702,67 @@ def build_workflow_nf(
 
     if include_analysis:
         indices = [int(s["variant_index"]) for s in _variant_specs(variants)]
-        state["analysis"] = {
-            "_type": "step",
-            "address": "local:AnalysisTaskStep",
-            "config": {
-                "experiment_id": experiment_id,
-                # Task-local, matching the declared `path "analysis"` output --
-                # NOT f"{out_dir}/analysis", which the task's work dir has no way
-                # to produce (the gather runs in an isolated Nextflow work dir).
-                "out_dir": "analysis",
-                "analysis_options": analysis_options or {},
-                "variant_indices": indices,
-            },
-            # one named port per variant, each fed by that variant's sub-workflow,
-            # plus that variant's ParCa cache (sim_data for the analyses)
-            "inputs": {
-                **{f"sweep_v{i}": [f"results_v{i}"] for i in indices},
-                **{f"cache_v{i}": [f"cache_v{i}"] for i in indices},
-            },
-            "outputs": {"report": ["report"]},
-        }
+        options = dict(analysis_options or {})
+        multivariant = options.pop("multivariant", None)
+        # One gather per variant, one module at a time, spilling into the task's
+        # own work dir. Measured on sim 683 (10 seeds x 8 generations, 27 GB):
+        # a single campaign-wide gather ran five multiseed modules concurrently
+        # on a 32 GB task and every one died in DuckDB (22.3 GiB pinned, the
+        # 63.7 GiB temp cap exhausted). Per variant, the history a gather sees
+        # is bounded by seeds x generations, not variants x seeds x generations
+        # -- Run 4 at 84 variants would otherwise be ~900 GB in one process --
+        # and the variants gather in parallel as separate Batch tasks.
+        runner = {"max_workers": 1, "duckdb": {"temp_dir": "duckdb_tmp"}}
+        if len(indices) == 1:
+            # Single-variant campaign: the one node, named and published as
+            # before (`analysis/`), so nothing downstream moves.
+            i0 = indices[0]
+            state["analysis"] = {
+                "_type": "step",
+                "address": "local:AnalysisTaskStep",
+                "config": {
+                    "experiment_id": experiment_id,
+                    "out_dir": "analysis",
+                    "analysis_options": analysis_options or {},
+                    "variant_indices": indices,
+                    "runner": runner,
+                },
+                "inputs": {f"sweep_v{i0}": [f"results_v{i0}"], f"cache_v{i0}": [f"cache_v{i0}"]},
+                "outputs": {"report": ["report"]},
+            }
+        else:
+            for i in indices:
+                state[f"analysis_v{i}"] = {
+                    "_type": "step",
+                    "address": "local:AnalysisTaskStep",
+                    "config": {
+                        "experiment_id": experiment_id,
+                        "out_dir": f"analysis_v{i}",
+                        "analysis_options": options,
+                        "variant_indices": [i],
+                        "runner": runner,
+                    },
+                    "inputs": {f"sweep_v{i}": [f"results_v{i}"], f"cache_v{i}": [f"cache_v{i}"]},
+                    "outputs": {"report": [f"report_v{i}"]},
+                }
+            if multivariant:
+                # Cross-variant modules need every sweep; they get their own
+                # node with ONLY the multivariant scale, so the campaign-wide
+                # process runs nothing a per-variant gather already ran.
+                state["analysis"] = {
+                    "_type": "step",
+                    "address": "local:AnalysisTaskStep",
+                    "config": {
+                        "experiment_id": experiment_id,
+                        "out_dir": "analysis",
+                        "analysis_options": {"multivariant": multivariant},
+                        "variant_indices": indices,
+                        "runner": runner,
+                    },
+                    "inputs": {
+                        **{f"sweep_v{i}": [f"results_v{i}"] for i in indices},
+                        **{f"cache_v{i}": [f"cache_v{i}"] for i in indices},
+                    },
+                    "outputs": {"report": ["report"]},
+                }
     return {"state": state}

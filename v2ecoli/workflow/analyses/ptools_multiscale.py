@@ -13,26 +13,36 @@ exactly one cell per generation.  vEcoli's absolute, monotonic ``time`` makes
 ``analyze`` verbatim.  Result: the TSV spans the whole lineage with correct
 minute checkpoints (e.g. 0m … 88m across two generations).
 
-**Multiseed** (:class:`_MultiseedMixin`): multiple seeds share the same
-absolute ``time`` value.  v2ecoli's ``groupby("time").sum()`` over Python-list
-columns (``bulk__id``, ``bulk__count``, flux arrays) *concatenates* instead of
-adding element-wise — wrong.  This mixin overrides ``_do_read_outputs()`` to
-fetch the raw per-seed rows and apply :func:`_helpers.collapse_cross_seed`:
-string-list id columns are first-preserved (with length assertion), numeric
-list/array columns are element-wise numpy-summed (with shape assertion), and
-scalar columns are plain-summed.  The single-scale ``analyze`` body then runs
-unchanged on the aggregated DataFrame.
+**Multiseed** (:class:`_MultiseedMixin`): a variant's slice spans MULTIPLE
+independent lineages (seeds).  vEcoli's multiseed ptools is the single-cell
+``plot`` re-run over the pooled parquet — ``build_query`` bins the run's absolute
+time span into ``n_tp`` bins and ``AVG``\\ s each feature over all rows in a bin.
+This mixin reproduces that **cross-seed mean** on v2ecoli data, aligning every
+seed on the cumulative clock first (:func:`_helpers.reconstruct_cumulative_time`,
+so a multi-generation run's per-generation ``global_time`` resets do not pool
+different generations together), and emits an extra **cross-seed spread** panel
+(the SD across seeds of each seed's per-bin mean) so heterogeneity is visible
+rather than averaged away.  It reuses each concrete class's ``_feature_matrix``
+extraction seam.  The legacy element-wise-SUM collapse
+(:class:`_MultiseedCollapseMixin`, via :func:`_helpers.collapse_cross_seed`) is
+retained only for the combined Cellular-Overview upload.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analyses._helpers import (
+    available_columns,
     cumulative_time_history,
     collapse_cross_seed,
+    generation_time_offsets,
+    ptools_heatmap_view,
+    reconstruct_cumulative_time,
 )
 from v2ecoli.workflow.analyses.ptools_rna import PtoolsRna
 from v2ecoli.workflow.analyses.ptools_rxns import PtoolsRxns
@@ -104,6 +114,19 @@ class _MultigenMixin:
         params.setdefault("per_generation", True)
         skip = int(params.get("skip_n_gens", 1))
         history_sql = drop_leading_generations(conn, history_sql, skip)
+        # The streamed per-generation path (``_feature_matrix`` below) reads the
+        # wide ``DOUBLE[]`` columns one generation at a time. Give it the RAW
+        # (un-cumulative) history plus the per-generation offsets computed from a
+        # NARROW scan, so it can scope each generation's wide read with a plain
+        # ``WHERE generation = g`` (which prunes) and add the cumulative offset as
+        # a SCALAR. Filtering ``cumulative_time_history()`` per generation does NOT
+        # prune -- its recursive-CTE ``o.*`` self-join re-materialises the whole
+        # lineage's arrays on every generation, which is the multigeneration
+        # temp-disk spill (Run 1).
+        params["_multigen_raw_history"] = history_sql
+        params["_multigen_offsets"] = generation_time_offsets(conn, history_sql)
+        # abs_sql still feeds the non-streamed fallback (per_generation off, or no
+        # generation axis) where correctness over memory is the right trade.
         abs_sql = cumulative_time_history(history_sql)
         return super().analyze(
             conn=conn,
@@ -111,6 +134,86 @@ class _MultigenMixin:
             sim_data=sim_data,
             variant_metadata=params,
             **ctx,
+        )
+
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Stream the per-tick feature read ONE GENERATION AT A TIME.
+
+        The single-scale ``_feature_matrix`` materialises every generation's rows —
+        including the wide ``DOUBLE[]`` list columns — in one read and ``np.stack``s
+        them; on a 20-generation lineage that frame is what fills the analysis
+        container's temp-spill DISK (the failure the multigen ptools hit; DISK, not
+        RAM, so no memory class helps).
+
+        But ``per_generation`` consolidation reduces each generation to ONE window,
+        and ``consolidate_timepoints(generations=)`` computes each generation's column
+        independently as the normalised mean over that generation's own ticks. So we
+        call the concrete ``_feature_matrix`` once per generation on a
+        generation-scoped history and reduce that generation to its mean row before
+        moving to the next — peak resident stays at a single generation's rows. The
+        returned ``(n_generations × F)`` matrix (one row per generation, already the
+        per-generation mean) feeds the concrete ``analyze``'s own
+        ``consolidate_timepoints(..., generations=)`` unchanged: with one row per
+        generation that consolidation is an identity, so the rendered table is the
+        bit-for-bit whole-frame result. Mirrors #789's per-seed streaming of the
+        multiseed collapse, reusing the concrete ``_feature_matrix`` as the primitive.
+
+        Only the ``per_generation`` path (the multigeneration default) is streamed —
+        it is the only one whose reduction is per-generation independent. If
+        ``per_generation`` is disabled, or there is no ``generation`` axis, defer to
+        the whole-frame single-scale read (correctness over memory on that rare path).
+        """
+        raw = params.get("_multigen_raw_history")
+        offsets = params.get("_multigen_offsets") or {}
+        if not params.get("per_generation") or raw is None or \
+                "generation" not in available_columns(conn, raw):
+            return super()._feature_matrix(history_sql, conn, sim_data, params)
+
+        gens_present = [
+            int(r[0]) for r in conn.sql(
+                f"SELECT DISTINCT generation FROM ({raw}) ORDER BY generation"
+            ).fetchall()
+        ]
+        rows: list[np.ndarray] = []
+        times: list[float] = []
+        labels: list = []
+        feature_ids = None
+        for g in gens_present:
+            # Wide read scoped to ONE generation: ``WHERE generation = g`` on the
+            # RAW history prunes the DOUBLE[] scan, and the cumulative offset is a
+            # SCALAR literal -- no recursive CTE self-join over the wide columns.
+            off = float(offsets.get(g, 0.0))
+            gen_sql = (
+                f"SELECT * EXCLUDE(global_time), global_time + {off!r} AS global_time "
+                f"FROM ({raw}) WHERE generation = {g}"
+            )
+            mtx, tvec, fids, _gens = super()._feature_matrix(
+                gen_sql, conn, sim_data, params
+            )
+            if mtx.shape[0] == 0:
+                continue
+            if feature_ids is None:
+                feature_ids = fids
+            elif mtx.shape[1] != rows[0].shape[0]:
+                raise ValueError(
+                    f"feature width differs across generations ({mtx.shape[1]} != "
+                    f"{rows[0].shape[0]}); a generation does not share the sim_data "
+                    "ordering"
+                )
+            # Per-generation mean over its ticks, written as sum/len to match
+            # consolidate_timepoints' normalised block (rows.sum(0)/len) exactly.
+            rows.append(mtx.sum(axis=0) / mtx.shape[0])
+            times.append(float(tvec[0]))   # first tick's time in this generation
+            labels.append(g)
+        if not rows:
+            # Every generation empty after filtering — let the whole-frame path
+            # produce the (empty) result and its error handling.
+            return super()._feature_matrix(history_sql, conn, sim_data, params)
+        return (
+            np.stack(rows, axis=0),
+            np.asarray(times),
+            feature_ids,
+            np.asarray(labels),
         )
 
 
@@ -130,25 +233,22 @@ class PtoolsProteinsMultigeneration(_MultigenMixin, PtoolsProteins):
 
 
 # ---------------------------------------------------------------------------
-# _MultiseedMixin — cross-seed element-wise aggregation
+# _MultiseedCollapseMixin — legacy cross-seed element-wise SUM
 # ---------------------------------------------------------------------------
 
-class _MultiseedMixin:
-    """Override _do_read_outputs to collapse multiple seeds element-wise.
+class _MultiseedCollapseMixin:
+    """Legacy cross-seed aggregation: element-wise SUM of every seed at each
+    shared ``time`` via :func:`collapse_cross_seed`, then the single-scale
+    ``analyze`` body runs unchanged.
 
-    Multiple seeds share the same absolute ``time`` value, so the per-seed
-    rows must be aggregated before the single-scale ``analyze`` body runs.
-    :func:`collapse_cross_seed` handles this correctly:
-
-    * ``bulk__id`` (and any other ``id_cols``) — first-preserved (same across
-      seeds; length-mismatch raises ``ValueError``).
-    * list/array columns (``bulk__count``, FBA flux arrays, per-transcript
-      lists) — element-wise numpy sum (shape-mismatch raises ``ValueError``).
-    * scalar columns (``active_ribosome``, ``oriC``, ``active_RNAP``) — plain
-      scalar sum.
-
-    The cross-seed aggregated DataFrame is then passed verbatim to the
-    inherited single-scale ``analyze`` body.
+    Retained for :class:`PtoolsOverviewMultiseed` (the combined genes+reactions
+    +proteins Omics-Viewer upload), which forwards a single history to its
+    sibling analyses and cannot use the per-feature ``_feature_matrix`` seam the
+    mean/spread mixin needs.  Note this SUMS across seeds and does not
+    reconstruct the cumulative clock, so on a multi-generation multiseed run it
+    pools different generations — the per-category ptools use
+    :class:`_MultiseedMixin` (cross-seed mean + spread on the cumulative axis)
+    instead.
     """
 
     def _do_read_outputs(
@@ -157,21 +257,358 @@ class _MultiseedMixin:
         conn: DuckDBPyConnection,
         columns=None,
     ):
-        """Fetch raw per-seed rows and collapse to one row per time."""
+        """Collapse to one row per time, streaming one seed at a time.
+
+        The cross-seed collapse is a pure element-wise SUM per shared ``time``
+        (:func:`collapse_cross_seed`), which is associative and commutative
+        across seeds.  So instead of loading every seed's rows — including the
+        wide ``DOUBLE[]`` list columns — into one ``.df()`` (the 78 GB /
+        112.8 GB peak that killed the multiseed Omics-Viewer upload on a 10×10
+        sweep, #786), we read each seed on its own and accumulate the running
+        collapse.  Peak resident stays at one seed's rows plus the
+        one-row-per-time accumulator.
+        """
         if columns is None:
             # Fallback: should not happen in practice (analyze always passes
             # explicit columns), but guard against bare calls.
-            raise ValueError("_MultiseedMixin._do_read_outputs requires explicit columns")
+            raise ValueError(
+                "_MultiseedCollapseMixin._do_read_outputs requires explicit columns"
+            )
 
-        # Build the same SQL used by the single-scale read_outputs — but do NOT
-        # apply groupby.sum() here; collapse_cross_seed handles aggregation.
-        query_sql = (
-            f"SELECT {','.join(columns)}, global_time AS time"
-            f" FROM ({history_sql})"
-            f" ORDER BY time"
+        id_cols = frozenset({"bulk__id"})
+        # Partition on the seed axis. If there is no seed column (a synthetic or
+        # narrowed history), there is nothing to stream over — one group.
+        if "lineage_seed" in available_columns(conn, history_sql):
+            seeds = [
+                r[0] for r in conn.sql(
+                    f"SELECT DISTINCT lineage_seed FROM ({history_sql})"
+                    f" ORDER BY lineage_seed"
+                ).fetchall()
+            ]
+        else:
+            seeds = [None]
+
+        def _read_collapsed(where_seed):
+            seed_sql = (
+                history_sql if where_seed is None
+                else f"SELECT * FROM ({history_sql}) WHERE lineage_seed = {where_seed}"
+            )
+            # Same SQL the single-scale read_outputs builds — no groupby.sum()
+            # here; collapse_cross_seed does the aggregation.
+            query_sql = (
+                f"SELECT {','.join(columns)}, global_time AS time"
+                f" FROM ({seed_sql})"
+                f" ORDER BY time"
+            )
+            return collapse_cross_seed(conn.sql(query_sql).df(), id_cols=id_cols)
+
+        accumulated = None
+        for seed in seeds:
+            seed_collapsed = _read_collapsed(seed)
+            if accumulated is None:
+                accumulated = seed_collapsed
+                continue
+            # Sum-of-sums: concatenate the two already-per-time-collapsed frames
+            # and re-run the identical collapse, so the incremental step reuses
+            # the exact aggregation primitive rather than a parallel reduction
+            # that could drift from it.
+            accumulated = collapse_cross_seed(
+                pd.concat([accumulated, seed_collapsed], ignore_index=True),
+                id_cols=id_cols,
+            )
+
+        if accumulated is None:  # empty history (no seeds) — preserve old shape
+            return _read_collapsed(None)
+        return accumulated
+
+
+# ---------------------------------------------------------------------------
+# _MultiseedMixin — cross-seed mean + spread on the cumulative-time axis
+# ---------------------------------------------------------------------------
+
+# Default render spec for classes that do not declare their own.
+_DEFAULT_MULTISEED_SPEC = {
+    "filename": "ptools_multiseed.tsv",
+    "title": "Feature",
+    "color_label": "value",
+    "log_color": False,
+    "sort_rows": False,
+    "take_abs": False,
+}
+
+
+def _distinct_seeds(conn, history_sql, avail):
+    """Ordered list of lineage_seed values present, or ``[None]`` if the column
+    is absent (a synthetic/narrowed history with no seed axis → one group)."""
+    if "lineage_seed" not in avail:
+        return [None]
+    rows = conn.sql(
+        f"SELECT DISTINCT lineage_seed FROM ({history_sql}) ORDER BY lineage_seed"
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def _cross_seed_mean_spread(per_seed_binner, seeds, n_tp):
+    """Aggregate per-seed BINNED sums/counts into ``(mean_panel, spread_panel,
+    feature_ids)``, each panel ``(n_tp × F)``.
+
+    ``per_seed_binner(seed) -> (seed_sum[n_tp×F], seed_cnt[n_tp], feature_ids)``
+    is called once per seed and returns that seed's per-bin row SUM and row COUNT,
+    already binned by absolute (cumulative) time.  The binner streams one
+    generation at a time internally, so only one generation's rows are resident —
+    not the seed's whole multi-generation span (that full wide frame was the
+    Python-side multiseed OOM).  Per-bin sum and count are additive, so streaming
+    the seed generation-by-generation is identical to binning it all at once.
+    ``seed_sum`` is ``None`` for a seed that produced no feature rows (skipped).
+
+    ``mean_panel`` is the pooled cross-seed-and-time AVG per (bin, feature)
+    (matching vEcoli's ``build_query``): every row's sum over every row's count.
+    ``spread_panel`` is the std ACROSS seeds of each seed's per-bin mean (0 for a
+    single seed; a bin a seed never sampled is nan and ignored).
+    """
+    feature_ids = None
+    pooled_sum = None
+    pooled_cnt = np.zeros(n_tp)
+    seed_bin_means = []  # one (n_tp × F) per seed, nan in unsampled bins
+
+    for seed in seeds:
+        seed_sum, seed_cnt, fids = per_seed_binner(seed)
+        if seed_sum is None:  # this seed produced no feature rows
+            continue
+        if feature_ids is None:
+            feature_ids = fids
+            pooled_sum = np.zeros_like(seed_sum)
+        elif seed_sum.shape[1] != pooled_sum.shape[1]:
+            raise ValueError(
+                f"feature width differs across seeds ({seed_sum.shape[1]} != "
+                f"{pooled_sum.shape[1]}); seeds do not share a sim_data ordering"
+            )
+        pooled_sum += seed_sum
+        pooled_cnt += seed_cnt
+        with np.errstate(invalid="ignore"):
+            sbm = np.where(
+                seed_cnt[:, None] == 0,
+                np.nan,
+                seed_sum / np.where(seed_cnt == 0, 1.0, seed_cnt)[:, None],
+            )
+        seed_bin_means.append(sbm)
+
+    if feature_ids is None:
+        raise ValueError("multiseed ptools: no feature rows across any seed")
+
+    mean_panel = pooled_sum / np.where(pooled_cnt == 0, 1.0, pooled_cnt)[:, None]
+    stacked = np.stack(seed_bin_means, axis=0)  # (n_seeds × n_tp × F)
+    # std across seeds of each seed's per-bin mean; nan (bins a seed never
+    # sampled) ignored, all-nan bins -> 0.
+    with np.errstate(invalid="ignore"):
+        spread_panel = np.nan_to_num(np.nanstd(stacked, axis=0), nan=0.0)
+    return mean_panel, spread_panel, feature_ids
+
+
+def _two_panel_view(mean_df, spread_df, spec):
+    """Stack the mean heatmap over the cross-seed-spread heatmap in one HTML."""
+    mean_view = ptools_heatmap_view(
+        mean_df,
+        f"{spec['title']} — cross-seed mean",
+        log_color=spec["log_color"],
+        sort_rows=spec["sort_rows"],
+        color_label=spec["color_label"],
+    )
+    # Spread is a std (>= 0); linear color, same row order as the mean panel.
+    spread_view = ptools_heatmap_view(
+        spread_df,
+        f"{spec['title']} — cross-seed spread (SD across seeds)",
+        log_color=False,
+        sort_rows=spec["sort_rows"],
+        color_label=f"SD of {spec['color_label']}",
+    )
+    return (
+        "<div class='ptools-multiseed'>"
+        f"{mean_view}<hr/>{spread_view}"
+        "</div>"
+    )
+
+
+class _MultiseedMixin:
+    """Cross-seed mean + spread panels on the cumulative-time axis.
+
+    Reproduces vEcoli's cross-seed mean (its multiseed ptools is the single-cell
+    ``plot`` over the pooled multiseed parquet: ``build_query`` bins the run's
+    absolute time span into ``n_tp`` bins and ``AVG``\\ s each feature over all
+    rows in a bin) with two fixes over the legacy element-wise-sum collapse:
+
+    * **Cumulative-time alignment** (:func:`reconstruct_cumulative_time`,
+      multiseed-safe): v2ecoli's ``global_time`` resets each generation, so
+      binning raw time would pool different generations of different seeds — the
+      analysis-clock bug.  A no-op when the clock is already absolute.
+    * **A cross-seed spread panel**: per feature and bin, the SD across seeds of
+      the per-seed bin means, so heterogeneity across seeds is visible rather
+      than averaged away.  A single-seed run degrades to zero spread.
+
+    Reuses the concrete ptools class's single-scale ``_feature_matrix`` seam for
+    feature extraction; only the cross-seed aggregation and two-panel rendering
+    live here.  Both panels go into one combined TSV (mean columns + matching
+    ``*_sd`` spread columns) and one stacked two-heatmap view.
+    """
+
+    def analyze(
+        self,
+        *,
+        conn: DuckDBPyConnection,
+        history_sql: str,
+        sim_data,
+        variant_metadata: dict[str, Any] | None = None,
+        **ctx,
+    ) -> dict:
+        params = dict(variant_metadata or {})
+        params.setdefault("n_tp", 8)
+        params.setdefault("time_unit", "minutes")
+        if params["time_unit"] not in ("minutes", "seconds"):
+            params["time_unit"] = "minutes"
+        n_tp = int(params["n_tp"])
+
+        spec = {
+            **_DEFAULT_MULTISEED_SPEC,
+            **getattr(self, "_ptools_multiseed_spec", {}),
+        }
+
+        # Honor burn-in filters the way the cd1 multiseed modules do, BEFORE
+        # cumulative-time reconstruction: drop the first ``skip_n_gens``
+        # generations (relative to the min generation present) and/or keep
+        # ``generation >= generation_lower_bound``.
+        if "generation" in available_columns(conn, history_sql):
+            skip = int(params.get("skip_n_gens", 0) or 0)
+            if skip > 0:
+                history_sql = drop_leading_generations(conn, history_sql, skip)
+            lb = params.get("generation_lower_bound")
+            if lb is not None:
+                history_sql = (
+                    f"SELECT * FROM ({history_sql}) WHERE generation >= {int(lb)}"
+                )
+
+        # Recover the absolute (cumulative) clock vEcoli assumes; multiseed-safe
+        # (per-seed offsets), a no-op when global_time is already absolute.
+        cum_sql = reconstruct_cumulative_time(conn, history_sql)
+        avail = available_columns(conn, cum_sql)
+        seeds = _distinct_seeds(conn, cum_sql, avail)
+
+        # Global absolute-time bin edges over the pooled span (vEcoli convention:
+        # [min_t, max_t] split into n_tp bins).
+        tmin, tmax = conn.sql(
+            f"SELECT min(global_time), max(global_time) FROM ({cum_sql})"
+        ).fetchone()
+        if tmin is None or tmax is None:
+            raise ValueError("multiseed ptools: no rows in history")
+        if tmax <= tmin:
+            edges = np.linspace(float(tmin), float(tmin) + 1.0, n_tp + 1)
+        else:
+            edges = np.linspace(float(tmin), float(tmax), n_tp + 1)
+
+        has_gen = "generation" in avail
+
+        def _binner(seed):
+            # Stream per-generation WITHIN the seed and accumulate per-bin
+            # sum/count, so peak resident is one generation's rows rather than the
+            # seed's whole multi-generation span. For a multiseed-of-multigen store
+            # (Run 2 / Run 3) that full per-seed frame is the ~58 GiB Python-side
+            # OOM (past DuckDB's own cap, in the np.stack, so no memory class helps).
+            # cum_sql (reconstruct_cumulative_time) is a per-row CASE rewrite, not a
+            # recursive CTE, so filtering it by (lineage_seed, generation) prunes the
+            # wide scan. Binning is by absolute cumulative time and sum/count are
+            # additive, so the streamed result is identical to reading the seed at
+            # once (the previous behaviour, which #801 did not cover — it fixed
+            # multigeneration, this is multiseed).
+            seed_sql = (
+                cum_sql if seed is None
+                else f"SELECT * FROM ({cum_sql}) WHERE lineage_seed = {seed}"
+            )
+            gens = [None]
+            if has_gen:
+                gens = [
+                    r[0] for r in conn.sql(
+                        f"SELECT DISTINCT generation FROM ({seed_sql}) "
+                        f"ORDER BY generation"
+                    ).fetchall()
+                ]
+            seed_sum = None
+            seed_cnt = np.zeros(n_tp)
+            fids = None
+            for g in gens:
+                gsql = seed_sql if g is None else \
+                    f"SELECT * FROM ({seed_sql}) WHERE generation = {g}"
+                mtx, tvec, gfids, _gens = self._feature_matrix(
+                    gsql, conn, sim_data, params
+                )
+                if mtx.shape[0] == 0:
+                    continue
+                if fids is None:
+                    fids = gfids
+                    seed_sum = np.zeros((n_tp, mtx.shape[1]))
+                elif mtx.shape[1] != seed_sum.shape[1]:
+                    raise ValueError(
+                        f"feature width differs across generations within seed "
+                        f"{seed} ({mtx.shape[1]} != {seed_sum.shape[1]})"
+                    )
+                bin_idx = np.clip(
+                    np.searchsorted(
+                        edges, np.asarray(tvec, dtype=float), side="right"
+                    ) - 1,
+                    0, n_tp - 1,
+                )
+                for b in range(n_tp):
+                    m = bin_idx == b
+                    if m.any():
+                        seed_sum[b] += mtx[m].sum(axis=0)
+                        seed_cnt[b] += int(m.sum())
+            return seed_sum, seed_cnt, fids
+
+        mean_panel, spread_panel, feature_ids = _cross_seed_mean_spread(
+            _binner, seeds, n_tp
         )
-        raw_df = conn.sql(query_sql).df()
-        return collapse_cross_seed(raw_df, id_cols=frozenset({"bulk__id"}))
+
+        if spec["take_abs"]:
+            mean_panel = np.abs(mean_panel)
+
+        # Column labels = bin START times (vEcoli labels bins by bin_start).
+        starts = edges[:-1]
+        if params["time_unit"] == "minutes":
+            starts = [round(x / 60) for x in starts]
+        else:
+            starts = [round(x) for x in starts]
+        unit = params["time_unit"][0]
+        mean_cols = [f"{t}{unit}" for t in starts]
+        spread_cols = [f"{t}{unit}_sd" for t in starts]
+
+        mean_df = pd.DataFrame(
+            mean_panel.transpose(), index=feature_ids, columns=mean_cols
+        )
+        spread_df = pd.DataFrame(
+            spread_panel.transpose(), index=feature_ids, columns=spread_cols
+        )
+        mean_df.index.name = "$"
+        spread_df.index.name = "$"
+
+        # One combined TSV: mean columns then the matching _sd spread columns.
+        combined = pd.concat([mean_df, spread_df], axis=1)
+        combined.index.name = "$"
+        tsv = combined.to_csv(sep="\t", index=True, header=True, float_format="%.4f")
+
+        # For the stacked view the spread panel shares the mean panel's labels.
+        spread_view_df = pd.DataFrame(
+            spread_panel.transpose(), index=feature_ids, columns=mean_cols
+        )
+        spread_view_df.index.name = "$"
+        view = _two_panel_view(mean_df, spread_view_df, spec)
+
+        n_seeds = len([s for s in seeds if s is not None]) or 1
+        return {
+            "data": {
+                "filename": spec["filename"],
+                "tsv": tsv,
+                "n_seeds": n_seeds,
+            },
+            "view": view,
+        }
 
 
 class PtoolsRnaMultiseed(_MultiseedMixin, PtoolsRna):
@@ -202,6 +639,6 @@ class PtoolsOverviewMultigeneration(_MultigenMixin, PtoolsCellOverview):
     scale = "multigeneration"
 
 
-class PtoolsOverviewMultiseed(_MultiseedMixin, PtoolsCellOverview):
+class PtoolsOverviewMultiseed(_MultiseedCollapseMixin, PtoolsCellOverview):
     name = "ptools_overview_multiseed"
     scale = "multiseed"

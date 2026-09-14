@@ -25,7 +25,7 @@ are accumulated on the same per-second basis — they net additively at the shar
 
 from __future__ import annotations
 
-from pbg_bioreactordesign import BiRDTransportProcess
+from viva_bioreactordesign import BiRDTransportProcess
 
 # Convention shared with v2ecoli.steps.reactor_cell_coupler.SECONDS_PER_HOUR.
 SECONDS_PER_HOUR: float = 3600.0

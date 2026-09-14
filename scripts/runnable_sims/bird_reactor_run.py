@@ -18,8 +18,8 @@ from typing import Any
 
 from process_bigraph import Composite, allocate_core
 from process_bigraph.emitter import RAMEmitter, gather_emitter_results
-import pbg_bioreactordesign
-from pbg_bioreactordesign import BiRDReactorProcess, make_reactor_document
+import viva_bioreactordesign
+from viva_bioreactordesign import BiRDReactorProcess, make_reactor_document
 
 
 REPORT_DIR = Path(__file__).resolve().parents[2] / "reports" / "runnable_sims"
@@ -59,7 +59,7 @@ def run_one(label: str, *, sim_hours: float = 12.0, **kwargs) -> dict[str, Any]:
 
 def main() -> int:
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[bird] pbg-bioreactordesign installed at {pbg_bioreactordesign.__file__}")
+    print(f"[bird] viva-bioreactordesign installed at {viva_bioreactordesign.__file__}")
 
     runs = [
         {

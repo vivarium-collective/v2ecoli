@@ -30,6 +30,7 @@ no barrier before the gather. An N×M sweep is expressed by which configs exist.
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 from process_bigraph import Step
@@ -43,6 +44,7 @@ _FORWARDED = (
     "generations",
     "max_duration_per_gen",
     "time_step",
+    "division_poll_interval",
     "media",
     "emitter",
     "emitter_arg",
@@ -90,6 +92,9 @@ class LineageStep(Step):
         "generations": {"_type": "integer", "_default": 1},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
         "time_step": {"_type": "float", "_default": 1.0},
+        # Slice length of the inner run so a generation ends within one slice of
+        # its division (see LineageProcess._run_until_division; #773).
+        "division_poll_interval": {"_type": "float", "_default": 10.0},
         "media": {"_type": "string", "_default": "minimal"},
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
@@ -265,10 +270,47 @@ class LineageStep(Step):
         generations = int(self.config.get("generations", 1))
         per_gen = float(self.config.get("max_duration_per_gen", 3600.0))
         interval = generations * per_gen
-
-        self._run_lineage(self._lineage_config(str(cache_dir)), interval)
-
         out_dir = str(self.config.get("out_dir") or "")
+
+        # Observability (docs/plan-observability.md, runner layer): a task
+        # always gets stdout events plus <out_dir>/events.jsonl, opens the
+        # ``lineage`` span under the entrypoint's task span, and on ANY failure
+        # writes <out_dir>/failure.json (exception, traceback tail, the engine's
+        # pbg_context: process path / global_time / state summary) and emits a
+        # ``lineage.failure`` event before re-raising the original exception unchanged.
+        from v2ecoli.workflow import events as _events
+
+        emitter = _events.configure_for_task(out_dir or None)
+        span = emitter.start_span(
+            "lineage",
+            variant=self.config.get("variant_index"),
+            lineage_seed=self.config.get("lineage_seed"),
+            experiment_id=self.config.get("experiment_id"),
+            generations=generations,
+        )
+        _t0 = time.monotonic()
+        try:
+            self._run_lineage(self._lineage_config(str(cache_dir)), interval)
+        except BaseException as exc:
+            record = _events.failure_record(
+                exc,
+                generation=_events.current_baggage(emitter).get("generation"),
+                wall_time=round(time.monotonic() - _t0, 3),
+                out_dir=out_dir,
+                experiment_id=self.config.get("experiment_id"),
+                variant=self.config.get("variant_index"),
+                lineage_seed=self.config.get("lineage_seed"),
+            )
+            record["failure_json"] = _events.write_failure_json(out_dir, record)
+            _events.emit("lineage.failure", level="error", **record)
+            span.end(status="error", error=f"{type(exc).__name__}: {exc}"[:500])
+            try:
+                emitter.flush()
+            except Exception:
+                pass
+            raise
+        span.end()
+
         if (
             self.config.get("require_output", True)
             and out_dir

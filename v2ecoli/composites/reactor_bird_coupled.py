@@ -172,8 +172,8 @@ def _transport_equilibrium(bird_config: dict[str, Any]) -> tuple[float, float]:
     still builds).
     """
     try:
-        from pbg_bioreactordesign import BiRDTransportProcess
-        from pbg_bioreactordesign.transport import compute_transport_state
+        from viva_bioreactordesign import BiRDTransportProcess
+        from viva_bioreactordesign.transport import compute_transport_state
 
         cfg = {k: spec.get("_default")
                for k, spec in BiRDTransportProcess.config_schema.items()}
@@ -467,8 +467,14 @@ def add_reactor_coupling(
             # and every runner had to carry its own allow-list.
             "address": "local:ParquetEmitter",
             "config": {},
+            # ``environment`` is agent-relative like global_time/bulk/
+            # listeners/boundary -- the coupler reads
+            # ``agents.*.environment.exchange`` -- so it is declared here and
+            # deliberately NOT in COUPLED_DOCUMENT_EMIT_ROOTS. Without it the
+            # per-agent ``environment.exchange`` leaves (the exchange fluxes
+            # the coupled analyses read) are not persisted at all.
             "paths": [
-                "global_time", "bulk", "listeners", "boundary",
+                "global_time", "bulk", "listeners", "boundary", "environment",
                 "reactor", "population", "lineage",
             ],
         },

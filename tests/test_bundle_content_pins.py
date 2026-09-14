@@ -36,11 +36,16 @@ EXPECTED_SHA256 = {
     # they were unpinned. They also drive the genotype-card condition count
     # (len(condition_defs) + 2*len(tf_condition)); pin them so a data change is
     # caught here rather than silently shifting graded references downstream.
-    # Re-pinned 2026-09-08 merging origin/main (71 commits): main changed
-    # these two upstream ecoli-sources files (not a v2ecoli-local override,
-    # not flagella-cascade-related) between the previous pin and this merge.
-    "condition__condition_defs": "d28d181e2e7674101b47ccfaca21d7e119571ab902f9370723e671656e7f8844",
-    "condition__media_recipes": "d49b9872946a0f7462e068d359337c41720dafb3ea8f5110567cf4c7feca5d67",
+    # Re-pinned 2026-09-14 merging origin/main: main bumped the ecoli-sources
+    # dependency pin itself (840bc973 -> 86607c4d), which changed BOTH of
+    # these files' real content -- verified directly against that exact git
+    # revision (shallow clone + sha256), not trusted from either side's pin
+    # or this venv's not-yet-synced installed copy. ecoli-sources f76dd55b
+    # (#18, 2026-09-10): minimal_plus_tryptophan became the finite MIX0-57
+    # x0.9 + TRP_supplement x0.1 recipe (was TRP [Infinity]) -- a deliberate
+    # data change, matching the vEcoli-private reference.
+    "condition__condition_defs": "5d71324e95ef9794f130667e2d033539a3ffc7c747c5b5f7d10d5476640149cd",
+    "condition__media_recipes": "7f144f3c6498ef09c169894f0ef83f99018ed7c67fcbf45947e774b7daa51db8",
     "condition__tf_condition": "fbcfbefdcffde74a380b13c1cf0b4c7d2cab28b312a7cb7b841459bc18460099",
     # v2ecoli local overrides (diverged biology, must win). Re-pinned 2026-09-04
     # merging origin/main: both branches had independently changed these two

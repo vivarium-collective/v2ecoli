@@ -200,6 +200,12 @@ class Division(V2Step):
         # them declares no leaves and reports 0.0 for the rest of the lineage.
         self._exchange_fluxes = self.parameters.get('exchange_fluxes')
         self._exchange_flux_basis = self.parameters.get('exchange_flux_basis')
+        # Optional ``{store_name: divider}`` table for INJECTED agent-root stores
+        # (see v2ecoli.library.division.STORE_DIVIDERS for the contract). Empty
+        # by default: a store with no divider is COPIED to both daughters, and a
+        # downstream process normally registers its divider on the module
+        # registry instead of threading it through this config.
+        self._store_dividers = self.parameters.get('store_dividers') or {}
         # vEcoli's default (`d_period=True`): division fires D_period after
         # chromosome replication completes (via the flag MarkDPeriod raises at
         # the chromosome's division_time), and the dry-mass threshold is
@@ -320,22 +326,43 @@ class Division(V2Step):
               f'chromosomes={n_chromosomes})')
 
         try:
+            from v2ecoli.library.division import divide_cell, extra_store_keys
+
             cell_data = {
                 'bulk': states['bulk'],
                 'unique': states['unique'],
                 'environment': states.get('environment', {}),
                 'boundary': states.get('boundary', {}),
             }
-            # flagella_nfsim_complexation.py's ports, 2026-08-19 -- only
-            # include when actually present (most composites won't have
-            # them) so divide_cell()'s presence check works correctly.
-            if states.get('nfsim_scaffold_species') is not None:
-                cell_data['nfsim_scaffold_species'] = states['nfsim_scaffold_species']
-            if states.get('nfsim_internal_observables') is not None:
-                cell_data['nfsim_internal_observables'] = states['nfsim_internal_observables']
+            # Superseded 2026-09-14 merging origin/main: main's generic
+            # extra_store_keys() mechanism (below) subsumes this -- verified
+            # divide_cell()'s own nfsim handling (library/division.py) keys
+            # off plain dict membership ('nfsim_scaffold_species' in
+            # cell_state), not on how the key got into cell_data, so the
+            # generic loop carries these ports through correctly too. Old
+            # nfsim-specific code kept per standing preserve-old-code rule:
+            # if states.get('nfsim_scaffold_species') is not None:
+            #     cell_data['nfsim_scaffold_species'] = states['nfsim_scaffold_species']
+            # if states.get('nfsim_internal_observables') is not None:
+            #     cell_data['nfsim_internal_observables'] = states['nfsim_internal_observables']
+            #
+            # Any INJECTED agent-root store visible on this step's ports rides
+            # along under the one carry/division policy (copy by default, split
+            # by a registered divider). ``listeners`` is deliberately NOT copied
+            # wholesale — only declared carried leaves, handled inside
+            # divide_cell — so pass it separately for that lookup.
+            for _extra in extra_store_keys(states):
+                cell_data[_extra] = states[_extra]
+            if isinstance(states.get('listeners'), dict):
+                cell_data['listeners'] = states['listeners']
 
-            from v2ecoli.library.division import divide_cell
-            d1_data, d2_data = divide_cell(cell_data)
+            # Keep the ONE-ARG call shape when no divider table was configured:
+            # several tests monkeypatch divide_cell with a 1-arg callable.
+            if self._store_dividers:
+                d1_data, d2_data = divide_cell(
+                    cell_data, dividers=self._store_dividers)
+            else:
+                d1_data, d2_data = divide_cell(cell_data)
 
             d1_data['global_time'] = division_time
             d2_data['global_time'] = division_time
@@ -419,7 +446,21 @@ class Division(V2Step):
                             'nfsim_scaffold_species', 'nfsim_internal_observables'):
                     if key in d_data:
                         agent[key] = d_data[key]
+                # Injected agent-root stores: MERGE the divided/copied value onto
+                # the freshly built node instead of replacing it, so a node the
+                # fresh build stamped with its declared ``_type`` (e.g. a
+                # ``fields`` map typed ``map[overwrite[array[float]]]``) keeps
+                # that type — and with it its overwrite updater — while the
+                # carried leaves replace the fresh zero seeds. Replacing the node
+                # with a raw dict is the ``exchange_data`` trap (see
+                # _FRESH_ENVIRONMENT_SUBSTORES in v2ecoli/workflow/lineage.py).
+                from v2ecoli.library.division import (
+                    apply_carried_listeners, extra_store_keys as _extra_keys,
+                    merge_carried_store)
+                for key in _extra_keys(d_data):
+                    agent[key] = merge_carried_store(agent.get(key), d_data[key])
                 agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+                apply_carried_listeners(agent, d_data.get('_carried_listeners'))
                 seed_mass_listener(agent, self.core)
                 # Advance the phylogeny. baseline() always wires the daughter's
                 # OWN internal division Step with the default agent_id='0' (see

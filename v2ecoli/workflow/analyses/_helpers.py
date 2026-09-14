@@ -151,6 +151,110 @@ def cumulative_time_history(history_sql: str) -> str:
     """
 
 
+def reconstruct_cumulative_time(
+    conn: duckdb.DuckDBPyConnection, history_sql: str
+) -> str:
+    """Rewrite ``history_sql`` so ``global_time`` is CUMULATIVE lineage time,
+    multiseed-safe.
+
+    Unlike :func:`cumulative_time_history` (single-lineage, pure SQL, one cell
+    per generation), this handles a slice spanning MULTIPLE seeds: it offsets
+    each generation by the summed duration of prior generations **per lineage
+    group** ``(lineage_seed, variant)``, so distinct seeds never cross-
+    contaminate each other's clock.  Ported from the sms ``reconstruct_
+    cumulative_time`` (#321), which was in turn extracted from ``mec_ic50``.
+
+    NO-OP when there is no ``generation`` column, only one generation, or the
+    per-generation ``global_time`` ranges are already monotonically
+    non-overlapping (the absolute-clock parquet path): the original SQL is
+    returned unchanged, so an already-absolute clock is left untouched.  The
+    offset uses ``max - min + 1`` per prior generation (unit emit step) so the
+    reconstructed cumulative times stay contiguous integers landing exactly on
+    the sampled absolute times.
+    """
+    avail = available_columns(conn, history_sql)
+    if "generation" not in avail:
+        return history_sql
+    group_cols = [c for c in ("lineage_seed", "variant") if c in avail]
+    sel = ", ".join([*group_cols, "generation"])
+    rows = conn.sql(
+        f"SELECT {sel}, min(global_time) AS mn, max(global_time) AS mx "
+        f"FROM ({history_sql}) GROUP BY {sel}"
+    ).fetchall()
+    ng = len(group_cols)
+    groups: dict[tuple, list] = {}
+    for r in rows:
+        key = tuple(r[:ng])
+        groups.setdefault(key, []).append(
+            (int(r[ng]), float(r[ng + 1]), float(r[ng + 2]))
+        )
+
+    resets = False
+    deltas: dict[tuple, float] = {}  # (group_key, generation) -> additive offset
+    for key, gens in groups.items():
+        gens.sort()
+        start = gens[0][1]  # first generation's min preserves the original base
+        prev_max = None
+        for gen, mn, mx in gens:
+            if prev_max is not None and mn <= prev_max:
+                resets = True  # a later generation restarts within an earlier one
+            deltas[(key, gen)] = start - mn  # cumulative = global_time - mn + start
+            start += (mx - mn) + 1.0  # next generation begins one step after this
+            prev_max = mx
+
+    if not resets:
+        return history_sql  # already cumulative (absolute-clock path) — untouched
+
+    def _clause(group_key: tuple, gen: int) -> str:
+        conds = [f"{col} = {val}" for col, val in zip(group_cols, group_key)]
+        conds.append(f"generation = {gen}")
+        return " AND ".join(conds)
+
+    case = " ".join(
+        f"WHEN {_clause(key, gen)} THEN {delta}"
+        for (key, gen), delta in deltas.items()
+    )
+    return (
+        f"SELECT * REPLACE ((global_time + CASE {case} ELSE 0 END) AS global_time) "
+        f"FROM ({history_sql})"
+    )
+
+
+def generation_time_offsets(
+    conn: duckdb.DuckDBPyConnection, history_sql: str
+) -> dict[int, float]:
+    """Per-generation additive ``global_time`` offset for a SINGLE-LINEAGE slice.
+
+    Returns ``{generation: offset}`` computed from a NARROW scan — only
+    ``generation`` and per-generation ``min``/``max`` of ``global_time`` — so it
+    never reads the wide ``DOUBLE[]`` list columns.  The offsets are identical to
+    those :func:`cumulative_time_history` bakes into its recursive CTE (the same
+    clamp-at-0 walk: absolute-clock parquet → all-zero offsets, data untouched;
+    reset-clock xarray → generations stacked end-to-end with a 1-unit gap), but
+    handed back as scalars so a caller can apply each to a per-generation base
+    scan (``WHERE generation = g``, which prunes) instead of filtering the
+    recursive CTE (whose wide ``o.*`` self-join is not pruned per generation and
+    re-materialises the whole lineage's arrays — the multigeneration temp spill).
+
+    Single-lineage only, exactly like :func:`cumulative_time_history`: assumes one
+    cell per generation.  Returns ``{}`` when there is no ``generation`` column.
+    """
+    if "generation" not in available_columns(conn, history_sql):
+        return {}
+    rows = conn.sql(
+        f"SELECT generation, min(global_time) AS gmin, max(global_time) AS gmax "
+        f"FROM ({history_sql}) GROUP BY generation ORDER BY generation"
+    ).fetchall()
+    offsets: dict[int, float] = {}
+    shifted_end: float | None = None
+    for gen, gmin, gmax in rows:
+        gen_i, gmin_f, gmax_f = int(gen), float(gmin), float(gmax)
+        off = 0.0 if shifted_end is None else max(shifted_end + 1.0 - gmin_f, 0.0)
+        offsets[gen_i] = off
+        shifted_end = gmax_f + off
+    return offsets
+
+
 def num_cells(conn: duckdb.DuckDBPyConnection, subquery: str) -> int:
     """Distinct cell count in a subquery (vEcoli parity)."""
     return conn.sql(
@@ -322,7 +426,16 @@ _CD1_ID_COLS = ["experiment_id", "variant", "lineage_seed", "generation", "agent
 # run_chunked -- confirmed live as the direct cause of a 5+ hour analysis run.
 # 100 cuts that to ~400. Still exposed as a per-module tunable `chunk_size`
 # config_schema param, not hardcoded -- see cd1_fluxomics.py etc.
-DEFAULT_CD1_CHUNK_SIZE = 100
+# Cells per DuckDB batch in the cd1 explode+aggregate modules. 100 looked
+# generous until a real campaign had FEWER cells than that: CD2 Run 2 at 10
+# seeds x 8 generations is 80 cells, so the "chunking" ran the whole variant
+# as ONE batch and cd1_metabolomics / cd1_higher_order_properties still needed
+# 44.8 GiB each on the gather (sim 742, 2026-09-09). A batch is bounded by
+# chunk x rows-per-cell x list width (bulk__count is ~16k wide), so 8 keeps a
+# 10 x 8 campaign near 2-3 GB per batch; a module's own `chunk_size` param
+# still overrides. Results are identical for any chunk size: every cd1
+# aggregate is GROUP BY cell, and a group never spans two batches.
+DEFAULT_CD1_CHUNK_SIZE = 8
 
 
 def _sql_literal(value) -> str:

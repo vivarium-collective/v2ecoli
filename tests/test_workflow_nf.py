@@ -153,10 +153,12 @@ def test_analysis_takes_one_port_per_variant(core) -> None:
         build_workflow_nf(
             n_seeds=2,
             include_analysis=True,
+            analysis_options={"multivariant": {"x": {}}},
             variants=[{"variant_name": "a"}, {"variant_name": "b"}],
         ),
     )
-    assert "analysis(ch_results_v0, ch_results_v1" in nf
+    assert "analysis(ch_results_v0, ch_results_v1" in nf  # the multivariant node
+    assert "analysis_v0(ch_results_v0, ch_cache_v0" in nf and "analysis_v1(ch_results_v1, ch_cache_v1" in nf
 
 
 def test_analysis_task_argv_parses_against_the_real_cli(core) -> None:
@@ -175,8 +177,11 @@ def test_analysis_task_argv_parses_against_the_real_cli(core) -> None:
     line = next(
         l for l in script.splitlines() if l.strip().startswith("v2ecoli-analyze")
     )
-    args = build_analysis_arg_parser().parse_args(shlex.split(line)[1:])
-    assert args.sweep_dir == "." and args.config == "analysis.config.json"
+    # Nextflow substitutes the staged input's variable before the shell sees
+    # it (sim 748: a literal name broke every per-variant gather).
+    staged = line.replace("${config_json}", "analysis_v2.config.json")
+    args = build_analysis_arg_parser().parse_args(shlex.split(staged)[1:])
+    assert args.sweep_dir == "." and args.config == "analysis_v2.config.json"
 
 
 def test_analysis_options_reach_the_gather_config() -> None:
@@ -408,7 +413,7 @@ def test_build_cache_runs_from_the_checkout_but_writes_to_the_work_dir() -> None
     nf = _render_via_generator(n_seeds=1, n_generations=1)
     assert 'WD="\\$PWD"' in nf, "must be ESCAPED: a bare $ is interpolated by Groovy"
     assert 'cd "/app/v2ecoli"' in nf
-    assert '--cache "\\$WD/cache"' in nf
+    assert '--cache "\\$WD/cache_v0"' in nf
     # and it must come back, so the trailing cp writes into the work dir
     assert 'cd "\\$WD"' in nf
 
@@ -571,7 +576,7 @@ def test_independent_founders_reaches_every_lineage() -> None:
         assert cfg["independent_founders"] is True
         # task-local: `cache_dir` is staged as `path "cache"` and ParCa writes
         # simData.cPickle inside it
-        assert cfg["founder_sim_data"] == "cache/simData.cPickle"
+        assert cfg["founder_sim_data"] == "cache_v0/simData.cPickle"
     # and each still draws from its OWN seed -- one founder per lineage_seed is
     # the entire point
     assert sorted(inner[n]["config"]["lineage_seed"] for n in lineages) == [0, 1, 2]
@@ -634,7 +639,7 @@ def test_a_cache_uri_makes_the_node_fetch_instead_of_compute(core) -> None:
 
 
 def test_the_dag_is_unchanged_by_reuse(core) -> None:
-    """The node keeps its `path "cache"` output, so `take: cache` and every
+    """The node keeps its `path "cache_v*"` output (blocker 8: named per variant), so `take: cache` and every
     lineage's staged input are identical. Removing the node instead would leave
     the lineages wired to nothing -- a Nextflow input is fed by a channel, not a
     path."""
@@ -644,7 +649,7 @@ def test_the_dag_is_unchanged_by_reuse(core) -> None:
         ln.split()[1] for ln in nf.splitlines() if ln.startswith("process ")
     ]
     assert names(with_uri) == names(without)
-    assert 'path "cache"' in _parca_block(core, cache_uri="s3://b/c/")
+    assert 'path "cache_v*", type: "dir"' in _parca_block(core, cache_uri="s3://b/c/")
 
 
 def test_a_fetched_cache_is_checked_for_contents(core) -> None:
@@ -652,8 +657,8 @@ def test_a_fetched_cache_is_checked_for_contents(core) -> None:
     and exits 0, leaving a cache-shaped directory that is not a cache. Every
     lineage would then fail far from the cause."""
     block = _parca_block(core, cache_uri="s3://b/c/")
-    assert "test -f cache/simData.cPickle" in block
-    assert "test -f cache/sim_data_cache.dill" in block
+    assert "test -f cache_v0/simData.cPickle" in block
+    assert "test -f cache_v0/sim_data_cache.dill" in block
 
 
 def test_a_variants_own_cache_uri_wins(core) -> None:
@@ -785,20 +790,11 @@ _REACHABLE_VIA_INJECTED_PROCESSES = {
     "polypeptide_initiation_mode",
 }
 
-# Read straight off `self.config` with no escape hatch, and not declared: a
-# campaign CANNOT set these. Documented rather than asserted away -- `media` and
-# `time_step` are the ones that bite (CD2 Run 4's minimal-vs-tryptophan split is
-# exactly a media choice), and `emit_paths` is the undeclared-emission hole
-# behind viva-api#475's global_time-only parquet.
-_KNOWN_UNREACHABLE = {
-    "time_step",
-    "media",
-    "emitter",
-    "emitter_arg",
-    "single_daughters",
-    "checkpoint_dir",
-    "emit_paths",
-}
+# Formerly seven keys a campaign could not set at all (`media`, `time_step`,
+# `emitter`, `emitter_arg`, `single_daughters`, `checkpoint_dir`, `emit_paths`);
+# all are declared generator parameters now. Kept as a set so the classification
+# test keeps its shape -- and so it is loud if it ever grows again.
+_KNOWN_UNREACHABLE: set[str] = set()
 
 
 def _declared_parameters() -> set[str]:
@@ -812,6 +808,31 @@ def _declared_parameters() -> set[str]:
         for n, p in sig.parameters.items()
         if p.kind not in (p.VAR_KEYWORD, p.VAR_POSITIONAL)
     }
+
+
+def test_division_poll_interval_is_reachable_through_a_dispatch() -> None:
+    """#773: the slice length that makes a generation end at its division on the
+    single-window path must be settable from a dispatch -- declared as a generator
+    parameter, forwarded by LineageStep, and known to LineageProcess -- or it is
+    the same silent-drop class as #730/#731/#732."""
+    from v2ecoli.workflow.lineage import LineageProcess
+    from v2ecoli.workflow.lineage_step import LineageStep, _FORWARDED
+
+    assert "division_poll_interval" in _FORWARDED
+    assert LineageStep.config_schema["division_poll_interval"]["_default"] == 10.0
+    assert LineageProcess.config_schema["division_poll_interval"]["_default"] == 10.0
+    assert "division_poll_interval" in _declared_parameters()
+
+    doc = build_workflow_nf(n_seeds=2, n_generations=1, division_poll_interval=2.5)
+    inner = doc["state"]["runs_v0"]["config"]["state"]
+    lineage_nodes = [v for k, v in inner.items() if k.startswith("lineage_v")]
+    assert len(lineage_nodes) == 2
+    for node in lineage_nodes:
+        assert node["config"]["division_poll_interval"] == 2.5
+    # unset stays unset, so LineageStep's own default (10.0) applies
+    doc = build_workflow_nf(n_seeds=1, n_generations=1)
+    inner = doc["state"]["runs_v0"]["config"]["state"]
+    assert "division_poll_interval" not in inner["lineage_v0_s0"]["config"]
 
 
 def test_every_forwarded_key_is_classified() -> None:
@@ -836,26 +857,53 @@ def test_every_forwarded_key_is_classified() -> None:
     )
 
 
-def test_the_known_gaps_have_not_silently_grown() -> None:
-    """_KNOWN_UNREACHABLE is a debt list, not a dumping ground. Shrinking it is
-    the goal; growing it should require editing this test deliberately."""
+def test_no_forwarded_key_is_unreachable_any_more() -> None:
+    """The strong form, now that it holds: every `_FORWARDED` key is either
+    derived by the generator or a declared parameter. `_KNOWN_UNREACHABLE` must
+    stay empty -- growing it is the bug class this file exists to stop."""
     from v2ecoli.workflow.lineage_step import _FORWARDED
 
-    still_unreachable = {
-        k
-        for k in _KNOWN_UNREACHABLE
-        if k not in _declared_parameters()
-        and k not in _DERIVED_BY_GENERATOR
-        and k not in _REACHABLE_VIA_INJECTED_PROCESSES
+    assert _KNOWN_UNREACHABLE == set()
+    unreachable = set(_FORWARDED) - _DERIVED_BY_GENERATOR - _declared_parameters()
+    assert not unreachable, (
+        f"forwarded by LineageStep, not settable by a campaign: {sorted(unreachable)}"
+    )
+
+
+def test_campaign_knobs_reach_every_lineage_and_are_absent_when_unset(core) -> None:
+    """Sim 679 lost two KPIs because `exchange_fluxes` could only ride inside a
+    variant's `injected_processes` and the dispatch forgot it. Set at campaign
+    level, each knob must land in EVERY lineage config; unset, it must be ABSENT
+    so LineageStep's own default applies (the founders discipline)."""
+    from v2ecoli.composites.workflow_nf import _LINEAGE_KNOBS
+
+    knobs = {
+        "media": "rich",
+        "time_step": 2.0,
+        "emitter": "both",
+        "emit_paths": ["listeners.mass"],
+        "exchange_fluxes": {
+            "glucose_exchange": "GLC",
+            "violacein_exchange": "VIOLACEIN",
+        },
+        "exchange_flux_basis": "gdcw",
+        "ppgpp_regulation": False,
     }
-    assert still_unreachable == _KNOWN_UNREACHABLE, (
-        "these became reachable -- drop them from _KNOWN_UNREACHABLE: "
-        f"{sorted(_KNOWN_UNREACHABLE - still_unreachable)}"
+    doc = build_workflow_nf(
+        n_seeds=2, variants=[{"variant_name": "a"}, {"variant_name": "b"}], **knobs
     )
-    assert set(_FORWARDED) >= _KNOWN_UNREACHABLE, (
-        "a key left _FORWARDED entirely; the gap list is stale: "
-        f"{sorted(_KNOWN_UNREACHABLE - set(_FORWARDED))}"
-    )
+    for v in (0, 1):
+        inner = doc["state"][f"runs_v{v}"]["config"]["state"]
+        for k, node in inner.items():
+            if not k.startswith("lineage"):
+                continue
+            for name, value in knobs.items():
+                assert node["config"][name] == value, (k, name)
+
+    plain = build_workflow_nf(n_seeds=1)
+    cfg = plain["state"]["runs_v0"]["config"]["state"]["lineage_v0_s0"]["config"]
+    leaked = [k for k in _LINEAGE_KNOBS if k in cfg]
+    assert not leaked, f"unset knobs must not appear in the config: {leaked}"
 
 
 def test_no_output_glob_can_match_its_own_port_manifest(core) -> None:
@@ -910,5 +958,108 @@ def test_multi_variant_gather_stages_every_variants_cache(core) -> None:
         include_analysis=True,
         variants=[{"variant_name": "a"}, {"variant_name": "b"}],
     )
-    inputs = doc["state"]["analysis"]["inputs"]
-    assert inputs["cache_v0"] == ["cache_v0"] and inputs["cache_v1"] == ["cache_v1"]
+    st = doc["state"]
+    assert st["analysis_v0"]["inputs"]["cache_v0"] == ["cache_v0"] and st["analysis_v1"]["inputs"]["cache_v1"] == ["cache_v1"]
+    assert "cache_v1" not in st["analysis_v0"]["inputs"]  # a variant gather stages only its own cache
+
+
+def test_parca_caches_have_DISTINCT_output_names_across_variants(core) -> None:
+    """Blocker 8 (sim 734): two variants' ParCa tasks both emitted `cache`, and the
+    gather -- which stages every variant's cache -- died on
+    'input file name collision ... cache' after both lineages had SUCCEEDED."""
+    from v2ecoli.composites.workflow_nf import build_workflow_nf
+
+    doc = build_workflow_nf(core=core, n_seeds=1, n_generations=1, include_analysis=True,
+                            variants=[{"variant_name": "a"}, {"variant_name": "b"}], independent_founders=True)
+    names = [doc["state"][f"parca_v{i}"]["config"]["cache_dir"] for i in (0, 1)]
+    assert names == ["cache_v0", "cache_v1"]
+    # the class-level declaration is a glob that matches those names and nothing else
+    from v2ecoli.composites.workflow_nf import ParcaTaskStep
+    import fnmatch
+
+    decl = ParcaTaskStep.nextflow_port_decls["cache_dir"]
+    assert 'type: "dir"' in decl
+    pattern = decl.split('"')[1]
+    assert all(fnmatch.fnmatch(n, pattern) for n in names) and not fnmatch.fnmatch("cache_dir.json", pattern)
+    # every lineage's founder pointer follows its own variant's cache
+    for i in (0, 1):
+        lin = doc["state"][f"runs_v{i}"]["config"]["state"][f"lineage_v{i}_s0"]["config"]
+        assert lin["founder_sim_data"] == f"cache_v{i}/simData.cPickle"
+
+
+def test_multi_variant_campaign_gathers_per_variant_and_multivariant_once(core) -> None:
+    """sim 683: one campaign-wide gather ran five multiseed modules at once over
+    10 x 8 and every one OOM'd. Now each variant gathers its own sweep (all
+    scales but multivariant), and the campaign-wide node runs ONLY multivariant."""
+    from v2ecoli.composites.workflow_nf import build_workflow_nf
+
+    opts = {"single": {"mass_fraction_summary": {}}, "multiseed": {"cd1_fluxomics": {}},
+            "multivariant": {"fss_bioproduction_kpis": {"control_variant": 1}}}
+    doc = build_workflow_nf(core=core, n_seeds=2, n_generations=1, include_analysis=True,
+                            analysis_options=opts, variants=[{"variant_name": "a"}, {"variant_name": "b"}])
+    st = doc["state"]
+    for i in (0, 1):
+        n = st[f"analysis_v{i}"]
+        assert n["config"]["out_dir"] == f"analysis_v{i}" and n["config"]["variant_indices"] == [i]
+        assert set(n["config"]["analysis_options"]) == {"single", "multiseed"}
+        assert n["inputs"] == {f"sweep_v{i}": [f"results_v{i}"], f"cache_v{i}": [f"cache_v{i}"]}
+        assert n["outputs"] == {"report": [f"report_v{i}"]}
+        assert n["config"]["runner"] == {"max_workers": 1, "duckdb": {"temp_dir": "duckdb_tmp"}}
+    mv = st["analysis"]
+    assert mv["config"]["analysis_options"] == {"multivariant": opts["multivariant"]}
+    assert set(mv["inputs"]) == {"sweep_v0", "sweep_v1", "cache_v0", "cache_v1"}
+    doc = build_workflow_nf(core=core, n_seeds=1, n_generations=1, include_analysis=True,
+                            analysis_options={"multiseed": {"cd1_fluxomics": {}}},
+                            variants=[{"variant_name": "a"}, {"variant_name": "b"}])
+    assert "analysis" not in doc["state"] and {"analysis_v0", "analysis_v1"} <= set(doc["state"])
+
+
+def test_single_variant_campaign_keeps_the_one_gather_named_analysis(core) -> None:
+    from v2ecoli.composites.workflow_nf import build_workflow_nf
+
+    opts = {"multiseed": {"cd1_fluxomics": {}}, "multivariant": {"x": {}}}
+    doc = build_workflow_nf(core=core, n_seeds=3, n_generations=1, include_analysis=True, analysis_options=opts)
+    assert "analysis_v0" not in doc["state"]
+    n = doc["state"]["analysis"]
+    assert n["config"]["out_dir"] == "analysis" and n["config"]["analysis_options"] == opts
+    assert n["config"]["runner"]["max_workers"] == 1
+
+
+def test_gather_output_decl_is_a_dir_glob_that_cannot_match_its_manifest() -> None:
+    import fnmatch
+
+    from v2ecoli.composites.workflow_nf import AnalysisTaskStep
+
+    decl = AnalysisTaskStep.nextflow_port_decls["report"]
+    pattern = decl.split('"')[1]
+    assert 'type: "dir"' in decl
+    assert fnmatch.fnmatch("analysis", pattern) and fnmatch.fnmatch("analysis_v7", pattern)
+    assert not fnmatch.fnmatch("report.json", pattern)
+
+
+def test_every_analysis_process_reads_the_config_it_was_staged_with() -> None:
+    """sim 748 (2026-09-09): the per-variant gathers (#752) are staged with
+    `stageAs: 'analysis_v2.config.json'` but the script hard-coded
+    `analysis.config.json`, so all three failed with FileNotFoundError after
+    the lineages had published. The script must reference the staged input
+    by its Nextflow variable (`${config_json}`) or by the exact stageAs name."""
+    import re
+
+    nf = _render_via_generator(
+        n_seeds=1,
+        include_analysis=True,
+        variants=[{"variant_name": "a"}, {"variant_name": "b"}, {"variant_name": "c"}],
+    )
+    blocks = re.findall(r"process (analysis\w*) \{(.*?)\n\}", nf, re.S)
+    names = sorted(n for n, _ in blocks)
+    assert names == ["analysis_v0", "analysis_v1", "analysis_v2"] or "analysis" in names, names
+    for name, body in blocks:
+        staged = re.search(r"path config_json, stageAs: '([^']+)'", body)
+        assert staged, f"{name}: no staged config"
+        script = body.split("script:", 1)[1]
+        assert "${config_json}" in script or staged.group(1) in script, (
+            f"{name} is staged as {staged.group(1)} but its script says: {script.strip()}"
+        )
+        assert "analysis.config.json" not in script or staged.group(1) == "analysis.config.json", (
+            f"{name} hard-codes the single-node config name"
+        )

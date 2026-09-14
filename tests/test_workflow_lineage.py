@@ -61,6 +61,40 @@ def test_completes_after_generations(monkeypatch):
     assert all(s["divided"] for s in lp._summaries)
 
 
+def test_lineage_drives_one_advance_generation_emitter(monkeypatch):
+    """The whole lineage is driven by ONE XArrayEmitter: at each generation
+    boundary it is ADVANCED in place (advance_generation) to the next
+    generation's partition, not closed and rebuilt; only the LAST generation
+    closes it. This is what keeps a single emitter (and its per-generation
+    flush+consolidate durability) across the lineage -- Eran's "same emitter,
+    launch a new internal ecoli model per generation"."""
+    from unittest.mock import MagicMock
+
+    lp, _calls = _make(monkeypatch, generations=3, divide_after=2)
+    # The stubbed biology never builds an emitter; inject one and force the
+    # xarray branch so we can observe the generation-boundary handling.
+    monkeypatch.setattr(lp, "_is_xarray", lambda: True)
+    monkeypatch.setattr(lp, "_is_parquet", lambda: False)
+    em = MagicMock()
+    lp._xarray_em = em
+
+    out = {}
+    for _ in range(30):
+        out = lp.update({}, 1.0)
+        if out.get("complete"):
+            break
+    assert out["complete"] is True
+
+    # advance_generation at each NON-final boundary, walking the phylogeny
+    # (0 -> 00 -> 000), success=True; never a per-generation close before the end.
+    advanced = [c.kwargs["agent_id"] for c in em.advance_generation.call_args_list]
+    assert advanced == ["00", "000"]
+    assert all(c.kwargs.get("success") is True for c in em.advance_generation.call_args_list)
+    # The LAST generation closes the one emitter exactly once, and nulls it.
+    em.close.assert_called_once_with(success=True)
+    assert lp._xarray_em is None
+
+
 def test_single_daughters_false_not_implemented(monkeypatch):
     lp, _ = _make(monkeypatch, generations=2)
     lp.config["single_daughters"] = False
@@ -539,3 +573,548 @@ def test_xarray_emitter_caller_writer_override_still_wins(monkeypatch):
     lp._open_xarray_emitter(emit_cell={"bulk": {}})
 
     assert captured["kwargs"]["writer"] == {"buffers_per_chunk": 4, "backend": "zarr"}
+
+
+# --- injected agent-root stores survive the generation boundary --------------
+# sms-ecoli#166 P0 items 2 and 3: a native lineage lost EVERY injected
+# agent-root store at each generation boundary, because only
+# bulk/unique/environment/boundary were selected from the surviving daughter and
+# overlaid onto the next generation's freshly built document. A `fields` dose
+# was re-zeroed (and re-fired) every generation, wall damage could not
+# accumulate, and a `lysed` latch un-latched.
+
+
+def _restore_division_registries(monkeypatch):
+    """Keep the module-level divider / carried-listener registries per-test."""
+    import v2ecoli.library.division as _div
+
+    monkeypatch.setattr(_div, "STORE_DIVIDERS", dict(_div.STORE_DIVIDERS))
+    monkeypatch.setattr(
+        _div, "CARRIED_LISTENER_PATHS", list(_div.CARRIED_LISTENER_PATHS))
+
+
+def test_select_carry_daughter_returns_extra_root_stores():
+    """The …0 daughter's carry state includes the injected agent-root stores,
+    taken from the mother snapshot (the rebuilt daughter's are fresh/zeroed)."""
+    import numpy as np
+    from v2ecoli.workflow.lineage import select_carry_daughter
+
+    dosed = np.array([[7.5]])
+    mother_snapshot = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "fields": {"_type": "map[overwrite[array[float]]]", "tetracycline": dosed},
+        "imposed_flux_bounds": {"RXN": 3.0},
+        "periplasm": {"global": {"volume": 0.2}},
+    }
+    agents_now = {
+        "00": {
+            "bulk": "D0", "unique": {"u": 1}, "environment": {}, "boundary": {},
+            # what the Division step's baseline() rebuild produces: FRESH zeros
+            "fields": {"_type": "map[overwrite[array[float]]]",
+                       "tetracycline": np.zeros((1, 1))},
+            "imposed_flux_bounds": {},
+            # a process EDGE on the daughter node must never be carried
+            "division": {"address": "local:Division", "config": {}},
+        },
+        "01": {"bulk": "D1", "unique": {}, "environment": {}, "boundary": {}},
+    }
+    carry = select_carry_daughter({"0"}, agents_now, mother_snapshot)
+
+    assert carry["bulk"] == "D0"                 # core state still the daughter's
+    assert carry["fields"]["tetracycline"] == dosed
+    assert carry["imposed_flux_bounds"] == {"RXN": 3.0}
+    assert carry["periplasm"] == {"global": {"volume": 0.2}}
+    assert "division" not in carry               # edges filtered out
+    assert "listeners" not in carry              # never carried wholesale
+
+
+def test_select_carry_daughter_applies_a_registered_divider(monkeypatch):
+    """A store that declares a divider is SPLIT (the fork's pg_cellwall
+    behaviour), not copied; everything else is copied."""
+    _restore_division_registries(monkeypatch)
+    from v2ecoli.library.division import register_store_divider
+    from v2ecoli.workflow.lineage import select_carry_daughter
+
+    register_store_divider("pg_cellwall", lambda v: (["half-a"], ["half-b"]))
+    mother_snapshot = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "pg_cellwall": ["whole"], "fields": {"drug": 1.0},
+    }
+    carry = select_carry_daughter(
+        {"0"}, {"00": {"bulk": "D0", "unique": {}}}, mother_snapshot)
+    assert carry["pg_cellwall"] == ["half-a"]    # divided, daughter 1's share
+    assert carry["fields"] == {"drug": 1.0}      # copied
+
+
+def test_select_carry_daughter_carries_a_declared_listener_leaf(monkeypatch):
+    """A declared listener LEAF (the lysed latch) rides along; the rest of
+    ``listeners`` does not."""
+    _restore_division_registries(monkeypatch)
+    from v2ecoli.library.division import register_carried_listener_path
+    from v2ecoli.workflow.lineage import select_carry_daughter
+
+    register_carried_listener_path(("peptidoglycan_shape", "lysed"))
+    mother_snapshot = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "listeners": {
+            "peptidoglycan_shape": {"lysed": True, "murein": 42},
+            "mass": {"dry_mass": 500.0},
+        },
+    }
+    carry = select_carry_daughter(
+        {"0"}, {"00": {"bulk": "D0", "unique": {}}}, mother_snapshot)
+    assert carry["_carried_listeners"] == {"peptidoglycan_shape": {"lysed": True}}
+    assert "listeners" not in carry
+
+
+def test_apply_carry_state_merges_extra_store_and_keeps_its_type():
+    """The typed-node trap: the fresh document represents an injected root as a
+    dict carrying ``_type`` (sms-ecoli's ``_materialize_native_declared_state``
+    stamps ``fields`` as ``map[overwrite[array[float]]]`` and pre-seeds the
+    molecule keys as zero arrays). Overlaying the carried store must MERGE
+    leaves into that node — replacing it with a raw dict would drop the
+    ``_type`` and with it the overwrite updater, the exact failure
+    ``_FRESH_ENVIRONMENT_SUBSTORES`` guards for ``exchange_data``."""
+    import numpy as np
+    from v2ecoli.workflow.lineage import apply_carry_state
+
+    fresh_exchange_data = {"constrained": {"GLC[p]": 20.0}}
+    agent = {
+        "bulk": "FRESH", "unique": {},
+        "environment": {"exchange_data": fresh_exchange_data},
+        "boundary": {},
+        "listeners": {"mass": {}},
+        "fields": {
+            "_type": "map[overwrite[array[float]]]",
+            "tetracycline": np.zeros((1, 1)),
+            "glucose": np.zeros((1, 1)),        # key the carry state lacks
+        },
+        "imposed_flux_bounds": {},
+    }
+    dosed = np.array([[7.5]])
+    carry_state = {
+        "bulk": "CARRIED", "unique": {},
+        "environment": {"exchange_data": {"constrained": {"GLC[p]": 9999.0}}},
+        "boundary": {},
+        "fields": {"tetracycline": dosed},
+        "imposed_flux_bounds": {"RXN": 3.0},
+        "counts": {"x": 1},                      # root absent from the fresh doc
+    }
+    apply_carry_state(agent, carry_state)
+
+    assert agent["fields"]["_type"] == "map[overwrite[array[float]]]"  # type kept
+    assert agent["fields"]["tetracycline"] == dosed                    # seed replaced
+    assert agent["fields"]["glucose"] == np.zeros((1, 1))              # fresh key kept
+    assert agent["imposed_flux_bounds"] == {"RXN": 3.0}
+    assert agent["counts"] == {"x": 1}
+    assert agent["bulk"] == "CARRIED"
+    # the exchange_data guard is untouched by the new overlay
+    assert agent["environment"]["exchange_data"] is fresh_exchange_data
+
+
+def test_apply_carry_state_merges_a_carried_listener_leaf():
+    """``_carried_listeners`` merges into ``listeners`` without disturbing the
+    fresh listener tree (the caller resets ``listeners.mass`` right after)."""
+    from v2ecoli.workflow.lineage import apply_carry_state
+
+    agent = {
+        "bulk": "F", "unique": {}, "environment": {}, "boundary": {},
+        "listeners": {"mass": {"dry_mass": 0.0},
+                      "peptidoglycan_shape": {"lysed": False, "murein": 0}},
+    }
+    apply_carry_state(agent, {
+        "bulk": "C",
+        "_carried_listeners": {"peptidoglycan_shape": {"lysed": True}},
+    })
+    assert agent["listeners"]["peptidoglycan_shape"]["lysed"] is True
+    assert agent["listeners"]["peptidoglycan_shape"]["murein"] == 0
+    assert agent["listeners"]["mass"] == {"dry_mass": 0.0}
+    assert "_carried_listeners" not in agent
+
+
+class _FakeComposite:
+    def __init__(self, state):
+        self.state = state
+
+
+def test_elapsed_after_run_uses_the_daughter_stamp_when_there_is_no_clock(monkeypatch):
+    """The daughter stamp is the fallback for a composite that exposes no clock.
+    (Its original fixture -- clock 3,600 with daughters stamped 2,528 -- was the
+    pre-#773 window semantics: the inner run carried on past the division to the
+    end of the window. With the slice loop the clock stops AT the division, so
+    that state can no longer occur; the clock-vs-stamp ordering is covered by
+    test_elapsed_after_run_prefers_the_inner_clock_over_a_young_daughter.)"""
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 0.0
+    lp._composite = _FakeComposite({
+        "agents": {"00": {"global_time": 2528.0}, "01": {"global_time": 2528.0}},
+    })
+    assert lp._elapsed_after_run(3600.0, {"0"}, lp._composite.state["agents"]) == 2528.0
+
+
+def test_elapsed_after_run_prefers_the_inner_clock_over_a_young_daughter(monkeypatch):
+    """sim 958 (2026-09-10): with the slice loop the daughters are 0-10 s old at
+    the break and ``previous`` is 0.0 on the single-window path (one update() per
+    generation), so a stamp-first rule booked ~2 s per generation, the lineage
+    offset never advanced, and the 10,000 s dose never fired across five
+    generations (cumulative 14,645 s). The inner clock stops at the division and
+    must win."""
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 0.0
+    lp._composite = _FakeComposite({
+        "global_time": 2530.0,
+        "agents": {"00": {"global_time": 2.0}, "01": {"global_time": 2.0}},
+    })
+    assert lp._elapsed_after_run(3600.0, {"0"}, lp._composite.state["agents"]) == 2530.0
+
+
+def test_elapsed_after_run_tick_driven_path_is_unchanged(monkeypatch):
+    """The chain path drives the runner per tick, so ``previous`` is already at
+    the division when it lands and the inner clock agrees with it (sim 952 dosed
+    at cumulative 10,001 s). Reordering the precedence must not move that."""
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 2527.0
+    lp._composite = _FakeComposite({
+        "global_time": 2528.0,
+        "agents": {"00": {"global_time": 1.0}, "01": {"global_time": 1.0}},
+    })
+    assert lp._elapsed_after_run(1.0, {"0"}, lp._composite.state["agents"]) == 2528.0
+
+
+def test_elapsed_after_run_ignores_a_daughter_stamp_that_does_not_advance(monkeypatch):
+    """sims 946/947 (2026-09-10): the Division step rebuilds each daughter from
+    baseline(), whose global_time is 0.0, so the "stamp" on a real daughter is 0.0.
+    Trusting it booked 0 s per generation: lineage_time_offset never advanced and
+    Run 3's cumulative 10,000 s dose never fired. A non-advancing stamp must be
+    ignored in favour of the inner clock, which stops at the division (2,528 s)."""
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 0.0
+    lp._composite = _FakeComposite({
+        "global_time": 2528.0,
+        "agents": {"00": {"global_time": 0.0}, "01": {"global_time": 0.0}},
+    })
+    assert lp._elapsed_after_run(3600.0, {"0"}, lp._composite.state["agents"]) == 2528.0
+    # and with neither a usable stamp nor an advancing clock, the window (stubs)
+    lp._composite = _FakeComposite({"global_time": 0.0,
+                                    "agents": {"00": {"global_time": 0.0}}})
+    assert lp._elapsed_after_run(3600.0, {"0"}, lp._composite.state["agents"]) == 3600.0
+
+
+def test_elapsed_after_run_uses_the_inner_clock_without_daughters(monkeypatch):
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 0.0
+    lp._composite = _FakeComposite({"global_time": 1734.0, "agents": {"0": {}}})
+    assert lp._elapsed_after_run(3600.0, {"0"}, {"0": {}}) == 1734.0
+    # A window that ran to its end books the whole window.
+    lp._composite = _FakeComposite({"global_time": 3600.0, "agents": {"0": {}}})
+    assert lp._elapsed_after_run(3600.0, {"0"}, {"0": {}}) == 3600.0
+
+
+def test_elapsed_after_run_falls_back_to_the_window_for_stubs(monkeypatch):
+    lp, _ = _make(monkeypatch, generations=2)
+    lp._gen_elapsed = 40.0
+    lp._composite = _FakeComposite({"agents": {"0": {}}})
+    assert lp._elapsed_after_run(10.0, {"0"}, {"0": {}}) == 50.0
+    # A stale clock (not past what is already booked) never rewinds.
+    lp._composite = _FakeComposite({"global_time": 5.0, "agents": {"0": {}}})
+    assert lp._elapsed_after_run(10.0, {"0"}, {"0": {}}) == 50.0
+
+
+class _DividingComposite:
+    """A composite whose ``run(dt)`` advances its clock and, once it passes a
+    scripted division time, swaps the mother ``0`` for daughters ``00``/``01``
+    whose own clocks start at 0 and keep advancing -- the shape sim 955 exposed
+    on the single-window path (division at 2,528 s, daughter clock 1,072 s at
+    the 3,600 s window end)."""
+
+    def __init__(self, divide_at=None, mother_id="0"):
+        self.divide_at = divide_at
+        self.state = {
+            "global_time": 0.0,
+            "agents": {mother_id: {"bulk": "M", "unique": {}, "environment": {},
+                                   "boundary": {}, "global_time": 0.0,
+                                   "listeners": {"mass": {"dry_mass": 700.0}}}},
+        }
+        self.calls = []
+        self.divided_at = None
+
+    def run(self, dt):
+        self.calls.append(float(dt))
+        t0 = self.state["global_time"]
+        t1 = t0 + float(dt)
+        self.state["global_time"] = t1
+        agents = self.state["agents"]
+        if self.divided_at is None and self.divide_at is not None and t1 >= self.divide_at:
+            self.divided_at = t1
+            for d in ("00", "01"):
+                agents[d] = {"bulk": "D", "unique": {}, "environment": {}, "boundary": {},
+                             "global_time": 0.0, "listeners": {"mass": {"dry_mass": 350.0}}}
+            agents.pop("0", None)
+        elif self.divided_at is not None:
+            for d in ("00", "01"):
+                agents[d]["global_time"] += float(dt)
+        else:
+            agents["0"]["global_time"] = t1
+
+
+def _real_run_until_division(monkeypatch, lp):
+    monkeypatch.setattr(lp, "_run_until_division",
+                        LineageProcess._run_until_division.__get__(lp))
+
+
+def test_single_window_generation_stops_within_one_slice_of_division(monkeypatch):
+    """sim 955 (2026-09-10): on the LineageStep path one ``run(3600)`` ran both
+    daughters to the window end and booked the daughter's clock (1,072 s =
+    3,600 - 2,528) as the generation's duration. Polling every
+    ``division_poll_interval`` seconds must stop within one slice of the
+    division, book the division time, and carry the daughter at division."""
+    lp, _ = _make(monkeypatch, generations=2)
+    _real_run_until_division(monkeypatch, lp)
+    lp.config["division_poll_interval"] = 10.0
+    lp.config["max_duration_per_gen"] = 3600.0
+    lp._gen_elapsed = 0.0
+    comp = _DividingComposite(divide_at=2528.0)
+    lp._composite = comp
+
+    divided, daughter, _ = lp._run_until_division(3600.0)
+
+    assert divided is True
+    assert 2528.0 <= lp._gen_elapsed <= 2538.0            # within one slice
+    assert sum(comp.calls) <= comp.divided_at + 10.0       # never ran the sibling on
+    assert daughter is not None and daughter["bulk"] == "D"
+    assert comp.state["agents"]["00"]["global_time"] <= 10.0   # daughter at division
+
+
+def test_tick_driven_path_is_unchanged_by_division_polling(monkeypatch):
+    """The chain path drives the runner one second at a time: with
+    ``interval=1`` a poll interval of 10 s still issues exactly one 1 s run."""
+    lp, _ = _make(monkeypatch, generations=2)
+    _real_run_until_division(monkeypatch, lp)
+    lp.config["division_poll_interval"] = 10.0
+    lp._gen_elapsed = 0.0
+    comp = _DividingComposite(divide_at=None)
+    lp._composite = comp
+
+    divided, daughter, _ = lp._run_until_division(1.0)
+
+    assert comp.calls == [1.0]
+    assert divided is False and daughter is None
+    assert lp._gen_elapsed == 1.0
+
+
+def test_no_division_consumes_the_whole_window(monkeypatch):
+    """Without a division the slices add up to the full window and the
+    generation books the window (so ``update`` reports ``timed_out``)."""
+    lp, _ = _make(monkeypatch, generations=2)
+    _real_run_until_division(monkeypatch, lp)
+    lp.config["division_poll_interval"] = 250.0
+    lp.config["max_duration_per_gen"] = 3600.0
+    lp._gen_elapsed = 0.0
+    comp = _DividingComposite(divide_at=None)
+    lp._composite = comp
+
+    divided, daughter, _ = lp._run_until_division(3600.0)
+
+    assert divided is False and daughter is None
+    assert sum(comp.calls) == 3600.0
+    assert max(comp.calls) <= 250.0
+    assert lp._gen_elapsed == 3600.0
+    assert lp._gen_elapsed >= float(lp.config["max_duration_per_gen"])
+
+
+def test_partition_bookkeeping_roots_are_never_carried():
+    """``request``/``allocate`` are per-tick partition bookkeeping (each Requester
+    overwrites its own entry; the Allocator derives ``allocate`` from ``request``).
+    Carrying the mother's snapshot seeded the daughter's first tick with stale,
+    full-size demands from EVERY process and the Allocator partitioned a half-size
+    cell against them: sims 943/944 (2026-09-10) died in generation 1 on
+    ``NegativeCountsError`` / ``Failed to meet molecule limits with ppGpp``."""
+    from v2ecoli.library.division import extra_store_keys
+    from v2ecoli.workflow.lineage import apply_carry_state, select_carry_daughter
+
+    stale_request = {"ecoli-polypeptide-elongation": {"bulk": [[300, 10 ** 6]]}}
+    stale_allocate = {"ecoli-polypeptide-elongation": {"bulk": [[300, 10 ** 6]]}}
+    mother_snapshot = {
+        "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+        "request": stale_request, "allocate": stale_allocate,
+        "fields": {"drug": 1.0},
+    }
+    assert "request" not in extra_store_keys(mother_snapshot)
+    assert "allocate" not in extra_store_keys(mother_snapshot)
+
+    agents_now = {
+        "00": {"bulk": "D0", "unique": {}, "environment": {}, "boundary": {},
+               "request": {}, "allocate": {}, "fields": {"drug": 0.0}},
+        "01": {"bulk": "D1", "unique": {}, "environment": {}, "boundary": {}},
+    }
+    carry = select_carry_daughter({"0"}, agents_now, mother_snapshot)
+    assert "request" not in carry and "allocate" not in carry
+    assert carry["fields"] == {"drug": 1.0}          # injected extras still ride
+
+    fresh = {"bulk": "F", "unique": {}, "environment": {}, "boundary": {},
+             "request": {}, "allocate": {}, "fields": {"drug": 0.0}}
+    apply_carry_state(fresh, carry)
+    assert fresh["request"] == {} and fresh["allocate"] == {}
+    assert fresh["fields"] == {"drug": 1.0}
+
+
+# --- cross-path dose-onset equivalence (#769/#771/#773) ----------------------
+#
+# The per-PR unit tests above pin each fix in isolation (a single generation's
+# _run_until_division / _elapsed_after_run). The bug they kept missing was a
+# CROSS-PATH one: the chain-dispatch path (tick-driven, the runner stepped one
+# second at a time, interval=1) and the single-window LineageStep / Nextflow
+# path (one big update() per generation, division found by polling every
+# division_poll_interval seconds) implemented DIFFERENT lineage/generation time
+# semantics. A field-timeline dose scheduled at an ABSOLUTE cumulative lineage
+# time (Run 3's onset at 10,000 s) fired on the chain path but never on the
+# single-window path, because the two paths booked different per-generation
+# durations into lineage_time_offset. These tests drive a whole multi-generation
+# lineage through update() under BOTH drive modes against the same scripted
+# division times and assert the cumulative booked time (hence the generation a
+# cumulative-time dose lands in) is identical.
+
+
+class _ScriptedDivider:
+    """A composite whose single mother cell divides at a fixed ABSOLUTE time.
+
+    Mother is keyed by ``mother_id`` (the phylogeny id LineageProcess hands the
+    build). At the first slice that reaches ``divide_at`` the mother is replaced
+    by two daughters (``mother_id+"0"`` / ``mother_id+"1"``) whose OWN clocks
+    restart at 0 and keep advancing -- the exact shape the real Division step
+    produces (daughters rebuilt from ``baseline()`` at ``global_time`` 0). The
+    composite's own ``global_time`` clock advances monotonically and stops where
+    the run stopped, which is what ``_elapsed_after_run`` reads as the division
+    time on every path.
+    """
+
+    def __init__(self, divide_at, mother_id="0"):
+        self.divide_at = float(divide_at)
+        self.mother_id = mother_id
+        self.state = {
+            "global_time": 0.0,
+            "agents": {mother_id: self._cell(0.0)},
+        }
+        self.divided_at = None
+
+    @staticmethod
+    def _cell(global_time):
+        return {
+            "bulk": "M", "unique": {}, "environment": {}, "boundary": {},
+            "global_time": float(global_time),
+            "listeners": {"mass": {"dry_mass": 350.0}},
+        }
+
+    def run(self, dt):
+        dt = float(dt)
+        t1 = self.state["global_time"] + dt
+        self.state["global_time"] = t1
+        agents = self.state["agents"]
+        if self.divided_at is None and t1 >= self.divide_at:
+            self.divided_at = t1
+            agents.pop(self.mother_id, None)
+            for d in (self.mother_id + "0", self.mother_id + "1"):
+                agents[d] = self._cell(0.0)
+        elif self.divided_at is not None:
+            for d in (self.mother_id + "0", self.mother_id + "1"):
+                agents[d]["global_time"] += dt
+        else:
+            agents[self.mother_id]["global_time"] = t1
+
+
+def _drive_generations(monkeypatch, divide_times, *, interval, poll):
+    """Run a LineageProcess through ``len(divide_times)`` generations under one
+    drive mode and return ``(per_generation_durations, cumulative_offset)``.
+
+    ``interval`` is what each ``update()`` is called with -- 1.0 reproduces the
+    tick-driven chain path, a big window reproduces the single-window path.
+    ``poll`` is ``division_poll_interval``. Each generation installs a FRESH
+    ``_ScriptedDivider`` scripted to divide at its own time (this is where the
+    real lineage rebuilds the composite), keyed by the current phylogeny id.
+    """
+    lp, _ = _make(monkeypatch, generations=len(divide_times))
+    _real_run_until_division(monkeypatch, lp)
+    lp.config["division_poll_interval"] = poll
+    lp.config["max_duration_per_gen"] = max(divide_times) + 100_000.0
+    # Parquet finalize / emitted-output checks are not what this test exercises
+    # (there is no real emitter behind the scripted composite); the time
+    # bookkeeping is. Neutralize them so the drive is clean on both paths.
+    monkeypatch.setattr(lp, "_finalize_parquet", lambda: None)
+    monkeypatch.setattr(lp, "_assert_generation_emitted", lambda: None)
+
+    def fresh_build():
+        lp._composite = _ScriptedDivider(
+            divide_at=divide_times[lp._generation], mother_id=lp._agent_id)
+        lp._gen_elapsed = 0.0
+
+    monkeypatch.setattr(lp, "_build_generation", fresh_build)
+
+    out = {}
+    for _ in range(10_000):
+        out = lp.update({}, interval)
+        if out.get("complete"):
+            break
+    assert out.get("complete") is True, "lineage did not complete"
+    durations = [s["duration"] for s in lp._summaries]
+    return durations, lp._lineage_offset
+
+
+def _generation_of_dose(durations, dose_time):
+    """The generation index a dose scheduled at absolute cumulative lineage time
+    ``dose_time`` lands in, given the per-generation durations booked."""
+    cumulative = 0.0
+    for gen, dur in enumerate(durations):
+        cumulative += dur
+        if dose_time < cumulative:
+            return gen
+    return len(durations)  # after the lineage ends
+
+
+def test_cumulative_elapsed_matches_across_drive_modes(monkeypatch):
+    """The cross-path INVARIANT the per-PR unit tests missed: for the SAME
+    scripted division times, the tick-driven chain path (interval=1) and the
+    single-window path (one big update() per generation) book the SAME
+    per-generation duration and therefore the SAME cumulative lineage-time
+    offset. Division times chosen on the poll grid so both paths land the
+    division exactly, making the equivalence exact rather than within-a-slice.
+    """
+    poll = 10.0
+    divide_times = [2530.0, 1800.0, 2000.0, 2650.0]
+
+    tick_durations, tick_offset = _drive_generations(
+        monkeypatch, divide_times, interval=1.0, poll=poll)
+    window_durations, window_offset = _drive_generations(
+        monkeypatch, divide_times, interval=50_000.0, poll=poll)
+
+    # Both paths book the real division time each generation ...
+    assert tick_durations == divide_times
+    assert window_durations == divide_times
+    # ... hence identical per-generation and cumulative time on both paths.
+    assert tick_durations == window_durations
+    assert tick_offset == window_offset == sum(divide_times)
+    # And crucially NEITHER path books the WINDOW (50,000 s) as a generation's
+    # duration -- the pre-#773 single-window bug that fired the dose ~2,900 s
+    # early / never.
+    assert all(d < 50_000.0 for d in window_durations)
+
+
+def test_scheduled_dose_lands_in_same_generation_on_both_paths(monkeypatch):
+    """The consequence that actually bit Run 3: a field-timeline dose scheduled
+    at an absolute cumulative lineage time must fire in the SAME generation
+    whichever drive mode runs the lineage. Under the old single-window
+    semantics the cumulative clock advanced differently, so the 10,000 s dose
+    fired on the chain path but never on the single-window path."""
+    poll = 10.0
+    divide_times = [2530.0, 1800.0, 2000.0, 2650.0]  # cumulative: 2530,4330,6330,8980
+    tick_durations, _ = _drive_generations(
+        monkeypatch, divide_times, interval=1.0, poll=poll)
+    window_durations, _ = _drive_generations(
+        monkeypatch, divide_times, interval=50_000.0, poll=poll)
+
+    # Probe doses spanning every generation boundary, including one past the
+    # last division.
+    for dose_time in (1000.0, 2530.0, 4000.0, 6330.0, 7000.0, 8900.0):
+        assert (
+            _generation_of_dose(tick_durations, dose_time)
+            == _generation_of_dose(window_durations, dose_time)
+        ), f"dose at {dose_time}s lands in different generations across paths"

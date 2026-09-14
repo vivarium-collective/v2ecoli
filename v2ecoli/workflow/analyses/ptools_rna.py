@@ -207,6 +207,38 @@ def consolidate_timepoints(state_mtx, n_tp, normalized=False, generations=None):
     return block_sums_final, checkpoints
 
 
+def build_tu_mrna_dict(mrna_mtx, mrna_tu_ids):
+    """Map each mRNA TU id to its emitted count trace, tolerating un-emitted ids.
+
+    ``full_mRNA_counts`` is a positional array whose columns are defined to match
+    sim_data's ``rna_data[is_mRNA]`` order. But sim_data's mRNA id list can be
+    WIDER than the emitted array when sim_data carries a new-gene / reporter mRNA
+    (e.g. an injected GFP reporter, appended to the gene arrays by the ParCa) that
+    the run did not emit a column for. Zero-fill any trailing sim_data id beyond
+    the emitted width instead of overrunning ``mrna_mtx`` — new genes append at
+    the tail, so this keeps every emitted gene aligned. Symmetric with
+    ``bulk_count_matrix`` tolerating un-emitted bulk molecules (cf. #685/#744).
+    """
+    n_emit = mrna_mtx.shape[1]
+    n_ids = len(mrna_tu_ids)
+    if n_ids != n_emit:
+        import warnings
+
+        warnings.warn(
+            f"ptools_rna: {n_ids} sim_data mRNA id(s) vs {n_emit} emitted "
+            f"full_mRNA_counts column(s); zero-filling "
+            f"{max(n_ids - n_emit, 0)} unemitted trailing id(s).",
+            stacklevel=2,
+        )
+    tu_mrna_dict = {}
+    for idx, mrna_tu_id in enumerate(mrna_tu_ids):
+        if idx < n_emit:
+            tu_mrna_dict[mrna_tu_id] = mrna_mtx[:, idx]
+        else:
+            tu_mrna_dict[mrna_tu_id] = np.zeros(mrna_mtx.shape[0], dtype=mrna_mtx.dtype)
+    return tu_mrna_dict
+
+
 # ---------------------------------------------------------------------------
 # Analysis subclass
 # ---------------------------------------------------------------------------
@@ -232,22 +264,21 @@ class PtoolsRna(Analysis):
         """Delegate to module-level read_outputs (overridable by mixins)."""
         return read_outputs(history_sql, conn, columns)
 
-    def analyze(
-        self,
-        *,
-        conn: DuckDBPyConnection,
-        history_sql: str,
-        sim_data,
-        variant_metadata: dict[str, Any] | None = None,
-        **ctx,
-    ) -> dict:
-        params = dict(variant_metadata or {})
-        params.setdefault("n_tp", 8)
-        params.setdefault("time_unit", "minutes")
+    # Multiseed (cross-seed) render spec, consumed by _MultiseedMixin.
+    _ptools_multiseed_spec = {
+        "filename": "ptools_rna_multiseed.tsv",
+        "title": "RNA counts",
+        "color_label": "count",
+        "log_color": False,
+        "sort_rows": False,
+        "take_abs": False,
+    }
 
-        if params["time_unit"] not in ("minutes", "seconds"):
-            params["time_unit"] = "minutes"
-
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Raw ``(time × gene)`` RNA-count matrix + axes; the extraction half of
+        :meth:`analyze`, reused per seed by ``_MultiseedMixin``. Returns
+        ``(matrix, time_vec, feature_ids, generation_vec_or_None)``.
+        """
         wd_raw = _flat_dir()
 
         rna_data = sim_data.process.transcription.rna_data
@@ -278,9 +309,7 @@ class PtoolsRna(Analysis):
             tu_ids=mrna_tu_ids, tu_source=tu_source
         )
 
-        tu_mrna_dict = {}
-        for idx, mrna_tu_id in enumerate(mrna_tu_ids):
-            tu_mrna_dict[mrna_tu_id] = mrna_mtx[:, idx]
+        tu_mrna_dict = build_tu_mrna_dict(mrna_mtx, mrna_tu_ids)
 
         # Retrieve processed RNAs (tRNAs, rRNAs)
         rna_ids_unprocessed = rna_data["id"][rna_data["is_unprocessed"]]
@@ -432,19 +461,41 @@ class PtoolsRna(Analysis):
 
         tu_counts_mtx = np.stack(list(tu_dict_full.values())).transpose()
         rna_counts_gene = np.matmul(tu_counts_mtx, tu_gene_mtx)
+        gens_raw = (
+            output_df["generation"].values
+            if "generation" in output_df.columns else None
+        )
+        return rna_counts_gene, output_df["time"].values, tu_genes_all, gens_raw
+
+    def analyze(
+        self,
+        *,
+        conn: DuckDBPyConnection,
+        history_sql: str,
+        sim_data,
+        variant_metadata: dict[str, Any] | None = None,
+        **ctx,
+    ) -> dict:
+        params = dict(variant_metadata or {})
+        params.setdefault("n_tp", 8)
+        params.setdefault("time_unit", "minutes")
+
+        if params["time_unit"] not in ("minutes", "seconds"):
+            params["time_unit"] = "minutes"
+
+        rna_counts_gene, time_vec, tu_genes_all, gens = self._feature_matrix(
+            history_sql, conn, sim_data, params
+        )
+        if not (params.get("per_generation") and gens is not None):
+            gens = None
 
         n_tp = int(params["n_tp"])
-        gens = (
-            output_df["generation"].values
-            if params.get("per_generation") and "generation" in output_df.columns
-            else None
-        )
 
         rna_counts_gene_blocksum, tp_idx = consolidate_timepoints(
             rna_counts_gene, n_tp, normalized=True, generations=gens
         )
 
-        tp_checkpoints = output_df["time"].values[tp_idx]
+        tp_checkpoints = time_vec[tp_idx]
 
         if params["time_unit"] == "minutes":
             tp_checkpoints = tp_checkpoints / 60

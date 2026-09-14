@@ -1202,6 +1202,19 @@ class LineageProcess(Process):
         # this function alone couldn't distinguish the cases. Silent unless
         # LINEAGE_DEBUG_DIVISION=1 is set; never touches production behavior.
         structural = bool(agents_before and agents_after != agents_before)
+        # The event is the print's structured twin and belongs under the SAME
+        # gate -- it escaped it, and "never touches production behavior" above
+        # stopped being true the moment the event stream became real. Measured on
+        # sim 1318 (2026-09-14) with LINEAGE_DEBUG_DIVISION unset: one event per
+        # simulated timestep, 3.6/s for a single lineage, 946 of the first 1000
+        # rows viva-api stored, and a 3.7 MB S3 object rewritten whole every
+        # flush. viva-api omits the flag by default and has tests pinning that
+        # (test_submit_chain_generation_omits_lineage_debug_division_by_default),
+        # so the escape defeated a deliberate, tested opt-in.
+        #
+        # Nothing observable is lost by gating it: a DIVISION is already carried
+        # by lineage.generation.start/.end at info level. What is gated here is
+        # the per-tick diagnostic, which is exactly what the flag was added for.
         if os.environ.get("LINEAGE_DEBUG_DIVISION") == "1":
             print(
                 f"[lineage-debug] t={self._gen_elapsed} divided={divided} "
@@ -1210,12 +1223,12 @@ class LineageProcess(Process):
                 f"agents_before={sorted(agents_before)} agents_after={sorted(agents_after)}",
                 flush=True,
             )
-        _events.emit(
-            "lineage.debug", level="debug", t=float(self._gen_elapsed), divided=bool(divided),
-            structural_agents_change=structural, divide_flag=bool(divide_flag),
-            dry_mass=float(dry_mass), agents_before=sorted(agents_before),
-            agents_after=sorted(agents_after),
-        )
+            _events.emit(
+                "lineage.debug", level="debug", t=float(self._gen_elapsed), divided=bool(divided),
+                structural_agents_change=structural, divide_flag=bool(divide_flag),
+                dry_mass=float(dry_mass), agents_before=sorted(agents_before),
+                agents_after=sorted(agents_after),
+            )
 
         if self._is_xarray():
             self._emit_xarray(agents_now)

@@ -186,3 +186,52 @@ def test_view_has_two_panels():
     out = _run(rows, ["R1"], n_tp=1)
     assert "cross-seed mean" in out["view"]
     assert "cross-seed spread" in out["view"]
+
+
+class _RecordingConn:
+    """Wraps a DuckDB connection to capture every SQL string issued."""
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.queries: list[str] = []
+
+    def sql(self, query):
+        self.queries.append(query)
+        return self._conn.sql(query)
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+
+def test_multiseed_streams_per_generation_within_seed():
+    """Memory-bound guard. For a multiseed-of-multigen store each seed spans many
+    generations; reading a seed's whole span at once (the previous behaviour) is
+    the ~58 GiB Python-side OOM. The per-seed read must stream ONE GENERATION at a
+    time. Assert every wide flux read is scoped to a single generation — the fix
+    filters the seed's cumulative history by generation (which prunes) rather than
+    materialising the whole seed. Row-count alone can't catch this; the SQL shape
+    does.
+    """
+    from v2ecoli.workflow.analyses.ptools_multiscale import PtoolsRxnsMultiseed
+
+    # 2 seeds x 3 generations (time resets each gen) -> each seed spans 3 gens.
+    rows = []
+    for seed in (0, 1):
+        for gen in (0, 1, 2):
+            for t in (0.0, 1.0):
+                rows.append((seed, gen, t, [float((seed + 1) * (gen + 1))]))
+    conn, history_sql = _make_history(rows)
+    spy = _RecordingConn(conn)
+    step = PtoolsRxnsMultiseed({}, core=allocate_core())
+    step.analyze(
+        conn=spy, history_sql=history_sql, sim_data=_fake_sim_data(["R1"]),
+        variant_metadata={"n_tp": 3, "time_unit": "seconds"},
+    )
+    wide = [q for q in spy.queries if FLUX_COL in q]
+    assert wide, "expected at least one wide flux read"
+    for q in wide:
+        up = q.upper()
+        assert "GENERATION =" in up or "GENERATION=" in up, (
+            "a wide flux read is not scoped to a single generation — the whole-seed "
+            f"materialisation the OOM comes from:\n{q}"
+        )

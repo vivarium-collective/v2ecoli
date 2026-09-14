@@ -106,8 +106,10 @@ class _CountingConn:
     def __init__(self, conn):
         self._conn = conn
         self.df_row_counts: list[int] = []
+        self.queries: list[str] = []
 
     def sql(self, query):
+        self.queries.append(query)
         return _CountingRelation(self._conn.sql(query), self.df_row_counts)
 
     def __getattr__(self, name):
@@ -151,3 +153,31 @@ def test_multigen_never_materializes_more_than_one_generation():
         f"generation's {TICKS_PER_GEN}: the multigen read is not streaming per "
         f"generation (this is the disk-spill the fix removes)."
     )
+
+
+def test_wide_per_generation_read_prunes_and_is_not_cte_wrapped():
+    """The mechanism guard. Row-count alone can pass while DuckDB still SCANS the
+    whole lineage: the buggy path filtered ``cumulative_time_history()``, whose
+    recursive-CTE ``o.*`` self-join re-materialises every generation's wide arrays
+    before the outer ``WHERE generation`` trims the RESULT — so ``.df()`` returns
+    one generation's rows while the temp disk fills with all of them.
+
+    So assert on the SQL: every query that reads the wide flux column must be
+    scoped by ``generation`` AND must NOT carry the recursive CTE. That is the
+    difference between per-generation streaming that prunes and one that only
+    looks like it does.
+    """
+    conn, _ = _make_history()
+    spy = _CountingConn(conn)
+    _run(spy)
+    wide = [q for q in spy.queries if FLUX_COL in q]
+    assert wide, f"expected at least one read of the wide column {FLUX_COL!r}"
+    for q in wide:
+        up = q.upper()
+        assert "RECURSIVE" not in up and "_SHIFTED" not in up, (
+            "a wide-column read still wraps cumulative_time_history's recursive "
+            f"CTE — the whole-lineage self-join the spill comes from:\n{q}"
+        )
+        assert "GENERATION =" in up or "GENERATION=" in up, (
+            f"a wide-column read is not scoped to a single generation:\n{q}"
+        )

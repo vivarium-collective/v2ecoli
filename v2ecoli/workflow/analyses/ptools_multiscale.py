@@ -348,44 +348,53 @@ def _distinct_seeds(conn, history_sql, avail):
     return [r[0] for r in rows]
 
 
-def _cross_seed_mean_spread(per_seed_binner, seeds, n_tp, edges):
-    """Aggregate per-seed binned matrices into ``(mean_panel, spread_panel,
+def _cross_seed_mean_spread(per_seed_binner, seeds, n_tp):
+    """Aggregate per-seed BINNED sums/counts into ``(mean_panel, spread_panel,
     feature_ids)``, each panel ``(n_tp × F)``.
 
-    ``per_seed_binner(seed) -> (matrix[T×F], time_vec[T], feature_ids)`` is
-    called once per seed (sequentially, so only one seed's matrix is resident).
-    ``mean_panel`` is the pooled cross-seed-and-time AVG per (bin, feature) —
-    matching vEcoli's ``build_query``.  ``spread_panel`` is the std ACROSS seeds
-    of each seed's per-bin mean (0 for a single seed).
+    ``per_seed_binner(seed) -> (seed_sum[n_tp×F], seed_cnt[n_tp], feature_ids)``
+    is called once per seed and returns that seed's per-bin row SUM and row COUNT,
+    already binned by absolute (cumulative) time.  The binner streams one
+    generation at a time internally, so only one generation's rows are resident —
+    not the seed's whole multi-generation span (that full wide frame was the
+    Python-side multiseed OOM).  Per-bin sum and count are additive, so streaming
+    the seed generation-by-generation is identical to binning it all at once.
+    ``seed_sum`` is ``None`` for a seed that produced no feature rows (skipped).
+
+    ``mean_panel`` is the pooled cross-seed-and-time AVG per (bin, feature)
+    (matching vEcoli's ``build_query``): every row's sum over every row's count.
+    ``spread_panel`` is the std ACROSS seeds of each seed's per-bin mean (0 for a
+    single seed; a bin a seed never sampled is nan and ignored).
     """
     feature_ids = None
     pooled_sum = None
     pooled_cnt = np.zeros(n_tp)
-    seed_bin_means = []  # one (n_tp × F) per seed
+    seed_bin_means = []  # one (n_tp × F) per seed, nan in unsampled bins
 
     for seed in seeds:
-        mtx, tvec, fids = per_seed_binner(seed)
+        seed_sum, seed_cnt, fids = per_seed_binner(seed)
+        if seed_sum is None:  # this seed produced no feature rows
+            continue
         if feature_ids is None:
             feature_ids = fids
-            pooled_sum = np.zeros((n_tp, mtx.shape[1]))
-        elif mtx.shape[1] != pooled_sum.shape[1]:
+            pooled_sum = np.zeros_like(seed_sum)
+        elif seed_sum.shape[1] != pooled_sum.shape[1]:
             raise ValueError(
-                f"feature width differs across seeds ({mtx.shape[1]} != "
+                f"feature width differs across seeds ({seed_sum.shape[1]} != "
                 f"{pooled_sum.shape[1]}); seeds do not share a sim_data ordering"
             )
-        # Bin each row by absolute (cumulative) time. searchsorted+clip puts the
-        # final edge (t == tmax) into the last bin (vEcoli's `time < bin_end`
-        # would drop that single row — a negligible boundary difference).
-        bin_idx = np.clip(np.searchsorted(edges, tvec, side="right") - 1, 0, n_tp - 1)
-        sbm = np.full((n_tp, pooled_sum.shape[1]), np.nan)
-        for b in range(n_tp):
-            m = bin_idx == b
-            if m.any():
-                block = mtx[m]
-                pooled_sum[b] += block.sum(axis=0)
-                pooled_cnt[b] += block.shape[0]
-                sbm[b] = block.mean(axis=0)
+        pooled_sum += seed_sum
+        pooled_cnt += seed_cnt
+        with np.errstate(invalid="ignore"):
+            sbm = np.where(
+                seed_cnt[:, None] == 0,
+                np.nan,
+                seed_sum / np.where(seed_cnt == 0, 1.0, seed_cnt)[:, None],
+            )
         seed_bin_means.append(sbm)
+
+    if feature_ids is None:
+        raise ValueError("multiseed ptools: no feature rows across any seed")
 
     mean_panel = pooled_sum / np.where(pooled_cnt == 0, 1.0, pooled_cnt)[:, None]
     stacked = np.stack(seed_bin_means, axis=0)  # (n_seeds × n_tp × F)
@@ -495,18 +504,66 @@ class _MultiseedMixin:
         else:
             edges = np.linspace(float(tmin), float(tmax), n_tp + 1)
 
+        has_gen = "generation" in avail
+
         def _binner(seed):
+            # Stream per-generation WITHIN the seed and accumulate per-bin
+            # sum/count, so peak resident is one generation's rows rather than the
+            # seed's whole multi-generation span. For a multiseed-of-multigen store
+            # (Run 2 / Run 3) that full per-seed frame is the ~58 GiB Python-side
+            # OOM (past DuckDB's own cap, in the np.stack, so no memory class helps).
+            # cum_sql (reconstruct_cumulative_time) is a per-row CASE rewrite, not a
+            # recursive CTE, so filtering it by (lineage_seed, generation) prunes the
+            # wide scan. Binning is by absolute cumulative time and sum/count are
+            # additive, so the streamed result is identical to reading the seed at
+            # once (the previous behaviour, which #801 did not cover — it fixed
+            # multigeneration, this is multiseed).
             seed_sql = (
                 cum_sql if seed is None
                 else f"SELECT * FROM ({cum_sql}) WHERE lineage_seed = {seed}"
             )
-            mtx, tvec, fids, _gens = self._feature_matrix(
-                seed_sql, conn, sim_data, params
-            )
-            return mtx, np.asarray(tvec, dtype=float), fids
+            gens = [None]
+            if has_gen:
+                gens = [
+                    r[0] for r in conn.sql(
+                        f"SELECT DISTINCT generation FROM ({seed_sql}) "
+                        f"ORDER BY generation"
+                    ).fetchall()
+                ]
+            seed_sum = None
+            seed_cnt = np.zeros(n_tp)
+            fids = None
+            for g in gens:
+                gsql = seed_sql if g is None else \
+                    f"SELECT * FROM ({seed_sql}) WHERE generation = {g}"
+                mtx, tvec, gfids, _gens = self._feature_matrix(
+                    gsql, conn, sim_data, params
+                )
+                if mtx.shape[0] == 0:
+                    continue
+                if fids is None:
+                    fids = gfids
+                    seed_sum = np.zeros((n_tp, mtx.shape[1]))
+                elif mtx.shape[1] != seed_sum.shape[1]:
+                    raise ValueError(
+                        f"feature width differs across generations within seed "
+                        f"{seed} ({mtx.shape[1]} != {seed_sum.shape[1]})"
+                    )
+                bin_idx = np.clip(
+                    np.searchsorted(
+                        edges, np.asarray(tvec, dtype=float), side="right"
+                    ) - 1,
+                    0, n_tp - 1,
+                )
+                for b in range(n_tp):
+                    m = bin_idx == b
+                    if m.any():
+                        seed_sum[b] += mtx[m].sum(axis=0)
+                        seed_cnt[b] += int(m.sum())
+            return seed_sum, seed_cnt, fids
 
         mean_panel, spread_panel, feature_ids = _cross_seed_mean_spread(
-            _binner, seeds, n_tp, edges
+            _binner, seeds, n_tp
         )
 
         if spec["take_abs"]:

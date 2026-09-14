@@ -305,6 +305,55 @@ def sampled_span(span_name: str, /, sampler=None, *, interval_s: float | None = 
                 thread.join(timeout=1.0)
 
 
+@contextlib.contextmanager
+def progress_span(span_name: str, /, *, interval_s: float | None = None, **attrs):
+    """A span plus a throttled ``report(**payload)`` for a caller-driven loop.
+
+    :func:`sampled_span` covers the other shape -- ONE blocking call, sampled
+    from a thread because the caller never gets control back. Here the loop body
+    *is* the natural callback, so no thread is needed; what is needed is rate
+    limiting. ParCa's fit runs up to ``MAX_FITTING_ITERATIONS`` (200) per
+    condition and converges in 50-100, so one event per iteration would be noise
+    in every stream that carries it.
+
+    The FIRST call always reports, so "it started and is progressing" is visible
+    immediately rather than one interval later; subsequent calls report at most
+    every ``interval_s`` (default ``PBG_EVENT_HEARTBEAT_S``). ``report`` returns
+    True when it emitted, so a caller can cheaply skip building an expensive
+    payload -- pass values, not computations.
+
+    Like the rest of this module it never raises into the caller: a failed emit
+    disables further reporting for this span rather than interrupting the work.
+    """
+    emitter = get_emitter()
+    if interval_s is None:
+        try:
+            interval_s = float(os.environ.get("PBG_EVENT_HEARTBEAT_S") or 30.0)
+        except (TypeError, ValueError):
+            interval_s = 30.0
+    state = {"last": None, "dead": False}
+
+    with emitter.span(span_name, **attrs):
+
+        def report(**payload: Any) -> bool:
+            if state["dead"]:
+                return False
+            now = time.monotonic()
+            last = state["last"]
+            if last is not None and now - last < interval_s:
+                return False
+            state["last"] = now
+            try:
+                emitter.event(f"{span_name}.progress", level="debug",
+                              **{**attrs, **payload})
+            except Exception:  # noqa: BLE001 -- observability never breaks the run
+                state["dead"] = True
+                return False
+            return True
+
+        yield report
+
+
 def emit(name: str, level: str = "info", **payload) -> None:
     """Emit a runner event under ``component="v2ecoli.lineage"``; never raises.
 

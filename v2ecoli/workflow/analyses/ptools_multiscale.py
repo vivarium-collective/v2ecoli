@@ -40,6 +40,7 @@ from v2ecoli.workflow.analyses._helpers import (
     available_columns,
     cumulative_time_history,
     collapse_cross_seed,
+    generation_time_offsets,
     ptools_heatmap_view,
     reconstruct_cumulative_time,
 )
@@ -113,6 +114,19 @@ class _MultigenMixin:
         params.setdefault("per_generation", True)
         skip = int(params.get("skip_n_gens", 1))
         history_sql = drop_leading_generations(conn, history_sql, skip)
+        # The streamed per-generation path (``_feature_matrix`` below) reads the
+        # wide ``DOUBLE[]`` columns one generation at a time. Give it the RAW
+        # (un-cumulative) history plus the per-generation offsets computed from a
+        # NARROW scan, so it can scope each generation's wide read with a plain
+        # ``WHERE generation = g`` (which prunes) and add the cumulative offset as
+        # a SCALAR. Filtering ``cumulative_time_history()`` per generation does NOT
+        # prune -- its recursive-CTE ``o.*`` self-join re-materialises the whole
+        # lineage's arrays on every generation, which is the multigeneration
+        # temp-disk spill (Run 1).
+        params["_multigen_raw_history"] = history_sql
+        params["_multigen_offsets"] = generation_time_offsets(conn, history_sql)
+        # abs_sql still feeds the non-streamed fallback (per_generation off, or no
+        # generation axis) where correctness over memory is the right trade.
         abs_sql = cumulative_time_history(history_sql)
         return super().analyze(
             conn=conn,
@@ -149,13 +163,15 @@ class _MultigenMixin:
         ``per_generation`` is disabled, or there is no ``generation`` axis, defer to
         the whole-frame single-scale read (correctness over memory on that rare path).
         """
-        if not params.get("per_generation") or \
-                "generation" not in available_columns(conn, history_sql):
+        raw = params.get("_multigen_raw_history")
+        offsets = params.get("_multigen_offsets") or {}
+        if not params.get("per_generation") or raw is None or \
+                "generation" not in available_columns(conn, raw):
             return super()._feature_matrix(history_sql, conn, sim_data, params)
 
         gens_present = [
-            r[0] for r in conn.sql(
-                f"SELECT DISTINCT generation FROM ({history_sql}) ORDER BY generation"
+            int(r[0]) for r in conn.sql(
+                f"SELECT DISTINCT generation FROM ({raw}) ORDER BY generation"
             ).fetchall()
         ]
         rows: list[np.ndarray] = []
@@ -163,7 +179,14 @@ class _MultigenMixin:
         labels: list = []
         feature_ids = None
         for g in gens_present:
-            gen_sql = f"SELECT * FROM ({history_sql}) WHERE generation = {g}"
+            # Wide read scoped to ONE generation: ``WHERE generation = g`` on the
+            # RAW history prunes the DOUBLE[] scan, and the cumulative offset is a
+            # SCALAR literal -- no recursive CTE self-join over the wide columns.
+            off = float(offsets.get(g, 0.0))
+            gen_sql = (
+                f"SELECT * EXCLUDE(global_time), global_time + {off!r} AS global_time "
+                f"FROM ({raw}) WHERE generation = {g}"
+            )
             mtx, tvec, fids, _gens = super()._feature_matrix(
                 gen_sql, conn, sim_data, params
             )

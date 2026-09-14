@@ -220,6 +220,41 @@ def reconstruct_cumulative_time(
     )
 
 
+def generation_time_offsets(
+    conn: duckdb.DuckDBPyConnection, history_sql: str
+) -> dict[int, float]:
+    """Per-generation additive ``global_time`` offset for a SINGLE-LINEAGE slice.
+
+    Returns ``{generation: offset}`` computed from a NARROW scan — only
+    ``generation`` and per-generation ``min``/``max`` of ``global_time`` — so it
+    never reads the wide ``DOUBLE[]`` list columns.  The offsets are identical to
+    those :func:`cumulative_time_history` bakes into its recursive CTE (the same
+    clamp-at-0 walk: absolute-clock parquet → all-zero offsets, data untouched;
+    reset-clock xarray → generations stacked end-to-end with a 1-unit gap), but
+    handed back as scalars so a caller can apply each to a per-generation base
+    scan (``WHERE generation = g``, which prunes) instead of filtering the
+    recursive CTE (whose wide ``o.*`` self-join is not pruned per generation and
+    re-materialises the whole lineage's arrays — the multigeneration temp spill).
+
+    Single-lineage only, exactly like :func:`cumulative_time_history`: assumes one
+    cell per generation.  Returns ``{}`` when there is no ``generation`` column.
+    """
+    if "generation" not in available_columns(conn, history_sql):
+        return {}
+    rows = conn.sql(
+        f"SELECT generation, min(global_time) AS gmin, max(global_time) AS gmax "
+        f"FROM ({history_sql}) GROUP BY generation ORDER BY generation"
+    ).fetchall()
+    offsets: dict[int, float] = {}
+    shifted_end: float | None = None
+    for gen, gmin, gmax in rows:
+        gen_i, gmin_f, gmax_f = int(gen), float(gmin), float(gmax)
+        off = 0.0 if shifted_end is None else max(shifted_end + 1.0 - gmin_f, 0.0)
+        offsets[gen_i] = off
+        shifted_end = gmax_f + off
+    return offsets
+
+
 def num_cells(conn: duckdb.DuckDBPyConnection, subquery: str) -> int:
     """Distinct cell count in a subquery (vEcoli parity)."""
     return conn.sql(

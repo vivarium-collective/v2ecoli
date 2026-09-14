@@ -333,7 +333,7 @@ def progress_span(span_name: str, /, *, interval_s: float | None = None, **attrs
             interval_s = 30.0
     state = {"last": None, "dead": False}
 
-    with emitter.span(span_name, **attrs) as span:
+    with emitter.span(span_name, **attrs):
 
         def report(**payload: Any) -> bool:
             if state["dead"]:

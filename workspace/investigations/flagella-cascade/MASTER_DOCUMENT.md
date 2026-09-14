@@ -140,8 +140,16 @@ much raw FliS (see History §3.2).
 1. ✅ FliS:FliC (§3.2) and FlgM secretion turnover-rate (§3.1) fixes both
    validated across a real 6-seed batch, 2026-09-03.
 2. **FlgM:FliA remains on the shared, general ODE solver with a relaxed
-   Kd.** Same class of fix (dedicated exact-solve Step) exists on disk but
-   is unwired — see §3.1.
+   Kd.** Re-checked 2026-09-08: the division-crash vulnerability itself is
+   *not* untested — at the real Kd it crashed at division twice (§3.1,
+   Attempt 1), root cause later identified via FliS:FliC as the shared
+   solver's `atol` being >600x a single real molecule's concentration at
+   post-division scale. The dedicated exact-solve Step (same pattern as
+   FliS:FliC) was built and ran a full 92-min/2-generation test at the real
+   Kd with no crash (§3.1, Attempt 2) — so the crash question is answered.
+   It's unwired because it was reverted for a separate, still-open reason:
+   the resulting population dynamics were judged not correct on review —
+   see §3.1.
 3. ✅ `secretion_rate` (FlgM secretion) recalibrated to a first-order,
    literature-derived rate, 2026-09-02 — see §3.1.
 4. ✅ `complexation_reactions_modified.tsv` motor-complex stoichiometry

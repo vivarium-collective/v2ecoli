@@ -21,6 +21,7 @@ import pytest
 
 import v2ecoli
 from v2ecoli.library.cache_version import (
+    SCHEMA_VERSION,
     CacheVersion,
     StaleCacheError,
     _audit_main,
@@ -149,7 +150,8 @@ def test_to_from_dict_roundtrip_preserves_derived_from():
 # verify_cache_version guards
 # --------------------------------------------------------------------------
 
-def _write_stored(cache_dir, derived_from, inputs_hash="deadbeef", schema="3"):
+def _write_stored(cache_dir, derived_from, inputs_hash="deadbeef",
+                  schema=SCHEMA_VERSION):
     """Hand-write a cache_version.json for the guards that fire BEFORE the
     inputs_hash check (they don't need a matching fingerprint)."""
     version = CacheVersion(schema_version=schema, inputs_hash=inputs_hash,

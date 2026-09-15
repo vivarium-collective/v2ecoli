@@ -390,8 +390,25 @@ def add_reactor_coupling(
     return document
 
 
+def _register_ecoli_core(core):
+    """Register v2ecoli's whole-cell types (``bulk_array``, ``quantity``, …)
+    into a core — this generator's ``core_extensions`` hook.
+
+    A generic runner that provisions a BARE core for the composite (e.g. the
+    workbench's composite-inner-state builder) otherwise instantiates the
+    cell-side document without these types and raises "accessing
+    {'_type': 'bulk_array'} but schema is not found". ``ecoli_baseline``
+    declares the same extension; the cell side reactor_bird_coupled wraps needs
+    it too. Lazy import mirrors this module's ``build_core`` imports, so no
+    top-level ``v2ecoli.core`` dependency is taken at decoration time.
+    """
+    from v2ecoli.core import register_ecoli_core
+    return register_ecoli_core(core)
+
+
 @composite_generator(
     name="reactor_bird_coupled",
+    core_extensions=[_register_ecoli_core],
     description=(
         "v2ecoli baseline_population coupled to the BiRD bioreactor "
         "(BiRDTransportProcess) via ReactorCellCoupler. The cell population's "

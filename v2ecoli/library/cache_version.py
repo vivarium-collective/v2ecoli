@@ -25,18 +25,39 @@ from dataclasses import dataclass, field
 from typing import Iterable
 
 
-SCHEMA_VERSION = "3"
+SCHEMA_VERSION = "4"
 CACHE_VERSION_FILENAME = "cache_version.json"
 
-# Packages on the ParCa fit path whose version genuinely changes fit output
-# (or how a previously-fit cache unpickles) — see the module docstring at
-# ":238-266" / PARCA_REVIEW.md A9. Recorded into ``CacheVersion.context`` and
-# folded into ``inputs_hash`` so a cache built under one scipy/numba/etc and
-# loaded under another is detectable instead of silently mis-unpickling deep
-# in a simulation step.
+#: Schema versions that carry a ``derived_from`` provenance chain (schema 3
+#: introduced it; schema 4 added ``resolved_roots``/``build_cwd`` diagnostics
+#: on top). The chain guards in ``verify_cache_version`` and the audit CLI run
+#: for any of these; a schema-2 cache predates the chain entirely.
+CHAIN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"3", "4"})
+
+# Packages on the ParCa fit path whose version can change fit output or how a
+# previously-fit cache unpickles — see the module docstring at ":238-266" /
+# PARCA_REVIEW.md A9. All are recorded into ``CacheVersion.context`` for
+# diagnostics; only :data:`UNPICKLE_AFFECTING_PACKAGES` are folded into
+# ``inputs_hash`` (see that constant's docstring).
 CONTEXT_PACKAGES: tuple[str, ...] = (
     "scipy", "numpy", "numba", "dill", "cvxpy", "ecos", "stochastic-arrow",
 )
+
+#: The subset of :data:`CONTEXT_PACKAGES` whose version genuinely changes how a
+#: previously-fit cache *unpickles* (a1.3 / the workbench-robustness review).
+#: Only these — plus the Python version — are folded into ``inputs_hash``; the
+#: rest of ``context`` (scipy/numba/cvxpy/ecos/stochastic-arrow) is recorded and
+#: reported on mismatch as an advisory WARNING, not a hard StaleCacheError.
+#:
+#: Rationale: the cache is a *fitted artifact*. A scipy/numba/... bump AFTER the
+#: fit does not change the fitted bytes already on disk; it only matters for a
+#: *refit*, whose identity ``derived_from``/chassis provenance already covers.
+#: Folding every fit-path package into the load-time gate meant a ``uv sync``
+#: that bumped e.g. cvxpy in one venv invalidated a cache that in fact loads
+#: fine — the false StaleCacheError this narrowing removes. ``dill`` and
+#: ``numpy`` stay in the hash because a version skew there genuinely changes the
+#: unpickle and can mis-hydrate the cache silently deep in a sim step.
+UNPICKLE_AFFECTING_PACKAGES: tuple[str, ...] = ("dill", "numpy")
 
 #: build_params keys that describe *which artifact* a bundle is (not the code
 #: that produced it) — condition/media/seed/n_seeds/patch identity. Folding
@@ -186,8 +207,17 @@ class StaleCacheError(RuntimeError):
     """Raised when cache_version.json does not match the current code/fixture.
 
     The message includes the rebuild command so humans and CI logs both get
-    an actionable next step without reading this module.
+    an actionable next step without reading this module. When the mismatch is
+    a fingerprint difference, ``.diff`` carries the structured
+    :func:`fingerprint_diff` payload (which files/context/chain differ and,
+    for files, the absolute path each side resolved from) so a caller — e.g.
+    the workbench composite card — can render it instead of regexing the
+    message. ``.diff`` is ``None`` for non-fingerprint mismatches (missing
+    marker, schema bump, wrong-strain build_params).
     """
+
+    #: Class-level default so ``err.diff`` is always safe to read.
+    diff: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -226,6 +256,19 @@ class CacheVersion:
     # failure schema 3 exists to close). default_factory=list keeps old callers
     # and pre-chain (schema 2) cache_version.json files working.
     derived_from: list = field(default_factory=list)
+    # Diagnostics (schema 4), NOT folded into inputs_hash. ``resolved_roots``
+    # maps each INPUT_FILES rel path to the ABSOLUTE path it actually resolved
+    # to at compute time; ``build_cwd`` is the process cwd. Two processes with
+    # different cwds can resolve the SAME rel path to DIFFERENT trees (the
+    # candidate_repo_roots upward-walk depends on cwd), hash different bytes,
+    # and disagree about one ``out/cache`` — producing a StaleCacheError a fresh
+    # process can't reproduce. Recording where each side read from is what makes
+    # that diagnosable (``fingerprint_diff``); it is deliberately excluded from
+    # ``inputs_hash`` so the fingerprint stays a function of CONTENT, not of the
+    # path a given process happened to read it from. default_factory keeps old
+    # callers / pre-schema-4 files working.
+    resolved_roots: dict = field(default_factory=dict)
+    build_cwd: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -236,6 +279,8 @@ class CacheVersion:
             "build_params": dict(self.build_params),
             "configs": sorted(self.configs),
             "derived_from": list(self.derived_from),
+            "resolved_roots": dict(self.resolved_roots),
+            "build_cwd": self.build_cwd,
         }
 
     @classmethod
@@ -248,6 +293,8 @@ class CacheVersion:
             build_params=dict(d.get("build_params", {})),
             configs=tuple(d.get("configs", ())),
             derived_from=list(d.get("derived_from", [])),
+            resolved_roots=dict(d.get("resolved_roots", {})),
+            build_cwd=d.get("build_cwd", ""),
         )
 
 
@@ -375,6 +422,18 @@ def _chain_fold_projection(derived_from: Iterable[dict]) -> list[dict]:
     return proj
 
 
+def _hashable_context(context: dict) -> dict:
+    """The subset of ``context`` folded into ``inputs_hash`` (a1.3).
+
+    Only the Python version and :data:`UNPICKLE_AFFECTING_PACKAGES`
+    (``dill``/``numpy``) move the fingerprint; the remaining fit-path packages
+    are recorded for diagnostics but reported as an advisory WARNING on
+    mismatch, not a hard StaleCacheError — see the constant's docstring.
+    """
+    keep = {"python", *UNPICKLE_AFFECTING_PACKAGES}
+    return {k: v for k, v in context.items() if k in keep}
+
+
 def _aggregate_inputs_hash(per_file: dict[str, str], context: dict,
                            build_params: dict,
                            derived_from: Iterable[dict]) -> str:
@@ -384,13 +443,129 @@ def _aggregate_inputs_hash(per_file: dict[str, str], context: dict,
     for rel in sorted(per_file):
         agg.update(f"{rel}\n{per_file[rel]}\n".encode())
     agg.update(b"\ncontext\n")
-    agg.update(json.dumps(context, sort_keys=True).encode())
+    # Only the unpickle-affecting context subset moves the hash (a1.3); the
+    # rest of ``context`` is diagnostic/advisory.
+    agg.update(json.dumps(_hashable_context(context), sort_keys=True).encode())
     agg.update(b"\nbuild_params\n")
     agg.update(json.dumps(build_params, sort_keys=True).encode())
     agg.update(b"\nderived_from\n")
     agg.update(json.dumps(_chain_fold_projection(derived_from),
                           sort_keys=True).encode())
     return agg.hexdigest()
+
+
+def fingerprint_diff(stored: "CacheVersion | None",
+                     current: "CacheVersion") -> dict:
+    """Structured diff of two fingerprints: WHAT differs and FROM WHERE.
+
+    The whole reason this exists: ``candidate_repo_roots`` resolves each
+    INPUT_FILES entry against the nearest ``workspace.yaml`` above the calling
+    process's cwd, so two processes verifying the SAME ``out/cache`` from
+    different cwds can hash DIFFERENT source trees and disagree. The old
+    mismatch message printed ``files differ: []`` whenever the divergence was
+    in ``context``/``derived_from`` rather than a file hash, which made the
+    incident undebuggable. This returns, per differing file, the hash each side
+    saw AND the absolute path each side resolved it from (so a "same content,
+    different tree" disagreement is visible at a glance), plus which ``context``
+    keys differ (split into fold-affecting vs advisory), whether the
+    ``derived_from`` chain projection changed, which ``build_params`` differ,
+    and both sides' ``build_cwd``.
+
+    ``stored`` may be ``None`` (no marker on disk); the file/context sections
+    are then reported as fully "added" against ``current``.
+    """
+    s_files = dict(stored.per_file_hashes) if stored else {}
+    c_files = dict(current.per_file_hashes)
+    s_roots = dict(stored.resolved_roots) if stored else {}
+    c_roots = dict(current.resolved_roots)
+    files = {
+        rel: {
+            "stored": s_files.get(rel),
+            "current": c_files.get(rel),
+            "stored_path": s_roots.get(rel),
+            "current_path": c_roots.get(rel),
+        }
+        for rel in sorted(set(s_files) | set(c_files))
+        if s_files.get(rel) != c_files.get(rel)
+    }
+
+    s_ctx = dict(stored.context) if stored else {}
+    c_ctx = dict(current.context)
+    fold_keys = {"python", *UNPICKLE_AFFECTING_PACKAGES}
+    ctx_all = {
+        k: [s_ctx.get(k), c_ctx.get(k)]
+        for k in sorted(set(s_ctx) | set(c_ctx))
+        if s_ctx.get(k) != c_ctx.get(k)
+    }
+    context_fold_affecting = {k: v for k, v in ctx_all.items() if k in fold_keys}
+    context_advisory = {k: v for k, v in ctx_all.items() if k not in fold_keys}
+
+    s_bp = dict(stored.build_params) if stored else {}
+    c_bp = dict(current.build_params)
+    build_params = {
+        k: [s_bp.get(k), c_bp.get(k)]
+        for k in sorted(set(s_bp) | set(c_bp))
+        if s_bp.get(k) != c_bp.get(k)
+    }
+
+    chain_changed = (
+        _chain_fold_projection(stored.derived_from if stored else [])
+        != _chain_fold_projection(current.derived_from)
+    )
+
+    return {
+        "files": files,
+        "context_fold_affecting": context_fold_affecting,
+        "context_advisory": context_advisory,
+        "build_params": build_params,
+        "derived_from_changed": chain_changed,
+        "stored_cwd": (stored.build_cwd if stored else None),
+        "current_cwd": os.getcwd(),
+    }
+
+
+def _render_fingerprint_diff(diff: dict) -> list[str]:
+    """Human-readable rendering of a :func:`fingerprint_diff` payload, for the
+    rebuild message. Replaces the old ``files differ: []`` one-liner."""
+    lines: list[str] = ["Fingerprint differences:"]
+    files = diff.get("files") or {}
+    if files:
+        lines.append("  files:")
+        for rel, d in files.items():
+            s = (d.get("stored") or "MISSING")[:12]
+            c = (d.get("current") or "MISSING")[:12]
+            lines.append(f"    - {rel}: {s} -> {c}")
+            sp, cp = d.get("stored_path"), d.get("current_path")
+            if sp != cp:
+                lines.append(f"        stored  from: {sp}")
+                lines.append(f"        current from: {cp}")
+    fold = diff.get("context_fold_affecting") or {}
+    if fold:
+        lines.append("  context (fold-affecting):")
+        for k, (s, c) in fold.items():
+            lines.append(f"    - {k}: {s} -> {c}")
+    adv = diff.get("context_advisory") or {}
+    if adv:
+        lines.append("  context (advisory, not hashed):")
+        for k, (s, c) in adv.items():
+            lines.append(f"    - {k}: {s} -> {c}")
+    bp = diff.get("build_params") or {}
+    if bp:
+        lines.append("  build_params:")
+        for k, (s, c) in bp.items():
+            lines.append(f"    - {k}: {s!r} -> {c!r}")
+    if diff.get("derived_from_changed"):
+        lines.append("  derived_from: chain projection changed")
+    if diff.get("stored_cwd") != diff.get("current_cwd"):
+        lines.append(
+            f"  build_cwd: {diff.get('stored_cwd')!r} (stored) != "
+            f"{diff.get('current_cwd')!r} (this process) — a different cwd can "
+            f"resolve INPUT_FILES against a different tree; see the file paths "
+            f"above.")
+    if len(lines) == 1:
+        lines.append("  (no per-field difference found — schema or marker "
+                     "mismatch only)")
+    return lines
 
 
 def _default_repo_root() -> str:
@@ -506,6 +681,7 @@ def compute_cache_version(repo_root: str | None = None,
     # exists in the workspace (installed-dependency case) still resolves.
     candidate_roots = [repo_root] if repo_root is not None else candidate_repo_roots()
     per_file: dict[str, str] = {}
+    resolved_roots: dict[str, str] = {}
     for rel in sorted(files):
         resolved_path = None
         for root in candidate_roots:
@@ -527,6 +703,9 @@ def compute_cache_version(repo_root: str | None = None,
                 f"AGENTS.md 'Adding a new composite architecture' step 3."
             )
         per_file[rel] = _hash_file(resolved_path)
+        # Record WHERE this entry resolved (absolute), for fingerprint_diff.
+        # Diagnostic only — not folded into inputs_hash.
+        resolved_roots[rel] = os.path.abspath(resolved_path)
 
     if context is None:
         context = probe_context()
@@ -546,6 +725,8 @@ def compute_cache_version(repo_root: str | None = None,
         build_params=resolved_build_params,
         configs=tuple(sorted(configs)) if configs is not None else (),
         derived_from=resolved_derived_from,
+        resolved_roots=resolved_roots,
+        build_cwd=os.getcwd(),
     )
 
 
@@ -707,11 +888,13 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
             actual=stored,
         ))
 
-    # --- schema-3 provenance-chain guards ------------------------------
-    # Only for schema-3 caches; a schema-2 cache has already raised on the
-    # schema check above (it predates the chain and its provenance is
-    # unrecoverable — see the audit CLI's PRE-CHAIN message).
-    if stored.schema_version == "3":
+    # --- provenance-chain guards (schema 3+) ---------------------------
+    # Only for chain-bearing schemas; a schema-2 cache has already raised on
+    # the schema check above (it predates the chain and its provenance is
+    # unrecoverable — see the audit CLI's PRE-CHAIN message). A stored schema
+    # older than current also raises there, so in practice only a current
+    # (schema-matched) cache reaches these guards.
+    if stored.schema_version in CHAIN_SCHEMA_VERSIONS:
         if not stored.derived_from:
             # (a) A chained-schema cache that recorded no chain: its chassis
             # provenance was never captured, so nothing downstream can prove
@@ -729,7 +912,7 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
                              or bool(os.environ.get("V2E_REQUIRE_CLEAN_CHAIN")))
             msg = _rebuild_message(
                 cache_dir,
-                reason="schema_version 3 cache has an empty/absent "
+                reason="chain-bearing cache has an empty/absent "
                        "'derived_from' chain — chassis provenance was NOT "
                        "recorded, so this cache cannot be traced to the ParCa "
                        "state it was built on. Rebuild declaring its sources.",
@@ -769,17 +952,33 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
             warnings.warn(message)
 
     if stored.inputs_hash != current.inputs_hash:
-        changed = [
-            rel for rel in current.per_file_hashes
-            if current.per_file_hashes.get(rel)
-               != stored.per_file_hashes.get(rel)
-        ]
-        raise StaleCacheError(_rebuild_message(
+        diff = fingerprint_diff(stored, current)
+        raise _stale(
             cache_dir,
-            reason=f"inputs_hash mismatch; files differ: {changed}",
+            reason="inputs_hash mismatch (see the fingerprint differences "
+                   "below for which file/context/chain diverged and, for "
+                   "files, from which path each side read)",
             expected=current,
             actual=stored,
-        ))
+            diff=diff,
+        )
+
+    # inputs_hash matched, so any surviving ``context`` difference is one we
+    # deliberately do NOT gate on (a1.3): a fit-path package (scipy/numba/...)
+    # moved between build and load without changing the fitted bytes. Surface
+    # it as an advisory warning rather than swallowing it — a genuine refit
+    # concern is covered by derived_from/chassis provenance, but the operator
+    # should still know the load environment drifted from the build one.
+    advisory = fingerprint_diff(stored, current).get("context_advisory") or {}
+    if advisory:
+        detail = ", ".join(f"{k}: {s} -> {c}" for k, (s, c) in advisory.items())
+        warnings.warn(
+            f"Cache at {cache_dir!r} loads cleanly (inputs_hash matches) but "
+            f"the fit-path environment drifted since it was built: {detail}. "
+            f"These packages are recorded but not gated on (a1.3) because a "
+            f"post-fit version bump does not change the fitted bytes on disk; "
+            f"a refit's identity is covered by derived_from/chassis provenance."
+        )
 
     if stored.configs:
         missing_required = sorted(
@@ -797,7 +996,8 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
 
 def _rebuild_message(cache_dir: str, reason: str,
                      expected: CacheVersion,
-                     actual: CacheVersion | None) -> str:
+                     actual: CacheVersion | None,
+                     diff: dict | None = None) -> str:
     lines = [
         f"Cache at {cache_dir!r} is stale or unversioned: {reason}.",
         "",
@@ -808,7 +1008,20 @@ def _rebuild_message(cache_dir: str, reason: str,
     ]
     if actual is not None:
         lines.append(f"Actual   inputs_hash: {actual.inputs_hash[:16]}...")
+    if diff is not None:
+        lines.append("")
+        lines.extend(_render_fingerprint_diff(diff))
     return "\n".join(lines)
+
+
+def _stale(cache_dir: str, reason: str, expected: CacheVersion,
+           actual: CacheVersion | None, diff: dict | None = None) -> StaleCacheError:
+    """Build a StaleCacheError with the rendered message AND the structured
+    ``diff`` attached, so a caller can render the diff without re-parsing."""
+    err = StaleCacheError(
+        _rebuild_message(cache_dir, reason, expected, actual, diff=diff))
+    err.diff = diff
+    return err
 
 
 def _chain_chassis_commit(derived_from: Iterable[dict]) -> str | None:
@@ -930,7 +1143,7 @@ def _audit_main(argv: list[str]) -> int:
     print(f"  schema_version: {version.schema_version}")
     print(f"  inputs_hash:    {version.inputs_hash[:16]}...")
     print(f"  build_params:   {json.dumps(version.build_params, sort_keys=True)}")
-    if version.schema_version != "3":
+    if version.schema_version not in CHAIN_SCHEMA_VERSIONS:
         print(f"PRE-CHAIN cache (schema {version.schema_version}): chassis "
               "provenance NOT RECORDED and unrecoverable; treat the S3 key's "
               "commit as a claim, not a fact.")

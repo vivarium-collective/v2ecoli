@@ -61,6 +61,40 @@ class EnvironmentDriver(Step):
     """
 
     name = "environment_driver"
+
+    description = (
+        "Drives environment.external_concentrations from an external source. In "
+        "'external_store' mode (used by reactor_bird_coupled) it is a no-op — the "
+        "ReactorCellCoupler owns the environment; in 'synthetic_trajectory' mode "
+        "it sets concentrations from a deterministic function of time; 'static' "
+        "mode preserves the baseline composite unchanged."
+    )
+
+    # Structured contract surfaced by the workbench loom viewer (card contract
+    # band + Inspector) and by bigraph_schema.contract.resolve_contract.
+    contract = {
+        "summary": (
+            "Sets the top-level environment.external_concentrations each tick "
+            "from one of three sources: no-op (static), an external store owned "
+            "by the coupler, or a time-varying synthetic trajectory."
+        ),
+        "inputs": {
+            "environment": "Top-level environment store whose external_concentrations this step reads/sets each tick.",
+        },
+        "outputs": {
+            "environment": "Updated environment.external_concentrations (mM); empty in static/external_store modes.",
+        },
+        "config": {
+            "env_driver_mode": "Source mode: 'external_store' (no-op, driven by the coupler), 'synthetic_trajectory' (time-varying), or 'static' (baseline no-op).",
+            "synthetic_trajectory_spec": "Time-varying concentration trajectory spec (per molecule id) used when in synthetic mode.",
+            "time_step": "Update step (s).",
+        },
+        "assumptions": [
+            "In reactor_bird_coupled the mode is 'external_store', so this step writes nothing — the coupler is the environment source of truth.",
+            "Synthetic-mode values are stored in mM (v2ecoli convention); a local tick counter stands in for a global_time port.",
+        ],
+    }
+
     # See PopulationAggregator config_schema for the type-vs-_default note.
     # synthetic_trajectory_spec is a free-form dict keyed by molecule ID, so
     # leave it as "map" (or empty mapping); see initialize() for the read.

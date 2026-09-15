@@ -12,8 +12,17 @@ import functools
 import hashlib
 import json
 import os
+import shutil
+import socket
+import tempfile
+import time
 import warnings
 from typing import Any
+
+try:
+    import fcntl  # POSIX only; guarded so Windows imports of core.py still work.
+except ImportError:  # pragma: no cover - platform dependent
+    fcntl = None  # type: ignore[assignment]
 
 import dill
 from bigraph_schema import allocate_core
@@ -380,16 +389,116 @@ def _resolve_n_seeds() -> int | None:
         return None
 
 
+def _lock_owner(lock_path: str) -> str:
+    """Best-effort ``pid host ts`` string a lock holder wrote, for error text."""
+    try:
+        with open(lock_path) as f:
+            return f.read().strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+
 def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
                             fixed_media=None, condition_manifest_hash=None,
                             new_genes=None, bundle_overrides=None,
                             bundle_manifest=None, perturbations=None,
                             sources=None):
+    """Atomic, locked wrapper around :func:`_write_sim_input_bundle_into` (a3).
+
+    The bundle is built into a sibling temp dir *beside* the target (same
+    filesystem, so the final ``os.rename`` is atomic), under an exclusive
+    ``flock`` on ``<bundle_dir>.lock``. Only once every artifact is written is
+    the temp dir renamed into place; the previous bundle, if any, is moved to
+    ``<bundle_dir>.old-<ts>`` first (rollback point) and removed on success.
+
+    A concurrent reader therefore sees either the COMPLETE old bundle or the
+    COMPLETE new one — never a half-written directory where, say,
+    ``cache_version.json`` is present but ``sim_data_cache.dill`` is still being
+    dill-dumped (the interleave that let ``verify_cache_version`` stamp a
+    partial bundle valid, or one builder win the marker while another won the
+    dill). A second concurrent BUILDER fails fast with a clear "another process
+    is building this" error rather than interleaving writes.
+
+    On Windows (no ``fcntl.flock``) the lock is skipped but the temp-dir +
+    atomic-rename path still runs, so single-writer atomicity holds there too.
+    """
+    bundle_dir = os.path.abspath(bundle_dir)
+    parent = os.path.dirname(bundle_dir) or "."
+    os.makedirs(parent, exist_ok=True)
+
+    # Preserve the rebuild-in-place condition.json auto-detection (below): the
+    # PRIOR build's manifest lives in the real target, but the inner writer now
+    # builds into an empty temp dir and would never see it. Resolve it here
+    # from the target when the caller didn't pass one explicitly.
+    if condition_manifest_hash is None:
+        prior_manifest = os.path.join(bundle_dir, 'condition.json')
+        if os.path.exists(prior_manifest):
+            condition_manifest_hash = _hash_file(prior_manifest)
+
+    lock_path = bundle_dir + ".lock"
+    lockf = open(lock_path, "w")
+    try:
+        if fcntl is not None and hasattr(fcntl, "flock"):
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(
+                    f"another process is building {bundle_dir!r} "
+                    f"(lock holder: {_lock_owner(lock_path)}); wait for it to "
+                    f"finish or kill it, then retry."
+                )
+            lockf.write(f"{os.getpid()} {socket.gethostname()} "
+                        f"{time.time():.0f}\n")
+            lockf.flush()
+
+        tmp = tempfile.mkdtemp(prefix=".build-", dir=parent)
+        old = None
+        try:
+            _write_sim_input_bundle_into(
+                loader, tmp, seed=seed, condition=condition,
+                fixed_media=fixed_media,
+                condition_manifest_hash=condition_manifest_hash,
+                new_genes=new_genes, bundle_overrides=bundle_overrides,
+                bundle_manifest=bundle_manifest, perturbations=perturbations,
+                sources=sources)
+            if os.path.isdir(bundle_dir):
+                old = bundle_dir + f".old-{int(time.time())}"
+                # An identically-named leftover from a prior crash would break
+                # the rename; clear it first.
+                shutil.rmtree(old, ignore_errors=True)
+                os.rename(bundle_dir, old)
+            os.rename(tmp, bundle_dir)
+        except BaseException:
+            shutil.rmtree(tmp, ignore_errors=True)
+            # If we already moved the last-good bundle aside but never landed
+            # the new one, restore it so the target is never left missing.
+            if old is not None and not os.path.isdir(bundle_dir) \
+                    and os.path.isdir(old):
+                os.rename(old, bundle_dir)
+            raise
+        else:
+            if old is not None:
+                shutil.rmtree(old, ignore_errors=True)
+    finally:
+        lockf.close()
+
+
+def _write_sim_input_bundle_into(loader, bundle_dir, *, seed=None,
+                                 condition=None,
+                                 fixed_media=None, condition_manifest_hash=None,
+                                 new_genes=None, bundle_overrides=None,
+                                 bundle_manifest=None, perturbations=None,
+                                 sources=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
     (live-object). Emits ``initial_state.json``, ``sim_data_cache.dill``,
     ``metadata.json``, and the cache-version marker into ``bundle_dir``.
+
+    Callers go through :func:`_write_sim_input_bundle`, which runs this into a
+    sibling temp dir under a lock and atomically renames it into place — do not
+    call this directly for a real cache dir, or a concurrent reader can observe
+    a partially-written bundle.
 
     ``seed``/``condition``/``fixed_media``/``condition_manifest_hash`` are
     the actual build parameters this specific bundle was built with

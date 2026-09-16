@@ -70,11 +70,27 @@ def prewarm_lineage_pool(core: Any, n_workers: int | None) -> Any:
     ``n_workers=None`` (the recommended default -- see this module's own docstring) passes
     straight through to ``get_or_create_runtime``, which falls through to the cluster-derived
     ``RAY_SHARDS_DEFAULT`` env var. Pass a concrete int only to deliberately override that.
+
+    Skipped (a no-op returning ``core`` unchanged) when ``V2ECOLI_SKIP_RAY_PREWARM`` is set:
+    contexts that only INDEX/build composite documents and never resolve a ``ray:`` address --
+    the vivarium-workbench publish and its env-worker composite discovery -- BUILD this
+    generator (to read its ``default_n_steps``/topology), which runs this prewarm and would
+    otherwise spin up a whole Ray cluster + actor pool. In the headless publish that hangs, and
+    it silently broke the read-only-workbench publish for ~2 weeks (env-worker blocked on the
+    socket while the pool never came up). The document ``build_lineage_ray_batch_document``
+    returns is identical either way -- prewarm only PRE-SIZES the pool for a LATER ``ray:``
+    resolution that discovery never performs -- so skipping it during pure discovery is safe.
+    The flag defaults off, so every real dispatch path (which needs the correctly-sized pool
+    before it resolves a ``ray:`` address) is completely unchanged.
     """
-    from process_bigraph.protocols.ray import get_or_create_runtime
+    import os
 
     if n_workers is not None and n_workers < 1:
         raise ValueError(f"prewarm_lineage_pool: n_workers must be >= 1, got {n_workers}")
+    if os.environ.get("V2ECOLI_SKIP_RAY_PREWARM"):
+        return core
+    from process_bigraph.protocols.ray import get_or_create_runtime
+
     get_or_create_runtime(core, n_shards_default=n_workers)
     return core
 

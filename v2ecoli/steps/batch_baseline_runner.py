@@ -289,7 +289,7 @@ def build_workflow_config(
         config["base_config_overrides"] = dict(base_config_overrides)
     # Per-cell biological build kwargs -> every generation's baseline() build via
     # meta_composite._lineage_node -> LineageProcess. WITHOUT threading these an
-    # injected batch (metabolism-redux / violacein swap, feature toggles,
+    # injected batch (metabolism-redux swap, feature toggles,
     # exchange-flux readouts, PDMP initiation modes) silently degrades to a basal
     # single-cell build per generation (pipeline audit). Non-empty/non-default
     # only, so a plain baseline batch keeps a minimal config.
@@ -562,7 +562,7 @@ class BatchBaselineRunner(Step):
         "founder_sim_data": {"_default": ""},
         # Per-cell biological build kwargs, threaded panel-wide to every
         # generation's baseline() build (audit: batch mode used to drop these,
-        # degrading an injected metabolism-redux/violacein batch to basal FBA).
+        # degrading an injected metabolism-redux batch to basal FBA).
         # Untyped-with-default for the maps/lists (arbitrary content) and typed
         # for the scalar toggles/modes.
         "injected_processes": {"_default": {}},

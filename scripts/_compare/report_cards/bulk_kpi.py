@@ -3,13 +3,13 @@
 Grades a study's config-specific BULK observables — candidate (v2ecoli) vs
 reference (vEcoli) — for whatever bulk molecule ids the study declared via
 ``observable_bulk_ids`` (emitted on both arms under
-``listeners.observable_bulk.<id>``). One card serves every config: the violacein
-intracellular titer (``VIOLACEIN[c]``), antibiotic drug-target complexes
-(``mecillinam[p]-EG10606-MONOMER[i]``), free target, uptake — the card just reads
+``listeners.observable_bulk.<id>``). One card serves every config — a
+secreted-product intracellular titer, an antibiotic drug-target complex,
+free target, uptake — the card just reads
 whatever was declared.
 
-Grading is the candidate/reference relative delta on the final value (the same
-unit-robust scheme the violacein card uses — both arms divide through the same
+Grading is the candidate/reference relative delta on the final value (a
+unit-robust scheme — both arms divide through the same
 number, so it is correct whatever native unit the count carries). A declared id
 that neither arm emitted degrades to ungraded, named, so the gap is visible.
 """
@@ -88,7 +88,8 @@ def update_bulk_kpi_report_card(state):
     if not ids:
         return {"card_html": (
             '<p style="color:#6b7280">No bulk KPIs declared for this study — add '
-            '<code>observable_bulk_ids</code> (e.g. <code>VIOLACEIN[c]</code>) to '
+            '<code>observable_bulk_ids</code> (e.g. a bulk molecule id like '
+            '<code>SPECIES[c]</code>) to '
             'grade config-specific bulk molecules candidate-vs-reference.</p>'),
             "verdict": "ungraded", "axes": []}
 

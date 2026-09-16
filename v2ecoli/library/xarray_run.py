@@ -461,9 +461,9 @@ def _with_observable_bulk(agent: dict, ids: list) -> dict:
     ``observable_bulk`` group holding the declared bulk molecules' counts as
     scalars (``listeners.observable_bulk.<id>``).
 
-    This is the two-arm comparison's bulk-KPI hook: bulk counts (e.g.
-    ``VIOLACEIN[c]`` titer, ``mecillinam[p]-EG10606-MONOMER[i]`` drug-target
-    complex) ride under the ``listeners`` root so the SAME listener view + emit
+    This is the two-arm comparison's bulk-KPI hook: bulk counts (e.g. a
+    secreted-product titer or a drug-target complex)
+    ride under the ``listeners`` root so the SAME listener view + emit
     machinery captures them, and BOTH engines expose an identical path to grade
     on. Selection is by molecule id from the bulk record (``agent["bulk"]`` carries
     both ``id`` and ``count``); a missing id yields 0.0 so the trace stays

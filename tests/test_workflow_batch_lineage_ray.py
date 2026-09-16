@@ -146,3 +146,40 @@ def test_exchange_flux_basis_without_fluxes_is_a_no_op():
     cfg = doc["state"]["lineage_0000"]["config"]
     assert "exchange_fluxes" not in cfg
     assert cfg["exchange_flux_basis"] == "gdcw"
+
+
+def test_prewarm_skipped_when_V2ECOLI_SKIP_RAY_PREWARM_set(monkeypatch):
+    """A context that only INDEXES composites (the vivarium-workbench publish +
+    its env-worker composite discovery) sets V2ECOLI_SKIP_RAY_PREWARM so building
+    the lineage_ray_batch generator does NOT spin up a Ray pool -- it never
+    resolves a ray: address. Regression guard: that flag makes prewarm a no-op
+    that returns ``core`` unchanged and never touches get_or_create_runtime.
+    (Building the generator with prewarm running is what silently hung the
+    read-only-workbench publish for ~2 weeks.)"""
+    import process_bigraph.protocols.ray as ray_protocol
+    from v2ecoli.workflow.batch_lineage_ray import prewarm_lineage_pool
+
+    calls = []
+    monkeypatch.setattr(
+        ray_protocol, "get_or_create_runtime",
+        lambda core, n_shards_default=None: calls.append(n_shards_default))
+    monkeypatch.setenv("V2ECOLI_SKIP_RAY_PREWARM", "1")
+    core = object()
+    assert prewarm_lineage_pool(core, None) is core
+    assert calls == []  # Ray runtime never created during discovery
+
+
+def test_prewarm_runs_normally_when_flag_unset(monkeypatch):
+    """Default (flag off): a real dispatch still pre-sizes the Ray pool exactly as
+    before -- the guard must not change dispatch behavior."""
+    import process_bigraph.protocols.ray as ray_protocol
+    from v2ecoli.workflow.batch_lineage_ray import prewarm_lineage_pool
+
+    calls = []
+    monkeypatch.setattr(
+        ray_protocol, "get_or_create_runtime",
+        lambda core, n_shards_default=None: calls.append(n_shards_default))
+    monkeypatch.delenv("V2ECOLI_SKIP_RAY_PREWARM", raising=False)
+    core = object()
+    assert prewarm_lineage_pool(core, None) is core
+    assert calls == [None]  # runtime created once, default (cluster-derived) sizing

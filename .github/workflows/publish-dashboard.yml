@@ -39,7 +39,12 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    # 60 (was 25): the read-only build resolves every composite + renders all
+    # studies (67 and growing) on a slower CI runner than a laptop; a full local
+    # build is ~12 min, so CI (~2-3x) needs headroom. The 25-min cap silently
+    # cancelled the build for weeks -- alongside the Ray-prewarm hang fixed in
+    # #813 -- so the publish never reached gh-pages.
+    timeout-minutes: 60
     # The workbench wheel build warns+skips the loom bundle when npm is absent
     # (so Node-less consumer builds don't fail). But the published read-only
     # dashboard MUST include the Composite Explorer — require it here so a

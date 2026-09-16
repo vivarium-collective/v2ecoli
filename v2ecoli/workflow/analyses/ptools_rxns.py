@@ -132,7 +132,7 @@ class PtoolsRxns(Analysis):
         #  * flux WIDER than base_reaction_ids (flux_width > n_ids): the sim's
         #    metabolism was BUILT with reactions that are not in the pickled
         #    base_reaction_ids — a heterologous pathway injected at build time
-        #    (e.g. include_violacein_reactions appends a violacein reaction). Those
+        #    (e.g. an injected heterologous-pathway config appends extra reactions). Those
         #    reactions are appended AFTER the base set, so base_reaction_ids[i]
         #    still pairs with flux column i for i < n_ids; only the trailing
         #    columns are the injected reactions. Label those explicitly and keep

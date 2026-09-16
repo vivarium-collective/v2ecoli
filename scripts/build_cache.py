@@ -163,7 +163,7 @@ def main() -> None:
                         help="media id pinned for the run (e.g. minimal_acetate)")
     parser.add_argument("--new-genes", default=None,
                         help="strain new-gene insertion subdir this cache was built "
-                             "for (e.g. violacein). Recorded into the bundle's "
+                             "for (e.g. a new-gene strain name). Recorded into the bundle's "
                              "cache_version.json build_params so verify_cache_version "
                              "can reject a wrong-strain cache (P1-6). 'off'/empty = "
                              "wild-type. MUST match the value passed to v2ecoli-parca.")

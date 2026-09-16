@@ -343,9 +343,9 @@ def translate_vivarium_topology(topo: dict, _base: list | None = None) -> dict:
     unmapped subports resolve under the base; this is metabolism's ``environment``
     and matches the pre-existing behavior exactly). A *scattered* nested port —
     vEcoli's antibiotic subsystem, whose sub-ports fan out across stores via
-    ``..``-relative paths (e.g. ``mecillinam.species.bulk -> ["..","bulk"]``,
-    ``mecillinam.reaction_parameters.decay.kf ->
-    ["..","kinetic_parameters","mecillinam","decay_kf"]``) — is preserved as a
+    ``..``-relative paths (e.g. ``<proc>.species.bulk -> ["..","bulk"]``,
+    ``<proc>.reaction_parameters.decay.kf ->
+    ["..","kinetic_parameters","<proc>","decay_kf"]``) — is preserved as a
     nested wires tree so ``make_edge``/``list_paths`` wires each leaf to its real
     store. Collapsing a scattered port to its ``_path`` base silently dropped
     every leaf (the bulk store never reached the process → ``bulk["id"]`` on a
@@ -1105,7 +1105,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
             continue
         # Follow the nested port-key path into the (nested) ports_schema to find
         # this leaf's declared default(s); a scattered antibiotic sub-port like
-        # ``mecillinam.species.bulk`` seeds only the store it actually wires.
+        # ``<proc>.species.bulk`` seeds only the store it actually wires.
         schema_node = pschema if isinstance(pschema, dict) else None
         for k in port_keys:
             schema_node = schema_node.get(k) if isinstance(schema_node, dict) else None

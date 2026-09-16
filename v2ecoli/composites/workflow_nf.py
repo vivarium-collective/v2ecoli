@@ -176,7 +176,7 @@ class ParcaTaskStep(Step):
         # wire to, since a Nextflow input is fed by a channel, not a path.
         #
         # Needed for the campaigns this path exists to run: CD2's Run 1 uses ten
-        # pre-built per-seed K4 founder caches and Run 2 the violacein bundle.
+        # pre-built per-seed K4 founder caches and Run 2 a bioproduction bundle.
         # Recomputing a cache is not the same experiment.
         cache_uri = str(self.config.get("cache_uri") or "").strip()
         if cache_uri:
@@ -413,8 +413,8 @@ def _variant_specs(variants: list[dict[str, Any]] | None) -> list[dict[str, Any]
                 "An EXISTING cache to use instead of computing one, e.g. "
                 "s3://.../ray-parca-cache/<commit>/. Per-variant via the variant spec's "
                 "own `cache_uri`, which wins over this. Required to run CD2's actual "
-                "payloads: Run 1 uses pre-built per-seed founder caches and Run 2 the "
-                "violacein bundle -- recomputing a cache is a different experiment."
+                "payloads: Run 1 uses pre-built per-seed founder caches and Run 2 a "
+                "bioproduction bundle -- recomputing a cache is a different experiment."
             ),
         },
         "independent_founders": {
@@ -513,7 +513,7 @@ def _variant_specs(variants: list[dict[str, Any]] | None) -> list[dict[str, Any]
             "type": "object",
             "default": None,
             "description": (
-                "Mounts the ExchangeFluxListener, e.g. {glucose_exchange: GLC, violacein_exchange: VIOLACEIN}. Without it the listener does not mount and writes nothing, without refusing -- sim 679 lost two KPIs that way."
+                "Mounts the ExchangeFluxListener, e.g. {glucose_exchange: GLC, product_exchange: PRODUCT}. Without it the listener does not mount and writes nothing, without refusing -- sim 679 lost two KPIs that way."
             ),
         },
         "exchange_flux_basis": {

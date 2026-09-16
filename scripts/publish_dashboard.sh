@@ -29,7 +29,15 @@ INTERACTIVE_URL="https://github.com/vivarium-collective/v2ecoli"
 
 rm -rf "$OUT"
 # The workspace's own package must be importable for build_core() registration.
+#
+# V2ECOLI_SKIP_RAY_PREWARM=1: publish only INDEXES the workspace's composites (it
+# reads each generator's topology, never resolves a ray: address). Building the
+# lineage_ray_batch generator otherwise runs prewarm_lineage_pool, which spins up a
+# Ray cluster + actor pool inside the env-worker and hangs in this headless build --
+# the exact reason the publish CI stalled + was cancelled for ~2 weeks. The flag is
+# inherited by the env-worker subprocess, which is where the generator is built.
 PYTHONPATH="$WS_ROOT${PYTHONPATH:+:$PYTHONPATH}" \
+  V2ECOLI_SKIP_RAY_PREWARM=1 \
   vivarium-workbench-publish \
     --workspace "$WS_ROOT" \
     --out "$OUT" \

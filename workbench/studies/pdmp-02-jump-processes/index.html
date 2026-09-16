@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -629,6 +631,9 @@ v2ecoli baseline across the Phase 0 conditions.
       
       
       
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-contradicts">
         <details class="finding-details">
           <summary class="finding-row">
@@ -684,6 +689,10 @@ v2ecoli baseline across the Phase 0 conditions.
       
       
       
+      
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
         <details class="finding-details">
           <summary class="finding-row">
@@ -728,6 +737,7 @@ v2ecoli baseline across the Phase 0 conditions.
         </details>
       </div>
       
+      
     </div>
     
       
@@ -761,7 +771,9 @@ v2ecoli baseline across the Phase 0 conditions.
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-02-jump-processes">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-02-jump-processes"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -988,7 +1000,7 @@ v2ecoli baseline across the Phase 0 conditions.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1098,7 +1110,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/division_time_distribution.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 — division time distribution"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">First-passage division-time distribution from the stochastic bisection driver.</p>
@@ -1115,7 +1127,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/ensemble_validation.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 — initial ensemble validation"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Phase-2 baseline ensemble vs Phase-0 reference before homeostat tuning landed.</p>
@@ -1132,7 +1144,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/ensemble_validation_period60.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 sprint 9 — sparse-injection ensemble validation"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">60-tick injection period: homeostat washes per-tick variance, confirming the closeout finding.</p>
@@ -1149,7 +1161,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/ensemble_validation_tau60.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 sprint 9 — τ=60 ensemble validation"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Same sparse-injection experiment with τ=60 averaging window.</p>
@@ -1166,7 +1178,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/initiation_modes_comparison.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 sprint 2 — discrete vs Poisson trajectory overlay"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Side-by-side trajectories under the two initiation modes for TranscriptInitiation and PolypeptideInitiation.</p>
@@ -1183,7 +1195,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/stochastic_gene_trajectories.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 — stochastic gene trajectories"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Per-gene RNA-init + ribosome-init event-stream diagnostic.</p>
@@ -1200,7 +1212,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/trajectory_divergence.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 sprint 4 — trajectory-shape divergence"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">max |Δ cell_mass| = 150 fg between configs (transient, single trajectory pair; computed in scripts/trajectory_divergence.py on the cell_mass quantity, not at the rnap_data listener). Closeout finding: cell_mass is the wrong observable for jump-process variance, because the consumption_matched homeostat washes per-tick variance out by construction.</p>
@@ -1217,7 +1229,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/trajectory_divergence_discrete.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 — trajectory divergence in `discrete` mode"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Same as the aggregate trajectory divergence, restricted to the original discrete-time stochastic branch — for side-by-side comparison with the Poisson mode.</p>
@@ -1234,7 +1246,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02/trajectory_divergence_poisson.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 2 — trajectory divergence in `poisson` mode"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Same as the aggregate trajectory divergence, restricted to the per-promoter / per-protein Poisson tau-leap branch.</p>
@@ -1251,7 +1263,7 @@ v2ecoli baseline across the Phase 0 conditions.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-02-jump-processes/study_plan_summary.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="study_plan_summary"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Hand-authored figure (12 KB) from reports/figures/pdmp-02-jump-processes/.</p>
@@ -1775,7 +1787,7 @@ expect:  {"conditions": [{"field": "speedup_ratio", "operator": "greater-than", 
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "pdmp-02-jump-processes";

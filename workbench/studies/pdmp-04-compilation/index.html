@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -650,7 +652,9 @@ improvement handed to Phase 3 / Phase 5.
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-04-compilation">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-04-compilation"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -885,7 +889,7 @@ improvement handed to Phase 3 / Phase 5.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -995,7 +999,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/jax_julia_speedup.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 — JAX/Julia backend speedup (Phase 1 wrap-up)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">JAX vs basico backend speedup for the Millard ODE on the standalone benchmark (Phase 1 perf #4 closeout).</p>
@@ -1012,7 +1016,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/jit_compile_cost.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 — JIT compile-cost amortization"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">JAX compile-time vs run-time crossover as a function of trajectory count and trajectory length.</p>
@@ -1029,7 +1033,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/memory_footprint.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 — per-cell memory footprint by bucket"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Memory budget per WCM cell broken down by listener / state / ParCa cache.</p>
@@ -1046,7 +1050,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/column_centric_prototype.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 3 — column-centric runtime prototype"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Constant per-trajectory wall regardless of N; 3.1× speedup on pure-Poisson toy.</p>
@@ -1063,7 +1067,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/marshalling_hotspots.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 2 — function-level marshalling hotspots"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">13,817 isinstance + 4,213 __array_finalize__ + 52 process_update calls per tick (genuine cProfile counts). Much per-tick time is outside process_update, but that includes real numpy/scipy numeric work, not all of it marshalling.</p>
@@ -1080,7 +1084,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/multistep_prototype.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 4 — 3-step composite prototype"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Speedup does not compound across processes; pbg overhead is per-process, not per-step.</p>
@@ -1097,7 +1101,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/per_step_compute_decomposition.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 1 — per-tick compute decomposition"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">76% of per-tick time is outside process_update (includes real numpy/scipy numeric work, not all of it marshalling); no single Process dominates. Suggests, but does not demonstrate, a column-centric runtime as the architectural direction.</p>
@@ -1114,7 +1118,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/ti_shaped_prototype.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 6 — TI-shaped column-centric runner"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">TI-shaped workload: 1.5× per-tick recalibration (vs toys&#39; 3×), a measured microbenchmark and an extrapolation not validated on the 55-process WCM. This 1.5× is the toy factor fed into the illustrative ~1500× = factor × N projection (not a measured speedup; column-centric runtime never built).</p>
@@ -1131,7 +1135,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04/wcm_baseline_projection.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 4 sprint 5 — real WCM baseline + illustrative N-scaling projection"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Real WCM benchmark (measured): pbg sequential at N=10³ × 30 ticks = 26 min. The &#34;≈ 1 sec / ~1500× total speedup&#34; is an illustrative projection = toy factor × N (script hardcodes 3× → 3000×; prose uses 1.5× → ~1500×); the column-centric parallel runtime was never built or timed. Not a measured speedup.</p>
@@ -1148,7 +1152,7 @@ improvement handed to Phase 3 / Phase 5.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-04-compilation/study_plan_summary.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="study_plan_summary"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Hand-authored figure (11 KB) from reports/figures/pdmp-04-compilation/.</p>
@@ -1596,7 +1600,7 @@ expect:  {"field": "RSS_GB", "operator": "less-than", "threshold": 256.0}</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "pdmp-04-compilation";

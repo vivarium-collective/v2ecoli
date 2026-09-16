@@ -23,6 +23,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -636,7 +638,9 @@ with a clean ~0.5 mass ratio, so the boundary behavior is not seed-specific.
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="sm-04-through-division">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="sm-04-through-division"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -756,7 +760,7 @@ with a clean ~0.5 mass ratio, so the boundary behavior is not seed-specific.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -862,7 +866,7 @@ with a clean ~0.5 mass ratio, so the boundary behavior is not seed-specific.
       <iframe src="/v2ecoli/workbench/reports/figures/sm-04-through-division/through_division.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Through division — emulator rollout vs the cell_mass halving (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">One held-out lineage&#39;s true cell_mass across a division vs each emulator&#39;s autoregressive rollout (the rollout continues to ~2340 fg while the true mass halves to ~1221 fg), plus within-generation vs division-tick teacher-forced one-step error per emulator. Every emulator, trivial or neural, fails to represent the discontinuity; the best within-generation models fail worst at the boundary.</p>
@@ -1166,7 +1170,7 @@ expect:  {"low": 2.0, "op": "lt"}</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "sm-04-through-division";

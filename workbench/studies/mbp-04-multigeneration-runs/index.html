@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -580,7 +582,7 @@ exponential growth into glucose-limited or DO-limited slowdown as the
 population grows and consumes the batch?
 </p>
       
-      <div class="ctr-context">Carbon ledger: glucose-C in -&gt; biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -&gt; biomass-N (~0.12 gN/gDW). Both residuals expected |&lt;0.02| at every step. Headline observable is the growth-&gt;limitation regime transition.</div>
+      <div class="ctr-context">Carbon ledger: glucose-C in -&gt; biomass-C (~0.46 gC/gDW) + CO2-C (~half of aerobic glucose-C; omitting it is a guaranteed ~50% failure) + acetate/lactate/formate/ethanol/pyruvate/succinate-C (aerobic overflow per Vemuri 2006). Nitrogen ledger (narrow): NH4+ in -&gt; biomass-N (~0.12 gN/gDW). Both residuals are REPORTED, NOT GRADED: |&lt;0.02| (carbon) / |&lt;0.10| (nitrogen) is the intent for the settled value, but the criteria reduce with max_abs over the full window, which the startup transient of the ledger dominates (measured 5.383 / 9.482), and the nitrogen constant is ~11% low against sim_data (~0.135 vs 0.12 gN/gDW). Headline observable is the growth-&gt;limitation regime transition.</div>
       
     </div>
 
@@ -590,7 +592,13 @@ population grows and consumes the batch?
       
       <div class="ctr-meta">
         <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>mbp-04-multigeneration-runs</code></div>
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Total carbon (glucose-C + biomass-C + CO2-C + acetate-C) is conserved across the run within numerical tolerance.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the run within numerical tolerance.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">240-min sim completes in &lt; 30 min wall time at seed 0 (budget placeholder; real budget set in spec PR).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">wcm-mass-conservation-closes</span></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">Cell count rises exponentially through the first 2 generations, then growth rate measurably flattens once a limiting substrate (glucose or DO) is exhausted.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Total carbon (glucose-C + biomass-C + CO2-C + byproduct-C) is conserved across the run. REPORTED, NOT GRADED -- execute-and-report; the pass_if below is stated as the intent, not as a gate this measure can evaluate.
+SIDE EFFECT OF THIS DOWNGRADE, DISCLOSED (measured 2026-08-31). Marking this and the nitrogen criterion `diagnostic` FLIPS this study&#39;s audit axis `sufficiency/discriminating_control` from (&#34;drift&#34;, soft) to (&#34;within_tol&#34;, soft), because viva_superpowers/test_audit.py:132-141 `has_discriminating_control()` returns True for ANY test classified `diagnostic`. So the study&#39;s &#34;discriminating control present&#34; signal improves BECAUSE two criteria were marked unevaluable. The overall audit_gate is unchanged (still &#34;fail&#34;) and the severity is soft, so no verdict is laundered -- but the improvement is an artefact of a weakening, not evidence of one, and is recorded here so it is not mistaken for progress.
+WHY NOT GRADED (measured 2026-08-31, and the reason this criterion was downgraded from `primary`). The measure is `reduce: max_abs, window: full`, but the ledger&#39;s residual is a RATIO whose denominator is ~0 for the first ticks after its baseline latches, so the trace opens with a large STRUCTURAL startup transient: max_abs over the full window is 5.383 (t=1 -1.9288, t=2 +5.3835), against a settled -0.040 by t=300. No band in [0, 1] can pass that reduction, so the previously stated 0.02 band described something this criterion does not measure. The band is retained below as the target for the SETTLED residual once the window is fixed; it is not evaluable as written. FOLLOW-UP 1: change reduce/window to exclude the baseline-latch transient (e.g. a post-latch window, or a settled-value reduce) -- then re-grade.
+SCOPE, independent of the above: this is a BOOKKEEPING check and must not be read as validating the physiology. Measured 2026-08-31 on a longer batch, the settled residual sits at -0.7% while the model routes ~95% of glucose carbon into BIOMASS and ~5% to CO2, against 40-50% to CO2 for real aerobic growth. The balance closes on a partition that cannot be physical, and no value of this residual would reveal that. The physiology is carried by the companion partition readouts (reactor.diagnostics.carbon_to_{biomass,co2,byproducts}_frac), which are reported, not graded. See also the biomass-yield thread (v2ecoli#421/#422): that ~100%-to-biomass partition IS the 0.870 g/g yield defect seen from the carbon side.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">Total nitrogen (ammonium-N + biomass-N) is conserved across the run. REPORTED, NOT GRADED -- execute-and-report; the pass_if below is stated as the intent, not as a gate this measure can evaluate. TWO independent blockers, either of which alone would disqualify it as a gate.
+BLOCKER 1 -- THE WINDOW (measured 2026-08-31). Same defect as the carbon criterion above: `reduce: max_abs, window: full` over a residual that is a RATIO with a ~0 denominator for the first ticks after its baseline latches. Max_abs over the full window is 9.482 (t=4 +9.4820), against a settled +0.261 by t=300. No band in [0, 1] can pass, so the previously stated 0.10 band described something this criterion does not measure. FOLLOW-UP 1: change reduce/window to exclude the baseline-latch transient, then re-grade.
+BLOCKER 2 -- THE CONSTANT (measured 2026-08-31). The residual is computed against a HARDCODED biomass nitrogen fraction of 0.12 gN/gDW. Deriving the fraction from the model&#39;s own biomass composition in simData.cPickle (protein / RNA / DNA nitrogen content against the ParCa mass fractions) gives ~0.135 gN/gDW. The assumed constant is therefore ~11% LOW, and the residual is largely measuring that bias rather than the model&#39;s bookkeeping. Grading against it would grade the constant. FOLLOW-UP 2: derive the nitrogen fraction from sim_data rather than hardcoding it. That also removes the constant&#39;s literature uncertainty (E. coli dry-mass nitrogen is reported across roughly 0.11-0.14 gN/gDW), and converts the residual from &#34;does the model match physiology&#34; into &#34;is the model internally consistent&#34; -- a narrower but honest claim.
+The 0.10 band is retained below as the target for the settled residual once BOTH follow-ups land. Read the earlier reading of ~7.6% plateau on a 40 mM glucose / 60 mM ammonium batch as a characterisation of the ledger under the wrong constant, not as a pass.</span><span class="ctr-dot">·</span><span class="ctr-meta-item">240-min sim completes in &lt; 30 min wall time at seed 0 (budget placeholder; real budget set in spec PR).</span><span class="ctr-dot">·</span><span class="ctr-meta-item">wcm-mass-conservation-closes</span></div>
       </div>
       
     </div>
@@ -602,6 +610,9 @@ population grows and consumes the batch?
       
     <div class="overview-section findings-section">
       <h2 class="overview-label">🔬 Findings — what this study taught us</h2>
+      
+      
+      
       
       
       
@@ -643,6 +654,7 @@ population grows and consumes the batch?
         </details>
       </div>
       
+      
     </div>
     
       
@@ -678,7 +690,9 @@ population grows and consumes the batch?
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-04-multigeneration-runs">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-04-multigeneration-runs"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -875,7 +889,13 @@ Residual computation:
   carbon_residual = (Σ inputs - Σ outputs - Δ biomass-C) / Σ inputs
   nitrogen_residual = (Σ inputs - Σ outputs - Δ biomass-N) / Σ inputs
 
-Both should be |residual| &lt; 0.02 at every emit step over the run.
+Both residuals are REPORTED, NOT GRADED. |residual| &lt; 0.02 is the
+intent for the SETTLED value; it is not evaluable under the current
+`reduce: max_abs, window: full`, which is dominated by the startup
+transient while the ratio&#39;s denominator is ~0 (measured max_abs 5.383
+carbon / 9.482 nitrogen). Two follow-ups gate re-arming the bands: fix
+the reduce/window, and derive the biomass nitrogen fraction from
+sim_data (~0.135 gN/gDW) instead of the hardcoded 0.12.
 </p>
       
       
@@ -902,7 +922,7 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1012,7 +1032,7 @@ Both should be |residual| &lt; 0.02 at every emit step over the run.
       <iframe src="/v2ecoli/workbench/reports/figures/mbp-04-multigeneration-runs/biomass_accumulation_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Multi-generation accumulation — WCM x53 over 6 generations vs Millard flat (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">The headline result. WCM-FBA divides 5x to 6 generations, representative biomass x53 (the representative_doubling path toward batch scale); Millard-ODE stays at gen 1 (x1.04) — the documented inherent reduced-model slow-growth. Toggle arms in the legend; hover for per-step mass.</p>
@@ -1209,20 +1229,23 @@ pass_if: {"op": "ratio_at_most", "value": 0.3}</pre>
         data-test-kind="behavioral"
         
         data-pytest-node="carbon-mass-balance-closes-over-3-generations"
-        data-classification="primary"
+        data-classification="diagnostic"
         data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
         <strong style="font-size: 0.9em;">carbon-mass-balance-closes-over-3-generations</strong>
         
         <span class="muted" style="font-size:0.78em">requires: <code>three-generation-batch</code></span>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Total carbon (glucose-C + biomass-C + CO2-C + acetate-C) is conserved across the run within numerical tolerance.</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Total carbon (glucose-C + biomass-C + CO2-C + byproduct-C) is conserved across the run. REPORTED, NOT GRADED -- execute-and-report; the pass_if below is stated as the intent, not as a gate this measure can evaluate.
+SIDE EFFECT OF THIS DOWNGRADE, DISCLOSED (measured 2026-08-31). Marking this and the nitrogen criterion `diagnostic` FLIPS this study&#39;s audit axis `sufficiency/discriminating_control` from (&#34;drift&#34;, soft) to (&#34;within_tol&#34;, soft), because viva_superpowers/test_audit.py:132-141 `has_discriminating_control()` returns True for ANY test classified `diagnostic`. So the study&#39;s &#34;discriminating control present&#34; signal improves BECAUSE two criteria were marked unevaluable. The overall audit_gate is unchanged (still &#34;fail&#34;) and the severity is soft, so no verdict is laundered -- but the improvement is an artefact of a weakening, not evidence of one, and is recorded here so it is not mistaken for progress.
+WHY NOT GRADED (measured 2026-08-31, and the reason this criterion was downgraded from `primary`). The measure is `reduce: max_abs, window: full`, but the ledger&#39;s residual is a RATIO whose denominator is ~0 for the first ticks after its baseline latches, so the trace opens with a large STRUCTURAL startup transient: max_abs over the full window is 5.383 (t=1 -1.9288, t=2 +5.3835), against a settled -0.040 by t=300. No band in [0, 1] can pass that reduction, so the previously stated 0.02 band described something this criterion does not measure. The band is retained below as the target for the SETTLED residual once the window is fixed; it is not evaluable as written. FOLLOW-UP 1: change reduce/window to exclude the baseline-latch transient (e.g. a post-latch window, or a settled-value reduce) -- then re-grade.
+SCOPE, independent of the above: this is a BOOKKEEPING check and must not be read as validating the physiology. Measured 2026-08-31 on a longer batch, the settled residual sits at -0.7% while the model routes ~95% of glucose carbon into BIOMASS and ~5% to CO2, against 40-50% to CO2 for real aerobic growth. The balance closes on a partition that cannot be physical, and no value of this residual would reveal that. The physiology is carried by the companion partition readouts (reactor.diagnostics.carbon_to_{biomass,co2,byproducts}_frac), which are reported, not graded. See also the biomass-yield thread (v2ecoli#421/#422): that ~100%-to-biomass partition IS the 0.870 g/g yield defect seen from the carbon side.</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1248,27 +1271,30 @@ pass_if: {"op": "at_most", "value": 0.02}</pre>
         data-test-kind="behavioral"
         
         data-pytest-node="nitrogen-mass-balance-closes-over-3-generations"
-        data-classification="primary"
+        data-classification="diagnostic"
         data-result="pending"
-        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
+        style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #f59e0b; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
         <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
-        <span class="classification-pill classification-primary">primary</span>
+        <span class="classification-pill classification-diagnostic">diagnostic</span>
         <strong style="font-size: 0.9em;">nitrogen-mass-balance-closes-over-3-generations</strong>
         
         <span class="muted" style="font-size:0.78em">requires: <code>three-generation-batch</code></span>
         
       </div>
-      <div style="margin-top: 6px; font-size: 0.95em;">Total nitrogen (nitrogen-source-N + biomass-N) is conserved across the run within numerical tolerance.</div>
+      <div style="margin-top: 6px; font-size: 0.95em;">Total nitrogen (ammonium-N + biomass-N) is conserved across the run. REPORTED, NOT GRADED -- execute-and-report; the pass_if below is stated as the intent, not as a gate this measure can evaluate. TWO independent blockers, either of which alone would disqualify it as a gate.
+BLOCKER 1 -- THE WINDOW (measured 2026-08-31). Same defect as the carbon criterion above: `reduce: max_abs, window: full` over a residual that is a RATIO with a ~0 denominator for the first ticks after its baseline latches. Max_abs over the full window is 9.482 (t=4 +9.4820), against a settled +0.261 by t=300. No band in [0, 1] can pass, so the previously stated 0.10 band described something this criterion does not measure. FOLLOW-UP 1: change reduce/window to exclude the baseline-latch transient, then re-grade.
+BLOCKER 2 -- THE CONSTANT (measured 2026-08-31). The residual is computed against a HARDCODED biomass nitrogen fraction of 0.12 gN/gDW. Deriving the fraction from the model&#39;s own biomass composition in simData.cPickle (protein / RNA / DNA nitrogen content against the ParCa mass fractions) gives ~0.135 gN/gDW. The assumed constant is therefore ~11% LOW, and the residual is largely measuring that bias rather than the model&#39;s bookkeeping. Grading against it would grade the constant. FOLLOW-UP 2: derive the nitrogen fraction from sim_data rather than hardcoding it. That also removes the constant&#39;s literature uncertainty (E. coli dry-mass nitrogen is reported across roughly 0.11-0.14 gN/gDW), and converts the residual from &#34;does the model match physiology&#34; into &#34;is the model internally consistent&#34; -- a narrower but honest claim.
+The 0.10 band is retained below as the target for the settled residual once BOTH follow-ups land. Read the earlier reading of ~7.6% plateau on a 40 mM glucose / 60 mM ammonium batch as a characterisation of the ledger under the wrong constant, not as a pass.</div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
         <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "series", "path": "reactor.diagnostics.nitrogen_residual", "reduce": "max_abs", "window": "full"}
-pass_if: {"op": "at_most", "value": 0.02}</pre>
+pass_if: {"op": "at_most", "value": 0.1}</pre>
       </details>
       
       
@@ -1483,7 +1509,8 @@ cites:   ["agmon2022"]</pre>
       
       
       <div><strong>Proceed when:</strong> <span class="muted">Regime-transition test passes (population growth flattens once a
-limiting substrate is exhausted); mass-balance audits close; wall-clock
+limiting substrate is exhausted); the C/N mass-balance residuals are
+REPORTED (they do not gate — see the two behavior_tests); wall-clock
 budget met; no NaN / divergence.
 </span></div>
       
@@ -1545,7 +1572,7 @@ budget met; no NaN / divergence.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-04-multigeneration-runs";

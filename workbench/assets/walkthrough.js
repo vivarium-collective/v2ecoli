@@ -1,6 +1,14 @@
 // walkthrough.js — v0.8.0: Registry Full view is now directly runnable — the config bar IS the editable config and the left ports ARE the editable input fields (no "Run this process" dropdown); Run lives in the body, outputs on the right. Middle (grid) zoom shows ports+types inline (no dropdown); double-click a card → runnable Full. Modules table split into Installed-here vs Marketplace sections with a Repos (imported-into) column, GitHub link on the name, and Install/Uninstall in one Action column (n_repos from module_stats federation scan). bigraph-loom: Explore (graph) is the default left tab; the right dock defaults to Processes with Nodes/Inspector collapsed. v0.7.0: Composites semantic zoom (Table/Cards full-row compact/Loom on-demand embed) + double-click to zoom in; /api/composites now runs in the WARM pooled worker (flake fix). v0.6.9: registry filter now data-driven (works in Table/Cards/Full); middle Cards zoom is full-row with composite/study usage split + details; double-click zooms in centered; select persists across zoom; run panel input ports as per-field form (type + resolved default, auto-grow) + Copy outputs; loom config bar lightened to match workbench palette. v0.6.8: run panel lazy-loads RESOLVED defaults (core.fill via /api/registry/process-template) into a per-field config form + inputs JSON (no more null-heavy templates); loom card restyled as a crisp rectangle. v0.6.7: Registry Full-view interactive runner — editable config + input-port JSON, Run → outputs (POST /api/registry/run-process; env_worker._run_process instantiates + Step.update / Process.update(interval)); loom inputs left / outputs right. v0.6.6: Registry semantic zoom (compact/detailed/full loom-rectangle: inputs left, outputs right, config top) + Cards⇄Table sortable view (_setRegistryZoom/_setRegistryView/_renderRegistryTable); rail pins hover-only + ungrouped back to a collapsible folder. v0.6.5: Registry processes sorted by USE (most-referenced across composites/runners first) with a use-count badge (build_registry._annotate_use_counts source-scan). v0.6.4: Registry page — "Discovered registry"→"Registry" (main tab), "Modules"→"Marketplace"; rich registry entries (description + inputs/outputs ports/contract + full config schema, loom-like) and a new Report Cards tab (_renderRegistryEntry/_regPortColumn). v0.6.3: STUDIES rail — per-study pin toggle (localStorage) with a "Pinned" strip at the top for quick access, and ungrouped studies rendered as a flat list at the bottom instead of a collapsible dropdown (_toggleStudyPin/_loadPinnedStudies; _railStudyItem + _renderRailInvestigationGroups). v0.6.2: Marketplace merged into the Modules tab — Modules grid loads the FULL ecosystem via /api/marketplace (available modules under the "Available to install" divider), installed cards gain an Uninstall action gated by an impact-confirmation modal (_showUninstallImpactModal via /api/catalog-uninstall-impact), viva-* display names + stat chips. v0.6.1: Marketplace sub-tab — browse the FULL viva ecosystem (unfiltered by registry.include) + install (_loadMarketplace/_renderMarketplace via /api/marketplace; shared _renderModuleGrid/_moduleActionFor with the Modules tab). v0.6.0: system-deps awareness — pre-install check + consent modal (_installFromCatalog → _showSystemDepsModal; new _checkSystemDepsForInstalled on Registry rows); v0.5.3: investigation detail panel — Spec/Runs/Visualizations tabs + Run button + Delete; v0.5.2: composite explorer UX fixes (no focus-mode hijack, one-row-per-param layout, lazy-load composite cache); v0.5.1: composite explorer page (bigraph-viz + test run + promote to simulation); v0.4.14: Available Composites picker + Emitter Use feedback + drop process multi-select; v0.4.5: _renderInstallError structured diagnosis; v0.4.1: _loadCatalog + _installFromCatalog; v0.4.0b: active-branch workstream strip; v0.3.7-A: _installImport; v0.3.6: Registry tab; v0.1.9: drag-drop uploads; v0.1.7: interactive forms.
 (function () {
   "use strict";
+  // Cache-bust token for the bigraph-loom iframe, captured once per page load.
+  // The loom bundle is served no-store, but a React re-render reuses the same
+  // <iframe> element without re-navigating, so a freshly-built loom looked stale
+  // until an Empty-Cache-and-Hard-Reload. Appending &v=<load token> to every loom
+  // iframe src makes each full page reload re-navigate the iframe (→ fresh
+  // bundle), while staying stable within a session so we don't reload it on every
+  // SPA update.
+  var _LOOM_V = Date.now();
 
   // Prefix a root-absolute /api path with the dashboard base path (e.g. /workbench)
   // so composite-explore run/resolve/status calls reach the workbench under the
@@ -15,6 +23,47 @@
   // sibling scopes (tick / study-card / v4 renderers) — which threw
   // "ReferenceError: Can't find variable: _humanizeStudyName" and failed the
   // investigation report load (fixed 2026-06-10). Hoisted here = visible IIFE-wide.
+  // Canonical study status -> {color, icon, label, state}. ONE source of truth for
+  // the colored status shown in the spine sidebar dot, the investigation-graph card
+  // badge, and the graph legend, so those three can never drift apart. (They used
+  // to: the sidebar read the lifecycle `effective_status` while the card read the
+  // hand-set `confidence` field first — so a `blocked` study showed amber
+  // "Investigating" on its card while its sidebar dot was red.) Precedence, honoring
+  // the card code's own stated intent: the COMPUTED gate_status verdict wins, then
+  // the hand-set confidence, then the lifecycle status. `Blocked` is its own state —
+  // a study that could not run — distinct from `Refuted` (a hypothesis disproven).
+  var _STATUS_META = {
+    Accepted:      {color: '#16a34a', icon: '✓', label: 'Accepted'},      // ✓
+    Investigating: {color: '#ca8a04', icon: '◐', label: 'Investigating'}, // ◐
+    Planned:       {color: '#2563eb', icon: '○', label: 'Planned'},       // ○
+    Blocked:       {color: '#64748b', icon: '⊘', label: 'Blocked'},       // ⊘
+    Refuted:       {color: '#dc2626', icon: '✗', label: 'Refuted'},       // ✗
+  };
+  function _studyStatusState(s) {
+    s = s || {};
+    // 1. The COMPUTED gate_status verdict is the top authority.
+    var gate = String(s.gate_status || '').trim().toLowerCase();
+    if (gate === 'passed' || gate === 'pass' || gate === 'accepted') return 'Accepted';
+    if (gate === 'failed' || gate === 'failed_evaluation' || gate === 'refuted') return 'Refuted';
+    if (gate === 'blocked') return 'Blocked';
+    if (gate === 'partial' || gate === 'needs_calibration' || gate === 'in_progress') return 'Investigating';
+    // 2. A DEFINITIVE lifecycle state (server-computed effective_status/status folds
+    //    gate_status in) outranks the drift-prone hand-set confidence: a `blocked`
+    //    study must never read as its stale `confidence: Investigating`. This is what
+    //    lets the gate-less rail study objects agree with the gate-bearing graph cards.
+    var life = String(s.effective_status || s.status || '').trim().toLowerCase();
+    if (life.indexOf('blocked') !== -1) return 'Blocked';
+    if (life.indexOf('fail') !== -1 || life === 'invalid' || life === 'refuted') return 'Refuted';
+    // 3. Hand-set confidence, when no gate verdict and no definitive lifecycle.
+    var conf = String(s.confidence || '').trim();
+    if (_STATUS_META[conf]) return conf;
+    // 4. Remaining lifecycle states.
+    if (['complete', 'completed', 'ran', 'passed', 'evaluated', 'decided'].indexOf(life) >= 0) return 'Accepted';
+    if (['running', 'analyzing', 'in_progress'].indexOf(life) >= 0) return 'Investigating';
+    return 'Planned';
+  }
+  function _studyStatusMeta(s) { return _STATUS_META[_studyStatusState(s)] || _STATUS_META.Planned; }
+
   function _humanizeStudyName(slug) {
     var m = /^([a-z]+-\d+[a-z]*)-(.+)$/.exec(slug);
     if (!m) return {chip: '', title: String(slug).replace(/-/g, ' ')};
@@ -168,6 +217,13 @@
       window._ceLastRunId = ev.data.simulation_id || null;
       var bar = document.getElementById('ce-post-run-bar');
       if (bar) bar.style.display = 'flex';
+      // A just-completed run should appear in the Runs tab right away — without a
+      // manual reload or waiting the ~100s remote fetch. Re-pull the sim index: the
+      // Phase-1 local fetch picks up the new .pbg/composite-runs.db row fast
+      // (including a Cloud run's save_metadata row). The backed-off remote fetch
+      // (_maybeLoadRemoteSims) is not re-triggered, so this stays cheap.
+      if (typeof window._initSimulations === 'function') window._initSimulations(true);
+      if (typeof window._loadStudySims === 'function') window._loadStudySims(true);
     }
   });
 
@@ -400,8 +456,25 @@
         if (doc && doc.body && window.ResizeObserver && !frame._roFit) {
           frame._roFit = new ResizeObserver(function () { fit(true); });
           frame._roFit.observe(doc.body);
+          // Observe documentElement too: a tab switch / async chart render can
+          // grow the document without changing body's observed box, so a
+          // body-only observer misses it and the porthole keeps its own
+          // scrollbar (the middle of the nested-scrollbar bug).
+          if (doc.documentElement) frame._roFit.observe(doc.documentElement);
         }
       } catch (_) { /* cross-origin */ }
+      // Bounded catch-up (~8s): the observer above can still miss content that
+      // grows well after load (lazy figure iframes finishing their own resize).
+      // Poll a refit so the porthole reaches full content height. Skipped while
+      // the landing scroll is active so it can't cancel the scroll-to-study.
+      if (frame._catchupTimer) { clearInterval(frame._catchupTimer); }
+      var _ticks = 0;
+      frame._catchupTimer = setInterval(function () {
+        if (!frame.isConnected) { clearInterval(frame._catchupTimer); frame._catchupTimer = null; return; }
+        if (window._embedLandingUntil && Date.now() < window._embedLandingUntil) return;
+        fit(false);
+        if (++_ticks >= 16) { clearInterval(frame._catchupTimer); frame._catchupTimer = null; }
+      }, 500);
     };
     frame.addEventListener('load', onload);
     try {
@@ -512,7 +585,7 @@
   window._closeStudyEmbedded = _closeStudyEmbedded;
 
   // -------------------------------------------------------------------------
-  // UI feature flags (ui.composite_view)
+  // UI feature flags (ui.composite_view, ui.auto_results)
   // -------------------------------------------------------------------------
   window._uiConfig = null;
   fetch('/api/ui-config').then(function(r) { return r.json(); }).then(function(cfg) {
@@ -521,6 +594,7 @@
     // CSS; the Source panel reads this flag at render time to go remote-only.
     if (window._uiConfig.readonly) document.body.classList.add('readonly');
     _applyCompositeViewMode();
+    _applyAutoResultsCheckbox();
   });
 
   function _applyCompositeViewMode() {
@@ -538,6 +612,43 @@
     }
   }
   window._applyCompositeViewMode = _applyCompositeViewMode;
+
+  // Composite loom viewer chrome: a default-on checkbox mirroring the
+  // workspace's ui.auto_results setting (Task 7 — gates whether a composite
+  // run auto-runs its declared analyses/visualizations). Default checked when
+  // unset (cfg.auto_results !== false), matching build_ui_config's default.
+  function _applyAutoResultsCheckbox() {
+    var cfg = window._uiConfig || {};
+    var cb = document.getElementById('ui-auto-results-cb');
+    if (!cb) return;
+    cb.checked = cfg.auto_results !== false;
+  }
+  window._applyAutoResultsCheckbox = _applyAutoResultsCheckbox;
+
+  // Checkbox onchange handler: POST the new value to the settings endpoint.
+  // This is a mirror, not the source of truth — workspace.yaml stays that.
+  function _setAutoResults(checked) {
+    var cb = document.getElementById('ui-auto-results-cb');
+    fetch(_api('/api/ui-config'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auto_results: !!checked }),
+    }).then(function(r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function() {
+      window._uiConfig = window._uiConfig || {};
+      window._uiConfig.auto_results = !!checked;
+    }).catch(function(err) {
+      // Revert the checkbox on failure so it doesn't silently drift from the
+      // persisted workspace setting.
+      if (cb) cb.checked = !checked;
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('Failed to persist ui.auto_results:', err);
+      }
+    });
+  }
+  window._setAutoResults = _setAutoResults;
 
   // -------------------------------------------------------------------------
   // Form submission helper
@@ -836,7 +947,7 @@
   function _loadInputs() {
     var el = document.getElementById('inputs-api-render');
     if (!el) return;
-    el.innerHTML = '<p class="muted" style="font-style:italic">Loading inputs…</p>';
+    el.innerHTML = '<p class="muted" style="font-style:italic">Loading…</p>';
     // Prefer the Sources-page picker selection over the git-branch-current slug.
     var _slug = window._inputsSelectedSlug || window._currentIsetSlug || '';
     var _pInputs = window.DataSource
@@ -848,8 +959,9 @@
     // Also load the investigation list so the panel can offer a picker when no
     // investigation is branch-current — the user chooses which investigation to
     // load sources INTO (its own sources, not the repo-wide shared sources).
-    var _pList = fetch(_api('/api/investigation-summaries'))
-      .then(function(r) { return r.json(); })
+    var _pList = (window.DataSource
+      ? window.DataSource.loadIsetList()
+      : fetch('/api/investigation-summaries').then(function(r) { return r.json(); }))
       .then(function(d) { return (d && d.investigations) || []; })
       .catch(function() { return []; });
     Promise.all([_pInputs, _pList])
@@ -1268,9 +1380,12 @@
     // workspaces without a provider see no extra UI. Rendered FIRST (above the
     // shared datasets/references) as the primary repo-wide source.
     html += '<div id="data-sources-host" style="display:none;margin-bottom:16px"></div>';
-    html += '<h4 style="margin:12px 0 4px">Datasets</h4>' +
+    // Scope the sub-headers so they stay unambiguous when the panel's own
+    // "Repo-wide data sources" heading scrolls off — otherwise a bare "Datasets"
+    // here reads as a twin of the investigation's "Datasets" table above.
+    html += '<h4 style="margin:12px 0 4px">Repo-wide datasets</h4>' +
       _inputsDatasetsHtml(glob.datasets);
-    html += '<h4 style="margin:12px 0 4px">References</h4>' +
+    html += '<h4 style="margin:12px 0 4px">Repo-wide references</h4>' +
       _inputsRefsHtml(glob.references);
     html += '</div>';
 
@@ -1546,7 +1661,7 @@
       '<h4 style="margin:0 0 8px;font-size:0.95em;text-transform:uppercase;letter-spacing:0.06em;color:#374151">Visualizations' +
       ' <span class="count-badge" style="font-size:0.8em">' + vizzes.length + '</span></h4>';
     if (vizzes.length === 0) {
-      html += '<p class="empty-state muted" style="margin:0">No Visualization classes found. Install a pbg-* package that provides one (Registry tab &rarr; Available modules).</p>';
+      html += '<p class="empty-state muted" style="margin:0">No Visualization classes found. Install a pbg-* package that provides one (Catalog tab &rarr; Available modules).</p>';
     } else {
       html += vizzes.map(_renderClassCard).join('');
     }
@@ -1662,9 +1777,9 @@
           ? '<a class="btn-mini" href="' + _esc(_openHref) + '" target="_blank" rel="noopener">Open ↗</a>'
           : (_isSnapshot
           ? '<span class="muted" style="font-size:0.8em">Launch from the local workbench</span>'
-          : '<button class="btn-mini" onclick="_launchViewer(\'' + _esc(v.uid) + '\',\'' + _esc(t.study) + '\')">Launch</button>');
+          : '<button class="btn-mini" onclick="_launchViewer(\'' + _esc(v.uid) + '\',\'' + _esc(t.study || '') + '\',\'' + _esc(t.run || '') + '\')">Launch</button>');
         return '<div class="picker-row">' +
-          '<div class="picker-row-main"><strong>' + _esc(t.label || t.study) + '</strong>' +
+          '<div class="picker-row-main"><strong>' + _esc(t.label || t.study || t.run) + '</strong>' +
             (t.detail ? ' <span class="muted" style="font-size:0.82em">' + _esc(t.detail) + '</span>' : '') + '</div>' +
           '<div class="picker-row-actions">' + action + '</div>' +
         '</div>';
@@ -1681,7 +1796,7 @@
     return html;
   }
 
-  function _launchViewer(uid, study) {
+  function _launchViewer(uid, study, run) {
     // The read-only snapshot has no launch backend to call. Bail with a clear
     // message rather than fetch a 404 HTML page and throw a JSON-parse error.
     if ((window.__DASH_CONFIG__ || {}).mode === 'snapshot') {
@@ -1689,8 +1804,11 @@
             'when running the workbench locally.');
       return;
     }
-    var url = '/api/analysis-viewer/' + encodeURIComponent(uid) + '/launch' +
-      (study ? '?study=' + encodeURIComponent(study) : '');
+    // A target is keyed by `study` (a local study's exports) or `run` (a landed
+    // run's exports, e.g. a GovCloud compose analysis) — forward whichever is set.
+    var q = study ? '?study=' + encodeURIComponent(study)
+          : (run ? '?run=' + encodeURIComponent(run) : '');
+    var url = '/api/analysis-viewer/' + encodeURIComponent(uid) + '/launch' + q;
     fetch(url).then(function(r) {
       return r.text().then(function(t) {
         var d = {};
@@ -1732,6 +1850,13 @@
       ? m.viewer_url
       : base + '/parsimony-viewer/index.html?models=' +
           encodeURIComponent(base + '/api/study/' + encodeURIComponent(ref) + '/3d/models.json');
+  }
+
+  function _buildSimulariumSrc(m) {
+    var base = _analysesBase();
+    var trajs = (m && m.trajectories) || [];
+    var url = trajs.length ? trajs[0].url : '';
+    return base + '/simularium-viewer.html?traj=' + encodeURIComponent(url);
   }
 
   // Human-readable label for a matched run/study in a card's result dropdown.
@@ -1800,6 +1925,8 @@
     var m = items[idx] || items[0]; if (!m) return;
     if (t.kind === 'embed-3d') {
       window.open(_build3dSrc(m), '_blank', 'noopener');
+    } else if (t.kind === 'embed-simularium') {
+      window.open(_buildSimulariumSrc(m), '_blank', 'noopener');
     } else if (m.href) {
       window.open(m.href, '_blank', 'noopener');
     } else {
@@ -1860,7 +1987,7 @@
 
   function _renderKindPicker(items, container, kind) {
     if (!items || items.length === 0) {
-      container.innerHTML = '<p class="empty-state">No ' + kind + 's registered. Install a pbg-* package that provides one (Registry tab &rarr; Available modules).</p>';
+      container.innerHTML = '<p class="empty-state">No ' + kind + 's registered. Install a pbg-* package that provides one (Catalog tab &rarr; Available modules).</p>';
       return;
     }
     // Sort: in_workspace → framework → environment_only, then alpha by name.
@@ -2146,6 +2273,15 @@
               : 'Temporal — a Process that advances state over a timestep') +
       '">' + (isStep ? 'Step' : 'Temporal') + '</span>';
   }
+  // Marks a vivarium-BRIDGE process: a vivarium-core Step injected into the
+  // whole-cell engine via the topology bridge (not a pbg-native process). Shown
+  // alongside the kind badge so it's clear it runs inside the WCM engine.
+  function _procBridgeBadge(p) {
+    if (!p || !p.bridge) return '';
+    return '<span class="proc-kind-badge proc-kind-other" ' +
+      'title="Bridge — a vivarium-core process injected into the whole-cell engine ' +
+      'via the topology bridge (not pbg-native; runs inside the WCM)">bridge</span>';
+  }
 
   // Config-schema + ports body, revealed by a per-card "config & ports" dropdown
   // in the grid view — keeps the grid dense but the contract one click away.
@@ -2333,7 +2469,7 @@
         ' title="Double-click to zoom in on this ' + (p.kind || 'process') + '">' +
       '<div class="reg-card-row">' +
         '<div class="reg-card-main">' +
-          '<div class="reg-card-head"><strong class="reg-card-name">' + esc(p.name) + '</strong>' + _procKindBadge(p.kind) + defaultBadge + _regUseBadge(p) + '</div>' +
+          '<div class="reg-card-head"><strong class="reg-card-name">' + esc(p.name) + '</strong>' + _procKindBadge(p.kind) + _procBridgeBadge(p) + defaultBadge + _regUseBadge(p) + '</div>' +
           '<code class="reg-card-addr">' + addr + '</code>' +
           (short ? '<p class="reg-card-desc">' + esc(short) + '</p>' : '') +
         '</div>' +
@@ -2416,9 +2552,9 @@
       ? window.DataSource.apiUrl.bind(window.DataSource) : function (p) { return p; };
     // chrome=off → a view-only share: just the bigraph graph + toolbar, no tab
     // strip / left Config panel / bottom run bar (matches the loom Share button).
-    var rel = document.body.classList.contains('snapshot')
+    var rel = (document.body.classList.contains('snapshot')
       ? apiUrl('/bigraph-loom/index.html') + '?static=1&chrome=off&stateUrl=' + encodeURIComponent(_compositeStateUrl(id))
-      : apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id) + '&chrome=off';
+      : apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id) + '&chrome=off') + '&v=' + _LOOM_V;
     var url;
     try { url = new URL(rel, window.location.href).href; } catch (e) { url = rel; }
     var flash = function () {
@@ -2510,10 +2646,10 @@
           _bi.onclick = function (ev) { ev.stopPropagation(); _popCardBackIn(address, kind); };
           _hdr.appendChild(_bi);
         }
-        // For composites, auto-open Explore so the loom is visible immediately
-        // (via the header Explore button so its label stays in sync).
+        // For composites (popped-out single card), auto-open the loom so it's
+        // visible immediately — via the single graph bar that toggles it.
         if (isComposite) {
-          var expBtn = host.querySelector('.pcard-explore-btn');
+          var expBtn = host.querySelector('.pcard-graph-bar');
           if (expBtn && typeof _toggleLoomCard === 'function') _toggleLoomCard(expBtn);
         }
         return;
@@ -3589,7 +3725,7 @@
           '" onclick="_selectRegistryEntry(\'' + _esc(p.address || '') + '\')" ondblclick="_zoomInOn(\'' + _esc(p.address || '') + '\')"' +
           ' title="Click to select · double-click to zoom in on this process">' +
         '<td class="reg-td-name" title="' + _esc(p.address || p.name || '') + '"><strong>' + _esc(p.name) + '</strong> <code>' + _esc(p.address || '') + '</code></td>' +
-        '<td class="reg-td-kind">' + (_procKindBadge(p.kind) || _esc(_procKindLabel(p.kind))) + '</td>' +
+        '<td class="reg-td-kind">' + (_procKindBadge(p.kind) || _esc(_procKindLabel(p.kind))) + _procBridgeBadge(p) + '</td>' +
         '<td title="' + _esc(mod(p)) + '">' + _esc(mod(p)) + '</td>' +
         '<td class="num">' + (p.use_count || 0) + '</td>' +
         '<td class="num">' + ((p.study_participation || {}).studies || 0) + '</td>' +
@@ -3751,24 +3887,37 @@
     var _sortKey = window._registrySort || 'use';
     var primary = inWs.concat(framework).sort(function(a, b) { return _registryGridCmp(a, b, _sortKey); });
     envOnly.sort(function(a, b) { return _registryGridCmp(a, b, _sortKey); });
+    var _hasEnv = envOnly.length > 0;
     if (primary.length) {
+      // Only label the workspace group when there's also an environment group to
+      // separate it from — a single group needs no header.
+      if (_hasEnv) {
+        html += '<div class="reg-section-header" style="margin:2px 0 8px;font-size:0.82em;' +
+          'font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:#475569">' +
+          'Declared in this workspace <span style="color:#9ca3af;font-weight:600">' + primary.length + '</span></div>';
+      }
       html += '<div class="' + cardsCls + '">' + primary.map(_renderRegistryEntry).join('') + '</div>';
     } else {
       html += '<p class="empty-state muted" style="font-size:0.9em">No workspace-declared entries of this kind.</p>';
     }
 
-    // Environment-only entries: collapsible section, dimmed.
-    if (envOnly.length) {
+    // Environment entries: a clearly-labeled, always-visible section rendered at
+    // FULL opacity and equally interactive. (Previously dimmed via opacity:0.6
+    // AND collapsed behind a <details>, which hid e.g. EcoliWCM and made imported
+    // processes second-class.) Kept visually separated from the workspace-declared
+    // entries by a header + a top rule — not by fading them out.
+    if (_hasEnv) {
       html +=
-        '<details class="registry-env-section" style="margin-top:12px">' +
-        '<summary style="cursor:pointer;color:#6b7280;font-size:0.9em;padding:4px 0">' +
-        'Also available in environment (' + envOnly.length + ') — not declared in workspace.yaml' +
-        '</summary>' +
-        '<div class="' + cardsCls + '" style="opacity:0.6;margin-top:6px">' +
-        envOnly.map(_renderRegistryEntry).join('') +
-        '</div>' +
-        '<p style="font-size:0.8em;color:#9ca3af;margin:4px 0 0">Run <code>/pbg-install &lt;pkg&gt;</code> to add a package to this workspace\'s imports.</p>' +
-        '</details>';
+        '<div class="registry-env-section" style="margin-top:18px;padding-top:12px;' +
+        'border-top:1px solid var(--border,#e5e7eb)">' +
+        '<div class="reg-section-header" style="margin:0 0 8px;font-size:0.82em;font-weight:700;' +
+        'text-transform:uppercase;letter-spacing:0.04em;color:#475569">' +
+        'Available in environment <span style="color:#9ca3af;font-weight:600">' + envOnly.length + '</span>' +
+        '<span style="font-weight:500;text-transform:none;letter-spacing:0;color:#9ca3af;font-size:0.92em">' +
+        ' — installed but not declared in this workspace’s <code>imports:</code></span></div>' +
+        '<div class="' + cardsCls + '">' + envOnly.map(_renderRegistryEntry).join('') + '</div>' +
+        '<p style="font-size:0.8em;color:#9ca3af;margin:8px 0 0">Run <code>/pbg-install &lt;pkg&gt;</code> to add a package to this workspace\'s imports.</p>' +
+        '</div>';
     }
 
     el.innerHTML = html;
@@ -3808,7 +3957,8 @@
     var entries = vizEntries || [];
     var analyses = entries.filter(function(c) { return c.kind === 'analysis'; })
       .map(function (c) { return { name: c.name, address: c.address, description: c.doc || '', kind: 'analysis', source: 'framework' }; });
-    var vizzes   = entries.filter(function(c) { return c.kind !== 'analysis'; });
+    var cards    = entries.filter(function(c) { return c.kind === 'report_card' || c.kind === 'test'; });
+    var vizzes   = entries.filter(function(c) { var k = c.kind; return k !== 'analysis' && k !== 'report_card' && k !== 'test'; });
 
     // Analyses tab — same card renderers as everything else (grid/full/table),
     // and registered so semantic-zoom re-renders pick them up.
@@ -3827,14 +3977,42 @@
       .map(function(c) {
         return { name: c.name, address: c.address, source: 'framework', aliases: [] };
       });
+    // Union of build_core viz entries + catalog-only ones. Re-render (source
+    // grouping) when there are extras, and — symmetrically with the Analyses
+    // count above — keep the Visualizations count badge in sync. The initial
+    // setCount ran off build_core's registry (byKind.visualization, often 0);
+    // the real viz classes arrive here via /api/visualization-classes.
+    var current = (window._registryVizEntries || []);
+    var union = current.concat(extra);
     if (extra.length) {
       var container = document.getElementById('registry-visualizations-container');
-      if (container) {
-        // Re-render with the union so source grouping stays correct.
-        var current = (window._registryVizEntries || []);
-        _renderRegistryGrid('registry-visualizations-container', current.concat(extra));
-      }
+      if (container) _renderRegistryGrid('registry-visualizations-container', union);
     }
+    window._registryVizEntries = union;
+    var vCount = document.getElementById('registry-visualization-count');
+    if (vCount) vCount.textContent = union.length;
+
+    // Tests tab (report cards) — merge the framework TEST_REGISTRY / report-card
+    // classes from the catalog with any build_core-registered ones, and keep the
+    // count in sync, symmetrically with Analyses + Visualizations above. Without
+    // this the report-card classes never surface (build_core's report_card kind
+    // is usually empty) and the "Tests" count stays 0.
+    var rcExisting = {};
+    document.querySelectorAll('#registry-report_cards-container .registry-entry strong')
+      .forEach(function(s) { rcExisting[(s.textContent || '').trim()] = true; });
+    var rcExtra = cards.filter(function(c) { return !rcExisting[(c.name || '').trim()]; })
+      .map(function(c) {
+        return { name: c.name, address: c.address, description: c.doc || '', source: 'framework', kind: 'report_card' };
+      });
+    var rcCurrent = ((window._registryByKind || {})['registry-report_cards-container'] || []);
+    var rcUnion = rcCurrent.concat(rcExtra);
+    if (rcExtra.length) {
+      (window._registryByKind = window._registryByKind || {})['registry-report_cards-container'] = rcUnion;
+      var rcContainer = document.getElementById('registry-report_cards-container');
+      if (rcContainer) _renderRegistryGrid('registry-report_cards-container', rcUnion);
+    }
+    var rcCount = document.getElementById('registry-report_card-count');
+    if (rcCount) rcCount.textContent = rcUnion.length;
   }
   window._enrichRegistryWithVizClasses = _enrichRegistryWithVizClasses;
 
@@ -4112,7 +4290,7 @@
     det._loomLive = true;
     var id = det.getAttribute('data-id');
     var apiUrl = (window.DataSource && window.DataSource.apiUrl) ? window.DataSource.apiUrl.bind(window.DataSource) : function (p) { return p; };
-    var liveUrl = apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id) + '&chrome=off';
+    var liveUrl = apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id) + '&chrome=off' + '&v=' + _LOOM_V;
     var iframe = det.querySelector('.ccard-loom-iframe');
     if (iframe) iframe.src = liveUrl;         // already open → swap in place
     else { det._loomLoaded = false; _openCompositeLoomInline(det); }  // not open yet → load live
@@ -4122,135 +4300,11 @@
   window._enableInlineLoomRun = _enableInlineLoomRun;
 
 
-  // The static composite-state URL the loom fetches. In a PUBLISHED snapshot the
-  // live /api/composite-resolve endpoint doesn't exist — the pre-resolved state
-  // is a static file at /api/composite-state/<id>.json — so point there; in live
-  // mode use the resolve endpoint. (Without this, "View" 404'd in the snapshot.)
-  function _compositeStateUrl(id, overrides) {
-    var apiUrl = (window.DataSource && window.DataSource.apiUrl)
-      ? window.DataSource.apiUrl.bind(window.DataSource) : function (p) { return p; };
-    if (document.body.classList.contains('snapshot')) {
-      return apiUrl('/api/composite-state/' + encodeURIComponent(id) + '.json');
-    }
-    return apiUrl('/api/composite-resolve?id=' + encodeURIComponent(id)) +
-      (overrides ? '&overrides=' + encodeURIComponent(overrides) : '');
-  }
-
-  // "Pop out" — open this composite's loom in a separate window directly (live,
-  // full config + run), bypassing the standalone explorer page. In a published
-  // snapshot there's no live API, so open the static (?static=1&stateUrl=) URL.
-  function _popoutCompositeLoom(id) {
-    var apiUrl = (window.DataSource && window.DataSource.apiUrl)
-      ? window.DataSource.apiUrl.bind(window.DataSource) : function (p) { return p; };
-    var url;
-    if (document.body.classList.contains('snapshot')) {
-      url = apiUrl('/bigraph-loom/index.html') + '?static=1&stateUrl=' + encodeURIComponent(_compositeStateUrl(id));
-    } else {
-      url = apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id);
-    }
-    var w = window.open(url, '_blank',
-      'width=1280,height=860,menubar=no,toolbar=no,location=no,resizable=yes,scrollbars=yes');
-    if (!w) alert('Popup blocked. Allow popups from this site to pop out the composite.');
-  }
-  window._popoutCompositeLoom = _popoutCompositeLoom;
-
-
-
-  function _openCompositeLoomInline(det) {
-    if (!det || det._loomLoaded) return;
-    // <details> embeds only mount when open; a plain container (the ProcessCard
-    // Explore section) has no `.open` and mounts as soon as it's asked to.
-    if (det.tagName === 'DETAILS' && !det.open) return;
-    det._loomLoaded = true;
-    var id = det.getAttribute('data-id');
-    var host = det.querySelector('.ccard-loom-frame');
-    if (!host) return;
-    host.innerHTML = '<p class="muted" style="padding:10px;font-size:0.85em">Resolving composite (this can take a moment)…</p>';
-    var apiUrl = (window.DataSource && window.DataSource.apiUrl) ? window.DataSource.apiUrl.bind(window.DataSource) : function (p) { return p; };
-    // Live mode (user hit "Enable running") loads the same URL as the pop-out
-    // (?id=<ref>) so config is editable and Run works; otherwise a read-only
-    // static render pointed at live composite-resolve.
-    // chrome=off → embedded (no breadcrumb/tab strip). An optional data-view
-    // (e.g. "visualizations"/"results"/"document") selects which loom tab the
-    // embed shows — used by the card's Outputs section.
-    var tabParam = det.getAttribute('data-view') ? '&tab=' + encodeURIComponent(det.getAttribute('data-view')) : '';
-    // On a live dashboard the view-only loom still carries the composite id +
-    // live=1 so drilling into an inner Composite (a Composite Process like
-    // EcoliWCM) resolves via the live /api/composite-inner-state endpoint —
-    // static=1 alone (a published snapshot) would look for a pre-built file that
-    // only a snapshot ships. Omit both under body.snapshot (truly no server).
-    var liveInner = document.body.classList.contains('snapshot')
-      ? '' : '&id=' + encodeURIComponent(id) + '&live=1';
-    // `data-surface="full"` → the WHOLE stacked loom surface (Configure/Inputs +
-    // bigraph + Run/Step + Outputs), header hidden (the card names the composite).
-    // It runs LIVE (id-based) so Run + Apply work; the card no longer wraps its
-    // own Configure/Run/Outputs. Everything else keeps the chrome=off bigraph-only
-    // preview.
-    var fullSurface = det.getAttribute('data-surface') === 'full';
-    var isSnapshot = document.body.classList.contains('snapshot');
-    var chromeParam = fullSurface ? '&header=off' : '&chrome=off';
-    var loomUrl = (det._loomLive || (fullSurface && !isSnapshot))
-      ? apiUrl('/bigraph-loom/index.html') + '?id=' + encodeURIComponent(id) +
-          (det._overrides ? '&overrides=' + encodeURIComponent(det._overrides) : '') + chromeParam + tabParam
-      : apiUrl('/bigraph-loom/index.html') + '?static=1&stateUrl=' +
-          encodeURIComponent(_compositeStateUrl(id, det._overrides)) + liveInner + chromeParam + tabParam;
-    var f = document.createElement('iframe');
-    f.className = 'ccard-loom-iframe' + (fullSurface ? ' ccard-loom-iframe-full' : '');
-    f.setAttribute('title', 'Loom — ' + id);
-    f.src = loomUrl;
-    host.innerHTML = '';
-    // Restore a previously dragged height (shared across all loom embeds); the
-    // full surface needs more room by default (four stacked zones).
-    var savedH = 0;
-    try { savedH = parseInt(localStorage.getItem('viv.loomFrameH') || '', 10) || 0; } catch (e) { /* private mode */ }
-    if (!savedH && fullSurface) savedH = Math.round(window.innerHeight * 0.72);
-    if (savedH) host.style.height = Math.max(fullSurface ? 480 : 220, Math.min(Math.round(window.innerHeight * 0.92), savedH)) + 'px';
-    host.appendChild(f);
-    _wireLoomResize(host, f);
-  }
-  window._openCompositeLoomInline = _openCompositeLoomInline;
-
-  // Drag-to-resize the embedded loom panel. A full-width grip below the iframe
-  // grows/shrinks the frame; the card grows with it. Height persists across
-  // embeds via localStorage. Pointer events are disabled on the iframe mid-drag
-  // so the gesture keeps tracking when the cursor moves over the loom.
-  function _wireLoomResize(frame, iframe) {
-    var grip = document.createElement('div');
-    grip.className = 'ccard-loom-resize';
-    grip.title = 'Drag to resize';
-    frame.appendChild(grip);
-    var startY = 0, startH = 0;
-    function pointY(e) { return e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY; }
-    function onMove(e) {
-      var maxH = Math.round(window.innerHeight * 0.92);
-      var h = Math.max(220, Math.min(maxH, startH + (pointY(e) - startY)));
-      frame.style.height = h + 'px';
-      if (e.cancelable) e.preventDefault();
-      try { localStorage.setItem('viv.loomFrameH', String(Math.round(h))); } catch (err) { /* private mode */ }
-    }
-    function onUp() {
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onUp);
-      if (iframe) iframe.style.pointerEvents = '';
-      frame.classList.remove('is-resizing');
-    }
-    function onDown(e) {
-      startY = pointY(e);
-      startH = frame.getBoundingClientRect().height;
-      if (iframe) iframe.style.pointerEvents = 'none';
-      frame.classList.add('is-resizing');
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-      document.addEventListener('touchmove', onMove, { passive: false });
-      document.addEventListener('touchend', onUp);
-      if (e.cancelable) e.preventDefault();
-    }
-    grip.addEventListener('mousedown', onDown);
-    grip.addEventListener('touchstart', onDown, { passive: false });
-  }
-  window._wireLoomResize = _wireLoomResize;
+  // The loom embed glue — _compositeStateUrl / _openCompositeLoomInline /
+  // _wireLoomAutoHeight — is defined ONCE in loom-embed.js (loaded before this
+  // file in the SPA, and standalone in the study-detail iframe). It installs
+  // window globals; the bare calls in this file resolve to them. Keeping a
+  // single copy avoids the byte-identical-duplication drift this used to carry.
 
 
   // Lazily fetch a composite's process/store counts when its "structure"
@@ -4283,13 +4337,33 @@
       .catch(function() { body.textContent = 'unavailable'; });
   };
 
-  function _loadComposites() {
+  function _loadComposites(_attempt) {
+    _attempt = _attempt || 0;
+    // Discovery re-imports the workspace package in a subprocess (~seconds cold),
+    // and a cold pooled worker can briefly answer empty / with an `error`. Show a
+    // "Loading…" state on the first attempt (rather than flashing "No composites
+    // registered.") and retry a cold/empty/errored response a few times before
+    // concluding the workspace genuinely has none.
+    if (_attempt === 0 && !(window._composites && window._composites.length)) {
+      var _el0 = document.getElementById('registry-composites-container');
+      if (_el0) _el0.innerHTML = '<p class="empty-state">Loading composites…</p>';
+    }
     var _p = window.DataSource
       ? window.DataSource.loadComposites()
       : fetch('/api/composites').then(function(r) { return r.json(); });
+    var _retry = function () {
+      // ~error: definitely transient (cold/unavailable) → retry harder.
+      // ~empty, no error: probably genuine, but do one safety retry for a cold
+      // race. Non-empty → render.
+      setTimeout(function () { _loadComposites(_attempt + 1); }, 700 + _attempt * 900);
+    };
     _p
       .then(function(data) {
-        var composites = data.composites || [];
+        var composites = (data && data.composites) || [];
+        var hadError = !!(data && data.error);
+        var maxAttempts = hadError ? 5 : (composites.length ? 1 : 2);
+        if (!composites.length && _attempt + 1 < maxAttempts) { _retry(); return; }
+        if (hadError && !composites.length && _attempt + 1 < maxAttempts) { _retry(); return; }
         // Cache by id so onclick handlers pass just the id; _useComposite
         // looks the full object up. Inline JSON.stringify in onclick attrs
         // breaks when descriptions contain apostrophes / quotes.
@@ -4299,7 +4373,9 @@
 
         // (a) Registry/Processes-page "Composites" tab — accordion cards.
         _renderRegistryComposites(composites);
-
+      })
+      .catch(function () {
+        if (_attempt + 1 < 5) { _retry(); }
       });
   }
   window._loadComposites = _loadComposites;
@@ -8404,25 +8480,21 @@
       // Keep the "done" vocabulary in sync with the backend roll-up
       // (_STUDY_STATUS_DONE_ROLLUP): complete/ran/passed/evaluated/decided are all
       // green "done" states, so a passed study never mislabels as "planned".
-      var _SD = { complete:['#16a34a','done'], ran:['#16a34a','done'], passed:['#16a34a','passed'],
-                  evaluated:['#16a34a','evaluated'], decided:['#16a34a','decided'],
-                  running:['#2563eb','running'], analyzing:['#2563eb','running'],
-                  in_progress:['#d97706','in progress'], failed:['#dc2626','failed'], invalid:['#dc2626','invalid'],
-                  planning:['#94a3b8','planned'] };
-      function _sMeta(st) { return _SD[st] || _SD[st === 'ran' ? 'complete' : 'planning'] || ['#94a3b8','planned']; }
       var studyObjs = _isetStudyObjs(iset);
+      // Group the summary chips by the SAME canonical status the dots + graph use.
+      var _stOrder = ['Accepted', 'Investigating', 'Blocked', 'Planned', 'Refuted'];
       var byStatus = {};
       studyObjs.forEach(function(s) {
-        var st = (s && (s.effective_status || s.status)) || 'planning';
-        byStatus[st] = (byStatus[st] || 0) + 1;
+        var meta = _studyStatusMeta(s);
+        (byStatus[meta.label] = byStatus[meta.label] || {n: 0, color: meta.color}).n++;
       });
       var breakdown = Object.keys(byStatus).sort(function(a, b) {
-        return (_statusRank[a] ?? 9) - (_statusRank[b] ?? 9);
-      }).map(function(st) {
-        var m = _sMeta(st);
+        return _stOrder.indexOf(a) - _stOrder.indexOf(b);
+      }).map(function(lab) {
+        var e = byStatus[lab];
         return '<span style="display:inline-flex;align-items:center;gap:4px;white-space:nowrap">' +
-          '<span style="width:8px;height:8px;border-radius:50%;background:' + m[0] + '"></span>' +
-          byStatus[st] + ' ' + _esc(m[1]) + '</span>';
+          '<span style="width:8px;height:8px;border-radius:50%;background:' + e.color + '"></span>' +
+          e.n + ' ' + _esc(lab) + '</span>';
       }).join('<span style="color:#cbd5e1">·</span>');
 
       // Expandable study list (revealed by clicking the studies count): each row
@@ -8430,7 +8502,7 @@
       // (↓ figures / ↓ notebook, all modes) and, live only, ▶ run / ↻ reproduce.
       var _isSnap = (window.__DASH_CONFIG__ || {}).mode === 'snapshot';
       var studyRows = studyObjs.map(function(s) {
-        var m = _sMeta((s && (s.effective_status || s.status)) || 'planning');
+        var m = _studyStatusMeta(s);
         var slug = (s && s.name) || '';
         var title = (s && s.title) ? String(s.title) : '';
         var obj = (s && (s.objective || s.description)) ? String(s.objective || s.description) : '';
@@ -8448,11 +8520,11 @@
         return '<div class="iset-study-row" style="padding:6px;border-radius:5px" ' +
           'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' +
           '<div style="display:flex;align-items:center;gap:8px">' +
-            '<span style="width:7px;height:7px;border-radius:50%;background:' + m[0] + '"></span>' +
+            '<span style="width:7px;height:7px;border-radius:50%;background:' + m.color + '"></span>' +
             '<a href="/studies/' + encodeURIComponent(slug) + '" onclick="event.stopPropagation()" style="text-decoration:none">' +
               '<code style="font-size:0.92em;color:#475569">' + _esc(slug) + '</code></a>' +
             (title ? '<span style="font-size:0.86em;color:#334155">' + _esc(title) + '</span>' : '') +
-            '<span style="margin-left:auto;color:#94a3b8;font-size:0.82em">' + _esc(m[1]) + '</span>' +
+            '<span style="margin-left:auto;color:#94a3b8;font-size:0.82em">' + _esc(m.label) + '</span>' +
           '</div>' +
           (objShort ? '<div style="font-size:0.8em;color:#64748b;margin:2px 0 0 15px;line-height:1.35">' + _esc(objShort) + '</div>' : '') +
           '<div style="display:flex;gap:14px;margin:4px 0 0 15px">' + acts + '</div>' +
@@ -8589,10 +8661,7 @@
     });
     var createBtn = document.getElementById('iset-browse-create');
     if (createBtn) createBtn.textContent = (tab === 'studies') ? '+ Study' : '+ Investigation';
-    // The zoom toolbar (#iset-zoom-toolbar) is always visible on both tabs —
-    // only the "click a card's studies count" tip is Studies-only.
-    var tip = document.getElementById('iset-list-tip');
-    if (tip) tip.style.display = (tab === 'studies') ? 'none' : '';
+    // The zoom toolbar (#iset-zoom-toolbar) is always visible on both tabs.
     var invCount = document.getElementById('iset-tab-inv-count');
     var studyCount = document.getElementById('iset-tab-study-count');
     if (invCount) invCount.textContent = (window._isetIndex || []).length || '';
@@ -8715,8 +8784,15 @@
     // skip their scroll-restore so they can't cancel the scroll-to-study below.
     var _HOLD_MS = 1800;
     window._embedLandingUntil = Date.now() + _HOLD_MS;
-    if (typeof _fitEmbedToContent === 'function') _fitEmbedToContent(frame, 560);
-    else if (typeof _fitEmbedToViewport === 'function') _fitEmbedToViewport(frame, panel, 560);
+    // Floor the study porthole at the scroll container's visible height so the
+    // study FILLS the view on open instead of sitting short under the (often
+    // tall) investigation graph. With a full-viewport porthole, landing on the
+    // study scrolls the graph fully off the top — scroll up to bring it back.
+    var _scroller = document.querySelector('.viv-content');
+    var _vh = (_scroller && _scroller.clientHeight) || window.innerHeight || 800;
+    var _floor = Math.max(560, _vh - 8);
+    if (typeof _fitEmbedToContent === 'function') _fitEmbedToContent(frame, _floor);
+    else if (typeof _fitEmbedToViewport === 'function') _fitEmbedToViewport(frame, panel, _floor);
     // Land on the study AND actively HOLD it there. A one-shot smooth scroll
     // wasn't enough: the investigation graph / About block re-renders (and the
     // iframe refits) AFTER the scroll, springing the view back up to the top.
@@ -8812,20 +8888,33 @@
     var isSnapshot = (window.__DASH_CONFIG__ || {}).mode === 'snapshot';
     var name = window._wsInvestigation || window._currentIset || '';
     // Match the investigation CARD's ↓ actions (↓ report / ↓ notebook / ↓ figures)
-    // instead of the old emoji buttons. ↓ figures is injected async, only when the
-    // investigation actually has figures (same n_figures gate as the card).
+    // instead of the old emoji buttons. ↓ figures ALWAYS shows here (so the
+    // affordance is discoverable) but starts DISABLED/greyed; the async summary
+    // upgrades it to an active download when the investigation actually has
+    // figures (same n_figures signal as the card).
+    var _figuresDisabled =
+      ' <button class="btn-mini" disabled ' +
+        'title="No figures yet — run this investigation\'s studies to generate them" ' +
+        'style="opacity:0.5;cursor:not-allowed">↓ figures</button>';
     actions.innerHTML =
       '<button class="btn-mini" onclick="_downloadInvestigationReport()" ' +
         'title="Download the shareable HTML report">↓ report</button> ' +
       '<button class="btn-mini" onclick="_downloadInvestigationNotebook()" ' +
         'title="Download a self-contained Jupyter notebook">↓ notebook</button>' +
-      '<span id="ws-actions-figures"></span>' +
+      '<span id="ws-actions-figures">' + _figuresDisabled + '</span>' +
       (isSnapshot ? '' :
       ' <button class="btn-mini" onclick="_rerunInvestigation()" ' +
         'title="Re-run every member study\'s CURRENT baseline spec (re-derives from each study\'s study.yaml)">▶ Run current spec</button>');
     if (name) {
-      fetch(_api('/api/investigation-summaries'), {headers: {Accept: 'application/json'}})
-        .then(function (r) { return r.json(); })
+      // Snapshot-aware: DataSource.loadIsetList() maps to the baked
+      // /api/investigation-summaries.json in a published bundle. The `_api()`
+      // adapter only prefixes the base path (never appends `.json`), so it 404s
+      // in a snapshot — leaving the ↓ figures button greyed even when figures.zip
+      // is baked. DataSource is always present in a published bundle.
+      (window.DataSource
+        ? window.DataSource.loadIsetList()
+        : fetch('/api/investigation-summaries', {headers: {Accept: 'application/json'}})
+            .then(function (r) { return r.json(); }))
         .then(function (j) {
           var me = ((j && j.investigations) || []).filter(function (i) { return i.name === name; })[0];
           var host = document.getElementById('ws-actions-figures');
@@ -8834,6 +8923,7 @@
               'onclick="window._vivFiguresFromCard(event,\'' + _esc(name) + '\')" ' +
               'title="Download all figures (studies figures + post-study composites) as a zip">↓ figures</button>';
           }
+          // else: leave the disabled/greyed ↓ figures in place.
         }).catch(function () {});
     }
   }
@@ -8943,17 +9033,10 @@
   window._submitBrowseCreate = _submitBrowseCreate;
 
   // Status dot vocab shared by the study cards + breakdowns.
-  var _STUDY_DOT = {
-    complete: ['#16a34a', 'done'], ran: ['#16a34a', 'done'],
-    running: ['#2563eb', 'running'], in_progress: ['#d97706', 'in progress'],
-    failed: ['#dc2626', 'failed'], planning: ['#94a3b8', 'planned'],
-    planned: ['#94a3b8', 'planned'],
-  };
-  function _studyDotMeta(st) { return _STUDY_DOT[st] || _STUDY_DOT.planned; }
 
   function _studyBrowseCardHtml(s, full) {
     var status = s.effective_status || s.status || 'planned';
-    var m = _studyDotMeta(status);
+    var m = _studyStatusMeta(s);  // unified status source (see _studyStatusMeta)
     var inv = _investigationForStudy(s.name);
     var q = s.question || s.objective || '';
     var qText = String(q).split('\n')[0];
@@ -8972,7 +9055,7 @@
       '<div style="display:flex;align-items:baseline;gap:6px 10px;flex-wrap:wrap;margin-bottom:6px;">' +
         '<strong style="font-size:1.02em;flex:1 1 100%">' + _esc(s.title || s.name) + '</strong>' +
         '<span style="font-size:0.72em;border-radius:9999px;padding:1px 9px;white-space:nowrap;' +
-          'background:' + m[0] + '22;color:' + m[0] + ';border:1px solid ' + m[0] + '55">' + _esc(m[1]) + '</span>' +
+          'background:' + m.color + '22;color:' + m.color + ';border:1px solid ' + m.color + '55">' + _esc(m.label) + '</span>' +
         _originBadge(s.origin_repo) +
       '</div>' +
       (inv ? '<div style="font-size:0.78em;color:#94a3b8;margin:0 0 6px"><span style="color:#cbd5e1">▪</span> ' + _esc(inv) + '</div>' : '') +
@@ -9079,7 +9162,7 @@
       var inv = _investigationForStudy(s.name) || '';
       var invTitle = _isetTitleForSlug(inv);
       var status = s.effective_status || s.status || 'planned';
-      var m = _studyDotMeta(status);
+      var m = _studyStatusMeta(s);  // unified status source (see _studyStatusMeta)
       var runs = runsOf(s);
       var rowText = (String(s.title || s.name) + ' ' + inv + ' ' + invTitle + ' ' + status + ' ' + (s.phase || '')).toLowerCase();
       return '<tr data-row-text="' + _esc(rowText) + '" onclick="_openStudyEmbeddedNewTab(\'' + _esc(s.name) + '\')" ' +
@@ -9087,7 +9170,7 @@
         'onmouseover="this.style.background=\'#f8fafc\'" onmouseout="this.style.background=\'\'">' +
         '<td style="padding:7px 10px;font-weight:600;color:#1e293b">' + _esc(s.title || s.name) + '</td>' +
         '<td style="padding:7px 10px;color:#64748b">' + _esc(invTitle) + '</td>' +
-        '<td style="padding:7px 10px;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + m[0] + ';margin-right:5px"></span>' + _esc(m[1]) + '</td>' +
+        '<td style="padding:7px 10px;white-space:nowrap"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:' + m.color + ';margin-right:5px"></span>' + _esc(m.label) + '</td>' +
         '<td style="padding:7px 10px;color:#64748b">' + _esc(s.phase || '—') + '</td>' +
         '<td style="padding:7px 10px;text-align:right;color:' + (runs ? '#1e293b' : '#cbd5e1') + '">' + runs + '</td>' +
         '<td style="padding:7px 10px;color:#64748b;white-space:nowrap">' + _fmtStudyDate(s.last_run) + '</td>' +
@@ -9987,6 +10070,30 @@
 
   function _vivPollRunProgress(jobId) {
     if (_vivRunUnblockedTimer) clearTimeout(_vivRunUnblockedTimer);
+    // Plan §A3′ option (c): an item gated behind an unfinished prerequisite is
+    // parked `waiting` and its worker RETURNS, rather than holding a thread for
+    // the life of a Batch job. Something has to come back and release it once
+    // the prerequisite lands, and this poll is the natural caller — it is
+    // already here, already watching the same job.
+    //
+    // Fired on CHANGE, not every tick. The status GET resolves `submitted`
+    // items against viva-api, so a prerequisite completing on Batch shows up
+    // here as `progress.done` increasing; that edge is exactly when a redrive
+    // can accomplish something. Polling it blindly every 2s would spawn a
+    // worker thread per tick for the whole life of a multi-hour campaign, each
+    // one re-parking the same items.
+    var lastDone = -1;
+    function maybeRedrive(job) {
+      var prog = job.progress || {};
+      if (!prog.waiting) { lastDone = (prog.done || 0); return; }
+      if ((prog.done || 0) === lastDone) return;   // nothing settled since last look
+      lastDone = (prog.done || 0);
+      fetch(_api('/api/investigation-run-redrive'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: jobId })
+      }).catch(function() { /* best-effort: the next change re-tries */ });
+    }
     function tick() {
       fetch('/api/investigation-run-unblocked-status?job_id=' + encodeURIComponent(jobId))
         .then(function(r) { return r.json().then(function(j) { return {ok: r.ok, body: j}; }); })
@@ -10002,6 +10109,7 @@
             }
             return;
           }
+          maybeRedrive(res.body);
           _vivRunUnblockedTimer = setTimeout(tick, 2000);
         });
     }
@@ -10013,8 +10121,11 @@
     if (!panel) return;
     var items = (job.items || []).map(function(it) {
       var statusCls = 'inv-run-item inv-run-' + (it.status || 'queued');
+      // `submitted` (A2′) and `waiting` (A3′) both post-date this map, so both
+      // rendered as '?' — a dispatched Batch run and a gated dependent looked
+      // like a bug rather than the two normal states they are.
       var icon = ({queued: '⋯', running: '▶', done: '✓', failed: '✗',
-                   blocked: '⛔', skipped: '—'})[it.status] || '?';
+                   blocked: '⛔', skipped: '—', submitted: '☁', waiting: '⏸'})[it.status] || '?';
       var err = it.error ? ' <span class="inv-run-err">' + _h(it.error) + '</span>' : '';
       return '<div class="' + statusCls + '">'
         + '<span class="inv-run-icon">' + icon + '</span>'
@@ -10032,7 +10143,9 @@
       headline = '<strong>✗ Job failed.</strong> ' + prog.done + ' / ' + prog.total + ' attempted.';
     } else {
       headline = '<strong>Running…</strong> ' + prog.done + ' / ' + prog.total + ' complete' +
-                 (prog.running ? ' · ' + prog.running + ' in flight' : '');
+                 (prog.running ? ' · ' + prog.running + ' in flight' : '') +
+                 (prog.submitted ? ' · ' + prog.submitted + ' on Batch' : '') +
+                 (prog.waiting ? ' · ' + prog.waiting + ' waiting on prerequisites' : '');
     }
     panel.innerHTML = '<div class="inv-run-progress-banner">' + headline + '</div>'
                     + '<div class="inv-run-list">' + items + '</div>';
@@ -10156,10 +10269,20 @@
   // study tab.
   function _dagDownloadControlsHtml(slug) {
     var lnk = 'font-size:0.66em;color:#3b82f6;text-decoration:none;white-space:nowrap';
+    // Show "↓ figures" only when the study actually has downloadable figures.
+    // The per-study status (from /api/investigation-trigger-status) carries
+    // has_figures; hide the link ONLY on an explicit false so that when the
+    // status is unavailable (snapshot bundle / fetch failed → no entry) we keep
+    // showing it rather than hiding a real download. ↓ notebook is always
+    // generatable, so it stays unconditional.
+    var _st = _dagTriggerBySlug[slug];
+    var _figures = (!_st || _st.has_figures !== false)
+      ? '<a href="#" title="Download this study\'s figures (and embedded HTML reports) as a zip" ' +
+          'onclick="window._vivStudyFiguresFromCard(event,\'' + _esc(slug) + '\');return false;" ' +
+          'style="' + lnk + '">↓ figures</a>'
+      : '';
     return '<div class="dag-download-controls" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:6px">' +
-      '<a href="#" title="Download this study\'s figures (and embedded HTML reports) as a zip" ' +
-        'onclick="window._vivStudyFiguresFromCard(event,\'' + _esc(slug) + '\');return false;" ' +
-        'style="' + lnk + '">↓ figures</a>' +
+      _figures +
       '<a href="#" title="Download this study\'s own runnable notebook (composite + parameters + figures)" ' +
         'onclick="window._vivStudyNotebookFromCard(event,\'' + _esc(slug) + '\',\'' + _esc(_dagInvSlug || '') + '\');return false;" ' +
         'style="' + lnk + '">↓ notebook</a>' +
@@ -10360,26 +10483,14 @@
     //    top TBD, append, measure --
     studies.forEach(function(s) {
       var liveStatus = s.effective_status || s.status || 'planned';
-      // Derive confidence from the spine's gate_status VERDICT first, so the badge
-      // tracks the computed verdict rather than the drift-prone hand-set `status`
-      // (a stale `status: in_progress` on a passed study used to mis-show
-      // "Investigating"). Fall back to lifecycle status only when no gate verdict.
-      var gateV = String(s.gate_status || '').trim().toLowerCase();
-      var confidence = s.confidence || (function() {
-        if (gateV === 'passed' || gateV === 'pass') return 'Accepted';
-        if (gateV === 'partial' || gateV === 'needs_calibration') return 'Investigating';
-        if (gateV === 'failed' || gateV === 'failed_evaluation' || gateV === 'refuted' || gateV === 'blocked') return 'Refuted';
-        if (liveStatus === 'completed' || liveStatus === 'complete' || liveStatus === 'ran') return 'Accepted';
-        if (liveStatus === 'in_progress' || liveStatus === 'running') return 'Investigating';
-        if (liveStatus === 'failed' || liveStatus === 'invalid') return 'Refuted';
-        return 'Planned';
-      })();
-      var ss = ({
-        Accepted:      {color: '#16a34a', icon: '✓'},
-        Investigating: {color: '#ca8a04', icon: '◐'},
-        Planned:       {color: '#2563eb', icon: '○'},
-        Refuted:       {color: '#dc2626', icon: '✗'},
-      })[confidence] || {color: '#9ca3af', icon: '○'};
+      // Unified status source (see _studyStatusMeta): gate_status VERDICT first, then
+      // the hand-set confidence, then lifecycle status -- the SAME derivation the
+      // spine sidebar dot and the legend use, so the card badge can never disagree
+      // with the sidebar. Fixes the prior bug where `s.confidence || derive(...)` let
+      // a drift-prone hand-set `confidence: Investigating` mask a `blocked` gate.
+      // `Blocked` renders as its own state (slate ⊘), not as Refuted (red ✗).
+      var ss = _studyStatusMeta(s);
+      var confidence = ss.label;
       var followUps = s.follow_up_studies || [];
 
       // Single display name everywhere: authored title:, else the shared
@@ -10677,6 +10788,7 @@
       legendHost.innerHTML =
         '<span style="font-weight:600;color:#475569;margin-right:10px">Confidence:</span>' +
         _lg('#16a34a', '✓', 'Accepted') + _lg('#ca8a04', '◐', 'Investigating') +
+        _lg('#64748b', '⊘', 'Blocked') +
         _lg('#2563eb', '○', 'Planned') + _lg('#dc2626', '✗', 'Refuted') +
         '<span style="flex-basis:100%;height:0"></span>' +
         '<span style="font-weight:600;color:#475569;margin:6px 10px 0 0">Edges:</span>' +
@@ -12160,21 +12272,6 @@
   // Map a study's free-form status string to a small colored dot. Keeps the
   // rail rows readable: the study NAME gets the full row width, the dot is a
   // glanceable status, the full status text is shown in the title tooltip.
-  function _railStatusColor(status) {
-    var s = String(status || '').toLowerCase();
-    if (s.indexOf('fail') !== -1 || s.indexOf('invalid') !== -1 || s.indexOf('blocked') !== -1) return '#ef4444';   // red
-    if (s.indexOf('pending') !== -1 || s.indexOf('refresh') !== -1 || s.indexOf('needs') !== -1) return '#f59e0b';// amber
-    if (s.indexOf('inconclusive') !== -1 || s.indexOf('partial') !== -1) return '#d97706'; // dark amber
-    if (s.indexOf('running') === 0) return '#3b82f6';                                // blue
-    // 'pass' covers the gate verdict 'passed' as well as 'passing'/'passes'.
-    if (s.indexOf('done') === 0 || s.indexOf('ran') === 0 || s.indexOf('complete') !== -1
-        || s.indexOf('evaluated') !== -1 || s.indexOf('confirmed') !== -1 || s.indexOf('pass') !== -1
-        || s.indexOf('accept') !== -1 || s.indexOf('decided') !== -1
-        || s.indexOf('-wins') !== -1 || s.indexOf('in-band') !== -1) return '#16a34a'; // green
-    if (s.indexOf('evaluate') === 0) return '#6366f1';                               // indigo (mid-pass action)
-    return '#9ca3af';                                                                // gray (planned/unknown)
-  }
-
   // Pinned studies: a per-user convenience, kept in localStorage (no workspace
   // write). A pinned study is duplicated into a "Pinned" strip at the top of the
   // STUDIES rail for quick access while still appearing in its own group.
@@ -12205,8 +12302,12 @@
   // study (stopPropagation). Used by the grouped, pinned, and ungrouped layouts.
   function _railStudyItem(s, opts) {
     opts = opts || {};
-    var status = s.status || 'planned';
-    var color = _railStatusColor(status);
+    // Unified status source (see _studyStatusMeta) so the rail dot agrees with the
+    // investigation-graph card + legend. Was _railStatusColor(s.status) — a separate
+    // 4th color map that showed `blocked` red while the card showed amber.
+    var _sm = _studyStatusMeta(s);
+    var status = _sm.label;
+    var color = _sm.color;
     var indent = opts.indent ? '28px' : '12px';
     var fontSize = opts.indent ? '0.85em' : '0.86em';
     var nameColor = opts.indent ? '#64748b' : '#374151';
@@ -14572,9 +14673,25 @@
     fetch('/api/investigation-run', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({name: name}),
-    }).then(function(r) { return r.json().then(function(j) { return [r.ok, j]; }); })
+    }).then(function(r) { return r.json().then(function(j) { return [r.ok, j, r.status]; }); })
       .then(function(parts) {
-        var ok = parts[0], j = parts[1];
+        var ok = parts[0], j = parts[1], code = parts[2];
+        // §A5: a v3 investigation is now delegated server-side to the SAME
+        // background job machinery "Run unblocked" uses, so this answers
+        // 202 + job_id instead of blocking until every simulation finishes.
+        // Hand it to the existing progress poll rather than inventing a second
+        // async UX — that poll already renders items, resolves Batch dispatches
+        // and drives the prerequisite re-drive.
+        //
+        // This is also what makes the button usable on a gateway-fronted
+        // deployment at all: the synchronous shape could not outlive the ALB's
+        // idle timeout regardless of where the work ran.
+        if (code === 202 && j && j.job_id) {
+          if (typeof _vivPollRunProgress === 'function') _vivPollRunProgress(j.job_id);
+          if (btn) { btn.disabled = false; btn.textContent = 'Run'; }
+          _openInvestigation(name);
+          return;
+        }
         if (!ok) { alert('Run failed: ' + (j.error || 'unknown')); }
         // Refresh both the list (status update) and the detail panel
         window._investigationsLoaded = false;
@@ -15250,15 +15367,39 @@
     return '';
   }
 
+  // Statuses that mean "not finished" — a run the user just launched and is
+  // actively watching. These ALWAYS pin to the top of the Runs list, regardless
+  // of the column sort: remote list timestamps come from an unreliable bulk
+  // `last_updated` (every GovCloud run shows the same frozen time), so a live
+  // cloud run can't otherwise rise above the wall of old completed runs.
+  var _ACTIVE_RUN_STATUSES = { queued: 1, running: 1, pending: 1, submitted: 1,
+                               in_progress: 1, started: 1, dispatching: 1 };
+  function _isActiveRun(row) {
+    return !!_ACTIVE_RUN_STATUSES[String((row && row.status) || '').toLowerCase()];
+  }
+  function _sortActiveRuns(list) {
+    // Newest dispatch first among the active runs — the remote simulation_id is
+    // monotonic and trustworthy (unlike the frozen timestamp), else fall to time.
+    return list.slice().sort(function (a, b) {
+      var ai = ((a.remote_origin || {}).simulation_id) || 0;
+      var bi = ((b.remote_origin || {}).simulation_id) || 0;
+      if (ai !== bi) return bi - ai;
+      return (b.completed_at || b.started_at || 0) - (a.completed_at || a.started_at || 0);
+    });
+  }
+
   function _sortSimRows(rows, key, dir) {
-    if (!key) return rows;
-    const s = rows.slice().sort(function (a, b) {
+    var active = rows.filter(_isActiveRun);
+    var rest = rows.filter(function (r) { return !_isActiveRun(r); });
+    if (!key) return _sortActiveRuns(active).concat(rest);  // backend order for the rest
+    var s = rest.slice().sort(function (a, b) {
       var va = _simSortValue(a, key), vb = _simSortValue(b, key);
       if (va < vb) return -1;
       if (va > vb) return 1;
       return 0;
     });
-    return dir === 'desc' ? s.reverse() : s;
+    var sortedRest = dir === 'desc' ? s.reverse() : s;
+    return _sortActiveRuns(active).concat(sortedRest);
   }
 
   function _onSimHeaderClick(th) {
@@ -15323,10 +15464,18 @@
 
     visible = _sortSimRows(visible, _simSortState.key, _simSortState.dir);
 
+    // Chunked display: render only the first _simShown rows (page-size selector
+    // + "Show more"), so a large index (hundreds of runs) paints a small slice
+    // fast instead of the whole table. Count reflects the full filtered set.
+    var pageSize = window._simPageSize || 50;
+    if (!window._simShown || window._simShown < pageSize) window._simShown = pageSize;
+    var shown = visible.slice(0, window._simShown);
+
     var tbody = document.getElementById('sim-tbody');
     var table = document.getElementById('sim-table');
     var empty = document.getElementById('sim-empty');
-    if (tbody) tbody.innerHTML = visible.map(_renderSimRow).join('');
+    if (tbody) tbody.innerHTML = shown.map(_renderSimRow).join('');
+    _updateSimCount(shown.length, visible.length, (window._simRows || []).length);
     // Row click opens the run (delegated once, survives re-renders); the
     // download links/buttons keep their own behaviour.
     if (tbody && !tbody._simClickWired) {
@@ -15364,7 +15513,7 @@
     // the grips a single time; stored widths persist across filters/reloads.
     if (table && window.ColResize && !table._colResizeWired) {
       table._colResizeWired = true;
-      window.ColResize.apply(table, 'sim-global');
+      window.ColResize.apply(table, 'sim-global-v2');
     }
 
     var note = document.getElementById('sim-scope-note');
@@ -15441,7 +15590,12 @@
       if (table)   table.style.display = 'none';
     }
 
-    window.DataSource.loadSimulations()
+    // Phase 1 — local-first: fetch the fast local index (include_remote=false)
+    // so the table + count paint in ~seconds instead of blocking on the slow
+    // (~tens-of-seconds) remote (GovCloud) fetch. Snapshot mode has no live
+    // backend, so its baked list is already complete — load it in one call.
+    var snapshot = (window.__DASH_CONFIG__ || {}).mode === 'snapshot';
+    window.DataSource.loadSimulations(snapshot ? undefined : { includeRemote: false })
       .then(function (data) {
         if (data.error) {
           if (quiet) return;
@@ -15451,7 +15605,14 @@
             'onclick="_initSimulations()">Retry</button></span>';
           return;
         }
-        window._simRows = data.simulations || [];
+        // Never shrink back to the local-only set once the remote-enriched rows
+        // have loaded: a quiet auto-refresh's fast local-only fetch must not clobber
+        // the (slow) GovCloud rows while they're still valid — that collapse-to-local
+        // then re-fetch was the visible flap.
+        var _incoming = data.simulations || [];
+        if (!window._simRemoteLoaded || _incoming.length >= (window._simRows || []).length) {
+          window._simRows = _incoming;
+        }
         // Scope target, most-specific first: the investigation currently open
         // in the detail view (_currentIsetSlug, set by _openInvestigationDetail),
         // else the git-branch investigation slug, else whatever investigation the
@@ -15462,6 +15623,10 @@
         _populateSimFilters();
         _applySimFilter();
         _pollNonTerminalRemoteRuns();
+        // Phase 2 — merge in the remote runs (slow ~100s) in the background.
+        // On a quiet auto-refresh this only re-fires after a backoff and never
+        // while one is in flight, so the 15s poll can't restart the slow fetch.
+        if (!snapshot) _maybeLoadRemoteSims(quiet);
       })
       .catch(function (err) {
         if (quiet) return;
@@ -15471,6 +15636,83 @@
       });
   }
   window._initSimulations = _initSimulations;
+
+  // Phase 2 of the Runs load: fetch local+remote (the second call includes the
+  // GovCloud runs, deduped server-side) and merge into the table. Best-effort:
+  // a down tunnel leaves the local-only view in place.
+  // Don't re-pull the slow GovCloud list more than ~every 3 min on the quiet
+  // auto-refresh; the deployed /simulations endpoint can take ~100s, so a 15s
+  // poll firing it repeatedly never settles.
+  var REMOTE_REFRESH_MS = 180000;
+
+  function _maybeLoadRemoteSims(quiet) {
+    // First load / explicit refresh: always. Quiet auto-refresh: only after the
+    // backoff, and never while a fetch is already in flight (guard below).
+    if (!quiet || !window._simRemoteLoaded ||
+        (Date.now() - (window._simLastRemoteLoad || 0)) > REMOTE_REFRESH_MS) {
+      _loadRemoteSimsAsync();
+    }
+  }
+
+  function _loadRemoteSimsAsync() {
+    // Dedupe: the remote fetch is slow (~100s). Never start a second one while
+    // one is in flight — overlapping fetches are what made the page flap.
+    if (window._simRemoteInFlight) return;
+    window._simRemoteInFlight = true;
+    _setSimRemoteStatus('loading');
+    window.DataSource.loadSimulations({ includeRemote: true })
+      .then(function (data) {
+        window._simRemoteInFlight = false;
+        if (!data || data.error) { _setSimRemoteStatus('error'); return; }
+        var all = data.simulations || [];
+        if (all.length >= (window._simRows || []).length) window._simRows = all;
+        window._simRemoteLoaded = true;
+        window._simLastRemoteLoad = Date.now();
+        _setSimRemoteStatus('done');
+        _populateSimFilters();
+        _applySimFilter();
+        _pollNonTerminalRemoteRuns();
+      })
+      .catch(function () { window._simRemoteInFlight = false; _setSimRemoteStatus('error'); });
+  }
+
+  function _setSimRemoteStatus(state) {
+    var el = document.getElementById('sim-remote-status');
+    if (!el) return;
+    el.textContent = state === 'loading' ? '· loading GovCloud runs…'
+      : state === 'error' ? '· GovCloud runs unavailable'
+      : '';
+  }
+
+  // Count line + "Show more" visibility. shown = rows rendered; visible = rows
+  // matching the current filters; total = all loaded runs.
+  function _updateSimCount(shown, visible, total) {
+    var countEl = document.getElementById('sim-count');
+    var ctrls = document.getElementById('sim-controls');
+    var more = document.getElementById('sim-more');
+    if (ctrls) ctrls.style.display = total ? 'flex' : 'none';
+    if (countEl) {
+      countEl.textContent = (visible === total)
+        ? (total + ' run' + (total === 1 ? '' : 's'))
+        : (visible + ' of ' + total + ' runs');
+    }
+    if (more) more.style.display = (shown < visible) ? '' : 'none';
+  }
+
+  function _onSimPageSizeChange() {
+    var sel = document.getElementById('sim-page-size');
+    window._simPageSize = sel ? (parseInt(sel.value, 10) || 50) : 50;
+    window._simShown = window._simPageSize;  // reset to first page
+    _applySimFilter();
+  }
+  window._onSimPageSizeChange = _onSimPageSizeChange;
+
+  function _simShowMore() {
+    window._simShown = (window._simShown || (window._simPageSize || 50))
+      + (window._simPageSize || 50);
+    _applySimFilter();
+  }
+  window._simShowMore = _simShowMore;
 
   // Backlog item 84: a UI-dispatched remote run's row shows "running" from
   // the moment PR #922's pending-dispatch placeholder lands until someone
@@ -16196,51 +16438,79 @@
     val.innerHTML = html + (hint ? '<div class="gh-value-hint">' + hint + '</div>' : '');
   }
 
-  function _renderGitStatusRows(s) {
-    if (!document.getElementById('viv-gh-row-repo')) return;  // page not present
-    if (s == null) {
-      _setRow('repo', '<span class="muted">not a git workspace</span>');
-      ['branch', 'push-state', 'ahead', 'dirty', 'pr'].forEach(function (id) { _setRow(id, ''); });
+  // Commit + Push — commit all changes on the workspace's branch and push it.
+  // Moved here from the Source card (this card owns git sync). Wired to
+  // #btn-commit-push in index.html.j2.
+  function _commitAndPush() {
+    if ((window.__DASH_CONFIG__ || {}).mode === 'snapshot') {
+      alert('Commit + Push needs the live workbench — a read-only snapshot has no git backend.');
       return;
     }
-    // Repository
-    _setRow('repo', s.upstream_repo
-      ? '<a href="' + s.repo_url + '" target="_blank" rel="noopener">' + _esc(s.upstream_repo) + '</a> ↗'
-      : '<span class="muted">no upstream remote configured</span>');
-    // Branch
-    _setRow('branch', s.branch
+    var msg = window.prompt('Commit message for push:', 'dashboard commit');
+    if (msg == null) return;
+    var btn = document.getElementById('btn-commit-push');
+    if (btn) { btn.disabled = true; btn.textContent = 'Pushing…'; }
+    function _reset() { if (btn) { btn.disabled = false; btn.textContent = 'Commit + Push'; } }
+    fetch('/api/branch/push', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: msg }),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        _reset();
+        if (res.ok) {
+          var m = 'Pushed ' + (res.d.branch || '') + ' @ ' + (res.d.commit || '').slice(0, 7);
+          if (typeof _showToast === 'function') _showToast(m); else alert(m);
+          _refreshGitStatus();
+        } else {
+          alert('Push failed: ' + (res.d.error || 'error'));
+        }
+      })
+      .catch(function () { _reset(); alert('Push failed: network error'); });
+  }
+  window._commitAndPush = _commitAndPush;
+
+  function _renderGitStatusRows(s) {
+    if (!document.getElementById('viv-gh-row-branch')) return;  // page not present
+    if (s == null) {
+      ['branch', 'dirty', 'pr'].forEach(function (id) { _setRow(id, ''); });
+      _setRow('branch', '<span class="muted">not a git workspace</span>');
+      return;
+    }
+    // Branch → base: the branch name, then how far ahead of its base it is (the
+    // PR-relevant comparison). Repo is NOT shown here — it's chosen in the Source
+    // card above; duplicating it was the confusing overlap this layout removes.
+    var branchName = s.branch
       ? (s.branch_url
-          ? '<a href="' + s.branch_url + '" target="_blank" rel="noopener"><code>' + _esc(s.branch) + '</code></a> ↗'
+          ? '<a href="' + s.branch_url + '" target="_blank" rel="noopener"><code>' + _esc(s.branch) + '</code></a>'
           : '<code>' + _esc(s.branch) + '</code>')
-      : '<span class="muted">no branch</span>');
-    // Push state
-    var stateMap = {
+      : '<span class="muted">no branch</span>';
+    var vsBase = '';
+    if (s.base) {
+      if (s.ahead_of_base > 0) {
+        var n = s.ahead_of_base + ' commit' + (s.ahead_of_base === 1 ? '' : 's')
+          + ' ahead of <code>' + _esc(s.base) + '</code>';
+        vsBase = ' → ' + (s.compare_url
+          ? '<a href="' + s.compare_url + '" target="_blank" rel="noopener">' + n + ' ↗</a>'
+          : n);
+      } else {
+        vsBase = ' → <span class="muted">up to date with <code>' + _esc(s.base) + '</code></span>';
+      }
+    }
+    _setRow('branch', branchName + vsBase);
+    // Changes: how the branch sits vs its REMOTE (push state) + the working tree.
+    var pushMap = {
       pushed:   '<span class="git-badge git-badge-ok">✓ pushed</span>',
-      ahead:    '<span class="git-badge git-badge-ahead">↑ ' + s.ahead + ' ahead of remote</span>',
+      ahead:    '<span class="git-badge git-badge-ahead">↑ ' + s.ahead + ' to push</span>',
       behind:   '<span class="git-badge git-badge-behind">↓ ' + s.behind + ' behind remote</span>',
       diverged: '<span class="git-badge git-badge-warn">! diverged from remote</span>',
     };
-    _setRow('push-state', stateMap[s.push_state] || '<span class="git-badge git-badge-warn">⊘ no origin</span>');
-    // Ahead of base
-    if (s.ahead_of_base > 0) {
-      var aheadHtml = s.compare_url
-        ? '<a href="' + s.compare_url + '" target="_blank" rel="noopener">' + s.ahead_of_base + ' commits ahead of <code>' + _esc(s.base) + '</code></a> ↗'
-        : s.ahead_of_base + ' commits ahead of <code>' + _esc(s.base) + '</code>';
-      _setRow('ahead', aheadHtml);
-    } else {
-      _setRow('ahead', s.base
-        ? '<span class="muted">up to date with <code>' + _esc(s.base) + '</code></span>'
-        : '');
-    }
-    // Working tree
-    if (s.dirty_count > 0) {
-      _setRow('dirty',
-        '<a href="#" onclick="event.preventDefault();_toggleDirtyPanel();return false">'
-        + s.dirty_count + ' uncommitted file' + (s.dirty_count === 1 ? '' : 's') + '</a>',
-        'Click to view + stage');
-    } else {
-      _setRow('dirty', '<span class="muted">clean</span>');
-    }
+    var pushBadge = pushMap[s.push_state] || '<span class="git-badge git-badge-warn">⊘ no remote</span>';
+    var treePart = (s.dirty_count > 0)
+      ? '<a href="#" onclick="event.preventDefault();_toggleDirtyPanel();return false">'
+        + s.dirty_count + ' uncommitted file' + (s.dirty_count === 1 ? '' : 's') + '</a>'
+      : '<span class="muted">clean</span>';
+    _setRow('dirty', pushBadge + ' &nbsp;·&nbsp; ' + treePart,
+      s.dirty_count > 0 ? 'Click the count to view + stage' : '');
     // Pull request
     if (s.pr_url) {
       var prState = (s.pr_state || 'open').toLowerCase();

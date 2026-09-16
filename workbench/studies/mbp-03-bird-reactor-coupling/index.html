@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -609,6 +611,9 @@ well-mixed bench-scale reactor?
       
       
       
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
         <details class="finding-details">
           <summary class="finding-row">
@@ -645,6 +650,7 @@ well-mixed bench-scale reactor?
         </details>
       </div>
       
+      
     </div>
     
       
@@ -680,7 +686,9 @@ well-mixed bench-scale reactor?
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-03-bird-reactor-coupling">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-03-bird-reactor-coupling"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -912,8 +920,28 @@ candidate_future_studies entry `pbg-bioreactor-transport-fork`.
   - `population.biomass_concentration_gL` → writes `reactor.biomass` (BiRD biomass input)
   - `reactor.dissolved_o2`, `reactor.dissolved_co2` (mg/L) → converts to mM and writes
     `environment.external_concentrations.{OXYGEN-MOLECULE[p],CARBON-DIOXIDE[p]}`
-  - aggregated `agents.*.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]`
-    × population.total_biomass_gDW → writes `reactor.o2_uptake_rate` (BiRD input)
+  - per-agent `agents.*.environment.exchange` — a LINEAGE-CUMULATIVE COUNT store,
+    NOT a flux — DIFFERENCED against this Step&#39;s own previous reading for that
+    agent, then converted to an ADDITIVE dissolved-gas delta and written back to
+    `reactor.dissolved_o2` / `reactor.dissolved_co2` (mg/L):
+
+        delta[mg/L] = counts × cells_per_agent / N_A[1/mol]
+                      × MW[g/mol] × 1000[mg/g] / volume_L
+
+    Sign follows metabolism&#39;s convention (positive = secreted, negative = uptake),
+    so O2 yields a negative dissolved-O2 delta and CO2 a positive one. One
+    difference already covers exactly one WCM step, so NO per-hour interval scaling
+    is applied. First observation of an (agent, molecule) pair contributes 0.0 —
+    the store carries across division, so differencing against an assumed zero
+    would dump a whole generation&#39;s accumulation into one tick.
+  ⛔ NOT the flux × biomass form. There is no `reactor.o2_uptake_rate` store
+  anywhere in the codebase, and `agents.*.listeners.fba_results.external_exchange_fluxes`
+  is a bare ndarray of shape (87,) positionally ordered by
+  `metabolism.externalMoleculeIDs` — appending `.OXYGEN-MOLECULE[p]` does not
+  resolve against it. `v2ecoli/steps/reactor_cell_coupler.py`&#39;s module docstring
+  says of the flux × biomass description: &#34;the code has not worked that way for
+  some time … Do not reintroduce it.&#34; Corrected here 2026-08-31 after reading the
+  implementation.
 Holds last-known reactor state between BiRD ticks (BiRD typically on 1 h interval).
 </p>
       
@@ -963,7 +991,7 @@ has no biomass ODE by construction.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1073,7 +1101,7 @@ has no biomass ODE by construction.
       <iframe src="/v2ecoli/workbench/reports/figures/mbp-03-bird-reactor-coupling/reactor_coupling_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Reactor-cell coupling — dissolved O2 falls under cell load (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">reactor_bird_coupled: the BiRD reactor&#39;s dissolved O2 and biomass over time as the cell draws O2/glucose and secretes byproducts through the ReactorCellCoupler. The keystone bidirectional coupling, now interactive (hover/zoom/toggle).</p>
@@ -1823,7 +1851,7 @@ fix).
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-03-bird-reactor-coupling";

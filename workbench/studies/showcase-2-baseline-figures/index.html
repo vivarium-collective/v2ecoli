@@ -23,6 +23,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -622,6 +624,9 @@ showcase-4 perturbation variants are measured against.
       
       
       
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
         <details class="finding-details">
           <summary class="finding-row">
@@ -657,6 +662,10 @@ showcase-4 perturbation variants are measured against.
           </div>
         </details>
       </div>
+      
+      
+      
+      
       
       
       
@@ -698,6 +707,7 @@ showcase-4 perturbation variants are measured against.
         </details>
       </div>
       
+      
     </div>
     
       
@@ -731,7 +741,9 @@ showcase-4 perturbation variants are measured against.
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="showcase-2-baseline-figures">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="showcase-2-baseline-figures"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -988,7 +1000,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1098,7 +1110,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
       <iframe src="/v2ecoli/workbench/reports/figures/showcase-2-baseline-figures/cell_mass_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Dry mass over the cell cycle (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Per-cell exponential growth and division across the 2-seed × 3-gen baseline ensemble; y-axis in fg, hover unit-tagged.</p>
@@ -1115,7 +1127,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
       <iframe src="/v2ecoli/workbench/reports/figures/showcase-2-baseline-figures/mass_composition_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Dry-mass composition (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Stacked protein / RNA / DNA / small-molecule mass (fg) over one representative cell cycle.</p>
@@ -1132,7 +1144,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
       <iframe src="/v2ecoli/workbench/reports/figures/showcase-2-baseline-figures/growth_rate_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Instantaneous growth rate (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Specific growth rate as d(ln mass)/dt (1/s) per cell across the ensemble.</p>
@@ -1149,7 +1161,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
       <iframe src="/v2ecoli/workbench/reports/figures/showcase-2-baseline-figures/regulation_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="ppGpp and tRNA charging (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Stringent-response ppGpp (uM, left axis) against the mean charged-tRNA fraction (right axis) over the cell cycle.</p>
@@ -1166,7 +1178,7 @@ validation data attached; figures via scripts/render_showcase2.py.</div>
       <iframe src="/v2ecoli/workbench/reports/figures/showcase-2-baseline-figures/units_atlas.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Units Atlas (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Every declared unit-bearing baseline readout grouped by physical dimension with example magnitude + range. Folds in the former units-atlas investigation.</p>
@@ -1701,7 +1713,7 @@ and is avoided.
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "showcase-2-baseline-figures";

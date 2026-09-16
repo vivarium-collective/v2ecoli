@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -637,6 +639,9 @@ correctness through pbg-copasi, Phase 4 takes over performance.
       
       
       
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-confirms">
         <details class="finding-details">
           <summary class="finding-row">
@@ -692,6 +697,10 @@ correctness through pbg-copasi, Phase 4 takes over performance.
       
       
       
+      
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-novel">
         <details class="finding-details">
           <summary class="finding-row">
@@ -740,6 +749,10 @@ correctness through pbg-copasi, Phase 4 takes over performance.
       
       
       
+      
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-novel">
         <details class="finding-details">
           <summary class="finding-row">
@@ -778,6 +791,7 @@ correctness through pbg-copasi, Phase 4 takes over performance.
         </details>
       </div>
       
+      
     </div>
     
       
@@ -811,7 +825,9 @@ correctness through pbg-copasi, Phase 4 takes over performance.
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-01-metabolism-ode">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="pdmp-01-metabolism-ode"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -1066,7 +1082,7 @@ handover.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1176,7 +1192,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01/millard_atp_drain.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Millard 2017 — ATP drain"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Per-study visualization rendered from reports/figures/pdmp-01/millard_atp_drain.html. Inlined into the downloaded report as iframe srcdoc.</p>
@@ -1193,7 +1209,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01/millard_atp_drain_v2.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Millard 2017 — ATP drain (6-panel)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Per-study visualization rendered from reports/figures/pdmp-01/millard_atp_drain_v2.html. Inlined into the downloaded report as iframe srcdoc.</p>
@@ -1210,7 +1226,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01/millard_multi_perturbation.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Millard - multi-perturbation"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Per-study visualization rendered from reports/figures/pdmp-01/millard_multi_perturbation.html. Inlined into the downloaded report as iframe srcdoc.</p>
@@ -1227,7 +1243,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01/pdmp_vs_baseline.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 1 — PDMP metabolism vs v2ecoli baseline"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Trajectory overlay: MillardPDMPMetabolism + consumption_matched ref-growth driver vs the Phase-0 reference ensemble on M9-glucose. PR #72 closeout artifact.</p>
@@ -1244,7 +1260,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01/pdmp_vs_phase0.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Phase 1 — PDMP vs Phase-0 real multi-replicate W₂ (M9-glucose gate MET)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Multi-replicate Wasserstein-2 (2026-06-11, closed-loop WATER[c] fix, commit 6a764fc): N=12 PDMP replicates (consumption_matched, 600 s) vs the N=32 Phase-0 M9-glucose ensemble, endpoint W₂ via the exact 1-D inverse-CDF integral + bootstrap CIs. cell_mass W₂ = 6.93 fg (W₂/σ = 1.00); dry_mass W₂ = 2.27 fg (W₂/σ = 1.09). Both within ±2σ, so the ±σ gate is now met on M9-glucose (was cell_mass W₂/σ = 3.0 under open-loop water). Closing the water loop moved PDMP cell_mass 1481.0 → 1456.8 fg vs Phase-0 1461.1; dry_mass W₂/σ ticked up 0.86 → 1.09 but stays within ±σ. Remaining: acetate / +aa conditions not yet run.</p>
@@ -1261,7 +1277,7 @@ handover.
       <iframe src="/v2ecoli/workbench/reports/figures/pdmp-01-metabolism-ode/study_plan_summary.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="study_plan_summary"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">Hand-authored figure (13 KB) from reports/figures/pdmp-01-metabolism-ode/.</p>
@@ -1914,7 +1930,7 @@ expect:  {"field": "max_W2_ratio", "operator": "less-than", "threshold": 0.05}</
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "pdmp-01-metabolism-ode";

@@ -25,6 +25,8 @@
     
     <button type="button" id="study-reproduce" class="btn-mini" title="Replay this study's most recent run's RECORDED manifest verbatim (POST /api/study-reproduce) — ignores any study.yaml edits made since">↻ Reproduce</button>
     <button type="button" id="study-run-current-spec" class="btn-mini" title="Run this study's CURRENT baseline spec (POST /api/study-run-baseline) as a brand-new run">▶ Run current spec</button>
+    
+    <button type="button" id="study-run-composite" class="btn-mini" title="Dispatch a specific process-bigraph composite_id to the remote compute backend (pbg-native multi_node/mbp, or the Nextflow campaign path) — advanced, independent of this study's own pinned baseline">⚙ Dispatch composite</button>
   </span>
   </div>
   <div class="study-status-row" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px;">
@@ -611,6 +613,9 @@ glucose, declining DO, and other dynamic external concentrations?
       
       
       
+      
+      
+      
       <div class="finding-card finding-kind-computational finding-status-novel">
         <details class="finding-details">
           <summary class="finding-row">
@@ -647,6 +652,7 @@ glucose, declining DO, and other dynamic external concentrations?
         </details>
       </div>
       
+      
     </div>
     
       
@@ -682,7 +688,9 @@ glucose, declining DO, and other dynamic external concentrations?
   </div>
 
   
-  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-01-time-varying-environment">
+  
+  <div id="model-composite-cards" class="model-composite-cards" data-study="mbp-01-time-varying-environment"
+       data-study-config="">
     <p class="muted" style="font-size:0.85em;margin:0">Loading composite card(s)…</p>
   </div>
 
@@ -963,7 +971,7 @@ Backward-compatible default: env_driver_mode=static.
 
 <div class="overview-section" id="simulations-section">
   <h2>Simulations</h2>
-  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading simulations…</p></div>
+  <div id="study-sim-table" style="overflow-x:auto"><p class="muted" style="margin:0">Loading…</p></div>
   <div id="study-run-detail" style="margin-top:14px"></div>
 </div>
 
@@ -1073,7 +1081,7 @@ Backward-compatible default: env_driver_mode=static.
       <iframe src="/v2ecoli/workbench/reports/figures/mbp-01-time-varying-environment/env_coupling_interactive.html"
               class="figure-media-frame figure-media-frame--embed"
               loading="lazy" title="Environment coupling — uptake &amp; growth track the medium (interactive)"
-              onload="(function(f){try{var d=f.contentDocument;if(!d)return;var b=d.body,e=d.documentElement;var bStyle=b&&d.defaultView&&d.defaultView.getComputedStyle?d.defaultView.getComputedStyle(b):null;var pinnedH=0;if(bStyle&&(bStyle.overflow||'').indexOf('hidden')>=0){var hm=(bStyle.height||'').match(/^(\d+(?:\.\d+)?)px$/);if(hm)pinnedH=Math.round(parseFloat(hm[1]));}var h=pinnedH>0?pinnedH:Math.max(e?e.scrollHeight:0,b?b.scrollHeight:0);if(h>0)f.style.height=(h+24)+'px';}catch(e){}})(this)"
+              onload="window.__fitFigureFrame&&window.__fitFigureFrame(this)"
               ></iframe>
       
       <p class="figure-desc muted">baseline WCM, 40 steps: glucose &amp; O2 uptake fluxes and the FBA growth objective respond to the external medium. Hover for per-step values; toggle traces in the legend. Establishes that the cell is environment-responsive — the prerequisite for reactor coupling.</p>
@@ -1469,7 +1477,7 @@ evidence rather than suspicion.
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "multi_path_max_abs", "paths": ["agents.0.metabolism.external_exchange_fluxes.GLC[p]", "agents.0.metabolism.external_exchange_fluxes.OXYGEN-MOLECULE[p]"], "window": "full"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "multi_path_max_abs", "paths": ["agents.0.listeners.fba_results.external_exchange_fluxes"], "window": "full"}
 pass_if: {"op": "at_most", "value": 0.01}</pre>
       </details>
       
@@ -1522,7 +1530,7 @@ only that the 50 mM value reaches the boundary.
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "series", "path": "agents.0.metabolism.external_exchange_fluxes.GLC[p]", "reduce": "max_abs", "window": "full"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "series", "path": "agents.0.listeners.fba_results.external_exchange_fluxes", "reduce": "max_abs", "window": "full"}
 pass_if: {"op": "at_most", "value": 12.0}</pre>
       </details>
       
@@ -1576,7 +1584,7 @@ resolved; see zero-substrate-blocks-uptake.
       <details style="margin-top: 6px; font-size: 0.82em;">
         <summary class="muted" style="cursor: pointer;">Assertion</summary>
         
-        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "cross_run_ratio", "path": "agents.0.metabolism.external_exchange_fluxes.GLC[p]", "reduce": "mean", "runs": ["saturating-glucose-low", "saturating-glucose-high"], "window": "full"}
+        <pre style="background:#fff; padding:8px; margin:4px 0 0 0; border:1px solid #e2e8f0; border-radius:3px; overflow-x:auto;">measure: {"kind": "cross_run_ratio", "path": "agents.0.listeners.fba_results.external_exchange_fluxes", "reduce": "mean", "runs": ["saturating-glucose-low", "saturating-glucose-high"], "window": "full"}
 pass_if: {"high": 1.1, "low": 0.9, "op": "in_range"}
 cites:   ["Monod1949AnnRevMicrobiol"]</pre>
       </details>
@@ -1802,7 +1810,7 @@ Gradient-shape / quantitative-biology tests are explicitly OUT of scope
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/95b8b779eaf3a16c906b973d9b7c0b7768bc196e", "branch": "main", "lockfile": "uv.lock@62ca42e82ee3", "generated_at": "2026-08-27 21:43 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mbp-01-time-varying-environment";

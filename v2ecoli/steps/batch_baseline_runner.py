@@ -82,9 +82,36 @@ DEFAULT_PARALLEL = "ray"
 DEFAULT_EMITTER = "both"
 DEFAULT_ANALYSES = "applicable"
 
-# Registered but not a real analysis — a test fixture that would otherwise
-# render an empty panel into every multivariant batch.
-_ANALYSIS_DENYLIST = frozenset({"dummy"})
+# Registered but never a real deliverable — test/smoke fixtures that would
+# otherwise render an empty or stub panel into every applicable batch. "dummy"
+# is a multivariant test fixture; "sms_modules_smoke" renders a one-line
+# "sms-modules registered" stub into every cell.
+_ANALYSIS_DENYLIST = frozenset({"dummy", "sms_modules_smoke"})
+
+# Curated named analysis profiles. A profile gives the meaningful default set
+# for a campaign ONE definition, so a config, a ``--modules`` value, and a
+# composite ``analyses`` param all resolve through the same place instead of
+# each re-listing views — or defaulting to "applicable", which expands to every
+# registered analysis at the covered scales and is what generates the per-cell
+# figure sprawl.
+#
+# ``cd2-core`` is the multiseed ptools core — rna/rxns/proteins/metabolites,
+# cross-seed mean+spread, with the pre-steady-state birth generation dropped
+# (skip_n_gens=1). It deliberately omits ptools_overview_multiseed; "core-5"
+# would add it (parked as a container-ceiling view: completes on light
+# genotypes, OOMs on heavy ones). Profiles are intersected with the scales the
+# batch actually produces (see build_analysis_options), so requesting cd2-core
+# on a single-seed run yields nothing rather than a zero-spread panel.
+_ANALYSIS_PROFILES: "dict[str, dict[str, dict[str, dict]]]" = {
+    "cd2-core": {
+        "multiseed": {
+            "ptools_rna_multiseed": {"skip_n_gens": 1},
+            "ptools_rxns_multiseed": {"skip_n_gens": 1},
+            "ptools_proteins_multiseed": {"skip_n_gens": 1},
+            "ptools_metabolites_multiseed": {"skip_n_gens": 1},
+        },
+    },
+}
 
 
 def applicable_analysis_scales(
@@ -125,19 +152,30 @@ def build_analysis_options(
     """Resolve the ``analyses`` parameter into a workflow ``analysis_options`` map.
 
     ``analyses`` is either an explicit ``{scale: {name: params}}`` mapping (used
-    verbatim), the string ``"applicable"`` (every registered analysis at the
-    scales this batch covers — see :func:`applicable_analysis_scales`), or
-    ``"none"`` / empty (no analyses; the flush then only writes visualizations
-    and report cards).
+    verbatim), a named profile (see ``_ANALYSIS_PROFILES``, e.g. ``"cd2-core"``
+    — the curated set, intersected with the scales this batch covers), the
+    string ``"applicable"`` (every registered analysis at the scales this batch
+    covers — see :func:`applicable_analysis_scales`), or ``"none"`` / empty (no
+    analyses; the flush then only writes visualizations and report cards).
     """
     if isinstance(analyses, dict):
         return {k: dict(v or {}) for k, v in analyses.items() if v}
     choice = (analyses or "").strip().lower()
     if choice in ("", "none", "off", "false"):
         return {}
+    if choice in _ANALYSIS_PROFILES:
+        wanted = set(applicable_analysis_scales(
+            n_seeds=n_seeds, n_generations=n_generations,
+            single_daughters=single_daughters, variants=variants))
+        return {
+            scale: {name: dict(params) for name, params in views.items()}
+            for scale, views in _ANALYSIS_PROFILES[choice].items()
+            if scale in wanted
+        }
     if choice != "applicable":
         raise ValueError(
-            f"analyses={analyses!r} — expected 'applicable', 'none', or an "
+            f"analyses={analyses!r} — expected 'applicable', a named profile "
+            f"({', '.join(sorted(_ANALYSIS_PROFILES))}), 'none', or an "
             "explicit {scale: {name: params}} mapping")
 
     # Import for the registration side effects: every ported analysis module

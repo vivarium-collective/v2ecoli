@@ -1,46 +1,44 @@
 """Flagellar filament elongation — incremental FliC polymerization.
 
-Added 2026-08-06, part of Maya Abdalla's flagella-cascade investigation.
-Grows each nascent_flagellum's filament_length one subunit-batch at a
-time per tick (mirrors polypeptide_elongation.py's treatment of
-translation), instead of one giant Gillespie complexation event --
-20,000 copies of the same molecule in one reaction blows up SSA
-propensity calculations combinatorially, and isn't how real export works
-anyway (FliC is added incrementally at the distal tip).
+Added 2026-08-06, Maya Abdalla's flagella-cascade investigation. Grows
+each nascent_flagellum's filament_length one subunit-batch per tick
+(mirrors polypeptide_elongation.py's treatment of translation), not one
+giant Gillespie complexation event -- 20,000 copies of one molecule in
+one reaction blows up SSA propensity calculations combinatorially, and
+isn't how real export works anyway (FliC added incrementally at the
+distal tip).
 
-Rate law: dL/dt = a / (b + L)  [subunits/s]
-Citation: Renault et al. 2017, eLife 6:e23136, "Bacterial flagella grow
-through an injection-diffusion mechanism."
-Current: rate_a=15,556, rate_b=575 subunits.
-CORRECTED (2026-09-01): rate_a was 26,450, which didn't match Renault's
-own fitted k_on for either of their two datasets (33.35/s Fig 2,
-27.09/s Fig 3). rate_b=575 already closely matched Fig 3's derived value
-(~574) -- Fig 3 is the stronger dataset (six-color labeling vs Fig 2's
-three, 291 filaments / 1,276 data points, wider dynamic range). Re-derived
-rate_a=15,556 to match Fig 3 self-consistently (implied k_on =
-15,556/575 = 27.05/s, vs Fig 3's own 27.09/s). Old value kept per
-standing preserve-old-code rule -- see config_schema below.
+Rate law: dL/dt = a / (b + L)  [subunits/s]. Renault et al. 2017, eLife
+6:e23136, "Bacterial flagella grow through an injection-diffusion
+mechanism." Current: rate_a=15,556, rate_b=575 subunits. CORRECTED
+2026-09-01: rate_a was 26,450, matching neither of Renault's fitted k_on
+values (33.35/s Fig 2, 27.09/s Fig 3). rate_b=575 already matched Fig
+3's derived value (~574) -- the stronger dataset (six-color labeling vs
+Fig 2's three, 291 filaments/1,276 points, wider dynamic range).
+Re-derived rate_a=15,556 to match Fig 3 self-consistently (implied
+k_on = 15,556/575 = 27.05/s, vs Fig 3's 27.09/s). Old value kept in
+config_schema below.
 
-target_length = 5,000 subunits. Real range is 20,000-40,000 (PMC7696725);
-cut for practical single-generation simulation windows (completion time
-scales ~L^2/a). Kept in sync with CPLX0-7452_RXN's FliC coefficient in
+target_length = 5,000 subunits. Real range 20,000-40,000 (PMC7696725);
+cut for practical single-generation windows (completion time scales
+~L^2/a). Kept in sync with CPLX0-7452_RXN's FliC coefficient in
 complexation_reactions_modified.tsv.
 
-Multiple simultaneous filaments fair-share the same combined FliC pool
-(free + FLIS-FLIC-CPLX), scaled down proportionally if demand exceeds
-supply -- no draw-order bias.
+Multiple simultaneous filaments fair-share the combined FliC pool (free
++ FLIS-FLIC-CPLX), scaled down proportionally if demand exceeds supply
+-- no draw-order bias.
 
 On completion: consumes 5x FliD, deletes the nascent_flagellum, adds +1
 real CPLX0-7452.
 
 FliS chaperone recycling: elongation draws preferentially from
 FLIS-FLIC-CPLX (protected pool) before free FliC, releasing FliS back on
-consumption -- Sci Rep 8:11115 (2018), "FliW and FliS are released during
-flagellin export... recycled." FliS binds FliC as a homodimer (Auvray,
-Thomas, Fraser & Hughes 2001, J Mol Biol 308:221-229: "FliS homodimers
-bind to FliC monomers"), so each unit of complex consumed releases 2 free
-FliS monomers, not 1. Binding affinity: Muskotal et al. 2006, FEBS Lett
-580:3916, Kd=5.26e-8 M.
+consumption -- Sci Rep 8:11115 (2018), "FliW and FliS are released
+during flagellin export... recycled." FliS binds FliC as a homodimer
+(Auvray, Thomas, Fraser & Hughes 2001, J Mol Biol 308:221-229: "FliS
+homodimers bind to FliC monomers"), so each unit of complex consumed
+releases 2 free FliS monomers, not 1. Binding affinity: Muskotal et al.
+2006, FEBS Lett 580:3916, Kd=5.26e-8 M.
 """
 
 
@@ -151,8 +149,7 @@ class FlagellaFilamentElongation(Step):
         desired = np.round(self.rate_a / (self.rate_b + lengths) * dt).astype(np.int64)
         desired = np.maximum(desired, 0)
 
-        # Old (pre-FliS-recycling) version, free FliC only, kept per
-        # standing preserve-old-code rule:
+        # Old (pre-FliS-recycling), free-FliC-only version, kept:
         # fliC_available = counts(states["bulk"], self.fliC_idx)
         # total_desired = int(desired.sum())
         # if total_desired > fliC_available and total_desired > 0:

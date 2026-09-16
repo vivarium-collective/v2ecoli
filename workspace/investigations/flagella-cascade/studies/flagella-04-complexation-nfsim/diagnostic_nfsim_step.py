@@ -2,19 +2,20 @@
 new real-bulk-coupled v2ecoli Step) directly against a live composite's real
 bulk store -- two-way coupling, not the read-only diagnostic from step 2.
 
-Added 2026-08-12, part of Maya Abdalla's flagella-cascade investigation.
+Added 2026-08-12, Maya Abdalla's flagella-cascade investigation.
 
-Manually drives FlagellaNFsimComplexation.update() in a loop against a real
-ecoli_baseline composite's own bulk array and unique-molecule stores (same
-manual-driving pattern used throughout this investigation's diagnostics),
-mutating the REAL composite state in place each firing -- checking:
+Manually drives FlagellaNFsimComplexation.update() in a loop against a
+real ecoli_baseline composite's own bulk array and unique-molecule
+stores (same manual-driving pattern used throughout this investigation's
+diagnostics), mutating the REAL composite state in place each firing --
+checking:
   (1) real bulk counts change and stay non-negative (mass conservation),
-  (2) scaffold_species and internal_observables genuinely persist and grow
-      across firings (not reset to zero each time),
+  (2) scaffold_species and internal_observables genuinely persist and
+      grow across firings (not reset to zero each time),
   (3) 'flagella' completions create real nascent_flagellum unique molecules.
 
-NOT yet wired into ecoli_baseline.py's execution layers (that's the
-rollout's last step) -- this drives the Step directly, standalone.
+NOT yet wired into ecoli_baseline.py's execution layers (the rollout's
+last step) -- drives the Step directly, standalone.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \

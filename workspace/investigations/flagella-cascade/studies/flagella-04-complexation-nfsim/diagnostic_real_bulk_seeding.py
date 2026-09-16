@@ -1,22 +1,22 @@
 """Step 2 of NFSIM_WCM_WIRING_PLAN.md: does NFsim work seeded from the REAL
 WCM bulk pool, with NO synthetic MonomerProduction feed at all?
 
-Added 2026-08-12, part of Maya Abdalla's flagella-cascade investigation.
+Added 2026-08-12, Maya Abdalla's flagella-cascade investigation.
 
 Builds a real ecoli_baseline composite, reads the ACTUAL bulk counts for
 every real-bulk-ID species this model uses (generate_flagella_bngl.py's
-real_bulk_ids(), step-1 renaming), seeds NFSimProcess's observables directly
-from those real counts, and runs the reaction network with NO monomer
-production process feeding it -- purely testing whether the real ambient
-standing pool (whatever ParCa's own initial condition gives) supports
-meaningful complexation on its own, chunk after chunk, carrying
+real_bulk_ids(), step-1 renaming), seeds NFSimProcess's observables
+directly from those counts, and runs the reaction network with NO
+monomer-production process feeding it -- testing whether the real
+ambient standing pool (whatever ParCa's own initial condition gives)
+supports meaningful complexation on its own, chunk after chunk, carrying
 scaffold_species forward the same way the (now-fixed) full-model runs do.
 
-This does NOT yet write results back into a live composite's bulk store
-(that -- plus real ongoing transcription/translation replenishment each
-tick -- is step 3's wrapper Step job). This is a read-then-simulate-in-
-isolation diagnostic: confirms real bulk IDs resolve correctly end-to-end
-and characterizes what the real ambient pool alone can do, before building
+Does NOT yet write results back into a live composite's bulk store (that
+-- plus real ongoing transcription/translation replenishment each tick
+-- is step 3's wrapper Step job). A read-then-simulate-in-isolation
+diagnostic: confirms real bulk IDs resolve correctly end-to-end and
+characterizes what the real ambient pool alone can do, before building
 the full two-way-coupled Step.
 
 Usage:

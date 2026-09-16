@@ -1,51 +1,51 @@
 """Flagella transcription regulation — the Kalir & Alon (Cell 2004) SUM-gate.
 
-Ported to process-bigraph / v2ecoli from Maya Abdalla's vEcoli ``biofilm`` branch
-(``ecoli/processes/flagella_transcription_regulation.py``). The biology and the
-gate math are preserved verbatim; only the framework scaffolding (vivarium-core
-``Step`` -> ``EcoliStep`` with ``inputs``/``outputs``/``update``) is adapted.
+Ported to v2ecoli from Maya Abdalla's vEcoli ``biofilm`` branch
+(``ecoli/processes/flagella_transcription_regulation.py``); biology and
+gate math unchanged, only framework scaffolding (vivarium-core ``Step``
+-> ``EcoliStep``) adapted.
 
 Mechanism
 ---------
-Each timestep the gate computes two normalized activity signals via
-Michaelis-Menten saturation of the master regulators:
+Each timestep computes two normalized activity signals via Michaelis-
+Menten saturation of the master regulators:
 
-    X = [FlhDC] / (K_flhDC + [FlhDC])      (CPLX0-3930[c], the class-II activator)
+    X = [FlhDC] / (K_flhDC + [FlhDC])      (CPLX0-3930[c], class-II activator)
     Y = [FliA]  / (K_fliA  + [FliA])       (EG11355-MONOMER[c], free sigma-28)
 
-and writes a per-promoter ``init_prob_override`` onto the promoters unique
-molecule so that :mod:`v2ecoli.processes.transcript_initiation` uses the K&A
-value directly instead of the default ``basal_prob + delta_prob * bound_TF``.
+and writes a per-promoter ``init_prob_override`` onto the promoters
+unique molecule so :mod:`v2ecoli.processes.transcript_initiation` uses
+the K&A value directly instead of the default
+``basal_prob + delta_prob * bound_TF``.
 
-* **Class II** (7 transcription units): the bilinear SUM gate
-  ``p_i = (beta*X + beta'*Y) / (beta + beta')`` normalized by ``p_i_ref`` (its
-  value at the t=0 reference state, ``X=X_ref, Y=0``) and scaled by the gene's
-  ParCa ``basal_prob`` so the override equals ``basal_prob`` exactly at reference
-  conditions and rises as free FliA accumulates.
-* **Class III** (fliC, fliD, flgK/L, motAB, cheAW, flgM): ``override = Y * basal_prob``,
-  rising from ~0 when FliA is sequestered by FlgM to ``basal_prob`` at full FliA
-  activity. The release of FliA is driven downstream by
-  :mod:`v2ecoli.processes.flagella_flgm_secretion`. Note: fliS (EG11388) is
-  NOT listed here separately, but is NOT unregulated either -- it shares
-  fliD's exact transcription unit (fliD-fliS-fliT is one real operon,
-  TU0-14278) so it already rides on fliD's Class III entry above. See
-  get_flagella_transcription_regulation_config's 2026-08-21 note for the
-  investigation that confirmed this (and ruled out translation efficiency
-  as a fliD/fliS disparity too).
+* **Class II** (7 TUs): bilinear SUM gate
+  ``p_i = (beta*X + beta'*Y) / (beta + beta')`` normalized by ``p_i_ref``
+  (its t=0 reference value, ``X=X_ref, Y=0``) and scaled by the gene's
+  ParCa ``basal_prob`` so the override equals ``basal_prob`` exactly at
+  reference conditions, rising as free FliA accumulates.
+* **Class III** (fliC, fliD, flgK/L, motAB, cheAW, flgM):
+  ``override = Y * basal_prob``, rising from ~0 (FliA sequestered by
+  FlgM) to ``basal_prob`` at full FliA activity, driven downstream by
+  :mod:`v2ecoli.processes.flagella_flgm_secretion`. fliS (EG11388) isn't
+  listed separately but isn't unregulated -- it shares fliD's exact
+  transcription unit (fliD-fliS-fliT, TU0-14278), riding on fliD's
+  Class III entry above (see get_flagella_transcription_regulation_
+  config's 2026-08-21 note, which also ruled out translation efficiency
+  as a fliD/fliS disparity).
 
-Writing ``init_prob_override`` directly (rather than touching ``bound_TF``)
-bypasses the TF-binding pathway for flagella genes, eliminating the
-double-counting that otherwise drives FliA ~5x above its calibrated level.
+Writing ``init_prob_override`` directly (not ``bound_TF``) bypasses the
+TF-binding pathway for flagella genes, eliminating the double-counting
+that otherwise drives FliA ~5x above its calibrated level.
 
-EcoCyc IDs: CPLX0-3930 (FlhDC), EG11355-MONOMER (FliA / sigma-28).
-Class II TUs (genes, verified against get_flagella_transcription_regulation_
-config's classII_cistron_ids -- an earlier version of this comment wrongly
-listed flhD as EG10322, which is actually fliL): fliL EG10322, fliE EG11346,
-fliF EG11347, flgB G358, flgA G357, flhB G7028, fliA EG11355. flhD (EG10320)
-and flhC (EG10319) are NOT Class II genes in this gate -- FlhD4C2 (CPLX0-3930)
-is the gate's INPUT (X), assembled via the standard, unmodified
-CPLX0-3930_RXN complexation reaction (4 FlhD + 2 FlhC), and its own
-transcription runs on plain ParCa basal probability, untouched by this Step.
+EcoCyc IDs: CPLX0-3930 (FlhDC), EG11355-MONOMER (FliA/sigma-28). Class II
+TUs (verified against get_flagella_transcription_regulation_config's
+classII_cistron_ids -- an earlier version of this comment wrongly listed
+flhD as EG10322, which is actually fliL): fliL EG10322, fliE EG11346,
+fliF EG11347, flgB G358, flgA G357, flhB G7028, fliA EG11355. flhD
+(EG10320)/flhC (EG10319) are NOT Class II genes here -- FlhD4C2
+(CPLX0-3930) is the gate's INPUT (X), assembled via the standard,
+unmodified CPLX0-3930_RXN (4 FlhD + 2 FlhC), transcribed on plain ParCa
+basal probability, untouched by this Step.
 
 Ordered in the composite flow:
     ecoli-tf-binding -> ecoli-flagella-transcription-regulation -> ecoli-transcript-initiation

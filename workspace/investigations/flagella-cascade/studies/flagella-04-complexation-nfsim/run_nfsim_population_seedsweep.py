@@ -1,20 +1,20 @@
 """Multi-seed replicate summary for the NFsim population test (added 2026-09-02).
 
-Companion to run_nfsim_population_multigen.py, which produces one chart per
-seed. That's the right tool for validating a fix (does seed N crash or not),
-but it doesn't answer "how much does the population trajectory actually vary
-seed-to-seed" -- each chart is a single stochastic realization, not a
-distribution. This script runs the same population test across several
-seeds, in-process (reusing run_population() directly, not via subprocess --
-the per-seed timestep data is needed for aggregation and was never persisted
-to disk by the single-seed script), and plots each headline metric as a
-mean line with a shaded min-max band across seeds.
+Companion to run_nfsim_population_multigen.py, which produces one chart
+per seed -- right for validating a fix (does seed N crash or not), but
+doesn't answer "how much does the trajectory vary seed-to-seed": each
+chart is one stochastic realization, not a distribution. Runs the same
+population test across several seeds, in-process (reusing
+run_population() directly, not via subprocess -- per-seed timestep data
+is needed for aggregation and was never persisted to disk by the
+single-seed script), and plots each headline metric as a mean line with
+a shaded min-max band across seeds.
 
-Common time grid: all seeds use the same fixed --sample interval starting at
+Common time grid: all seeds use the same fixed --sample interval from
 t_cum=0, so seed series line up index-for-index; they differ only in how
-many samples they run before hitting max_agents/target generation (division
-timing is itself stochastic). Aggregation therefore just truncates every
-seed's series to the shortest common length, rather than interpolating.
+many samples run before hitting max_agents/target generation (division
+timing is stochastic). Aggregation truncates every series to the
+shortest common length, not interpolating.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \

@@ -1,21 +1,21 @@
 """Real, fully-wired test of flagella_nfsim_complexation inside the real
 ecoli_baseline composite (NFSIM_WCM_WIRING_PLAN.md step 3, final piece).
 
-Added 2026-08-16, part of Maya Abdalla's flagella-cascade investigation.
+Added 2026-08-16, Maya Abdalla's flagella-cascade investigation.
 
 Runs the FULL 55-process WCM composite (not an isolated Step diagnostic)
-with the flagella_nfsim_complexation feature enabled -- ecoli-flagella-
-nfsim-complexation, ecoli-flagella-filament-elongation, ecoli-flagella-
-flgm-secretion, ecoli-flagella-transcription-regulation, exactly the same
-set of downstream Steps flagella_regulation uses, just with NFsim replacing
-the deterministic motor-switch/export-apparatus/motor-complex/nucleation
-Steps. Tracks real bulk counts for the assembly intermediates plus FliA/
-FlhD/FlgM (the regulatory loop) and the real nascent_flagellum count.
+with flagella_nfsim_complexation enabled -- ecoli-flagella-nfsim-
+complexation, ecoli-flagella-filament-elongation, ecoli-flagella-flgm-
+secretion, ecoli-flagella-transcription-regulation, the same downstream
+Steps flagella_regulation uses, with NFsim replacing the deterministic
+motor-switch/export-apparatus/motor-complex/nucleation Steps. Tracks
+real bulk counts for assembly intermediates plus FliA/FlhD/FlgM (the
+regulatory loop) and the real nascent_flagellum count.
 
-Division is disabled for this diagnostic (same rationale as other scripts
+Division disabled for this diagnostic (same rationale as other scripts
 in this study -- division replaces agent "0" with two daughters mid-run,
-which would complicate simple single-agent tracking; this is about
-characterizing NFsim-in-the-WCM dynamics, not division/inheritance).
+complicating simple single-agent tracking; this is about characterizing
+NFsim-in-the-WCM dynamics, not division/inheritance).
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
@@ -37,12 +37,10 @@ STUDY_DIR = os.path.dirname(os.path.abspath(__file__))
 _ORIG_NEXT_UPDATE = Division.next_update
 
 # Standard starting condition used throughout this study's flagella-02
-# diagnostics (e.g. run_diagnostic_no_division.py) -- NOT the same as
-# artificially forcing assembly-intermediate species (which this script
-# does not and should not do). This is a real, defined starting point for
-# the Class II -> III regulatory cascade to evolve from, applied
-# consistently across every diagnostic in this investigation for
-# comparability, rather than an arbitrary/cold-start default.
+# diagnostics (e.g. run_diagnostic_no_division.py) -- not artificially
+# forcing assembly-intermediate species. A real, defined starting point
+# for the Class II -> III cascade to evolve from, applied consistently
+# across every diagnostic for comparability, not an arbitrary cold start.
 INIT = {
     "CPLX0-7452[j]": 4,                 # complete flagella
     "FLAGELLAR-MOTOR-COMPLEX[j]": 0,
@@ -63,12 +61,11 @@ TRACK_IDS = {
     # FliC-availability-limited vs. just not-enough-elapsed-time (see the
     # "flagella stuck at 4" discussion this same day).
     "EG10321-MONOMER[e]": "free FliC",
-    # Added 2026-08-18 per panel-redesign discussion -- previously only
-    # free FlhD was tracked; FlhC and the FlhDC complex itself (the actual
-    # master-regulator species that drives Class II transcription) were
-    # missing entirely. Real bulk IDs confirmed via generate_flagella_bngl.py
-    # (FlhC is MONOMER0-2488[c], NOT EG10319-MONOMER -- see that module's
-    # own note) and COMPLEXATION_STOICHIOMETRY's 'flhDC' reaction.
+    # Added 2026-08-18 -- previously only free FlhD was tracked; FlhC and
+    # the FlhDC complex (the actual master-regulator driving Class II)
+    # were missing entirely. Bulk IDs confirmed via generate_flagella_
+    # bngl.py (FlhC is MONOMER0-2488[c], NOT EG10319-MONOMER) and
+    # COMPLEXATION_STOICHIOMETRY's 'flhDC' reaction.
     "MONOMER0-2488[c]": "free FlhC",
     "CPLX0-3930[c]": "FlhDC complex",
     # FlgM:FliA sequestration complex (equilibrium_reactions.tsv's
@@ -101,16 +98,15 @@ def run(seconds, sample, seed, cache_dir, feature="flagella_nfsim_complexation",
         comp = v2ecoli.build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
         enable_features()
 
-        # DIAGNOSTIC ONLY (2026-08-18) -- the NFsim Step's own "interval"
-        # config (default 1200s, see flagella_nfsim_complexation.py) is a
-        # software/performance choice (avoid spawning a BioNetGen subprocess
-        # every 2s tick), NOT a biological timescale. Each firing simulates
-        # the full interval internally and only writes the NET delta back to
-        # the real bulk store, so intermediates (C-ring, export apparatus)
-        # that nucleate AND get fully consumed within one interval are
-        # invisible to us. Overriding it here (after build, on the live
-        # instance -- NOT touching the class default used by real runs) lets
-        # this diagnostic see transient dynamics at finer resolution.
+        # DIAGNOSTIC ONLY (2026-08-18) -- NFsim's "interval" config
+        # (default 1200s) is a software/performance choice (avoid
+        # spawning a BioNetGen subprocess every 2s tick), not a
+        # biological timescale. Each firing simulates the full interval
+        # internally, writing only the NET delta back to bulk, so
+        # intermediates that nucleate AND get fully consumed within one
+        # interval are invisible. Overridden here on the live instance
+        # only (not the class default real runs use) for finer-resolution
+        # transient dynamics.
         if nfsim_interval is not None and feature == "flagella_nfsim_complexation":
             found = False
             for path, subtree in comp.step_paths.items():
@@ -130,12 +126,11 @@ def run(seconds, sample, seed, cache_dir, feature="flagella_nfsim_complexation",
         idx = {name: bulk_name_to_idx(name, bulk["id"]) for name in TRACK_IDS}
 
         # nfsim_internal_observables (hook count, cumulative internal
-        # 'flagella' count) only exists as a state key when the NFsim Step
-        # is actually wired in -- added 2026-08-18 after this exact gap
-        # caused real confusion (complete flagella looked "stuck" while
-        # hook was actually progressing invisibly the whole time, only
-        # found via a separate debug script). Tracked here now so this
-        # script's own output/plot shows the full picture directly.
+        # 'flagella' count) only exists when the NFsim Step is wired in --
+        # added 2026-08-18 after this gap caused real confusion (complete
+        # flagella looked "stuck" while hook progressed invisibly, only
+        # found via a separate debug script). Tracked here for the full
+        # picture.
         track_internal = feature == "flagella_nfsim_complexation"
 
         rec = {"t": [], "n_nascent_flagellum": []}
@@ -144,19 +139,18 @@ def run(seconds, sample, seed, cache_dir, feature="flagella_nfsim_complexation",
         if track_internal:
             rec["hook_internal"] = []
             rec["flagella_internal_cumulative"] = []
-            # Added 2026-08-18 -- the model has THREE internal-only species
-            # with no real bulk ID (see generate_flagella_bngl.py's
-            # docstring / _INTERNAL_ONLY_OBSERVABLES), but only 2 were being
-            # tracked -- 'flagellar_export_apparatus_subunit' (the export
-            # apparatus's own precursor, between C-ring consumption and
-            # export-apparatus formation) was silently missing.
+            # Added 2026-08-18 -- the model has THREE internal-only
+            # species with no real bulk ID (generate_flagella_bngl.py's
+            # docstring / _INTERNAL_ONLY_OBSERVABLES); only 2 were
+            # tracked -- 'flagellar_export_apparatus_subunit' (precursor
+            # between C-ring consumption and export-apparatus formation)
+            # was silently missing.
             rec["export_apparatus_subunit_internal"] = []
-        # Per-filament length trajectory, added 2026-08-18 -- flat/long-form
-        # table (one row per active filament per snapshot, keyed by its
-        # stable unique_index) since the number of simultaneously-active
-        # filaments varies over time as new ones nucleate and others
-        # complete. figure() groups rows by uid to plot each filament's own
-        # growth curve.
+        # Per-filament length trajectory, added 2026-08-18 -- flat/long-
+        # form table (one row per active filament per snapshot, keyed by
+        # stable unique_index) since active filament count varies as new
+        # ones nucleate and others complete. figure() groups by uid to
+        # plot each filament's own growth curve.
         rec["filament_t"] = []
         rec["filament_uid"] = []
         rec["filament_length"] = []
@@ -250,19 +244,17 @@ def figure(rec, out_path, title, feature):
     track_internal = "hook_internal" in rec
     mechanism = "NFsim-driven" if feature == "flagella_nfsim_complexation" else "custom deterministic Steps (baseline)"
 
-    # Redesigned 2026-08-18 per discussion: every assembly intermediate
-    # gets its OWN panel, ordered to match the real temporal order of
-    # flagellar assembly: FlhD/FlhC -> FlhDC (master regulator) -> FliA/
-    # FlgM -> [FliA/FlgM overlaid, assembly-cascade overlaid -- placed
-    # right here, immediately after the individual FliA/FlgM panels, so
-    # the "relationship" and "big picture" views land where they're most
-    # relevant] -> FlgM:FliA complex -> C-ring -> export-apparatus subunit
-    # -> export apparatus -> motor complex -> hook -> hook-basal-body
-    # trigger -> nascent flagellum -> filament elongation (+ its FliC
-    # substrate) -> complete flagella. The cascade overlay only includes
-    # the small-count intermediates (comparable 0-20ish scale) --
-    # FlhDC/FlgM:FliA-CPLX sit in the hundreds-thousands and would flatten
-    # everything else, so they stay out of it.
+    # Redesigned 2026-08-18: every assembly intermediate gets its OWN
+    # panel, ordered to match real temporal assembly order: FlhD/FlhC ->
+    # FlhDC (master regulator) -> FliA/FlgM -> [FliA/FlgM overlaid,
+    # cascade overlaid -- placed right after the individual FliA/FlgM
+    # panels, so "relationship"/"big picture" views land where relevant]
+    # -> FlgM:FliA complex -> C-ring -> export-apparatus subunit -> export
+    # apparatus -> motor complex -> hook -> hook-basal-body trigger ->
+    # nascent flagellum -> filament elongation (+FliC substrate) ->
+    # complete flagella. Cascade overlay only includes small-count
+    # intermediates (0-20ish) -- FlhDC/FlgM:FliA-CPLX sit in the
+    # hundreds-thousands and would flatten everything else.
     panels = [
         ("Free FlhD", "EG10320-MONOMER[c]"),
         ("Free FlhC", "MONOMER0-2488[c]"),
@@ -270,10 +262,9 @@ def figure(rec, out_path, title, feature):
         ("Free FliA", "EG11355-MONOMER[c]"),
         ("FlgM", "G369-MONOMER[c]"),
         # The two combined overlays sit right here -- immediately after
-        # seeing FliA/FlgM individually, per 2026-08-18 request -- rather
-        # than at the end, so the "relationship" and "big picture" views
-        # come right where they're most relevant before diving into the
-        # rest of the cascade in detail.
+        # FliA/FlgM individually (2026-08-18), not at the end -- so
+        # "relationship"/"big picture" views land before the cascade
+        # detail.
         ("__overlay_regulatory__", None),
         ("__overlay_cascade__", None),
         ("FlgM:FliA complex (FLGM-FLIA-CPLX[c])", "FLGM-FLIA-CPLX[c]"),

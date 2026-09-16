@@ -665,28 +665,42 @@ each study's `study.yaml`, the two `archive/*/README.md` files, the
   process); the sibling package `pbg-nfsim` now accepts it and increments
   it once per chunk firing. Verified byte-identical trajectories across a
   full 92-minute, multi-generation run at a fixed seed. **Same-seed
-  reproducibility bug (2026-09-03, NOT resolved):**
+  reproducibility investigation (2026-09-03, RESOLVED 2026-09-14 — a test-
+  methodology artifact, not a real simulation bug):**
   `run_nfsim_population_multigen.py --seed 0` should produce a
   byte-identical trajectory regardless of `--generations`/`--seconds-cap`/
   `--max-agents` (all three are pure loop-exit comparisons, never passed
-  into `build_composite`, `comp.run`, or any seed derivation). Empirically
-  false: bisected by holding two of the three fixed and varying one at a
-  time against a common baseline. Result: `--seconds-cap` alone changes
-  the trajectory; `--max-agents` alone changes it back; `--generations`
-  alone has no effect — not a clean single-parameter culprit.
-  `_derive_process_seed` checked and ruled out (only hashes
-  `master_seed, process_name`, no CLI args). **Root cause not found** —
-  parked rather than continuing via more black-box comparisons; would need
-  instrumenting the composite build itself (logging a fingerprint of every
-  derived seed/config at build time, diffing between two runs) to
-  localize it. **Practical implication:** any same-seed "before/after"
-  comparison in this document that didn't hold all three of those
-  parameters fixed between the two runs being compared should be treated
-  with reduced confidence — this threatens same-seed *reruns* specifically
-  (e.g. if an earlier before/after test varied generation/time/agent-count
-  targets between runs), not the confirmed multi-seed-*value* batch
-  validations (different actual `--seed` integers) cited throughout this
-  document, which don't depend on re-running one seed twice.
+  into `build_composite`, `comp.run`, or any seed derivation). Initial
+  bisection (2026-09-03) appeared to contradict this: holding two of the
+  three fixed and varying one at a time against a common baseline,
+  `--seconds-cap` alone changed the trajectory, `--max-agents` alone
+  changed it back, `--generations` alone had no effect.
+  `_derive_process_seed` was checked and ruled out (only hashes
+  `master_seed, process_name`, no CLI args).
+
+  `--seconds-cap`'s effect is real and NOT a bug: `chunk = min(sample,
+  seconds_cap - total)` directly sizes each `comp.run(chunk)` call, so a
+  run clipped short near its cap genuinely takes a different-sized step
+  than one that isn't — expected behavior, not nondeterminism.
+
+  `--max-agents`'s apparent effect was NOT real. Root-caused 2026-09-14:
+  the original bisection launched its two variants as separate, *concurrent*
+  background processes, both writing to the same shared parquet-emitter
+  output path (`.pbg/parquet-runs/baseline/configuration/.../agent_id=1/
+  config.pq`) since neither specified a distinct run identity. Confirmed
+  directly — re-running the identical comparison concurrently again hit an
+  outright `FileNotFoundError` crash from the two processes colliding on
+  that exact path; re-running the same comparison *sequentially* (one
+  process fully exits before the next starts) produced a byte-identical
+  trajectory: `dry_mass_mean=385.0fg` at t=6000s, exact match in both runs;
+  identical NFsim per-agent seed sequence (1651270877 / 1419703342 /
+  260654395) in both. So the divergence was a filesystem race between two
+  concurrently-launched test processes, not a simulation bug.
+  **Practical implication:** never launch two same-seed runs of this
+  script concurrently against the same default output path — run
+  sequentially, or give each a distinct run identity — or the parquet
+  emitter can silently corrupt shared state between them, producing
+  exactly this kind of small, misleading numeric drift.
 
 - **Repo synced with `origin/main`, 189 commits (2026-09-04).** 3 real
   merge conflicts: `tests/test_bundle_content_pins.py`'s content-hash

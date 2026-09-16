@@ -1,33 +1,36 @@
 """Maya's Aim 2B — rule-based flagellar assembly via NFsim (pbg-nfsim engine,
 v2ecoli-owned model).
 
-Runs pbg-nfsim (https://github.com/vivarium-collective/pbg-nfsim, a process-bigraph
-wrapper for BioNetGen/NFsim) against THIS investigation's own BNGL model --
-models/generate_flagella_bngl.py, models/flagella_complexation.bngl -- not
-pbg-nfsim's bundled example (moved here 2026-08-12 so the model can evolve
-alongside v2ecoli's own flagella reaction network and eventually couple to it
-directly; see flagella_nfsim_assembly.py's module docstring). The BNGL model
-encodes hierarchical complexation of ~30 flagellar proteins through 7 sequential
-reactions (588 rules, real cryo-EM-cited stoichiometry -- see the model's own
-docstring for full provenance): free monomers -> export apparatus -> motor/basal
-body -> hook -> hook-basal-body complete. This is the ordered, conditional
-assembly that the stochastic Gillespie complexation cannot capture (Aim 2B
-rationale).
+Runs pbg-nfsim (https://github.com/vivarium-collective/pbg-nfsim, a
+process-bigraph wrapper for BioNetGen/NFsim) against THIS investigation's
+own BNGL model -- models/generate_flagella_bngl.py, models/flagella_
+complexation.bngl -- not pbg-nfsim's bundled example (moved here
+2026-08-12 so the model can evolve alongside v2ecoli's own flagella
+reaction network and eventually couple to it directly; see
+flagella_nfsim_assembly.py's docstring). The BNGL model encodes
+hierarchical complexation of ~30 flagellar proteins through 7 sequential
+reactions (588 rules, real cryo-EM-cited stoichiometry -- see the
+model's own docstring for full provenance): free monomers -> export
+apparatus -> motor/basal body -> hook -> hook-basal-body complete. The
+ordered, conditional assembly stochastic Gillespie complexation cannot
+capture (Aim 2B rationale).
 
-NOTE (2026-08-12): FliC/filament elongation is NOT modeled here -- excluded from
-the BNGL rule network entirely (see the model's FLIC REMOVAL docstring note) to
-avoid the same combinatorial/file-size explosion v2ecoli itself hit and already
-solved by moving filament growth to an incremental process outside the
-combinatorial engine (flagella_filament_elongation.py). The "flagella" observable
-below tracks assembly complete through the HOOK-BASAL-BODY stage, not a
-filament-bearing organelle -- label reflects this.
+NOTE (2026-08-12): FliC/filament elongation is NOT modeled here --
+excluded from the BNGL rule network entirely (see the model's FLIC
+REMOVAL docstring note) to avoid the same combinatorial/file-size
+explosion v2ecoli itself hit and already solved by moving filament
+growth to an incremental process outside the combinatorial engine
+(flagella_filament_elongation.py). The "flagella" observable below
+tracks assembly complete through the HOOK-BASAL-BODY stage, not a
+filament-bearing organelle.
 
-This driver runs the composed production+complexation workflow (MonomerProduction
-feeds monomers; NFSimProcess assembles them) and renders the staged appearance of
-the assembly intermediates.
+This driver runs the composed production+complexation workflow
+(MonomerProduction feeds monomers; NFSimProcess assembles them) and
+renders the staged appearance of the assembly intermediates.
 
-Note: bionetgen 0.8.6 imports the removed `pkg_resources.packaging` on Python 3.12;
-we shim it from the standalone `packaging` package before importing pbg_nfsim.
+Note: bionetgen 0.8.6 imports the removed `pkg_resources.packaging` on
+Python 3.12; shimmed from the standalone `packaging` package before
+importing pbg_nfsim.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \

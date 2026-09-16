@@ -2,28 +2,27 @@
 NFsim-wired flagella complexation pipeline.
 
 Added 2026-08-19. Adapts flagella-02-transcription-regulation's
-run_lineage_multigen.py -- a proven pattern that already found and fixed a
-real dry_mass-drift bug in an earlier manual-splice approach (division state
-hand-spliced onto a fresh baseline() rebuild drifted 706.7 -> 262.0 fg over
-7 generations and destabilized the metabolism FBA solver). This script
-reuses the SAME proven approach instead of re-deriving it: drive real
-division through the actual Division step's own daughter-construction
-machinery, then prune the resulting 2-agent population back down to one
-followed lineage (mother-machine-style tracking, Wang et al. 2010 Curr
-Biol) so compute cost stays linear in generation count. The daughter to
-keep is chosen by its own decorrelated RNG stream (not a fixed rule) for
-the same reason documented in the original script: this model has no
-old-pole/new-pole asymmetry mechanism, so an unbiased random choice avoids
-any risk of correlating with a fixed positional convention in the divider.
+run_lineage_multigen.py -- a proven pattern that already found and fixed
+a real dry_mass-drift bug in an earlier manual-splice approach (division
+state hand-spliced onto a fresh baseline() rebuild drifted 706.7 -> 262.0
+fg over 7 generations, destabilizing the metabolism FBA solver). Reuses
+that approach: drive real division through the Division step's own
+daughter-construction machinery, then prune the resulting 2-agent
+population to one followed lineage (mother-machine-style, Wang et al.
+2010 Curr Biol) so compute cost stays linear in generation count. The
+daughter to keep is chosen by its own decorrelated RNG stream (not a
+fixed rule) -- this model has no old-pole/new-pole asymmetry mechanism,
+so an unbiased random choice avoids correlating with a fixed positional
+convention in the divider.
 
-This is also the first REAL (not synthetic) end-to-end test of the
-divide_scaffold_species/divide_internal_observables fix added earlier this
-session (v2ecoli/library/division.py, v2ecoli/steps/division.py) -- before
-that fix, nfsim_scaffold_species and nfsim_internal_observables silently
-reset to {} at every division (they weren't part of divide_cell()'s output
-at all). Tracked explicitly here so a real, naturally-triggered division
-event's before/after state is directly visible, not just the earlier
-synthetic divide_cell() call on saved state.
+Also the first REAL (not synthetic) end-to-end test of the
+divide_scaffold_species/divide_internal_observables fix
+(v2ecoli/library/division.py, v2ecoli/steps/division.py) -- before that
+fix, nfsim_scaffold_species and nfsim_internal_observables silently
+reset to {} at every division (not part of divide_cell()'s output).
+Tracked explicitly here so a real, naturally-triggered division event's
+before/after state is directly visible, not just a synthetic
+divide_cell() call on saved state.
 
 Same standard INIT used throughout this investigation, applied once at
 t=0: 4 flagella, 0 motor, free FliA=500, FlgM=800.
@@ -35,6 +34,7 @@ Usage:
 """
 import argparse
 import os
+import re
 
 import numpy as np
 
@@ -52,6 +52,27 @@ INIT = {
     "G369-MONOMER[c]": 800,
 }
 
+# Full species list, same as run_nfsim_population_multigen.py's TRACK_IDS --
+# added 2026-09-15 so this script tracks everything the population script
+# does, for a full panel set on the one followed lineage (previously only
+# tracked flag/flic, missing FliA/FlgM/FlgM:FliA/FliS/FLIS-FLIC-CPLX/
+# C-ring/export apparatus/motor complex entirely).
+TRACK_IDS = {
+    "EG10320-MONOMER[c]": "FlhD",
+    "MONOMER0-2488[c]": "FlhC",
+    "CPLX0-3930[c]": "FlhDC complex",
+    "EG11355-MONOMER[c]": "FliA",
+    "G369-MONOMER[c]": "FlgM",
+    "FLGM-FLIA-CPLX[c]": "FlgM:FliA complex",
+    "EG11388-MONOMER[c]": "FliS",
+    "FLIS-FLIC-CPLX[e]": "FLIS-FLIC-CPLX",
+    "CPLX0-7450[i]": "C-ring",
+    "CPLX0-7451[j]": "export apparatus",
+    "FLAGELLAR-MOTOR-COMPLEX[j]": "motor complex",
+    "EG10321-MONOMER[e]": "free FliC",
+    "CPLX0-7452[j]": "complete flagella",
+}
+
 
 def _arr(s):
     return s["_data"] if isinstance(s, dict) and "_data" in s else s
@@ -63,8 +84,8 @@ def _snap(comp, agent_id, idx, t_cum, gen, completed_ever, prev_flag):
     nf = _arr(cell["unique"]["nascent_flagellum"])
     nf_mask = nf["_entryState"].view(bool)
     lengths = nf["filament_length"][nf_mask]
-    flag = int(b["count"][idx["flag"]])
-    flic = int(b["count"][idx["flic"]])
+    flag = int(b["count"][idx["CPLX0-7452[j]"]])
+    flic = int(b["count"][idx["EG10321-MONOMER[e]"]])
     dry_mass = fg_magnitude(cell["listeners"]["mass"].get("dry_mass", 0))
 
     scaffold = cell.get("nfsim_scaffold_species") or {}
@@ -74,7 +95,7 @@ def _snap(comp, agent_id, idx, t_cum, gen, completed_ever, prev_flag):
         completed_ever[0] += (flag - prev_flag[0])
     prev_flag[0] = flag
 
-    return {
+    row = {
         "t_cum": t_cum, "gen": gen, "dry_mass": dry_mass,
         "flag": flag, "flic": flic,
         "n_nascent": int(len(lengths)),
@@ -84,8 +105,25 @@ def _snap(comp, agent_id, idx, t_cum, gen, completed_ever, prev_flag):
         "n_scaffold_entries": len(scaffold),
         "scaffold_total": float(sum(scaffold.values())) if scaffold else 0.0,
         "hook_internal": float(internal.get("flagellar_hook", 0.0)),
+        "export_apparatus_subunit_internal": float(
+            internal.get("flagellar_export_apparatus_subunit", 0.0)),
+        "rod_internal": float(internal.get("flagellar_rod", 0.0)),
+        "rod_p_ring_internal": float(internal.get("flagellar_rod_with_p_ring", 0.0)),
         "flagella_internal_cumulative": float(internal.get("flagella", 0.0)),
+        "hook_internal_cumulative": float(internal.get("flagellar_hook__cumulative", 0.0)),
+        "export_apparatus_subunit_cumulative": float(
+            internal.get("flagellar_export_apparatus_subunit__cumulative", 0.0)),
+        "rod_cumulative": float(internal.get("flagellar_rod__cumulative", 0.0)),
+        "rod_p_ring_cumulative": float(
+            internal.get("flagellar_rod_with_p_ring__cumulative", 0.0)),
+        "cring_cumulative": float(internal.get("CPLX0-7450[i]__cumulative", 0.0)),
+        "export_apparatus_cumulative": float(internal.get("CPLX0-7451[j]__cumulative", 0.0)),
+        "motor_complex_cumulative": float(
+            internal.get("FLAGELLAR-MOTOR-COMPLEX[j]__cumulative", 0.0)),
     }
+    for real_id in TRACK_IDS:
+        row[real_id] = int(b["count"][idx[real_id]])
+    return row
 
 
 def run_lineage(n_gens, sample, seconds_cap, seed, cache_dir, nfsim_interval=None):
@@ -105,10 +143,7 @@ def run_lineage(n_gens, sample, seconds_cap, seed, cache_dir, nfsim_interval=Non
     bids = bulk["id"]
     for name, val in INIT.items():
         bulk["count"][bulk_name_to_idx(name, bids)] = val
-    idx = {
-        "flag": bulk_name_to_idx("CPLX0-7452[j]", bids),
-        "flic": bulk_name_to_idx("EG10321-MONOMER[e]", bids),
-    }
+    idx = {real_id: bulk_name_to_idx(real_id, bids) for real_id in TRACK_IDS}
 
     rows = []
     agent_id = "0"
@@ -179,10 +214,10 @@ def _gen_bounds(rows):
     return bounds
 
 
-# _shade() drew shaded generation backgrounds + a dashed division line, one
-# axis at a time. Replaced 2026-09-04 (Maya's request) with a single dotted
-# division-line pass over every axis, matching run_nfsim_population_multigen.py's
-# convention -- kept per standing preserve-old-code rule:
+# _shade() drew shaded generation backgrounds + a dashed division line,
+# one axis at a time. Replaced 2026-09-04 with a single dotted
+# division-line pass, matching run_nfsim_population_multigen.py's
+# convention. Kept:
 # def _shade(ax, rows):
 #     gens = sorted({r["gen"] for r in rows})
 #     colors = ["#eef4ff", "#fff4ee", "#eefff2", "#f7eeff"]
@@ -194,19 +229,37 @@ def _gen_bounds(rows):
 #         ax.axvline(b, color="#c0392b", ls="--", lw=1, alpha=0.7)
 
 
-# Same convention as run_nfsim_population_multigen.py's COLORS dict.
+# Merged 2026-09-15: this script's own metric-name-keyed colors, plus
+# run_nfsim_population_multigen.py's TRACK_ID-keyed colors (same
+# convention, no key overlap between the two sets).
 COLORS = {
     "flag": "#9467bd",
     "completed_ever": "#d62728",
-    "n_nascent": "#8c564b",
+    "n_nascent": "black",
     "mean_len": "#17becf",
     "max_len": "#17becf",
     "flic": "#bcbd22",
     "dry_mass": "#1f77b4",
     "n_scaffold_entries": "#e377c2",
     "scaffold_total": "#e377c2",
-    "hook_internal": "#ff7f0e",
+    "hook_internal": "#8c564b",
     "flagella_internal_cumulative": "#9467bd",
+    "EG10320-MONOMER[c]": "#2ca02c",
+    "MONOMER0-2488[c]": "#17becf",
+    "CPLX0-3930[c]": "#bcbd22",
+    "EG11355-MONOMER[c]": "#1f77b4",
+    "G369-MONOMER[c]": "#d62728",
+    "FLGM-FLIA-CPLX[c]": "#9467bd",
+    "EG11388-MONOMER[c]": "#8c564b",
+    "FLIS-FLIC-CPLX[e]": "#e377c2",
+    "CPLX0-7450[i]": "#1f77b4",
+    "export_apparatus_subunit_internal": "#e377c2",
+    "CPLX0-7451[j]": "#ff7f0e",
+    "FLAGELLAR-MOTOR-COMPLEX[j]": "#2ca02c",
+    "rod_internal": "#9467bd",
+    "rod_p_ring_internal": "#17becf",
+    "EG10321-MONOMER[e]": "#8c564b",
+    "CPLX0-7452[j]": "#d62728",
 }
 
 
@@ -219,19 +272,50 @@ def figure(rows, n_gens):
     t = _cols(rows, "t_cum") / 60.0
     division_times = _gen_bounds(rows)
 
-    # Panels, in the same generic (title, key) form as the population
-    # script's `panels` list -- rendered through one shared loop below
-    # instead of one hand-written block per axis.
+    # Full species list, matching run_nfsim_population_multigen.py's panel
+    # set (2026-09-15) -- "__agents__" dropped (always 1 for a followed
+    # lineage) and "dry_mass" plotted directly instead of a per-agent mean.
+    # nfsim_scaffold_species/completed_ever overlays are unique to this
+    # script (not tracked at the population level).
     panels = [
-        ("Complete flagella, followed lineage", "__flag_overlay__"),
-        ("Flagella under construction (n_nascent)", "n_nascent"),
-        ("Filament construction progress", "__filament_progress__"),
-        ("Free FliC monomer (supply pool)", "flic"),
         ("Dry mass (sanity check: should NOT drift down across generations)", "dry_mass"),
+        ("FlhD, this lineage", "EG10320-MONOMER[c]"),
+        ("FlhC, this lineage", "MONOMER0-2488[c]"),
+        ("FlhDC complex, this lineage", "CPLX0-3930[c]"),
+        ("FliA, this lineage", "EG11355-MONOMER[c]"),
+        ("FlgM, this lineage", "G369-MONOMER[c]"),
+        ("__overlay_regulatory__", None),
+        ("FlgM:FliA complex, this lineage", "FLGM-FLIA-CPLX[c]"),
+        ("FliS, this lineage", "EG11388-MONOMER[c]"),
+        ("FLIS-FLIC-CPLX (protected FliC), this lineage", "FLIS-FLIC-CPLX[e]"),
+        ("__overlay_cascade__", None),
         ("nfsim_scaffold_species (survives division?)", "__scaffold_overlay__"),
-        ("Hook (internal, survives division?)", "hook_internal"),
-        ("Hook-basal-body complete, cumulative (survives division?)", "flagella_internal_cumulative"),
+        ("C-ring, this lineage", "CPLX0-7450[i]"),
+        ("Export apparatus subunit (internal), this lineage", "export_apparatus_subunit_internal"),
+        ("Export apparatus, this lineage", "CPLX0-7451[j]"),
+        ("Rod (internal), this lineage", "rod_internal"),
+        ("Rod+P-ring (internal), this lineage", "rod_p_ring_internal"),
+        ("Hook (internal), this lineage", "hook_internal"),
+        ("Hook-basal-body complete (internal), this lineage", "flagella_internal_cumulative"),
+        ("nascent_flagellum, this lineage", "n_nascent"),
+        ("Filament construction progress", "__filament_progress__"),
+        ("Free FliC, this lineage", "EG10321-MONOMER[e]"),
+        ("Complete flagella, followed lineage", "__flag_overlay__"),
     ]
+
+    # Same cumulative-overlay convention as run_nfsim_population_multigen.py.
+    _cumulative_overlay = {
+        "CPLX0-7450[i]": "cring_cumulative",
+        "CPLX0-7451[j]": "export_apparatus_cumulative",
+        "rod_internal": "rod_cumulative",
+        "rod_p_ring_internal": "rod_p_ring_cumulative",
+        "export_apparatus_subunit_internal": "export_apparatus_subunit_cumulative",
+        "hook_internal": "hook_internal_cumulative",
+    }
+    overlay_regulatory = ("EG11355-MONOMER[c]", "G369-MONOMER[c]")
+    overlay_cascade = ["CPLX0-7450[i]", "export_apparatus_subunit_internal", "CPLX0-7451[j]",
+                        "rod_internal", "rod_p_ring_internal", "hook_internal",
+                        "flagella_internal_cumulative", "n_nascent", "CPLX0-7452[j]"]
 
     n_cols = 4
     n_rows = -(-len(panels) // n_cols)
@@ -259,6 +343,27 @@ def figure(rows, n_gens):
             ax.plot(t, _cols(rows, "scaffold_total"), "-s", ms=2, color=COLORS["scaffold_total"], alpha=0.5,
                     label="total count")
             ax.set_ylabel("count"); ax.legend(fontsize=7)
+        elif panel_title == "__overlay_regulatory__":
+            for k in overlay_regulatory:
+                ax.plot(t, _cols(rows, k), color=COLORS[k], label=TRACK_IDS.get(k, k))
+            ax.set_ylabel("count"); ax.legend(fontsize=7)
+            panel_title = "FliA / FlgM overlaid, this lineage"
+        elif panel_title == "__overlay_cascade__":
+            for k in overlay_cascade:
+                label = {"export_apparatus_subunit_internal": "export apparatus subunit (internal)",
+                         "rod_internal": "rod (internal)",
+                         "rod_p_ring_internal": "rod+P-ring (internal)",
+                         "hook_internal": "hook (internal)",
+                         "flagella_internal_cumulative": "hook-basal-body complete (internal)",
+                         "n_nascent": "nascent_flagellum"}.get(k, TRACK_IDS.get(k, k))
+                ax.plot(t, _cols(rows, k), "-o", ms=2, color=COLORS[k], label=label)
+            ax.set_ylabel("count"); ax.legend(fontsize=6, ncol=2)
+            panel_title = "Assembly cascade, overlaid, this lineage"
+        elif key in _cumulative_overlay:
+            ax.plot(t, _cols(rows, key), "-o", ms=2, color=COLORS.get(key, "#333333"), label="live count")
+            ax.plot(t, _cols(rows, _cumulative_overlay[key]), "-o", ms=2, color="#7f7f7f",
+                    ls="--", label="cumulative (ever formed)")
+            ax.set_ylabel("count"); ax.legend(fontsize=6)
         elif key == "dry_mass":
             ax.plot(t, _cols(rows, key), "-o", ms=2, color=COLORS.get(key, "#333333"))
             ax.set_ylabel("fg")
@@ -287,8 +392,15 @@ def figure(rows, n_gens):
                  f"machinery, pruned to 1 followed agent) — does scaffold/internal state "
                  f"survive real division? (dotted=division)")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    out = f"{STUDY_DIR}/charts/25_nfsim_lineage_multigen_{n_gens}gen.svg"
-    os.makedirs(os.path.dirname(out), exist_ok=True)
+    # Auto-numbered output (2026-09-15), matching run_nfsim_population_
+    # multigen.py's convention -- was a fixed "25_..." path that silently
+    # clobbered itself on every re-run; every run now gets its own number.
+    charts_dir = f"{STUDY_DIR}/charts"
+    os.makedirs(charts_dir, exist_ok=True)
+    existing = [int(m.group(1)) for f in os.listdir(charts_dir)
+                if (m := re.match(r"^(\d+)_", f))]
+    next_n = max(existing, default=0) + 1
+    out = f"{charts_dir}/{next_n}_nfsim_lineage_multigen_{n_gens}gen.svg"
     fig.savefig(out, format="svg", bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)

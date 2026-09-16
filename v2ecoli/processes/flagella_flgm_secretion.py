@@ -1,45 +1,44 @@
 """Flagella FlgM secretion — the Class II -> Class III timing gate.
 
-Ported to process-bigraph / v2ecoli from Maya Abdalla's vEcoli ``biofilm`` branch
-(``ecoli/processes/flagella_flgm_secretion.py``). Biology preserved verbatim; only
-the framework scaffolding is adapted to ``EcoliStep``.
+Ported to v2ecoli from Maya Abdalla's vEcoli ``biofilm`` branch
+(``ecoli/processes/flagella_flgm_secretion.py``); biology unchanged, only
+framework scaffolding adapted to ``EcoliStep``.
 
 Mechanism
 ---------
-Once the hook-basal body is complete, the type-III secretion channel pumps
-cytoplasmic FlgM (G369-MONOMER[c]) out of the cell. As FlgM drops, the
-FLGM-FLIA-CPLX equilibrium shifts toward releasing free FliA (EG11355-MONOMER[c],
-sigma-28), which activates Class III promoters (fliC, motAB, cheAW, ...) via
-:mod:`v2ecoli.processes.flagella_transcription_regulation`. This is the Class
-II -> Class III gate (Kalir et al. 2001): without it, FlgM accumulates
+Once the hook-basal body is complete, the type-III secretion channel
+pumps cytoplasmic FlgM (G369-MONOMER[c]) out. As FlgM drops, FLGM-FLIA-
+CPLX equilibrium shifts toward releasing free FliA (EG11355-MONOMER[c],
+sigma-28), activating Class III promoters (fliC, motAB, cheAW, ...) via
+:mod:`v2ecoli.processes.flagella_transcription_regulation` -- the Class
+II -> Class III gate (Kalir et al. 2001); without it, FlgM accumulates
 indefinitely and permanently sequesters FliA.
 
-Trigger: ``count(nascent_flagellum)``, confirmed to BE the hook-basal-body-
-complete stage exactly -- created the instant flagella_nfsim_complexation.py's
-internal 'flagella' species forms, before any filament growth -- matching the
-real substrate-specificity-switch timing (Hughes et al. 1993; Karlinsey et al.
-2000). NOT ``CPLX0-7452`` (fully complete flagellum, filament included), which
-can take multiple division cycles and made the gate almost never engage
-(confirmed: "complete flagella" grew only 4->5->6 over 90 min while free FliA
-ran unchecked 250->17,000). Two earlier trigger designs (CPLX0-7452 alone;
-CPLX0-7452 + nascent_flagellum, reverted 2026-08-27 -- an uncited additive
-assumption that also caused a division-crash regression) are kept as comments
-in ``update()`` below per the standing preserve-old-code rule; full history in
-MASTER_DOCUMENT.md's History Appendix.
+Trigger: ``count(nascent_flagellum)`` -- confirmed to BE the hook-basal-
+body-complete stage exactly (created the instant flagella_nfsim_
+complexation.py's internal 'flagella' species forms, before filament
+growth), matching the real substrate-specificity-switch timing (Hughes
+et al. 1993; Karlinsey et al. 2000). NOT ``CPLX0-7452`` (full flagellum
+incl. filament) -- can take multiple division cycles, made the gate
+almost never engage (confirmed: complete flagella grew only 4->5->6 over
+90 min while free FliA ran unchecked 250->17,000). Two earlier trigger
+designs (CPLX0-7452 alone; CPLX0-7452 + nascent_flagellum, reverted
+2026-08-27 -- an uncited additive assumption, also caused a division-
+crash regression) kept as comments in ``update()`` below; full history
+in MASTER_DOCUMENT.md.
 
-Rate: first-order in the current FlgM pool (fixed 2026-09-02), gated on
-hbb_count > 0 -- see config_schema's ``turnover_rate_per_s`` for the derivation.
-Replaces an earlier zero-order, per-HBB placeholder (uncited, scaled export
-with completed-flagella count, an assumption Karlinsey's data never supported),
-kept as a comment below.
+Rate: first-order in the FlgM pool (fixed 2026-09-02), gated on
+hbb_count > 0 -- see config_schema's ``turnover_rate_per_s``. Replaces
+an earlier zero-order, per-HBB placeholder (uncited, an assumption
+Karlinsey's data never supported), kept as a comment below.
 
 Refs: Hughes KT et al. (1993) Science 262:1277; Karlinsey JE, Tanaka S,
-Bettenworth V, Yamaguchi S, Boos W, Aizawa SI & Hughes KT (2000) Mol Microbiol
-37:1220-1231 ("Completion of the hook-basal body complex..." -- MASTER_DOCUMENT.md's
-bibliography previously mis-cited this title/authors under 1998/J Bacteriol,
-now corrected); Karlinsey JE, Tsui HC, Winkler ME & Hughes KT (1998) J Bacteriol
-180:5384-5397 (FlgM turnover half-life, strain TH2592); Kalir S et al. (2001)
-Science 292:2080.
+Bettenworth V, Yamaguchi S, Boos W, Aizawa SI & Hughes KT (2000) Mol
+Microbiol 37:1220-1231 (HBB completion; MASTER_DOCUMENT.md previously
+mis-cited this under 1998/J Bacteriol, now corrected); Karlinsey JE,
+Tsui HC, Winkler ME & Hughes KT (1998) J Bacteriol 180:5384-5397 (FlgM
+turnover half-life, strain TH2592); Kalir S et al. (2001) Science
+292:2080.
 
 Ordered in the composite flow:
     ecoli-complexation -> ecoli-flagella-flgm-secretion -> ecoli-transcript-initiation
@@ -84,18 +83,16 @@ class FlagellaFlgMSecretion(Step):
         # Unused since 2026-08-27 (trigger is nascent_flagellum, see module
         # docstring) -- kept so the parameter isn't silently orphaned.
         "hbb_id": {"_type": "string", "_default": "CPLX0-7452[j]"},
-        # Old zero-order placeholder (2026-08-27 - 2026-09-01), uncited, scaled
-        # export with n_hbb -- an assumption Karlinsey's data never supported.
-        # Superseded 2026-09-02, kept per standing preserve-old-code rule:
+        # Old zero-order placeholder (2026-08-27 - 2026-09-01), uncited,
+        # scaled with n_hbb -- unsupported by Karlinsey's data. Superseded
+        # 2026-09-02, kept per standing preserve-old-code rule:
         # "secretion_rate": {"_type": "float", "_default": 0.1},
-        # First-order turnover rate constant, k = ln(2) / t_half, t_half=7.3min
-        # (438s): Karlinsey JE, Tsui HC, Winkler ME & Hughes KT (1998) J
-        # Bacteriol 180:5384-5397, pulse-chase FlgM turnover in Fla+
-        # (HBB-complete) strain TH2592. HBB-incomplete ring mutants (flgB,
-        # DeltaflgHI) showed no detectable turnover -- captured by gating this
-        # rate on hbb_count > 0 in update(), not by a further per-HBB
-        # multiplier (see module docstring for why the old n_hbb scaling was
-        # dropped, not just retuned).
+        # First-order rate k = ln(2)/t_half, t_half=7.3min (438s): Karlinsey
+        # JE, Tsui HC, Winkler ME & Hughes KT (1998) J Bacteriol 180:5384-
+        # 5397, pulse-chase FlgM turnover in Fla+ (HBB-complete) strain
+        # TH2592; HBB-incomplete mutants (flgB, DeltaflgHI) showed no
+        # detectable turnover -- captured by gating on hbb_count > 0 in
+        # update(), not a further per-HBB multiplier (see module docstring).
         "turnover_rate_per_s": {"_type": "float", "_default": 0.0015823},
     }
 
@@ -135,18 +132,14 @@ class FlagellaFlgMSecretion(Step):
             # ^ no longer resolved as of 2026-08-27 -- CPLX0-7452 is not part
             # of the trigger anymore, see module docstring.
 
-        # Trigger history (old code kept per standing preserve-old-code rule;
-        # full account in MASTER_DOCUMENT.md's History Appendix): pre-2026-08-25
-        # used CPLX0-7452 alone (wrong -- gates on filament completion, which
-        # can take multiple division cycles); 2026-08-25 tried adding
-        # CPLX0-7452 + nascent_flagellum, reverted 2026-08-27 (uncited additive
-        # assumption, also caused a division-crash regression).
+        # Trigger history kept as comments below (full account: module
+        # docstring, MASTER_DOCUMENT.md History Appendix).
         # hbb_count = counts(states["bulk"], self.hbb_idx)
         # (nascent_lengths,) = attrs(states["nascent_flagellum"], ["filament_length"])
         # hbb_count = counts(states["bulk"], self.hbb_idx) + nascent_lengths.size
 
-        # Current (2026-08-27): nascent_flagellum alone -- IS the hook-basal-
-        # body-complete stage exactly (see module docstring).
+        # nascent_flagellum alone IS the hook-basal-body-complete stage
+        # (see module docstring).
         (nascent_lengths,) = attrs(states["nascent_flagellum"], ["filament_length"])
         hbb_count = nascent_lengths.size
         flgM_count = counts(states["bulk"], self.flgM_idx)

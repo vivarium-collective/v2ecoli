@@ -1,97 +1,72 @@
 """FlgM:FliA equilibrium binding -- exact closed-form solve, real Step.
 
-Added 2026-09-01, part of Maya Abdalla's flagella-cascade investigation.
+Added 2026-09-01, Maya Abdalla's flagella-cascade investigation.
 
-Why this exists, separate from the shared ecoli-equilibrium Step
-------------------------------------------------------------------
-FLGM-FLIA-CPLX_RXN used to live inside the shared ~150-reaction
-equilibrium system (v2ecoli/processes/equilibrium.py), solved every tick
-by a general numerical ODE solver (scipy solve_ivp), the same solver
-that crashed repeatedly on FLIS-FLIC-CPLX_RXN (see
-flagella_flis_flic_equilibrium.py) for the identical reason: its default
-absolute error tolerance (atol=1e-6 M) is enormous relative to a real
-molecule's concentration in this cell (~1.6e-9 M). FlgM:FliA's REAL Kd
-(~1.8e-10 M, Chadsey et al. 1998) is roughly 290x TIGHTER than FliS:FliC's
-(5.26e-8 M) -- an even worse fit for that solver's tolerance, not a
-better one.
+Why separate from the shared ecoli-equilibrium Step
+-----------------------------------------------------
+FLGM-FLIA-CPLX_RXN lived in the shared ~150-reaction equilibrium system
+(equilibrium.py), solved every tick by scipy solve_ivp -- the same
+solver that crashed repeatedly on FLIS-FLIC-CPLX_RXN (see
+flagella_flis_flic_equilibrium.py) for the same reason: its default
+atol (1e-6 M) dwarfs a real molecule's concentration here (~1.6e-9 M).
+FlgM:FliA's real Kd (~1.8e-10 M, Chadsey et al. 1998) is ~290x TIGHTER
+than FliS:FliC's (5.26e-8 M) -- worse for that solver, not better.
 
-Rather than fix that directly, this reaction was worked around by
-DELIBERATELY WEAKENING the model's own Kd to 2e-7 M -- about 1000x
-weaker than the real value -- purely to keep the shared solver's answer
-far enough from zero to avoid crashing. This was never a biological
-number; it was a stability patch. Confirmed directly (2026-09-01) that
-the crash risk was always about the SOLVER, not the Kd itself: the exact
-closed-form solve used here cannot overshoot negative regardless of how
-tight Kd is, by the same construction already proven for FliS:FliC.
-That removes the only reason the Kd was ever weakened, so this Step uses
-the real, cited value instead.
+The old workaround weakened the model's Kd to 2e-7 M (~1000x weaker
+than real) purely to keep the shared solver's answer away from zero --
+a stability patch, not biology. Confirmed 2026-09-01: the crash was
+always about the SOLVER, not Kd tightness -- the exact closed-form
+solve here can't overshoot negative at any Kd, same proof as FliS:FliC.
+That removes the reason Kd was ever weakened, so this Step uses the
+real value.
 
-This Step is that exact solve, done directly, every firing. It replaces
-FLGM-FLIA-CPLX_RXN's role from the shared equilibrium system entirely.
-The shared system's own copy of this reaction is neutralized (both rates
-set to 0 in sim_data.process.equilibrium, NOT deleted -- see
-flagella_flis_flic_equilibrium.py's docstring for why zeroing rather than
-deleting the row is the safer change) so it no longer participates in
-that solve at all, while every one of the other ~150 real reactions in
-that shared system is completely untouched.
+This Step replaces FLGM-FLIA-CPLX_RXN's role entirely; the shared
+system's copy is zeroed (not deleted -- see flagella_flis_flic_
+equilibrium.py's docstring for why) so the other ~150 reactions there
+are untouched.
 
 The math
 --------
-Simple 1:1:1 binding (FlgM + FliA <-> FLGM-FLIA-CPLX -- no stoichiometry
-surprise here the way FliS:FliC had; Chadsey et al. 1998's SPR
-measurement reports a direct 1:1 Kd, no oligomeric-state complication
-found). Let A = free FlgM, B = free FliA, C = FLGM-FLIA-CPLX, with
-conserved totals A_tot = A + C, B_tot = B + C (nothing else in the live
-model creates or destroys these three species except this one binding
-reaction and flagella_flgm_secretion.py's direct draw on free FlgM --
-that Step never touches the complex or FliA, so both totals are exactly
-conserved from THIS Step's point of view within one firing). At
-equilibrium:
+Simple 1:1:1 binding (FlgM + FliA <-> FLGM-FLIA-CPLX -- Chadsey et al.
+1998's SPR reports a direct 1:1 Kd, no oligomeric complication like
+FliS:FliC's dimer correction). A = free FlgM, B = free FliA, C =
+complex; conserved A_tot = A+C, B_tot = B+C (flgm_secretion.py drains
+free FlgM only, never touches C or FliA, so both totals hold exactly
+within one firing). At equilibrium:
 
-    Kd = A * B / C = (A_tot - C)(B_tot - C) / C
+    Kd = A*B/C = (A_tot-C)(B_tot-C)/C
 
-Rearranged into a standard quadratic in C (identical form/derivation to
-flagella_flis_flic_equilibrium.py's, see that file for the full algebra):
+Same quadratic form as flagella_flis_flic_equilibrium.py (see that file
+for the full derivation):
 
-    C^2 - (A_tot + B_tot + Kd) * C + A_tot * B_tot = 0
+    C^2 - (A_tot+B_tot+Kd)*C + A_tot*B_tot = 0
+    C = [(A_tot+B_tot+Kd) - sqrt((A_tot+B_tot+Kd)^2 - 4*A_tot*B_tot)] / 2
 
-    C = [(A_tot + B_tot + Kd) - sqrt((A_tot + B_tot + Kd)^2 - 4*A_tot*B_tot)] / 2
+(smaller root is physical). One closed-form solve per firing -- no
+iteration, no tolerance, no overshoot possible.
 
-(the smaller root is the physical one). Solved directly, once, every
-firing -- no iteration, no ODE, no tolerance setting anywhere in this
-calculation, so no overshoot possible, ever, by construction.
+Kd: 1.8e-10 M, Chadsey, Karlinsey & Hughes 1998, Genes Dev 12:3123
+(Salmonella SPR: ka=8.9e5/M/s, kd=1.6e-4/s -> kd/ka=1.8e-10 M,
+consistent with the paper's own separately-reported Kd~2e-10 M). Real
+value, no longer relaxed. Molar->count conversion via cell volume, same
+as the shared Step and flagella_flis_flic_equilibrium.py.
 
-Kd: 1.8e-10 M, Chadsey, Karlinsey & Hughes (1998), Genes Dev 12:3123
-(Salmonella, SPR: ka=8.9e5 /M/s, kd=1.6e-4 /s -- kd/ka=1.8e-10 M,
-self-consistent with the paper's own separately-reported Kd~2e-10 M).
-This is the REAL value -- no longer relaxed. Converted from molar to a
-molecule-count basis using the cell's real, current volume each firing
-(same cell_mass / cell_density -> volume conversion the shared
-equilibrium Step and flagella_flis_flic_equilibrium.py both already use).
+Relaxation-timescale check (2026-09-01): the isolated dissociation
+half-life (ln(2)/kd = ~72 min) is the WRONG number to judge against --
+it ignores rebinding. Accounting for both directions,
+tau = 1/(ka*(A_eq+B_eq)+kd) ~= 1-3s at this cell's real FlgM/FliA scale
+-- comparable to the 2s tick, not 72 min. Solving to exact equilibrium
+every firing is reasonable on that basis.
 
-Relaxation-timescale check (2026-09-01, done before building this):
-confirmed the real dissociation half-life alone (ln(2)/kd = ~72 min)
-is NOT the right number to judge instant-equilibrium-per-tick against --
-that number describes an isolated complex with nothing around to rebind
-it. The real relaxation time, accounting for BOTH directions
-(tau = 1/(ka*(A_eq+B_eq) + kd)), works out to ~1-3 seconds at this
-cell's real FlgM/FliA concentration scale -- comparable to this
-codebase's own 2s tick, not 72 minutes. Solving to exact equilibrium
-every firing is a reasonable approximation on that basis.
-
-Ordered in the composite flow: right after ecoli-flagella-flgm-secretion
-(the Step that drains free FlgM), so this Step's re-solve always reflects
-that same tick's fresh FlgM level rather than the previous tick's --
-matching secretion's own docstring ("as cytoplasmic FlgM drops, the
-FLGM-FLIA-CPLX equilibrium shifts toward releasing free FliA") as a
-same-tick response rather than the shared equilibrium Step's previous,
-much-earlier position in the tick (layer 2, well before secretion runs
-at all). Confirmed (2026-09-01) this ordering difference is real but
-very unlikely to matter in practice -- FlgM changes by only a small
-amount per 2s tick, so one tick's lag barely changes the equilibrium
-Step's own answer either way; the same-tick placement is chosen for
-consistency with the biology's own description, not because the 2-second
-difference is expected to visibly change any output.
+Ordered right after ecoli-flagella-flgm-secretion (drains free FlgM),
+so this Step's re-solve reflects that tick's own fresh FlgM level --
+matching secretion's docstring ("as FlgM drops, equilibrium shifts
+toward releasing free FliA") as same-tick causation, vs. the shared
+Step's old position (well before secretion). Confirmed real but
+unlikely to matter: FlgM changes little per 2s tick, so a one-tick lag
+barely shifts the answer either way -- same-tick placement matches the
+biology's description, not because the difference is expected to be
+visible.
 """
 
 

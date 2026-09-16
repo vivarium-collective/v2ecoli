@@ -1,28 +1,28 @@
 """Population-based (unpruned, real-division) multi-generation test for the
-NFsim-wired flagella complexation pipeline (both daughters kept - population level)
+NFsim-wired flagella complexation pipeline (both daughters kept -- population level).
 
-Added 2026-08-19. Companion to run_nfsim_lineage_multigen.py -- that script
-prunes to ONE followed daughter at every division (mother-machine-style),
-which is compute-cheap but means any in-progress structure that happens to
-land on the discarded sibling looks like "loss" to the followed lineage even
-though it's still alive in the population. This script answers the actual
-question that raised: does flagella completion keep up with a ~40min real
-division time at the POPULATION level, not just for one unlucky/lucky
-tracked cell? Both daughters are kept at every division; per-snapshot stats
-are aggregated (sum/mean) across every currently-live agent.
+Added 2026-08-19. Companion to run_nfsim_lineage_multigen.py, which prunes
+to ONE followed daughter per division (mother-machine-style) -- compute-
+cheap, but any in-progress structure landing on the discarded sibling
+looks like "loss" to the followed lineage even though it's alive in the
+population. This script answers the real question: does flagella
+completion keep up with a ~40min real division time at the POPULATION
+level, not just for one lucky/unlucky tracked cell? Both daughters kept
+every division; per-snapshot stats aggregated (sum/mean) across every
+live agent.
 
-Real division is exponential (each agent can itself divide), so this is
-deliberately capped small: MAX_AGENTS stops the run once the live population
-reaches that size, regardless of the --generations/--seconds-cap targets,
-to keep NFsim's per-agent subprocess overhead bounded. Start small, per
-2026-08-19 discussion -- 2 generations, so at most 4 live agents.
+Real division is exponential, so deliberately capped small: MAX_AGENTS
+stops the run once live population reaches that size, regardless of
+--generations/--seconds-cap, bounding NFsim's per-agent subprocess
+overhead. Start small (2026-08-19) -- 2 generations, at most 4 live
+agents.
 
-Uses the SAME real Division-step machinery as the lineage script (no manual
-state splicing -- see that script's docstring for why that matters, a real
-dry_mass-drift bug was found and fixed in an earlier manual-splice
-approach). Same standard INIT applied once at t=0 to the initial agent
-only: 4 flagella, 0 motor, free FliA=500, FlgM=800 -- daughters inherit
-their own divided state automatically, no re-application needed.
+Uses the SAME real Division-step machinery as the lineage script (no
+manual state splicing -- see that script's docstring: an earlier manual-
+splice approach caused a real dry_mass-drift bug). Standard INIT applied
+once at t=0 to the initial agent only: 4 flagella, 0 motor, free
+FliA=500, FlgM=800 -- daughters inherit their own divided state
+automatically.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
@@ -107,11 +107,10 @@ def _agent_stats(cell, idx):
             internal.get("flagellar_rod_with_p_ring__cumulative", 0.0)),
         "flagella_internal_cumulative": float(internal.get("flagella", 0.0)),
         # Cumulative "total ever formed" for C-ring/export apparatus/motor
-        # complex (2026-08-27) -- see flagella_nfsim_complexation.py's
-        # _CUMULATIVE_TRACKED_REAL_IDS. Piggybacked on the same
-        # internal_observables dict as the 3 no-real-bulk-ID species above,
-        # under a distinct "__cumulative" key so it doesn't collide with
-        # those species' real, live bulk count (tracked separately below).
+        # complex (2026-08-27, see flagella_nfsim_complexation.py's
+        # _CUMULATIVE_TRACKED_REAL_IDS) -- piggybacked on internal_
+        # observables under a distinct "__cumulative" key, not colliding
+        # with those species' real, live bulk count (tracked separately).
         "cring_cumulative": float(internal.get("CPLX0-7450[i]__cumulative", 0.0)),
         "export_apparatus_cumulative": float(
             internal.get("CPLX0-7451[j]__cumulative", 0.0)),
@@ -309,13 +308,10 @@ def figure(rows, n_gens, media="minimal"):
         ("C-ring, population total", "CPLX0-7450[i]"),
         ("Export apparatus subunit (internal), population total", "export_apparatus_subunit_internal"),
         ("Export apparatus, population total", "CPLX0-7451[j]"),
-        # Motor complex removed 2026-09-01 (Maya's request) -- FLAGELLAR-
-        # MOTOR-COMPLEX[j] is real (it's L-ring's own product, same
-        # species, not a separate stage), but its cumulative tracker was
-        # still stuck flat and rod/P-ring -- two real reaction stages
-        # added 2026-08-27/28 -- were never plotted anywhere at all. Swap
-        # in the two that were actually missing. Old line kept per
-        # standing preserve-old-code rule:
+        # Motor complex removed 2026-09-01 (Maya's request) -- real
+        # (L-ring's own product, not a separate stage), but rod/P-ring
+        # (real stages added 2026-08-27/28) were never plotted at all.
+        # Swapped in the two that were missing. Old line kept:
         # ("Motor complex, population total", "FLAGELLAR-MOTOR-COMPLEX[j]"),
         ("Rod (internal), population total", "rod_internal"),
         ("Rod+P-ring (internal), population total", "rod_p_ring_internal"),
@@ -328,20 +324,17 @@ def figure(rows, n_gens, media="minimal"):
     ]
 
     # Added 2026-08-27 (Maya's request): C-ring/export apparatus/motor
-    # complex are fast-flowing real bulk intermediates whose LIVE count is
-    # usually 0-1 even when real throughput is happening -- overlay each
-    # with its cumulative "total ever formed" counter (see
-    # flagella_nfsim_complexation.py's _CUMULATIVE_TRACKED_REAL_IDS) so a
-    # flat live-count line doesn't read as "nothing happened here."
+    # complex are fast-flowing intermediates, LIVE count usually 0-1 even
+    # with real throughput -- overlay each with its cumulative "total
+    # ever formed" counter (_CUMULATIVE_TRACKED_REAL_IDS) so a flat
+    # live-count line doesn't read as "nothing happened here."
     _cumulative_overlay = {
         "CPLX0-7450[i]": "cring_cumulative",
         "CPLX0-7451[j]": "export_apparatus_cumulative",
-        # "FLAGELLAR-MOTOR-COMPLEX[j]": "motor_complex_cumulative",  -- no
-        # panel uses this key anymore (Motor complex removed 2026-09-01),
-        # dead per standing preserve-old-code rule.
-        # Added 2026-09-01: same overlay for the 4 internal-only (no real
-        # bulk ID) stages, using the new gross-positive-delta cumulative
-        # keys from flagella_nfsim_complexation.py.
+        # "FLAGELLAR-MOTOR-COMPLEX[j]": "motor_complex_cumulative",  --
+        # dead, no panel uses this key (Motor complex removed 2026-09-01).
+        # Added 2026-09-01: same overlay for the 4 internal-only (no
+        # bulk ID) stages, via the gross-positive-delta cumulative keys.
         "rod_internal": "rod_cumulative",
         "rod_p_ring_internal": "rod_p_ring_cumulative",
         "export_apparatus_subunit_internal": "export_apparatus_subunit_cumulative",
@@ -407,29 +400,24 @@ def figure(rows, n_gens, media="minimal"):
             ax.set_ylabel("count")
         ax.set_title(panel_title, fontsize=9)
 
-    # Division markers (added 2026-09-01, Maya's request): a vertical
-    # dashed line on every panel at each real division event, so
-    # population-level jumps/dips can be read directly against when a
-    # division actually happened rather than inferred from the
-    # "Live agent count" panel alone. Division detected as any row where
-    # n_agents increases over the previous row; marked at that row's own
-    # t_cum (the first sample AFTER the division, not an interpolated
-    # estimate of the exact tick it happened on).
+    # Division markers (2026-09-01, Maya's request): vertical dashed line
+    # on every panel at each real division, so jumps/dips read directly
+    # against when division happened, not just inferred from "Live agent
+    # count". Detected as any row where n_agents increases over the
+    # previous row; marked at that row's own t_cum (first sample AFTER
+    # division, not interpolated).
     division_times = t[1:][n_agents[1:] > n_agents[:-1]]
     for ax in used_axes:
         for dt_div in division_times:
             ax.axvline(dt_div, color="#555555", ls=":", lw=1, alpha=0.6, zorder=0)
 
     # Unused trailing grid slots (panels doesn't evenly fill n_rows*n_cols):
-    # used to just hide them (ax.axis("off")), still leaving an empty boxed
-    # subplot visible. Changed 2026-08-27 (Maya's request) to actually remove
-    # them from the figure instead. Old version kept per standing
-    # preserve-old-code rule:
+    # used to just hide them (ax.axis("off")), leaving an empty boxed
+    # subplot. Changed 2026-08-27 to remove them instead. Old version:
     # for ax in list(np.atleast_1d(axes).flat)[len(panels):]:
     #     ax.axis("off")
-    # axes_flat was already fully consumed capturing used_axes above -- get
-    # the trailing (unused) axes fresh from axes itself, not from the
-    # exhausted iterator.
+    # axes_flat is already fully consumed by used_axes above -- get the
+    # trailing axes fresh from axes, not the exhausted iterator.
     for ax in list(np.atleast_1d(axes).flat)[len(panels):]:
         fig.delaxes(ax)
     last_row = (len(panels) - 1) // n_cols
@@ -437,25 +425,23 @@ def figure(rows, n_gens, media="minimal"):
     for col in range(n_cols):
         if last_row * n_cols + col < len(panels):
             axes_2d[last_row, col].set_xlabel("time (min)")
-    # label_outer() removed 2026-09-01: it strips BOTH x and y tick labels
-    # on interior-grid axes, correct only when both axes are shared. Only
+    # label_outer() removed 2026-09-01: strips BOTH x and y tick labels
+    # on interior-grid axes, only correct when both axes are shared. Only
     # x (time) is shared here (sharex=True) -- every panel has its own
-    # independent y-scale, so label_outer() was silently deleting y-axis
-    # numbers from every panel except the leftmost column. sharex's own
-    # default behavior already suppresses x-tick labels on non-bottom-row
-    # axes; removing label_outer() leaves that intact while restoring
-    # every panel's own y-axis numbers.
+    # y-scale, so label_outer() silently deleted y-axis numbers from
+    # every panel but the leftmost column. sharex already suppresses
+    # x-tick labels on non-bottom-row axes; removing label_outer() keeps
+    # that while restoring each panel's own y-axis numbers.
 
     fig.suptitle(f"NFsim-driven population test, target {n_gens} generations, media={media} "
                  f"(real division, BOTH daughters kept) — does completion keep up at the "
                  f"population level?")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    # Auto-number the output (added 2026-08-25): this used to be a fixed
-    # "26_..." path regardless of seed/cache/media, so every run silently
-    # clobbered whatever the last run wrote (confirmed: a 6-seed stress test
-    # overwrote its own plot 5 times, and separately clobbered a
-    # git-committed chart with the same name). Every run now gets its own
-    # never-reused chart number instead.
+    # Auto-number the output (2026-08-25): used to be a fixed "26_..."
+    # path regardless of seed/cache/media, so every run silently clobbered
+    # the last (confirmed: a 6-seed stress test overwrote its own plot 5
+    # times, and clobbered a git-committed chart of the same name). Every
+    # run now gets its own never-reused chart number.
     charts_dir = f"{STUDY_DIR}/charts"
     os.makedirs(charts_dir, exist_ok=True)
     existing = [int(m.group(1)) for f in os.listdir(charts_dir)

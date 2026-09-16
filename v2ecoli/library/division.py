@@ -288,7 +288,7 @@ UNIQUE_DIVIDERS = {
 # from ``baseline()`` (fresh injected stores) and only the four core keys were
 # overlaid onto it. A dose delivered into ``fields`` was re-zeroed (and, because
 # the injected process is rebuilt with the cumulative ``lineage_time_offset``,
-# re-fired) every generation; mecillinam wall damage could not accumulate; a
+# re-fired) every generation; periplasmic wall damage could not accumulate; a
 # ``lysed`` latch un-latched. The fork (vEcoli-private) does not lose them: it
 # copies field-like environment stores to both daughters and splits the wall
 # with a registered divider.

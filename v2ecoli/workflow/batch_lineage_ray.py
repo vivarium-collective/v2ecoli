@@ -141,10 +141,10 @@ def build_lineage_ray_batch_document(
 
     ``exchange_fluxes``/``exchange_flux_basis`` (item 106): ``ecoli_baseline.baseline()`` and
     ``LineageProcess`` both already accept these (a caller-supplied exchange-species-to-flux-column
-    map, plus the units basis those columns are reported in -- e.g. ``{"violacein_exchange":
-    "VIOLACEIN"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
+    map, plus the units basis those columns are reported in -- e.g. ``{"product_exchange":
+    "PRODUCT"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
     config -- the same class of gap ``variants``/``injected_processes`` had before item109/#663.
-    Needed for real CD2 Run 2 KPI reporting (a violacein-exchange flux column), not just raw state.
+    Needed for real CD2 Run 2 KPI reporting (a product-exchange flux column), not just raw state.
 
     Omitted entirely (the default): every lineage starts fresh at generation 0
     against the one shared ``cache_dir`` -- today's exact behavior, unchanged.

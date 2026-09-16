@@ -60,7 +60,7 @@ _FORWARDED = (
     "trna_attenuation",
     # Biology the ray: and single-cell paths already support. Omitting these
     # would drop them SILENTLY -- and exchange_fluxes/exchange_flux_basis is the
-    # violacein-exchange KPI readout CD2 Run 2 reads, on the strain sweeps this
+    # product-exchange KPI readout CD2 Run 2 reads, on the strain sweeps this
     # node exists to run. (@eagmon, review of #694.)
     "exchange_fluxes",
     "exchange_flux_basis",

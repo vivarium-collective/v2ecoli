@@ -180,12 +180,6 @@ DEFAULT_SINGLE_CELL_VISUALIZATIONS: list[dict] = [
         'config': {'title': 'Chromosome replication', 'analysis': 'replication'},
     },
     {
-        'name': 'chromosome_state',
-        'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
-        'config': {'title': 'Chromosome state (animated)',
-                   'analysis': 'chromosome_state_view'},
-    },
-    {
         'name': 'ribosome_components',
         'address': 'local:!v2ecoli.visualizations.parquet_analysis.ParquetAnalysisView',
         'config': {'title': 'Ribosome components',

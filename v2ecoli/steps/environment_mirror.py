@@ -131,6 +131,39 @@ class EnvironmentMirror(Step):
     """Propagate top-level environment.external_concentrations to each agent's boundary.external."""
 
     name = "environment_mirror"
+
+    description = (
+        "Propagates the top-level environment.external_concentrations down to "
+        "each agent's boundary.external, so every cell senses the shared "
+        "environment. Writes are absolute concentrations (overwrite), resolving "
+        "each driver/coupler molecule id onto the matching bare boundary key."
+    )
+
+    # Structured contract surfaced by the workbench loom viewer (card contract
+    # band + Inspector) and by bigraph_schema.contract.resolve_contract.
+    contract = {
+        "summary": (
+            "Broadcasts the shared top-level environment concentrations onto "
+            "each agent's boundary.external, matching molecule ids to boundary "
+            "keys and writing absolute (overwrite) mM values."
+        ),
+        "inputs": {
+            "environment": "Shared top-level environment.external_concentrations to broadcast (mM).",
+            "agents": "Per-cell agents map whose boundary.external is read to resolve molecule ids and receive the broadcast.",
+        },
+        "outputs": {
+            "agents": "Each agent's boundary.external written with the shared environment concentrations (absolute mM, overwrite).",
+        },
+        "config": {
+            "time_step": "Update step (s).",
+        },
+        "assumptions": [
+            "boundary.external leaves are overwrite[float[mM]], so writes replace rather than add.",
+            "Molecule ids match a bare boundary key exactly, else the compartment tag is stripped and retried; unmatched or ambiguous ids fail closed and are counted.",
+            "NaN or negative concentrations are refused; +inf is allowed as this model's encoding of 'unlimited'.",
+        ],
+    }
+
     config_schema = {
         "time_step": "float",
     }

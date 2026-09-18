@@ -4,6 +4,18 @@ investigation: whole-cell-model-comparison
 title: v2ecoli reproduces vEcoli on succinate
 condition: succinate
 question: Does v2ecoli reproduce vEcoli on the succinate condition?
+baseline:
+- name: ecoli_baseline
+  composite: v2ecoli.composites.ecoli_baseline.ecoli_baseline
+  params:
+    media: minimal_succinate
+  description: v2-native candidate arm (fork-free) — the model under test.
+- name: vecoli
+  composite: v2ecoli.composites.vecoli.vecoli
+  params:
+    whole_config: succinate
+    cache_dir: out/compare_harness/vecoli_parca
+  description: vEcoli (v1) reference arm — the live vEcoli simulation this study grades v2ecoli against, run on the same condition. Running it requires the vEcoli reference env (V2E_VECOLI_DIR + fork sim_data cache); declared here so the comparison's reference model is visible in the Model tab.
 comparison:
   seeds: 4
   generations: 4

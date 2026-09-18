@@ -118,7 +118,7 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
             "description": "RNG seed for vEcoli's stochastic initialization.",
         },
         "fork_config": {
-            "type": "string",
+            "type": "config_file",
             "default": "",
             "description": (
                 "Optional vEcoli config JSON (path relative to reference_repo, "
@@ -159,7 +159,7 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
             ),
         },
         "whole_config": {
-            "type": "string",
+            "type": "config_file",
             "default": "",
             "description": (
                 "Optional full fork config (path relative to reference_repo or "

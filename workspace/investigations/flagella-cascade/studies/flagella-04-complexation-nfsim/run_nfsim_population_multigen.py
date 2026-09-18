@@ -67,6 +67,11 @@ TRACK_IDS = {
     "FLAGELLAR-MOTOR-COMPLEX[j]": "motor complex",
     "EG10321-MONOMER[e]": "free FliC",
     "CPLX0-7452[j]": "complete flagella",
+    # TEMPORARY DIAGNOSTIC (2026-09-17) -- checking the hypothesis that
+    # division halving free FliF suppresses C-ring nucleation propensity
+    # below what REAL_AMBIENT_MONOMER_COUNTS['FLIF-FLAGELLAR-MS-RING[i]']=657
+    # was calibrated against. Remove after diagnosis.
+    "FLIF-FLAGELLAR-MS-RING[i]": "free FliF (DIAGNOSTIC)",
 }
 
 
@@ -276,22 +281,13 @@ def _plot_filament_panel(ax, rows):
     ax.set_ylabel("subunits")
 
 
-def figure(rows, n_gens, media="minimal"):
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9})
-
-    t = np.array([r["t_cum"] for r in rows]) / 60.0
-    n_agents = np.array([r["n_agents"] for r in rows])
-
-    def tot(key):
-        return np.array([r[f"{key}_total"] for r in rows])
-
-    # Panels, in temporal/logical order -- population context first, then
-    # the same regulatory -> FliS protection -> assembly cascade ->
-    # terminal-output chain used in run_nfsim_wired_test.py's "full panel"
-    # figure, all summed across the live population instead of one agent.
+# Panels, in temporal/logical order -- population context first, then the
+# same regulatory -> FliS protection -> assembly cascade -> terminal-output
+# chain used in run_nfsim_wired_test.py's "full panel" figure, all summed
+# across the live population instead of one agent. Extracted into its own
+# function (2026-09-16) so both the combined grid (figure()) and the
+# standalone per-panel files (figure_panels()) render from the same spec.
+def _panel_spec():
     panels = [
         ("Live agent count (population size)", "__agents__"),
         ("Mean dry mass per agent", "__dry_mass__"),
@@ -315,20 +311,24 @@ def figure(rows, n_gens, media="minimal"):
         # ("Motor complex, population total", "FLAGELLAR-MOTOR-COMPLEX[j]"),
         ("Rod (internal), population total", "rod_internal"),
         ("Rod+P-ring (internal), population total", "rod_p_ring_internal"),
-        ("Hook (internal), population total", "hook_internal"),
+        # "Hook (internal), population total" removed 2026-09-16 (Maya's
+        # request, matching run_nfsim_lineage_multigen.py) -- always reads
+        # flat 0 by construction: a completed hook is consumed instantly
+        # by the next reaction, so no sampling resolution used in this
+        # investigation ever catches it nonzero. Still tracked in
+        # _agent_stats()/overlay_cascade, just not its own panel.
         ("Hook-basal-body complete (internal), population total", "flagella_internal_cumulative"),
         ("nascent_flagellum, population total", "n_nascent"),
         ("__filament__", None),
         ("Free FliC, population total", "EG10321-MONOMER[e]"),
         ("__complete_flagella__", None),
     ]
-
     # Added 2026-08-27 (Maya's request): C-ring/export apparatus/motor
     # complex are fast-flowing intermediates, LIVE count usually 0-1 even
     # with real throughput -- overlay each with its cumulative "total
     # ever formed" counter (_CUMULATIVE_TRACKED_REAL_IDS) so a flat
     # live-count line doesn't read as "nothing happened here."
-    _cumulative_overlay = {
+    cumulative_overlay = {
         "CPLX0-7450[i]": "cring_cumulative",
         "CPLX0-7451[j]": "export_apparatus_cumulative",
         # "FLAGELLAR-MOTOR-COMPLEX[j]": "motor_complex_cumulative",  --
@@ -340,11 +340,82 @@ def figure(rows, n_gens, media="minimal"):
         "export_apparatus_subunit_internal": "export_apparatus_subunit_cumulative",
         "hook_internal": "hook_internal_cumulative",
     }
-
     overlay_regulatory = ("EG11355-MONOMER[c]", "G369-MONOMER[c]")
     overlay_cascade = ["CPLX0-7450[i]", "export_apparatus_subunit_internal", "CPLX0-7451[j]",
                         "rod_internal", "rod_p_ring_internal", "hook_internal",
                         "flagella_internal_cumulative", "n_nascent", "CPLX0-7452[j]"]
+    return panels, cumulative_overlay, overlay_regulatory, overlay_cascade
+
+
+def _render_panel(ax, panel_title, key, rows, t, n_agents, tot,
+                   cumulative_overlay, overlay_regulatory, overlay_cascade):
+    """Render exactly one panel onto ax. Returns the (possibly overridden,
+    for the overlay/filament/complete-flagella panels) display title.
+    Shared by figure() (one axis per panel, in a grid) and figure_panels()
+    (one standalone figure per panel) -- 2026-09-16, so the two never
+    drift out of sync."""
+    if key == "__agents__":
+        ax.plot(t, n_agents, "-o", ms=2, color="#2ca02c")
+        ax.set_ylabel("n_agents")
+    elif key == "__dry_mass__":
+        ax.plot(t, np.array([r["dry_mass_mean"] for r in rows]), "-o", ms=2, color="#1f77b4")
+        ax.set_ylabel("fg")
+    elif panel_title == "__overlay_regulatory__":
+        for k in overlay_regulatory:
+            ax.plot(t, tot(k), color=COLORS[k], label=TRACK_IDS.get(k, k))
+        ax.set_ylabel("count"); ax.legend(fontsize=7)
+        panel_title = "FliA / FlgM overlaid, population totals"
+    elif panel_title == "__overlay_cascade__":
+        for k in overlay_cascade:
+            label = {"export_apparatus_subunit_internal": "export apparatus subunit (internal)",
+                     "rod_internal": "rod (internal)",
+                     "rod_p_ring_internal": "rod+P-ring (internal)",
+                     "hook_internal": "hook (internal)",
+                     "flagella_internal_cumulative": "hook-basal-body complete (internal)",
+                     "n_nascent": "nascent_flagellum"}.get(k, TRACK_IDS.get(k, k))
+            ax.plot(t, tot(k), "-o", ms=2, color=COLORS[k], label=label)
+        ax.set_ylabel("count"); ax.legend(fontsize=6, ncol=2)
+        panel_title = "Assembly cascade, overlaid, population totals"
+    elif panel_title == "__filament__":
+        _plot_filament_panel(ax, rows)
+        panel_title = "Per-filament elongation (population-wide, one line per filament)"
+    elif panel_title == "__complete_flagella__":
+        # "mean per agent" line removed 2026-08-27 (Maya's request) -- kept
+        # per standing preserve-old-code rule:
+        # ax.plot(t, np.array([r["flag_mean"] for r in rows]), "-s", ms=2,
+        #         color="#9467bd", label="mean per agent")
+        ax.plot(t, tot("CPLX0-7452[j]"), "-o", ms=2, color="#d62728")
+        ax.set_ylabel("count")
+        panel_title = "Complete flagella — population aggregate"
+    elif key in cumulative_overlay:
+        ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"), label="live count")
+        ax.plot(t, tot(cumulative_overlay[key]), "-o", ms=2, color="#7f7f7f",
+                ls="--", label="cumulative (ever formed)")
+        ax.set_ylabel("count"); ax.legend(fontsize=6)
+    else:
+        ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"))
+        ax.set_ylabel("count")
+    ax.set_title(panel_title, fontsize=9)
+    return panel_title
+
+
+def _slug(title):
+    return re.sub(r"_+", "_", re.sub(r"[^a-z0-9]+", "_", title.lower())).strip("_")
+
+
+def figure(rows, n_gens, chart_number, media="minimal"):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3, "font.size": 9})
+
+    t = np.array([r["t_cum"] for r in rows]) / 60.0
+    n_agents = np.array([r["n_agents"] for r in rows])
+
+    def tot(key):
+        return np.array([r[f"{key}_total"] for r in rows])
+
+    panels, cumulative_overlay, overlay_regulatory, overlay_cascade = _panel_spec()
 
     n_cols = 4
     n_rows = -(-len(panels) // n_cols)
@@ -357,48 +428,8 @@ def figure(rows, n_gens, media="minimal"):
     used_axes = list(axes_flat)[:len(panels)]
 
     for ax, (panel_title, key) in zip(used_axes, panels):
-        if key == "__agents__":
-            ax.plot(t, n_agents, "-o", ms=2, color="#2ca02c")
-            ax.set_ylabel("n_agents")
-        elif key == "__dry_mass__":
-            ax.plot(t, np.array([r["dry_mass_mean"] for r in rows]), "-o", ms=2, color="#1f77b4")
-            ax.set_ylabel("fg")
-        elif panel_title == "__overlay_regulatory__":
-            for k in overlay_regulatory:
-                ax.plot(t, tot(k), color=COLORS[k], label=TRACK_IDS.get(k, k))
-            ax.set_ylabel("count"); ax.legend(fontsize=7)
-            panel_title = "FliA / FlgM overlaid, population totals"
-        elif panel_title == "__overlay_cascade__":
-            for k in overlay_cascade:
-                label = {"export_apparatus_subunit_internal": "export apparatus subunit (internal)",
-                         "rod_internal": "rod (internal)",
-                         "rod_p_ring_internal": "rod+P-ring (internal)",
-                         "hook_internal": "hook (internal)",
-                         "flagella_internal_cumulative": "hook-basal-body complete (internal)",
-                         "n_nascent": "nascent_flagellum"}.get(k, TRACK_IDS.get(k, k))
-                ax.plot(t, tot(k), "-o", ms=2, color=COLORS[k], label=label)
-            ax.set_ylabel("count"); ax.legend(fontsize=6, ncol=2)
-            panel_title = "Assembly cascade, overlaid, population totals"
-        elif panel_title == "__filament__":
-            _plot_filament_panel(ax, rows)
-            panel_title = "Per-filament elongation (population-wide, one line per filament)"
-        elif panel_title == "__complete_flagella__":
-            # "mean per agent" line removed 2026-08-27 (Maya's request) -- kept
-            # per standing preserve-old-code rule:
-            # ax.plot(t, np.array([r["flag_mean"] for r in rows]), "-s", ms=2,
-            #         color="#9467bd", label="mean per agent")
-            ax.plot(t, tot("CPLX0-7452[j]"), "-o", ms=2, color="#d62728")
-            ax.set_ylabel("count")
-            panel_title = "Complete flagella — population aggregate"
-        elif key in _cumulative_overlay:
-            ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"), label="live count")
-            ax.plot(t, tot(_cumulative_overlay[key]), "-o", ms=2, color="#7f7f7f",
-                    ls="--", label="cumulative (ever formed)")
-            ax.set_ylabel("count"); ax.legend(fontsize=6)
-        else:
-            ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"))
-            ax.set_ylabel("count")
-        ax.set_title(panel_title, fontsize=9)
+        _render_panel(ax, panel_title, key, rows, t, n_agents, tot,
+                      cumulative_overlay, overlay_regulatory, overlay_cascade)
 
     # Division markers (2026-09-01, Maya's request): vertical dashed line
     # on every panel at each real division, so jumps/dips read directly
@@ -437,21 +468,54 @@ def figure(rows, n_gens, media="minimal"):
                  f"(real division, BOTH daughters kept) — does completion keep up at the "
                  f"population level?")
     fig.tight_layout(rect=(0, 0, 1, 0.97))
-    # Auto-number the output (2026-08-25): used to be a fixed "26_..."
-    # path regardless of seed/cache/media, so every run silently clobbered
-    # the last (confirmed: a 6-seed stress test overwrote its own plot 5
-    # times, and clobbered a git-committed chart of the same name). Every
-    # run now gets its own never-reused chart number.
     charts_dir = f"{STUDY_DIR}/charts"
     os.makedirs(charts_dir, exist_ok=True)
-    existing = [int(m.group(1)) for f in os.listdir(charts_dir)
-                if (m := re.match(r"^(\d+)_", f))]
-    next_n = max(existing, default=0) + 1
-    out = f"{charts_dir}/{next_n}_nfsim_population_multigen_{n_gens}gen_{media}.svg"
+    out = f"{charts_dir}/{chart_number}_nfsim_population_multigen_{n_gens}gen_{media}.svg"
     fig.savefig(out, format="svg", bbox_inches="tight")
     plt.close(fig)
     print("wrote", out)
     return out
+
+
+def figure_panels(rows, n_gens, chart_number, media="minimal"):
+    """Same panels as figure(), but each saved as its own standalone file
+    -- every one gets its own full, visible x-axis (time (min)), since
+    cropping an individual panel out of the shared-x-axis grid in
+    figure() loses the axis labels on every row but the bottom one.
+    Added 2026-09-16 (Maya's request, for pulling individual panels into
+    slides), matching run_nfsim_lineage_multigen.py's figure_panels().
+    Saved to charts/{chart_number}_panels/."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3, "font.size": 10})
+
+    t = np.array([r["t_cum"] for r in rows]) / 60.0
+    n_agents = np.array([r["n_agents"] for r in rows])
+
+    def tot(key):
+        return np.array([r[f"{key}_total"] for r in rows])
+
+    panels, cumulative_overlay, overlay_regulatory, overlay_cascade = _panel_spec()
+    division_times = t[1:][n_agents[1:] > n_agents[:-1]]
+
+    panels_dir = f"{STUDY_DIR}/charts/{chart_number}_panels"
+    os.makedirs(panels_dir, exist_ok=True)
+    written = []
+    for panel_title, key in panels:
+        fig, ax = plt.subplots(figsize=(6.0, 4.2))
+        display_title = _render_panel(ax, panel_title, key, rows, t, n_agents, tot,
+                                       cumulative_overlay, overlay_regulatory, overlay_cascade)
+        for dt_div in division_times:
+            ax.axvline(dt_div, color="#555555", ls=":", lw=1, alpha=0.6, zorder=0)
+        ax.set_xlabel("time (min)")
+        fig.tight_layout()
+        out = f"{panels_dir}/{_slug(display_title)}.svg"
+        fig.savefig(out, format="svg", bbox_inches="tight")
+        plt.close(fig)
+        written.append(out)
+    print(f"wrote {len(written)} individual panels to {panels_dir}")
+    return written
 
 
 def main():
@@ -473,7 +537,13 @@ def main():
     rows = run_population(args.generations, args.sample, args.seconds_cap, args.seed,
                            args.cache_dir, args.max_agents, nfsim_interval=args.nfsim_interval,
                            media=args.media)
-    figure(rows, args.generations, media=args.media)
+    charts_dir = f"{STUDY_DIR}/charts"
+    os.makedirs(charts_dir, exist_ok=True)
+    existing = [int(m.group(1)) for f in os.listdir(charts_dir)
+                if (m := re.match(r"^(\d+)_", f))]
+    chart_number = max(existing, default=0) + 1
+    figure(rows, args.generations, chart_number, media=args.media)
+    figure_panels(rows, args.generations, chart_number, media=args.media)
     last = rows[-1]
     print(f"\nFINAL (t_cum={last['t_cum']:.0f}s / {last['t_cum']/60:.0f}min): "
           f"n_agents={last['n_agents']}  flag_total={last['flag_total']:.0f}  "
@@ -485,6 +555,16 @@ def main():
     for aid, stats in last["per_agent"].items():
         print(f"    agent '{aid}': flag={stats['flag']} n_nascent={stats['n_nascent']} "
               f"max_len={stats['max_len']} dry_mass={stats['dry_mass']:.1f}fg")
+
+    # TEMPORARY DIAGNOSTIC (2026-09-17) -- dump free FliF total/mean over
+    # time to check the division-halves-FliF-below-calibration-reference
+    # hypothesis for the C-ring nucleation drought. Remove after diagnosis.
+    print("\n[DIAGNOSTIC] free FliF (total across agents / mean per agent) over time "
+          "-- REAL_AMBIENT_MONOMER_COUNTS reference = 657:")
+    for r in rows:
+        print(f"    t_cum={r['t_cum']:.0f}s ({r['t_cum']/60:.1f}min)  n_agents={r['n_agents']}  "
+              f"FliF_total={r['FLIF-FLAGELLAR-MS-RING[i]_total']:.0f}  "
+              f"FliF_mean={r['FLIF-FLAGELLAR-MS-RING[i]_mean']:.1f}")
 
 
 if __name__ == "__main__":

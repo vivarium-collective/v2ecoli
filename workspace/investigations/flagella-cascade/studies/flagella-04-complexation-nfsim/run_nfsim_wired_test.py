@@ -1,5 +1,5 @@
 """Real, fully-wired test of flagella_nfsim_complexation inside the real
-ecoli_baseline composite (NFSIM_WCM_WIRING_PLAN.md step 3, final piece).
+ecoli_baseline composite.
 
 Added 2026-08-16, Maya Abdalla's flagella-cascade investigation.
 

@@ -55,7 +55,7 @@ from process_bigraph.emitter import RAMEmitter
 STUDY_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Ordered assembly chain (coarse stages, in assembly order).
-# RENAMED 2026-08-12 (NFSIM_WCM_WIRING_PLAN.md step 1): observable names now
+# RENAMED 2026-08-12: observable names now
 # match the real v2ecoli bulk molecule IDs the model was renamed to use
 # (CPLX0-7451[j] -> CPLX0_7451_j, etc. -- see generate_flagella_bngl.py's
 # _safe_name()). Old placeholder names kept as comments per standing

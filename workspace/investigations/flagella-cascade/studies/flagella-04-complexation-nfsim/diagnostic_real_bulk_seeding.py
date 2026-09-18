@@ -1,5 +1,5 @@
-"""Step 2 of NFSIM_WCM_WIRING_PLAN.md: does NFsim work seeded from the REAL
-WCM bulk pool, with NO synthetic MonomerProduction feed at all?
+"""Does NFsim work seeded from the REAL WCM bulk pool, with NO synthetic
+MonomerProduction feed at all?
 
 Added 2026-08-12, Maya Abdalla's flagella-cascade investigation.
 

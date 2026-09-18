@@ -1,6 +1,6 @@
-"""Step 3 of NFSIM_WCM_WIRING_PLAN.md: test FlagellaNFsimComplexation (the
-new real-bulk-coupled v2ecoli Step) directly against a live composite's real
-bulk store -- two-way coupling, not the read-only diagnostic from step 2.
+"""Test FlagellaNFsimComplexation (the new real-bulk-coupled v2ecoli Step)
+directly against a live composite's real bulk store -- two-way coupling,
+not the read-only diagnostic from diagnostic_real_bulk_seeding.py.
 
 Added 2026-08-12, Maya Abdalla's flagella-cascade investigation.
 

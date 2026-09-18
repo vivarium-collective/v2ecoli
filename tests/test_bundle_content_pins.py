@@ -36,15 +36,26 @@ EXPECTED_SHA256 = {
     # they were unpinned. They also drive the genotype-card condition count
     # (len(condition_defs) + 2*len(tf_condition)); pin them so a data change is
     # caught here rather than silently shifting graded references downstream.
+    # Re-pinned 2026-09-14 merging origin/main: main bumped the ecoli-sources
+    # dependency pin itself (840bc973 -> 86607c4d), which changed BOTH of
+    # these files' real content -- verified directly against that exact git
+    # revision (shallow clone + sha256), not trusted from either side's pin
+    # or this venv's not-yet-synced installed copy. ecoli-sources f76dd55b
+    # (#18, 2026-09-10): minimal_plus_tryptophan became the finite MIX0-57
+    # x0.9 + TRP_supplement x0.1 recipe (was TRP [Infinity]) -- a deliberate
+    # data change, matching the vEcoli-private reference.
     "condition__condition_defs": "5d71324e95ef9794f130667e2d033539a3ffc7c747c5b5f7d10d5476640149cd",
-    # ecoli-sources f76dd55b (#18, 2026-09-10): minimal_plus_tryptophan became the
-    # finite MIX0-57 x0.9 + TRP_supplement x0.1 recipe (was TRP [Infinity]) --
-    # a deliberate data change, matching the vEcoli-private reference.
     "condition__media_recipes": "7f144f3c6498ef09c169894f0ef83f99018ed7c67fcbf45947e774b7daa51db8",
     "condition__tf_condition": "fbcfbefdcffde74a380b13c1cf0b4c7d2cab28b312a7cb7b841459bc18460099",
-    # v2ecoli local overrides (diverged biology, must win):
-    "equilibrium_reactions": "836a0acb5bb347c474e7cfc63ee3599a91baa35d7bb7e9b4da45b0f09933080a",
-    "equilibrium_reaction_rates": "554add4a8e94ab2bdda0d878d0998fa62974c056e9cbbd1e99154c90bea7b7f9",
+    # v2ecoli local overrides (diverged biology, must win). Re-pinned 2026-09-04
+    # merging origin/main: both branches had independently changed these two
+    # files (this branch: flagella-cascade's FLGM-FLIA-CPLX_RXN row, FlgM
+    # anti-sigma sequestration of FliA/sigma28; main: an unrelated upstream
+    # change) -- neither side's pinned hash reflected the merged content, so
+    # these are freshly computed directly against the post-merge working tree
+    # files, not copied from either side of the conflict.
+    "equilibrium_reactions": "d10247d4dfc31da7d0293aa3bd2d16bbf2493891693b83435718384f0404febb",
+    "equilibrium_reaction_rates": "74c7216898625b1d616d814aeb254489c7ede6ced6cc6529aecfab573a225fb1",
     "metabolic_reactions_added": "97765aafda3c76445caedb887f96ec874a0defa7004d94e1083e89dcf68b0271",
 }
 

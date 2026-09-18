@@ -356,8 +356,8 @@ class SingleCellXArrayEmitter(Emitter):
         self._leaf_key_paths: list | None = None
         # Declared bulk molecule ids to surface as scalar observables under
         # listeners.observable_bulk.<id> (the two-arm comparison's bulk KPI hook —
-        # e.g. VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] drug-target
-        # complex). Emitting under the `listeners` root reuses the existing view
+        # e.g. a secreted-product titer or a drug-target complex). Emitting under
+        # the `listeners` root reuses the existing view
         # machinery and gives BOTH engines an identical path to compare on.
         self._obs_bulk_ids: list = list(config.get("observable_bulk_ids") or [])
 
@@ -1167,7 +1167,7 @@ def _build_batch_document(
         "media": media,
         "independent_founders": independent_founders,
         "founder_sim_data": founder_sim_data,
-        # Per-cell biological build kwargs (metabolism-redux/violacein swap,
+        # Per-cell biological build kwargs (metabolism-redux swap,
         # feature toggles, exchange-flux readouts, PDMP initiation modes).
         # WITHOUT these in the runner config they never reach build_workflow_config
         # -> _lineage_node -> each generation's baseline() build, so an injected
@@ -1638,7 +1638,7 @@ WCM_PARAMETERS = {
 # a batch when it is set to a non-default value. This makes it structurally
 # impossible for a new baseline() kwarg to be silently dropped in batch mode —
 # the exact defect that dropped `injected_processes` and degraded an injected
-# metabolism-redux/violacein batch to a basal FBA lineage (pipeline audit).
+# metabolism-redux batch to a basal FBA lineage (pipeline audit).
 _BATCH_FORWARDED_PARAMETERS = frozenset({
     # Dispatch switches (consumed by the batch/lineage routing itself).
     "n_seeds", "n_generations", "stop_at_division",

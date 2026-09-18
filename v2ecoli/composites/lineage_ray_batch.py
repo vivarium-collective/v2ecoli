@@ -136,8 +136,8 @@ from v2ecoli.workflow.batch_lineage_ray import (
             "type": "object",
             "default": None,
             "description": (
-                "Item 106: exchange-species-to-flux-column map (e.g. {'violacein_exchange': "
-                "'VIOLACEIN', 'glucose_exchange': 'GLC'}), threaded verbatim into each lineage's "
+                "Item 106: exchange-species-to-flux-column map (e.g. {'product_exchange': "
+                "'PRODUCT', 'glucose_exchange': 'GLC'}), threaded verbatim into each lineage's "
                 "own LineageProcess config -- already-supported by ecoli_baseline.baseline()/"
                 "LineageProcess, only unexposed at this thin wrapper until now. Needed to get a "
                 "real product-exchange-flux column out of a batch run rather than only raw state."

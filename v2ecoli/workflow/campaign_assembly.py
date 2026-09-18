@@ -18,7 +18,7 @@ silently short store.
 
 Domain-agnostic by construction: the caller passes which ``columns`` to carry (the
 reduced-column memory win is theirs to spend) and any ``computed_columns`` (per-store SQL,
-e.g. a metric reconstruction). Nothing here knows about violacein, antibiotics, or any
+e.g. a metric reconstruction). Nothing here knows about any product, antibiotic, or any
 specific card — ``combine_run4_fss`` and the antibiotic combines become thin callers.
 
 Cumulative ``lineage_time`` is intentionally NOT materialised here: it is a per-scale

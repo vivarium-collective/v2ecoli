@@ -89,11 +89,11 @@ class StudySpec:
     exchange_fluxes: dict = dc_field(default_factory=dict)  # {leaf: exchange_key}
                                     # metabolic exchange fluxes to emit onto
                                     # listeners.exchange_flux.<leaf> on BOTH arms
-                                    # (e.g. the violacein card's rate/yield inputs)
+                                    # (e.g. a product card's rate/yield inputs)
     observable_bulk_ids: list = dc_field(default_factory=list)  # bulk molecule ids
                                     # to grade as config-specific KPIs, emitted on
                                     # BOTH arms under listeners.observable_bulk.<id>
-                                    # (violacein titer, antibiotic drug-target complex)
+                                    # (a secreted-product titer, an antibiotic drug-target complex)
 
     @property
     def graded_cards(self) -> list:

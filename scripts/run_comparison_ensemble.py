@@ -774,7 +774,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     exchange_fluxes = dict(exchange_fluxes or {})
     observables = list(observables or [])
     # Bulk molecule ids to grade as config-specific KPIs — emitted on BOTH arms
-    # under listeners.observable_bulk.<id> (violacein titer, drug-target complex).
+    # under listeners.observable_bulk.<id> (a secreted-product titer, a drug-target complex).
     observable_bulk_ids = list(observable_bulk_ids or [])
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
@@ -1212,8 +1212,8 @@ def main(argv=None):
                    help="Emit a metabolic exchange flux onto "
                         "listeners.exchange_flux.<leaf> on BOTH arms, read from "
                         "environment.exchange[<exchange_key>] (e.g. "
-                        "glucose_exchange=GLC[p]). Repeatable. The violacein card "
-                        "reads these leaves.")
+                        "glucose_exchange=GLC[p]). Repeatable. The product-KPI cards "
+                        "read these leaves.")
     p.add_argument("--exchange-flux-basis", default="counts",
                    choices=["counts", "gdcw"],
                    help="WHICH QUANTITY the --exchange-flux leaves carry, on "
@@ -1237,8 +1237,8 @@ def main(argv=None):
                    metavar="MOLECULE_ID",
                    help="Emit a bulk molecule count as a config-specific KPI on "
                         "BOTH arms, under listeners.observable_bulk.<id> (e.g. "
-                        "VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] "
-                        "drug-target complex). Repeatable. Graded by the "
+                        "a secreted-product titer or a drug-target complex). "
+                        "Repeatable. Graded by the "
                         "bulk-aware comparison cards.")
     # ⭐ CHAIN STAGE — a later stage of a staged-induction run. All four default
     # to a strict no-op (a fresh, single-stage lineage), so an ordinary run is

@@ -187,7 +187,7 @@ def _build_reactor_bird_coupled(
     # dispatch per Chris's own exact spec, sms-ecoli#210): the composite has
     # accepted both since it gained them (initial_ammonium_mM alongside
     # initial_glucose_mM; injected_processes for the metabolism_redux swap that
-    # lets the violacein pathway's secretion reach the reactor) -- this runner
+    # lets the product pathway's secretion reach the reactor) -- this runner
     # just never threaded them through. initial_ammonium_mM is float-typed on
     # the composite (no None sentinel there, unlike initial_glucose_mM's own
     # MBP_04-specific override) -- omit the kwarg entirely rather than pass

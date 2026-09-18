@@ -568,7 +568,7 @@
       <p class="ctr-text"></p>
       
       <div class="ctr-meta">
-        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>metabolism_redux_acetate</code></div>
+        <div class="ctr-meta-row"><span class="ctr-meta-k">Model</span> <code>ecoli_baseline</code>, <code>vecoli</code></div>
         <div class="ctr-meta-row"><span class="ctr-meta-k">Measures</span> <span class="ctr-meta-item">summary-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">parca-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">statistical-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">standard-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">trajectory-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">distribution-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">metabolism-vs-vecoli</span><span class="ctr-dot">·</span><span class="ctr-meta-item">composition-vs-vecoli</span></div>
       </div>
       
@@ -681,7 +681,7 @@
     
     <div class="cond-block" data-model-composite="v2ecoli.composites.ecoli_baseline.ecoli_baseline" data-model-overrides='{"condition": "acetate", "swap": "ecoli-metabolism-redux"}'>
       <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <strong>metabolism_redux_acetate</strong>
+        <strong>ecoli_baseline</strong>
         
         <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.ecoli_baseline.ecoli_baseline</code>
         <button type="button" class="action-btn" style="font-size:0.8em"
@@ -690,13 +690,13 @@
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="metabolism_redux_acetate"
+        <input type="text" class="baseline-composite-input" data-baseline-name="ecoli_baseline"
                value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
-                data-baseline-name="metabolism_redux_acetate">Set composite</button>
+                data-baseline-name="ecoli_baseline">Set composite</button>
       </div>
-      <div class="baseline-composite-status muted" data-baseline-name="metabolism_redux_acetate" style="font-size:0.8em;margin-top:2px"></div>
+      <div class="baseline-composite-status muted" data-baseline-name="ecoli_baseline" style="font-size:0.8em;margin-top:2px"></div>
       
       
       
@@ -707,6 +707,41 @@
       
         
       
+      
+      
+      
+      <div class="model-config-mount" style="margin-top:8px">
+        <p class="muted" style="font-size:0.85em;margin:0">Loading configuration…</p></div>
+      
+      
+      
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:0.8em">
+        
+        
+        
+        <span class="cond-pill"><span class="cond-pill-k">status</span>=completed</span>
+      </div>
+      
+    </div>
+    
+    <div class="cond-block" data-model-composite="v2ecoli.composites.vecoli.vecoli" data-model-overrides='{"cache_dir": "out/compare_harness/vecoli_parca", "condition": "acetate"}'>
+      <div class="cond-block-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <strong>vecoli</strong>
+        
+        <code style="font-size:0.82em;color:#374151;background:#f1f5f9;padding:1px 6px;border-radius:3px">v2ecoli.composites.vecoli.vecoli</code>
+        <button type="button" class="action-btn" style="font-size:0.8em"
+                onclick="_openCompositeLoom('v2ecoli.composites.vecoli.vecoli')">🧬 explore &amp; run ↗</button>
+        
+      </div>
+      
+      <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
+        <input type="text" class="baseline-composite-input" data-baseline-name="vecoli"
+               value="v2ecoli.composites.vecoli.vecoli" placeholder="pkg.composites.name"
+               style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
+        <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
+                data-baseline-name="vecoli">Set composite</button>
+      </div>
+      <div class="baseline-composite-status muted" data-baseline-name="vecoli" style="font-size:0.8em;margin-top:2px"></div>
       
       
       
@@ -4564,7 +4599,7 @@ expect:  null</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "8348b920213faa34a020d8c008b29d915edc0e92", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/8348b920213faa34a020d8c008b29d915edc0e92", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-16 17:00 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "011abb873b6bc8d66e3dc926cc6867bd17bb0979", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/011abb873b6bc8d66e3dc926cc6867bd17bb0979", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-18 18:06 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "metabolism_redux_acetate";
@@ -4593,10 +4628,10 @@ function _saveExpertInput(studyName, eiName, btn) {
   flash.className = 'cond-ei-flash';
   flash.style.display = '';
   flash.textContent = 'saving…';
-  fetch('/api/study-expert-input-set', {
-    method: 'POST',
+  fetch('/api/study/' + encodeURIComponent(studyName), {
+    method: 'PATCH',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({study: studyName, name: eiName, current: val}),
+    body: JSON.stringify({expert_input: {name: eiName, current: val}}),
   }).then(function(r) {
     return r.text().then(function(t) { return {ok: r.ok, status: r.status, body: t}; });
   }).then(function(res) {

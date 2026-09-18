@@ -3957,6 +3957,15 @@
     var entries = vizEntries || [];
     var analyses = entries.filter(function(c) { return c.kind === 'analysis'; })
       .map(function (c) { return { name: c.name, address: c.address, description: c.doc || '', kind: 'analysis', source: 'framework' }; });
+    // Merge the address-classified workspace analyses (kind=step under ….analyses.…,
+    // which /api/visualization-classes doesn't enumerate) so they render in the
+    // Analyses tab instead of Processes. Dedupe by name (viz-classes entry wins).
+    var _seenA = {};
+    analyses.forEach(function (a) { _seenA[(a.name || '').trim()] = true; });
+    (window._addrClassifiedAnalyses || []).forEach(function (a) {
+      var nm = (a.name || '').trim();
+      if (nm && !_seenA[nm]) { _seenA[nm] = true; analyses.push(a); }
+    });
     var cards    = entries.filter(function(c) { return c.kind === 'report_card' || c.kind === 'test'; });
     var vizzes   = entries.filter(function(c) { var k = c.kind; return k !== 'analysis' && k !== 'report_card' && k !== 'test'; });
 
@@ -4183,14 +4192,38 @@
         // Processes and Steps share one "Processes" tab — both are Processes
         // (edges); each card/row is badged Temporal vs Step (_procKindBadge).
         var procsAndSteps = byKind.process.concat(byKind.step);
+        // Analysis/visualization classes are mechanically Steps (they subclass
+        // Step), so build_core reports them as kind=step and they'd otherwise pile
+        // into the Processes tab even though they each have their own tab. Route
+        // them by the module-path convention (….analyses.… / ….visualizations.…)
+        // so a class shows under exactly one tab; genuine processes/steps stay put.
+        // (/api/visualization-classes only enumerates framework analyses, not the
+        // workspace's own sms_modules.analyses.* — hence the path-based split here.)
+        var _addrCat = function (e) {
+          var s = '.' + String(e.address || '').toLowerCase() + '.';
+          if (s.indexOf('.analyses.') >= 0 || s.indexOf('.analysis.') >= 0) return 'analysis';
+          if (s.indexOf('.visualizations.') >= 0 || s.indexOf('.visualization.') >= 0) return 'visualization';
+          return 'process';
+        };
+        var realProcs = [], addrAnalyses = [], addrViz = [];
+        procsAndSteps.forEach(function (p) {
+          var c = _addrCat(p);
+          if (c === 'analysis') addrAnalyses.push(Object.assign({}, p, {kind: 'analysis'}));
+          else if (c === 'visualization') addrViz.push(p);
+          else realProcs.push(p);
+        });
+        byKind.visualization = byKind.visualization.concat(addrViz);
+        // Stashed for _enrichRegistryWithVizClasses to merge into the Analyses tab
+        // (deduped by name) alongside the /api/visualization-classes analyses.
+        window._addrClassifiedAnalyses = addrAnalyses;
         window._registryByKind = {
-          'registry-processes-container': procsAndSteps,
+          'registry-processes-container': realProcs,
           'registry-emitters-container': byKind.emitter,
           'registry-visualizations-container': byKind.visualization,
           'registry-report_cards-container': byKind.report_card,
         };
         // Render tabbed Registry browser (Registry page).
-        _renderRegistryGrid('registry-processes-container', procsAndSteps);
+        _renderRegistryGrid('registry-processes-container', realProcs);
         _renderRegistryGrid('registry-emitters-container', byKind.emitter);
         window._registryVizEntries = byKind.visualization;
         _renderRegistryGrid('registry-visualizations-container', byKind.visualization);
@@ -4219,7 +4252,7 @@
             ? total + ' total'
             : wsCount + ' from this workspace, ' + (total - wsCount) + ' from environment';
         };
-        setCount('registry-process-count', procsAndSteps);
+        setCount('registry-process-count', realProcs);
         setCount('registry-emitter-count', byKind.emitter);
         setCount('registry-visualization-count', byKind.visualization);
         setCount('registry-report_card-count', byKind.report_card);
@@ -5726,15 +5759,18 @@
     Object.keys(byRepo).forEach(function (k) {
       var b = byRepo[k], c = b._cat;
       if (!b._fromArtifacts && c) {
+        b.process = c.n_processes || 0;
         b.composite = c.n_composites || 0;
         b.study = c.n_studies || 0;
         b.investigation = c.n_investigations || 0;
         b.total = b.process + b.composite + b.study + b.investigation;
         b.use = c.n_used || 0;
       }
-      // Affected studies = this workspace's OWN studies that depend on the repo
-      // (module_stats.n_used — deep, via composite→process usage). The real
-      // "what breaks if I uninstall" signal, distinct from total artifact uses.
+      // Affected studies = studies that depend on / use this repo — this
+      // workspace's OWN studies AND linked (federated) workspaces' studies
+      // (module_stats.n_used — deep, via composite→process usage + bare-name/
+      // alias attribution). The real "what breaks if I uninstall" signal,
+      // distinct from total artifact uses.
       b.affected = (c && typeof c.n_used === 'number') ? c.n_used : 0;
       if (!b.url) b.url = _marketRepoUrl(b.repo);
     });
@@ -5793,7 +5829,7 @@
   function _repoFoot(b) {
     var meta = [];
     if (b.total) meta.push(b.total + ' artifact' + (b.total === 1 ? '' : 's'));
-    if (b.affected) meta.push('<span title="studies in your investigations that depend on this repo"><b>' + b.affected + '</b> affected stud' + (b.affected === 1 ? 'y' : 'ies') + '</span>');
+    if (b.affected) meta.push('<span title="Studies that depend on / use this repository (in this workspace and linked workspaces)"><b>' + b.affected + '</b> affected stud' + (b.affected === 1 ? 'y' : 'ies') + '</span>');
     return '<div class="repo-card-foot"><span class="repo-meta">' + (meta.join(' · ') || '&nbsp;') + '</span>'
       + _repoActions(b) + '</div>';
   }
@@ -5831,11 +5867,11 @@
       + '<th class="repo-th" style="width:100px">Processes</th>'
       + '<th class="repo-th" style="width:100px">Composites</th>'
       + '<th class="repo-th" style="width:90px">Studies</th>'
-      + '<th class="repo-th" style="width:130px" title="Studies in your investigations that depend on this repo">Affected studies</th>'
+      + '<th class="repo-th" style="width:130px" title="Studies that depend on / use this repository (in this workspace and linked workspaces)">Affected studies</th>'
       + '<th class="repo-th" style="width:190px"></th></tr>';
     var body = repos.map(function (b) {
       var aff = b.affected
-        ? '<span class="repo-affected" title="studies in your investigations that depend on this repo">' + b.affected + '</span>'
+        ? '<span class="repo-affected" title="Studies that depend on / use this repository (in this workspace and linked workspaces)">' + b.affected + '</span>'
         : '<span class="repo-td-zero">—</span>';
       return '<tr class="repo-tr">'
         + '<td class="market-td-name">📦 ' + _esc(_vivaLabel(b.display_name || b.repo))
@@ -9020,7 +9056,10 @@
           if (!p[0]) { errEl.textContent = p[1].error || 'Create failed.'; return; }
           var created = (p[1] && p[1].name) || name;
           // Seed the question on the scaffolded study (best-effort).
-          post('/api/study-narrative-set', { study: created, path: 'purpose.question', value: prompt })
+          fetch('/api/study/' + encodeURIComponent(created), {
+            method: 'PATCH', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ narrative: { path: 'purpose.question', value: prompt } }),
+          })
             .catch(function () {}).then(function () {
               closeModal('modal-browse-create');
               window._investigationsLoaded = false;
@@ -9317,10 +9356,10 @@
   function _setInvestigationStatus(btn, name, status) {
     var orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '…'; }
-    fetch('/api/investigation-set-status', {
-      method: 'POST',
+    fetch('/api/investigation/' + encodeURIComponent(name), {
+      method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({investigation: name, status: status}),
+      body: JSON.stringify({status: status}),
     })
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function() {
@@ -13253,12 +13292,12 @@
   }
 
   function _saveOverviewField(invName, key, value) {
-    var body = { investigation: invName, fields: {} };
-    body.fields[key] = value;
-    fetch('/api/investigation-set-overview', {
-      method: 'POST',
+    var overview = {};
+    overview[key] = value;
+    fetch('/api/investigation/' + encodeURIComponent(invName), {
+      method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(body),
+      body: JSON.stringify({overview: overview}),
     })
       .then(function(r) {
         if (!r.ok) {
@@ -13312,10 +13351,10 @@
     var invName = window._currentInvestigation;
     if (!invName) return;
     var blob = _emitConclusionsBlob();
-    fetch('/api/investigation-set-conclusions', {
-      method: 'POST',
+    fetch('/api/investigation/' + encodeURIComponent(invName), {
+      method: 'PATCH',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({investigation: invName, markdown: blob}),
+      body: JSON.stringify({conclusions: blob}),
     })
       .then(function(r) {
         if (!r.ok) return r.json().then(function(j) { alert(j.error || 'save failed'); });
@@ -14347,9 +14386,9 @@
       document.querySelectorAll('#inv-observables-tree input[type=checkbox][data-path]:checked')
         .forEach(function(cb) { paths.push(cb.dataset.path.split('.')); });
     }
-    fetch('/api/investigation-set-observables', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({investigation: invName, paths: paths, emit_all: emitAll}),
+    fetch('/api/investigation/' + encodeURIComponent(invName), {
+      method: 'PATCH', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({observables: paths, emit_all: emitAll}),
     }).then(function(r) { return r.json().then(function(j) { return [r.ok, j]; }); })
       .then(function(parts) {
         var status = document.getElementById('inv-observables-status');

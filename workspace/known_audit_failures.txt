@@ -27,6 +27,20 @@ param-uq-04-deep-params:params-are-generator-accepted     # `transcription.rnap_
 # --- schema: multi-baseline needs a human decision (1) ---
 mbp-07-millard-kinetic-metabolism:canonical-model-schema  # multi_baseline_needs_human
 
+# --- whole-cell-model-comparison two-arm (candidate ecoli_baseline + vecoli reference); user decision ---
+acetate:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+basal:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+no_oxygen:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+succinate:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+with_aa:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+metabolism_redux_acetate:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+metabolism_redux_basal:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+metabolism_redux_no_oxygen:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+metabolism_redux_succinate:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+metabolism_redux_with_aa:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+statistical:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+parca:canonical-model-schema  # multi_baseline_needs_human (WCM-comparison two-arm; user decision)
+
 # --- composites: WIP investigations referencing absent packages (6) ---
 # The pdmp investigation is WIP (de-slopped; no study met gate). Its composites
 # come from packages not installed in CI (v2ecoli_pdmp.*, pbg_copasi) or that

@@ -1,14 +1,13 @@
 """Flagellar complexation via NFsim -- real bulk-coupled wrapper.
 
-Added 2026-08-12, Maya Abdalla's flagella-cascade investigation,
-NFSIM_WCM_WIRING_PLAN.md step 3.
+Added 2026-08-12, Maya Abdalla's flagella-cascade investigation.
 
 Wraps ``pbg_nfsim.processes.NFSimProcess`` (scaffold-persistence-fixed,
 vivarium-collective/viva-nfsim#2) as a real v2ecoli Step: reads real WCM
 bulk counts each firing, feeds them to NFsim as observables, runs
 NFsim's own chunked ``update()``, writes deltas back to bulk, and
 carries ``scaffold_species`` forward via a persistent state port -- the
-mechanism proven in ``diagnostic_real_bulk_seeding.py`` (step 2), now
+mechanism proven in ``diagnostic_real_bulk_seeding.py``, now
 two-way-coupled instead of read-only.
 
 Two kinds of state persist across firings:
@@ -36,10 +35,9 @@ BioNetGen subprocess every 2s tick would be far too slow wall-clock.
 Default interval matches this investigation's standalone NFsim runs
 (1200s).
 
-NOT yet wired into ecoli_baseline.py's flagella_regulation feature (the
-LAST step in NFSIM_WCM_WIRING_PLAN.md's rollout, behind its own sub-flag
-so the existing custom-Steps pipeline stays selectable) -- tested
-standalone against a real composite first.
+NOT yet wired into ecoli_baseline.py's flagella_regulation feature (behind
+its own sub-flag so the existing custom-Steps pipeline stays selectable)
+-- tested standalone against a real composite first.
 """
 import importlib.util
 import os
@@ -122,7 +120,7 @@ _CUMULATIVE_TRACKED_REAL_IDS = (
 class FlagellaNFsimComplexation(Step):
     """Real-bulk-coupled NFsim complexation Step (motor-switch through
     hook-basal-body-complete), replacing the custom deterministic assembly
-    Steps 1-4 per NFSIM_WCM_WIRING_PLAN.md."""
+    Steps."""
 
     description = (
         "FlagellaNFsimComplexation -- runs the NFsim rule-based reaction "

@@ -576,22 +576,20 @@ FEATURE_MODULES = {
     # infrastructure, reused as-is by both pipelines, not deterministic-
     # assembly-specific.
     #
-    # NFsim-based complexation (added 2026-08-16, NFSIM_WCM_WIRING_PLAN.md
-    # step 3): replaces the deterministic assembly Steps that used to live
-    # above (motor-switch, export-apparatus, motor-complex, filament-
-    # nucleation -- archived 2026-08-21, see
-    # archive/deterministic-flagella-assembly-2026-08/) with the NFsim
-    # rule-based reaction network (flagella_nfsim_complexation.py).
-    # filament-elongation, flgm-secretion, and transcription-regulation are
-    # UNCHANGED and reused as-is -- they only read/write real bulk molecule
-    # counts and don't care which mechanism produced them (see
-    # NFSIM_WCM_WIRING_PLAN.md's "key simplifying insight").
+    # NFsim-based complexation (added 2026-08-16): replaces the
+    # deterministic assembly Steps that used to live above (motor-switch,
+    # export-apparatus, motor-complex, filament-nucleation -- archived
+    # 2026-08-21, see archive/deterministic-flagella-assembly-2026-08/)
+    # with the NFsim rule-based reaction network
+    # (flagella_nfsim_complexation.py). filament-elongation, flgm-secretion,
+    # and transcription-regulation are UNCHANGED and reused as-is -- they
+    # only read/write real bulk molecule counts and don't care which
+    # mechanism produced them.
     #
     # This is now the only flagellar-assembly pipeline in the repo. Not yet
     # the default (opt-in via enable_features('flagella_nfsim_complexation'))
-    # while NFsim's own calibration (monomer coupling already real via step
-    # 2; nucleation rate scaling still a single global constant, see
-    # NFSIM_WCM_WIRING_PLAN.md step 2's "RESOLVED" note) matures.
+    # while NFsim's own calibration matures (monomer coupling already real;
+    # nucleation rate scaling still a single global constant).
     'flagella_nfsim_complexation': {
         'insert_before': 'ecoli-transcript-initiation',
         'before_steps': [

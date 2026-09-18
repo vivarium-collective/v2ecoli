@@ -961,9 +961,7 @@ class LoadSimData:
         """Config for the NFsim-based flagellar complexation Step.
 
         Added 2026-08-16 -- see
-        v2ecoli/processes/flagella_nfsim_complexation.py and
-        workspace/investigations/flagella-cascade/studies/
-        flagella-04-complexation-nfsim/NFSIM_WCM_WIRING_PLAN.md step 3.
+        v2ecoli/processes/flagella_nfsim_complexation.py.
         Replaces flagella-motor-switch/export-apparatus/motor-complex/
         filament-nucleation assembly with the NFsim rule-based reaction
         network, behind the flagella_nfsim_complexation feature flag
@@ -1081,7 +1079,10 @@ class LoadSimData:
             "fliC_id": "EG10321-MONOMER[e]",
             "fliD_id": "EG10841-MONOMER[e]",
             "flagellum_id": "CPLX0-7452[j]",
-            "fliD_per_completion": 5,
+            # 0: FliD now charged by NFsim's flagellum reaction instead,
+            # at the biologically correct time (cap forms before
+            # elongation, not after). See generate_flagella_bngl.py.
+            "fliD_per_completion": 0,
             "target_length": 5000,
             # "rate_a": 26450.0,  # kept per standing preserve-old-code rule
             "rate_a": 15556.0,

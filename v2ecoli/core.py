@@ -337,6 +337,13 @@ _CACHE_CONFIG_NAMES = [
     'monomer_counts_listener', 'dna_supercoiling_listener',
     'ribosome_data_listener', 'rnap_data_listener',
     'unique_molecule_counts', 'allocator',
+    # flagella-cascade investigation: configs for the opt-in
+    # flagella_nfsim_complexation feature. Dumped unconditionally so the
+    # cache can serve them when the feature is enabled (the runtime mock
+    # loader cannot regenerate them).
+    'ecoli-flagella-transcription-regulation', 'ecoli-flagella-flgm-secretion',
+    'ecoli-flagella-filament-elongation', 'ecoli-flagella-flis-flic-equilibrium',
+    'ecoli-flagella-nfsim-complexation',
 ]
 
 def _hash_file(path: str) -> str:

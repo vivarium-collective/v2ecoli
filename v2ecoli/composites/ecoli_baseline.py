@@ -607,16 +607,26 @@ FEATURE_MODULES = {
             # Added 2026-09-01: exact closed-form FlgM:FliA equilibrium,
             # replacing that reaction's role in the shared ecoli-equilibrium
             # Step (see flagella_flgm_flia_equilibrium.py module docstring).
-            # Ordered right after flgm-secretion (not matching the shared
-            # equilibrium Step's old position, layer 2, well before
-            # secretion runs) so this Step's re-solve reflects THIS tick's
-            # fresh FlgM level, matching secretion's own docstring ("as FlgM
-            # drops, equilibrium shifts") as same-tick causation. Confirmed
-            # this ordering difference is real but very unlikely to matter
-            # in practice -- FlgM changes little per 2s tick either way.
             # REVERTED 2026-09-01: population dynamics from this Step judged
-            # not correct on review; reverted to the shared ecoli-equilibrium
-            # Step's relaxed-Kd treatment pending further biology review.
+            # not correct on review.
+            # RE-ENABLED then RE-REVERTED 2026-09-22: an ordering diagnostic
+            # (MASTER_DOCUMENT.md Section 3.1, run_flgm_flia_ordering_
+            # diagnostic.py) ruled out same-tick-vs-before-secretion timing
+            # as the cause (A/B trajectories bit-for-bit identical). Then
+            # actually re-wired and run for real (2-gen lineage,
+            # chart 85 2026-09-22): traced the ROOT cause -- fliA is itself
+            # a Class II gene (sim_data.py get_flagella_transcription_
+            # regulation_config, classII_cistron_ids includes EG11355_RNA),
+            # so its own transcription is partly driven by Y (free FliA's
+            # own downstream activity) -- a literal positive-feedback loop.
+            # The FlgM Class III negative feedback can't check it because
+            # nothing degrades FlhDC (the OTHER Class II driver, X) -- see
+            # "no FlhDC shutdown mechanism" gap, §1.4 item 2 / §3.1. The
+            # relaxed Kd was masking this by leaving enough free FlgM around
+            # to keep re-sequestering FliA -- an accidental ceiling, not a
+            # real one. Re-reverted pending a real FlhDC shutdown mechanism
+            # (YdiV candidate, not yet built) -- fixing FlgM:FliA alone
+            # would just hit the same runaway again.
             # 'ecoli-flagella-flgm-flia-equilibrium',
             'ecoli-flagella-transcription-regulation',
         ],
@@ -763,9 +773,10 @@ def _get_step_config(
     from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
     from v2ecoli.processes.flagella_filament_elongation import FlagellaFilamentElongation
     from v2ecoli.processes.flagella_flis_flic_equilibrium import FlagellaFliSFliCEquilibrium
-    # FlagellaFlgMFliAEquilibrium (2026-09-01) reverted -- population
-    # dynamics judged not correct on review. Import left commented rather
-    # than deleted; see flagella_flgm_flia_equilibrium.py.
+    # FlagellaFlgMFliAEquilibrium reverted -- see before_steps note ~line 607
+    # (traced 2026-09-22 to fliA's own Class II auto-catalytic wiring,
+    # unchecked by the missing FlhDC shutdown mechanism; needs that fixed
+    # first). Import left commented rather than deleted.
     # from v2ecoli.processes.flagella_flgm_flia_equilibrium import FlagellaFlgMFliAEquilibrium
     from v2ecoli.processes.flagella_nfsim_complexation import FlagellaNFsimComplexation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
@@ -920,7 +931,7 @@ def _get_step_config(
         'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
         'ecoli-flagella-filament-elongation': FlagellaFilamentElongation,
         'ecoli-flagella-flis-flic-equilibrium': FlagellaFliSFliCEquilibrium,
-        # 'ecoli-flagella-flgm-flia-equilibrium': FlagellaFlgMFliAEquilibrium,  # reverted 2026-09-01
+        # 'ecoli-flagella-flgm-flia-equilibrium': FlagellaFlgMFliAEquilibrium,  # reverted -- see before_steps note above
         'ecoli-flagella-nfsim-complexation': FlagellaNFsimComplexation,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,

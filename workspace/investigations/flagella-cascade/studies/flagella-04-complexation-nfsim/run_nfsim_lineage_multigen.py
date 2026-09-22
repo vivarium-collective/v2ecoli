@@ -78,6 +78,38 @@ def _arr(s):
     return s["_data"] if isinstance(s, dict) and "_data" in s else s
 
 
+_RATES_FREEVAR_NAMES = {"_rates_fwd", "_rates_rev", "_rates_fwd_ss", "_rates_rev_ss"}
+
+
+def _zero_shared_flgm_flia(comp):
+    """FlgM:FliA exact-solve Step wired in 2026-09-22 (see ecoli_baseline.py's
+    before_steps note) -- zero the shared ecoli-equilibrium Step's own
+    FLGM-FLIA-CPLX_RXN copy so it doesn't also move the same three species
+    every tick at the relaxed Kd, fighting the dedicated Step's real-Kd
+    solve. In-memory only; same closure-walking patch verified in
+    run_flgm_flia_ordering_diagnostic.py's own version of this function --
+    see that docstring for why a flat instance.rates_fwd isn't available
+    for this cache's config shape."""
+    for path, subtree in comp.step_paths.items():
+        if path and path[-1] == "ecoli-equilibrium":
+            instance = subtree.get("instance") if isinstance(subtree, dict) else None
+            if instance is None:
+                return
+            rxn_ids = list(instance.reaction_ids)
+            if "FLGM-FLIA-CPLX_RXN" not in rxn_ids:
+                return
+            idx = rxn_ids.index("FLGM-FLIA-CPLX_RXN")
+            f = instance.fluxesAndMoleculesToSS
+            for cell, name in zip(f.__closure__, f.__code__.co_freevars):
+                nested = cell.cell_contents
+                if not (callable(nested) and getattr(nested, "__closure__", None)):
+                    continue
+                for c2, n2 in zip(nested.__closure__, nested.__code__.co_freevars):
+                    if n2 in _RATES_FREEVAR_NAMES:
+                        c2.cell_contents[idx] = 0.0
+            return
+
+
 def _snap(comp, agent_id, idx, t_cum, gen, completed_ever, prev_flag):
     cell = comp.state["agents"][agent_id]
     b = _arr(cell["bulk"])
@@ -130,6 +162,11 @@ def run_lineage(n_gens, sample, seconds_cap, seed, cache_dir, nfsim_interval=Non
     enable_features("flagella_nfsim_complexation")
     comp = v2ecoli.build_composite("ecoli_baseline", cache_dir=cache_dir, seed=seed)
     enable_features()
+    # _zero_shared_flgm_flia(comp)  # only needed while the dedicated Step
+    # is wired in (ecoli_baseline.py) -- reverted 2026-09-22 pending a real
+    # FlhDC shutdown mechanism; calling this with the Step unwired would
+    # zero the shared solver's FlgM:FliA handling with nothing to replace
+    # it. Leave commented until the Step is re-wired again.
 
     if nfsim_interval is not None:
         for path, subtree in comp.step_paths.items():
@@ -472,7 +509,10 @@ def main():
                 if (m := re.match(r"^(\d+)_", f))]
     chart_number = max(existing, default=0) + 1
     figure(rows, args.generations, chart_number)
-    figure_panels(rows, args.generations, chart_number)
+    # Per-metric panel folder generation turned off 2026-09-22 (Maya: just
+    # want the combined panel plot, not a folder of individual SVGs per
+    # run) -- figure_panels() still defined above if needed again.
+    # figure_panels(rows, args.generations, chart_number)
     last = rows[-1]
     print(f"\nFINAL (gen {last['gen']}, t_cum={last['t_cum']:.0f}s / {last['t_cum']/60:.0f}min): "
           f"flag={last['flag']}  completed_ever={last['completed_ever']}  "

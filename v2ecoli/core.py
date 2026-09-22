@@ -358,7 +358,14 @@ _CACHE_CONFIG_NAMES = [
     # review. Cache rates_fwd/rates_rev for FLGM-FLIA-CPLX_RXN restored to
     # their original [1.0]/[2e-07] in both simData.cPickle and the baked
     # sim_data_cache.dill config copy.
-    # 'ecoli-flagella-flgm-flia-equilibrium',
+    # Re-added 2026-09-22: an ordering diagnostic (MASTER_DOCUMENT.md
+    # Section 3.1) ruled out timing as the cause of the 2026-09-01 revert;
+    # ecoli_baseline.py's before_steps list now wires this Step back in by
+    # default for a full re-test. Callers must still zero the shared
+    # ecoli-equilibrium Step's own FLGM-FLIA-CPLX_RXN copy post-build (see
+    # run_flgm_flia_ordering_diagnostic.py's _zero_shared_flgm_flia) --
+    # not automatic.
+    'ecoli-flagella-flgm-flia-equilibrium',
     # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
     # 2026-08-10 (archive/flit-flhdc-regulation-2026-08/); motor-switch/
     # export-apparatus/motor-complex/filament-nucleation removed 2026-08-21

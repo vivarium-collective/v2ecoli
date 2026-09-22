@@ -672,6 +672,12 @@ class LoadSimData:
             "ecoli-flagella-transcription-regulation": self.get_flagella_transcription_regulation_config,
             "ecoli-flagella-flgm-secretion": self.get_flagella_flgm_secretion_config,
             "ecoli-flagella-flis-flic-equilibrium": self.get_flagella_flis_flic_equilibrium_config,
+            # Re-registered 2026-09-22 for the FlgM:FliA ordering-hypothesis
+            # diagnostic (MASTER_DOCUMENT.md Section 3.1) -- Step itself
+            # stays unwired in ecoli_baseline.py's default before_steps list;
+            # this just makes its config resolvable when a diagnostic script
+            # wires it in. See get_flagella_flgm_flia_equilibrium_config below.
+            "ecoli-flagella-flgm-flia-equilibrium": self.get_flagella_flgm_flia_equilibrium_config,
             # ecoli-flhdc-degradation / ecoli-flit-flhdc-checkpoint removed
             # 2026-08-10 -- see archive/flit-flhdc-regulation-2026-08/.
             # ecoli-flagella-motor-switch-assembly / export-apparatus-assembly /
@@ -954,6 +960,19 @@ class LoadSimData:
         Returning {} here lets the Step's own schema defaults apply, exactly
         matching the old hand-patched behavior, but through a real,
         reproducible path instead of a manual one-off cache edit.
+        """
+        return {}
+
+    def get_flagella_flgm_flia_equilibrium_config(self, time_step=1):
+        """Config for the FlgM:FliA exact-equilibrium Step (added 2026-09-01,
+        reverted the same day -- see flagella_flgm_flia_equilibrium.py and
+        MASTER_DOCUMENT.md Section 3.1). Same pattern as
+        get_flagella_flis_flic_equilibrium_config above: fully self-contained
+        config_schema (real cited kd_molar etc.), no ParCa-derived values
+        needed, so {} lets the Step's own defaults apply. Re-added
+        2026-09-22 for the ordering-hypothesis diagnostic -- the Step is
+        still not in ecoli_baseline.py's default before_steps list, so this
+        alone does not re-wire it into the composite.
         """
         return {}
 

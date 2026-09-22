@@ -17,7 +17,11 @@ finally:
 
 # Documented exceptions to the canonical conditions-form rule:
 NO_MODEL = {"parca"}                                  # upstream artifact producer, no model
-MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism"}  # multi_baseline_needs_human (user decision)
+MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism",
+    # whole-cell-model-comparison two-arm (candidate ecoli_baseline + vecoli reference); user decision
+    "acetate", "basal", "no_oxygen", "succinate", "with_aa",
+    "metabolism_redux_acetate", "metabolism_redux_basal", "metabolism_redux_no_oxygen",
+    "metabolism_redux_succinate", "metabolism_redux_with_aa", "statistical", "parca"}  # multi_baseline_needs_human (user decision)
 
 # Study-config <-> generator contract (Tasks 1-3 of the
 # study-config-generator-contract SDD): baseline.params must be a subset of

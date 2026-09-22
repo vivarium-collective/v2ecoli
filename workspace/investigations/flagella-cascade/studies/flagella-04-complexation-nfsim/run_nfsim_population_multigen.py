@@ -67,11 +67,6 @@ TRACK_IDS = {
     "FLAGELLAR-MOTOR-COMPLEX[j]": "motor complex",
     "EG10321-MONOMER[e]": "free FliC",
     "CPLX0-7452[j]": "complete flagella",
-    # TEMPORARY DIAGNOSTIC (2026-09-17) -- checking the hypothesis that
-    # division halving free FliF suppresses C-ring nucleation propensity
-    # below what REAL_AMBIENT_MONOMER_COUNTS['FLIF-FLAGELLAR-MS-RING[i]']=657
-    # was calibrated against. Remove after diagnosis.
-    "FLIF-FLAGELLAR-MS-RING[i]": "free FliF (DIAGNOSTIC)",
 }
 
 
@@ -555,16 +550,6 @@ def main():
     for aid, stats in last["per_agent"].items():
         print(f"    agent '{aid}': flag={stats['flag']} n_nascent={stats['n_nascent']} "
               f"max_len={stats['max_len']} dry_mass={stats['dry_mass']:.1f}fg")
-
-    # TEMPORARY DIAGNOSTIC (2026-09-17) -- dump free FliF total/mean over
-    # time to check the division-halves-FliF-below-calibration-reference
-    # hypothesis for the C-ring nucleation drought. Remove after diagnosis.
-    print("\n[DIAGNOSTIC] free FliF (total across agents / mean per agent) over time "
-          "-- REAL_AMBIENT_MONOMER_COUNTS reference = 657:")
-    for r in rows:
-        print(f"    t_cum={r['t_cum']:.0f}s ({r['t_cum']/60:.1f}min)  n_agents={r['n_agents']}  "
-              f"FliF_total={r['FLIF-FLAGELLAR-MS-RING[i]_total']:.0f}  "
-              f"FliF_mean={r['FLIF-FLAGELLAR-MS-RING[i]_mean']:.1f}")
 
 
 if __name__ == "__main__":

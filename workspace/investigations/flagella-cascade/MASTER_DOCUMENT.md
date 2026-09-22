@@ -1,6 +1,6 @@
 # Flagella-Cascade Investigation — Master Document
 
-*Living document. Started 2026-08-28, last updated 2026-09-04. Current
+*Living document. Started 2026-08-28, last updated 2026-09-18. Current
 State, Parameters, History Appendix, and References sections are all up
 to date as of this date — this consolidates and supersedes the older
 per-date (`CHANGES_*.md`) and per-study (`study.yaml`) notes. Those
@@ -61,12 +61,20 @@ or built out of order:
 complete HBB (→ `nascent_flagellum`)**
 
 - C-ring (FliF/FliG/FliM/FliN) nucleates from free monomer, deliberately
-  slow (real, literature-derived rate, not a placeholder).
+  slow (real, literature-derived rate, not a placeholder). **2026-09-18:
+  this rate now tracks the cell's live FliF count via a BNGL function**
+  (`k_nuc_cring() = 0.00167/max(Free_FliF²/2,1)`), not a fixed constant
+  calibrated once against a stale snapshot — see §3.2 for the real bug
+  this fixes. Same fix applied to flhDC's own nucleation (live FlhC
+  tracking).
 - Export apparatus assembles onto the C-ring (2 sub-reactions, generator
   bookkeeping only, not 2 real biological stages).
 - Rod (FliE, FlgB, FlgC, FlgF, FlgG) requires the export apparatus.
 - P-ring (FlgI, 26 copies) requires the rod. **Newly added 2026-08-28** —
-  previously skipped entirely.
+  previously skipped entirely. **2026-09-18: nucleation and per-subunit
+  binding now use a real, measured rate** (Matsunami et al. 2016
+  FlgA:FlgI SPR kon), not the generic FlhA:FlhB k_bind proxy — see §2,
+  §3.2.
 - L-ring (FlgH, 26 copies) requires the rod+P-ring. This is the real,
   confirmed trigger for the rod-to-hook transition (see §2).
 - Hook (FlgE, 120 copies) now requires the finished rod+P-ring+L-ring base
@@ -76,7 +84,11 @@ complete HBB (→ `nascent_flagellum`)**
   confirms structural completion does not require the stator — only
   rotation does. Free MotA/MotB are currently untouched by this pathway.
 - Completion produces the `flagella` species, which becomes a real
-  `nascent_flagellum` unique molecule.
+  `nascent_flagellum` unique molecule. **2026-09-18: this reaction now
+  also consumes 5x FliD here** (moved from `flagella_filament_
+  elongation.py`'s completion event, `fliD_per_completion` set to 0
+  there) — real biology has the FliD cap forming before elongation
+  begins, not after; see §3.2.
 
 **Filament elongation** is a separate, non-NFsim incremental Step
 (combinatorial explosion in the rule-based engine at real subunit counts
@@ -162,8 +174,21 @@ much raw FliS (see History §3.2).
 7. ✅ Temporary diagnostic print statements in `equilibrium.py` and
    `function_registry.py` removed 2026-09-04 (the division-crash
    investigation they supported is now fully closed out per item 1).
-8. ✅ FliD double-consumption fix (2026-08-21) confirmed intact 2026-09-04
-   via a direct unit test — see §3.2.
+8. ✅ FliD consumption: the 2026-08-21 double-counting fix held until
+   2026-09-18, when the consumption POINT itself was moved (still
+   single, still 5x, now at the biologically correct hook-basal-body-cap
+   timing instead of filament-elongation completion) — see §3.2.
+9. ✅ C-ring/flhDC nucleation rate: fixed-constant-vs-live-count mismatch
+   found and fixed 2026-09-17/18 — the rate now tracks the cell's live
+   FliF/FlhC count via a BNGL function instead of a snapshot calibrated
+   once against 657 molecules. Verified directly (see §3.2);
+   **single-seed only (seed 0) as of this writing — not yet re-run
+   across the 6-seed batch.**
+10. ✅ Shipped ParCa fixture (`models/parca/parca_state.pkl.gz`) was
+    fast-mode (debug=True) and never registered `nascent_flagellum` in
+    `unique_molecule_definitions` — any fresh cache build crashed with
+    `KeyError: 'nascent_flagellum'`. Fixed 2026-09-18: rebuilt full-mode
+    (debug=False) — see §3.4.
 
 ### 1.5 Execution-layer order (flagella-related Steps, real order)
 
@@ -197,7 +222,8 @@ is therefore a bookkeeping choice, not a biology-accuracy question.
 | Kd, FlgM:FliA (current model) | 2.0×10⁻⁷ M | Deliberately relaxed from the real value above, for solver stability. Attempted switch to the real Kd via a dedicated exact-solve Step (2026-09-01) reverted after review — see History §3.1. |
 | Kd, FliS:FliC | 5.26×10⁻⁸ M | Muskotal et al. 2006, *FEBS Lett* 580:3916 (ITC, Ka=1.9×10⁷ M⁻¹, 1:1 stoichiometry) — real value, unchanged by the 2026-08-28 Step move |
 | k_bind (generic proxy rate) | 8.5×10⁴ M⁻¹s⁻¹ (→ ~1.412×10⁻⁴ /molecule/s) | McMurry et al. 2015 (real, measured FlhA:FlhB rate — used as a borrowed proxy for ~30 other reactions lacking their own measured kinetics) |
-| Nucleation rate (C-ring, FlhDC) | 1.67×10⁻³ /s | Sim et al. 2017, *Sci Rep* 7:41189 (*E. coli* RP437, chemostat growth-rate study) |
+| Nucleation rate (C-ring, FlhDC) | 1.67×10⁻³ /s target, enforced live via a BNGL function of the current FliF/FlhC count (2026-09-18) | Sim et al. 2017, *Sci Rep* 7:41189 (*E. coli* RP437, chemostat growth-rate study). Fixed-constant version (calibrated once against a 657-molecule snapshot) confirmed to badly under-fire after division halves the real count — see §3.2. |
+| k_on, FlgA:FlgI (P-ring assembly) | 3.41×10⁵ M⁻¹s⁻¹ (→ ~5.663×10⁻⁴ /molecule/s) | Matsunami et al. 2016, *Sci Rep* 6:27399 (SPR, *Salmonella*, FlgI-immobilized/FlgA-analyte orientation) — replaces the generic k_bind proxy for the P-ring reaction's nucleation and per-subunit steps only |
 | Filament elongation rate_a | 15,556 subunit²/s | Renault et al. 2017, *eLife* 6:e23136. Corrected 2026-09-01 by re-deriving the paper's own equations (kon=a/b) and matching directly to their Figure 3 dataset specifically (kon≈27.09/s, 291 filaments/1276 points — their stronger, six-color-labeling dataset), rather than an earlier, less-anchored value (26,450, kept as a comment in code). rate_b (575) already matched Fig 3 and is unchanged. |
 | Filament elongation rate_b | 575 subunits | Same source as rate_a |
 | Filament target_length | 5,000 subunits | Short end of real 20,000–40,000 range, PMC7696725 — a modeling simplification, not a claimed real value |
@@ -484,7 +510,71 @@ each study's `study.yaml`, the two `archive/*/README.md` files, the
   (`tests/test_flagella_filament_elongation.py`): one completion consumes
   exactly -5 FliD, two simultaneous completions -10 (not -20, the actual
   shape of the original bug), no completion leaves FliD untouched.
-  **Confirmed intact — §1.4 item 8.**
+  **Confirmed intact through 2026-09-04 — see re-fix below, §1.4 item 8.**
+
+- **P-ring (FlgI) real rate — 2026-09-18.** Previously used the generic
+  FlhA:FlhB-derived `k_bind` proxy for both nucleation and per-subunit
+  binding, same as every other reaction lacking its own measured
+  kinetics. Replaced with a real, directly-verified rate: Matsunami et
+  al. 2016 (SPR, *Salmonella*) measured FlgA:FlgI binding both
+  orientations (FlgI-immobilized/FlgA-analyte: ka=3.41×10⁵ M⁻¹s⁻¹,
+  kd=5.89×10⁻³ s⁻¹, KD=0.126 μM; reverse orientation ~4x smaller ka).
+  FlgA itself is not a tracked species in this model — the paper's own
+  language ("FlgA... chaperones P-ring formation," "a pilot for FlgI...
+  promoting its localization") supports treating FlgA as the diffusing
+  escort, so the FlgI-immobilized/FlgA-analyte orientation's ka/kd was
+  used, applied to the p-ring reaction's nucleation step and every
+  per-subunit FlgI-joining step. See §2, §4.
+
+- **FliD consumption timing — reversed 2026-09-18, now the biologically
+  correct point.** The 2026-08-21 fix above kept FliD consumption on
+  `flagella_filament_elongation.py`'s side because that was, at the
+  time, the only live consumption point shared with the still-default
+  deterministic pipeline. That pipeline (`flagella_regulation`) was
+  fully archived the same day (2026-08-21), making NFsim the sole live
+  consumer going forward — not re-examined until now. Real biology (Song
+  et al. 2017; Postel et al. 2020) has the FliD pentameric cap forming
+  BEFORE flagellin polymerization begins, not after — so charging FliD
+  at filament-elongation completion was always mistimed, just
+  mass-conserving. Fixed: `fliD_per_completion` set to 0 in
+  `flagella_filament_elongation`'s config (`sim_data.py`), and 5x FliD
+  re-added to NFsim's own flagellum reaction at hook-basal-body-cap
+  completion — still exactly 5x total, now at the correct point.
+  `flagella_filament_elongation.py`'s own class-level default (5) is
+  untouched, so `tests/test_flagella_filament_elongation.py`'s existing
+  unit tests (§1.4 item 8) still pass unmodified.
+
+- **C-ring/flhDC nucleation rate — fixed-constant-vs-live-count
+  mismatch, found and fixed 2026-09-17/18.** The nucleation rate (Sim et
+  al. 2017, §2) was implemented as a fixed BNGL parameter, back-
+  calculated once against a single real ambient-FliF snapshot (657
+  molecules, from `diagnostic_real_bulk_seeding.py`). Real problem,
+  confirmed directly with a temporary diagnostic: division halves FliF
+  (like every bulk species) — measured 409/agent after the first
+  division (62% of the 657 reference), 247/agent after the second
+  (38%) — and since propensity scales with FliF², the fixed-constant
+  rate was firing at roughly 14-39% of its intended frequency for a
+  large fraction of every generation, recovering only slowly via ongoing
+  production before the next division cut it again. This is the direct,
+  root-caused mechanism behind the "nucleation goes dead for 40+ min
+  after division and never recovers" pattern seen in earlier population
+  runs. Fixed by replacing the fixed parameter with a live BNGL function
+  (`k_nuc_cring() = 0.00167/max(Free_FliF*(Free_FliF-1)/2, 1)`, same
+  pattern for flhDC/FlhC) that NFsim re-evaluates continuously from the
+  live observable, not a snapshot — confirmed NFsim genuinely supports
+  this with a minimal standalone test before committing to the approach
+  (the function tracked a live observable correctly through a real
+  NFsim run, matching the formula exactly at every step). Applied only
+  to C-ring and flhDC (the only two reactions nucleating from an
+  abundant free-monomer pool); every other reaction's nucleation and all
+  elongation steps are unaffected.
+
+  **Verified, same seed (0), same 3-generation/120-min window, before
+  vs. after all three fixes above:** completed flagella 5→13 (1 new
+  completion → 9), `flag_mean` 1.25→3.25, nascent (in-progress) count
+  stayed active through most of generation 2 (peaking at 6) instead of
+  dropping to 0 and staying dead. **Single-seed result — not yet
+  re-confirmed across the 6-seed batch.**
 
 - **FliS:FliC equilibrium (Kd) — exact-solve fix, then a real elongation-
   side bug found validating it.** Built 2026-08-28
@@ -713,6 +803,29 @@ each study's `study.yaml`, the two `archive/*/README.md` files, the
   the same fast `save_cache()` regeneration used throughout this
   investigation, no ParCa rebuild.
 
+- **ParCa fixture: fast-mode gap found and fixed, 2026-09-18.** The
+  shipped `models/parca/parca_state.pkl.gz` was built `--mode fast`
+  (debug=True) — sufficient for comparison testing, but a fresh cache
+  build from it crashed with `KeyError: 'nascent_flagellum'`:
+  `internal_state.py`'s `nascent_flagellum` unique-molecule registration
+  only runs when ParCa's reconstruction code actually executes, which
+  the fast-mode fixture's pre-baked pickle never did. Not previously
+  caught because an already-built, working cache had been reused all
+  along without ever rebuilding from the raw fixture. Fixed: full ParCa
+  run (`--mode full`, debug=False) — completed in 3 min, not the
+  documented "4-8 hours," because this repo's actual data only defines
+  23 real TFs (`tf_condition.tsv`), not the ~300 of the full published
+  regulon; confirmed this is the genuine, non-truncated result for what
+  data exists (23 TFs × 2 states + 6 combined conditions = 52 fitted,
+  exactly matching the run). Separately confirmed this doesn't affect
+  flagella-cascade: `flagella_transcription_regulation.py` overrides
+  Class II/III synthesis probabilities directly from FlhDC/FliA
+  activity, anchored only to ParCa's TF-independent `basal_prob`,
+  entirely bypassing the TF-condition mechanism where the 23-vs-~300 gap
+  would matter. Rebuilt both the investigation's own cache and the
+  generic repo-wide default (`out/cache`, separately found to be stale
+  at schema_version 1 vs current 4, an unrelated pre-existing gap).
+
 ### 3.5 Still parked / out of scope
 
 - **FliO's structural role in the export apparatus** — real literature
@@ -784,6 +897,11 @@ each study's `study.yaml`, the two `archive/*/README.md` files, the
 - Kuhlen L et al. (2018). Structure of the core of the type III secretion
   system export apparatus. *Nat Struct Mol Biol* 25:583-590. (Cryo-EM,
   building on Fukumura et al. 2017; FliP:FliQ:FliR 5:4:1.)
+- Matsunami H, Yoon YH, Meshcheryakov VA, Namba K & Samatey FA (2016).
+  Structural flexibility of the periplasmic protein, FlgA, regulates
+  flagellar P-ring assembly in *Salmonella enterica*. *Sci Rep* 6:27399.
+  (SPR binding kinetics, FlgA:FlgI, both orientations tested; verified
+  directly against the primary source.)
 - McMurry JL, Minamino T, Furukawa Y, Francis JW, Hill SA, Helms KA &
   Namba K (2015). Weak interactions between Salmonella enterica FlhB and
   other flagellar export apparatus proteins govern type III secretion

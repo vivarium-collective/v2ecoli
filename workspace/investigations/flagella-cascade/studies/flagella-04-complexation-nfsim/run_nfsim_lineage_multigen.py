@@ -71,9 +71,6 @@ TRACK_IDS = {
     "FLAGELLAR-MOTOR-COMPLEX[j]": "motor complex",
     "EG10321-MONOMER[e]": "free FliC",
     "CPLX0-7452[j]": "complete flagella",
-    # TEMPORARY DIAGNOSTIC (2026-09-17) -- verifying FliD timing fix.
-    # Remove after diagnosis.
-    "EG10841-MONOMER[e]": "FliD (DIAGNOSTIC)",
 }
 
 
@@ -484,13 +481,6 @@ def main():
           f"scaffold_entries={last['n_scaffold_entries']}  "
           f"hook_internal={last['hook_internal']:.1f}  "
           f"flagella_internal_cumulative={last['flagella_internal_cumulative']:.1f}")
-
-    # TEMPORARY DIAGNOSTIC (2026-09-17) -- FliD + complete-flagella count
-    # over time, verifying the timing fix. Remove after diagnosis.
-    print("\n[DIAGNOSTIC] FliD and complete-flagella count over time:")
-    for r in rows:
-        print(f"    t_cum={r['t_cum']:.0f}s ({r['t_cum']/60:.1f}min)  "
-              f"flag={r['flag']}  FliD={r['EG10841-MONOMER[e]']}")
 
 
 if __name__ == "__main__":

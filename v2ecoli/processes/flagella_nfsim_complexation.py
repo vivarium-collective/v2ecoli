@@ -51,15 +51,18 @@ from v2ecoli.library.schema_types import NASCENT_FLAGELLUM_ARRAY
 
 _LOCAL_MODEL_MODULE_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "workspace", "investigations", "flagella-cascade", "studies",
+    "workspace", "studies",
     "flagella-04-complexation-nfsim", "models", "generate_flagella_bngl.py",
 )
 
 
 def _import_local_model():
     """Load v2ecoli's own generate_flagella_bngl.py by file path (it lives
-    in an investigation folder, not an installed package) -- same pattern
-    as flagella_nfsim_assembly.py's _import_local_model()."""
+    in a study folder, not an installed package) -- same pattern as
+    flagella_nfsim_assembly.py's _import_local_model(). Path updated
+    2026-09-22 when the study moved from workspace/investigations/
+    flagella-cascade/studies/ (old, nested v2 layout) to the top-level
+    workspace/studies/ (current schema, no-nested-study CI check)."""
     spec = importlib.util.spec_from_file_location(
         "flagella_cascade_nfsim_model", _LOCAL_MODEL_MODULE_PATH)
     module = importlib.util.module_from_spec(spec)

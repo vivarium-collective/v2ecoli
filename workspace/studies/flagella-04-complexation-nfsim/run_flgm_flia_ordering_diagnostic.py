@@ -43,7 +43,7 @@ convention already used once for this exact Step (2026-09-04).
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_flgm_flia_ordering_diagnostic.py \
+        workspace/studies/flagella-04-complexation-nfsim/run_flgm_flia_ordering_diagnostic.py \
         --seconds-cap 3600 --sample 30 --cache-dir out/cache_full_flit_v12_flisflic_test2
 """
 import argparse

@@ -19,7 +19,7 @@ last step) -- drives the Step directly, standalone.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/diagnostic_nfsim_step.py \
+        workspace/studies/flagella-04-complexation-nfsim/diagnostic_nfsim_step.py \
         --seconds 28800 --interval 1200 --cache-dir out/cache_full_flit_v11
 """
 import argparse

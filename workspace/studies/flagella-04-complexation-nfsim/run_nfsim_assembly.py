@@ -34,7 +34,7 @@ importing pbg_nfsim.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_assembly.py \
+        workspace/studies/flagella-04-complexation-nfsim/run_nfsim_assembly.py \
         --seconds 1800 --sample 100
 """
 import argparse

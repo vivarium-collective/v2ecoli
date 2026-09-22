@@ -21,7 +21,7 @@ the full two-way-coupled Step.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/diagnostic_real_bulk_seeding.py \
+        workspace/studies/flagella-04-complexation-nfsim/diagnostic_real_bulk_seeding.py \
         --seconds 28800 --sample 1200 --cache-dir out/cache_full_flit_v11
 """
 import argparse

@@ -19,7 +19,7 @@ NFsim-in-the-WCM dynamics, not division/inheritance).
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_wired_test.py \
+        workspace/studies/flagella-04-complexation-nfsim/run_nfsim_wired_test.py \
         --seconds 7200 --sample 120 --seed 0 --cache-dir out/cache_full_flit_v11
 """
 import argparse

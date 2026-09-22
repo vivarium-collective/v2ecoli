@@ -29,7 +29,7 @@ t=0: 4 flagella, 0 motor, free FliA=500, FlgM=800.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_lineage_multigen.py \
+        workspace/studies/flagella-04-complexation-nfsim/run_nfsim_lineage_multigen.py \
         --generations 2 --sample 120 --cache-dir out/cache_full_flit_v11
 """
 import argparse

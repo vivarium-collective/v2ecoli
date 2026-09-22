@@ -18,7 +18,7 @@ shortest common length, not interpolating.
 
 Usage:
     PYTHONPATH=$PWD .venv/bin/python \
-        workspace/investigations/flagella-cascade/studies/flagella-04-complexation-nfsim/run_nfsim_population_seedsweep.py \
+        workspace/studies/flagella-04-complexation-nfsim/run_nfsim_population_seedsweep.py \
         --generations 2 --sample 120 --cache-dir out/cache_full_flit_v12_flisflic_test2 --seeds 0,1,2,3,4,5
 """
 import argparse

@@ -26,7 +26,7 @@ knob perturbation is therefore only valid in the founder generation. Generation
 θ-binned analysis uses gen-1 data; the run goes through the first division only
 to observe m_div and confirm the cycle completed.
 
-Usage (from a pbg_emitters-compatible worktree, PYTHONPATH=<worktree>):
+Usage (from a viva_emitters-compatible worktree, PYTHONPATH=<worktree>):
     python run_growth_stratified_uq.py --n 24 --n-test 6 --seeds 2 \
         --steps 3000 --gens 2 --chunk 60 --out results_n24
 """
@@ -87,10 +87,7 @@ def _setup():
     from v2ecoli.composites.ecoli_baseline import (
         baseline, set_null_emitter_override, load_cache_bundle)
     from v2ecoli.library.xarray_run import view_from_emit_paths, run_multigen_xarray
-    try:
-        from viva_emitters.run_reader import RunReader   # current (renamed) engine
-    except ImportError:
-        from pbg_emitters.run_reader import RunReader
+    from viva_emitters.run_reader import RunReader
     from process_bigraph import Composite
     _baseline = baseline
     _set_null = set_null_emitter_override

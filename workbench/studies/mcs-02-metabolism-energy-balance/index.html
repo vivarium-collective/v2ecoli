@@ -683,6 +683,18 @@
   </div>
 
   
+  <div class="overview-section" id="study-analyses-section">
+    <h3>Analyses to run <span class="muted" style="font-size:0.85em;font-weight:normal">— which of the workspace's <code>ANALYSIS_REGISTRY</code> entries to compute on dispatch</span></h3>
+    <div id="study-analyses-list" data-study="mcs-02-metabolism-energy-balance">
+      <div class="viv-loading"><span class="viv-loading-spin" aria-hidden="true"></span><span>Loading analyses…</span></div>
+    </div>
+    <div style="margin-top:8px">
+      <button class="action-btn" type="button" onclick="_saveStudyAnalyses()">Save analyses</button>
+      <span id="study-analyses-status" style="margin-left:8px;font-size:0.9em;color:#555"></span>
+    </div>
+  </div>
+
+  
   
   
 
@@ -707,9 +719,13 @@
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="mcs-02-metabolism-energy-balance"
-               value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
-               style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
+        
+        <select class="baseline-composite-input" data-baseline-name="mcs-02-metabolism-energy-balance"
+                data-current="v2ecoli.composites.ecoli_baseline.ecoli_baseline"
+                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px">
+          <option value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" selected>v2ecoli.composites.ecoli_baseline.ecoli_baseline</option>
+          
+        </select>
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
                 data-baseline-name="mcs-02-metabolism-energy-balance">Set composite</button>
       </div>
@@ -972,17 +988,22 @@
         
         data-pytest-node="biomass-yield-in-measured-band"
         data-classification="primary"
-        data-result="pending"
+        data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">biomass-yield-in-measured-band</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1009,17 +1030,22 @@ pass_if: "0.355\u20130.444 (measured band; below the 0.538 ceiling)"</pre>
         
         data-pytest-node="rq-approaches-one"
         data-classification="primary"
-        data-result="pending"
+        data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">rq-approaches-one</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1046,17 +1072,22 @@ pass_if: "\u2248 1 (aerobic respiration)"</pre>
         
         data-pytest-node="maintenance-atp-fix-moves-yield"
         data-classification="primary"
-        data-result="pending"
+        data-result="FAIL"
         style="margin: 0 0 10px 0; padding: 10px 12px; border-left: 4px solid #10b981; background: #f8fafc; border-radius: 4px;">
       
         
       <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
-        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #f1f5f9; color: #475569">⏳ pending</span>
+        <span class="bt-result" style="font-size: 0.75em; font-family: monospace; padding: 2px 8px; border-radius: 9999px; background: #fee2e2; color: #991b1b">✗ FAIL</span>
         <span class="classification-pill classification-primary">primary</span>
         <strong style="font-size: 0.9em;">maintenance-atp-fix-moves-yield</strong>
         
       </div>
       <div style="margin-top: 6px; font-size: 0.95em;"></div>
+      
+      <div style="margin-top:6px;font-size:0.85em;padding:6px 10px;background:#fff;border:1px solid #e2e8f0;border-radius:3px">
+        <strong>Latest result:</strong>
+        
+      </div>
       
       
       <details style="margin-top: 6px; font-size: 0.82em;">
@@ -1238,6 +1269,14 @@ pass_if: "yield drops into the band"</pre>
       
       
       
+      <p class="muted" style="margin:0;font-size:0.9em">
+        <strong>3</strong> test outcomes
+        — <span style="color:#065f46;font-weight:600">0 PASS</span> ·
+        <span style="color:#991b1b;font-weight:600">3 FAIL</span>.
+        Per-test outcomes (measured value · evaluator · band) are canonical on the
+        <a onclick="_setStudyTab('tests')" style="cursor:pointer;color:#3b82f6;text-decoration:underline">Tests tab →</a>.
+      </p>
+      
     </div>
     
     
@@ -1266,7 +1305,7 @@ pass_if: "yield drops into the band"</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "011abb873b6bc8d66e3dc926cc6867bd17bb0979", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/011abb873b6bc8d66e3dc926cc6867bd17bb0979", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-18 18:06 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "928b248467dbb55988a806c8de4fe0dcf8deb9c9", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/928b248467dbb55988a806c8de4fe0dcf8deb9c9", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-23 18:57 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mcs-02-metabolism-energy-balance";
@@ -1393,6 +1432,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
      Model card stays stuck on "Resolving composite…". -->
 <script src="/v2ecoli/workbench/assets/loom-embed.js"></script>
 <script src="/v2ecoli/workbench/assets/composite-card.js"></script>
+<script src="/v2ecoli/workbench/assets/checklist-select.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

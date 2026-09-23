@@ -619,6 +619,18 @@
   </div>
 
   
+  <div class="overview-section" id="study-analyses-section">
+    <h3>Analyses to run <span class="muted" style="font-size:0.85em;font-weight:normal">— which of the workspace's <code>ANALYSIS_REGISTRY</code> entries to compute on dispatch</span></h3>
+    <div id="study-analyses-list" data-study="mcs-09-ppgpp-decoupling-control">
+      <div class="viv-loading"><span class="viv-loading-spin" aria-hidden="true"></span><span>Loading analyses…</span></div>
+    </div>
+    <div style="margin-top:8px">
+      <button class="action-btn" type="button" onclick="_saveStudyAnalyses()">Save analyses</button>
+      <span id="study-analyses-status" style="margin-left:8px;font-size:0.9em;color:#555"></span>
+    </div>
+  </div>
+
+  
   
   
 
@@ -643,9 +655,13 @@
       </div>
       
       <div style="display:flex;align-items:center;gap:6px;margin-top:6px">
-        <input type="text" class="baseline-composite-input" data-baseline-name="mcs-09-ppgpp-decoupling-control"
-               value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" placeholder="pkg.composites.name"
-               style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px" />
+        
+        <select class="baseline-composite-input" data-baseline-name="mcs-09-ppgpp-decoupling-control"
+                data-current="v2ecoli.composites.ecoli_baseline.ecoli_baseline"
+                style="flex:1;min-width:200px;font-family:monospace;font-size:0.82em;padding:3px 6px">
+          <option value="v2ecoli.composites.ecoli_baseline.ecoli_baseline" selected>v2ecoli.composites.ecoli_baseline.ecoli_baseline</option>
+          
+        </select>
         <button type="button" class="action-btn baseline-composite-set" style="font-size:0.8em"
                 data-baseline-name="mcs-09-ppgpp-decoupling-control">Set composite</button>
       </div>
@@ -1151,7 +1167,7 @@ pass_if: "still growing"</pre>
 </section>
 
 </main>
-<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "011abb873b6bc8d66e3dc926cc6867bd17bb0979", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/011abb873b6bc8d66e3dc926cc6867bd17bb0979", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-18 18:06 UTC"} };</script>
+<script>window.__DASH_CONFIG__ = { mode: "snapshot", interactiveUrl: "https://github.com/vivarium-collective/v2ecoli", basePath: "/v2ecoli/workbench", inputsDownloadBase: "https://github.com/vivarium-collective/v2ecoli/raw/main", provenance: {"repo_slug": "vivarium-collective/v2ecoli", "repo_url": "https://github.com/vivarium-collective/v2ecoli", "commit": "928b248467dbb55988a806c8de4fe0dcf8deb9c9", "commit_url": "https://github.com/vivarium-collective/v2ecoli/commit/928b248467dbb55988a806c8de4fe0dcf8deb9c9", "branch": "main", "lockfile": "uv.lock@7988a852ada5", "generated_at": "2026-09-23 18:57 UTC"} };</script>
 <script src="/v2ecoli/workbench/assets/data-source.js"></script>
 <script>
 window._studyName = "mcs-09-ppgpp-decoupling-control";
@@ -1278,6 +1294,7 @@ window._seedFollowupProposal = _seedFollowupProposal;
      Model card stays stuck on "Resolving composite…". -->
 <script src="/v2ecoli/workbench/assets/loom-embed.js"></script>
 <script src="/v2ecoli/workbench/assets/composite-card.js"></script>
+<script src="/v2ecoli/workbench/assets/checklist-select.js"></script>
 <script src="/v2ecoli/workbench/assets/study-detail.js"></script>
 <script>
 // Re-assert the refresh-aware seed handlers AFTER study-detail.js (which

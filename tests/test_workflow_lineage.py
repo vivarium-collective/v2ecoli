@@ -576,7 +576,7 @@ def test_xarray_emitter_caller_writer_override_still_wins(monkeypatch):
 
 
 # --- injected agent-root stores survive the generation boundary --------------
-# sms-ecoli#166 P0 items 2 and 3: a native lineage lost EVERY injected
+# P0 items 2 and 3: a native lineage lost EVERY injected
 # agent-root store at each generation boundary, because only
 # bulk/unique/environment/boundary were selected from the surviving daughter and
 # overlaid onto the next generation's freshly built document. A `fields` dose
@@ -669,7 +669,7 @@ def test_select_carry_daughter_carries_a_declared_listener_leaf(monkeypatch):
 
 def test_apply_carry_state_merges_extra_store_and_keeps_its_type():
     """The typed-node trap: the fresh document represents an injected root as a
-    dict carrying ``_type`` (sms-ecoli's ``_materialize_native_declared_state``
+    dict carrying ``_type`` (the downstream ``_materialize_native_declared_state``
     stamps ``fields`` as ``map[overwrite[array[float]]]`` and pre-seeds the
     molecule keys as zero arrays). Overlaying the carried store must MERGE
     leaves into that node — replacing it with a raw dict would drop the

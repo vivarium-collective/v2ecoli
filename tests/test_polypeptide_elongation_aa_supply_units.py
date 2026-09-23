@@ -5,14 +5,14 @@ On AA-containing media (with_aa / succinate) ``states["boundary"]["external"]``
 values arrive as pint Quantities rather than bare floats, while
 ``import_constraint_threshold`` is a plain float in mM. Comparing a Quantity
 directly to a float raises ``ValueError: Cannot compare PlainQuantity and
-float``. This used to be carried only as a downstream monkeypatch in
-sms-ecoli (``pbg_v2ecoli/_upstream_patches.py``); it is now fixed directly in
+float``. This used to be carried only as a downstream monkeypatch
+(``pbg_v2ecoli/_upstream_patches.py``); it is now fixed directly in
 ``_amino_acid_supply``.
 
 The probe below invokes the real (unbound) method with a deliberately
 incomplete stub ``self`` -- just enough to exercise the ``aa_in_media``
 comprehension -- and reads how far execution gets, mirroring the detection
-probe in sms-ecoli's monkeypatch module.
+probe in the downstream monkeypatch module.
 """
 from types import SimpleNamespace
 

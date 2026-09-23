@@ -709,7 +709,7 @@ def _live_sample(cursor: Any) -> dict[str, Any]:
     ``_runtime_snapshot`` is taken after ``step.update`` returns, so on the one
     path that matters -- the query that exhausts the temp directory and dies --
     it is never taken at all. Run 1 was diagnosed instead with a hand-dispatched
-    ``du -sm`` loop in a shell wrapper (sms-ecoli#166): the same measurement,
+    ``du -sm`` loop in a shell wrapper: the same measurement,
     taken from outside the process, because nothing took it inside.
 
     Must be given a cursor that is NOT the one executing the query (see

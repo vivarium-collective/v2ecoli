@@ -79,5 +79,5 @@ def test_no_drug_knowledge_in_metabolism_source():
     import inspect
 
     src = inspect.getsource(Metabolism)
-    for token in ("sulfadiazine", "mecillinam", "CPD-20940", "H2PTEROATESYNTH"):
+    for token in ("sulfadiazine", "CPD-20940", "H2PTEROATESYNTH"):
         assert token not in src, f"antibiotic token {token!r} leaked into Metabolism"

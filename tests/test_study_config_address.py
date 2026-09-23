@@ -18,11 +18,11 @@ def test_the_five_formerly_omitted_knobs_now_enter_the_address():
         'condition': 'basal',
         'comparison': {
             'seeds': 4, 'generations': 8,
-            'from_vecoli_config': 'configs/test_violacein_with_metabolism.json',
+            'from_vecoli_config': 'configs/test_redux_with_metabolism.json',
             'inject_processes': ['metabolite_counts_listener'],
             'exchange_flux_basis': 'gdcw',
-            'exchange_fluxes': {'violacein_exchange': 'VIOLACEIN[c]'},
-            'observable_bulk_ids': ['VIOLACEIN[c]'],
+            'exchange_fluxes': {'glucose_exchange': 'GLC[p]'},
+            'observable_bulk_ids': ['TRP[c]'],
         }}
     addr = study_config(declaration)
     for key in ('from_vecoli_config', 'inject_processes', 'exchange_flux_basis',

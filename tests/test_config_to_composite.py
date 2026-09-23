@@ -2,7 +2,7 @@
 """Pure-logic tests for the config→composite translator (no fork required).
 
 Fork-backed executability tests (register + Composite-realize against real
-vEcoli-fork antibiotic processes/configs) live downstream in sms-ecoli, where
+vEcoli-fork antibiotic processes/configs) live in a downstream workspace, where
 the fork and its configs are wired — they cannot run in a generic v2ecoli
 checkout and must not hardcode a private-fork path here.
 """

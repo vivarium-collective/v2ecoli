@@ -32,7 +32,7 @@ allow-list likewise treats empty as "keep everything" (`tests/test_ecoli_baselin
   emits `python /tmp/run_pbg.py --composite-id lineage_ray_batch ... -n {steps}`.
   Still on `main` at the time of writing.
 * cplong90 read the `RAY_JOB_CMD` of all thirteen cell-only dispatches:
-  thirteen of thirteen carry `-n 1` (sms-ecoli #166, §2 of the 2026-09-07 comment).
+  thirteen of thirteen carry `-n 1` (§2 of the 2026-09-07 comment).
   Dispatch 438's `final_state.json`: `global_time = 1.0`,
   `lineage_0000.interval = 3600.0`, `complete: false`, empty summary.
 * Local reproduction (no biology, `scratchpad/repro_underrun.py`): a process node
@@ -153,7 +153,7 @@ Stub-based lineage tests opt out with `require_output: False`;
 ## 3. Validation on real biology
 
 Against a cache rebuilt with `scripts/build_cache.py` on this tree
-(`schema_version 3`; the shared `sms-ecoli/out/cache` is schema 2 and is refused
+(`schema_version 3`; a downstream workspace's shared `out/cache` is schema 2 and is refused
 by `verify_cache_version` — which is, incidentally, exactly the exception the
 chain path used to swallow), one short generation each (`max_duration_per_gen=12`),
 **no `emit_paths` anywhere**:

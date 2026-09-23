@@ -293,7 +293,7 @@ def test_main_reads_config_file(tmp_path, monkeypatch, capsys):
 
 
 # --- V2ECOLI_EXTRA_ANALYSIS_MODULES hook -------------------------------------
-# Downstream packages (e.g. sms-ecoli's sms_modules) register Analysis ports
+# Downstream packages (e.g. a downstream workspace's analysis modules) register Analysis ports
 # into the same ANALYSIS_REGISTRY as an import side effect; this script never
 # imported them, so their names resolved to "unknown analysis". The env-var
 # hook imports caller-named modules for that side effect, best-effort.

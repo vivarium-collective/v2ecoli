@@ -4,7 +4,7 @@
 - **Status:** design (approved in brainstorming; pending spec review)
 - **Owner:** Eran Agmon
 - **Repos:** authored in `vivarium-collective/v2ecoli` (`v2ecoli/library/`); reaches
-  sms-ecoli by the normal `scripts/sync_upstream.sh` merge. Workbench-side glue is
+  a downstream workspace by the normal `scripts/sync_upstream.sh` merge. Workbench-side glue is
   generic and lives in `vivarium-workbench`.
 
 ## 1. Problem
@@ -122,7 +122,7 @@ The already-written structural transform (`config_to_document`, `_process_node`,
 `_normalize_path`, `_resolve_process_meta`, the `topology_registry` fallback,
 tuple-path handling) becomes the shared node/wiring core; the executable
 translator subsumes the `_draft` viewer. The Phase-1a commit currently on an
-*sms-ecoli* worktree is re-homed here (v2ecoli) under this branch.
+*downstream* worktree is re-homed here (v2ecoli) under this branch.
 
 ### 3.4 Workbench integration (generic; `vivarium-workbench`)
 
@@ -200,7 +200,7 @@ scope is feasible.
 - **Fork-backed**: assert each declared process's `local:<ClassName>` address
   resolves after the registration hook, and that `Composite({schema, state}, core)`
   **realizes** the declared-layer document without error (executability check).
-- **Live**: `final_mec.json` (5 procs, 11 wired ports) and `mecillinam_shape.json`
+- **Live**: `final_drugX.json` (5 procs, 11 wired ports) and `drugX_shape.json`
   (7 procs, incl. `pg-shape`) render in the loom and realize.
 
 ## 8. Rollout
@@ -209,7 +209,7 @@ scope is feasible.
    (off `origin/main`); re-home the Phase-1a transform here.
 2. Workbench glue on a `vivarium-workbench` worktree (env-worker method + route +
    Apply wiring).
-3. PR v2ecoli upstream; sms-ecoli picks it up via `scripts/sync_upstream.sh`
+3. PR v2ecoli upstream; a downstream workspace picks it up via `scripts/sync_upstream.sh`
    (no `descope/extensions.yaml` entry needed — it is upstream code).
 4. Settle the workbench editable install (repoint at canonical main, drop the
    throwaway worktree) once the loom glue lands.

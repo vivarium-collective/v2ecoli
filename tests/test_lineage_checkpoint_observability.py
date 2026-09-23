@@ -1,4 +1,4 @@
-"""Checkpoint/emitter fail-loud + observability (sms-ecoli#210 / dispatch 313).
+"""Checkpoint/emitter fail-loud + observability (dispatch 313).
 
 Dispatch 313 stalled IDLE for 4+ hours, no error, right before a lineage
 checkpoint write — the emitter flush and checkpoint write are both S3 I/O with

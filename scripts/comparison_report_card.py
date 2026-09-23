@@ -712,7 +712,7 @@ def _source_block(name: str, fork: str, rel: str, code: str) -> str:
 
 def _git_provenance(path: str | None) -> dict | None:
     """{name, lineage-agnostic git facts} for a repo checkout, or None. ``name``
-    prefers the origin remote's repo slug (e.g. ``sms-ecoli``, ``vEcoli-private``)
+    prefers the origin remote's repo slug (e.g. ``downstream-workspace``, ``vEcoli-private``)
     and falls back to the directory basename."""
     if not path:
         return None
@@ -746,7 +746,7 @@ def _git_provenance(path: str | None) -> dict | None:
 
 def repositories_section(candidate: dict | None, reference: dict | None) -> dict:
     """A top-of-report panel naming the two ACTUAL repositories being compared,
-    with commits — so the reader sees `sms-ecoli` / `vEcoli-private`, not just the
+    with commits — so the reader sees `downstream-workspace` / `vEcoli-private`, not just the
     generic `v2ecoli` / `vEcoli` lineage labels."""
     def _row(role: str, lineage: str, prov: dict | None) -> str:
         if not prov:
@@ -1408,7 +1408,7 @@ def main(argv=None):
             sections += cond_sections
 
     gen = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Name the ACTUAL repositories (e.g. sms-ecoli / vEcoli-private), not just the
+    # Name the ACTUAL repositories (e.g. a downstream workspace / vEcoli-private), not just the
     # generic v2ecoli / vEcoli lineage labels. Candidate = the v2ecoli-lineage
     # checkout this script runs from; reference = the vEcoli fork at V2E_VECOLI_DIR.
     cand = _git_provenance(str(Path(__file__).resolve().parents[1]))

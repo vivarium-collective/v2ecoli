@@ -61,9 +61,9 @@ def test_card_ungraded_when_nothing_declared():
 def test_card_degrades_named_when_declared_but_absent():
     # a declared id neither arm emitted -> ungraded, but the id is named
     state = _state({}, name="basal")
-    state["observable_bulk_ids"] = ["VIOLACEIN[c]"]
+    state["observable_bulk_ids"] = ["TRP[c]"]
     out = _run_card("bulk_kpi", state)
     assert out["verdict"] == "ungraded"
     ids = {a["id"] for a in out["axes"]}
-    assert "bulk.VIOLACEIN[c]" in ids
-    assert "VIOLACEIN[c]" in out["card_html"]
+    assert "bulk.TRP[c]" in ids
+    assert "TRP[c]" in out["card_html"]

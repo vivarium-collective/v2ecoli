@@ -55,11 +55,11 @@ from v2ecoli.workflow.analyses import scorecard  # noqa: F401
 #
 # These three reuse the repo-root ``scripts._compare`` comparison harness at
 # import time. ``scripts/`` lives at the v2ecoli repo root (and in a consumer
-# like sms-ecoli), but is NOT shipped inside the installed ``v2ecoli`` wheel —
+# like a downstream workspace), but is NOT shipped inside the installed ``v2ecoli`` wheel —
 # so when v2ecoli is imported as a bare dependency WITHOUT the comparison
 # harness on sys.path, importing this package must not hard-fail. Guard the
 # import: the comparison analyses register wherever ``scripts._compare`` is
-# available (v2ecoli's own repo, sms-ecoli), and are simply absent otherwise —
+# available (v2ecoli's own repo, a downstream workspace), and are simply absent otherwise —
 # they are unusable without that harness anyway. Without this guard,
 # ``import v2ecoli.workflow.analyses`` (and therefore run_analyses, which relies
 # on it) raises ``ModuleNotFoundError: No module named 'scripts'`` in every

@@ -2,7 +2,7 @@
 
 A run can exit 0, divide, and write a valid-looking store while producing NONE of
 the observables the study exists to measure. A declared emit path that yields no
-column is silent (sms-ecoli#210: "the check is the column list, not the exit
+column is silent ("the check is the column list, not the exit
 code"); a swapped process can be dropped between API and runner and the run still
 completes green on the wild-type; a KPI column can be present and read exactly
 zero. Presence/effect checks (a non-empty store, global_time advanced) pass all of
@@ -29,7 +29,7 @@ This gate asserts, FROM THE ARTIFACT, what a study's output must satisfy:
 It is route-independent: importable from run_pbg, a raw compute job, or a
 post-run check, and it reads local paths or s3:// the same way (via sweep_io).
 It writes a verdict.json so status can be derived from the verdict rather than a
-container exit code (which has been wrong in both directions, sms-ecoli#210).
+container exit code (which has been wrong in both directions).
 
 Exit codes: 0 = PASS, 1 = FAIL, 2 = the gate could not run (bad inputs). Kept
 distinct from check_run_complete.py's exit-2-for-expected-partial convention so a
@@ -64,7 +64,7 @@ def check_columns(
 
     A missing column and a present-but-all-null column both fail. For any column
     named in ``must_vary``, ``distinct <= 1`` also fails: a column pinned at its
-    seed value is a dead channel wearing a column name (cplong90, sms-ecoli#210),
+    seed value is a dead channel wearing a column name (cplong90),
     and it passes a bare presence check. ``distinct`` is reported for every column
     so a reviewer can spot a dead channel even when it is not enforced.
 
@@ -217,7 +217,7 @@ def bulk_species_count_from_state(state: dict) -> int | None:
 
     The species-set size is the cheapest strain fingerprint we have: a stock
     build carries 16,321 bulk species, a genuine new-gene composition 16,323 /
-    16,339 / 16,341 (cplong90's control, sms-ecoli#210). A candidate run whose
+    16,339 / 16,341 (cplong90's control). A candidate run whose
     columns and processes all look right but whose bulk count equals the stock's
     was staged from the wrong cache -- the failure class one leg downstream of the
     viva-api#437 staging fix.
@@ -394,8 +394,8 @@ def _sql_ident(name: str) -> str:
 
 
 def _self_test() -> int:
-    """Validate the verifier itself against a known-bad artifact (sms-ecoli#210:
-    "a positive control only protects the checks you actually run against it").
+    """Validate the verifier itself against a known-bad artifact
+    ("a positive control only protects the checks you actually run against it").
     Builds a tiny hive parquet, then asserts the gate PASSES a present column and
     FAILS a missing one and an all-null one. Returns 0 iff the gate behaves."""
     import tempfile

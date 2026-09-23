@@ -122,7 +122,7 @@ def test_with_cross_cell_stats_orders_and_computes():
 # Parity against REAL vEcoli cd1 outputs.
 #
 # The private vEcoli repo ships cd1 result tables from actual runs. They are a
-# different model (vEcoli v1) on different variants (mecillinam / violacein),
+# different model (vEcoli v1) on different variants,
 # so the NUMBERS are not comparable — but the schema and the entity-id
 # vocabulary are, and the vocabulary is the risky part of the port: v2ecoli has
 # no listener field-metadata table, so each port re-derives those ids from

@@ -62,14 +62,14 @@ def test_strain_inputs_reach_PARCA_not_the_lineage() -> None:
         n_seeds=1,
         variants=[
             {
-                "variant_name": "vio",
-                "new_genes": "violacein_MG1655_M5",
+                "variant_name": "ng",
+                "new_genes": "newgeneA_MG1655_M5",
                 "bundle_overrides": "/m.json",
             }
         ],
     )
     parca_cfg = doc["state"]["parca_v0"]["config"]
-    assert parca_cfg["new_genes"] == "violacein_MG1655_M5"
+    assert parca_cfg["new_genes"] == "newgeneA_MG1655_M5"
     assert parca_cfg["bundle_overrides"] == "/m.json"
     inner = doc["state"]["runs_v0"]["config"]["state"]
     assert "new_genes" not in inner["lineage_v0_s0"]["config"]
@@ -631,7 +631,7 @@ def _parca_block(core, **kw) -> str:
 def test_a_cache_uri_makes_the_node_fetch_instead_of_compute(core) -> None:
     """CD2's payloads do not build their caches at dispatch: Run 1 uses ten
     pre-built per-seed K4 founder caches (staged at ray-parca-cache/9f84e6b/) and
-    Run 2 the violacein bundle. A campaign that recomputes is running a different
+    Run 2 an engineered-strain bundle. A campaign that recomputes is running a different
     experiment, however green it looks."""
     block = _parca_block(core, cache_uri="s3://bucket/ray-parca-cache/9f84e6b/")
     assert "aws s3 cp --recursive s3://bucket/ray-parca-cache/9f84e6b/" in block
@@ -884,7 +884,7 @@ def test_campaign_knobs_reach_every_lineage_and_are_absent_when_unset(core) -> N
         "emit_paths": ["listeners.mass"],
         "exchange_fluxes": {
             "glucose_exchange": "GLC",
-            "violacein_exchange": "VIOLACEIN",
+            "acetate_exchange": "ACET",
         },
         "exchange_flux_basis": "gdcw",
         "ppgpp_regulation": False,

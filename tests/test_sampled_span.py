@@ -1,7 +1,7 @@
 """``sampled_span`` -- a span that heartbeats while its body is blocked.
 
 The gather's failure mode is one ``step.update(...)`` that blocks for hours and
-then dies (sms-ecoli#166, Run 1). A plain span records that the work started and
+then dies (Run 1). A plain span records that the work started and
 never finished; every number that would explain WHY -- DuckDB's temp-directory
 usage, RSS -- lives inside the blocked call and is currently sampled once, after
 it returns, which on that path never happens. These tests pin the behaviour that

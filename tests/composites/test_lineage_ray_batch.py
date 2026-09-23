@@ -107,7 +107,7 @@ def test_variant_grid_threads_injection_and_emitter_arg_per_node():
     # into EVERY (variant, seed) node, not just the first.
     inj = {"swap_processes": {"ecoli-metabolism": "ecoli-metabolism-redux"}}
     ea = {"view": [{"root": ("listeners", "fba_results"),
-                    "variables": {"violacein_production_flux": [{"path": "violacein_production_flux"}]}}]}
+                    "variables": {"product_production_flux": [{"path": "product_production_flux"}]}}]}
     doc = build_lineage_ray_batch_document(
         n_seeds=2, n_generations=1,
         variant_grid=[{"variant_name": "a"}, {"variant_name": "b"}],
@@ -127,8 +127,8 @@ def test_required_leaves_raises_on_missing_kpi():
         "cache_dir": "out/cache", "seed": 0, "generations": 1, "emitter": "xarray",
         "emitter_arg": {
             "view": [{"root": ("listeners", "fba_results"),
-                      "variables": {"violacein_production_flux": [{"path": "violacein_production_flux"}]}}],
-            "required_leaves": ["listeners.fba_results.violacein_production_flux"],
+                      "variables": {"product_production_flux": [{"path": "product_production_flux"}]}}],
+            "required_leaves": ["listeners.fba_results.product_production_flux"],
         },
     }
     proc = LineageProcess(cfg, core=core)

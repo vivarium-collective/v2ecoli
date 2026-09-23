@@ -26,7 +26,7 @@ _scipy_compat.install()
 
 # ``v2ecoli/processes/parca/data_loader.py`` → repo root is four parents up.
 # Kept as the final fallback candidate below: when v2ecoli is an INSTALLED
-# dependency (e.g. sms-ecoli), source lives under the package but this data
+# dependency (e.g. a downstream workspace), source lives under the package but this data
 # file lives in the consuming WORKSPACE, so the package root alone may not
 # have it — see ``v2ecoli.library.cache_version.candidate_repo_roots``,
 # which this reuses to also try the workspace root first.

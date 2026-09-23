@@ -63,7 +63,7 @@ def test_baseline_composite_has_no_unbound_core_instances():
     ``Link.serialize`` (``instance.core.access(...)``) when
     ``Composite.serialize_state()`` finally runs -- so this silently
     shipped a composite that crashed only at the very last step of a real
-    run, confirmed live via sim 154 (sms-ecoli build 64, commit c2ae8eb).
+    run, confirmed live via sim 154 (build 64, commit c2ae8eb).
 
     This walks the ENTIRE real composite state (not just the two known
     Requester/Evolver ports) so any future construction site with the same
@@ -107,7 +107,7 @@ def test_baseline_composite_serializes_final_state():
     """Regression guard for item 58: ``composite.serialize_state()`` must not
     crash on a real ``ecoli_baseline`` composite's declared port schemas.
 
-    Real defect, confirmed live (sim 155, sms-ecoli build 65) and reproduced
+    Real defect, confirmed live (sim 155, build 65) and reproduced
     locally: ``v2ecoli/types/labeled_array.py``'s ``register_labeled_array()``
     stringified ``data`` (``data.name if isinstance(data, np.dtype) else
     str(data)``) before registering ``{'_inherit': 'array', '_data':

@@ -30,7 +30,7 @@ def _history(tmp_path, *, dt: float = 1.0, with_classic: bool = False) -> str:
                 1.2e6
             ]
             * n,
-            "listeners__fba_results__estimated_exchange_dmdt__VIOLACEIN[c]": [-1.5e4]
+            "listeners__fba_results__estimated_exchange_dmdt__INDOLE[c]": [-1.5e4]
             * n,
         }
     )
@@ -64,7 +64,7 @@ def test_redux_history_binds_without_the_classic_column(tmp_path) -> None:
     header, rows = _run(_history(tmp_path))
     assert "GLC" in rows and "OXYGEN-MOLECULE" in rows and "growth_rate_h" in rows
     # the ONE cytoplasmic exchange must survive a compartment-agnostic match
-    assert "VIOLACEIN" in rows, list(rows)
+    assert "INDOLE" in rows, list(rows)
 
 
 def test_redux_sign_is_flipped_to_uptake_negative_and_units_match_the_listener(
@@ -75,7 +75,7 @@ def test_redux_sign_is_flipped_to_uptake_negative_and_units_match_the_listener(
     header, rows = _run(_history(tmp_path, dt=1.0))
     cell_col = next(i for i, h in enumerate(header) if h.startswith("Cell:"))
     glc = float(rows["GLC"][cell_col])
-    vio = float(rows["VIOLACEIN"][cell_col])
+    vio = float(rows["INDOLE"][cell_col])
     # uptake-positive LP counts -> canonical uptake-NEGATIVE flux; secretion positive
     assert glc < 0 and vio > 0
     expected_glc = -counts_to_gdcw_rate(6.0e5, 640.0, 1.0)
@@ -123,4 +123,4 @@ def test_classic_column_still_wins_when_present(tmp_path, monkeypatch) -> None:
     cell_col = next(i for i, h in enumerate(header) if h.startswith("Cell:"))
     # classic values are used verbatim (-6.0 for GLC), not re-derived from the redux leaves
     assert float(rows["GLC"][cell_col]) == pytest.approx(-6.0)
-    assert "ACET" in rows and "VIOLACEIN" not in rows
+    assert "ACET" in rows and "INDOLE" not in rows

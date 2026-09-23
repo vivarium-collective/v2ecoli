@@ -50,6 +50,8 @@ def discover_investigations(ws_root: Path) -> list[str]:
     inv_root = ws_root / "workspace" / "investigations"
     if not inv_root.is_dir():
         inv_root = ws_root / "investigations"  # flat-layout fallback
+    if not inv_root.is_dir():
+        return []  # report-less workspace: no investigations dir → nothing to publish
     return sorted(
         d.name for d in inv_root.iterdir()
         if d.is_dir() and (d / "investigation.yaml").is_file()
@@ -226,8 +228,10 @@ def main() -> int:
         want = {s.strip() for s in args.only.split(",")}
         slugs = [s for s in slugs if s in want]
     if not slugs:
-        print("no investigations found", file=sys.stderr)
-        return 1
+        # A report-less workspace is a no-op, not a failure: this is a
+        # non-gating deploy job, so nothing to publish → succeed quietly.
+        print("no investigations to publish — nothing to do", file=sys.stderr)
+        return 0
     print(f"investigations: {', '.join(slugs)}")
 
     results: dict[str, tuple[bool, str]] = {}

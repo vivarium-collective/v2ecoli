@@ -20,22 +20,44 @@ import hashlib
 import json
 import os
 import sys
+import warnings
 from dataclasses import dataclass, field
 from typing import Iterable
 
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "4"
 CACHE_VERSION_FILENAME = "cache_version.json"
 
-# Packages on the ParCa fit path whose version genuinely changes fit output
-# (or how a previously-fit cache unpickles) — see the module docstring at
-# ":238-266" / PARCA_REVIEW.md A9. Recorded into ``CacheVersion.context`` and
-# folded into ``inputs_hash`` so a cache built under one scipy/numba/etc and
-# loaded under another is detectable instead of silently mis-unpickling deep
-# in a simulation step.
+#: Schema versions that carry a ``derived_from`` provenance chain (schema 3
+#: introduced it; schema 4 added ``resolved_roots``/``build_cwd`` diagnostics
+#: on top). The chain guards in ``verify_cache_version`` and the audit CLI run
+#: for any of these; a schema-2 cache predates the chain entirely.
+CHAIN_SCHEMA_VERSIONS: frozenset[str] = frozenset({"3", "4"})
+
+# Packages on the ParCa fit path whose version can change fit output or how a
+# previously-fit cache unpickles — see the module docstring at ":238-266" /
+# PARCA_REVIEW.md A9. All are recorded into ``CacheVersion.context`` for
+# diagnostics; only :data:`UNPICKLE_AFFECTING_PACKAGES` are folded into
+# ``inputs_hash`` (see that constant's docstring).
 CONTEXT_PACKAGES: tuple[str, ...] = (
     "scipy", "numpy", "numba", "dill", "cvxpy", "ecos", "stochastic-arrow",
 )
+
+#: The subset of :data:`CONTEXT_PACKAGES` whose version genuinely changes how a
+#: previously-fit cache *unpickles* (a1.3 / the workbench-robustness review).
+#: Only these — plus the Python version — are folded into ``inputs_hash``; the
+#: rest of ``context`` (scipy/numba/cvxpy/ecos/stochastic-arrow) is recorded and
+#: reported on mismatch as an advisory WARNING, not a hard StaleCacheError.
+#:
+#: Rationale: the cache is a *fitted artifact*. A scipy/numba/... bump AFTER the
+#: fit does not change the fitted bytes already on disk; it only matters for a
+#: *refit*, whose identity ``derived_from``/chassis provenance already covers.
+#: Folding every fit-path package into the load-time gate meant a ``uv sync``
+#: that bumped e.g. cvxpy in one venv invalidated a cache that in fact loads
+#: fine — the false StaleCacheError this narrowing removes. ``dill`` and
+#: ``numpy`` stay in the hash because a version skew there genuinely changes the
+#: unpickle and can mis-hydrate the cache silently deep in a sim step.
+UNPICKLE_AFFECTING_PACKAGES: tuple[str, ...] = ("dill", "numpy")
 
 #: build_params keys that describe *which artifact* a bundle is (not the code
 #: that produced it) — condition/media/seed/n_seeds/patch identity. Folding
@@ -185,8 +207,17 @@ class StaleCacheError(RuntimeError):
     """Raised when cache_version.json does not match the current code/fixture.
 
     The message includes the rebuild command so humans and CI logs both get
-    an actionable next step without reading this module.
+    an actionable next step without reading this module. When the mismatch is
+    a fingerprint difference, ``.diff`` carries the structured
+    :func:`fingerprint_diff` payload (which files/context/chain differ and,
+    for files, the absolute path each side resolved from) so a caller — e.g.
+    the workbench composite card — can render it instead of regexing the
+    message. ``.diff`` is ``None`` for non-fingerprint mismatches (missing
+    marker, schema bump, wrong-strain build_params).
     """
+
+    #: Class-level default so ``err.diff`` is always safe to read.
+    diff: dict | None = None
 
 
 @dataclass(frozen=True)
@@ -210,6 +241,34 @@ class CacheVersion:
     # inputs. default_factory=tuple keeps old callers (and pre-A6 cache_
     # version.json files, which lack this key) working without passing it.
     configs: tuple = field(default_factory=tuple)
+    # The provenance chain (schema 3): the artifacts this cache was DERIVED
+    # FROM — founder → sim_data → chassis (the ParCa ``parca_state.pkl``).
+    # Each entry is ``{"layer", "path", "source_sha256", "provenance",
+    # ["parent_cache_version"]}``: the exact bytes of the consumed artifact
+    # (``source_sha256``), the ``chassis-provenance/1`` sidecar embedded
+    # verbatim if one sits beside it (``provenance``), and, when the source
+    # is itself a bundle dir carrying a ``cache_version.json``, that parent
+    # record nested under ``parent_cache_version`` so the chain composes.
+    # A stable projection of it (``[{layer,source_sha256,commit,dirty}]``) is
+    # folded into ``inputs_hash`` — exactly like ``build_params`` — so swapping
+    # the chassis a cache was built on changes the fingerprint instead of
+    # verifying clean against a different founder/sim_data/chassis (the silent
+    # failure schema 3 exists to close). default_factory=list keeps old callers
+    # and pre-chain (schema 2) cache_version.json files working.
+    derived_from: list = field(default_factory=list)
+    # Diagnostics (schema 4), NOT folded into inputs_hash. ``resolved_roots``
+    # maps each INPUT_FILES rel path to the ABSOLUTE path it actually resolved
+    # to at compute time; ``build_cwd`` is the process cwd. Two processes with
+    # different cwds can resolve the SAME rel path to DIFFERENT trees (the
+    # candidate_repo_roots upward-walk depends on cwd), hash different bytes,
+    # and disagree about one ``out/cache`` — producing a StaleCacheError a fresh
+    # process can't reproduce. Recording where each side read from is what makes
+    # that diagnosable (``fingerprint_diff``); it is deliberately excluded from
+    # ``inputs_hash`` so the fingerprint stays a function of CONTENT, not of the
+    # path a given process happened to read it from. default_factory keeps old
+    # callers / pre-schema-4 files working.
+    resolved_roots: dict = field(default_factory=dict)
+    build_cwd: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -219,6 +278,9 @@ class CacheVersion:
             "context": dict(self.context),
             "build_params": dict(self.build_params),
             "configs": sorted(self.configs),
+            "derived_from": list(self.derived_from),
+            "resolved_roots": dict(self.resolved_roots),
+            "build_cwd": self.build_cwd,
         }
 
     @classmethod
@@ -230,6 +292,9 @@ class CacheVersion:
             context=dict(d.get("context", {})),
             build_params=dict(d.get("build_params", {})),
             configs=tuple(d.get("configs", ())),
+            derived_from=list(d.get("derived_from", [])),
+            resolved_roots=dict(d.get("resolved_roots", {})),
+            build_cwd=d.get("build_cwd", ""),
         )
 
 
@@ -239,6 +304,268 @@ def _hash_file(path: str) -> str:
         for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
+
+
+#: Suffix of a chassis/artifact provenance sidecar. Kept here (not imported
+#: from ``run_provenance``) to avoid a circular import: ``run_provenance``
+#: already imports ``read_cache_version`` from this module. The sidecar for
+#: ``parca_state.pkl`` is ``parca_state.provenance.json`` (stem-swap), which is
+#: what ``run_provenance.write_chassis_provenance`` writes; the append form
+#: ``<path>.provenance.json`` is also accepted so a source declared with any
+#: extension resolves.
+PROVENANCE_SIDECAR_SUFFIX = ".provenance.json"
+
+
+def _sidecar_candidates(path: str) -> list[str]:
+    """Both accepted sidecar names for ``path`` (stem-swap first, then append).
+
+    ``parca_state.pkl`` → ``parca_state.provenance.json`` (what the writer
+    emits) and ``parca_state.pkl.provenance.json`` (the literal append form),
+    so a source resolves however the sidecar was named.
+    """
+    p = str(path)
+    cands: list[str] = []
+    root, ext = os.path.splitext(p)
+    if ext:
+        cands.append(root + PROVENANCE_SIDECAR_SUFFIX)
+    cands.append(p + PROVENANCE_SIDECAR_SUFFIX)
+    seen: set[str] = set()
+    out: list[str] = []
+    for c in cands:
+        if c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+def _read_sidecar_provenance(path: str | None) -> dict:
+    """Embed a ``<path>.provenance.json`` sidecar verbatim, or an honest-null.
+
+    Mirrors the honest-null convention in ``run_provenance``: a reason
+    string, never a guess, when there is nothing to read.
+    """
+    if not path:
+        return {"available": False, "reason": "no source path"}
+    for cand in _sidecar_candidates(path):
+        if os.path.isfile(cand):
+            try:
+                with open(cand, encoding="utf-8") as f:
+                    return json.load(f)
+            except Exception as e:  # noqa: BLE001
+                return {"available": False,
+                        "reason": f"provenance sidecar {cand!r} unreadable: {e}"}
+    return {"available": False,
+            "reason": f"no provenance sidecar beside {path!r}"}
+
+
+def _resolve_source(source: dict) -> dict:
+    """Turn a ``{"layer","path"}`` source into a ``derived_from`` entry.
+
+    A file source records the sha256 of its exact bytes. A bundle-dir source
+    (one holding a ``cache_version.json``) records that parent record nested
+    under ``parent_cache_version`` and uses the parent's ``inputs_hash`` as its
+    ``source_sha256`` — a directory has no single byte-stream, and the parent's
+    fingerprint is the identity that must move when the parent is rebuilt, so
+    the chain NESTS (founder → sim_data → chassis).
+    """
+    layer = source.get("layer")
+    path = source.get("path")
+    entry: dict = {"layer": layer, "path": path}
+    entry["source_sha256"] = None
+    if path and os.path.isfile(path):
+        entry["source_sha256"] = _hash_file(path)
+    elif path and os.path.isdir(path):
+        parent = read_cache_version(path)
+        if parent is not None:
+            entry["parent_cache_version"] = parent.to_dict()
+            entry["source_sha256"] = parent.inputs_hash
+    entry["provenance"] = _read_sidecar_provenance(path)
+    return entry
+
+
+def _resolve_derived_from(sources: Iterable[dict] | None,
+                          derived_from: Iterable[dict] | None) -> list[dict]:
+    """Echo ``derived_from`` verbatim if given (verify's non-recompute path),
+    else resolve ``sources`` into fresh entries, else an empty chain."""
+    if derived_from is not None:
+        return [dict(e) for e in derived_from]
+    if sources:
+        return [_resolve_source(dict(s)) for s in sources]
+    return []
+
+
+def _chain_entry_identity(entry: dict) -> tuple[str | None, object]:
+    """``(commit, dirty)`` for one chain entry, read from its embedded
+    ``chassis-provenance`` sidecar (``code.v2ecoli``). Defensive: any shape
+    that doesn't carry the block yields ``(None, None)``."""
+    prov = entry.get("provenance") or {}
+    code = prov.get("code") or {}
+    v2 = code.get("v2ecoli") or {}
+    return v2.get("commit"), v2.get("dirty")
+
+
+def _chain_fold_projection(derived_from: Iterable[dict]) -> list[dict]:
+    """The stable ``[{layer,source_sha256,commit,dirty}]`` projection folded
+    into ``inputs_hash``. Deliberately narrow: unrelated sidecar fields
+    (created_at, artifact.bytes, build.argv, ...) do NOT move the fingerprint,
+    only the artifact identity (source_sha256) and its recorded code identity
+    (commit/dirty) do."""
+    proj: list[dict] = []
+    for entry in derived_from:
+        commit, dirty = _chain_entry_identity(entry)
+        proj.append({
+            "layer": entry.get("layer"),
+            "source_sha256": entry.get("source_sha256"),
+            "commit": commit,
+            "dirty": dirty,
+        })
+    return proj
+
+
+def _hashable_context(context: dict) -> dict:
+    """The subset of ``context`` folded into ``inputs_hash`` (a1.3).
+
+    Only the Python version and :data:`UNPICKLE_AFFECTING_PACKAGES`
+    (``dill``/``numpy``) move the fingerprint; the remaining fit-path packages
+    are recorded for diagnostics but reported as an advisory WARNING on
+    mismatch, not a hard StaleCacheError — see the constant's docstring.
+    """
+    keep = {"python", *UNPICKLE_AFFECTING_PACKAGES}
+    return {k: v for k, v in context.items() if k in keep}
+
+
+def _aggregate_inputs_hash(per_file: dict[str, str], context: dict,
+                           build_params: dict,
+                           derived_from: Iterable[dict]) -> str:
+    """The single fingerprint aggregator, shared by build and verify so both
+    fold ``derived_from`` identically."""
+    agg = hashlib.sha256()
+    for rel in sorted(per_file):
+        agg.update(f"{rel}\n{per_file[rel]}\n".encode())
+    agg.update(b"\ncontext\n")
+    # Only the unpickle-affecting context subset moves the hash (a1.3); the
+    # rest of ``context`` is diagnostic/advisory.
+    agg.update(json.dumps(_hashable_context(context), sort_keys=True).encode())
+    agg.update(b"\nbuild_params\n")
+    agg.update(json.dumps(build_params, sort_keys=True).encode())
+    agg.update(b"\nderived_from\n")
+    agg.update(json.dumps(_chain_fold_projection(derived_from),
+                          sort_keys=True).encode())
+    return agg.hexdigest()
+
+
+def fingerprint_diff(stored: "CacheVersion | None",
+                     current: "CacheVersion") -> dict:
+    """Structured diff of two fingerprints: WHAT differs and FROM WHERE.
+
+    The whole reason this exists: ``candidate_repo_roots`` resolves each
+    INPUT_FILES entry against the nearest ``workspace.yaml`` above the calling
+    process's cwd, so two processes verifying the SAME ``out/cache`` from
+    different cwds can hash DIFFERENT source trees and disagree. The old
+    mismatch message printed ``files differ: []`` whenever the divergence was
+    in ``context``/``derived_from`` rather than a file hash, which made the
+    incident undebuggable. This returns, per differing file, the hash each side
+    saw AND the absolute path each side resolved it from (so a "same content,
+    different tree" disagreement is visible at a glance), plus which ``context``
+    keys differ (split into fold-affecting vs advisory), whether the
+    ``derived_from`` chain projection changed, which ``build_params`` differ,
+    and both sides' ``build_cwd``.
+
+    ``stored`` may be ``None`` (no marker on disk); the file/context sections
+    are then reported as fully "added" against ``current``.
+    """
+    s_files = dict(stored.per_file_hashes) if stored else {}
+    c_files = dict(current.per_file_hashes)
+    s_roots = dict(stored.resolved_roots) if stored else {}
+    c_roots = dict(current.resolved_roots)
+    files = {
+        rel: {
+            "stored": s_files.get(rel),
+            "current": c_files.get(rel),
+            "stored_path": s_roots.get(rel),
+            "current_path": c_roots.get(rel),
+        }
+        for rel in sorted(set(s_files) | set(c_files))
+        if s_files.get(rel) != c_files.get(rel)
+    }
+
+    s_ctx = dict(stored.context) if stored else {}
+    c_ctx = dict(current.context)
+    fold_keys = {"python", *UNPICKLE_AFFECTING_PACKAGES}
+    ctx_all = {
+        k: [s_ctx.get(k), c_ctx.get(k)]
+        for k in sorted(set(s_ctx) | set(c_ctx))
+        if s_ctx.get(k) != c_ctx.get(k)
+    }
+    context_fold_affecting = {k: v for k, v in ctx_all.items() if k in fold_keys}
+    context_advisory = {k: v for k, v in ctx_all.items() if k not in fold_keys}
+
+    s_bp = dict(stored.build_params) if stored else {}
+    c_bp = dict(current.build_params)
+    build_params = {
+        k: [s_bp.get(k), c_bp.get(k)]
+        for k in sorted(set(s_bp) | set(c_bp))
+        if s_bp.get(k) != c_bp.get(k)
+    }
+
+    chain_changed = (
+        _chain_fold_projection(stored.derived_from if stored else [])
+        != _chain_fold_projection(current.derived_from)
+    )
+
+    return {
+        "files": files,
+        "context_fold_affecting": context_fold_affecting,
+        "context_advisory": context_advisory,
+        "build_params": build_params,
+        "derived_from_changed": chain_changed,
+        "stored_cwd": (stored.build_cwd if stored else None),
+        "current_cwd": os.getcwd(),
+    }
+
+
+def _render_fingerprint_diff(diff: dict) -> list[str]:
+    """Human-readable rendering of a :func:`fingerprint_diff` payload, for the
+    rebuild message. Replaces the old ``files differ: []`` one-liner."""
+    lines: list[str] = ["Fingerprint differences:"]
+    files = diff.get("files") or {}
+    if files:
+        lines.append("  files:")
+        for rel, d in files.items():
+            s = (d.get("stored") or "MISSING")[:12]
+            c = (d.get("current") or "MISSING")[:12]
+            lines.append(f"    - {rel}: {s} -> {c}")
+            sp, cp = d.get("stored_path"), d.get("current_path")
+            if sp != cp:
+                lines.append(f"        stored  from: {sp}")
+                lines.append(f"        current from: {cp}")
+    fold = diff.get("context_fold_affecting") or {}
+    if fold:
+        lines.append("  context (fold-affecting):")
+        for k, (s, c) in fold.items():
+            lines.append(f"    - {k}: {s} -> {c}")
+    adv = diff.get("context_advisory") or {}
+    if adv:
+        lines.append("  context (advisory, not hashed):")
+        for k, (s, c) in adv.items():
+            lines.append(f"    - {k}: {s} -> {c}")
+    bp = diff.get("build_params") or {}
+    if bp:
+        lines.append("  build_params:")
+        for k, (s, c) in bp.items():
+            lines.append(f"    - {k}: {s!r} -> {c!r}")
+    if diff.get("derived_from_changed"):
+        lines.append("  derived_from: chain projection changed")
+    if diff.get("stored_cwd") != diff.get("current_cwd"):
+        lines.append(
+            f"  build_cwd: {diff.get('stored_cwd')!r} (stored) != "
+            f"{diff.get('current_cwd')!r} (this process) — a different cwd can "
+            f"resolve INPUT_FILES against a different tree; see the file paths "
+            f"above.")
+    if len(lines) == 1:
+        lines.append("  (no per-field difference found — schema or marker "
+                     "mismatch only)")
+    return lines
 
 
 def _default_repo_root() -> str:
@@ -283,6 +610,17 @@ def candidate_repo_roots() -> list[str]:
     the old single-root behavior.
     """
     roots: list[str] = []
+    # An EXPLICITLY DECLARED root wins, because the usual discovery cannot work
+    # everywhere: ``find_workspace_root`` walks up from CWD for a workspace.yaml,
+    # and a task scheduler gives each task its own working directory with no
+    # workspace above it. Nextflow is the case that forced this -- the walk
+    # raised, the `except` below swallowed it, and the only remaining root was
+    # site-packages, where `models/` is not shipped. The failure surfaced as
+    # "INPUT_FILES entry does not exist ... tried roots: ['…/site-packages']",
+    # which reads like a renamed data file rather than an unresolved workspace.
+    declared = os.environ.get("V2E_ROOT", "").strip()
+    if declared and os.path.isdir(declared):
+        roots.append(declared)
     try:
         from viva_workspace import find_workspace_root
         roots.append(str(find_workspace_root()))
@@ -302,7 +640,9 @@ def compute_cache_version(repo_root: str | None = None,
                           files: Iterable[str] = INPUT_FILES,
                           build_params: dict | None = None,
                           context: dict | None = None,
-                          configs: Iterable[str] | None = None) -> CacheVersion:
+                          configs: Iterable[str] | None = None,
+                          sources: Iterable[dict] | None = None,
+                          derived_from: Iterable[dict] | None = None) -> CacheVersion:
     """Compute the fingerprint over INPUT_FILES + context + build_params.
 
     ``context`` defaults to a fresh live probe (see ``probe_context``) so two
@@ -322,6 +662,17 @@ def compute_cache_version(repo_root: str | None = None,
     don't build a bundle (most, which just want ``inputs_hash``) shouldn't
     have to pass an empty list. Deliberately excluded from ``inputs_hash``
     — see the field docstring on ``CacheVersion.configs``.
+
+    ``sources`` (schema 3): the artifacts this build CONSUMED, each a
+    ``{"layer","path"}`` dict (e.g. ``{"layer":"chassis","path":".../
+    parca_state.pkl"}``). Each is resolved into a ``derived_from`` entry
+    (bytes hashed, ``*.provenance.json`` sidecar embedded, a bundle-dir's
+    ``cache_version.json`` nested) and the chain's stable projection is folded
+    into ``inputs_hash`` — so a cache built on a different chassis fingerprints
+    differently. ``derived_from`` is the echo path used by
+    ``verify_cache_version``: pass an already-resolved chain to fold it in
+    verbatim WITHOUT re-resolving from disk (the parent artifact may be absent
+    at verify time). Supply at most one of the two.
     """
     # An explicit repo_root (tests, or a caller that already knows exactly
     # where its files live) means "search only there" — the original,
@@ -330,6 +681,7 @@ def compute_cache_version(repo_root: str | None = None,
     # exists in the workspace (installed-dependency case) still resolves.
     candidate_roots = [repo_root] if repo_root is not None else candidate_repo_roots()
     per_file: dict[str, str] = {}
+    resolved_roots: dict[str, str] = {}
     for rel in sorted(files):
         resolved_path = None
         for root in candidate_roots:
@@ -351,6 +703,9 @@ def compute_cache_version(repo_root: str | None = None,
                 f"AGENTS.md 'Adding a new composite architecture' step 3."
             )
         per_file[rel] = _hash_file(resolved_path)
+        # Record WHERE this entry resolved (absolute), for fingerprint_diff.
+        # Diagnostic only — not folded into inputs_hash.
+        resolved_roots[rel] = os.path.abspath(resolved_path)
 
     if context is None:
         context = probe_context()
@@ -359,32 +714,38 @@ def compute_cache_version(repo_root: str | None = None,
         resolved_build_params.update(
             {k: v for k, v in build_params.items() if k in resolved_build_params})
 
-    agg = hashlib.sha256()
-    for rel in sorted(per_file):
-        agg.update(f"{rel}\n{per_file[rel]}\n".encode())
-    agg.update(b"\ncontext\n")
-    agg.update(json.dumps(context, sort_keys=True).encode())
-    agg.update(b"\nbuild_params\n")
-    agg.update(json.dumps(resolved_build_params, sort_keys=True).encode())
+    resolved_derived_from = _resolve_derived_from(sources, derived_from)
+
     return CacheVersion(
         schema_version=SCHEMA_VERSION,
-        inputs_hash=agg.hexdigest(),
+        inputs_hash=_aggregate_inputs_hash(
+            per_file, context, resolved_build_params, resolved_derived_from),
         per_file_hashes=per_file,
         context=dict(context),
         build_params=resolved_build_params,
         configs=tuple(sorted(configs)) if configs is not None else (),
+        derived_from=resolved_derived_from,
+        resolved_roots=resolved_roots,
+        build_cwd=os.getcwd(),
     )
 
 
 def write_cache_version(cache_dir: str, version: CacheVersion | None = None,
                         repo_root: str | None = None,
                         build_params: dict | None = None,
-                        configs: Iterable[str] | None = None) -> CacheVersion:
-    """Write cache_version.json inside ``cache_dir``.  Called by save_cache."""
+                        configs: Iterable[str] | None = None,
+                        sources: Iterable[dict] | None = None) -> CacheVersion:
+    """Write cache_version.json inside ``cache_dir``.  Called by save_cache.
+
+    ``sources`` (schema 3) declares the artifacts this bundle was derived from
+    (founder / sim_data / chassis); it is threaded into ``compute_cache_version``
+    so the chain is recorded and folded into ``inputs_hash``.
+    """
     if version is None:
         version = compute_cache_version(repo_root=repo_root,
                                         build_params=build_params,
-                                        configs=configs)
+                                        configs=configs,
+                                        sources=sources)
     os.makedirs(cache_dir, exist_ok=True)
     path = os.path.join(cache_dir, CACHE_VERSION_FILENAME)
     with open(path, "w") as f:
@@ -418,7 +779,9 @@ def _resolve_build_params(build_params: dict | None) -> dict:
 
 
 def verify_cache_version(cache_dir: str, repo_root: str | None = None,
-                         expected_build_params: dict | None = None) -> None:
+                         expected_build_params: dict | None = None,
+                         require_clean_chain: bool = False,
+                         expected_chassis: dict | None = None) -> None:
     """Raise StaleCacheError if the cache on disk doesn't match current inputs.
 
     Called from the cache load path.  A missing ``cache_version.json`` is a
@@ -456,11 +819,25 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
     recorded" from "nothing is required" from the marker alone, and the
     primary defense against an incomplete bundle is the build itself
     refusing to write one (``v2ecoli.core._write_sim_input_bundle``).
+
+    ``derived_from`` (schema 3): the provenance chain is ECHOED here, never
+    recomputed — the parent artifact (the ParCa ``parca_state.pkl`` a cache was
+    built on) is routinely absent at load time, so ``current`` folds
+    ``stored.derived_from`` back in verbatim, exactly as ``build_params`` is
+    echoed, letting a real chained cache verify against itself. Three schema-3
+    guards then run on the stored chain: (a) a schema-3 cache with no chain at
+    all is stale (its chassis provenance was never recorded); (b) any chain
+    layer that is ``dirty`` or has a null ``commit`` WARNs loudly by default and
+    hard-fails when ``require_clean_chain`` (or ``$V2E_REQUIRE_CLEAN_CHAIN``) is
+    set; (c) ``expected_chassis={"commit": ...}`` fails if the chain's chassis
+    layer was built from a different commit — the chain-level mirror of
+    ``expected_build_params``.
     """
     stored = read_cache_version(cache_dir)
     current = compute_cache_version(
         repo_root=repo_root,
         build_params=(stored.build_params if stored is not None else None),
+        derived_from=(stored.derived_from if stored is not None else None),
     )
 
     if stored is None:
@@ -511,18 +888,97 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
             actual=stored,
         ))
 
+    # --- provenance-chain guards (schema 3+) ---------------------------
+    # Only for chain-bearing schemas; a schema-2 cache has already raised on
+    # the schema check above (it predates the chain and its provenance is
+    # unrecoverable — see the audit CLI's PRE-CHAIN message). A stored schema
+    # older than current also raises there, so in practice only a current
+    # (schema-matched) cache reaches these guards.
+    if stored.schema_version in CHAIN_SCHEMA_VERSIONS:
+        if not stored.derived_from:
+            # (a) A chained-schema cache that recorded no chain: its chassis
+            # provenance was never captured, so nothing downstream can prove
+            # which founder/sim_data/chassis it came from. WARN by default and
+            # hard-fail only when a verified chain is demanded — the same opt-in
+            # posture as the dirty-layer guard (b) below. This matters during the
+            # rollout of ``sources=`` wiring: many cache-building callers
+            # (new_gene_cache, variant_cache, build_condition_cache,
+            # run_comparison_ensemble, …) do not declare their sources yet, and a
+            # hard failure here would reject every one of their caches on load.
+            # CD campaigns that require a clean chain set $V2E_REQUIRE_CLEAN_CHAIN
+            # (or pass require_clean_chain=True) and DO hard-fail — which is what
+            # catches the stale-chassis incident this design targets.
+            require_clean = (require_clean_chain
+                             or bool(os.environ.get("V2E_REQUIRE_CLEAN_CHAIN")))
+            msg = _rebuild_message(
+                cache_dir,
+                reason="chain-bearing cache has an empty/absent "
+                       "'derived_from' chain — chassis provenance was NOT "
+                       "recorded, so this cache cannot be traced to the ParCa "
+                       "state it was built on. Rebuild declaring its sources.",
+                expected=current,
+                actual=stored,
+            )
+            if require_clean:
+                raise StaleCacheError(msg)
+            warnings.warn(msg)
+
+        # (c) Chain-level analogue of expected_build_params: fail if the
+        # chassis the cache was built on isn't the one the caller expects.
+        if expected_chassis is not None:
+            want_commit = expected_chassis.get("commit")
+            chassis_commit = _chain_chassis_commit(stored.derived_from)
+            if want_commit is not None and chassis_commit != want_commit:
+                raise StaleCacheError(_rebuild_message(
+                    cache_dir,
+                    reason=f"chassis commit mismatch: requested "
+                           f"{want_commit!r} != chain chassis "
+                           f"{chassis_commit!r} — this cache was built on a "
+                           f"different ParCa chassis than expected",
+                    expected=current,
+                    actual=stored,
+                ))
+
+        # (b) A dirty/uncommitted layer anywhere in the chain: WARN loudly by
+        # default, hard-fail only when the caller (or the environment) demands
+        # a clean chain.
+        dirty_layers = _dirty_chain_layers(stored.derived_from)
+        if dirty_layers:
+            require_clean = (require_clean_chain
+                             or bool(os.environ.get("V2E_REQUIRE_CLEAN_CHAIN")))
+            message = _dirty_chain_message(cache_dir, dirty_layers, require_clean)
+            if require_clean:
+                raise StaleCacheError(message)
+            warnings.warn(message)
+
     if stored.inputs_hash != current.inputs_hash:
-        changed = [
-            rel for rel in current.per_file_hashes
-            if current.per_file_hashes.get(rel)
-               != stored.per_file_hashes.get(rel)
-        ]
-        raise StaleCacheError(_rebuild_message(
+        diff = fingerprint_diff(stored, current)
+        raise _stale(
             cache_dir,
-            reason=f"inputs_hash mismatch; files differ: {changed}",
+            reason="inputs_hash mismatch (see the fingerprint differences "
+                   "below for which file/context/chain diverged and, for "
+                   "files, from which path each side read)",
             expected=current,
             actual=stored,
-        ))
+            diff=diff,
+        )
+
+    # inputs_hash matched, so any surviving ``context`` difference is one we
+    # deliberately do NOT gate on (a1.3): a fit-path package (scipy/numba/...)
+    # moved between build and load without changing the fitted bytes. Surface
+    # it as an advisory warning rather than swallowing it — a genuine refit
+    # concern is covered by derived_from/chassis provenance, but the operator
+    # should still know the load environment drifted from the build one.
+    advisory = fingerprint_diff(stored, current).get("context_advisory") or {}
+    if advisory:
+        detail = ", ".join(f"{k}: {s} -> {c}" for k, (s, c) in advisory.items())
+        warnings.warn(
+            f"Cache at {cache_dir!r} loads cleanly (inputs_hash matches) but "
+            f"the fit-path environment drifted since it was built: {detail}. "
+            f"These packages are recorded but not gated on (a1.3) because a "
+            f"post-fit version bump does not change the fitted bytes on disk; "
+            f"a refit's identity is covered by derived_from/chassis provenance."
+        )
 
     if stored.configs:
         missing_required = sorted(
@@ -540,7 +996,8 @@ def verify_cache_version(cache_dir: str, repo_root: str | None = None,
 
 def _rebuild_message(cache_dir: str, reason: str,
                      expected: CacheVersion,
-                     actual: CacheVersion | None) -> str:
+                     actual: CacheVersion | None,
+                     diff: dict | None = None) -> str:
     lines = [
         f"Cache at {cache_dir!r} is stale or unversioned: {reason}.",
         "",
@@ -551,4 +1008,154 @@ def _rebuild_message(cache_dir: str, reason: str,
     ]
     if actual is not None:
         lines.append(f"Actual   inputs_hash: {actual.inputs_hash[:16]}...")
+    if diff is not None:
+        lines.append("")
+        lines.extend(_render_fingerprint_diff(diff))
     return "\n".join(lines)
+
+
+def _stale(cache_dir: str, reason: str, expected: CacheVersion,
+           actual: CacheVersion | None, diff: dict | None = None) -> StaleCacheError:
+    """Build a StaleCacheError with the rendered message AND the structured
+    ``diff`` attached, so a caller can render the diff without re-parsing."""
+    err = StaleCacheError(
+        _rebuild_message(cache_dir, reason, expected, actual, diff=diff))
+    err.diff = diff
+    return err
+
+
+def _chain_chassis_commit(derived_from: Iterable[dict]) -> str | None:
+    """The recorded chassis-layer commit in the chain, or ``None`` if there is
+    no chassis layer / it recorded no commit."""
+    for entry in derived_from:
+        if entry.get("layer") == "chassis":
+            commit, _ = _chain_entry_identity(entry)
+            return commit
+    return None
+
+
+def _dirty_chain_layers(derived_from: Iterable[dict]) -> list[dict]:
+    """Chain entries whose recorded code identity is dirty or commit-less.
+
+    Each returned item is ``{layer, commit, dirty, reason}`` so the caller can
+    render a specific, multi-line warning naming which layer is untrustworthy.
+    """
+    flagged: list[dict] = []
+    for entry in derived_from:
+        commit, dirty = _chain_entry_identity(entry)
+        reason = None
+        if dirty is True:
+            reason = "built from a DIRTY tree (provenance is identify-only)"
+        elif commit is None:
+            reason = "no commit recorded (provenance unavailable/unversioned)"
+        if reason is not None:
+            flagged.append({
+                "layer": entry.get("layer"),
+                "commit": commit,
+                "dirty": dirty,
+                "reason": reason,
+            })
+    return flagged
+
+
+def _dirty_chain_message(cache_dir: str, dirty_layers: list[dict],
+                         hard: bool) -> str:
+    """Loud, multi-line message naming every untrustworthy chain layer."""
+    verb = ("REFUSING cache" if hard else "WARNING")
+    lines = [
+        f"{verb}: provenance chain of {cache_dir!r} has "
+        f"{len(dirty_layers)} untrustworthy layer(s):",
+    ]
+    for item in dirty_layers:
+        commit = item["commit"]
+        short = commit[:12] if isinstance(commit, str) else commit
+        lines.append(
+            f"    - layer {item['layer']!r}: commit={short}, "
+            f"dirty={item['dirty']} — {item['reason']}")
+    if hard:
+        lines.append(
+            "require_clean_chain / $V2E_REQUIRE_CLEAN_CHAIN is set: a cache "
+            "derived from a dirty/unversioned chassis is not reproducible.")
+    else:
+        lines.append(
+            "This cache's lineage cannot be pinned to clean commits. Set "
+            "require_clean_chain=True or $V2E_REQUIRE_CLEAN_CHAIN to make this "
+            "a hard error.")
+    return "\n".join(lines)
+
+
+def _format_chain(version: CacheVersion, indent: str = "") -> list[str]:
+    """Human-readable lines describing a schema-3 chain (recursion-safe:
+    nested ``parent_cache_version`` records are rendered one level deeper)."""
+    lines: list[str] = []
+    if not version.derived_from:
+        lines.append(f"{indent}(no derived_from chain)")
+        return lines
+    for entry in version.derived_from:
+        commit, dirty = _chain_entry_identity(entry)
+        short = commit[:12] if isinstance(commit, str) else commit
+        sha = entry.get("source_sha256")
+        sha_short = sha[:12] if isinstance(sha, str) else sha
+        lines.append(
+            f"{indent}- layer={entry.get('layer')!r} "
+            f"path={entry.get('path')!r}")
+        lines.append(
+            f"{indent}    source_sha256={sha_short} commit={short} "
+            f"dirty={dirty}")
+        parent = entry.get("parent_cache_version")
+        if parent:
+            lines.append(f"{indent}    parent_cache_version:")
+            lines.extend(_format_chain(
+                CacheVersion.from_dict(parent), indent + "        "))
+    return lines
+
+
+def _audit_main(argv: list[str]) -> int:
+    """``python -m v2ecoli.library.cache_version <cache_dir_or_json>`` — print
+    a cache's provenance chain human-readably.
+
+    A schema-2 (pre-chain) cache is called out explicitly: its chassis
+    provenance was never recorded and cannot be recovered, so any commit read
+    off an S3 key is a claim, not a fact.
+    """
+    if not argv:
+        print("usage: python -m v2ecoli.library.cache_version "
+              "<cache_dir_or_json>", file=sys.stderr)
+        return 2
+    target = argv[0]
+    if os.path.isdir(target):
+        version = read_cache_version(target)
+        source = os.path.join(target, CACHE_VERSION_FILENAME)
+    else:
+        source = target
+        try:
+            with open(target, encoding="utf-8") as f:
+                version = CacheVersion.from_dict(json.load(f))
+        except Exception as e:  # noqa: BLE001
+            print(f"cannot read {target!r}: {e}", file=sys.stderr)
+            return 2
+    if version is None:
+        print(f"no {CACHE_VERSION_FILENAME} found under {target!r}",
+              file=sys.stderr)
+        return 2
+
+    print(f"cache_version: {source}")
+    print(f"  schema_version: {version.schema_version}")
+    print(f"  inputs_hash:    {version.inputs_hash[:16]}...")
+    print(f"  build_params:   {json.dumps(version.build_params, sort_keys=True)}")
+    if version.schema_version not in CHAIN_SCHEMA_VERSIONS:
+        print(f"PRE-CHAIN cache (schema {version.schema_version}): chassis "
+              "provenance NOT RECORDED and unrecoverable; treat the S3 key's "
+              "commit as a claim, not a fact.")
+        return 0
+    print("  derived_from chain:")
+    for line in _format_chain(version, indent="    "):
+        print(line)
+    dirty = _dirty_chain_layers(version.derived_from)
+    if dirty:
+        print(_dirty_chain_message(source, dirty, hard=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(_audit_main(sys.argv[1:]))

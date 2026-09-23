@@ -16,18 +16,26 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis
-from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
-from v2ecoli.workflow.analyses.ptools_rna import consolidate_timepoints
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view, available_columns
+from v2ecoli.workflow.analyses.ptools_rna import (
+    consolidate_timepoints,
+    _groupby_time_keep_generation,
+)
 
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
-def build_query(columns, history_sql):
-    """Generate SQL query for user-specified parquet columns."""
+def build_query(columns, history_sql, include_generation=False):
+    """Generate SQL query for user-specified parquet columns.
+
+    ``include_generation`` carries the ``generation`` partition column for
+    per-generation consolidation; callers detect its presence first.
+    """
+    gen = ", generation" if include_generation else ""
     query_sql = f"""
-        SELECT {",".join(columns)}, global_time AS time
+        SELECT {",".join(columns)}, global_time AS time{gen}
         FROM ({history_sql})
         ORDER BY time
     """
@@ -42,10 +50,10 @@ def read_outputs(
     """Retrieve specific columns from parquet outputs and return a DataFrame."""
     if columns is None:
         columns = ["listeners__fba_results__base_reaction_fluxes"]
-    query_sql = build_query(columns, history_sql)
+    incl_gen = "generation" in available_columns(conn, history_sql)
+    query_sql = build_query(columns, history_sql, incl_gen)
     outputs_df = conn.sql(query_sql).df()
-    outputs_df = outputs_df.groupby("time", as_index=False).sum()
-    return outputs_df
+    return _groupby_time_keep_generation(outputs_df)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +65,24 @@ class PtoolsRxns(Analysis):
 
     name = "ptools_rxns"
     scale = "single"
-    config_schema = {"n_tp": "integer", "time_unit": "string"}
+    config_schema = {
+        "n_tp": "integer",
+        "time_unit": "string",
+        "per_generation": "boolean",
+        "skip_n_gens": "integer",
+    }
+
+    # Multiseed (cross-seed) render spec, consumed by _MultiseedMixin: reaction
+    # fluxes are heavy-tailed, so the mean/spread panels render on a log color
+    # scale, magnitude-sorted, absolute value.
+    _ptools_multiseed_spec = {
+        "filename": "ptools_rxns_multiseed.tsv",
+        "title": "Reaction fluxes",
+        "color_label": "|flux| (mmol/gDCW/h)",
+        "log_color": True,
+        "sort_rows": True,
+        "take_abs": True,
+    }
 
     def _do_read_outputs(
         self,
@@ -68,22 +93,15 @@ class PtoolsRxns(Analysis):
         """Delegate to module-level read_outputs (overridable by mixins)."""
         return read_outputs(history_sql, conn, columns)
 
-    def analyze(
-        self,
-        *,
-        conn: DuckDBPyConnection,
-        history_sql: str,
-        sim_data,
-        variant_metadata: dict[str, Any] | None = None,
-        **ctx,
-    ) -> dict:
-        params = dict(variant_metadata or {})
-        params.setdefault("n_tp", 8)
-        params.setdefault("time_unit", "minutes")
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Raw ``(time × reaction)`` flux matrix + axes.
 
-        if params["time_unit"] not in ("minutes", "seconds"):
-            params["time_unit"] = "minutes"
-
+        The extraction half of :meth:`analyze`, factored out so the multiseed
+        variant (:class:`~v2ecoli.workflow.analyses.ptools_multiscale._MultiseedMixin`)
+        reuses it per seed before its own cross-seed aggregation.  Returns
+        ``(matrix, time_vec, feature_ids, generation_vec_or_None)`` — ``matrix``
+        is ``(n_timepoints × n_features)``, un-consolidated.
+        """
         output_columns = ["listeners__fba_results__base_reaction_fluxes"]
         output_df = self._do_read_outputs(history_sql, conn, output_columns)
 
@@ -97,7 +115,6 @@ class PtoolsRxns(Analysis):
         ].reset_index(drop=True)
 
         rxn_mtx = np.stack(output_df[flux_col].values)
-
         rxn_ids_base = sim_data.process.metabolism.base_reaction_ids
 
         # v2ecoli's metabolism listener emits
@@ -115,7 +132,7 @@ class PtoolsRxns(Analysis):
         #  * flux WIDER than base_reaction_ids (flux_width > n_ids): the sim's
         #    metabolism was BUILT with reactions that are not in the pickled
         #    base_reaction_ids — a heterologous pathway injected at build time
-        #    (e.g. include_violacein_reactions appends a violacein reaction). Those
+        #    (e.g. an injected heterologous-pathway config appends extra reactions). Those
         #    reactions are appended AFTER the base set, so base_reaction_ids[i]
         #    still pairs with flux column i for i < n_ids; only the trailing
         #    columns are the injected reactions. Label those explicitly and keep
@@ -144,11 +161,41 @@ class PtoolsRxns(Analysis):
             )
             rxn_ids = rxn_ids + [f"injected-reaction-{k}" for k in range(extra)]
 
+        gens = (
+            output_df["generation"].values
+            if "generation" in output_df.columns else None
+        )
+        return rxn_mtx, output_df["time"].values, rxn_ids, gens
+
+    def analyze(
+        self,
+        *,
+        conn: DuckDBPyConnection,
+        history_sql: str,
+        sim_data,
+        variant_metadata: dict[str, Any] | None = None,
+        **ctx,
+    ) -> dict:
+        params = dict(variant_metadata or {})
+        params.setdefault("n_tp", 8)
+        params.setdefault("time_unit", "minutes")
+
+        if params["time_unit"] not in ("minutes", "seconds"):
+            params["time_unit"] = "minutes"
+
+        rxn_mtx, time_vec, rxn_ids, gens = self._feature_matrix(
+            history_sql, conn, sim_data, params
+        )
+        if not (params.get("per_generation") and gens is not None):
+            gens = None
+
         n_tp = int(params["n_tp"])
 
-        rxn_blocksum, tp_idx = consolidate_timepoints(rxn_mtx, n_tp, normalized=True)
+        rxn_blocksum, tp_idx = consolidate_timepoints(
+            rxn_mtx, n_tp, normalized=True, generations=gens
+        )
 
-        tp_checkpoints = output_df["time"].values[tp_idx]
+        tp_checkpoints = time_vec[tp_idx]
 
         if params["time_unit"] == "minutes":
             tp_checkpoints = tp_checkpoints / 60

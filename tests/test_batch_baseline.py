@@ -123,6 +123,23 @@ def test_analysis_denylist_excludes_the_test_fixture_analysis():
     opts = build_analysis_options(
         "applicable", n_seeds=2, n_generations=2, variants={"v": {}})
     assert "dummy" not in opts.get("multivariant", {})
+    # smoke/stub fixtures never a real deliverable, dropped from "applicable".
+    assert {"dummy", "sms_modules_smoke"} <= bbr._ANALYSIS_DENYLIST
+
+
+def test_cd2_core_profile_resolves_to_the_multiseed_ptools_core():
+    # A named profile gives the curated set one definition, intersected with the
+    # scales the batch actually produces.
+    core = build_analysis_options("cd2-core", n_seeds=4, n_generations=8)
+    assert core == {"multiseed": {
+        "ptools_rna_multiseed": {"skip_n_gens": 1},
+        "ptools_rxns_multiseed": {"skip_n_gens": 1},
+        "ptools_proteins_multiseed": {"skip_n_gens": 1},
+        "ptools_metabolites_multiseed": {"skip_n_gens": 1},
+    }}
+    # a single-seed run has no multiseed scale, so the profile yields nothing
+    # rather than a zero-spread panel.
+    assert build_analysis_options("cd2-core", n_seeds=1, n_generations=1) == {}
 
 
 def test_analyses_none_and_explicit_mapping():

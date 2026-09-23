@@ -70,11 +70,27 @@ def prewarm_lineage_pool(core: Any, n_workers: int | None) -> Any:
     ``n_workers=None`` (the recommended default -- see this module's own docstring) passes
     straight through to ``get_or_create_runtime``, which falls through to the cluster-derived
     ``RAY_SHARDS_DEFAULT`` env var. Pass a concrete int only to deliberately override that.
+
+    Skipped (a no-op returning ``core`` unchanged) when ``V2ECOLI_SKIP_RAY_PREWARM`` is set:
+    contexts that only INDEX/build composite documents and never resolve a ``ray:`` address --
+    the vivarium-workbench publish and its env-worker composite discovery -- BUILD this
+    generator (to read its ``default_n_steps``/topology), which runs this prewarm and would
+    otherwise spin up a whole Ray cluster + actor pool. In the headless publish that hangs, and
+    it silently broke the read-only-workbench publish for ~2 weeks (env-worker blocked on the
+    socket while the pool never came up). The document ``build_lineage_ray_batch_document``
+    returns is identical either way -- prewarm only PRE-SIZES the pool for a LATER ``ray:``
+    resolution that discovery never performs -- so skipping it during pure discovery is safe.
+    The flag defaults off, so every real dispatch path (which needs the correctly-sized pool
+    before it resolves a ``ray:`` address) is completely unchanged.
     """
-    from process_bigraph.protocols.ray import get_or_create_runtime
+    import os
 
     if n_workers is not None and n_workers < 1:
         raise ValueError(f"prewarm_lineage_pool: n_workers must be >= 1, got {n_workers}")
+    if os.environ.get("V2ECOLI_SKIP_RAY_PREWARM"):
+        return core
+    from process_bigraph.protocols.ray import get_or_create_runtime
+
     get_or_create_runtime(core, n_shards_default=n_workers)
     return core
 
@@ -125,10 +141,10 @@ def build_lineage_ray_batch_document(
 
     ``exchange_fluxes``/``exchange_flux_basis`` (item 106): ``ecoli_baseline.baseline()`` and
     ``LineageProcess`` both already accept these (a caller-supplied exchange-species-to-flux-column
-    map, plus the units basis those columns are reported in -- e.g. ``{"violacein_exchange":
-    "VIOLACEIN"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
+    map, plus the units basis those columns are reported in -- e.g. ``{"product_exchange":
+    "PRODUCT"}``/``"gdcw"``), but this document builder never threaded them onto a lineage's own
     config -- the same class of gap ``variants``/``injected_processes`` had before item109/#663.
-    Needed for real CD2 Run 2 KPI reporting (a violacein-exchange flux column), not just raw state.
+    Needed for real CD2 Run 2 KPI reporting (a product-exchange flux column), not just raw state.
 
     Omitted entirely (the default): every lineage starts fresh at generation 0
     against the one shared ``cache_dir`` -- today's exact behavior, unchanged.
@@ -149,6 +165,17 @@ def build_lineage_ray_batch_document(
     Per-seed lineage_seed follows ``base_seed + i`` (mirrors ``BatchBaselineRunner``'s own
     ``seeds = list(range(base_seed, base_seed + n_seeds))`` convention, so results stay directly
     comparable against the existing mechanism).
+
+    The returned document carries that requirement machine-readably as a top-level
+    ``required_run_interval`` (= ``n_generations * max_duration_per_gen``), which
+    ``Composite`` ignores. A runner that calls ``Composite.run(n)`` with ``n`` below
+    it invokes NOTHING: process-bigraph only invokes a process whose next event
+    (``time + interval``) lies within the run window, so with every node's
+    ``interval = max_duration_per_gen`` a ``run(1)`` advances global_time 0 -> 1,
+    builds no cell, emits no row and returns cleanly -- the CD2 K4 canary /
+    dispatch-438 "no emitted output" failure (thirteen dispatches carried ``-n 1``).
+    A generic runner should run ``max(steps, document['required_run_interval'])``
+    or refuse a shorter request; see :func:`required_run_interval`.
     """
     if n_seeds < 1:
         raise ValueError(f"build_lineage_ray_batch_document: n_seeds must be >= 1, got {n_seeds}")
@@ -257,7 +284,19 @@ def build_lineage_ray_batch_document(
                 },
             }
 
-    return {"state": state}
+    return {
+        "state": state,
+        "required_run_interval": required_run_interval(
+            n_generations=n_generations, max_duration_per_gen=max_duration_per_gen),
+    }
+
+
+def required_run_interval(*, n_generations: int, max_duration_per_gen: float) -> float:
+    """The TOTAL SIMULATED TIME ``Composite.run`` must be given for a lineage-batch
+    document to invoke every generation of every lineage: one ``max_duration_per_gen``
+    per generation. Anything shorter than ONE generation invokes nothing at all (see
+    :func:`build_lineage_ray_batch_document`)."""
+    return float(int(n_generations) * float(max_duration_per_gen))
 
 
 def build_lineage_ray_composite(

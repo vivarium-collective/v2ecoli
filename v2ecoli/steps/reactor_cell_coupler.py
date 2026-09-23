@@ -173,6 +173,45 @@ class ReactorCellCoupler(Step):
     """
 
     name = "reactor_cell_coupler"
+
+    description = (
+        "Couples v2ecoli's cell population to the BiRD reactor stores (the "
+        "environment source of truth). Each cycle it passes population biomass "
+        "through to the reactor, converts the reactor's dissolved gases into the "
+        "cells' environment concentrations, and integrates the population's net "
+        "metabolic exchange back into the reactor's dissolved-gas and medium stores."
+    )
+
+    # Structured contract surfaced by the workbench loom viewer (card contract
+    # band + Inspector) and by bigraph_schema.contract.resolve_contract.
+    contract = {
+        "summary": (
+            "Bidirectional translator between the cell population and the BiRD "
+            "reactor: biomass and net exchange flow cell -> reactor, dissolved "
+            "gases and medium concentrations flow reactor -> cell environment."
+        ),
+        "inputs": {
+            "population": "Cell-population aggregate (counts and summed uptake/secretion), e.g. biomass_concentration_gL and cell_count.",
+            "reactor": "BiRD reactor state tree (dissolved gases, glucose, biomass) read to set the cells' environment.",
+            "agents": "Per-cell agents map, used to scale a representative agent to population counts via cells_per_agent.",
+        },
+        "outputs": {
+            "reactor": "Reactor state written with the population's net exchange: biomass passthrough (g/L) and additive dissolved-gas / medium concentration deltas.",
+            "environment": "Local environment concentrations (mM) projected back to the cells from the reactor's dissolved gases and medium pools.",
+        },
+        "config": {
+            "cells_per_agent": "Real cells represented by each simulated agent (representative-sampling scale).",
+            "reactor_volume_L": "Working volume used to convert per-cell fluxes to concentrations (L).",
+            "time_step": "Coupler step (s).",
+            "track_medium": "Whether to track the full medium recipe (glucose, ammonium, byproducts) vs a gas-only subset (bool).",
+        },
+        "assumptions": [
+            "Dissolved gas (mg/L) converts to environment concentration (mM) via mM = (mg/L) / MW[g/mol].",
+            "environment.exchange is a lineage-cumulative molecule count differenced per agent to recover this tick's exchange; positive == secretion, negative == uptake.",
+            "The Step runs once at cycle start, before the processes and aggregator write, so its first invocation sees a pre-population state (e.g. cell_count 0).",
+        ],
+    }
+
     # Bare type names (not {"_default": ...}) so config overrides propagate —
     # see PopulationAggregator's schema comment for the bigraph-schema rationale.
     config_schema = {

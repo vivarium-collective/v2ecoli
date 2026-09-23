@@ -95,6 +95,7 @@ LIST_OF_DICT_FILENAMES = [
     "metabolic_reactions_removed.tsv",
     "metabolism_kinetics.tsv",
     "metabolite_concentrations.tsv",
+    "metabolite_concentrations_added.tsv",
     "metabolite_concentrations_removed.tsv",
     "metabolites.tsv",
     "metabolites_added.tsv",
@@ -105,11 +106,13 @@ LIST_OF_DICT_FILENAMES = [
     "ppgpp_regulation_added.tsv",
     "ppgpp_regulation_removed.tsv",
     "protein_half_lives_measured.tsv",
+    "protein_half_lives_modified.tsv",
     "protein_half_lives_n_end_rule.tsv",
     "protein_half_lives_pulsed_silac.tsv",
     "proteins.tsv",
     "relative_metabolite_concentrations.tsv",
     "rna_half_lives.tsv",
+    "rna_half_lives_removed.tsv",
     "rna_maturation_enzymes.tsv",
     "rnas.tsv",
     "secretions.tsv",
@@ -163,6 +166,10 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("condition", "media", "MIX0-57.tsv"),
     os.path.join("condition", "media", "MIX0-58.tsv"),
     os.path.join("condition", "media", "MIX0-844.tsv"),
+    # Finite tryptophan supplement (ecoli-sources#18): minimal_plus_tryptophan is
+    # MIX0-57 x0.9 + TRP_supplement x0.1, matching vEcoli-private; the recipe
+    # references it, so the loader must read it (test_media_registration).
+    os.path.join("condition", "media", "TRP_supplement.tsv"),
     os.path.join("base_codes", "amino_acids.tsv"),
     os.path.join("base_codes", "dntp.tsv"),
     os.path.join("base_codes", "nmp.tsv"),
@@ -195,6 +202,7 @@ REMOVED_DATA = {
     "ppgpp_regulation": "ppgpp_regulation_removed",
     "transcriptional_attenuation": "transcriptional_attenuation_removed",
     "trna_charging_reactions": "trna_charging_reactions_removed",
+    "rna_half_lives": "rna_half_lives_removed",
 }
 MODIFIED_DATA = {
     "complexation_reactions": "complexation_reactions_modified",
@@ -260,6 +268,7 @@ ADDED_DATA = {
     "metabolites": "metabolites_added",
     "ppgpp_regulation": "ppgpp_regulation_added",
     "trna_charging_reactions": "trna_charging_reactions_added",
+    "metabolite_concentrations": "metabolite_concentrations_added",
 }
 
 

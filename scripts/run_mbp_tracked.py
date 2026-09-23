@@ -48,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import json
 import os
 import sqlite3
 import sys
@@ -147,6 +148,8 @@ def _build_reactor_bird_coupled(
     cells_per_agent=1.0e9,
     population_growth_mode="representative_doubling",
     initial_glucose_mM=None,
+    initial_ammonium_mM=None,
+    injected_processes=None,
     bird_reactor_config=None,
 ):
     """mbp-04's coupled composite: v2ecoli cells <-> BiRD 0D reactor.
@@ -180,6 +183,19 @@ def _build_reactor_bird_coupled(
             "reactor_bird_coupled does not accept it (predates v2ecoli#592), "
             "and no runner-side fallback applies it. Refusing to build."
         )
+    # initial_ammonium_mM / injected_processes (2026-09-08, real Run 1 coupled
+    # dispatch per Chris's own exact spec, sms-ecoli#210): the composite has
+    # accepted both since it gained them (initial_ammonium_mM alongside
+    # initial_glucose_mM; injected_processes for the metabolism_redux swap that
+    # lets the product pathway's secretion reach the reactor) -- this runner
+    # just never threaded them through. initial_ammonium_mM is float-typed on
+    # the composite (no None sentinel there, unlike initial_glucose_mM's own
+    # MBP_04-specific override) -- omit the kwarg entirely rather than pass
+    # None, so an unset flag lands on the composite's own DEFAULT_INITIAL_
+    # AMMONIUM_MM instead of a TypeError. injected_processes already tolerates
+    # None (the composite's own "no processes" default), so it forwards as-is.
+    if initial_ammonium_mM is not None:
+        extra["initial_ammonium_mM"] = initial_ammonium_mM
     return reactor_bird_coupled(
         core=core, seed=seed, cache_dir=cache_dir,
         **extra,
@@ -188,6 +204,7 @@ def _build_reactor_bird_coupled(
         initial_glucose_mM=(
             MBP_04_GLUCOSE_MM if initial_glucose_mM is None else initial_glucose_mM
         ),
+        injected_processes=injected_processes,
         bird_reactor_config=bird_reactor_config or dict(MBP_04_REACTOR_CONFIG),
     )
 
@@ -437,6 +454,25 @@ EXTRA_AGENT_PATHS: dict[str, list[str]] = {
     ],
 }
 
+# Variants whose PARQUET emit set is the composite's DECLARED set (v2ecoli#743:
+# the generator's @composite_generator(emitters=[...]) -- bulk + listeners +
+# boundary per cell, plus reactor / population / lineage at the document level,
+# one hive row per tick) instead of the reduced COMMON_AGENT_PATHS allow-list.
+# The runner passes an EMPTY emit_paths + the generator to run_multigen_parquet,
+# which is what "empty = declared" means there.
+#
+# ONLY the single-lineage coupled batch run opts in. It follows ONE cell
+# (single_daughters=True), so the declared set is one cell's bulk per tick --
+# the normal whole-cell volume -- and it is the run whose ptools omics views
+# (rna / rxns / proteins / metabolites) need bulk__id / bulk__count /
+# listeners__fba_results__base_reaction_fluxes. Every other variant is a
+# population run and keeps its explicit reduced list on purpose: full
+# bulk x agents x generations is exactly the emit-path blow-up the reduced list
+# exists to avoid. Do not widen COMMON_AGENT_PATHS for this; add a variant here.
+DECLARED_EMIT_VARIANTS: frozenset[str] = frozenset({
+    "reactor-bird-coupled-batch-multigen",
+})
+
 # Per-variant duration / generation defaults, applied only when the caller did
 # NOT pass the corresponding flag. mbp-04's window is a study-enforced param
 # (240 sim-min), not a runner preference -- the global 120-min default would
@@ -502,11 +538,23 @@ def _run_one_variant(
     *, sim_name, study_slug, builder_fn, builder_kwargs, extra_root_paths,
     duration_sec, max_generations, chunk, cache_dir, core, emitter,
     single_daughters=True, carbon_exhaustion_arrest=False,
+    seed=None, cells_per_agent=None, initial_glucose_mM=None,
+    initial_ammonium_mM=None, injected_processes=None, bird_reactor_config=None,
 ) -> dict:
     # COMMON_AGENT_PATHS is shared by every variant; EXTRA_AGENT_PATHS adds
     # the observables only one variant needs (see its docstring for why
     # mbp-04 carries the gate booleans).
     agent_paths = COMMON_AGENT_PATHS + EXTRA_AGENT_PATHS.get(sim_name, [])
+    # v2ecoli#743: the single-lineage coupled run emits its composite's
+    # DECLARED set (empty emit_paths + the generator) on the parquet path; the
+    # sqlite path and every population variant keep the explicit reduced list.
+    use_declared_emit = emitter == "parquet" and sim_name in DECLARED_EMIT_VARIANTS
+    declared_generator = _composite_of(builder_fn) if use_declared_emit else None
+    if use_declared_emit and declared_generator is None:
+        raise ValueError(
+            f"{sim_name!r} is in DECLARED_EMIT_VARIANTS but {builder_fn.__name__} "
+            "wraps no composite _composite_of() knows; register it there so the "
+            "runner can read the generator's emitters= declaration.")
     # v2ecoli#591: the in-composite LineageBookkeeper is opt-in on the COMPOSITE's
     # own single_daughters flag. A runner run with single_daughters=True against a
     # composite built with the default False silently gets the OLD chunk-dependent
@@ -534,6 +582,28 @@ def _run_one_variant(
     if _arrest_forwarded:
         builder_kwargs = {**builder_kwargs,
                           "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
+    # 2026-09-08, real Run 1 coupled dispatch (Chris's own exact spec,
+    # sms-ecoli#210): the remaining `run_mbp_tracked.py` CLI/viva-api parity
+    # gap -- these 6 were already real params on the coupled composite
+    # (reactor_bird_coupled) but had no runner-level flag to reach them at
+    # all, so a remote `--seed`/`--cells-per-agent`/etc. dispatch silently
+    # ran the composite's own hardcoded defaults instead. Same signature-
+    # filtered forwarding as single_daughters/carbon_exhaustion_arrest above:
+    # only applies to a builder that actually accepts the kwarg, an explicit
+    # CLI value always overrides a variant's own hardcoded builder_kwargs
+    # entry (matching --duration-sec/--max-generations' own "explicit flag >
+    # per-variant default" contract), and an unset (None) CLI value changes
+    # nothing for any variant.
+    for _name, _value in (
+        ("seed", seed),
+        ("cells_per_agent", cells_per_agent),
+        ("initial_glucose_mM", initial_glucose_mM),
+        ("initial_ammonium_mM", initial_ammonium_mM),
+        ("injected_processes", injected_processes),
+        ("bird_reactor_config", bird_reactor_config),
+    ):
+        if _value is not None and _name in _params:
+            builder_kwargs = {**builder_kwargs, _name: _value}
     print(f"\n=== {sim_name} ({study_slug}) ===")
     print(f"  emitter: {emitter}")
     print(f"  duration: {duration_sec}s ({duration_sec/60:.0f} sim-min)")
@@ -610,12 +680,17 @@ def _run_one_variant(
         parquet_root = _parquet_root_for(study_slug)
         parquet_root.mkdir(parents=True, exist_ok=True)
 
+        print("  emit set: "
+              + ("DECLARED (generator emitters=; empty emit_paths)"
+                 if use_declared_emit
+                 else f"explicit allow-list ({len(agent_paths)} agent paths)"))
         t_run = time.time()
         result = run_multigen_parquet(
             composite,
             experiment_id=simulation_id,
             out_dir=str(parquet_root),
-            emit_paths=agent_paths,
+            emit_paths=[] if use_declared_emit else agent_paths,
+            declared_generator=declared_generator,
             extra_root_paths=extra_root_paths,
             max_steps=duration_sec,
             max_generations=max_generations,
@@ -647,6 +722,10 @@ def _run_one_variant(
                 "max_generations": max_generations,
                 "chunk": chunk,
                 "single_daughters": single_daughters,
+                # Which emit set this hive carries (v2ecoli#743): "declared"
+                # = the generator's emitters= set (bulk/listeners/... + the
+                # document stores), "explicit" = the runner's reduced list.
+                "emit_set": "declared" if use_declared_emit else "explicit",
                 # The EFFECTIVE value, not the requested one. Reaching here
                 # with _arrest_forwarded False means the arrest was inapplicable
                 # to this variant (the NOTE above) -- it may well have been
@@ -716,7 +795,72 @@ def main():
                    default=False,
                    help=("v2ecoli#592: arrest biomass growth once the carbon "
                          "source is exhausted (opt-in; default off)."))
+    # The following 7 flags (2026-09-08, real Run 1 coupled dispatch, Chris's
+    # own exact spec on sms-ecoli#210) reach params the coupled composite
+    # (reactor_bird_coupled) already accepts but this runner had no CLI path
+    # to -- viva-api's _mbp_tracked_command has sent them since 2026-09-06;
+    # this was the missing other half. default=None throughout so an unset
+    # flag changes nothing (see _run_one_variant's own forwarding contract).
+    p.add_argument("--seed", type=int, default=None,
+                   help="Per-lineage seed (hive-partitions parquet output; a "
+                        "mismatched/repeated seed across dispatches silently "
+                        "MERGES rather than erroring). Default: per-variant.")
+    p.add_argument("--cells-per-agent", type=float, default=None,
+                   help="Representative-sampling scale factor. Default: per-variant.")
+    p.add_argument("--initial-glucose-mM", type=float, default=None,
+                   help="Reactor initial glucose (mM). Default: per-variant (mbp-04: "
+                        f"{MBP_04_GLUCOSE_MM:.2f}).")
+    p.add_argument("--initial-ammonium-mM", type=float, default=None,
+                   help="Reactor initial ammonium (mM). Default: the composite's own.")
+    p.add_argument("--injected-processes", default=None,
+                   help="Path to a JSON injected_processes spec (e.g. a "
+                        "metabolism_redux swap). Accepts either the TOP-LEVEL shape "
+                        "(fork_repo/swap_processes/... as the document root) or a "
+                        "NESTED shape (those keys under an 'injected_processes' "
+                        "key) -- prints which one it found. --cache-dir is stamped "
+                        "onto the loaded dict automatically (required by "
+                        "scripts/_compare/inject.py's own swapped-process config "
+                        "builder; without it the swap mounts with an EMPTY config).")
+    p.add_argument("--reactor-config", default=None,
+                   help="Path to a JSON bird_reactor_config override (reactor_type/"
+                        "volume_L/gas_flow_rate_Lpm/...). Default: mbp-04's own.")
+    p.add_argument("--aeration-schedule", default=None,
+                   help="Path to a JSON gas-flow aeration schedule, merged into the "
+                        "reactor config as its own 'aeration_schedule' key (a trigger "
+                        "+ ramp table; see the file's own docstring for the format). "
+                        "No effect unless the reactor process reads this key.")
     args = p.parse_args()
+
+    injected_processes = None
+    if args.injected_processes:
+        with open(args.injected_processes) as f:
+            _raw = json.load(f)
+        if isinstance(_raw.get("injected_processes"), dict):
+            injected_processes = _raw["injected_processes"]
+            print(f"  --injected-processes {args.injected_processes}: found NESTED shape")
+        else:
+            injected_processes = _raw
+            print(f"  --injected-processes {args.injected_processes}: found TOP-LEVEL shape")
+        # scripts/_compare/inject.py builds the swapped process's full native
+        # config only when config.get('cache_dir') is set on this dict; the
+        # committed file deliberately omits it (machine-specific, stale at
+        # every cache rebuild) -- stamped here, as an ABSOLUTE path, from the
+        # runner's own --cache-dir. Without it the swap mounts with an EMPTY
+        # config (stoich_dict {}, mets 0, tick-0 IndexError in solve()).
+        injected_processes = {
+            k: v for k, v in injected_processes.items() if not k.startswith("_")
+        }
+        injected_processes["cache_dir"] = str(Path(args.cache_dir).resolve())
+
+    bird_reactor_config = None
+    if args.reactor_config:
+        with open(args.reactor_config) as f:
+            bird_reactor_config = json.load(f)
+    if args.aeration_schedule:
+        with open(args.aeration_schedule) as f:
+            _aeration = json.load(f)
+        bird_reactor_config = dict(bird_reactor_config or {})
+        bird_reactor_config["aeration_schedule"] = _aeration
 
     variants = VARIANTS
     if args.variant:
@@ -777,6 +921,12 @@ def main():
             cache_dir=args.cache_dir, core=core,
             single_daughters=args.single_daughters,
             carbon_exhaustion_arrest=args.carbon_exhaustion_arrest,
+            seed=args.seed,
+            cells_per_agent=args.cells_per_agent,
+            initial_glucose_mM=args.initial_glucose_mM,
+            initial_ammonium_mM=args.initial_ammonium_mM,
+            injected_processes=injected_processes,
+            bird_reactor_config=bird_reactor_config,
         )
         results.append(result)
     total_wall = time.time() - t_all

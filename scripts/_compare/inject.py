@@ -104,6 +104,15 @@ def _should_inject_as_step(cls) -> bool:
     """
     if bool(getattr(cls, "_force_step", False)):
         return True
+    # A pbg-NATIVE deriver — inputs()/outputs() + update_condition-gated.
+    # A native ecoli-metabolism-redux is pbg-native, NOT a vivarium.Step
+    # subclass, so issubclass(cls, Step) returned False and it was injected as an
+    # interval process → tick-2 non-advancing global_clock collapse. Requiring
+    # inputs()+outputs() excludes a plain vivarium Process (ports_schema, with an
+    # inherited base update_condition); needs no vivarium import.
+    if (hasattr(cls, "update_condition")
+            and hasattr(cls, "inputs") and hasattr(cls, "outputs")):
+        return True
     try:
         from vivarium.core.process import Step
     except Exception:  # noqa: BLE001 — fixture fork has no vivarium
@@ -334,9 +343,9 @@ def translate_vivarium_topology(topo: dict, _base: list | None = None) -> dict:
     unmapped subports resolve under the base; this is metabolism's ``environment``
     and matches the pre-existing behavior exactly). A *scattered* nested port —
     vEcoli's antibiotic subsystem, whose sub-ports fan out across stores via
-    ``..``-relative paths (e.g. ``mecillinam.species.bulk -> ["..","bulk"]``,
-    ``mecillinam.reaction_parameters.decay.kf ->
-    ["..","kinetic_parameters","mecillinam","decay_kf"]``) — is preserved as a
+    ``..``-relative paths (e.g. ``<proc>.species.bulk -> ["..","bulk"]``,
+    ``<proc>.reaction_parameters.decay.kf ->
+    ["..","kinetic_parameters","<proc>","decay_kf"]``) — is preserved as a
     nested wires tree so ``make_edge``/``list_paths`` wires each leaf to its real
     store. Collapsing a scattered port to its ``_path`` base silently dropped
     every leaf (the bulk store never reached the process → ``bulk["id"]`` on a
@@ -1096,7 +1105,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
             continue
         # Follow the nested port-key path into the (nested) ports_schema to find
         # this leaf's declared default(s); a scattered antibiotic sub-port like
-        # ``mecillinam.species.bulk`` seeds only the store it actually wires.
+        # ``<proc>.species.bulk`` seeds only the store it actually wires.
         schema_node = pschema if isinstance(pschema, dict) else None
         for k in port_keys:
             schema_node = schema_node.get(k) if isinstance(schema_node, dict) else None

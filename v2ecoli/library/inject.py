@@ -113,10 +113,30 @@ def _should_inject_as_step(cls) -> bool:
     :func:`classify_process` as ``partitioned``, so the injectable set is plain
     vivarium Processes (stay processes) plus vivarium Steps (become steps).
 
-    An explicit ``_force_step`` attribute always wins. A vivarium-free fixture
-    fork (no installed ``vivarium``) falls back to the explicit flag only.
+    An explicit ``_force_step`` attribute always wins. Detection is
+    signature-based (``update_condition``) so it does NOT depend on ``vivarium``
+    being importable: a deriver is ``update_condition``-gated regardless of its
+    base class, and — critically — a v2ecoli-NATIVE deriver (e.g. the native
+    ``ecoli-metabolism-redux``) is a pbg-native ``EcoliProcess``, NOT a
+    ``vivarium.Step`` subclass, so the old ``issubclass(cls, vivarium.Step)``
+    test returned False for it and injected it as an interval process. That is
+    exactly the tick-2 non-advancing-``global_clock`` collapse this guard exists
+    to prevent — and on a native/vecoli-free image (no ``vivarium`` installed)
+    the import-failure fallback misclassified EVERY deriver. The ``vivarium.Step``
+    subclass check is kept as a fallback for a fork Step that somehow lacks the
+    method.
     """
     if bool(getattr(cls, "_force_step", False)):
+        return True
+    # A pbg-NATIVE deriver — a process exposing inputs()/outputs() that is also
+    # update_condition-gated (see ``update_condition`` on metabolism /
+    # tf_binding / chromosome_structure / …). Native derivers are NOT
+    # vivarium.Step subclasses, so the issubclass check below misses them, yet
+    # they must be steps. Requiring inputs()+outputs() keeps a plain vivarium
+    # Process out (it exposes ports_schema, not inputs/outputs — and inherits a
+    # base update_condition), and needs no vivarium import.
+    if (hasattr(cls, "update_condition")
+            and hasattr(cls, "inputs") and hasattr(cls, "outputs")):
         return True
     try:
         from vivarium.core.process import Step
@@ -576,9 +596,9 @@ def translate_vivarium_topology(topo: dict, _base: list | None = None) -> dict:
     unmapped subports resolve under the base; this is metabolism's ``environment``
     and matches the pre-existing behavior exactly). A *scattered* nested port —
     vEcoli's antibiotic subsystem, whose sub-ports fan out across stores via
-    ``..``-relative paths (e.g. ``mecillinam.species.bulk -> ["..","bulk"]``,
-    ``mecillinam.reaction_parameters.decay.kf ->
-    ["..","kinetic_parameters","mecillinam","decay_kf"]``) — is preserved as a
+    ``..``-relative paths (e.g. ``<proc>.species.bulk -> ["..","bulk"]``,
+    ``<proc>.reaction_parameters.decay.kf ->
+    ["..","kinetic_parameters","<proc>","decay_kf"]``) — is preserved as a
     nested wires tree so ``make_edge``/``list_paths`` wires each leaf to its real
     store. Collapsing a scattered port to its ``_path`` base silently dropped
     every leaf (the bulk store never reached the process → ``bulk["id"]`` on a
@@ -1507,7 +1527,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
             continue
         # Follow the nested port-key path into the (nested) ports_schema to find
         # this leaf's declared default(s); a scattered antibiotic sub-port like
-        # ``mecillinam.species.bulk`` seeds only the store it actually wires.
+        # ``<proc>.species.bulk`` seeds only the store it actually wires.
         schema_node = pschema if isinstance(pschema, dict) else None
         for k in port_keys:
             schema_node = schema_node.get(k) if isinstance(schema_node, dict) else None

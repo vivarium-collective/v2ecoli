@@ -85,20 +85,20 @@ conditions:
 # KetchupEstimator / KetchupDynamicEstimator estimation that emits its fitted
 # fluxes / kinetic parameters.
   baseline:
-    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    composite: viva_ketchup.composites.estimation.ketchup_baseline
     params:
       model_name: k-ecoli74
       seed: 0
       solver_options: ''  # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
   variants:
     - name: k-ecoli307
-      composite: pbg_ketchup.composites.estimation.ketchup_baseline
+      composite: viva_ketchup.composites.estimation.ketchup_baseline
       params:
         model_name: k-ecoli307
         seed: 0
         solver_options: ''  # vendored IPOPT default (the old v2e-ketchup-compare worktree was removed)
     - name: fdh-dynamic
-      composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+      composite: viva_ketchup.composites.dynamic.ketchup_dynamic
       params:
         model_name: FDH
         seed: 0
@@ -202,25 +202,25 @@ runs:
   - name: ketchup-k-ecoli74-estimation
     status: completed
     kind: simulation
-    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    composite: viva_ketchup.composites.estimation.ketchup_baseline
     description: Real KETCHUP/IPOPT steady-state fit of k-ecoli74 (KetchupEstimator), run through the dashboard composite-runner; emits fitted exchange fluxes, SSE, status, parameter count. 986 params / 108 fluxes.
     dispatch: local
     emitter: sqlite
   - name: ketchup-k-ecoli307-estimation
     status: completed
     kind: simulation
-    composite: pbg_ketchup.composites.estimation.ketchup_baseline
+    composite: viva_ketchup.composites.estimation.ketchup_baseline
     description: Real KETCHUP/IPOPT fit of k-ecoli307 (2476 params / 305 fluxes), run through the dashboard composite-runner.
     dispatch: local
     emitter: sqlite
   - name: ketchup-fdh-dynamic-estimation
     status: completed
     kind: simulation
-    composite: pbg_ketchup.composites.dynamic.ketchup_dynamic
+    composite: viva_ketchup.composites.dynamic.ketchup_dynamic
     description: Real KETCHUP/IPOPT time-series fit of cell-free FDH (KetchupDynamicEstimator), run through the dashboard composite-runner; fits NADH(t) across 9 conditions.
     dispatch: local
     emitter: sqlite
-  - composite: pbg_ketchup.composites.estimation.ketchup_baseline
+  - composite: viva_ketchup.composites.estimation.ketchup_baseline
     name: ketchup-exchange-comparison-grade
     status: completed
     kind: analysis

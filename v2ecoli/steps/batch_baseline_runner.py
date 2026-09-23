@@ -82,9 +82,36 @@ DEFAULT_PARALLEL = "ray"
 DEFAULT_EMITTER = "both"
 DEFAULT_ANALYSES = "applicable"
 
-# Registered but not a real analysis — a test fixture that would otherwise
-# render an empty panel into every multivariant batch.
-_ANALYSIS_DENYLIST = frozenset({"dummy"})
+# Registered but never a real deliverable — test/smoke fixtures that would
+# otherwise render an empty or stub panel into every applicable batch. "dummy"
+# is a multivariant test fixture; "sms_modules_smoke" renders a one-line
+# "sms-modules registered" stub into every cell.
+_ANALYSIS_DENYLIST = frozenset({"dummy", "sms_modules_smoke"})
+
+# Curated named analysis profiles. A profile gives the meaningful default set
+# for a campaign ONE definition, so a config, a ``--modules`` value, and a
+# composite ``analyses`` param all resolve through the same place instead of
+# each re-listing views — or defaulting to "applicable", which expands to every
+# registered analysis at the covered scales and is what generates the per-cell
+# figure sprawl.
+#
+# ``cd2-core`` is the multiseed ptools core — rna/rxns/proteins/metabolites,
+# cross-seed mean+spread, with the pre-steady-state birth generation dropped
+# (skip_n_gens=1). It deliberately omits ptools_overview_multiseed; "core-5"
+# would add it (parked as a container-ceiling view: completes on light
+# genotypes, OOMs on heavy ones). Profiles are intersected with the scales the
+# batch actually produces (see build_analysis_options), so requesting cd2-core
+# on a single-seed run yields nothing rather than a zero-spread panel.
+_ANALYSIS_PROFILES: "dict[str, dict[str, dict[str, dict]]]" = {
+    "cd2-core": {
+        "multiseed": {
+            "ptools_rna_multiseed": {"skip_n_gens": 1},
+            "ptools_rxns_multiseed": {"skip_n_gens": 1},
+            "ptools_proteins_multiseed": {"skip_n_gens": 1},
+            "ptools_metabolites_multiseed": {"skip_n_gens": 1},
+        },
+    },
+}
 
 
 def applicable_analysis_scales(
@@ -125,19 +152,30 @@ def build_analysis_options(
     """Resolve the ``analyses`` parameter into a workflow ``analysis_options`` map.
 
     ``analyses`` is either an explicit ``{scale: {name: params}}`` mapping (used
-    verbatim), the string ``"applicable"`` (every registered analysis at the
-    scales this batch covers — see :func:`applicable_analysis_scales`), or
-    ``"none"`` / empty (no analyses; the flush then only writes visualizations
-    and report cards).
+    verbatim), a named profile (see ``_ANALYSIS_PROFILES``, e.g. ``"cd2-core"``
+    — the curated set, intersected with the scales this batch covers), the
+    string ``"applicable"`` (every registered analysis at the scales this batch
+    covers — see :func:`applicable_analysis_scales`), or ``"none"`` / empty (no
+    analyses; the flush then only writes visualizations and report cards).
     """
     if isinstance(analyses, dict):
         return {k: dict(v or {}) for k, v in analyses.items() if v}
     choice = (analyses or "").strip().lower()
     if choice in ("", "none", "off", "false"):
         return {}
+    if choice in _ANALYSIS_PROFILES:
+        wanted = set(applicable_analysis_scales(
+            n_seeds=n_seeds, n_generations=n_generations,
+            single_daughters=single_daughters, variants=variants))
+        return {
+            scale: {name: dict(params) for name, params in views.items()}
+            for scale, views in _ANALYSIS_PROFILES[choice].items()
+            if scale in wanted
+        }
     if choice != "applicable":
         raise ValueError(
-            f"analyses={analyses!r} — expected 'applicable', 'none', or an "
+            f"analyses={analyses!r} — expected 'applicable', a named profile "
+            f"({', '.join(sorted(_ANALYSIS_PROFILES))}), 'none', or an "
             "explicit {scale: {name: params}} mapping")
 
     # Import for the registration side effects: every ported analysis module
@@ -251,7 +289,7 @@ def build_workflow_config(
         config["base_config_overrides"] = dict(base_config_overrides)
     # Per-cell biological build kwargs -> every generation's baseline() build via
     # meta_composite._lineage_node -> LineageProcess. WITHOUT threading these an
-    # injected batch (metabolism-redux / violacein swap, feature toggles,
+    # injected batch (metabolism-redux swap, feature toggles,
     # exchange-flux readouts, PDMP initiation modes) silently degrades to a basal
     # single-cell build per generation (pipeline audit). Non-empty/non-default
     # only, so a plain baseline batch keeps a minimal config.
@@ -435,6 +473,23 @@ def dispatch_batch(
 
     seeds = list(range(int(base_seed), int(base_seed) + int(n_seeds)))
     flush = result.get("flush") or {}
+    per_seed = _per_seed_results(
+        result, seeds=seeds, out_dir=out_dir,
+        experiment_id=experiment_id, emitter=config["emitter"])
+    # A batch in which NO seed reported back ran nothing: the workflow returned
+    # without a single branch (a worker died before its first generation, or the
+    # workflow was short-circuited). Reporting ``completed: True`` here is how
+    # a chain-dispatch generation could land as a success with only the outer
+    # document's global_time-only emitter row for output. A PARTIAL batch stays
+    # visible-but-not-fatal (the per-seed ``error`` entries below), matching the
+    # existing contract; an EMPTY one is a failed dispatch.
+    if per_seed and all("error" in entry for entry in per_seed.values()):
+        raise RuntimeError(
+            f"batch_baseline: the workflow reported no result for ANY of the "
+            f"{len(seeds)} seed(s) {seeds} (branches={sorted(result.get('branches') or {})!r}). "
+            f"A batch that ran no lineage is a failed dispatch, not a completed one -- "
+            f"refusing to record it as completed. out_dir={out_dir!r}"
+        )
     return {
         "completed": True,
         "n_seeds": int(n_seeds),
@@ -445,9 +500,7 @@ def dispatch_batch(
         "out_dir": out_dir,
         "emitter": config["emitter"],
         "analysis_scales": sorted(config["analysis_options"]),
-        "seeds": _per_seed_results(
-            result, seeds=seeds, out_dir=out_dir,
-            experiment_id=experiment_id, emitter=config["emitter"]),
+        "seeds": per_seed,
         # What the post-sim flush actually produced. `placed` lists the outputs
         # copied into the owning study's report dir — empty when no study owns
         # the run, in which case `viz_dir` is where the analyses and
@@ -463,6 +516,16 @@ def dispatch_batch(
 
 class BatchBaselineRunner(Step):
     """One-shot Step that dispatches the seeds × generations batch (see module)."""
+
+    # This Step's single update() IS the run. V2Step's default swallows any
+    # exception update() raises and substitutes {} -- right for a per-tick
+    # listener that trips on unseeded data, catastrophic here: a StaleCacheError,
+    # an injection-seam error or an S3 write failure inside the batch left the
+    # outer composite reporting success with an empty ``batch`` store and only
+    # the global_time-only outer emitter row on disk (the CD2 chain-dispatch
+    # "no emitted output" signature; reproduced locally). Propagate instead, so
+    # the dispatch exits non-zero with the real traceback.
+    raise_update_errors = True
 
     config_schema = {
         "n_seeds": "integer",
@@ -499,7 +562,7 @@ class BatchBaselineRunner(Step):
         "founder_sim_data": {"_default": ""},
         # Per-cell biological build kwargs, threaded panel-wide to every
         # generation's baseline() build (audit: batch mode used to drop these,
-        # degrading an injected metabolism-redux/violacein batch to basal FBA).
+        # degrading an injected metabolism-redux batch to basal FBA).
         # Untyped-with-default for the maps/lists (arbitrary content) and typed
         # for the scalar toggles/modes.
         "injected_processes": {"_default": {}},

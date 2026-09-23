@@ -28,6 +28,8 @@ import re
 import sys
 import time
 
+from v2ecoli.workflow import events as _events
+
 
 def _default_cpus() -> int:
     return os.cpu_count() or 4
@@ -176,7 +178,23 @@ def main():
             orig = cls.update
             def update(self, state):
                 t_step = time.time()
-                out = orig(self, state)
+                # This wrapper is already a per-step callback hook: it times the
+                # step, checkpoints it and writes runtimes.json. All of that is
+                # only readable AFTER the fact, from files, which is why a ParCa
+                # that dies mid-fit tells you nothing. Opening a span here makes
+                # the same information visible WHILE it runs, at no extra cost:
+                # the engine no-ops the span when no sink is configured.
+                #
+                # ParCa's steps are process-bigraph Steps, but the DAG executes
+                # at composite BUILD time (``build_parca_composite`` ->
+                # ``composite.state``), never through ``Composite.run`` -- so no
+                # engine tick hook ever fires for them. Same root cause as the
+                # gather (sms-ecoli#166): a Step that is never run by a Composite
+                # is invisible to the engine's own instrumentation.
+                with _events.get_emitter().span(
+                    "parca.step", step=step_n, name=cls.__name__,
+                ):
+                    out = orig(self, state)
                 step_times_live[f'step_{step_n}'] = time.time() - t_step
                 try:
                     with open(runtimes_path, 'w') as f:
@@ -194,10 +212,31 @@ def main():
                     print(f"    WARN: checkpoint after step {step_n} failed: {e}")
                 return out
             cls.update = update
+        def _span_only(cls, step_name):
+            orig = cls.update
+
+            def update(self, state):
+                with _events.get_emitter().span("parca.step", name=step_name,
+                                                numbered=False):
+                    return orig(self, state)
+            cls.update = update
+
         for name, cls in ALL_STEP_CLASSES.items():
             n = STEP_NUM_BY_CLASS.get(name)
             if n is not None:
                 _wrap(cls, n)
+            else:
+                # A step registered in ALL_STEP_CLASSES but absent from
+                # STEP_NUM_BY_CLASS still gets a span, just no checkpoint or
+                # runtimes entry (those are keyed by step number, which it has
+                # not been assigned). Instrumentation must not inherit the
+                # checkpointer's gap: #668's SimInputWriteStep is exactly this
+                # shape -- registered, deliberately out of STEP_ORDER today, and
+                # slated to be appended to the chain by a follow-up opt-in. When
+                # that lands, a step nobody remembered to number would otherwise
+                # run completely unobserved, which is the same silent-no-op class
+                # as a declared-but-never-read config field.
+                _span_only(cls, name)
 
     t1 = time.time()
     print(f"\n[{time.strftime('%H:%M:%S')}] Running ParCa pipeline ...")
@@ -265,6 +304,29 @@ def main():
     with open(out_path, "wb") as f:
         pickle.dump(state, f, protocol=pickle.HIGHEST_PROTOCOL)
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
+
+    # Chassis provenance sidecar (parca_state.provenance.json): pins this
+    # pickle's exact bytes + the code/workspace commits + the build inputs that
+    # produced it, so a downstream sim_data cache can embed it in its
+    # derived_from chain and a swap of the chassis is detectable rather than
+    # silent. Best-effort: a provenance-write failure must never discard a
+    # completed ParCa build, but it IS logged loudly.
+    try:
+        from v2ecoli.library.run_provenance import write_chassis_provenance
+        build_info = {
+            "mode": args.mode,
+            "new_genes": args.new_genes,
+            "bundle_manifest": args.bundle_manifest_path or "",
+            "bundle_overrides": list(args.bundle_overrides or ()),
+            "rnaseq_source": args.rnaseq_source,
+            "argv": sys.argv,
+        }
+        prov = write_chassis_provenance(out_path, build=build_info)
+        print(f"    chassis provenance -> {out_path.rsplit('.', 1)[0]}"
+              f".provenance.json (sha256 {prov['artifact']['sha256'][:12]})")
+    except Exception as e:  # noqa: BLE001 — provenance must not fail the build
+        print(f"    WARN: chassis provenance write failed: "
+              f"{type(e).__name__}: {e}")
 
     total = time.time() - t0
     print(f"\n{'=' * 60}")

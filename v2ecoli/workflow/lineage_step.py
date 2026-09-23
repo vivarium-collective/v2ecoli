@@ -30,6 +30,7 @@ no barrier before the gather. An N×M sweep is expressed by which configs exist.
 from __future__ import annotations
 
 import os
+import time
 from typing import Any
 
 from process_bigraph import Step
@@ -43,6 +44,7 @@ _FORWARDED = (
     "generations",
     "max_duration_per_gen",
     "time_step",
+    "division_poll_interval",
     "media",
     "emitter",
     "emitter_arg",
@@ -58,7 +60,7 @@ _FORWARDED = (
     "trna_attenuation",
     # Biology the ray: and single-cell paths already support. Omitting these
     # would drop them SILENTLY -- and exchange_fluxes/exchange_flux_basis is the
-    # violacein-exchange KPI readout CD2 Run 2 reads, on the strain sweeps this
+    # product-exchange KPI readout CD2 Run 2 reads, on the strain sweeps this
     # node exists to run. (@eagmon, review of #694.)
     "exchange_fluxes",
     "exchange_flux_basis",
@@ -66,6 +68,11 @@ _FORWARDED = (
     "mass_conservation",
     "transcript_initiation_mode",
     "polypeptide_initiation_mode",
+    # Opt-in independent founders (v2ecoli#712). Without these forwarded, a
+    # Nextflow campaign cannot reach the capability at all: one ParCa per variant
+    # feeds M lineages, so every seed loads the SAME cached initial_state.
+    "independent_founders",
+    "founder_sim_data",
 )
 
 # Forwarded ONLY when non-empty. "no swap requested" and "swap requested, empty"
@@ -85,6 +92,9 @@ class LineageStep(Step):
         "generations": {"_type": "integer", "_default": 1},
         "max_duration_per_gen": {"_type": "float", "_default": 3600.0},
         "time_step": {"_type": "float", "_default": 1.0},
+        # Slice length of the inner run so a generation ends within one slice of
+        # its division (see LineageProcess._run_until_division; #773).
+        "division_poll_interval": {"_type": "float", "_default": 10.0},
         "media": {"_type": "string", "_default": "minimal"},
         "emitter": {"_type": "string", "_default": "parquet"},
         "emitter_arg": {"_default": {}},
@@ -118,9 +128,63 @@ class LineageStep(Step):
     }
 
     # How the renderer declares this task's ports in the emitted process block.
+    # A GLOB, not a fixed name. Every lineage used to emit a directory named
+    # literally `sweep` -- unique within a task, identical across tasks -- which
+    # collides the moment more than one lineage is gathered or published:
+    #
+    #   Process `analysis` input file name collision --
+    #     There are multiple input files for each of the following file names: sweep
+    #   Failed to publish file: .../work/14/27c67.../sweep; to: .../vecoli-output/.../sweep [copy]
+    #
+    # Both halves of one cause. `path sweep_v0` stages N inputs under their own
+    # names, so N directories called `sweep` cannot be staged; and N concurrent
+    # publishDir copies to the same destination name race (measured: only 2 of 3
+    # seeds published). The per-lineage name lives in `out_dir` config, which
+    # workflow_nf sets to `sweep_v{vi}_s{seed}` -- this declaration cannot itself
+    # vary, because `_class_annotation` reads it off the CLASS
+    # (`getattr(type(instance), ...)`), so a pattern is what makes per-instance
+    # names expressible at all.
     nextflow_port_decls = {
         "cache_dir": "path cache_dir",
-        "sweep_dir": 'path "sweep"',
+        # `type: "dir"` is load-bearing, not decoration. run_step writes the port's
+        # value manifest as `<port>.json` -- here `sweep_dir.json` -- into the SAME
+        # work dir, and a bare `path "sweep_*"` glob matches it too. Every lineage
+        # then emits an identically named manifest alongside its distinct
+        # directory, and the gather collides on the manifest exactly as it once
+        # collided on the directory ("input file name collision: sweep_dir.json",
+        # simulation 562, after 3 x 94-minute lineages had SUCCEEDED). The value
+        # of this port IS a directory; say so, and no file can match.
+        "sweep_dir": 'path "sweep_*", type: "dir"',
+    }
+    # A whole lineage is the long-running task on this path -- hours, not
+    # minutes -- so it is the one that most needs the profile's `time` and
+    # memory. Without a label, `withLabel: lineage` binds to nothing.
+    # `publishDir` or the science is unreachable. Without it a campaign that exits
+    # 0 leaves its output in the Nextflow WORK dir under a content hash --
+    # measured on a real run: 633 MB across 43 objects at
+    # `work/1d/8bdc05.../sweep/`, while the results prefix held 78 KB of render
+    # artifacts and no data at all.
+    #
+    # A closure, not a literal: the destination is the RUN's own prefix and is
+    # only known at dispatch. `params.publish_dir` is supplied by the caller
+    # (viva-api passes the run's results URI); the `?:` keeps a bare
+    # `nextflow run` working locally instead of failing on a missing param.
+    #
+    # Each lineage publishes its OWN `sweep_v{vi}_s{seed}` into the shared target.
+    # An earlier version of this comment claimed they could all publish a
+    # directory named `sweep` because "the copies interleave rather than collide
+    # -- identity lives in the partitions, not in the directory name". That was
+    # reasoning about the directory's CONTENTS while Nextflow reasons about its
+    # NAME, and it held only while no two tasks shared a destination (1 seed per
+    # variant). The first 3-seed campaign failed on it.
+    #
+    # So the published tree is N siblings rather than one merged directory. Every
+    # consumer reaches the data through the recursive
+    # `**/history/experiment_id=*/**/*.pq` glob in v2ecoli/library/sweep_io.py,
+    # so N siblings and one merged tree are equivalent to readers.
+    nextflow_directives = {
+        "label": "lineage",
+        "publishDir": '{ params.publish_dir ?: "results" }, mode: "copy", overwrite: true',
     }
 
     def inputs(self) -> dict[str, Any]:
@@ -165,7 +229,9 @@ class LineageStep(Step):
                         "_type": "process",
                         "address": "local:LineageProcess",
                         "config": config,
-                        "interval": float(self.config.get("max_duration_per_gen", 3600.0)),
+                        "interval": float(
+                            self.config.get("max_duration_per_gen", 3600.0)
+                        ),
                         "inputs": {},
                         "outputs": {"summary": ["summary"], "complete": ["complete"]},
                     }
@@ -181,7 +247,10 @@ class LineageStep(Step):
     def _has_output(self, out_dir: str) -> bool:
         for root, _dirs, files in os.walk(out_dir):
             for name in files:
-                if name.endswith((".pq", ".parquet")) and os.path.getsize(os.path.join(root, name)) > 0:
+                if (
+                    name.endswith((".pq", ".parquet"))
+                    and os.path.getsize(os.path.join(root, name)) > 0
+                ):
                     return True
                 if name in (".zgroup", ".zarray", "zarr.json", ".zattrs"):
                     return True
@@ -195,19 +264,62 @@ class LineageStep(Step):
             raise ValueError(
                 "LineageStep requires a cache_dir: it is the ParCa bundle this lineage "
                 "reads. It arrives as a staged input wire; a task with neither the input "
-                "nor a configured fallback has nothing to simulate.")
+                "nor a configured fallback has nothing to simulate."
+            )
 
         generations = int(self.config.get("generations", 1))
         per_gen = float(self.config.get("max_duration_per_gen", 3600.0))
         interval = generations * per_gen
-
-        self._run_lineage(self._lineage_config(str(cache_dir)), interval)
-
         out_dir = str(self.config.get("out_dir") or "")
-        if self.config.get("require_output", True) and out_dir and not self._has_output(out_dir):
+
+        # Observability (docs/plan-observability.md, runner layer): a task
+        # always gets stdout events plus <out_dir>/events.jsonl, opens the
+        # ``lineage`` span under the entrypoint's task span, and on ANY failure
+        # writes <out_dir>/failure.json (exception, traceback tail, the engine's
+        # pbg_context: process path / global_time / state summary) and emits a
+        # ``lineage.failure`` event before re-raising the original exception unchanged.
+        from v2ecoli.workflow import events as _events
+
+        emitter = _events.configure_for_task(out_dir or None)
+        span = emitter.start_span(
+            "lineage",
+            variant=self.config.get("variant_index"),
+            lineage_seed=self.config.get("lineage_seed"),
+            experiment_id=self.config.get("experiment_id"),
+            generations=generations,
+        )
+        _t0 = time.monotonic()
+        try:
+            self._run_lineage(self._lineage_config(str(cache_dir)), interval)
+        except BaseException as exc:
+            record = _events.failure_record(
+                exc,
+                generation=_events.current_baggage(emitter).get("generation"),
+                wall_time=round(time.monotonic() - _t0, 3),
+                out_dir=out_dir,
+                experiment_id=self.config.get("experiment_id"),
+                variant=self.config.get("variant_index"),
+                lineage_seed=self.config.get("lineage_seed"),
+            )
+            record["failure_json"] = _events.write_failure_json(out_dir, record)
+            _events.emit("lineage.failure", level="error", **record)
+            span.end(status="error", error=f"{type(exc).__name__}: {exc}"[:500])
+            try:
+                emitter.flush()
+            except Exception:
+                pass
+            raise
+        span.end()
+
+        if (
+            self.config.get("require_output", True)
+            and out_dir
+            and not self._has_output(out_dir)
+        ):
             raise SystemExit(
                 f"LineageStep produced no emitted output under {out_dir}. A lineage that "
                 f"emits nothing is a failed task, not a successful one -- refusing to "
-                f"report success (plan-nextflow-dispatch.md go/no-go 6).")
+                f"report success (plan-nextflow-dispatch.md go/no-go 6)."
+            )
 
         return {"sweep_dir": out_dir}

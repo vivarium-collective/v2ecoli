@@ -37,7 +37,7 @@ def _run_engines(spec, out: str, mode: str) -> None:
     for _p in getattr(spec, "inject_processes", None) or []:
         swap_flags += ["--inject-process", _p]
     # Metabolic exchange fluxes to emit onto listeners.exchange_flux.<leaf> on
-    # BOTH arms (e.g. the violacein card's rate/yield inputs). Same flags on each
+    # BOTH arms (e.g. a product card's rate/yield inputs). Same flags on each
     # engine so candidate and reference emit the same leaves.
     flux_flags = [f
                   for leaf, key in (spec.exchange_fluxes or {}).items()

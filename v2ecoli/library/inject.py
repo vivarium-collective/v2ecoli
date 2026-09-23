@@ -9,7 +9,7 @@ shadowing the intended resolver. The absolute package import kills that shadow.
 
 Native process classes stay DOWNSTREAM (they are not shipped in this wheel):
 resolve them through the native-injection registry (:func:`register_native_injection`,
-populated downstream, e.g. by sms-ecoli). The resolver fails LOUD by construction
+populated downstream, e.g. by a downstream workspace). The resolver fails LOUD by construction
 — a registered name whose class will not import raises, and a built config missing
 a declared required key raises — rather than falling back to an empty/default
 config (the root of the one-tick "empty config" collapse this design fixes).
@@ -327,7 +327,7 @@ def build_native_redux_config(sim_data_path: str) -> dict:
     ``homeostatic_concentrations`` dict + an ``initial_exchange_molecules`` list).
     A vEcoli-free config carries no ``fork_sim_data`` and must never touch the
     fork, so this reads v2ecoli's OWN ``LoadSimData.get_metabolism_redux_config``
-    from the native violacein bundle instead.
+    from the native bundle instead.
 
     ⚠ v2ecoli's native getter SERIALISES the three callables the adapter needs
     (``exchange_data_from_media`` / ``concentration_updates`` /
@@ -353,7 +353,8 @@ def build_native_redux_config(sim_data_path: str) -> dict:
     # off v2ecoli's OWN sim_data (fork-free), so adapt_metabolism_redux_config can
     # BRIDGE them instead of deferring kinetics off. Without kcat bounds the native
     # LP over-produces general flux, skewing the enzyme/TRP trajectory that feeds
-    # the violacein ODE (the KPI ran ~2-3x high on the kinetics-off arm).
+    # the downstream metabolite readout (the KPI ran ~2-3x high on the
+    # kinetics-off arm).
     _m = sd.process.metabolism
     cfg["get_kinetic_constraints"] = _m.get_kinetic_constraints
     cfg["kinetic_constraint_reactions"] = list(_m.kinetic_constraint_reactions)
@@ -414,15 +415,13 @@ def adapt_metabolism_redux_config(config_dict: dict) -> dict:
     sim_data-bound callable that both CONSUMES and RETURNS ``Unum`` quantities,
     while the native port passes/expects bare mM floats. Faithfully bridging it
     needs a two-sided unit wrap (attach units on input, strip on output) that is
-    error-prone and orthogonal to the violacein readout (the violacein pathway
-    reactions are NOT among ``kinetic_constraint_reactions`` — verified — so
-    kinetics never touches VIOLACEIN[c]). Rather than risk wrong kinetic numbers,
-    kinetics is turned OFF here via the native port's own documented off-switch
+    error-prone. Rather than risk wrong kinetic numbers, kinetics is turned OFF
+    here via the native port's own documented off-switch
     (``get_kinetic_constraints=None`` + empty kinetic reaction/enzyme/substrate
     lists → the ``USE_KINETICS`` off path). This lowers general-flux fidelity vs.
     the fork (kcat capacity bounds are dropped) but is honest and leaves the
     homeostatic + maintenance + steady-state LP — the part that governs whether
-    any metabolite (violacein included) is produced — intact.
+    any metabolite is produced — intact.
     """
     cfg = dict(config_dict)
     # De-unit the scalar parameters to the native port's fixed-float convention
@@ -512,34 +511,6 @@ def adapt_metabolism_redux_config(config_dict: dict) -> dict:
         cfg["kinetic_constraint_enzymes"] = []
         cfg["kinetic_constraint_substrates"] = []
 
-    # Violacein pathway ODE + export-flux pin (native port of the fork's
-    # violacein mechanism). Enable it by DATASET MEMBERSHIP -- exactly as the
-    # fork gates the same machinery: the violacein new-gene enzymes register as
-    # "NG-"-prefixed catalysts only when the violacein dataset is loaded, so a
-    # plain (non-violacein) bundle leaves include_violacein_reactions False and
-    # the native redux is byte-for-byte untouched. On the violacein bundle this
-    # activates the pathway ODE and the VIOLACEIN[c]-export pin so the
-    # native-candidate arm produces violacein faithfully.
-    if "include_violacein_reactions" not in cfg:
-        cfg["include_violacein_reactions"] = any(
-            str(c).startswith("NG-") for c in cfg.get("catalyst_ids", [])
-        )
-
-    # Seed a VIOLACEIN key into the environment.exchange store when the pathway
-    # is active. environment.exchange is a map[float] store initialised from the
-    # cache's initial_state with ONLY the media's ~87 external (periplasmic)
-    # molecules; a bare-float map leaf ACCUMULATES (state + update), which
-    # updates existing keys but does not add the redux process's brand-new
-    # cytoplasmic VIOLACEIN[c] secretion key -- so its export flux never reaches
-    # environment.exchange and the ExchangeFluxListener's violacein_exchange leaf
-    # stays 0. Seeding the (compartment-stripped, matching the redux writer)
-    # "VIOLACEIN" key to 0.0 lets the per-tick accumulate land, so the KPI leaf
-    # carries the real secreted-violacein flux. Gated on the pathway being active
-    # so non-violacein runs are untouched.
-    if cfg.get("include_violacein_reactions"):
-        seed = cfg.get("_exchange_data_seed") or {}
-        seed[("environment", "exchange", "VIOLACEIN")] = 0.0
-        cfg["_exchange_data_seed"] = seed
     return cfg
 
 
@@ -932,7 +903,7 @@ def _deserialize_config_values(obj, fork_repo: str):
 #
 # Replaces the former hardcoded native-class map (name -> (module, qualname)).
 # v2ecoli DEFINES the registry and ships it EMPTY: the native process classes
-# live DOWNSTREAM (sms-ecoli), which populates this registry at import time via
+# live DOWNSTREAM (a downstream workspace), which populates this registry at import time via
 # :func:`register_native_injection`. Keeping the classes out of the wheel is the
 # whole point — the wheel-shipped resolver never imports the downstream process
 # package, so it can no longer be shadowed by whichever copy sits on sys.path
@@ -972,7 +943,7 @@ def register_native_injection(name, module_path, class_name, *, topology=None,
                               required_config_keys=(), config_builder=None):
     """Register a native process port for a vEcoli add/swap process ``name``.
 
-    Populated DOWNSTREAM (sms-ecoli) so the native process classes stay out of
+    Populated DOWNSTREAM (a downstream workspace) so the native process classes stay out of
     the v2ecoli wheel. ``module_path``/``class_name`` are imported LAZILY (only
     when a config actually injects ``name``, via absolute import in
     :func:`_import_class`), so registering a process whose module is absent in
@@ -1173,7 +1144,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                     _pending_shape_seeds.update(store_seed)
             config_dict = built
 
-        # FAIL LOUD (sms-ecoli#210 Gate 0 / #375 §3d, v2ecoli#667): a SWAP TARGET
+        # FAIL LOUD (#375 §3d, v2ecoli#667): a SWAP TARGET
         # that reaches here with no config on the NATIVE (fork-free) path would run
         # on config_schema defaults. For a swapped metabolism (ecoli-metabolism ->
         # ecoli-metabolism-redux) those defaults are an empty stoichiometry and zero
@@ -1199,7 +1170,7 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                 f"one tick and reports success. Fix: provide process_configs[{name!r}] "
                 f"explicitly, or register a native config_builder for {name!r} via "
                 f"register_native_injection and build the config from this run's "
-                f"cache_dir bundle (sms-ecoli#210 Gate 0 / v2ecoli#667).")
+                f"cache_dir bundle (v2ecoli#667).")
 
         # NATIVE-FIRST: deserialize vEcoli-serialized process_config values —
         # !ParameterSerializer[path] -> param_store Quantity, !units[...] ->

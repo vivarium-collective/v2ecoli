@@ -4,8 +4,8 @@ The wrong-strain guard (P1-6, ``verify_cache_version(expected_build_params=...)`
 can only fire if the cache's own ``cache_version.json`` records which strain it
 was built for. The in-process ``core.save_sim_input`` path already records that;
 the CLI build path (``scripts/build_cache.py`` — the one the GovCloud ParCa job
-runs) previously did not accept the strain at all, so a violacein cache built via
-the CLI would be stamped wild-type and either verify clean against a wild-type
+runs) previously did not accept the strain at all, so an engineered-strain cache
+built via the CLI would be stamped wild-type and either verify clean against a wild-type
 request (false pass) or, once a request carried the strain, fail against its own
 cache (false fail). These tests pin the CLI's strain plumbing.
 
@@ -29,8 +29,8 @@ import scripts.build_cache as bc
         ("off", None),
         ("  off  ", None),
         ("   ", None),
-        ("violacein", "violacein"),
-        (" vioABCDE_MG1655_v2 ", "vioABCDE_MG1655_v2"),
+        ("newgeneA", "newgeneA"),
+        (" newgeneA_MG1655_v2 ", "newgeneA_MG1655_v2"),
     ],
 )
 def test_normalize_strain(raw, expected):
@@ -65,10 +65,10 @@ def test_build_cache_forwards_strain_to_save_sim_input(monkeypatch, tmp_path):
 
     bc.build_cache(
         "fixture.pkl.gz", str(tmp_path),
-        new_genes="violacein", bundle_overrides="off",
+        new_genes="newgeneA", bundle_overrides="off",
     )
 
-    assert captured["new_genes"] == "violacein"
+    assert captured["new_genes"] == "newgeneA"
     assert captured["bundle_overrides"] is None
 
 

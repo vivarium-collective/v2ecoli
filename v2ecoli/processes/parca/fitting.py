@@ -890,7 +890,7 @@ def expressionConverge(
             end="",
         )
 
-    # Progress reporting (sms-ecoli#166). This loop is where most of ParCa's wall
+    # Progress reporting. This loop is where most of ParCa's wall
     # clock goes -- ~6 min per condition on the cluster, across ~9 conditions --
     # and until now it was silent from the outside: one line before it starts and
     # one after it converges, with nothing in between and nothing at all if the

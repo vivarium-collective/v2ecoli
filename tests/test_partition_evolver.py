@@ -6,8 +6,8 @@ has, so the wrapped process's ``request_set`` attribute may not be set at
 all. The stock code either raised ``AttributeError`` on the bare
 ``process.request_set`` read, or returned ``{}`` (no ``next_update_time``),
 which the global clock reads as a non-advancing 0.0 interval and deadlocks
-the composite. This used to be carried only as a downstream monkeypatch in
-sms-ecoli (``pbg_v2ecoli/_upstream_patches.py``); it is now fixed directly in
+the composite. This used to be carried only as a downstream monkeypatch
+(``pbg_v2ecoli/_upstream_patches.py``); it is now fixed directly in
 ``Evolver.update``.
 """
 from types import SimpleNamespace

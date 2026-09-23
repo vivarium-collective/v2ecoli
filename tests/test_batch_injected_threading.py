@@ -3,7 +3,7 @@
 Regression tests for the pipeline-audit P0: baseline()'s batch path
 (``n_seeds>1`` or ``n_generations>1``) used to forward only the seed/lineage
 knobs to ``_build_batch_document``, silently DROPPING ``injected_processes``
-(the metabolism-redux / violacein swap) plus ``features``, the four feature
+(the metabolism-redux swap) plus ``features``, the four feature
 toggles, ``exchange_fluxes``/``exchange_flux_basis`` and the two PDMP initiation
 modes. The loss propagated all the way to ``meta_composite._lineage_node``,
 which read ``config.get("injected_processes") or {}`` == ``{}`` and built every

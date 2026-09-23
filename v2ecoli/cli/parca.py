@@ -189,7 +189,7 @@ def main():
                 # at composite BUILD time (``build_parca_composite`` ->
                 # ``composite.state``), never through ``Composite.run`` -- so no
                 # engine tick hook ever fires for them. Same root cause as the
-                # gather (sms-ecoli#166): a Step that is never run by a Composite
+                # gather: a Step that is never run by a Composite
                 # is invisible to the engine's own instrumentation.
                 with _events.get_emitter().span(
                     "parca.step", step=step_n, name=cls.__name__,

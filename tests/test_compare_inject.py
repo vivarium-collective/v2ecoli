@@ -71,7 +71,7 @@ def test_resolve_rejects_unknown_name():
 
 
 def test_resolve_rejects_config_less_native_swap_target():
-    """FAIL LOUD (sms-ecoli#210 Gate 0): a swap TARGET with no config on the native
+    """FAIL LOUD (Gate 0): a swap TARGET with no config on the native
     path (no explicit process_config, no fork_sim_data) would run on config_schema
     defaults -- for metabolism-redux an empty stoichiometry, which collapses the
     generation to one tick while reporting success. Refuse instead."""

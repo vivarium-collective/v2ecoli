@@ -184,7 +184,7 @@ def _build_reactor_bird_coupled(
             "and no runner-side fallback applies it. Refusing to build."
         )
     # initial_ammonium_mM / injected_processes (2026-09-08, real Run 1 coupled
-    # dispatch per Chris's own exact spec, sms-ecoli#210): the composite has
+    # dispatch per Chris's own exact spec): the composite has
     # accepted both since it gained them (initial_ammonium_mM alongside
     # initial_glucose_mM; injected_processes for the metabolism_redux swap that
     # lets the product pathway's secretion reach the reactor) -- this runner
@@ -582,8 +582,8 @@ def _run_one_variant(
     if _arrest_forwarded:
         builder_kwargs = {**builder_kwargs,
                           "carbon_exhaustion_arrest": carbon_exhaustion_arrest}
-    # 2026-09-08, real Run 1 coupled dispatch (Chris's own exact spec,
-    # sms-ecoli#210): the remaining `run_mbp_tracked.py` CLI/viva-api parity
+    # 2026-09-08, real Run 1 coupled dispatch (Chris's own exact spec):
+    # the remaining `run_mbp_tracked.py` CLI/viva-api parity
     # gap -- these 6 were already real params on the coupled composite
     # (reactor_bird_coupled) but had no runner-level flag to reach them at
     # all, so a remote `--seed`/`--cells-per-agent`/etc. dispatch silently
@@ -796,7 +796,7 @@ def main():
                    help=("v2ecoli#592: arrest biomass growth once the carbon "
                          "source is exhausted (opt-in; default off)."))
     # The following 7 flags (2026-09-08, real Run 1 coupled dispatch, Chris's
-    # own exact spec on sms-ecoli#210) reach params the coupled composite
+    # own exact spec) reach params the coupled composite
     # (reactor_bird_coupled) already accepts but this runner had no CLI path
     # to -- viva-api's _mbp_tracked_command has sent them since 2026-09-06;
     # this was the missing other half. default=None throughout so an unset

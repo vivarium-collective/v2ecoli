@@ -166,7 +166,7 @@ def test_division_threads_injected_processes_to_daughter_baseline(monkeypatch):
 
 
 # --- injected agent-root stores survive division ------------------------------
-# sms-ecoli#166 P0 items 2 and 3. divide_cell() used to return ONLY bulk /
+# P0 items 2 and 3. divide_cell() used to return ONLY bulk /
 # unique / environment / boundary, so every store an injected process wires at
 # the agent root came back fresh (zeroed) in both daughters.
 

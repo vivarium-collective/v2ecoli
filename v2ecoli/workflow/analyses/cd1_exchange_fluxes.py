@@ -35,10 +35,10 @@ v2ecoli adaptations
   in the same units and convention (mmol/gDCW/h, uptake negative) either way.
   Verified against that listener's own ``listeners__exchange_flux__glucose_exchange``
   on sim 666: median ratio −1.0000 over 136 rows. Two things a narrower binding
-  would get wrong (@cplong90): violacein is the ONE exchange secreted from ``[c]``
-  (``metabolism_redux.py`` adds ``VIOLACEIN[c]`` explicitly), so the match is on
-  the prefix, compartment-agnostic; and the sign must flip, or a yield computed
-  as ``product / abs(glucose)`` silently reads backwards (v2ecoli#86).
+  would get wrong: an exchange may be secreted from ``[c]`` rather than ``[p]``,
+  so the match is on the prefix, compartment-agnostic; and the sign must flip, or
+  a yield computed as ``product / abs(glucose)`` silently reads backwards
+  (v2ecoli#86).
 """
 
 from __future__ import annotations

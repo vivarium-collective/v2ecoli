@@ -29,7 +29,7 @@ from v2ecoli.library.cache_version import (
     write_cache_version,
 )
 
-STRAIN_A = {"new_genes": "vioABCDE_MG1655_v2"}
+STRAIN_A = {"new_genes": "newgeneA_MG1655_v2"}
 STRAIN_B = {"new_genes": "gfp_MG1655_v2"}
 
 
@@ -67,7 +67,7 @@ def test_new_genes_changes_fingerprint():
     b = compute_cache_version(build_params=STRAIN_B)
     assert a.inputs_hash != b.inputs_hash
     # ...and the strain identity actually lands in the recorded build_params.
-    assert a.build_params["new_genes"] == "vioABCDE_MG1655_v2"
+    assert a.build_params["new_genes"] == "newgeneA_MG1655_v2"
 
     # Same strain -> identical hash (same files, same context).
     a_again = compute_cache_version(build_params=STRAIN_A)

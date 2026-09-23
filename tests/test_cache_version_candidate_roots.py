@@ -1,6 +1,6 @@
 """Two-root resolution: v2ecoli consumed as an INSTALLED dependency.
 
-When v2ecoli is a git dependency (e.g. sms-ecoli), its SOURCE files live
+When v2ecoli is a git dependency (e.g. a downstream workspace), its SOURCE files live
 under the installed package but its DATA file
 (``models/parca/parca_state.pkl.gz``) lives in the consuming WORKSPACE — no
 single ``repo_root`` resolves both. ``candidate_repo_roots`` /

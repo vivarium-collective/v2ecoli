@@ -18,7 +18,7 @@ The study opts in by declaring an ``acceptance:`` block in ``study.yaml``::
 
     acceptance:
       sweep_dir: out/run                 # local path or s3://; relative -> study_dir
-      required_columns: [listeners__mass__dry_mass, environment__exchange__VIOLACEIN]
+      required_columns: [listeners__mass__dry_mass, environment__exchange__GLC]
       must_vary: [listeners__mass__dry_mass]
       must_equal: {environment__media_id: basal_with_trp}
       expected_species_count: 16323

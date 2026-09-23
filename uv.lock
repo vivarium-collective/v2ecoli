@@ -341,7 +341,7 @@ wheels = [
 [[package]]
 name = "bigraph-schema"
 version = "1.6.0"
-source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#c19194a0f9b005b1ec9de5fa661271279746a861" }
+source = { git = "https://github.com/vivarium-collective/bigraph-schema.git?branch=main#8268aa142cf2984b575f5762c773cab10c19772d" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
@@ -718,7 +718,7 @@ name = "cuda-bindings"
 version = "13.3.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cuda-pathfinder" },
+    { name = "cuda-pathfinder", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ce/67/5e7dba1ba576dd73da5dee894ca076ca5e959450dfff66d6d510a255d1f7/cuda_bindings-13.3.1-cp312-cp312-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:c7855c4868aabc0cfae28abbe83d56734bdfbd08f08fc234ac1912a12858bf49", size = 6025351, upload-time = "2026-05-29T23:11:49.685Z" },
@@ -743,43 +743,43 @@ wheels = [
 
 [package.optional-dependencies]
 cublas = [
-    { name = "nvidia-cublas", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-cuda-nvrtc", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cudart = [
-    { name = "nvidia-cuda-runtime", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cuda-runtime", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cufft = [
-    { name = "nvidia-cufft", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-nvjitlink", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cufft", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cufile = [
-    { name = "nvidia-cufile", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cufile", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cupti = [
-    { name = "nvidia-cuda-cupti", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cuda-cupti", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 curand = [
-    { name = "nvidia-curand", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-curand", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cusolver = [
-    { name = "nvidia-cublas", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-cusolver", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-cusparse", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-nvjitlink", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cublas", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-cusolver", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 cusparse = [
-    { name = "nvidia-cusparse", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
-    { name = "nvidia-nvjitlink", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cusparse", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 nvjitlink = [
-    { name = "nvidia-nvjitlink", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-nvjitlink", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 nvrtc = [
-    { name = "nvidia-cuda-nvrtc", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-cuda-nvrtc", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 nvtx = [
-    { name = "nvidia-nvtx", marker = "platform_machine == 'aarch64' or platform_machine == 'x86_64'" },
+    { name = "nvidia-nvtx", marker = "(platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')" },
 ]
 
 [[package]]
@@ -933,7 +933,7 @@ wheels = [
 [[package]]
 name = "ecoli-sources"
 version = "0.0.1"
-source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=2dfabd522003cfe62f1bc7eeee615a2041aff3ad#2dfabd522003cfe62f1bc7eeee615a2041aff3ad" }
+source = { git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=86607c4dff73f56a33844bf4941804827d14a190#86607c4dff73f56a33844bf4941804827d14a190" }
 dependencies = [
     { name = "anndata" },
     { name = "jupyter" },
@@ -1516,7 +1516,7 @@ wheels = [
 [[package]]
 name = "investigation-contracts"
 version = "0.2.0"
-source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main#65c793fd231d952e49a9cfe4244797dadde1bedc" }
+source = { git = "https://github.com/vivarium-collective/investigation-contracts.git?rev=65c793fd231d952e49a9cfe4244797dadde1bedc#65c793fd231d952e49a9cfe4244797dadde1bedc" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "pydantic" },
@@ -2546,7 +2546,7 @@ name = "nvidia-cublas"
 version = "13.1.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cuda-nvrtc" },
+    { name = "nvidia-cuda-nvrtc", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a7/a1/0bd24ee8c8d03adac032fd2909426a00c88f8c57961b1277ded97f91119f/nvidia_cublas-13.1.1.3-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:b7a210458267ac818974c53038fbec2e969d5c99f305ab15c72522fa9f001dd5", size = 542848918, upload-time = "2026-04-08T18:46:22.985Z" },
@@ -2585,7 +2585,7 @@ name = "nvidia-cudnn-cu13"
 version = "9.20.0.48"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas" },
+    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/56/c5/83384d846b2fd17c44bd499b36c75a45ed4f095fbbb2252294e89cea5c5c/nvidia_cudnn_cu13-9.20.0.48-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:e31454ae00094b0c55319d9d15b6fa2fc50a9e1c0f5c8c80fb75258234e731e1", size = 444574296, upload-time = "2026-03-09T19:28:27.751Z" },
@@ -2597,7 +2597,7 @@ name = "nvidia-cufft"
 version = "12.0.0.61"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8b/ae/f417a75c0259e85c1d2f83ca4e960289a5f814ed0cea74d18c353d3e989d/nvidia_cufft-12.0.0.61-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:2708c852ef8cd89d1d2068bdbece0aa188813a0c934db3779b9b1faa8442e5f5", size = 214053554, upload-time = "2025-09-04T08:31:38.196Z" },
@@ -2627,9 +2627,9 @@ name = "nvidia-cusolver"
 version = "12.0.4.66"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-cublas" },
-    { name = "nvidia-cusparse" },
-    { name = "nvidia-nvjitlink" },
+    { name = "nvidia-cublas", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-cusparse", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/c3/b30c9e935fc01e3da443ec0116ed1b2a009bb867f5324d3f2d7e533e776b/nvidia_cusolver-12.0.4.66-py3-none-manylinux_2_27_aarch64.whl", hash = "sha256:02c2457eaa9e39de20f880f4bd8820e6a1cfb9f9a34f820eb12a155aa5bc92d2", size = 223467760, upload-time = "2025-09-04T08:33:04.222Z" },
@@ -2641,7 +2641,7 @@ name = "nvidia-cusparse"
 version = "12.6.3.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "nvidia-nvjitlink" },
+    { name = "nvidia-nvjitlink", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/94/5c26f33738ae35276672f12615a64bd008ed5be6d1ebcb23579285d960a9/nvidia_cusparse-12.6.3.3-py3-none-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:80bcc4662f23f1054ee334a15c72b8940402975e0eab63178fc7e670aa59472c", size = 162155568, upload-time = "2025-09-04T08:33:42.864Z" },
@@ -2902,70 +2902,22 @@ wheels = [
 ]
 
 [[package]]
-name = "pbg-bioreactordesign"
+name = "pbg-basic-processes"
 version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main#aeb59b3bfb4b690dbeec8eb2829ce1cd7bd8c492" }
+source = { git = "https://github.com/vivarium-collective/pbg-basic-processes.git?branch=main#af83ccc834a84af4e4b3bb5d114aca79713cf401" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
-    { name = "pbg-superpowers" },
     { name = "process-bigraph" },
-    { name = "pyyaml" },
-    { name = "scipy" },
-]
-
-[[package]]
-name = "pbg-ketchup"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main#c023e55902e8fa72754118f951bbfde5e2a4deaa" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "cobra" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "process-bigraph" },
-    { name = "pyomo" },
-    { name = "pyyaml" },
-    { name = "scipy" },
-]
-
-[[package]]
-name = "pbg-openmm"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#6fbea7307e1d5e5dac44addac5c968d6c3a574e3" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "openmm" },
-    { name = "process-bigraph" },
-    { name = "setuptools" },
-]
-
-[[package]]
-name = "pbg-parsimony"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-parsimony.git?branch=main#d03264acb77d8ff318570835555db13e281b2b61" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "process-bigraph" },
+    { name = "sympy" },
 ]
 
 [[package]]
 name = "pbg-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?subdirectory=shim&branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
 dependencies = [
     { name = "viva-superpowers" },
-]
-
-[[package]]
-name = "pbg-torch"
-version = "0.1.0"
-source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#cfee4f06b8fe1ee7575e141150b197ccad0a0908" }
-dependencies = [
-    { name = "bigraph-schema" },
-    { name = "numpy" },
-    { name = "process-bigraph" },
-    { name = "torch" },
 ]
 
 [[package]]
@@ -2973,7 +2925,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -3128,8 +3080,8 @@ wheels = [
 
 [[package]]
 name = "process-bigraph"
-version = "1.8.3"
-source = { git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main#8f49d80fd36d3ca3960638877656770b202b099a" }
+version = "1.8.4"
+source = { git = "https://github.com/vivarium-collective/process-bigraph.git?rev=55b70676cb4d91a03d6cccb32a91b7a0e62f2842#55b70676cb4d91a03d6cccb32a91b7a0e62f2842" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "matplotlib" },
@@ -4530,10 +4482,6 @@ dependencies = [
     { name = "numba" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-bioreactordesign" },
-    { name = "pbg-ketchup" },
-    { name = "pbg-parsimony" },
-    { name = "pbg-torch" },
     { name = "plotly" },
     { name = "plum-dispatch" },
     { name = "process-bigraph" },
@@ -4545,10 +4493,13 @@ dependencies = [
     { name = "sympy" },
     { name = "unum" },
     { name = "vecoli", extra = ["dev"] },
+    { name = "viva-bioreactordesign" },
     { name = "viva-copasi" },
     { name = "viva-emitters", extra = ["parquet", "xarray"] },
+    { name = "viva-ketchup" },
     { name = "viva-munk" },
     { name = "viva-superpowers" },
+    { name = "viva-torch" },
     { name = "viva-workspace" },
 ]
 
@@ -4561,7 +4512,10 @@ ray = [
     { name = "ray" },
 ]
 relax = [
-    { name = "pbg-openmm" },
+    { name = "viva-openmm" },
+]
+report = [
+    { name = "vivarium-workbench" },
 ]
 
 [package.metadata]
@@ -4571,19 +4525,14 @@ requires-dist = [
     { name = "biopython" },
     { name = "cvxpy" },
     { name = "dill", specifier = ">=0.3" },
-    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=2dfabd522003cfe62f1bc7eeee615a2041aff3ad" },
+    { name = "ecoli-sources", git = "https://github.com/vivarium-collective/ecoli-sources.git?rev=86607c4dff73f56a33844bf4941804827d14a190" },
     { name = "investigation-contracts", git = "https://github.com/vivarium-collective/investigation-contracts.git?branch=main" },
     { name = "numba", specifier = ">=0.59" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pbg-bioreactordesign", git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main" },
-    { name = "pbg-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
-    { name = "pbg-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
-    { name = "pbg-parsimony", git = "https://github.com/vivarium-collective/viva-parsimony.git?branch=main" },
-    { name = "pbg-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "plotly", specifier = ">=5.0" },
     { name = "plum-dispatch", specifier = ">=2.5" },
-    { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?branch=main" },
+    { name = "process-bigraph", git = "https://github.com/vivarium-collective/process-bigraph.git?rev=55b70676cb4d91a03d6cccb32a91b7a0e62f2842" },
     { name = "pymunk" },
     { name = "pytest-timeout", marker = "extra == 'dev'", specifier = ">=2.3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
@@ -4596,13 +4545,18 @@ requires-dist = [
     { name = "unum" },
     { name = "v2ecoli", extras = ["parquet", "xarray"], marker = "extra == 'emitters'" },
     { name = "vecoli", extras = ["dev"], specifier = ">=1.1.0" },
+    { name = "viva-bioreactordesign", git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main" },
     { name = "viva-copasi", git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main" },
-    { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.3.0" },
+    { name = "viva-emitters", extras = ["parquet", "xarray"], specifier = ">=0.4.0" },
+    { name = "viva-ketchup", git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main" },
     { name = "viva-munk", git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main" },
+    { name = "viva-openmm", marker = "extra == 'relax'", git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main" },
     { name = "viva-superpowers", git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main" },
+    { name = "viva-torch", git = "https://github.com/vivarium-collective/viva-torch.git?branch=main" },
     { name = "viva-workspace", git = "https://github.com/vivarium-collective/viva-workspace.git?branch=main" },
+    { name = "vivarium-workbench", marker = "extra == 'report'", git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6" },
 ]
-provides-extras = ["dev", "parquet", "xarray", "emitters", "ray", "relax"]
+provides-extras = ["dev", "report", "parquet", "xarray", "emitters", "ray", "relax"]
 
 [[package]]
 name = "vecoli"
@@ -4681,6 +4635,19 @@ wheels = [
 ]
 
 [[package]]
+name = "viva-bioreactordesign"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-bioreactordesign.git?branch=main#9381838aa64e71efe86bd3c4bdb4b0d49f937466" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "pbg-superpowers" },
+    { name = "process-bigraph" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
 name = "viva-copasi"
 version = "0.1.0"
 source = { git = "https://github.com/vivarium-collective/viva-copasi.git?branch=main#c136e37777cdf48d46054cad2911402d4f4cd373" }
@@ -4695,16 +4662,16 @@ dependencies = [
 
 [[package]]
 name = "viva-emitters"
-version = "0.3.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "numpy" },
     { name = "process-bigraph" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/2f/aa/08cd88ca7f4dba33de73fde454661c798cdb86915daec374630f0c9f09e2/viva_emitters-0.3.0.tar.gz", hash = "sha256:a87b13f9b0f57a426149f43b307b2dd03ae63f299ec794778569215a0297f033", size = 131919, upload-time = "2026-08-21T07:16:06.961Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/37/8b/f4a463d0707dce8457c00769158550f41bbb318c2d15fe8d5e32b9151251/viva_emitters-0.4.0.tar.gz", hash = "sha256:104db3834f702f45e971f796fddcc265e911bec03a8735f6b44a5972191e8064", size = 139706, upload-time = "2026-09-09T18:25:52.57Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/47/526ed57e2da5899c02ebcef2008870071bce067ed83070dc7fcc61848a1a/viva_emitters-0.3.0-py3-none-any.whl", hash = "sha256:2c656c28efb1e74715924d12418fdf8d0b0d44e7a32a4de39e49d13fbf112340", size = 110289, upload-time = "2026-08-21T07:16:05.589Z" },
+    { url = "https://files.pythonhosted.org/packages/71/64/b5f458125ca7399fdf2b5c3ba199d6db2ccddfbe59de45bd53b67191a677/viva_emitters-0.4.0-py3-none-any.whl", hash = "sha256:5e232230b2bdc46f9e2157c6d78e1d89e332792ced3e2050c851be5b1faf9d2e", size = 114543, upload-time = "2026-09-09T18:25:50.91Z" },
 ]
 
 [package.optional-dependencies]
@@ -4726,6 +4693,26 @@ xarray = [
 ]
 
 [[package]]
+name = "viva-ketchup"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-ketchup.git?branch=main#7a86c15430fe1261f52c743a6c6e5c6de6682e7d" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "cobra" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "process-bigraph" },
+    { name = "pyomo" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+]
+
+[[package]]
+name = "viva-marketplace"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-marketplace.git?branch=main#3e43bc60b89c15c393abc3f4022acfb71b23d732" }
+
+[[package]]
 name = "viva-munk"
 version = "0.0.2"
 source = { git = "https://github.com/vivarium-collective/Viva-munk.git?branch=main#93d2808bf444eb7a709ab5901b1a232c8d0e6795" }
@@ -4742,9 +4729,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "viva-openmm"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-openmm.git?branch=main#7b7cb6a83122a2d1d2720d42b086417003819910" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "openmm" },
+    { name = "process-bigraph" },
+    { name = "setuptools" },
+]
+
+[[package]]
 name = "viva-superpowers"
 version = "0.22.0"
-source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#56e6fe16b889f722df2340938d110d242ba8e466" }
+source = { git = "https://github.com/vivarium-collective/viva-superpowers.git?branch=main#6a83cc1d94121d458956ec7813b9a9c8b43bbe63" }
 dependencies = [
     { name = "bigraph-schema" },
     { name = "click" },
@@ -4756,6 +4754,17 @@ dependencies = [
     { name = "ruamel-yaml" },
     { name = "viva-emitters" },
     { name = "viva-workspace" },
+]
+
+[[package]]
+name = "viva-torch"
+version = "0.1.0"
+source = { git = "https://github.com/vivarium-collective/viva-torch.git?branch=main#2e7fd2f1c02c355eeca0c1b2dd0629b4ce1f12b2" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "numpy" },
+    { name = "process-bigraph" },
+    { name = "torch" },
 ]
 
 [[package]]
@@ -4782,6 +4791,31 @@ dependencies = [
     { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3e/87/794e0b4c5dccbca3036152fe5df56860a57e70f3e68ac0198dbd7df60fcb/vivarium-core-1.6.5.tar.gz", hash = "sha256:1d83faa60005304b548f623447ab8675a06bb7ed8f6b7c0bd25b4aaa3381fccb", size = 136102, upload-time = "2024-12-03T21:49:29.797Z" }
+
+[[package]]
+name = "vivarium-workbench"
+version = "0.3.78"
+source = { git = "https://github.com/vivarium-collective/vivarium-workbench.git?rev=0e7c24b497218e7f38c70e9fe3222f999bb48ef6#0e7c24b497218e7f38c70e9fe3222f999bb48ef6" }
+dependencies = [
+    { name = "bigraph-schema" },
+    { name = "fastapi" },
+    { name = "investigation-contracts" },
+    { name = "jinja2" },
+    { name = "jsonschema", extra = ["format-nongpl"] },
+    { name = "numpy" },
+    { name = "pbg-basic-processes" },
+    { name = "process-bigraph" },
+    { name = "pydantic" },
+    { name = "pypdf" },
+    { name = "pyyaml" },
+    { name = "uvicorn" },
+    { name = "viva-emitters", extra = ["xarray"] },
+    { name = "viva-marketplace" },
+    { name = "viva-superpowers" },
+    { name = "viva-workspace" },
+    { name = "xarray" },
+    { name = "zarr" },
+]
 
 [[package]]
 name = "vl-convert-python"

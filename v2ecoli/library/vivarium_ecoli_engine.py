@@ -115,6 +115,33 @@ class EngineHandle:
     time_step: float = 1.0
 
 
+def _is_tcs_modified_molecules_skew(exc: BaseException) -> bool:
+    """True iff ``exc`` is the genuine-vEcoli fixture↔upstream skew: upstream
+    reading ``TwoComponentSystem.modified_molecules`` off a sim_data fixture
+    that predates that attribute. Kept narrow (both tokens present) so unrelated
+    AttributeErrors are not misattributed."""
+    msg = str(exc)
+    return "modified_molecules" in msg and "TwoComponentSystem" in msg
+
+
+def _fixture_skew_message(sim_data_path: str, fork_dir: str | None) -> str:
+    """Actionable message for the fixture↔upstream skew — names the cause AND
+    the two fixes (pin the checkout to match the fixture, or rebuild the
+    fixture) instead of the bare ``AttributeError`` the composer would raise."""
+    checkout = fork_dir or os.environ.get("V2E_VECOLI_DIR", "<V2E_VECOLI_DIR>")
+    return (
+        f"genuine-vEcoli build failed: the sim_data fixture at "
+        f"{sim_data_path!r} predates upstream vEcoli's `modified_proteins` "
+        f"feature (added 2026-05-01), but the vEcoli checkout at {checkout!r} "
+        f"is newer and requires `TwoComponentSystem.modified_molecules`. "
+        f"Resolve the version skew either by (a) pinning the vEcoli checkout "
+        f"to a commit before 2026-05-01 (e.g. 7bf03433) so its source matches "
+        f"this fixture, or (b) rebuilding an upstream-compatible fixture on "
+        f"Linux via `scripts/build_upstream_parca.py` and pointing "
+        f"`sim_data_path` at it."
+    )
+
+
 def build_vivarium_ecoli(
     *,
     sim_data_path: str,
@@ -127,6 +154,7 @@ def build_vivarium_ecoli(
     fork_dir: str | None = None,
     initial_overlay: dict | None = None,
     variant: int = 0,
+    agent_id: str = "0",
 ) -> EngineHandle:
     """Build the genuine upstream vEcoli composite and wrap its vivarium Engine.
 
@@ -136,6 +164,8 @@ def build_vivarium_ecoli(
     generation; ``None`` builds a fresh founder. ``variant`` selects a 1-based grid
     point from the loaded config's ``variants`` block (0 = baseline, no-op); only
     applies when a full config file (``set_ecolisim_config_file``) is in effect.
+    ``agent_id`` is the lineage phylogeny key ("0" -> "00" -> ...); its LENGTH is
+    the generation index the fork applies staged shifts on — see below.
     """
     if fork_dir:
         os.environ["V2E_VECOLI_DIR"] = fork_dir
@@ -189,6 +219,26 @@ def build_vivarium_ecoli(
     sim.config["seed"] = int(seed)
     sim.config["sim_data_path"] = sim_data_path
     sim.config["time_step"] = float(time_step)
+    # ⛔⛔ THE GENERATION INDEX *IS* THE AGENT ID, and the fork reads it off THIS
+    # key. ``LoadSimData`` computes ``generation = len(kwargs["agent_id"])`` and
+    # applies every ``sim_data.internal_shift_dict`` entry whose
+    # ``shift_gen <= generation`` — the ONLY mechanism by which a config's staged
+    # induction (``induction_gen``) ever fires. ``agent_id`` is an existing key in
+    # the fork's own ``configs/default.json`` and flows
+    # ``Ecoli(config) -> LoadSimData(**config)``, so setting it here is the whole
+    # hop; but leaving it at the default "0" pins EVERY generation at ``len == 1``
+    # and a scheduled shift silently never happens — the run completes as the
+    # un-induced baseline with nothing in the output to say so. The caller
+    # advances it per generation via ``daughter_phylogeny_id``.
+    # ⇒ Same species as the variant discard this module already refuses: a
+    # declared perturbation dropped one layer below where anyone was looking.
+    sim.config["agent_id"] = str(agent_id)
+    # ⭐ SAY WHICH GENERATION THIS BUILD THINKS IT IS. Nothing printed it before,
+    # and that silence is precisely why a lineage pinned at generation 1 could run
+    # to completion, emit every observable, and be graded — with the un-shifted
+    # baseline in every generation and no line anywhere to contradict it.
+    print(f"[build_vivarium_ecoli] agent_id={str(agent_id)!r} "
+          f"-> generation {len(str(agent_id))}")
     # Apply the CONDITION's media. genuine vEcoli's LoadSimData defaults
     # media_timeline to ((0,'minimal'),) and `condition` alone never updates it
     # (the "have to change both" footgun), so without this the runner runs every
@@ -200,6 +250,34 @@ def build_vivarium_ecoli(
     # preload itself is best-effort — on failure EcoliSim just loads
     # sim_data_path natively — EXCEPT when a variant is requested: we must not
     # silently run the unperturbed baseline, so a preload failure there is loud.
+    # ⛔⛔ REFUSE AT THE POINT OF DISCARD. Every `apply_variant` gate below is
+    # `_cfgfile and int(variant)`, so a caller that requests a variant WITHOUT the
+    # whole-config route had it silently dropped: threaded all the way here, then
+    # ignored, and the run completed as the unperturbed baseline. That is the
+    # exact substitution the variant machinery exists to prevent, reintroduced one
+    # layer down from where anyone was looking.
+    # ⚠ CORRECTED, and read this before deleting the refusal as dead code. It
+    # WAS the default for a config declaring `variants` alongside `swap_processes`
+    # and nothing else — `_needs_native` auto-enabled only on
+    # `add_processes`/`spatial_environment_config`, so such a config took the swap
+    # route and the gate could never pass (measured: variant=1, whole_config=None,
+    # apply_variant never called). The caller now auto-enables the native route
+    # whenever a config DECLARES variants, so that path is no longer reachable
+    # through `run_comparison_ensemble`.
+    # ⇒ The refusal stays because it defends the INVARIANT, not that one caller:
+    # `build_vivarium_ecoli` has ~6 call sites and is importable directly. A
+    # requested variant that cannot be applied must never degrade to baseline,
+    # whoever asks. It is also what makes the `variant` stamp in `metadata_base`
+    # below true by construction.
+    # ⇒ A requested variant that cannot be applied is an ERROR, not a default.
+    if int(variant) and not _cfgfile:
+        raise ValueError(
+            f"variant {int(variant)} was requested but no whole-config was loaded, "
+            f"so the config's `variants` block is unreachable and the variant "
+            f"would be silently discarded — the run would be the unperturbed "
+            f"baseline. Pass the driving config as `whole_config` (the caller's "
+            f"`--vecoli-whole-config on` forces it), or request variant 0.")
+
     _sd_obj = None
     _variant_simdata_tmp = None   # temp pickle holding variant-mutated sim_data
     try:
@@ -291,6 +369,40 @@ def build_vivarium_ecoli(
     _em.Ecoli.__init__ = _capturing_init
     try:
         sim.build_ecoli()
+    except KeyError as _ke:
+        # ⛔ A saved fork state is stored under an ``agents/<id>`` envelope, and
+        # the composer indexes it by THIS config's agent_id
+        # (``ecoli_master.py``: ``full_initial_state["agents"][agent_id]``).
+        # Those files are written by the founder, so they carry "0" — and a
+        # non-founder generation asks for "00" and gets a bare ``KeyError: '00'``
+        # from inside the composer, with nothing naming the cause.
+        # ⇒ Name it. Only when the missing key IS our agent id, so an unrelated
+        # KeyError still propagates untouched.
+        if str(agent_id) != "0" and str(_ke).strip("'\"") == str(agent_id):
+            raise KeyError(
+                f"the initial state is stored under an 'agents' envelope that has "
+                f"no key {str(agent_id)!r}. This generation's agent_id is "
+                f"{str(agent_id)!r} (generation {len(str(agent_id))}), but a saved "
+                f"state file is written by the founder and carries '0'. Seed "
+                f"non-founder generations with `initial_overlay` (what the lineage "
+                f"drivers do) rather than `initial_state_file`, or re-key the file."
+            ) from _ke
+        raise
+    except AttributeError as _ae:
+        # ⛔ Fixture ↔ upstream skew. Upstream vEcoli's
+        # ``get_monomer_counts_listener_config`` reads
+        # ``sim_data.process.two_component_system.modified_molecules`` — a derived
+        # attribute the reconstruction only began emitting with the
+        # ``modified_proteins.tsv`` feature (upstream master, 2026-05-01). A
+        # ``simData.cPickle`` built BEFORE that predates the attribute, so the
+        # unpickled ``TwoComponentSystem`` lacks it and the composer dies deep
+        # inside ``sim_data.py`` with a bare ``AttributeError`` that names neither
+        # the cause nor the fix. ⇒ Name both. Only when it IS this exact skew, so
+        # an unrelated AttributeError still propagates untouched.
+        if _is_tcs_modified_molecules_skew(_ae):
+            raise RuntimeError(
+                _fixture_skew_message(sim_data_path, fork_dir)) from _ae
+        raise
     finally:
         _em.Ecoli.__init__ = _orig_init
         # The composer has now loaded sim_data from sim_data_path; the temp
@@ -471,28 +583,110 @@ def _select_bulk_observables(obs_bulk, ids: list) -> dict:
     return {i: float(src.get(i, 0.0)) for i in ids}
 
 
-def _select_exchange_fluxes(environment, fluxes: dict) -> dict:
-    """Pick named metabolic exchange fluxes out of the cell's environment store.
+def _select_exchange_fluxes(environment, fluxes: dict, *, basis: str = "counts",
+                            listeners: dict | None = None) -> dict:
+    """Pick named metabolic exchange fluxes out of the wrapped cell, on ``basis``.
 
     ``fluxes`` maps ``leaf_name -> exchange_key`` (e.g.
     ``{"acetate_exchange": "AC[p]", "glucose_exchange": "GLC[p]"}``).
-    The exchange dmdt lives at ``environment["exchange"]`` (keyed by metabolite
-    id, uptake negative / secretion positive — the same store #547 measured with
-    175 keys). A key absent this tick yields ``0.0`` so the leaf stays a
-    continuous trace. Sign is preserved verbatim; consumers decide on ``abs``.
+    Sign is preserved verbatim; consumers decide on ``abs``.
+
+    ``basis`` selects WHICH QUANTITY the leaf carries, and therefore which store
+    it is read from. The two are not interchangeable — see
+    :mod:`v2ecoli.steps.derivers.exchange_flux_listener`, whose ``basis`` this
+    mirrors so a study declares the quantity ONCE and both engines honour it:
+
+    ``counts`` (default, unchanged behaviour)
+        ``environment["exchange"]`` — a molecule-count RUNNING TOTAL, because the
+        store accumulates (``state + update``) while metabolism writes a per-step
+        delta. Lineage-cumulative: it does not reset at division.
+
+    ``gdcw``
+        ``listeners.fba_results.external_exchange_fluxes`` — the wrapped
+        metabolism's own per-tick RATE in mmol/gDCW/h
+        (``.asNumber(GDCW_BASIS)`` at the source), which is also the leaf genuine
+        vEcoli's own bioproduction analyses read
+        (``listeners__fba_results__external_exchange_fluxes``). ⚠ Those analyses
+        index it POSITIONALLY, resolving names from emit metadata; this reads it
+        by key, which works only for a metabolism that writes it as a mapping —
+        see the TypeError below. ⚠ It is read
+        rather than derived here deliberately: differencing the counts store to
+        recover a rate would re-implement a conversion the wrapped process
+        already performs, and the two would drift.
+
+    ⚠ **The basis chooses the store, so a single declaration can never yield
+    mixed quantities across leaves of one arm.** A per-leaf or fall-back-when-
+    absent rule would: a molecule present in ``environment["exchange"]`` would
+    report a cumulative count while one absent from it reported a rate, on two
+    leaves of the same cell, with nothing to distinguish them downstream.
+
+    A key absent this tick yields ``0.0`` so the leaf stays a continuous trace.
+    ⚠ That also means an unresolvable key is indistinguishable from a true zero —
+    callers declaring a molecule should confirm it is present on the chosen
+    basis's store rather than reading 0.0 as a measurement.
 
     Deliberately generic: no molecule is special-cased here. GENERIC/pathway-
     agnostic by design — the flux map is supplied by config, so this stays out of
     the shared model's knowledge of any particular pathway."""
+    from v2ecoli.steps.derivers.exchange_flux_listener import (
+        BASIS_COUNTS, BASIS_GDCW, resolve_exchange_key)
+    # Validated BEFORE the empty-map short-circuit, so a bad basis is refused on
+    # every call rather than only when something is declared — the deriver
+    # validates in initialize() regardless of its map, and the two must agree.
+    basis = str(basis or BASIS_COUNTS)
+    if basis not in (BASIS_COUNTS, BASIS_GDCW):
+        # Refused rather than defaulted, matching the deriver: a silently
+        # defaulted basis emits a running total under a rate's name.
+        raise ValueError(
+            f"exchange-flux basis {basis!r} unknown; expected "
+            f"{BASIS_COUNTS!r} or {BASIS_GDCW!r}.")
     if not fluxes:
         return {}
-    from v2ecoli.steps.derivers.exchange_flux_listener import resolve_exchange_key
-    env = environment if isinstance(environment, dict) else {}
-    exchange = env.get("exchange")
-    exchange = exchange if isinstance(exchange, dict) else {}
+    if basis == BASIS_GDCW:
+        lst = listeners if isinstance(listeners, dict) else {}
+        fba = lst.get("fba_results")
+        source = (fba or {}).get("external_exchange_fluxes")
+        # ⚠ NOT every metabolism writes this leaf the same way, and the two
+        # shapes are not interchangeable. A process that keys it by metabolite id
+        # (a dict) can be looked up here; one that writes a POSITIONAL ARRAY
+        # cannot, because the id->index mapping lives in emit metadata and is not
+        # in this store at all. Refused rather than treated as empty: falling
+        # through to {} would emit 0.0 on every leaf of every tick — a flat zero
+        # trace that reads exactly like a cell producing none of the molecule,
+        # which is the failure this basis exists to remove.
+        # ⚠ ABSENT is refused on the SAME footing as wrong-shaped, and that
+        # symmetry is the point. Falling through to {} emitted 0.0 on every leaf
+        # of every tick — a flat zero trace indistinguishable from a cell
+        # producing none of the molecule. Measured: the public vEcoli's
+        # `metabolism_redux` does not write this leaf at all (it writes
+        # `estimated_exchange_dmdt` instead), so the configuration that failed
+        # SILENTLY was the public one, while the loud TypeError below only ever
+        # fired for stock `metabolism.py`. A leaf this basis is read from and
+        # cannot find is a refusal, not a zero.
+        if source is None:
+            raise TypeError(
+                "exchange-flux basis 'gdcw' reads "
+                "listeners.fba_results.external_exchange_fluxes, and this run's "
+                "metabolism does not write it. Refused rather than read as zero: "
+                "an absent leaf would emit 0.0 on every molecule of every tick, "
+                "which reads exactly like a cell producing none of them. Use "
+                "basis 'counts', or a metabolism that writes the leaf keyed by "
+                "metabolite id.")
+        if not isinstance(source, dict):
+            raise TypeError(
+                "exchange-flux basis 'gdcw' needs "
+                "listeners.fba_results.external_exchange_fluxes keyed by "
+                f"metabolite id, but this run's metabolism writes a "
+                f"{type(source).__name__}. Positional output cannot be resolved "
+                "by key here (the id order is emit metadata, not store content). "
+                "Use basis 'counts', or a metabolism that keys the leaf.")
+    else:
+        env = environment if isinstance(environment, dict) else {}
+        source = env.get("exchange")
+        source = source if isinstance(source, dict) else {}
     out = {}
     for leaf, key in fluxes.items():
-        v = resolve_exchange_key(exchange, key)
+        v = resolve_exchange_key(source, key)
         out[leaf] = float(v) if v is not None else 0.0
     return out
 
@@ -529,10 +723,22 @@ class VivariumEcoliProcess(Process):
         "exclude_processes": {"_type": "list[string]", "_default": []},
         "fork_dir": {"_type": "string", "_default": ""},
         "variant": {"_type": "integer", "_default": 0},
+        # The lineage phylogeny key this cell is ("0" -> "00" -> ...). NOT
+        # cosmetic: the wrapped fork derives its generation index from its LENGTH
+        # (see build_vivarium_ecoli), so a config that omits it runs every
+        # generation as the founder and no staged induction can fire.
+        "agent_id": {"_type": "string", "_default": "0"},
         "observable_bulk_ids": {"_type": "list[string]", "_default": []},
         # {leaf_name: exchange_key} — metabolic exchange fluxes to emit under
         # listeners.exchange_flux.<leaf> (generic; the caller names the keys).
         "exchange_fluxes": {"_type": "map[string]", "_default": {}},
+        # WHICH QUANTITY the exchange_flux leaves carry — "counts" (a
+        # lineage-cumulative molecule total, read from environment.exchange) or
+        # "gdcw" (a per-tick mmol/gDCW/h rate, read from the wrapped
+        # metabolism's own listeners.fba_results.external_exchange_fluxes).
+        # Mirrors the deriver's `basis` so a study declares it ONCE and both
+        # engines honour it. See _select_exchange_fluxes.
+        "exchange_flux_basis": {"_type": "string", "_default": "counts"},
         # Arbitrary genuine-vEcoli listener leaves to surface, as dotted
         # "group.leaf" paths under listeners (e.g. "rna_synth_prob.total_rna_init").
         # The fully-general measurement hook — any listener leaf, no code change.
@@ -559,9 +765,12 @@ class VivariumEcoliProcess(Process):
                 exclude_processes=list(self.config.get("exclude_processes") or []) or None,
                 fork_dir=(self.config.get("fork_dir") or None),
                 variant=int(self.config.get("variant") or 0),
+                agent_id=str(self.config.get("agent_id") or "0"),
             )
             self._obs_bulk_ids = list(self.config.get("observable_bulk_ids") or [])
         self._exchange_fluxes = dict(self.config.get("exchange_fluxes") or {})
+        self._exchange_flux_basis = str(
+            self.config.get("exchange_flux_basis") or "counts")
         self._observables = list(self.config.get("observables") or [])
 
     def inputs(self):
@@ -595,7 +804,9 @@ class VivariumEcoliProcess(Process):
         }}
         if self._exchange_fluxes:
             upd["listeners"]["exchange_flux"] = _select_exchange_fluxes(
-                obs.get("environment"), self._exchange_fluxes)
+                obs.get("environment"), self._exchange_fluxes,
+                basis=self._exchange_flux_basis,
+                listeners=obs.get("listeners"))
         if self._observables:
             _deep_merge(upd["listeners"],
                         _select_observables(obs.get("listeners", {}), self._observables))
@@ -636,6 +847,7 @@ def build_vivarium_ecoli_composite(
     variant: int = 0,
     observable_bulk_ids: list | None = None,
     exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str = "counts",
     observables: list | None = None,
 ):
     """Wrap a single :class:`VivariumEcoliProcess` as a one-node pbg Composite under
@@ -643,7 +855,9 @@ def build_vivarium_ecoli_composite(
     so the SAME ``run_multigen_xarray`` / ``XArrayEmitter`` path serves both engines.
 
     ``initial_overlay`` (a daughter's divided bulk/unique/env/boundary) seeds a non-
-    founder generation. Returns ``(composite, info)``. The process writes
+    founder generation, and ``agent_id`` is that generation's phylogeny key — the
+    wrapped fork derives its generation index from its LENGTH, so a non-founder
+    generation built with "0" runs as the founder. Returns ``(composite, info)``. The process writes
     ``listeners.mass.*`` (overwrite/set semantics) into the agent store each tick.
     """
     from process_bigraph import Composite
@@ -657,15 +871,18 @@ def build_vivarium_ecoli_composite(
         sim_data_path=sim_data_path, condition=condition, seed=int(seed),
         time_step=float(time_step), exclude_processes=list(exclude_processes or []) or None,
         swap_processes=swap_processes or None, flow=flow or None,
-        fork_dir=fork_dir or None, initial_overlay=initial_overlay, variant=int(variant))
+        fork_dir=fork_dir or None, initial_overlay=initial_overlay, variant=int(variant),
+        agent_id=str(agent_id))
     proc = VivariumEcoliProcess(config={
         "sim_data_path": sim_data_path, "condition": condition, "seed": int(seed),
         "time_step": float(time_step),
         "exclude_processes": list(exclude_processes or []),
         "fork_dir": fork_dir or "",
         "variant": int(variant),
+        "agent_id": str(agent_id),
         "observable_bulk_ids": list(observable_bulk_ids or []),
         "exchange_fluxes": dict(exchange_fluxes or {}),
+        "exchange_flux_basis": str(exchange_flux_basis or "counts"),
         "observables": list(observables or []),
     }, core=core)
     iface = proc.interface()
@@ -792,6 +1009,7 @@ def run_vivarium_ecoli_pbg_multigen(
     lineage_seed: int = 0,
     whole_config: str | None = None,
     exchange_fluxes: dict | None = None,
+    exchange_flux_basis: str = "counts",
     observable_bulk_ids: list | None = None,
     observables: list | None = None,
 ) -> dict:
@@ -801,8 +1019,15 @@ def run_vivarium_ecoli_pbg_multigen(
     load that config NATIVELY instead of the default baseline — so a config whose
     model content can't be expressed as ``swap_processes``/``flow`` (one declaring
     ``add_processes`` and/or a ``spatial_environment_config``) runs faithfully as
-    one node. Scoped to this call (restored in ``finally``) for deterministic
-    isolation.
+    one node. ⊕ A config declaring a ``variants`` block also needs this route,
+    because ``apply_variant`` runs only when a whole-config was loaded.
+    ⚠ The module-level config file is set here and reset by a bare trailing
+    statement AFTER the generation loop — **not** in a ``finally``, despite what
+    an earlier version of this docstring claimed. An exception out of this
+    function therefore leaves it set process-wide. Tolerable today only because
+    no in-process caller consumes it afterwards (the sequential seed path has no
+    per-seed ``except``, and Ray gives each seed its own worker) — **not**
+    because the isolation is real.
 
     Each generation is a one-node pbg ``Composite`` (``VivariumEcoliProcess``) driven by
     ``composite.run``; a per-generation ``XArrayEmitter`` writes a ``generation=N``
@@ -853,22 +1078,49 @@ def run_vivarium_ecoli_pbg_multigen(
         _view_vars["observable_bulk"] = {
             i: [{"path": i, "dtype": "<f8"}] for i in observable_bulk_ids}
     view = [{"root": ("listeners",), "variables": _view_vars}]
+    # ⚠ `variant` here is a PROVENANCE CLAIM stamped into every zarr partition,
+    # and it is true only because `build_vivarium_ecoli` REFUSES a variant it
+    # cannot apply. Before that refusal existed, a variant could be threaded this
+    # far, recorded here, and then silently discarded at the `_cfgfile and
+    # int(variant)` gate — so the store asserted a perturbation that never ran,
+    # and every downstream reader (report card, sidecar, published artifact)
+    # would have repeated the claim.
+    # ⛔ If that refusal is ever weakened, this line starts lying again. They are
+    # one invariant in two places; do not separate them.
     metadata_base = {
+        # ⭐ THE ROUTE IS PROVENANCE. It changes the PROCESS SET — the native path
+        # carries `exclude_processes: ['exchange_data']`, so metabolism's uptake
+        # bounds are set by a Step that runs on one route and not the other — and
+        # until now nothing in the store recorded which route produced it. Two
+        # zarrs graded against each other could differ by route with no way to
+        # detect it. One key makes that confound visible.
+        "whole_config_route": bool(whole_config),
         "experiment_id": experiment_id, "variant": int(variant),
         "lineage_seed": int(lineage_seed), "time_step": float(time_step),
         "max_duration": float(max_generations * max_steps_per_gen),
     }
 
     overlay = None
-    composite_agent_id = "0"            # the inner cell's key in the pbg agents map
-    partition_agent_id = "0"            # the emitter's phylogeny key ("0"->"00"->...),
-                                        # distinct per generation so each writes its own
-                                        # zarr partition (avoids a same-store collision).
+    # ⛔⛔ BOTH OF THESE ARE PHYLOGENY KEYS AND BOTH MUST ADVANCE — they are kept
+    # as two names because they are consumed by two different things, and that is
+    # exactly how one of them came to be pinned at "0" for the whole lineage:
+    #   · ``partition_agent_id`` — the EMITTER's key, distinct per generation so
+    #     each writes its own zarr partition (avoids a same-store collision).
+    #   · ``composite_agent_id`` — the inner cell's key in the pbg agents map AND,
+    #     via ``build_vivarium_ecoli``, the wrapped fork's GENERATION INDEX
+    #     (``LoadSimData`` reads ``len(agent_id)``). Pinned at "0" it reports
+    #     generation 1 forever, so a config's staged induction never fires and the
+    #     whole lineage runs as the un-induced baseline, silently.
+    # ⇒ v2ecoli's own native lineage already advances its agent id
+    #   (``v2ecoli/workflow/lineage.py``); only this wrapped-fork driver did not.
+    composite_agent_id = "0"
+    partition_agent_id = "0"
     done_global = 0
     divisions = 0
     gens_done = 0
     final_cell_mass = None
     build_config = None
+    em = None  # ONE lineage-scoped emitter, opened at gen 0, advanced per division
 
     for gen in range(max_generations):
         # gen 0 is a fresh founder (overlay=None); later generations seed the inner
@@ -880,6 +1132,7 @@ def run_vivarium_ecoli_pbg_multigen(
             fork_dir=fork_dir, core=core, agent_id=composite_agent_id,
             initial_overlay=overlay, variant=variant,
             exchange_fluxes=exchange_fluxes,
+            exchange_flux_basis=exchange_flux_basis,
             observable_bulk_ids=observable_bulk_ids, observables=observables)
         proc = info["process"]
         comp.run(1)  # warm-up tick so listeners materialise
@@ -891,12 +1144,23 @@ def run_vivarium_ecoli_pbg_multigen(
             except Exception as _cfgerr:  # noqa: BLE001 — never block the run
                 print(f"[vecoli-config] summary skipped: "
                       f"{type(_cfgerr).__name__} {_cfgerr}")
-        em = _build_emitter(
-            core=core, store_path=store_path, view=view, metadata_base=metadata_base,
-            generation=gen + 1,  # 1-indexed to match run_multigen_xarray (v2ecoli side)
-            # Inherit build_emitter_config's buffer_size default (600): flush a
-            # handful of times per generation, not every few steps.
-            agent_id=partition_agent_id, output_metadata={})
+        if em is None:
+            # ONE emitter drives the whole lineage: generation 1 is opened here,
+            # and each division advances it in place via advance_generation()
+            # below. This replaces the old build-a-fresh-emitter-per-generation
+            # flow, whose per-generation close() was wrapped in
+            # `except AssertionError: pass` — a swallow that, when a
+            # (sub-buffer_size) generation failed to persist, left the zarr store
+            # as bare group skeletons and crashed the next generation's
+            # _check_group. advance_generation() guarantees each generation is
+            # flushed + consolidated on disk before the next one opens.
+            em = _build_emitter(
+                core=core, store_path=store_path, view=view,
+                metadata_base=metadata_base,
+                generation=1,
+                # Inherit build_emitter_config's buffer_size default (600): flush
+                # a handful of times per generation, not every few steps.
+                agent_id=partition_agent_id, output_metadata={})
 
         steps = 1
         divided = False
@@ -904,6 +1168,13 @@ def run_vivarium_ecoli_pbg_multigen(
             comp.run(chunk)
             steps += chunk
             done_global += chunk
+            # ⛔ ONE WALK, TWO CONSUMERS — a silent divergence between them is the
+            # exact shape of the defect this loop was fixed for. Assert it rather
+            # than trusting that the two assignments below stay together.
+            assert composite_agent_id == partition_agent_id, (
+                f"the cell's own key {composite_agent_id!r} and the emitter's "
+                f"partition key {partition_agent_id!r} diverged — the partition "
+                f"would be labelled with a different cell's generation")
             agent_state = comp.state["agents"][composite_agent_id]
             payload = _filter_agent_state(agent_state, view)
             # Relabel the payload to the emitter's phylogeny key (the emitter strips
@@ -922,17 +1193,29 @@ def run_vivarium_ecoli_pbg_multigen(
                 divided = True
                 break
 
-        try:
-            em.close(success=True)
-        except AssertionError:
-            pass  # F5: trailing-buffer include_static assert; generation already on disk
         gens_done += 1
         if not divided:
             break
         overlay = proc.divide()
-        partition_agent_id = daughter_phylogeny_id(partition_agent_id)[0]
+        # One phylogeny walk, both keys — see the block where they are declared.
+        # ⚠ If these ever diverge, the emitter's generation label and the fork's
+        # internal generation index stop describing the same cell.
+        daughter_id = daughter_phylogeny_id(partition_agent_id)[0]
+        partition_agent_id = daughter_id
+        composite_agent_id = daughter_id
         divisions += 1
+        if gen < max_generations - 1:
+            # Finalize this generation (flush trailing buffer + mark the division
+            # event + consolidate) and open the daughter's partition in the same
+            # store — guaranteed, never swallowed. The last generation is
+            # finalized by the terminal close() after the loop.
+            em.advance_generation(agent_id=partition_agent_id, success=True)
 
+    if em is not None:
+        # Terminal finalize of the final generation (flush + mark division +
+        # consolidate). Not swallowed: a real persistence failure must surface
+        # rather than silently leave a skeleton store.
+        em.close(success=True)
     set_ecolisim_config_file(None)  # reset for the next run (deterministic isolation)
     return {"generations": gens_done, "divisions": divisions,
             "store": store_path, "final_cell_mass": final_cell_mass,
@@ -974,12 +1257,19 @@ def run_vivarium_ecoli_multigen(
     steps_per_gen: list[int] = []
     t_global = 0.0
     last_obs = None
+    # The fork derives its generation index from ``len(agent_id)``; walk the same
+    # phylogeny the pbg driver does, so a generation reports itself honestly.
+    # ⚠ This driver takes neither ``variant`` nor ``whole_config``, so it cannot
+    # CREATE an ``internal_shift_dict`` (only ``apply_variant`` does). A shift
+    # fires here only if the sim_data pickle handed in already carries one.
+    from v2ecoli.library.upstream_division import daughter_phylogeny_id
+    agent_id = "0"
 
     for gen in range(max_generations):
         h = build_vivarium_ecoli(
             sim_data_path=sim_data_path, condition=condition, seed=seed + gen,
             time_step=time_step, exclude_processes=exclude_processes,
-            fork_dir=fork_dir, initial_overlay=overlay)
+            fork_dir=fork_dir, initial_overlay=overlay, agent_id=agent_id)
         engine = h.engine
         threshold = None
         gen_steps = 0
@@ -1017,6 +1307,7 @@ def run_vivarium_ecoli_multigen(
             "bulk": last_obs["bulk"], "unique": last_obs["unique"],
             "environment": last_obs["environment"], "boundary": last_obs["boundary"]})
         overlay = d1
+        agent_id = daughter_phylogeny_id(agent_id)[0]
         divisions += 1
 
     return {

@@ -1,13 +1,15 @@
-"""Unit tests for the native ``CellGeometry`` step (v2ecoli mecillinam
-candidate arm).
+"""Unit tests for the native ``CellGeometry`` step (a general v2ecoli feature).
 
 ``CellGeometry`` ports vEcoli's ``ecoli/processes/shape.py`` geometry math:
 periplasm/cytoplasm volume split (0.2 / 0.8 of whole-cell volume) plus the
 outer surface area from 3D capsule geometry. It exists to populate
 ``periplasm.global.volume`` / ``cytoplasm.global.volume`` /
-``boundary.outer_surface_area`` (the vEcoli ``ecoli-shape`` store paths) for
-the injected ``antibiotic_transport_odeint`` chain, which otherwise finds
-nothing writing those stores in the single-cell candidate.
+``boundary.outer_surface_area`` (the vEcoli ``ecoli-shape`` store paths) for any
+injected subsystem that needs the geometry split (e.g. an
+``antibiotic_transport_odeint`` chain), which otherwise finds nothing writing
+those stores in the single-cell candidate. It is a drug-agnostic feature,
+enabled by name (``features=['cell_geometry']`` or an injected subsystem's
+``requires_features: ['cell_geometry']``).
 """
 
 import os
@@ -90,11 +92,11 @@ def test_cell_geometry_update_reads_mass_listener_volume_only():
 
 
 @pytest.mark.fast
-def test_antibiotic_mode_off_path_unaffected():
-    """Non-antibiotic (mecillinam=False) baseline builds do not enable the
-    `cell_geometry` feature module, so `volumes`/geometry wiring is untouched.
-    Guards the wiring gate itself, independent of the (heavier) build-level
-    document test in test_ecoli_baseline_cell_geometry_wiring.py."""
+def test_geometry_off_path_unaffected():
+    """A build that does not request `cell_geometry` does not enable the feature
+    module, so `volumes`/geometry wiring is untouched; requesting it by name
+    (features=['cell_geometry']) does. Guards the neutral wiring gate itself,
+    independent of the (heavier) build-level document test."""
     from v2ecoli.composites.ecoli_baseline import (
         FEATURE_MODULES, build_execution_layers,
     )
@@ -119,19 +121,20 @@ def test_antibiotic_mode_off_path_unaffected():
     reason=f"cache dir {CACHE_DIR!r} not present; "
            f"rebuild with `python scripts/build_cache.py`",
 )
-def test_mecillinam_candidate_populates_volumes_and_outer_surface_area():
-    """A mecillinam=True candidate build carries positive
+def test_cell_geometry_feature_populates_volumes_and_outer_surface_area():
+    """A build with the `cell_geometry` feature enabled carries positive
     `periplasm.global.volume` / `cytoplasm.global.volume` (the vEcoli
-    ecoli-shape store paths the transport reads) and a positive
+    ecoli-shape store paths an injected transport chain reads) and a positive
     `boundary.outer_surface_area` — populated by the native CellGeometry step,
-    not present at all in the non-antibiotic baseline."""
+    not present at all when the feature is off. Enabled by name (the neutral
+    path an injected subsystem drives via requires_features)."""
     from v2ecoli import build_composite
     # Volumes/area are stored as raw vivarium-registry Quantities (any-typed),
     # so read `.magnitude` directly rather than converting across registries.
     from vivarium.library.units import units as viv_units
 
     comp = build_composite(
-        "ecoli_baseline", seed=0, cache_dir=CACHE_DIR, mecillinam=True)
+        "ecoli_baseline", seed=0, cache_dir=CACHE_DIR, features=["cell_geometry"])
     comp.run(2)
     state = comp.state["agents"]["0"] if "agents" in comp.state else comp.state
 
@@ -150,14 +153,14 @@ def test_mecillinam_candidate_populates_volumes_and_outer_surface_area():
     reason=f"cache dir {CACHE_DIR!r} not present; "
            f"rebuild with `python scripts/build_cache.py`",
 )
-def test_non_antibiotic_candidate_has_no_volumes_store():
-    """mecillinam=False (the default) never gains the cell_geometry volume
-    stores — the feature is only auto-enabled by mecillinam=True, so nothing
-    writes `periplasm.global.volume` / `cytoplasm.global.volume`."""
+def test_default_build_has_no_volumes_store():
+    """A default build (cell_geometry not requested) never gains the volume
+    stores — the feature is opt-in by name, so nothing writes
+    `periplasm.global.volume` / `cytoplasm.global.volume`."""
     from v2ecoli import build_composite
 
     comp = build_composite(
-        "ecoli_baseline", seed=0, cache_dir=CACHE_DIR, mecillinam=False)
+        "ecoli_baseline", seed=0, cache_dir=CACHE_DIR)
     comp.run(2)
     state = comp.state["agents"]["0"] if "agents" in comp.state else comp.state
     for compartment in ("periplasm", "cytoplasm"):

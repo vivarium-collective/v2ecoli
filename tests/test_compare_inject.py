@@ -24,7 +24,7 @@ def test_translate_preserves_process_set_keys():
 # Task 2: classify_process + resolve_injections
 # ---------------------------------------------------------------------------
 import os
-import pytest
+
 from scripts._compare import inject
 
 FORK = os.path.join(os.path.dirname(__file__), "fixtures", "fork_example")
@@ -68,6 +68,28 @@ def test_resolve_rejects_unknown_name():
     cfg = {"add_processes": ["no-such-process"], "time_step": 1.0}
     with pytest.raises(inject.InjectionError, match="not in fork registry"):
         inject.resolve_injections(FORK, cfg)
+
+
+def test_resolve_rejects_config_less_native_swap_target():
+    """FAIL LOUD (sms-ecoli#210 Gate 0): a swap TARGET with no config on the native
+    path (no explicit process_config, no fork_sim_data) would run on config_schema
+    defaults -- for metabolism-redux an empty stoichiometry, which collapses the
+    generation to one tick while reporting success. Refuse instead."""
+    cfg = {"swap_processes": {"some-baseline": "example-secretion"}, "time_step": 1.0}
+    with pytest.raises(inject.InjectionError, match="swap target but has NO config"):
+        inject.resolve_injections(FORK, cfg)
+
+
+def test_native_swap_target_with_explicit_config_is_allowed():
+    """An explicit process_config on the swap target satisfies the guard -- the
+    process gets a real config, so it is NOT config-less."""
+    cfg = {"swap_processes": {"some-baseline": "example-secretion"},
+           "process_configs": {"example-secretion": {"rate": 1.5}},
+           "topology": {"example-secretion": {"counts": ["bulk"]}},
+           "time_step": 1.0}
+    specs = inject.resolve_injections(FORK, cfg)
+    assert specs[0]["name"] == "example-secretion"
+    assert specs[0]["config"] == {"rate": 1.5}
 
 
 def test_resolve_injections_memoized(monkeypatch):
@@ -401,3 +423,25 @@ def test_a_single_injected_process_is_no_longer_tied_with_the_last_baseline_step
     # at 1.0, exactly equal to the final baseline step.
     cell_state, _ = _apply(_cell_state_with_baseline(), ["the-consumer"])
     assert cell_state["the-consumer"]["priority"] < cell_state["base-last"]["priority"]
+
+
+def test_seed_exchange_species_survives_the_config_to_baseline_assembly():
+    """⛔ `_injected_from_resolved` is an ALLOWLIST, so a key it does not name is
+    dropped one layer above baseline()'s own guard — and the symptom is a clean
+    run with a zero product, never an error.
+
+    This pins the forwarding so the next refactor of that dict cannot silently
+    remove it with a green suite.
+    """
+    inj = _injected_from_resolved(
+        {"swap_processes": {"a": "b"},
+         "seed_exchange_species": ["MY-PRODUCT"]}, FORK, None)
+    assert inj["seed_exchange_species"] == ["MY-PRODUCT"]
+
+
+def test_seed_exchange_species_defaults_to_empty_rather_than_missing():
+    """Absent in the config => present-and-empty in the block, so a downstream
+    reader never has to distinguish 'not declared' from 'declared empty'."""
+    inj = _injected_from_resolved(
+        {"swap_processes": {"a": "b"}}, FORK, None)
+    assert inj["seed_exchange_species"] == []

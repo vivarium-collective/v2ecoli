@@ -17,7 +17,20 @@ Key — ``(experiment_id, generation_lower_bound, extractor_version)``:
   stale vector after a burn-in change.
 * ``extractor_version`` is part of the key because the vector is a function of
   the extraction code as much as of the run. Bump
-  ``card_vectors.EXTRACTOR_VERSION`` whenever the aggregation semantics change.
+  ``card_vectors.EXTRACTOR_VERSION`` whenever a node's CONTENT changes — the
+  aggregation semantics *or* the keys a node carries. Content-only changes are
+  the ones that need the discipline most: they leave every number identical, so
+  nothing else distinguishes "this run recorded no such field" from "this file
+  predates the field".
+
+Size — the envelope is dominated by the ``per_cell`` matrices (extractor v2
+emits them for every group, not fluxes alone). At 104 cells x ~8.6k omics
+features that is ~900k floats and takes a cached envelope from ~279 KB to
+~17 MB. Large in relative terms, negligible in absolute ones: it is ~0.03% of
+the sweep it sits beside, it is gitignored by contract (below), and a full parse
+costs well under a second. It is deliberately plain JSON rather than a packed
+binary — losing the one artifact in this chain a human can open and read is a
+worse trade than the disk it saves.
 
 Location — follows the convention PR #418 established for S3-resident sweeps:
 results go to ``out_dir``, which defaults to the sweep dir when the sweep is

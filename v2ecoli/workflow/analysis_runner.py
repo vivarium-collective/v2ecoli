@@ -21,29 +21,147 @@ import concurrent.futures
 import glob
 import json
 import os
+import sys
 import re
 import warnings
 from typing import Any
 
-# Default concurrency ceiling for the DuckDB-backed (Analysis) family's
-# per-module fan-out in run_analyses (see _run_duckdb_names below). Each
-# named analysis is fully independent (own cursor, own query) and DuckDB
-# releases the GIL during query execution, so real threads give real
-# speedup -- empirically confirmed 2026-08-20 (~3x with 4 threads on a
-# genuine aggregation query, not just assumed from docs). Bounded by
-# cpu_count so a container's own vCPU allocation is the natural ceiling;
-# a caller can still force strict serial execution via max_workers=1.
-DEFAULT_ANALYSIS_MAX_WORKERS = os.cpu_count() or 4
+from v2ecoli.workflow import events as _events
 
 # Sweep location/access lives in the library layer so the report-card vector
 # extraction can share it (library must not import from workflow). Re-exported
 # here because these names are part of this module's existing surface.
 from v2ecoli.library.sweep_io import (
     _S3_PREFIX,
+    analysis_memory_budget_bytes,
+    apply_analysis_duckdb_config,
     configure_duckdb_s3,
     history_files,
     is_s3_uri,
 )
+
+
+def _default_analysis_workers() -> int:
+    """Default concurrency ceiling for the DuckDB-backed (Analysis) family's
+    per-module fan-out in run_analyses (see _run_duckdb_names below). Each named
+    analysis runs a fully independent cursor+query and DuckDB releases the GIL
+    during execution, so real threads give real speedup -- ~3x with 4 threads on
+    a genuine aggregation query (2026-08-20).
+
+    But each concurrent analysis is a full-hive query that can hold gigabytes, so
+    the CPU count is the wrong ceiling on a memory-bounded container: N cores
+    would stack N full ORDER-BYs into one buffer pool and OOM ("failed to pin
+    block", observed running the 5 ptools views together). Precedence:
+    ``V2E_ANALYSIS_MAX_WORKERS`` env; else, when a memory budget is known
+    (:func:`analysis_memory_budget_bytes`), roughly one worker per 4 GiB (min 1);
+    else the CPU count. A caller can still force strict serial via max_workers=1.
+    """
+    env = os.environ.get("V2E_ANALYSIS_MAX_WORKERS")
+    if env:
+        try:
+            return max(1, int(env))
+        except ValueError:
+            pass
+    cpu = os.cpu_count() or 4
+    budget = analysis_memory_budget_bytes()
+    if budget:
+        return max(1, min(cpu, budget // (4 * 1024 ** 3)))
+    return cpu
+
+
+DEFAULT_ANALYSIS_MAX_WORKERS = _default_analysis_workers()
+
+
+# --- Memory-class routing (#788) ---------------------------------------------
+#
+# An analysis job runs on one of two instance classes. "standard" is the
+# m5.4xlarge (60 GB) the analysis containers default to -- the box that OOMed on
+# CD2 (v2ecoli#786). "large" is the 200 GB r7i route. The class is picked at
+# SUBMISSION time (before the container runs), from the analyses named and the
+# sweep's scale, so a heavy gather goes to the big box by declaration instead of
+# OOM-then-hand-rerun.
+#
+# Sizing, from the CD2 measurements in #786: a multigeneration group peaked at
+# ~78 GB over 10 generations with one worker, and the worst founder at 112.8 GB
+# -- both past 60 GB. The readers are per-lineage chunked (the multiseed reader
+# streams one seed at a time; see ptools_multiscale._MultiseedMixin and
+# _MultiseedCollapseMixin), so the peak scales with a lineage's GENERATION count,
+# not the seed count. ~78 GB / 10 generations rounds to ~8 GB per generation.
+
+MEMORY_CLASSES = ("standard", "large")
+_STANDARD_INSTANCE_GB = 60
+_GB_PER_GENERATION = 8.0
+# Scales that span more than one cell, so their peak grows with generations;
+# "single"/"multidaughter" read one cell and stay standard.
+_MULTI_CELL_SCALES = frozenset({"multigeneration", "multiseed"})
+
+
+def _memory_class_rank(memory_class: str) -> int:
+    try:
+        return MEMORY_CLASSES.index(memory_class)
+    except ValueError:
+        return 0
+
+
+def _declared_memory_class(name: str) -> str | None:
+    """A concrete analysis may set ``memory_class = "large"`` on its class when it
+    is heavy regardless of scale. Best-effort: returns None when the analysis is
+    not registered in this process or declares nothing recognisable, so a caller
+    that has not imported the analysis suite (e.g. the API) still gets the
+    scale-derived class."""
+    try:
+        from v2ecoli.workflow.analysis import ANALYSIS_REGISTRY
+    except Exception:
+        return None
+    cls = ANALYSIS_REGISTRY.get(name)
+    declared = getattr(cls, "memory_class", None) if cls is not None else None
+    return declared if declared in MEMORY_CLASSES else None
+
+
+def scale_memory_class(scale: str | None, *, n_generations: int | None) -> str:
+    """The memory class a single ``scale`` needs at ``n_generations``, from the
+    per-generation sizing above. Multi-cell scales route to "large" once a
+    lineage's projected peak exceeds the standard instance; everything else stays
+    "standard"."""
+    if scale not in _MULTI_CELL_SCALES or not n_generations:
+        return "standard"
+    projected_gb = _GB_PER_GENERATION * int(n_generations)
+    return "large" if projected_gb > _STANDARD_INSTANCE_GB else "standard"
+
+
+def analysis_memory_class(analysis_options: dict, *,
+                          n_seeds: int | None = None,
+                          n_generations: int | None = None) -> str:
+    """The instance memory class an analysis submission should request:
+    ``"standard"`` or ``"large"``.
+
+    ``analysis_options`` is the ``{scale: {name: params}}`` mapping
+    :func:`run_analyses` takes. An analysis that declares ``memory_class =
+    "large"`` forces the large instance; otherwise the class is derived from the
+    scale and the sweep size (``n_generations`` drives the per-lineage peak;
+    ``n_seeds`` is accepted for interface completeness but the chunked readers
+    make it a non-factor in the peak). The maximum class over every named
+    analysis wins, so one heavy module routes the whole job to the large box.
+
+    Wiring note: this function (and ``scale_memory_class`` /
+    ``_declared_memory_class``) is the canonical sizing definition, kept in step
+    with sms-api's own copy in ``viva_api.simulation.simulation_service_ray``.
+    The LIVE Batch queue routing today is that sms-api copy, which picks the
+    queue before the model image runs. sms-api does not import v2ecoli at
+    runtime and has no ANALYSIS_REGISTRY, so it derives purely from scale x
+    generations and does NOT honor a ``memory_class = "large"`` declaration. So a
+    declared override affects only in-image reasoning here, not the queue
+    sms-api actually submits to -- until the declared class is threaded through
+    the submission (analysis_options / task_env), do not rely on a declaration
+    to route a job to the large instance."""
+    rank = 0
+    for scale, names in (analysis_options or {}).items():
+        for name in (names or {}):
+            memory_class = _declared_memory_class(name) or scale_memory_class(
+                scale, n_generations=n_generations
+            )
+            rank = max(rank, _memory_class_rank(memory_class))
+    return MEMORY_CLASSES[rank]
 
 
 def localize(uri: str, cache_dir: str | None = None) -> str:
@@ -196,6 +314,19 @@ def scale_history_sql(scale: str, from_clause: str, key: tuple) -> str:
     if scale == "multidaughter" and len(key) >= 4:
         # sisters share parent = agent_id without its last phylogeny char
         conds.append(f"agent_id LIKE '{key[3]}_' ESCAPE '\\'")
+    elif scale in ("multigeneration", "multiseed", "multivariant"):
+        # Restrict to the canonical single-daughter lineage — the all-zeros
+        # agent_id chain (gen N = "0"*N). These scales collapse one lineage
+        # across generations, so the transient d?1 birth-stub partitions
+        # (agent_id containing a '1') are never wanted here (unlike multidaughter
+        # above, which deliberately keeps sisters). Without this the stubs get
+        # folded into the cross-generation aggregation and contaminate it — a
+        # ~1% flux shift, and a stub whose estimated_exchange_dmdt column set
+        # mismatches the lineage can block the read entirely (schema mismatch).
+        # CAST because hive can read agent_id as BIGINT (0/1/10/…) rather than
+        # VARCHAR ("00"); NOT LIKE needs VARCHAR. All-zeros → "0"/"00" (no '1');
+        # a stub daughter → contains '1' either way.
+        conds.append("CAST(agent_id AS VARCHAR) NOT LIKE '%1%'")
     where = (" WHERE " + " AND ".join(conds)) if conds else ""
     return f"SELECT * FROM {from_clause}{where} ORDER BY global_time"
 
@@ -229,6 +360,20 @@ def resolve_sim_data(sweep_dir: str):
         return LoadSimData(sim_data_path=localize(env)).sim_data
     if env and os.path.isfile(env):
         return LoadSimData(sim_data_path=env).sim_data
+    # The sweep's own provenance: run_identity.json records a resolvable sim_data
+    # pointer (run_provenance.sim_data_ref) so a STANDALONE analysis resolves the
+    # run's sim_data the same way the all-at-once study does -- no manual
+    # $V2ECOLI_SIM_DATA needed. Works for a local sim (cache_dir/simData.cPickle)
+    # and a remote one (the dispatch's staged S3 cache), and reads the sidecar
+    # from a local OR s3:// sweep.
+    ref = _sim_data_uri_from_identity(sweep_dir)
+    if ref:
+        path = localize(ref) if is_s3_uri(ref) else ref
+        if os.path.isfile(path):
+            print(f"  sim_data: resolved from the sweep's run_identity.json -> {ref!r}")
+            return LoadSimData(sim_data_path=path).sim_data
+        print(f"  sim_data: run_identity.json points at {ref!r}, but it is not "
+              f"readable from here; falling through.")
     for fallback in (os.path.join("out", "kb", "simData.cPickle"),
                      os.path.join("out", "workflow", "simData.cPickle")):
         if os.path.isfile(fallback):
@@ -237,8 +382,77 @@ def resolve_sim_data(sweep_dir: str):
                   f"(set $V2ECOLI_SIM_DATA to override).")
             return LoadSimData(sim_data_path=fallback).sim_data
     raise FileNotFoundError(
-        f"no sim_data pickle under {sweep_dir!r}, no $V2ECOLI_SIM_DATA, and no "
-        f"out/kb/simData.cPickle (needed by Analysis steps)")
+        f"could not resolve sim_data for {sweep_dir!r} (the Analysis steps need "
+        f"the ParCa simData.cPickle). Checked, in order: a sweep-local "
+        f"sim_data*.cPickle; $V2ECOLI_SIM_DATA; the sweep's run_identity.json "
+        f"'sim_data' pointer; and out/kb|workflow/simData.cPickle. To fix: run "
+        f"the sim with a run_identity.json that records sim_data (v2ecoli's "
+        f"run_* entrypoints do this automatically), or set $V2ECOLI_SIM_DATA to "
+        f"the matching simData.cPickle (local path or s3:// URI).")
+
+
+def _sim_data_uri_from_identity(sweep_dir: str) -> "str | None":
+    """The resolvable sim_data URI recorded in the sweep's run_identity.json, or
+    None. Reads the sidecar from a local OR s3:// sweep (a standalone analysis
+    may point at either).
+
+    Checks the sweep ROOT first, then any nested sidecar: some dispatchers write
+    ``run_identity.json`` per-seed (compose writes ``seed_00/run_identity.json``)
+    rather than at the sweep root, so a root-only lookup silently misses a
+    recorded pointer. Returns the first sidecar that carries a ``sim_data.uri``.
+    """
+    for ident_uri in _run_identity_candidates(sweep_dir):
+        uri = _read_sim_data_uri(ident_uri)
+        if uri:
+            return uri
+    return None
+
+
+def _read_sim_data_uri(ident_uri: str) -> "str | None":
+    """``sim_data.uri`` from a single ``run_identity.json`` (local path or s3://
+    URI), or None if absent/unreadable."""
+    try:
+        path = localize(ident_uri) if is_s3_uri(ident_uri) else ident_uri
+        with open(path, encoding="utf-8") as fh:
+            ident = json.load(fh)
+    except Exception:
+        return None
+    if not isinstance(ident, dict):
+        return None
+    sd = ident.get("sim_data")
+    return sd.get("uri") if isinstance(sd, dict) else None
+
+
+def _run_identity_candidates(sweep_dir: str) -> "list[str]":
+    """``run_identity.json`` locations under ``sweep_dir``, sweep ROOT first then
+    any nested sidecar (a dispatcher may write it per-seed, e.g.
+    ``seed_00/run_identity.json``). Local paths for a local sweep, ``s3://`` URIs
+    for a remote one."""
+    base = sweep_dir.rstrip("/")
+    root = base + "/run_identity.json"
+    if not is_s3_uri(sweep_dir):
+        nested = glob.glob(os.path.join(sweep_dir, "**", "run_identity.json"),
+                           recursive=True)
+        ordered = [root, *sorted(p for p in nested if os.path.abspath(p) != os.path.abspath(root))]
+        return [p for p in ordered if os.path.isfile(p)]
+    # DuckDB's glob() lists object storage through httpfs -- no extra dependency,
+    # no download, same mechanism history_files() uses.
+    import tempfile
+
+    from viva_emitters import create_duckdb_conn
+
+    conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+    configure_duckdb_s3(conn)
+    try:
+        rows = conn.sql(
+            f"SELECT file FROM glob('{base}/**/run_identity.json')").fetchall()
+    except Exception:
+        return [root]
+    finally:
+        conn.close()
+    found = sorted(r[0] for r in rows)
+    # sweep ROOT first, so an authoritative top-level sidecar wins over per-seed.
+    return sorted(found, key=lambda p: (p.rstrip("/") != root, p)) or [root]
 
 
 def resolve_validation_data(sim_data):
@@ -291,6 +505,7 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
            + ", " + _FORK_LEN + ", " + ", ".join(_RIBO_COLS)
            + ", " + _S30_COUNT + ", " + _S50_COUNT)
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+    apply_analysis_duckdb_config(conn)
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     rows = conn.sql(
@@ -373,6 +588,47 @@ def build_cell_records(sweep_dir: str) -> dict[tuple, dict]:
     return records
 
 
+_MISSING_COLUMN_RE = re.compile(
+    r'[Cc]olumn(?: named)?\s+"([^"]+)"\s+(?:not found|does not exist)')
+
+
+def _extract_missing_column(exc: Exception) -> str | None:
+    """Best-effort extraction of a missing-column name from a DuckDB binder
+    error, e.g. ``duckdb.BinderException: Binder Error: Referenced column
+    "listeners__mass__dry_mass" not found in FROM clause!`` (confirmed live
+    against a real DuckDB missing-column query 2026-09-01). Returns ``None``
+    when the message doesn't name a column explicitly -- the caller still
+    records the raw exception text either way, so nothing is lost.
+    """
+    m = _MISSING_COLUMN_RE.search(str(exc))
+    return m.group(1) if m else None
+
+
+def _name_status(per_group: dict) -> str:
+    """Roll one named analysis's per-group results up into a single status --
+    ``ok`` / ``partial`` / ``error`` / ``missing_column`` -- so ``run_analyses``
+    can report a structured pass/fail summary (P1-10) instead of leaving a
+    per-group ``{"error": ...}`` entry as the only signal a caller could act
+    on. ``missing_column`` is distinct from ``error`` precisely so a zero/empty
+    panel caused by an absent KPI column is never indistinguishable from a
+    genuine null result (CD2 audit §3.7)."""
+    if not per_group:
+        return "ok"
+    statuses = set()
+    for v in per_group.values():
+        if isinstance(v, dict) and "error" in v:
+            statuses.add(v.get("status") or "error")
+        else:
+            statuses.add("ok")
+    if statuses <= {"ok"}:
+        return "ok"
+    if statuses == {"missing_column"}:
+        return "missing_column"
+    if "ok" in statuses:
+        return "partial"
+    return "error"
+
+
 def _group_key_str(scale: str, key: tuple) -> str:
     if scale == "single":
         return f"variant={key[0]}/seed={key[1]}/gen={key[2]}/agent={key[3]}"
@@ -385,12 +641,201 @@ def _group_key_str(scale: str, key: tuple) -> str:
     return "all"
 
 
-def run_analyses(sweep_dir: str, analysis_options: dict,
+def _register_builtin_analyses() -> None:
+    """Import the built-in analyses package so its ``Analysis`` subclasses
+    populate ``ANALYSIS_REGISTRY``.
+
+    ``run_analyses`` resolves every requested name against ``ANALYSIS_REGISTRY``
+    and skips (with an ``"unknown analysis"`` warning) any name that isn't
+    there. Registration happens as a side effect of importing each analysis
+    module, and ``v2ecoli.workflow.analyses.__init__`` imports the whole suite —
+    but nothing in the workflow run path imports that package. So a bare
+    ``python -m v2ecoli.workflow.run`` (as opposed to a session that already
+    imported the analyses, e.g. via a downstream workspace) finds the registry
+    empty and silently drops EVERY declared built-in analysis. Importing the
+    package here guarantees the built-ins are resolvable regardless of what the
+    caller imported. Idempotent — the import is cached after the first call.
+
+    Also loads any analysis packages other installed distributions advertise
+    under the ``v2ecoli.analyses`` entry-point group (see
+    :func:`_register_plugin_analyses`), so a package that ships its own analyses
+    -- e.g. sms_modules' ptools_metabolites -- registers them in the dispatch
+    path without v2ecoli importing it by name (the vendored analysis entrypoints
+    stay byte-identical to these, so they cannot import sms_modules themselves).
+    """
+    import v2ecoli.workflow.analyses  # noqa: F401 — import registers the suite
+
+    _register_plugin_analyses()
+
+
+def _register_plugin_analyses() -> None:
+    """Import every module advertised under the ``v2ecoli.analyses`` entry-point
+    group so its ``Analysis`` subclasses register in ``ANALYSIS_REGISTRY``.
+
+    An installed distribution declares, in its own ``pyproject.toml``::
+
+        [project.entry-points."v2ecoli.analyses"]
+        sms_modules = "sms_modules.analyses"
+
+    and importing that module fires its registration side effects. A plugin that
+    fails to import is warned about, never fatal: a broken third-party analysis
+    package must not take down the built-in suite. Idempotent -- the imports are
+    cached after the first call.
+    """
+    import importlib
+    import importlib.metadata as importlib_metadata
+
+    try:
+        eps = importlib_metadata.entry_points(group="v2ecoli.analyses")
+    except TypeError:  # Python < 3.10 non-selectable entry_points() API
+        eps = importlib_metadata.entry_points().get("v2ecoli.analyses", [])
+    for ep in eps:
+        # An entry-point value is "pkg.module" or "pkg.module:attr"; the module
+        # is what carries the registration side effect, so import that.
+        module_name = ep.value.split(":", 1)[0].strip()
+        try:
+            importlib.import_module(module_name)
+        except Exception as e:  # noqa: BLE001 -- a bad plugin must not be fatal
+            warnings.warn(
+                f"v2ecoli.analyses plugin {ep.name!r} ({ep.value!r}) failed to "
+                f"import; its analyses stay unregistered: {type(e).__name__}: {e}"
+            )
+
+
+def _live_sample(cursor: Any) -> dict[str, Any]:
+    """The same numbers as :func:`_runtime_snapshot`, cheap enough to take WHILE
+    a query is still running.
+
+    ``_runtime_snapshot`` is taken after ``step.update`` returns, so on the one
+    path that matters -- the query that exhausts the temp directory and dies --
+    it is never taken at all. Run 1 was diagnosed instead with a hand-dispatched
+    ``du -sm`` loop in a shell wrapper (sms-ecoli#166): the same measurement,
+    taken from outside the process, because nothing took it inside.
+
+    Must be given a cursor that is NOT the one executing the query (see
+    ``_run_duckdb_name``'s docstring on cursor thread-safety).
+    """
+    sample: dict[str, Any] = {}
+    try:
+        import resource
+        sample["rss_mb"] = round(
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            / (1024 ** 2 if sys.platform == "darwin" else 1024), 1)
+    except Exception:  # noqa: BLE001 -- a metric must never fail the analysis
+        pass
+    try:
+        row = cursor.execute(
+            "SELECT COALESCE(SUM(memory_usage_bytes), 0), "
+            "COALESCE(SUM(temporary_storage_bytes), 0) FROM duckdb_memory()"
+        ).fetchone()
+        sample["duckdb_memory_mb"] = round((row[0] or 0) / 1024 ** 2, 1)
+        sample["duckdb_temp_mb"] = round((row[1] or 0) / 1024 ** 2, 1)
+    except Exception:  # noqa: BLE001
+        pass
+    return sample
+
+
+def resolve_analysis_options(analyses: Any, sweep_dir: str) -> dict:
+    """A config's ``analysis_options`` as a real ``{scale: {name: params}}`` map.
+
+    ``v2ecoli-analyze`` used to take ``cfg.get("analysis_options") or {}`` at face
+    value, so a config carrying the ``"applicable"`` KEYWORD -- which is what
+    viva-api's campaign gather writes when the caller named no modules -- reached
+    ``run_analyses`` as a bare ``str`` and died on ``.items()``:
+
+        AttributeError: 'str' object has no attribute 'items'
+
+    The keyword was never exotic: ``scripts/run_standalone_analysis.py`` and
+    ``scripts/run_multi_node_analysis.py`` both honour it. It simply was not
+    honoured by the entry point the chain-dispatch gather actually invokes, so
+    every such campaign's analysis exited 1 (sim 1318, 2026-09-14).
+
+    Unlike those two scripts, nothing here needs ``--n-seeds``/``--n-generations``
+    flags: the sweep's own hive partitions carry ``lineage_seed`` and
+    ``generation``, and :func:`cell_keys` reads them with a LISTING rather than a
+    scan. Deriving the shape from the data is also more honest than trusting a
+    flag -- it describes what the run actually produced.
+    """
+    if isinstance(analyses, dict):
+        return analyses
+    if not analyses:
+        return {}
+    text = str(analyses).strip()
+    if text.lower() in {"applicable", "none"}:
+        if text.lower() == "none":
+            return {}
+        keys = cell_keys(sweep_dir)
+        seeds = {k.get("lineage_seed") for k in keys if k.get("lineage_seed") is not None}
+        generations = {k.get("generation") for k in keys if k.get("generation") is not None}
+        from v2ecoli.steps.batch_baseline_runner import build_analysis_options
+
+        return build_analysis_options(
+            "applicable",
+            n_seeds=max(1, len(seeds)),
+            n_generations=max(1, len(generations)),
+        )
+    return json.loads(text)
+
+
+def _runtime_snapshot(cursor: Any, t0: float) -> dict[str, Any]:
+    """Cost of the module that just ran, for the analysis.json ``runtime`` block.
+
+    No effect on results: wall time, the process's peak RSS so far (monotonic --
+    meaningful per module when ``runner.max_workers`` is 1), and DuckDB's own
+    view of what is still resident/spilled after the query (``duckdb_memory()``
+    reports current usage, not a peak; the peak is bounded by ``memory_limit``).
+    Written so a gather's failure ("22.3 GiB/22.3 GiB pinned", sim 683) and any
+    later query rewrite can be compared quantitatively rather than by feel.
+    """
+    import resource
+    import time
+    snap: dict[str, Any] = {
+        "elapsed_s": round(time.perf_counter() - t0, 3),
+        "process_peak_rss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / (1024 ** 2 if sys.platform == "darwin" else 1024), 1),
+    }
+    try:
+        row = cursor.execute(
+            "SELECT COALESCE(SUM(memory_usage_bytes), 0), COALESCE(SUM(temporary_storage_bytes), 0) FROM duckdb_memory()"
+        ).fetchone()
+        snap["duckdb_memory_mb_after"] = round((row[0] or 0) / 1024 ** 2, 1)
+        snap["duckdb_temp_mb_after"] = round((row[1] or 0) / 1024 ** 2, 1)
+    except Exception as e:  # noqa: BLE001 -- a metric must never fail the analysis
+        snap["duckdb_memory_error"] = f"{type(e).__name__}: {e}"
+    return snap
+
+
+def run_analyses(sweep_dir: str, analysis_options: dict | str,
                  sim_data_path: str | None = None,
                  out_dir: str | None = None,
-                 max_workers: int | None = None) -> dict:
+                 max_workers: int | None = None,
+                 duckdb: dict | None = None) -> dict:
     """Run the analyses named in ``analysis_options`` over the sweep's cells,
     write ``analysis.json``, and return the nested results.
+
+    The returned dict is ``{scale: {name: {group: data}}}`` (unchanged shape)
+    PLUS three structured-summary keys a caller can check without walking
+    every group of every named analysis (P1-10 / CD2 audit §3.7 -- an
+    analysis failure, or a KPI column the emitter dropped, must never look
+    like a clean `{"n": 0, "mean": 0.0}` result):
+
+      ``status``   -- ``"OK"`` if every requested analysis/group succeeded,
+                       else ``"PARTIAL"``.
+      ``summary``  -- ``{scale: {name: "ok"|"partial"|"error"|"missing_column"}}``.
+                       ``missing_column`` means the underlying per-cell record
+                       lacked a column this analysis needed (see
+                       ``build_cell_records``) -- distinct from ``error``
+                       (the analysis itself raised) and never silently
+                       collapsed into a zero-valued result.
+      ``errors``   -- flat list of ``{"scale", "name", "group", "error",
+                       "missing_column"}`` entries for every failure, plus one
+                       ``scale=None`` entry if the per-cell record build
+                       itself failed (see ``records_error`` below).
+
+    This function never raises over an analysis-level failure or a missing
+    KPI column -- both degrade to ``status: "PARTIAL"`` so the rest of the
+    sweep's analyses still run and land in ``analysis.json``. It still
+    raises for setup failures outside any single analysis's control (an
+    unresolvable sim_data pickle, an s3:// sweep with no ``out_dir``, ...).
 
     Parameters
     ----------
@@ -418,6 +863,23 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     from bigraph_schema import allocate_core
     from v2ecoli.workflow.analysis import Analysis, ANALYSIS_REGISTRY, ANALYSIS_SCALES
 
+    # Resolve analysis_options at the LIBRARY boundary so EVERY caller is robust,
+    # not just the v2ecoli-analyze CLI (main() also resolves; this is idempotent on
+    # a real dict, so it is a no-op there). A caller that reaches run_analyses
+    # directly with the "applicable" keyword or a JSON string -- an old dispatcher,
+    # a script, a future path that skips main() -- used to hit the `.items()` loops
+    # below as a bare str and take the whole job down with
+    # `AttributeError: 'str' object has no attribute 'items'`, rc=0, AFTER the sweep
+    # had already fanned out. 36 Run-3 jobs died exactly this way (sim 1318). The
+    # resolver turns the keyword / JSON string into the real {scale: {name: params}}
+    # mapping, or raises a clear error, before any work or fan-out.
+    analysis_options = resolve_analysis_options(analysis_options, sweep_dir)
+
+    # Populate ANALYSIS_REGISTRY with the built-in suite before resolving any
+    # requested name against it — otherwise a bare workflow run finds it empty
+    # and drops every declared analysis. See _register_builtin_analyses.
+    _register_builtin_analyses()
+
     # Records are built ONLY if a record-based AnalysisStep is actually
     # requested. That family consumes per-cell timeseries, so building them
     # materializes every emitted row of the sweep in Python — ~24M rows for a
@@ -442,12 +904,33 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
                 "out_dir is required for an s3:// sweep (the sweep is read-only)")
         out_dir = sweep_dir
 
+    # P1-10 (CD2 audit §3.7): build_cell_records() hard-codes 15+ columns in
+    # one query; if the emitter dropped one, the query raises OUTSIDE any
+    # per-group guard -- previously that propagated straight out of
+    # run_analyses and every analysis (including ones on scales that never
+    # needed the timeseries) was lost, reduced to one error string by the
+    # flush's broad catch. Instead: catch it here, extract the missing column
+    # name when the error names one, and fall back to the cheap partition-key
+    # listing so DuckDB-backed analyses (which read columns from DuckDB
+    # directly, not from these Python records) are unaffected. Record-based
+    # analyses are flagged explicitly below (never silently computing a
+    # hollow {"n": 0, "mean": 0.0, ...} over key-only records).
+    records_error: dict[str, Any] | None = None
     if _needs_timeseries():
-        records = list(build_cell_records(sweep_dir).values())
+        try:
+            records = list(build_cell_records(sweep_dir).values())
+        except Exception as e:  # noqa: BLE001 -- converted into an explicit,
+            # per-analysis "missing_column" signal below, not swallowed.
+            records_error = {
+                "error": f"{type(e).__name__}: {e}",
+                "missing_column": _extract_missing_column(e),
+            }
+            records = cell_keys(sweep_dir)
     else:
         records = cell_keys(sweep_dir)
     core = allocate_core()
     results: dict[str, dict] = {}
+    _runtime: dict[str, dict] = {}  # scale -> name -> group -> cost snapshot
     # Provisioned once on first use and shared across every Analysis step, so the
     # large sim_data pickle is loaded only once per run (not once per analysis),
     # and a single DuckDB connection is reused.
@@ -465,10 +948,15 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     def _analysis_ctx() -> tuple:
         with _ctx_lock:
             if not _ctx:
-                import tempfile
 
                 from viva_emitters import create_duckdb_conn
-                _ctx["conn"] = create_duckdb_conn(temp_dir=tempfile.gettempdir())
+                from v2ecoli.library.sweep_io import analysis_temp_dir
+                _dk = duckdb or {}
+                _ctx["conn"] = create_duckdb_conn(temp_dir=analysis_temp_dir(_dk.get("temp_dir")),
+                                                  cpus=_dk.get("threads"))
+                apply_analysis_duckdb_config(
+                    _ctx["conn"], threads=_dk.get("threads"),
+                    max_temp_directory_size=_dk.get("max_temp_directory_size"))
                 _ctx["from_clause"] = _history_from_clause(sweep_dir)
                 if sim_data_path is not None:
                     from v2ecoli.library.sim_data import LoadSimData
@@ -515,39 +1003,68 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         viz_dir = os.path.join(out_dir, "viz")
         os.makedirs(viz_dir, exist_ok=True)
         per_group: dict[str, Any] = {}
-        for gkey in groups:
-            gstr = _group_key_str(scale, gkey)
-            try:
-                history_sql = scale_history_sql(scale, from_clause, gkey)
-                out = step.update({
-                    "conn": cursor, "history_sql": history_sql,
-                    "config_sql": "", "success_sql": "",
-                    "sim_data": sim_data,
-                    "validation_data": validation_data,
-                    "variant_metadata": params,
-                })
-                if out.get("view"):
-                    vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
-                    with open(vp, "w", encoding="utf-8") as vf:
-                        vf.write(out["view"])
-                data = out.get("data")
-                if isinstance(data, dict) and data.get("tsv"):
-                    ptools_dir = os.path.join(out_dir, "ptools")
-                    os.makedirs(ptools_dir, exist_ok=True)
-                    tsv_path = os.path.join(
-                        ptools_dir,
-                        f"{name}__{gstr.replace('/', '_')}.tsv",
-                    )
-                    with open(tsv_path, "w", encoding="utf-8") as tf:
-                        tf.write(data["tsv"])
-                per_group[gstr] = out.get("data", {})
-            except Exception as e:
-                per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+        _emitter = _events.get_emitter()
+        # The sampler runs on its own thread, so it MUST NOT share the cursor the
+        # query is executing on: this function's own docstring is explicit that a
+        # DuckDB cursor is not safe to use from two threads at once (only separate
+        # cursors on one connection are). A dedicated probe cursor costs nothing.
+        probe_cursor = conn.cursor()
+        # One span per named analysis, one per group, plus a heartbeat DURING the
+        # group's blocking query. All three are engine no-ops when no sink is
+        # configured, so this is inert on an undispatched run.
+        with _emitter.span("analysis.name", name=name, scale=scale):
+            for gkey in groups:
+                gstr = _group_key_str(scale, gkey)
+                import time as _time
+                _t0 = _time.perf_counter()
+                try:
+                    history_sql = scale_history_sql(scale, from_clause, gkey)
+                    with _events.sampled_span(
+                        "analysis.group",
+                        lambda c=probe_cursor: _live_sample(c),
+                        name=name, scale=scale, group=gstr,
+                    ):
+                        out = step.update({
+                        "conn": cursor, "history_sql": history_sql,
+                        "config_sql": "", "success_sql": "",
+                        "sim_data": sim_data,
+                        "validation_data": validation_data,
+                        "variant_metadata": params,
+                    })
+                    if out.get("view"):
+                        vp = os.path.join(viz_dir, f"{name}__{gstr.replace('/', '_')}.html")
+                        with open(vp, "w", encoding="utf-8") as vf:
+                            vf.write(out["view"])
+                    data = out.get("data")
+                    if isinstance(data, dict) and data.get("tsv"):
+                        ptools_dir = os.path.join(out_dir, "ptools")
+                        os.makedirs(ptools_dir, exist_ok=True)
+                        tsv_path = os.path.join(
+                            ptools_dir,
+                            f"{name}__{gstr.replace('/', '_')}.tsv",
+                        )
+                        with open(tsv_path, "w", encoding="utf-8") as tf:
+                            tf.write(data["tsv"])
+                    per_group[gstr] = out.get("data", {})
+                except Exception as e:
+                    per_group[gstr] = {"error": f"{type(e).__name__}: {e}"}
+                _runtime.setdefault(scale, {}).setdefault(name, {})[gstr] = _runtime_snapshot(cursor, _t0)
         return per_group
 
+    # A declared analysis that never runs is a silent deliverable hole: a study
+    # names an analysis that isn't registered in this runner (e.g. an sms_modules
+    # KPI whose registration import never ran in the analysis container), and the
+    # run reports OK with the plot simply absent. Collect these and surface them
+    # as errors so status goes PARTIAL instead of a clean pass over a missing KPI.
+    unknown_analyses: list[dict] = []
     for scale, analyses in (analysis_options or {}).items():
         if scale not in ANALYSIS_SCALES:
             warnings.warn(f"unknown analysis scale {scale!r}; skipping")
+            unknown_analyses.append({
+                "scale": scale, "name": None, "group": None,
+                "error": f"unknown analysis scale {scale!r} not in ANALYSIS_SCALES",
+                "missing_column": None,
+            })
             continue
         groups = group_for_scale(scale, records)
         scale_out: dict[str, dict] = {}
@@ -566,7 +1083,13 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
         for name in (analyses or {}):
             step_cls = ANALYSIS_REGISTRY.get(name)
             if step_cls is None:
-                warnings.warn(f"unknown analysis {name!r} (scale {scale}); skipping")
+                warnings.warn(f"unknown analysis {name!r} (scale {scale})")
+                unknown_analyses.append({
+                    "scale": scale, "name": name, "group": None,
+                    "error": f"unknown analysis {name!r} not in ANALYSIS_REGISTRY "
+                             f"(declared but never registered/imported)",
+                    "missing_column": None,
+                })
                 continue
             if step_cls.scale != scale:
                 warnings.warn(f"analysis {name!r} is scale {step_cls.scale}, "
@@ -578,6 +1101,20 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
 
         for name in record_names:
             step_cls = ANALYSIS_REGISTRY[name]
+            if records_error is not None:
+                # The per-cell records this family needs failed to build (see
+                # above) -- flag every group explicitly rather than running
+                # analyze() over key-only records and returning a zero panel
+                # that looks like a real (if boring) result.
+                col = records_error.get("missing_column")
+                msg = (f"missing KPI column {col!r} ({records_error['error']})"
+                       if col else f"cell records unavailable ({records_error['error']})")
+                flagged = {"error": msg, "status": "missing_column",
+                          "missing_column": col}
+                per_group = {_group_key_str(scale, gkey): dict(flagged)
+                            for gkey in groups} or {"_all": flagged}
+                results_by_name[name] = per_group
+                continue
             step = step_cls(analyses.get(name) or {}, core=core)
             per_group: dict[str, Any] = {}
             for gkey, grp in groups.items():
@@ -619,31 +1156,113 @@ def run_analyses(sweep_dir: str, analysis_options: dict,
     if _ctx.get("conn") is not None:
         _ctx["conn"].close()
 
+    # P1-10: a structured pass/fail summary, not just the nested per-group
+    # results -- a caller (the post-sim flush, a batch summary, ...) can check
+    # results["status"] instead of having to walk every group of every named
+    # analysis looking for an "error" key to know whether anything failed.
+    summary: dict[str, dict] = {}
+    for scale_key, scale_result in results.items():
+        scale_summary = {name: _name_status(per_group)
+                         for name, per_group in scale_result.items()}
+        if scale_summary:
+            summary[scale_key] = scale_summary
+
+    errors: list[dict] = []
+    if records_error is not None:
+        errors.append({"scale": None, "name": None, "group": None, **records_error})
+    for scale_key, scale_summary in summary.items():
+        for name, status in scale_summary.items():
+            if status == "ok":
+                continue
+            for gkey, gval in results[scale_key][name].items():
+                if isinstance(gval, dict) and "error" in gval:
+                    errors.append({
+                        "scale": scale_key, "name": name, "group": gkey,
+                        "error": gval["error"],
+                        "missing_column": gval.get("missing_column"),
+                    })
+
+    errors.extend(unknown_analyses)
+
+    overall_bad = records_error is not None or bool(unknown_analyses) or any(
+        status != "ok" for scale_summary in summary.values()
+        for status in scale_summary.values())
+    results["status"] = "PARTIAL" if overall_bad else "OK"
+    results["summary"] = summary
+    results["errors"] = errors
+    results["runtime"] = _runtime
+
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "analysis.json"), "w") as f:
         json.dump(results, f, indent=2, default=str)
     return results
 
 
-def main() -> None:
+def build_analysis_arg_parser() -> argparse.ArgumentParser:
+    """The ``v2ecoli-analyze`` CLI contract, in one place so ``main()`` and a
+    cross-repo contract test assert against the SAME parser.
+
+    The command is ``v2ecoli-analyze <sweep_dir> [--config CONFIG]``. Everything
+    an analysis needs beyond the sweep dir lives in the ``--config`` JSON
+    (``analysis_options``, and an optional ``out_dir``). An emitter that passes
+    any other flag -- workflow_nf's ``AnalysisTaskStep``, viva-api's
+    ``_analysis_command`` -- is stale against this and its argv is rejected;
+    parse the emitted argv against this parser to catch drift at the seam.
+    """
     p = argparse.ArgumentParser(description="Run configured analyses over a sweep.")
     p.add_argument("sweep_dir", help="sweep output dir (parquet + summary.json)")
     p.add_argument("--config", default=None,
-                   help="config JSON with analysis_options (with inherit_from)")
-    args = p.parse_args()
-    if not os.path.isdir(args.sweep_dir):
+                   help="config JSON with analysis_options (+ optional out_dir; supports inherit_from)")
+    return p
+
+
+def main() -> None:
+    args = build_analysis_arg_parser().parse_args()
+    if is_s3_uri(args.sweep_dir):
+        # os.path.isdir() never understands s3:// syntax -- it returns False for
+        # every s3:// URI, valid or not, which blocked EVERY S3-sourced sweep_dir
+        # from ever passing this guard despite the module's own documented,
+        # DuckDB/httpfs-backed S3 support (see the module docstring and
+        # run_analyses()). Found live: viva-api's auto-triggered post-simulation
+        # analysis job (SimulationServiceRay._submit_analysis_job) always passes
+        # an s3:// sweep_dir and always hit this exact SystemExit, for any
+        # dispatch mechanism -- first actually exercised end-to-end by a Run 3
+        # chain-dispatch campaign reaching its own analysis trigger for the first
+        # time (Dispatch 743, 2026-09-09). history_files() is the same existence
+        # check run_analyses() itself relies on moments later (S3-glob via
+        # DuckDB), so a real "nothing there" is still caught, just for the right
+        # reason (no history parquet found, not "not a local directory").
+        if not history_files(args.sweep_dir):
+            raise SystemExit(f"sweep_dir not found or has no history parquet: {args.sweep_dir!r}")
+    elif not os.path.isdir(args.sweep_dir):
         raise SystemExit(f"sweep_dir not found: {args.sweep_dir!r}")
 
     analysis_options: dict = {}
+    out_dir: str | None = None
+    runner: dict = {}
     if args.config:
         from v2ecoli.workflow.config import load_config_with_inheritance
-        analysis_options = load_config_with_inheritance(args.config).get(
-            "analysis_options") or {}
+        cfg = load_config_with_inheritance(args.config)
+        # NOT `or {}` at face value: the value may be the "applicable" keyword.
+        analysis_options = resolve_analysis_options(cfg.get("analysis_options"), args.sweep_dir)
+        # out_dir lives in the config (not a CLI flag) so the argv surface stays
+        # `<sweep_dir> [--config]`; a Nextflow task sets it to a task-local name
+        # ("analysis") that matches its declared `path` output.
+        out_dir = cfg.get("out_dir") or None
+        # Optional resource knobs, in the config rather than argv so the CLI
+        # contract (sweep_dir + --config) does not move:
+        #   runner.max_workers                      concurrent named analyses (1 = serial)
+        #   runner.duckdb.threads                   SET threads
+        #   runner.duckdb.temp_dir                  DuckDB spill dir (relative -> cwd)
+        #   runner.duckdb.max_temp_directory_size   e.g. "200GB"
+        runner = cfg.get("runner") or {}
     if not analysis_options:
         print("no analysis_options found; nothing to run")
         return
-    run_analyses(args.sweep_dir, analysis_options)
-    print(f"Wrote {os.path.join(args.sweep_dir, 'analysis.json')}")
+    run_analyses(args.sweep_dir, analysis_options, out_dir=out_dir,
+                 max_workers=runner.get("max_workers"),
+                 duckdb=runner.get("duckdb"))
+    print(f"Wrote {os.path.join(out_dir or args.sweep_dir, 'analysis.json')}")
 
 
 if __name__ == "__main__":

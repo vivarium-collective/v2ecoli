@@ -99,3 +99,32 @@ def omics_labels(sim_data) -> dict:
         "proteome": {"ids": [m.split("[")[0] for m in mon_ids_full],
                      "symbols": pr_sym, "names": pr_name},
     }
+
+
+def exchange_labels(sim_data) -> list[str]:
+    """The 87 external exchange-molecule ids, in the order the FBA listener emits
+    them: ``sorted(sim_data["external_state"].all_external_exchange_molecules)``.
+
+    The exchange vector has exactly the problem the omics vectors have — it is
+    POSITIONAL, with no ids in the parquet — and until now the one true ordering
+    lived only inside ``scripts/pin_population_phenotype_basal_reference.py``.
+    Anything else that wanted to key that vector had to re-derive the sort, and a
+    re-derivation that gets it wrong does not fail: it silently attributes every
+    flux to the wrong metabolite. ``operands.run_operand`` now resolves the
+    exchange observable, so there is a second caller, and a second caller is the
+    point at which "the ordering" has to become a function rather than a habit.
+
+    ``sorted()`` is not a choice made here — it is a fact about the emit order,
+    and it is checkable: ``render_basal_vs_literature`` slices glucose, CO2 and
+    acetate at 1-indexed positions 37 / 11 / 3, which are the sorted positions of
+    ``GLC[p]``, ``CARBON-DIOXIDE[p]`` and ``ACET[p]`` in the committed reference's
+    pinned ``flux_ids``. ``tests/test_gene_meta_exchange_labels.py`` asserts that
+    against the fixture rather than restating it.
+
+    ⚠ Returns a plain list of ids, not the ``{ids, symbols, names}`` shape
+    ``omics_labels`` returns: an exchange molecule id (``GLC[p]``) is already the
+    human-readable name, and there is no reconstruction flat file to join a
+    descriptive name from. Inventing the wider shape would imply a symbol lookup
+    that does not exist.
+    """
+    return sorted(str(m) for m in sim_data["external_state"].all_external_exchange_molecules)

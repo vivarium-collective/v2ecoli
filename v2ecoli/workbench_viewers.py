@@ -108,8 +108,22 @@ def build_ptools_launch_url(
     if not available:
         return {"error": "no ptools TSVs found for this run", "available": []}
 
-    chosen = all_tsvs[0]
-    rel = available[0]
+    # Default overlay: prefer the combined "overview" export (genes + reactions +
+    # proteins in one EcoCyc "a mixture" upload) so the launch is deterministic
+    # and biologically complete. Fall back to any ``ptools_*`` export, then to
+    # the first file — so a study whose ``ptools/`` dir also holds unrelated TSVs
+    # (e.g. ``cd1_*`` omics tables that sort earlier alphabetically) still
+    # launches the PTools overview rather than the alphabetically-first file.
+    def _overlay_rank(p: Path) -> tuple:
+        n = p.name.lower()
+        if "overview" in n:
+            return (0, n)
+        if n.startswith("ptools_"):
+            return (1, n)
+        return (2, n)
+
+    chosen = min(all_tsvs, key=_overlay_rank)
+    rel = _relpath(chosen)
     if data_dir:
         tsv_url = f"{data_dir.rstrip('/')}/{rel}"
     else:
@@ -155,8 +169,8 @@ def _launch(ws_root, study, run, ctx) -> dict:
     if not ptools_server_url:
         return {"error": "ptools_server_url not configured", "status": 400}
 
-    if not study:
-        return {"error": "study is required", "status": 400}
+    if not (study or run):
+        return {"error": "study or run is required", "status": 400}
 
     template = ui.get("ptools_omics_url_template", _PTOOLS_DEFAULT_OMICS_URL_TEMPLATE)
 
@@ -168,9 +182,18 @@ def _launch(ws_root, study, run, ctx) -> dict:
 
     data_dir = (ui.get("ptools_data_dir") or "").strip() or None
 
-    sd = _study_dir(ws_root, study)
-    if not sd.is_dir():
-        return {"error": f"study not found: {study}", "status": 404}
+    # A landed RUN (e.g. a GovCloud compose analysis, whose ptools TSVs the
+    # workbench land path copies into .pbg/runs/<id>/ptools/) is launched by
+    # ``run``; a local study by ``study``. Either resolves to a base directory
+    # whose ptools/*.tsv exports build_ptools_launch_url discovers.
+    if run:
+        sd = _run_dir(ws_root, run)
+        if not sd.is_dir():
+            return {"error": f"run not found: {run}", "status": 404}
+    else:
+        sd = _study_dir(ws_root, study)
+        if not sd.is_dir():
+            return {"error": f"study not found: {study}", "status": 404}
 
     result = build_ptools_launch_url(
         study_dir=sd,
@@ -194,11 +217,29 @@ def _studies_root(ws_root: Path) -> Path:
     return WorkspacePaths.load(ws_root).studies
 
 
+def _runs_root(ws_root: Path) -> Path:
+    """The directory holding landed run subdirs (``<ws>/.pbg/runs``). Remote runs —
+    including GovCloud compose analyses — land here; the workbench copies their
+    ptools TSVs into ``.pbg/runs/<id>/ptools/``. Uses the shared ``viva_workspace``
+    resolver (honours a ``layout:`` remap) with a plain fallback."""
+    try:
+        from viva_workspace import WorkspacePaths
+        return WorkspacePaths.load(ws_root).pbg / "runs"
+    except Exception:
+        return Path(ws_root) / ".pbg" / "runs"
+
+
+def _run_dir(ws_root: Path, run: str) -> Path:
+    return _runs_root(Path(ws_root)) / run
+
+
 def _ptools_targets(ws_root) -> list:
-    """Studies that have exported ``ptools/*.tsv`` files — the launchable rows."""
+    """Studies and landed runs that have exported ``ptools/*.tsv`` files — the
+    launchable rows. A local study is keyed by ``study``; a landed run (e.g. a
+    GovCloud compose analysis) by ``run``, so the whole menu spans both."""
     ws_root = Path(ws_root)
-    root = _studies_root(ws_root)
     out = []
+    root = _studies_root(ws_root)
     if root.is_dir():
         for p in sorted(root.iterdir()):
             if not p.is_dir():
@@ -210,41 +251,18 @@ def _ptools_targets(ws_root) -> list:
                     "label": p.name,
                     "detail": f"{n} TSV{'' if n == 1 else 's'}",
                 })
-    return out
-
-
-def _has_3d_pack(ws_root) -> bool:
-    """Cheap check: does any study have a saved parsimony 3D pack?"""
-    root = _studies_root(Path(ws_root))
-    return bool(root.is_dir() and next(root.glob("*/viz/3d/*.pack.json"), None))
-
-
-def _ecoli_3d_targets(ws_root) -> list:
-    """Studies with a saved parsimony 3D pack → a deep-link to the HOSTED viewer.
-
-    Reuses the workbench's saved-visualizations builder (which computes the public
-    ``viewer_url`` for each 3D pack). Each target carries an external ``href`` so
-    it opens directly in both the live workbench and the read-only dashboard —
-    the hosted viewer needs no local launch backend.
-    """
-    try:
-        from vivarium_workbench.lib import saved_visualizations as _sv
-        payload = _sv.build_saved_visualizations(Path(ws_root))
-    except Exception:
-        return []
-    out = []
-    for item in (payload.get("saved") or []):
-        url = item.get("viewer_url")
-        if not url:
-            continue
-        n = item.get("n_placed")
-        detail = f"{n:,} molecules placed" if isinstance(n, int) else "hosted 3D view"
-        out.append({
-            "study": item.get("study"),
-            "label": item.get("study"),
-            "detail": detail,
-            "href": url,
-        })
+    runs_root = _runs_root(ws_root)
+    if runs_root.is_dir():
+        for p in sorted(runs_root.iterdir()):
+            if not p.is_dir():
+                continue
+            n = len(list(p.glob("**/ptools/*.tsv")))
+            if n:
+                out.append({
+                    "run": p.name,
+                    "label": p.name,
+                    "detail": f"{n} TSV{'' if n == 1 else 's'} · run",
+                })
     return out
 
 
@@ -252,8 +270,6 @@ def get_viewers(ws_root) -> list:
     """Contribute the analysis viewers v2ecoli ships:
 
     * **Pathway Tools — Omics Viewer** (launcher; needs a configured PTools server).
-    * **3D E. coli viewer** (deep-link to the hosted parsimony 3D viewer; available
-      wherever a study has a saved 3D pack, including the read-only dashboard).
 
     The Data Explorer (timeseries / scatter / flux maps for any run) is the
     workbench's own built-in and is shown alongside these automatically.
@@ -271,17 +287,5 @@ def get_viewers(ws_root) -> list:
             "applies": _ptools_configured,
             "launch": _launch,
             "targets": _ptools_targets,
-        },
-        {
-            "id": "ecoli-3d",
-            "title": "3D E. coli viewer",
-            "description": (
-                "Open an interactive 3D molecular view of the cell — every "
-                "molecule placed in real 3D space by parsimony — in the hosted "
-                "viewer."
-            ),
-            "kind": "launcher",
-            "applies": _has_3d_pack,
-            "targets": _ecoli_3d_targets,
         },
     ]

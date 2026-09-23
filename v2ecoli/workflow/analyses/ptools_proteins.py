@@ -20,7 +20,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis
-from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view, available_columns
 from v2ecoli.workflow.analyses._shims import (
     bulk_count_matrix,
     ACTIVE_RIBOSOME_SQL,
@@ -33,6 +33,7 @@ from v2ecoli.workflow.analyses.ptools_rna import (
     get_bulk_ids,
     build_bulk2monomers_matrix,
     consolidate_timepoints,
+    _groupby_time_keep_generation,
 )
 
 
@@ -40,10 +41,15 @@ from v2ecoli.workflow.analyses.ptools_rna import (
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
-def build_query(columns, history_sql):
-    """Generate SQL query for user-specified parquet columns."""
+def build_query(columns, history_sql, include_generation=False):
+    """Generate SQL query for user-specified parquet columns.
+
+    ``include_generation`` carries the ``generation`` partition column for
+    per-generation consolidation; callers detect its presence first.
+    """
+    gen = ", generation" if include_generation else ""
     query_sql = f"""
-        SELECT {",".join(columns)}, global_time AS time
+        SELECT {",".join(columns)}, global_time AS time{gen}
         FROM ({history_sql})
         ORDER BY time
     """
@@ -64,10 +70,10 @@ def read_outputs(
             ACTIVE_RNAP_SQL,
             ACTIVE_RIBOSOME_SQL,
         ]
-    query_sql = build_query(columns, history_sql)
+    incl_gen = "generation" in available_columns(conn, history_sql)
+    query_sql = build_query(columns, history_sql, incl_gen)
     outputs_df = conn.sql(query_sql).df()
-    outputs_df = outputs_df.groupby("time", as_index=False).sum()
-    return outputs_df
+    return _groupby_time_keep_generation(outputs_df)
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +85,12 @@ class PtoolsProteins(Analysis):
 
     name = "ptools_proteins"
     scale = "single"
-    config_schema = {"n_tp": "integer", "time_unit": "string"}
+    config_schema = {
+        "n_tp": "integer",
+        "time_unit": "string",
+        "per_generation": "boolean",
+        "skip_n_gens": "integer",
+    }
 
     def _do_read_outputs(
         self,
@@ -90,22 +101,21 @@ class PtoolsProteins(Analysis):
         """Delegate to module-level read_outputs (overridable by mixins)."""
         return read_outputs(history_sql, conn, columns)
 
-    def analyze(
-        self,
-        *,
-        conn: DuckDBPyConnection,
-        history_sql: str,
-        sim_data,
-        variant_metadata: dict[str, Any] | None = None,
-        **ctx,
-    ) -> dict:
-        params = dict(variant_metadata or {})
-        params.setdefault("n_tp", 8)
-        params.setdefault("time_unit", "minutes")
+    # Multiseed (cross-seed) render spec, consumed by _MultiseedMixin.
+    _ptools_multiseed_spec = {
+        "filename": "ptools_proteins_multiseed.tsv",
+        "title": "Protein monomers",
+        "color_label": "count",
+        "log_color": False,
+        "sort_rows": False,
+        "take_abs": False,
+    }
 
-        if params["time_unit"] not in ("minutes", "seconds"):
-            params["time_unit"] = "minutes"
-
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Raw ``(time × protein)`` monomer-count matrix + axes; the extraction
+        half of :meth:`analyze`, reused per seed by ``_MultiseedMixin``. Returns
+        ``(matrix, time_vec, feature_ids, generation_vec_or_None)``.
+        """
         bulk_ids = get_bulk_ids(sim_data)
 
         output_columns = [
@@ -169,14 +179,41 @@ class PtoolsProteins(Analysis):
         protein_labels = [protein[:-3] for protein in protein_monomers]
 
         proteomics = np.matmul(bulk_mtx, bulk2protein_monomers)
+        gens_raw = (
+            output_df["generation"].values
+            if "generation" in output_df.columns else None
+        )
+        return proteomics, output_df["time"].values, protein_labels, gens_raw
+
+    def analyze(
+        self,
+        *,
+        conn: DuckDBPyConnection,
+        history_sql: str,
+        sim_data,
+        variant_metadata: dict[str, Any] | None = None,
+        **ctx,
+    ) -> dict:
+        params = dict(variant_metadata or {})
+        params.setdefault("n_tp", 8)
+        params.setdefault("time_unit", "minutes")
+
+        if params["time_unit"] not in ("minutes", "seconds"):
+            params["time_unit"] = "minutes"
+
+        proteomics, time_vec, protein_labels, gens = self._feature_matrix(
+            history_sql, conn, sim_data, params
+        )
+        if not (params.get("per_generation") and gens is not None):
+            gens = None
 
         n_tp = int(params["n_tp"])
 
         proteomics_bulksum, tp_idx = consolidate_timepoints(
-            proteomics, n_tp, normalized=True
+            proteomics, n_tp, normalized=True, generations=gens
         )
 
-        tp_checkpoints = output_df["time"].values[tp_idx]
+        tp_checkpoints = time_vec[tp_idx]
 
         if params["time_unit"] == "minutes":
             tp_checkpoints = tp_checkpoints / 60

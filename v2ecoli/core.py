@@ -10,9 +10,19 @@ from __future__ import annotations
 import copy
 import functools
 import hashlib
+import json
 import os
+import shutil
+import socket
+import tempfile
+import time
 import warnings
 from typing import Any
+
+try:
+    import fcntl  # POSIX only; guarded so Windows imports of core.py still work.
+except ImportError:  # pragma: no cover - platform dependent
+    fcntl = None  # type: ignore[assignment]
 
 import dill
 from bigraph_schema import allocate_core
@@ -34,6 +44,7 @@ from v2ecoli.types import ECOLI_TYPES
 __all__ = [
     "build_core",
     "register_ecoli_core",
+    "register_ecoli_processes",
     "load_cache_bundle",
     "save_cache",
     "save_sim_input",
@@ -92,25 +103,28 @@ def register_ecoli_core(core):
             core.register_type(_vec, {'_inherit': 'array', '_data': 'int64'})
         except Exception:
             pass
-    # Pulled-in external composites (pbg-ketchup): register its Process classes
-    # so local:KetchupEstimator resolves in dashboard runs. Guarded — a missing
-    # pbg_ketchup must never break build_core for the rest of v2ecoli.
+    # Compose pulled-in external repos' cores. Each repo self-registers its OWN
+    # processes via its build_core(core) (the cross-repo core convention), so we
+    # no longer reach DOWN and register their classes here. Guarded per-repo — a
+    # missing/older dep must never break build_core for the rest of v2ecoli.
+    #   - viva_ketchup: KetchupEstimator / KetchupDynamicEstimator
+    #     (local:KetchupEstimator resolution in the ketchup composites)
+    #   - viva_bioreactordesign: BiRDTransportProcess
+    #     (local:BiRDTransportProcess in the mbp-03 coupled-reactor composite)
+    import importlib as _il
+    for _dep in ("viva_ketchup", "viva_bioreactordesign"):
+        try:
+            _m = _il.import_module(_dep)
+            _bc = getattr(_m, "build_core", None) or getattr(
+                _il.import_module(f"{_dep}.core"), "build_core", None)
+            if _bc is not None:
+                _bc(core)
+        except Exception:
+            pass
+    # BiRDTransportHours: v2ecoli's OWN seconds->hours adapter the coupled
+    # composite wires (not part of the bioreactordesign repo), so it stays
+    # registered here. See v2ecoli/steps/bird_transport_hours.py.
     try:
-        from pbg_ketchup import KetchupEstimator, KetchupDynamicEstimator
-        core.register_link("KetchupEstimator", KetchupEstimator)
-        core.register_link("KetchupDynamicEstimator", KetchupDynamicEstimator)
-    except Exception:
-        pass
-    # Pulled-in external reactor physics (pbg-bioreactordesign): register
-    # BiRDTransportProcess so local:BiRDTransportProcess resolves in the mbp-03
-    # coupled-reactor composite. Guarded — a missing pbg_bioreactordesign must
-    # never break build_core for the rest of v2ecoli.
-    try:
-        from pbg_bioreactordesign import BiRDTransportProcess
-        core.register_link("BiRDTransportProcess", BiRDTransportProcess)
-        # BiRDTransportHours: the seconds->hours time-base adapter the coupled
-        # composite actually wires (v2ecoli steps in seconds; the transport math
-        # is in hours). See v2ecoli/steps/bird_transport_hours.py.
         from v2ecoli.steps.bird_transport_hours import BiRDTransportHours
         core.register_link("BiRDTransportHours", BiRDTransportHours)
     except Exception:
@@ -121,21 +135,101 @@ def register_ecoli_core(core):
         core.register_links(REPORT_CARD_STEPS)
     except Exception:  # noqa: BLE001 — never let card registration break build_core
         pass
+    # v2ecoli's own WCM process/step classes as first-class Registry entries.
+    # The composites instantiate these DIRECTLY (the partitioned WCM
+    # architecture), so without this they never enter core.link_registry —
+    # used everywhere yet invisible in the dashboard Registry.
+    try:
+        register_ecoli_processes(core)
+    except Exception:  # noqa: BLE001 — never let it break build_core
+        pass
     return core
 
 
+def register_ecoli_processes(core):
+    """Register v2ecoli's own WCM process/step classes (``v2ecoli.processes.*``)
+    onto ``core`` by class name, so they are first-class, discoverable Registry
+    entries — not merely instantiated inside the composites. The partitioned WCM
+    architecture builds these processes DIRECTLY (import + instantiate), which
+    never enters the core's name registry, so the dashboard Registry couldn't see
+    them even though every baseline run uses them.
+
+    Filters to process-bigraph-native classes (``process_bigraph.Process`` /
+    ``Step`` subclasses — the ``EcoliStep`` ports); vivarium-core Steps and
+    unrelated classes are skipped. Best-effort + idempotent: a module that fails
+    to import, or a class that fails to register, is skipped — never fatal to
+    build_core. Heavy subpackages (e.g. ``v2ecoli.processes.parca``) are not
+    descended into. Returns the number registered.
+    """
+    import importlib
+    import inspect
+    import pkgutil
+
+    import process_bigraph as _pb
+
+    try:
+        pkg = importlib.import_module("v2ecoli.processes")
+    except Exception:
+        return 0
+    n = 0
+    for modinfo in pkgutil.iter_modules(pkg.__path__):
+        if modinfo.ispkg:
+            continue
+        try:
+            mod = importlib.import_module(f"v2ecoli.processes.{modinfo.name}")
+        except Exception:
+            continue
+        for name, obj in vars(mod).items():
+            if not (inspect.isclass(obj) and obj.__module__ == mod.__name__):
+                continue
+            if obj in (_pb.Process, _pb.Step) or not issubclass(obj, (_pb.Process, _pb.Step)):
+                continue
+            try:
+                core.register_link(name, obj)
+                n += 1
+            except Exception:
+                pass
+    return n
+
+
 def build_core():
-    """Create and configure a bigraph-schema core with ecoli types."""
-    return register_ecoli_core(allocate_core())
+    """Create and configure a bigraph-schema core with ecoli types.
+
+    Also registers ``LineageProcess`` for the ``ray:`` address protocol (item 101/109) --
+    unlike other composite-specific registrations (colony's ``_register_colony_core``,
+    lineage_ray_batch's ``register_ray_lineage`` via its own ``core_extensions``), this one
+    lives here, on the CORE BUILDER ITSELF, because ``run_pbg.py`` only runs
+    ``apply_core_extensions`` on its ``--composite-id`` branch -- the ``/compose/v1`` raw-document
+    branch has no ``composite_id`` at all, so a raw ``.pbg`` document with a ``ray:LineageProcess``
+    address would otherwise fail to resolve under ``PBG_CORE_BUILDER=v2ecoli.core:build_core``.
+
+    Deliberately calls ONLY ``register_ray_lineage`` (a pure registry write: ``register_types`` +
+    ``register_process_class``, no Ray connection) -- NOT ``prewarm_lineage_pool``. Confirmed
+    directly (``process_bigraph/protocols/ray.py:528-536``): ``RayProtocolRuntime.__init__`` calls
+    ``ray.init()`` eagerly whenever Ray isn't already running. Calling ``prewarm_lineage_pool``
+    unconditionally here would make EVERY caller of ``build_core()`` -- chain-dispatch's per-
+    generation jobs, local scripts, tests, anything -- eagerly try to init Ray, whether or not it
+    ever resolves a ``ray:`` address. Known, accepted trade-off from omitting it: a raw document
+    dispatched through ``/compose/v1/run-document`` (the one path this unblocks) gets the ray:
+    protocol's own DEFAULT pool sizing (``os.cpu_count()``) on first real resolution, not the
+    cluster-derived ``RAY_SHARDS_DEFAULT`` -- callers on that path who need correct sizing must
+    still call ``prewarm_lineage_pool`` themselves before dispatch, same as ``lineage_ray_batch``'s
+    own composite_generator already does via its own ``core_extensions``.
+    """
+    from v2ecoli.workflow.batch_lineage_ray import register_ray_lineage
+
+    core = register_ecoli_core(allocate_core())
+    register_ray_lineage(core)
+    return core
 
 
-# Importing v2ecoli.core also registers the pulled-in pbg-ketchup composite
+# Importing v2ecoli.core also registers the pulled-in viva-ketchup composite
 # *generators* (the @composite_generator decorators fire on import), so the
 # dashboard's run subprocess — which does `from v2ecoli.core import build_core`
 # then looks up the generator in the registry — can resolve ketchup_baseline /
-# ketchup_dynamic. Guarded so it's a no-op when pbg-ketchup isn't installed.
+# ketchup_dynamic. Guarded so it's a no-op when viva-ketchup isn't installed.
 try:
-    import pbg_ketchup.composites  # noqa: F401
+    import viva_ketchup.composites  # noqa: F401
 except Exception:
     pass
 
@@ -253,6 +347,29 @@ def _hash_file(path: str) -> str:
     return h.hexdigest()
 
 
+def _fingerprint_perturbations(perturbations) -> str | None:
+    """Stable, JSON-safe fingerprint of an in-memory sim_data perturbation.
+
+    ``perturbations`` is whatever strain-defining mutation was baked into the
+    sim_data before the bundle was written (e.g. new_gene_cache's ``applied``
+    dict of ids / indices / per-target values). It becomes a
+    ``build_params['perturbations']`` value that folds into ``inputs_hash`` and
+    is compared requested-vs-stored, so two perturbed strains no longer share a
+    cache fingerprint (P1-6). Returns ``None`` for a falsy/absent perturbation
+    (the wild-type build), a short hex digest otherwise. Never raises —
+    numpy scalars / non-serializable leaves fall back to ``repr`` rather than
+    crashing bundle-saving.
+    """
+    if not perturbations:
+        return None
+    if isinstance(perturbations, str):
+        payload = perturbations.encode()
+    else:
+        payload = json.dumps(
+            perturbations, sort_keys=True, default=repr).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
 def _resolve_n_seeds() -> int | None:
     """The fit's actual V2PARCA_N_SEEDS, for recording into build_params.
 
@@ -272,13 +389,116 @@ def _resolve_n_seeds() -> int | None:
         return None
 
 
+def _lock_owner(lock_path: str) -> str:
+    """Best-effort ``pid host ts`` string a lock holder wrote, for error text."""
+    try:
+        with open(lock_path) as f:
+            return f.read().strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+
 def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
-                            fixed_media=None, condition_manifest_hash=None):
+                            fixed_media=None, condition_manifest_hash=None,
+                            new_genes=None, bundle_overrides=None,
+                            bundle_manifest=None, perturbations=None,
+                            sources=None):
+    """Atomic, locked wrapper around :func:`_write_sim_input_bundle_into` (a3).
+
+    The bundle is built into a sibling temp dir *beside* the target (same
+    filesystem, so the final ``os.rename`` is atomic), under an exclusive
+    ``flock`` on ``<bundle_dir>.lock``. Only once every artifact is written is
+    the temp dir renamed into place; the previous bundle, if any, is moved to
+    ``<bundle_dir>.old-<ts>`` first (rollback point) and removed on success.
+
+    A concurrent reader therefore sees either the COMPLETE old bundle or the
+    COMPLETE new one — never a half-written directory where, say,
+    ``cache_version.json`` is present but ``sim_data_cache.dill`` is still being
+    dill-dumped (the interleave that let ``verify_cache_version`` stamp a
+    partial bundle valid, or one builder win the marker while another won the
+    dill). A second concurrent BUILDER fails fast with a clear "another process
+    is building this" error rather than interleaving writes.
+
+    On Windows (no ``fcntl.flock``) the lock is skipped but the temp-dir +
+    atomic-rename path still runs, so single-writer atomicity holds there too.
+    """
+    bundle_dir = os.path.abspath(bundle_dir)
+    parent = os.path.dirname(bundle_dir) or "."
+    os.makedirs(parent, exist_ok=True)
+
+    # Preserve the rebuild-in-place condition.json auto-detection (below): the
+    # PRIOR build's manifest lives in the real target, but the inner writer now
+    # builds into an empty temp dir and would never see it. Resolve it here
+    # from the target when the caller didn't pass one explicitly.
+    if condition_manifest_hash is None:
+        prior_manifest = os.path.join(bundle_dir, 'condition.json')
+        if os.path.exists(prior_manifest):
+            condition_manifest_hash = _hash_file(prior_manifest)
+
+    lock_path = bundle_dir + ".lock"
+    lockf = open(lock_path, "w")
+    try:
+        if fcntl is not None and hasattr(fcntl, "flock"):
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise RuntimeError(
+                    f"another process is building {bundle_dir!r} "
+                    f"(lock holder: {_lock_owner(lock_path)}); wait for it to "
+                    f"finish or kill it, then retry."
+                )
+            lockf.write(f"{os.getpid()} {socket.gethostname()} "
+                        f"{time.time():.0f}\n")
+            lockf.flush()
+
+        tmp = tempfile.mkdtemp(prefix=".build-", dir=parent)
+        old = None
+        try:
+            _write_sim_input_bundle_into(
+                loader, tmp, seed=seed, condition=condition,
+                fixed_media=fixed_media,
+                condition_manifest_hash=condition_manifest_hash,
+                new_genes=new_genes, bundle_overrides=bundle_overrides,
+                bundle_manifest=bundle_manifest, perturbations=perturbations,
+                sources=sources)
+            if os.path.isdir(bundle_dir):
+                old = bundle_dir + f".old-{int(time.time())}"
+                # An identically-named leftover from a prior crash would break
+                # the rename; clear it first.
+                shutil.rmtree(old, ignore_errors=True)
+                os.rename(bundle_dir, old)
+            os.rename(tmp, bundle_dir)
+        except BaseException:
+            shutil.rmtree(tmp, ignore_errors=True)
+            # If we already moved the last-good bundle aside but never landed
+            # the new one, restore it so the target is never left missing.
+            if old is not None and not os.path.isdir(bundle_dir) \
+                    and os.path.isdir(old):
+                os.rename(old, bundle_dir)
+            raise
+        else:
+            if old is not None:
+                shutil.rmtree(old, ignore_errors=True)
+    finally:
+        lockf.close()
+
+
+def _write_sim_input_bundle_into(loader, bundle_dir, *, seed=None,
+                                 condition=None,
+                                 fixed_media=None, condition_manifest_hash=None,
+                                 new_genes=None, bundle_overrides=None,
+                                 bundle_manifest=None, perturbations=None,
+                                 sources=None):
     """Write the simulation-input bundle from an instantiated LoadSimData.
 
     Shared body of ``save_cache`` (path-based) and ``save_sim_input``
     (live-object). Emits ``initial_state.json``, ``sim_data_cache.dill``,
     ``metadata.json``, and the cache-version marker into ``bundle_dir``.
+
+    Callers go through :func:`_write_sim_input_bundle`, which runs this into a
+    sibling temp dir under a lock and atomically renames it into place — do not
+    call this directly for a real cache dir, or a concurrent reader can observe
+    a partially-written bundle.
 
     ``seed``/``condition``/``fixed_media``/``condition_manifest_hash`` are
     the actual build parameters this specific bundle was built with
@@ -288,6 +508,21 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
     ``n_seeds`` is resolved independently (A8) since it isn't a parameter of
     ``LoadSimData`` — it governs the *fit* upstream of this bundle-writing
     step, not sim-data hydration.
+
+    ``new_genes``/``bundle_overrides``/``bundle_manifest``/``perturbations``
+    (P1-6) identify WHICH STRAIN this bundle is, so a wild-type cache and a
+    new-gene / knockout / perturbed cache no longer share a fingerprint and a
+    wrong-strain ``--cache-dir`` is caught by ``verify_cache_version`` instead
+    of silently mis-calibrating the sim. ``perturbations`` is fingerprinted to
+    a stable digest (see ``_fingerprint_perturbations``); the other three are
+    recorded verbatim.
+
+    ``sources`` (schema 3) declares the upstream artifacts this bundle was
+    DERIVED FROM — each a ``{"layer","path"}`` dict, e.g. the ParCa
+    ``parca_state.pkl`` chassis. It is threaded into ``write_cache_version`` so
+    the ``derived_from`` provenance chain is recorded and folded into
+    ``inputs_hash``. Default ``None`` (no declared chain) is backward
+    compatible for callers that don't yet know their sources.
     """
     os.makedirs(bundle_dir, exist_ok=True)
 
@@ -400,27 +635,40 @@ def _write_sim_input_bundle(loader, bundle_dir, *, seed=None, condition=None,
         'seed': seed,
         'n_seeds': _resolve_n_seeds(),
         'condition_manifest_hash': resolved_manifest_hash,
+        # P1-6 strain identity.
+        'new_genes': new_genes,
+        'bundle_overrides': bundle_overrides,
+        'bundle_manifest': bundle_manifest,
+        'perturbations': _fingerprint_perturbations(perturbations),
     }
     write_cache_version(bundle_dir, build_params=build_params,
-                        configs=sorted(configs.keys()))
+                        configs=sorted(configs.keys()), sources=sources)
     print(f"Sim-input bundle saved to {bundle_dir}")
 
 
-def save_cache(sim_data_path, cache_dir='out/cache', seed=0):
+def save_cache(sim_data_path, cache_dir='out/cache', seed=0, sources=None):
     """Generate the simulation-input bundle from a dilled SimulationDataEcoli.
 
     Prefer ``save_sim_input(sim_data, ...)`` when the SimulationDataEcoli is
     already in memory — this entry point exists for callers that only have a
     pickle path (legacy vEcoli ``simData.cPickle``).
+
+    ``sources`` (schema 3): the upstream artifacts consumed (e.g. the ParCa
+    chassis ``{"layer":"chassis","path": sim_data_path}``), recorded into the
+    cache's ``derived_from`` provenance chain. Default ``None`` is backward
+    compatible.
     """
     from v2ecoli.library.sim_data import LoadSimData
     loader = LoadSimData(sim_data_path=sim_data_path, seed=seed)
-    _write_sim_input_bundle(loader, cache_dir, seed=seed)
+    _write_sim_input_bundle(loader, cache_dir, seed=seed, sources=sources)
 
 
 def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
                    condition=None, fixed_media=None,
-                   condition_manifest_hash=None):
+                   condition_manifest_hash=None,
+                   new_genes=None, bundle_overrides=None,
+                   bundle_manifest=None, perturbations=None,
+                   sources=None):
     """Generate the simulation-input bundle from a live ``SimulationDataEcoli``.
 
     Skips the ~300 MB dill round-trip that ``save_cache`` performs to load
@@ -451,4 +699,9 @@ def save_sim_input(sim_data, bundle_dir='out/cache', seed=0,
     loader = LoadSimData(**kwargs)
     _write_sim_input_bundle(loader, bundle_dir, seed=seed, condition=condition,
                             fixed_media=fixed_media,
-                            condition_manifest_hash=condition_manifest_hash)
+                            condition_manifest_hash=condition_manifest_hash,
+                            new_genes=new_genes,
+                            bundle_overrides=bundle_overrides,
+                            bundle_manifest=bundle_manifest,
+                            perturbations=perturbations,
+                            sources=sources)

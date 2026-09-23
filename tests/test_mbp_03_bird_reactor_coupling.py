@@ -72,6 +72,39 @@ def _run_coupled(cpa: float, gas_flow_Lpm: float, n_steps: int) -> dict:
     co2_series: list[float] = []
     o2_transport_deltas: list[float] = []
     o2_counts: list[float] = []
+    # ⚠ Anchor the exchange baseline BEFORE the loop, at the value the COUPLER
+    # itself baselines from. If the first sample were taken AFTER tick 0 while
+    # do0 was taken before it, tick 0's consumption would be differenced out of
+    # the numerator while remaining in the denominator: measured ratio 0.9466,
+    # a 5.3% apparent deficit that was mistaken for a physical leak.
+    #
+    # ⚠ WHY the pre-loop value is the right anchor -- and it is NOT simply
+    # "symmetry with do0", which is what an earlier version of this comment
+    # claimed. The Step's flow runs TWICE on tick 0 (measured: calls_per_tick =
+    # [2,1,1,...]): once at cycle start, when the exchange store is still 0.0 and
+    # the coupler takes it as its first observation, and once after the WCM has
+    # run. So the coupler's own baseline IS the pre-loop 0.0, and anchoring here
+    # makes numerator and denominator span exactly the same ticks.
+    # ⇒ This rests on the composite's flow ordering, which this test does not
+    # assert. Force the baseline to be established after tick 0 and the ratio
+    # goes to 1.0564 on a PHYSICALLY CORRECT coupler. The assertion below on
+    # `o2_counts[0] == 0.0` pins that assumption so a flow-order change fails
+    # loudly here rather than drifting the balance back out of band.
+    #
+    # ⊕ Tick 0 is large because of the WCM's first-FBA transient -- 937,795
+    # counts, ~11x the mean of ticks 1-199 (83,552) and 5.34% of the run's total
+    # consumption, which is exactly the deficit observed. (An earlier version of
+    # this comment said "~3500x a steady tick", comparing tick 0 against tick 1's
+    # 266 -- the SMALLEST tick in the run, not a typical one.)
+    _o2_anchor = float(
+        c.state["agents"]["0"]["environment"]["exchange"].get(O2_EXCHANGE_KEY, 0.0))
+    assert _o2_anchor == 0.0, (
+        f"pre-loop exchange store is {_o2_anchor}, not 0.0 -- the coupler's own "
+        f"first-observation baseline is no longer the pre-loop value, so the "
+        f"mass-balance numerator and denominator no longer span the same ticks. "
+        f"Re-derive the anchor from the coupler rather than assuming pre-loop."
+    )
+    o2_counts.append(_o2_anchor)
     for _ in range(n_steps):
         c.run(1)
         r = c.state["reactor"]
@@ -256,20 +289,57 @@ def test_o2_mass_balance_closes(consuming_run):
     (mass conservation of the additive dissolved-O2 store). The ratio
     ``consumed / (transferred - delta_dissolved)`` must sit in [0.95, 1.05].
 
-    This is a genuine check (not tautological): ``consumed`` is reconstructed
-    from the cell-side exchange counts via Avogadro's number, while
-    ``transferred`` and ``delta_dissolved`` come from the reactor-side transport
-    diagnostic and the dissolved store — three independent quantities. It
-    validates both the coupler's counts->mg/L unit conversion and that no O2
-    mass leaks across the coupling.
+    ``consumed`` is reconstructed from the cell-side exchange store via
+    Avogadro's number, while ``transferred`` and ``delta_dissolved`` come from
+    the reactor-side transport diagnostic and the dissolved store.
+
+    ⚠ It is only independent if BOTH sides read the cumulative store correctly.
+    Before 2026-08-29 neither did: the coupler consumed the running total and
+    this test summed it, so the ratio stayed ~1 at any magnitude and the
+    criterion could not fail. It is a genuine check now; it was not then.
+
+    ⚖ WHAT THIS CRITERION ACTUALLY COVERS — stated narrowly on purpose, because
+    the previous version of this docstring oversold it and that is how it stayed
+    green for three months. Measured:
+
+    * It DOES fail on the running-total defect (ratio 0.0099), on a wrong
+      counts->mg/L conversion constant, and on a one-tick anchoring error
+      (1.0564).
+    * The ratio sits at 1.0000000000000062 in the passing case, so the band is
+      NOT a tolerance being exercised: a 10% O2 leak fails (1.1111) but a **3%
+      leak PASSES**. Read it as a ±5% scale/conversion-and-plumbing check, not a
+      precision mass balance.
+    * ``transferred`` carries only ~6.5% of the denominator; the rest is the
+      coupler's own writes. It is not three fully independent quantities.
+    * It is BLIND to *when* consumption is applied within the run — only the
+      endpoints are differenced.
+
+    ⛔ PRECONDITION: a NON-GROWING population. The numerator uses the fixture's
+    fixed ``cells_per_agent``, which equals the coupler's
+    ``cell_count / n_agents`` only while neither changes. Under division or
+    ``representative_doubling`` — i.e. the mbp-04 multigeneration case — the two
+    diverge and this criterion reds on a CORRECT coupler. Do not lift it into a
+    multigeneration study without re-deriving the numerator's scale per tick.
     """
     run = consuming_run
     cpa = run["cells_per_agent"]
     vol = run["volume_L"]
     counts_to_mgL = cpa / AVOGADRO * 1000.0 / vol * MW_O2
 
-    # Source-side cumulative consumption (positive mg/L): -sum(uptake counts).
-    consumed = -sum(run["o2_counts"]) * counts_to_mgL
+    # Source-side cumulative consumption (positive mg/L).
+    #
+    # ⚠ `environment.exchange` is a LINEAGE-CUMULATIVE running total, not a
+    # per-step delta, so SUMMING the sampled series double-counts: it sums a
+    # series that should have been differenced, inflating by ~N/2 over N steps.
+    # Until 2026-08-29 this test did exactly that -- and PASSED, because the
+    # coupler made the same error, so both sides of the ratio were inflated by
+    # the same factor and the axis went green. That is the second catalogued
+    # instance of this error class (see scripts/_compare/exchange_flux_basis.py
+    # lines 45-51 for the first, where it also cancelled between two arms).
+    #
+    # The total consumed IS the store's total change, so difference the
+    # endpoints rather than summing the series.
+    consumed = -(run["o2_counts"][-1] - run["o2_counts"][0]) * counts_to_mgL
     # Reactor-side gas-liquid transfer (cumulative mg/L) + dissolved change.
     transferred = sum(run["o2_transport_deltas"])
     delta_dissolved = run["do_final"] - run["do0"]

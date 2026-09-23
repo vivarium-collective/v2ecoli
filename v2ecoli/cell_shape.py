@@ -12,16 +12,17 @@ volume** (= mass / density):
     a_i = a_o · (1 − f_p)^(2/3)                           (inner membrane area)
     v_p = v · f_p ,   v_c = v · (1 − f_p)                 (periplasm / cytoplasm)
 
-It also returns the pbg-parsimony ``Capsule`` (in Å), so the parsimony 3D build
-can use the simulated shape directly: the cell envelope grows with mass, and the
-pre-division (max-mass) state is the elongated, about-to-divide cell.
+It returns the capsule geometry (in Å) as plain-float coordinates so downstream
+consumers can build representations directly: the cell envelope grows with mass,
+and the pre-division (max-mass) state is the elongated, about-to-divide cell.
 """
 from __future__ import annotations
 
 import math
 
 from process_bigraph import Step
-from pbg_parsimony import Capsule
+
+from bigraph_schema.contract import ProcessContract
 
 # Unit bridge: 1 g/mL == 1000 fg/fL  (fg = 1e-15 g, fL = 1e-15 L); fL ≈ µm³.
 _G_PER_ML_TO_FG_PER_FL = 1000.0
@@ -33,8 +34,8 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
     """Capsule cell shape for a cell of ``mass_fg`` (Skalnik et al. 2023 §3.1).
 
     Width, density and periplasm fraction are fixed; everything else derives from
-    volume = mass/density. Lengths/areas/volumes in µm / µm² / fL(µm³); the
-    pbg-parsimony ``Capsule`` (under ``capsule``) is in Å for the packer.
+    volume = mass/density. Lengths/areas/volumes in µm / µm² / fL(µm³); capsule
+    coordinates are returned in Å as plain floats.
     """
     v = max(0.0, float(mass_fg) / (density_g_per_ml * _G_PER_ML_TO_FG_PER_FL))  # fL = µm³
     w = float(width_um)
@@ -43,14 +44,11 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
     length = lcyl + w                                             # tip-to-tip, µm
     outer_sa = 4.0 * math.pi * r ** 2 + 2.0 * math.pi * r * (length - w)  # µm²
     inner_sa = outer_sa * (1.0 - periplasm_fraction) ** (2.0 / 3.0)
-    cap = Capsule(half_len=(lcyl / 2.0) * 1e4, radius=r * 1e4)    # µm → Å
-    # Inner membrane: scale the outer capsule by (1−f_p)^(1/3) so its volume is
-    # the cytoplasm volume v·(1−f_p) and the shell between the two membranes is
-    # exactly the periplasm volume v·f_p — a gram-negative envelope whose
-    # subvolumes match the Skalnik shape model. Consumers (the parsimony 3D
-    # build) take ``envelope`` directly instead of hardcoding a periplasm width.
+    radius_A = r * 1e4                        # µm → Å
+    half_len_A = (lcyl / 2.0) * 1e4
     s = (1.0 - periplasm_fraction) ** (1.0 / 3.0)
-    inner_cap = Capsule(half_len=cap.half_len * s, radius=cap.radius * s)
+    inner_radius_A = radius_A * s
+    inner_half_len_A = half_len_A * s
     return {
         "mass_fg": float(mass_fg),
         "density_g_per_ml": density_g_per_ml,
@@ -62,15 +60,15 @@ def shape_from_mass(mass_fg: float, width_um: float = 1.0,
         "periplasm_fraction": periplasm_fraction,
         "periplasm_vol_fl": v * periplasm_fraction,
         "cytoplasm_vol_fl": v * (1.0 - periplasm_fraction),
-        "radius_A": cap.radius,
-        "half_len_A": cap.half_len,
-        "inner_radius_A": inner_cap.radius,
-        "inner_half_len_A": inner_cap.half_len,
-        "capsule": cap,
-        "inner_capsule": inner_cap,
+        "radius_A": radius_A,
+        "half_len_A": half_len_A,
+        "inner_radius_A": inner_radius_A,
+        "inner_half_len_A": inner_half_len_A,
         "envelope": {
-            "outer_membrane": cap,           # cell outer surface (OM)
-            "inner_membrane": inner_cap,     # IM (subvolume-consistent inward)
+            "outer_radius_A": radius_A,
+            "outer_half_len_A": half_len_A,
+            "inner_radius_A": inner_radius_A,
+            "inner_half_len_A": inner_half_len_A,
             "periplasm_fraction": periplasm_fraction,
             "periplasm_vol_fl": v * periplasm_fraction,
             "cytoplasm_vol_fl": v * (1.0 - periplasm_fraction),
@@ -101,6 +99,58 @@ def zero_shape():
 
 class ShapeStep(Step):
     """Compute capsule cell shape from mass (fixed width, density, periplasm frac)."""
+
+    contract = ProcessContract(
+        summary=(
+            "Derive capsule cell geometry (Skalnik et al. 2023 §3.1) from "
+            "cell_mass: fixed width and density fix the cross-section, so "
+            "volume comes straight from mass and length derives purely from "
+            "volume by elongation. Reports length, envelope surface areas, "
+            "and periplasm/cytoplasm volumes each step (overwrite, not "
+            "accumulated)."
+        ),
+        math=[
+            "v = mass / (density · 1000)                              (fg / (g/mL·1000) → fL = µm³)",
+            "r = w / 2",
+            "l_cyl = max(0, (v − 4/3·π·r³) / (π·r²))                    (cylindrical section length)",
+            "length = l_cyl + w                                        (tip-to-tip capsule length)",
+            "a_o = 4π·r² + 2π·r·l_cyl                                   (outer membrane surface area)",
+            "a_i = a_o · (1 − f_p)^(2/3)                                (inner membrane surface area)",
+            "v_p = v · f_p ,   v_c = v · (1 − f_p)                      (periplasm / cytoplasm volumes)",
+            "radius_A = r · 1e4 ,  half_len_A = (l_cyl/2) · 1e4         (µm → Å)",
+            "inner_radius_A = radius_A · (1 − f_p)^(1/3) ,  inner_half_len_A = half_len_A · (1 − f_p)^(1/3)",
+        ],
+        symbols={
+            "mass": "cell mass (fg), read from listeners.mass.cell_mass",
+            "density": "fixed cell density (g/mL), config 'density_g_per_ml' (default 1.1)",
+            "v": "total cell volume (fL = µm³), = mass/density",
+            "w": "fixed cell width/diameter (µm), config 'width_um' (default 1.0)",
+            "r": "capsule cap radius = w/2 (µm)",
+            "l_cyl": "length of the cylindrical (non-capped) section (µm)",
+            "length": "tip-to-tip capsule length = l_cyl + w (µm)",
+            "a_o": "outer membrane surface area (µm²)",
+            "a_i": "inner membrane surface area (µm²)",
+            "f_p": "periplasm volume fraction, config 'periplasm_fraction' (default 0.2)",
+            "v_p": "periplasm volume (fL)",
+            "v_c": "cytoplasm volume (fL)",
+            "radius_A": "outer cap radius in Å (r · 1e4)",
+            "half_len_A": "half the cylindrical section length in Å",
+            "inner_radius_A": "inner-membrane cap radius in Å, scaled by (1-f_p)^(1/3)",
+            "inner_half_len_A": "half the inner-membrane cylindrical length in Å",
+        },
+        inputs={
+            "mass": "Reads the nested cell_mass sub-store (listeners.mass.cell_mass) as the sole driver of shape; accepts a pint Quantity[fg] or a plain float.",
+        },
+        outputs={
+            "shape": "Overwrites the flat shape dict each step (map[overwrite[float]]): mass_fg, density_g_per_ml, width_um, volume_fl, length_um, outer_sa_um2, inner_sa_um2, periplasm_fraction, periplasm_vol_fl, cytoplasm_vol_fl, radius_A, half_len_A, inner_radius_A, inner_half_len_A.",
+        },
+        assumptions=[
+            "Cell shape is a capsule (cylinder capped by two hemispheres) of fixed width; growth is purely by elongation, so length derives from volume.",
+            "Width, density, and periplasm fraction are fixed config constants, not simulated quantities.",
+            "Density default is 1.1 g/mL; periplasm fraction default is 0.2 of total volume.",
+            "Output is overwritten (SET), not accumulated, each step — 'shape' reports current geometry, not a running sum.",
+        ],
+    )
 
     config_schema = {
         "width_um": {"_type": "float", "_default": 1.0},          # fixed cell width (diameter)

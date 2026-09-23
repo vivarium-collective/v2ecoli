@@ -95,6 +95,7 @@ LIST_OF_DICT_FILENAMES = [
     "metabolic_reactions_removed.tsv",
     "metabolism_kinetics.tsv",
     "metabolite_concentrations.tsv",
+    "metabolite_concentrations_added.tsv",
     "metabolite_concentrations_removed.tsv",
     "metabolites.tsv",
     "metabolites_added.tsv",
@@ -105,11 +106,13 @@ LIST_OF_DICT_FILENAMES = [
     "ppgpp_regulation_added.tsv",
     "ppgpp_regulation_removed.tsv",
     "protein_half_lives_measured.tsv",
+    "protein_half_lives_modified.tsv",
     "protein_half_lives_n_end_rule.tsv",
     "protein_half_lives_pulsed_silac.tsv",
     "proteins.tsv",
     "relative_metabolite_concentrations.tsv",
     "rna_half_lives.tsv",
+    "rna_half_lives_removed.tsv",
     "rna_maturation_enzymes.tsv",
     "rnas.tsv",
     "secretions.tsv",
@@ -163,6 +166,10 @@ LIST_OF_DICT_FILENAMES = [
     os.path.join("condition", "media", "MIX0-57.tsv"),
     os.path.join("condition", "media", "MIX0-58.tsv"),
     os.path.join("condition", "media", "MIX0-844.tsv"),
+    # Finite tryptophan supplement (ecoli-sources#18): minimal_plus_tryptophan is
+    # MIX0-57 x0.9 + TRP_supplement x0.1, matching vEcoli-private; the recipe
+    # references it, so the loader must read it (test_media_registration).
+    os.path.join("condition", "media", "TRP_supplement.tsv"),
     os.path.join("base_codes", "amino_acids.tsv"),
     os.path.join("base_codes", "dntp.tsv"),
     os.path.join("base_codes", "nmp.tsv"),
@@ -195,6 +202,7 @@ REMOVED_DATA = {
     "ppgpp_regulation": "ppgpp_regulation_removed",
     "transcriptional_attenuation": "transcriptional_attenuation_removed",
     "trna_charging_reactions": "trna_charging_reactions_removed",
+    "rna_half_lives": "rna_half_lives_removed",
 }
 MODIFIED_DATA = {
     "complexation_reactions": "complexation_reactions_modified",
@@ -260,12 +268,25 @@ ADDED_DATA = {
     "metabolites": "metabolites_added",
     "ppgpp_regulation": "ppgpp_regulation_added",
     "trna_charging_reactions": "trna_charging_reactions_added",
+    "metabolite_concentrations": "metabolite_concentrations_added",
 }
 
 
 class DataStore(object):
     def __init__(self):
         pass
+
+
+#: Tables whose row identity is NOT a single ``id`` column, and the columns
+#: that stand in for one. Without an entry here ``_join_data``'s collision
+#: guard skips such a table entirely, so an added row naming a host entity is
+#: joined silently -- the exact failure the guard exists to prevent, in the
+#: tables where it is structurally blind.
+COMPOSITE_ID_COLUMNS = {
+    # metabolism.py keys kinetic constraints on (reaction, enzyme) and
+    # accumulates rather than replaces, so a collision SHIFTS host chemistry.
+    "metabolism_kinetics": ("reactionID", "enzymeID"),
+}
 
 
 class KnowledgeBaseEcoli(object):
@@ -317,7 +338,13 @@ class KnowledgeBaseEcoli(object):
         self.modified_data: Dict[str, str] = MODIFIED_DATA.copy()
         self.added_data: Dict[str, str] = ADDED_DATA.copy()
 
-        self.new_gene_added_data: Dict[str, str] = {}
+        # Keyed by insertion subdirectory ('' for a single contiguous
+        # cassette) so each cassette's file map is joined on its own
+        # ``_join_data`` call rather than merged into one.
+        self.new_gene_added_data: Dict[str, Dict[str, str]] = {}
+        # (insertion_subdir, nested_attr) in discovery order; the splice
+        # loop re-sorts these by declared position.
+        self._new_gene_nested_attrs: list[tuple[str, str]] = []
         self.parameter_file_attribute_names: List[str] = [
             os.path.splitext(os.path.basename(filename))[0]
             for filename in self.list_of_parameter_filenames
@@ -380,94 +407,188 @@ class KnowledgeBaseEcoli(object):
                 )
 
         if self.new_genes_option != "off":
-            new_gene_subdir = new_genes_option
-            new_gene_path = os.path.join("new_gene_data", new_gene_subdir)
-            if self._bundle is not None:
-                assert self._bundle.keys_with_prefix(
-                    f"new_gene_data__{new_gene_subdir}__"
-                ), "This new_genes_data subdirectory is invalid."
-            else:
-                assert os.path.isdir(os.path.join(FLAT_DIR, new_gene_path)), (
-                    "This new_genes_data subdirectory is invalid."
-                )
-            nested_attr = "new_gene_data." + new_gene_subdir + "."
-
-            # These files do not need to be joined to existing files
-            self.list_of_dict_filenames.append(
-                os.path.join(new_gene_path, "insertion_location.tsv")
-            )
-            self.list_of_dict_filenames.append(
-                os.path.join(new_gene_path, "gene_sequences.tsv")
-            )
-
-            # These files need to be joined to existing files
-            new_gene_shared_files = [
-                "genes",
-                "rnas",
-                "proteins",
-                "rna_half_lives",
-                "protein_half_lives_measured",
-            ]
-            for f in new_gene_shared_files:
-                file_path = os.path.join(new_gene_path, f + ".tsv")
-                # If these files are empty, fill in with default values at a
-                # later point
+            # ⭐ MULTI-CASSETTE. A payload is either one contiguous insertion
+            # or several noncontiguous ones, each in its own subdirectory with
+            # its own insertion_location.tsv. ``[""]`` is the contiguous case,
+            # which keeps the paths below identical to the single-insertion
+            # form rather than special-casing it.
+            _subdirs = self._new_gene_insertion_subdirs(new_genes_option) or [""]
+            for insertion_subdir in _subdirs:
+                new_genes_option_dir = os.path.join(
+                    new_genes_option, insertion_subdir
+                ) if insertion_subdir else new_genes_option
+                self.new_gene_added_data.setdefault(insertion_subdir, {})
+                new_gene_subdir = new_genes_option_dir
+                new_gene_path = os.path.join("new_gene_data", new_gene_subdir)
                 if self._bundle is not None:
-                    present = self._bundle.has_key(relpath_to_key(file_path))
+                    # ⚠ A bundle is keyed, not pathed. ``new_gene_subdir`` is a
+                    # FILESYSTEM path and gains a separator once cassettes are
+                    # nested, so it cannot be interpolated into a key prefix --
+                    # ``relpath_to_key`` is what maps one to the other.
+                    assert self._bundle.keys_with_prefix(
+                        relpath_to_key(new_gene_path) + "__"
+                    ), "This new_genes_data subdirectory is invalid."
                 else:
-                    present = os.path.isfile(os.path.join(FLAT_DIR, file_path))
-                assert present, (
-                    f"File {f}.tsv must be present in the new_genes_data"
-                    f" subdirectory {new_gene_subdir}."
-                )
-                self.list_of_dict_filenames.append(file_path)
-                self.new_gene_added_data.update({f: nested_attr + f})
-
-            # OPTIONAL, and deliberately not in new_gene_shared_files above:
-            # that list is asserted present, and neither ``gfp`` nor
-            # ``template`` ships this file, so requiring it would break every
-            # existing new-gene build.
-            #
-            # Why it is needed at all: a new gene set whose enzymes act as
-            # protein COMPLEXES (e.g. a homodimer) names the complex as the
-            # catalyst, and without complexation the complex is never formed —
-            # the monomers accumulate with nothing to do and any consumer
-            # looking up the catalyst id fails. Joining this file lets a
-            # new-gene insertion declare its own complexes, exactly as it
-            # already declares its own genes, RNAs and proteins.
-            # Same optional treatment for the insertion's own metabolites: a
-            # heterologous pathway's product and intermediates are molecules the
-            # base flat files know nothing about, and without them the product
-            # has no entry in the bulk store to accumulate into.
-            met_path = os.path.join(new_gene_path, "metabolites.tsv")
-            if (self._bundle.has_key(relpath_to_key(met_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, met_path))):
-                self.list_of_dict_filenames.append(met_path)
-                self.new_gene_added_data.update(
-                    {"metabolites": nested_attr + "metabolites"}
+                    assert os.path.isdir(os.path.join(FLAT_DIR, new_gene_path)), (
+                        "This new_genes_data subdirectory is invalid."
+                    )
+                # ⚠ ATTRIBUTE path, not a filesystem path: dots traverse the
+                # loaded-data tree, so a nested cassette is
+                # ``new_gene_data.<option>.<subdir>.`` -- NOT the slashed
+                # ``new_gene_subdir`` used for file lookup above.
+                nested_attr = "new_gene_data." + new_genes_option + "."
+                if insertion_subdir:
+                    nested_attr += insertion_subdir + "."
+                self._new_gene_nested_attrs.append(
+                    (insertion_subdir, nested_attr)
                 )
 
-            cplx_path = os.path.join(new_gene_path, "complexation_reactions.tsv")
-            if (self._bundle.has_key(relpath_to_key(cplx_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, cplx_path))):
-                self.list_of_dict_filenames.append(cplx_path)
-                self.new_gene_added_data.update(
-                    {"complexation_reactions": nested_attr
-                     + "complexation_reactions"}
+                # These files do not need to be joined to existing files
+                self.list_of_dict_filenames.append(
+                    os.path.join(new_gene_path, "insertion_location.tsv")
+                )
+                self.list_of_dict_filenames.append(
+                    os.path.join(new_gene_path, "gene_sequences.tsv")
                 )
 
-            rnaseq_path = os.path.join(new_gene_path, "rnaseq_rsem_tpm_mean.tsv")
-            if (self._bundle.has_key(relpath_to_key(rnaseq_path))
-                    if self._bundle is not None
-                    else os.path.isfile(os.path.join(FLAT_DIR, rnaseq_path))):
-                self.list_of_dict_filenames.append(rnaseq_path)
-                self.new_gene_added_data.update(
-                    {
-                        "rna_seq_data.rnaseq_rsem_tpm_mean": nested_attr
-                        + "rnaseq_rsem_tpm_mean"
-                    }
+                # These files need to be joined to existing files
+                new_gene_shared_files = [
+                    "genes",
+                    "rnas",
+                    "proteins",
+                    "rna_half_lives",
+                    "protein_half_lives_measured",
+                ]
+                for f in new_gene_shared_files:
+                    file_path = os.path.join(new_gene_path, f + ".tsv")
+                    # If these files are empty, fill in with default values at a
+                    # later point
+                    if self._bundle is not None:
+                        present = self._bundle.has_key(relpath_to_key(file_path))
+                    else:
+                        present = os.path.isfile(os.path.join(FLAT_DIR, file_path))
+                    assert present, (
+                        f"File {f}.tsv must be present in the new_genes_data"
+                        f" subdirectory {new_gene_subdir}."
+                    )
+                    self.list_of_dict_filenames.append(file_path)
+                    self.new_gene_added_data[insertion_subdir].update({f: nested_attr + f})
+
+                # OPTIONAL joins. These are deliberately not in
+                # ``new_gene_shared_files`` above: that list is asserted present,
+                # and neither ``gfp`` nor ``template`` ships any of these files, so
+                # requiring them would break every existing new-gene build.
+                def _new_gene_file_present(filename):
+                    """Whether the insertion ships ``filename``, bundle or flat."""
+                    rel = os.path.join(new_gene_path, filename + ".tsv")
+                    return (
+                        self._bundle.has_key(relpath_to_key(rel))
+                        if self._bundle is not None
+                        else os.path.isfile(os.path.join(FLAT_DIR, rel))
+                    )
+
+                def _join_if_present(filename, key=None):
+                    """Join one optional new-gene file, if the insertion ships it.
+
+                    Rows are appended to the base attribute of the same name;
+                    ``key`` overrides that when the base attribute lives under a
+                    nested path (as ``rna_seq_data`` does).
+                    """
+                    rel = os.path.join(new_gene_path, filename + ".tsv")
+                    if not _new_gene_file_present(filename):
+                        return
+                    self.list_of_dict_filenames.append(rel)
+                    self.new_gene_added_data[insertion_subdir].update(
+                        {key or filename: nested_attr + filename}
+                    )
+
+                # Why each of these is needed at all:
+                #
+                # ``metabolites`` -- a heterologous pathway's product and
+                # intermediates are molecules the base flat files know nothing
+                # about, and without them the product has no entry in the bulk
+                # store to accumulate into.
+                _join_if_present("metabolites")
+
+                # ``complexation_reactions`` -- an insertion whose enzymes act as
+                # protein COMPLEXES (e.g. a homodimer) names the complex as the
+                # catalyst, and without complexation the complex is never formed:
+                # the monomers accumulate with nothing to do and any consumer
+                # looking up the catalyst id fails.
+                _join_if_present("complexation_reactions")
+
+                # ``metabolic_reactions`` -- THE REACTIONS THE INSERTED ENZYMES
+                # CATALYSE. Without them the pathway's enzymes are expressed, its
+                # product has a bulk entry, and nothing connects the two: the
+                # product sits at its initial count for the whole simulation and
+                # every flux and yield readout is a structural zero rather than a
+                # measurement. ``metabolism.py`` builds ``reaction_stoich`` from
+                # ``raw_data.metabolic_reactions``, so an insertion that declares
+                # its own reactions must have them joined here or they do not
+                # exist as far as the model is concerned.
+                _join_if_present("metabolic_reactions")
+
+                # ``metabolism_kinetics`` -- kcat/KM constraints for those
+                # reactions. Absent, they are unconstrained rather than wrong, but
+                # an insertion that ships measured kinetics means them to apply.
+                _join_if_present("metabolism_kinetics")
+
+                # ``transcription_units`` -- the insertion's OWN operon structure.
+                # Absent, every inserted gene becomes its own transcription unit,
+                # which is a different genetic construct from the one declared: it
+                # changes transcription initiation, mRNA counts and the coupling
+                # between the genes. ⚠ Positions in this file are RELATIVE to the
+                # insertion and are converted to genome coordinates in
+                # ``_update_gene_locations``; joining the file without that
+                # conversion would place the operon at the wrong locus.
+                #
+                # ⚠ GATED ON ``operons_on``, and the gate is not cosmetic. With
+                # operons off the BASE transcription_units table is never loaded
+                # (see the constructor above), so ``self.transcription_units`` is
+                # empty and ``_join_data`` -- which guards the added side but reads
+                # ``data[0]`` on the base side -- raises a bare IndexError naming
+                # nothing. It is also semantically pointless: ``transcription.py``
+                # consumes TUs only when ``sim_data.operons_on``. The two options
+                # are independent flags on the CLI, so this combination is
+                # reachable rather than theoretical.
+                if self.operons_on:
+                    _join_if_present("transcription_units")
+                elif _new_gene_file_present("transcription_units"):
+                    warnings.warn(
+                        f"new-gene insertion {new_gene_subdir!r} ships "
+                        "transcription_units.tsv, but operons are disabled for "
+                        "this build; its operon structure will be ignored and "
+                        "each inserted gene becomes its own transcription unit."
+                    )
+
+                # ``environment_molecules`` / ``secretions`` -- THE PRODUCT'S WAY
+                # OUT, and without it the pathway cannot run at all.
+                #
+                # This is not a reporting concern. FBA is a steady-state mass
+                # balance: a metabolite that is produced, consumed by nothing, and
+                # absent from the biomass objective has no sink, so the only
+                # feasible flux through its producing reaction is ZERO. An
+                # insertion can therefore have every gene expressed, every enzyme
+                # complexed and every reaction joined, and still carry no flux --
+                # reproducing exactly the silent zero the reaction join was added
+                # to eliminate, one layer further on.
+                #
+                # ``environment_molecules`` makes the product an external exchange
+                # molecule (id + compartment); ``secretions`` puts it in the
+                # secretion set. Which compartment the exchange happens in is the
+                # PAYLOAD's decision and deliberately not encoded here: a pathway
+                # whose product is transported to the periplasm declares it there,
+                # while one modelling export as a direct cytosolic exchange
+                # declares it in the cytosol. Both are expressible; the base tables
+                # already carry entries of each kind.
+                _join_if_present(
+                    "environment_molecules", key="condition.environment_molecules"
+                )
+                _join_if_present("secretions")
+
+                _join_if_present(
+                    "rnaseq_rsem_tpm_mean",
+                    key="rna_seq_data.rnaseq_rsem_tpm_mean",
                 )
 
         # Load raw data from TSV files
@@ -491,24 +612,77 @@ class KnowledgeBaseEcoli(object):
         # (`processing.genotypes.knockout`) and reach ParCa as a variant bundle,
         # not as a constructor option.
         if self.new_genes_option != "off":
-            self._check_new_gene_ids(nested_attr)
+            # ⭐⭐ SPLICE ORDER IS LOAD-BEARING, AND DESCENDING IS THE CORRECT ONE.
+            #
+            # ``insertion_pos`` in each cassette's insertion_location.tsv is a
+            # coordinate in the ORIGINAL, UNSPLICED genome. (The convention is
+            # asserted below, and it is the only one that makes the declared
+            # loci meaningful -- payloads name their site by the real E. coli
+            # locus it corresponds to.)
+            #
+            # Each splice shifts every coordinate above it by the cassette
+            # length. Splicing HIGH-TO-LOW means a later (lower) splice moves an
+            # already-placed cassette together with all of its neighbours, so
+            # its biological locus is preserved. Splicing low-to-high instead
+            # invalidates every declared position after the first: the next
+            # cassette's raw coordinate is then read in the shifted frame.
+            #
+            # ⛔ THIS IS NOT THEORETICAL AND THE OBVIOUS ORDER IS THE WRONG ONE.
+            # Measured 2026-08-31 against the upstream fork, which sorts
+            # ascending: the SAME cassette resolved to two different loci --
+            # 400925 alone, 398966 when a 1259 bp cassette was inserted below it
+            # first -- 1959 bp apart, differing only in whether another
+            # insertion was present.
+            #
+            # ⚠ AND THE LOADER'S OWN "has been shifted" DIAGNOSTIC CANNOT SEE
+            # THIS. ``_update_gene_insertion_location`` moves a position only on
+            # COLLISION, so a wrong-frame coordinate that lands in an intergenic
+            # gap is placed silently at the wrong locus, and a collision shift
+            # that does occur has no relation to the cassette length. The only
+            # sound check is to resolve a cassette ALONE and compare loci --
+            # which is what this module's regression test does.
+            _insertions = []
+            for insertion_subdir, nested_attr in self._new_gene_nested_attrs:
+                _loc = self._resolve_nested(nested_attr + "insertion_location")
+                assert len(_loc) == 1, (
+                    "each noncontiguous insertion should be in its own"
+                    f" directory; {insertion_subdir or new_genes_option!r} has"
+                    f" {len(_loc)}"
+                )
+                _insertions.append((_loc[0]["insertion_pos"], insertion_subdir, nested_attr))
+            # DESCENDING. See above -- reversing this is the defect.
+            _insertions.sort(key=lambda t: t[0], reverse=True)
 
-            insert_pos = self._update_gene_insertion_location(nested_attr)
+            for _declared_pos, insertion_subdir, nested_attr in _insertions:
+                self._check_new_gene_ids(nested_attr)
 
-            insertion_sequence = self._get_new_gene_sequence(nested_attr)
+                insert_pos = self._update_gene_insertion_location(nested_attr)
 
-            insert_end = self._update_gene_locations(nested_attr, insert_pos)
-            self.new_gene_added_data.update({"genes": nested_attr + "genes"})
+                insertion_sequence = self._get_new_gene_sequence(nested_attr)
 
-            self.genome_sequence = (
-                self.genome_sequence[:insert_pos]
-                + insertion_sequence
-                + self.genome_sequence[insert_pos:]
-            )
-            assert self.genome_sequence[insert_pos:insert_end] == insertion_sequence
+                insert_end = self._update_gene_locations(nested_attr, insert_pos)
+                self.new_gene_added_data[insertion_subdir].update(
+                    {"genes": nested_attr + "genes"}
+                )
 
-            self.added_data = self.new_gene_added_data
-            self._join_data()
+                self.genome_sequence = (
+                    self.genome_sequence[:insert_pos]
+                    + insertion_sequence
+                    + self.genome_sequence[insert_pos:]
+                )
+                assert (
+                    self.genome_sequence[insert_pos:insert_end] == insertion_sequence
+                )
+
+                # Joined PER INSERTION: ``added_data`` is a per-iteration scratch
+                # slot, not a set that accumulates. ``_join_data`` appends each
+                # cassette's rows to the base tables on its own call.
+                # ⚠ Its duplicate-id guard is a real N>1 interaction: two
+                # cassettes that each declare the same row (a shared host
+                # metabolite, say) collide on the SECOND join and fail loudly
+                # there rather than in the payload that caused it.
+                self.added_data = self.new_gene_added_data[insertion_subdir]
+                self._join_data()
 
     def _load_rnaseq_tpm_tables(self):
         """Load the long-form TPM tier by CANONICAL KEY onto fixed attributes.
@@ -619,6 +793,53 @@ class KnowledgeBaseEcoli(object):
                         f"exist."
                     )
 
+    def _resolve_nested(self, dotted: str):
+        """Walk a dotted attribute path on the loaded-data tree."""
+        parts = dotted.split(".")
+        obj = getattr(self, parts[0])
+        for part in parts[1:]:
+            obj = getattr(obj, part)
+        return obj
+
+    def _new_gene_insertion_subdirs(self, new_gene_subdir: str) -> list[str]:
+        """Cassette subdirectories under one ``new_genes_option``, or ``[]``.
+
+        A new-gene payload is either ONE contiguous cassette (files directly
+        under ``new_gene_data/<option>/``) or SEVERAL noncontiguous cassettes,
+        each in its own subdirectory with its own ``insertion_location.tsv``.
+        Returns the subdirectory names for the second shape and ``[]`` for the
+        first, so the caller can treat both uniformly.
+
+        ⚠ Both source shapes must be supported and they enumerate differently.
+        The flat tree can be scanned with ``os.scandir``; a bundle has no
+        directories at all, only canonical keys, so the subdirectory is
+        recovered from the key SEGMENTS:
+        ``new_gene_data__<option>__<subdir>__<file>`` is nested, whereas
+        ``new_gene_data__<option>__<file>`` is contiguous. Scanning the
+        filesystem when a bundle is in use would silently find nothing and
+        demote a multi-cassette payload to a single-cassette one.
+        """
+        if self._bundle is not None:
+            # ⚠ Same path-vs-key hazard as the caller's presence check: build
+            # the prefix through ``relpath_to_key`` rather than interpolating.
+            # Harmless while this is only ever called with a top-level option
+            # (no separator to mangle), but it fails silently -- matching
+            # nothing -- the moment one contains a path separator.
+            prefix = relpath_to_key(
+                os.path.join("new_gene_data", new_gene_subdir)
+            ) + "__"
+            subdirs = set()
+            for key in self._bundle.keys_with_prefix(prefix):
+                rest = key[len(prefix) :].split("__")
+                if len(rest) > 1:  # <subdir>__<file> => nested
+                    subdirs.add(rest[0])
+            return sorted(subdirs)
+        base = os.path.join(FLAT_DIR, "new_gene_data", new_gene_subdir)
+        if not os.path.isdir(base):
+            return []
+        with os.scandir(base) as entries:
+            return sorted(e.name for e in entries if e.is_dir())
+
     def _join_data(self):
         """
         Add rows that are specified in additional files. Data will only be added
@@ -660,11 +881,14 @@ class KnowledgeBaseEcoli(object):
                 #
                 # Guarding the GENERIC join rather than only the two new
                 # optional tables was checked by enumerating every shipped
-                # (base <- added) pair and comparing raw id sets: the six live
-                # joins (complexation_reactions, equilibrium_reactions,
+                # (base <- added) pair and comparing raw id sets: the live
+                # id-keyed joins (complexation_reactions, equilibrium_reactions,
                 # metabolic_reactions, metabolites, trna_charging_reactions,
                 # transcription_units) all carry ZERO collisions, and
                 # ppgpp_regulation has no id column so the guard skips it.
+                # ⚠ A new-gene insertion can now contribute to several of these
+                # AND to metabolism_kinetics, which is keyed compositely rather
+                # than by id -- see COMPOSITE_ID_COLUMNS below.
                 # ⚠ The test suite alone does NOT establish this: the 81-row
                 # transcription_units join comes from the remove_rrna_operons
                 # option, which nothing sets True (every call site hardcodes
@@ -672,16 +896,38 @@ class KnowledgeBaseEcoli(object):
                 # ⚠ Nor does the NG- naming convention: a payload is not bound
                 # by it. That is an argument FOR guarding generically rather
                 # than trusting the prefix.
-                if "id" in data[0]:
-                    base_ids = {row["id"] for row in data}
+                # ⚠ Guarding on ``id`` alone leaves a table with no id column
+                # UNGUARDED, not merely unchecked: an added row naming a HOST
+                # entity joins in silence. ``metabolism_kinetics`` is the live
+                # case -- it is keyed on (reactionID, enzymeID), and
+                # ``metabolism.py`` ACCUMULATES constraints per that pair
+                # rather than replacing them, so a payload row naming a host
+                # pair shifts that host reaction's constraint with nothing
+                # raised anywhere.
+                key_columns = COMPOSITE_ID_COLUMNS.get(data_attr)
+                if key_columns and all(c in data[0] for c in key_columns):
+                    def _identity(row):
+                        return tuple(row[c] for c in key_columns)
+                    label = "+".join(key_columns)
+                elif "id" in data[0]:
+                    def _identity(row):
+                        return row["id"]
+                    label = "id"
+                else:
+                    _identity = None
+
+                if _identity is not None:
+                    base_ids = {_identity(row) for row in data}
                     clashes = sorted(
-                        {row["id"] for row in added_data if row["id"] in base_ids}
+                        {_identity(row) for row in added_data
+                         if _identity(row) in base_ids},
+                        key=str,
                     )
                     if clashes:
                         raise ValueError(
                             f"Cannot join {attr_to_add} into {data_attr}: "
-                            f"{len(clashes)} id(s) already exist in the base "
-                            f"table and would silently redefine it "
+                            f"{len(clashes)} {label}(s) already exist in the "
+                            f"base table and would silently redefine it "
                             f"{clashes[:5]}. Rename the added rows, or remove "
                             f"the colliding rows from the base table via the "
                             f"corresponding *_removed.tsv."
@@ -892,6 +1138,54 @@ class KnowledgeBaseEcoli(object):
             right = row["right_end_pos"]
             row.update({"left_end_pos": left + insert_pos})
             row.update({"right_end_pos": right + insert_pos})
+
+        # If the new genes are in operons, change relative positions to global.
+        # ⚠ ORDER IS LOAD-BEARING: the loop above has already converted
+        # ``new_genes_data`` to genome coordinates, and the upper-bound
+        # assertion below compares against it, so both sides are global. Moving
+        # this block above that loop would compare a global position against a
+        # relative one and pass or fail for the wrong reason.
+        new_genes_tu_data = getattr(nested_data, "transcription_units", None)
+        if new_genes_tu_data:
+            new_genes_tu_data = sorted(
+                new_genes_tu_data, key=lambda d: d["left_end_pos"]
+            )
+            for row in new_genes_tu_data:
+                left = row["left_end_pos"]
+                right = row["right_end_pos"]
+
+                # An added transcription unit must lie entirely within the
+                # added genes: it may not reach back into the original genome
+                # on either side. Checked rather than clamped, because a TU
+                # that silently spanned the insertion boundary would transcribe
+                # native genes as part of the construct.
+                #
+                # Bounds are compared in the insertion's own RELATIVE frame
+                # against ``insert_len`` -- deliberately, so this block does not
+                # depend on whether the gene rows above have been converted yet.
+                # Comparing a relative bound against an already-converted gene
+                # row would make the check order-sensitive, and an order-
+                # sensitive assertion is one that passes for the wrong reason
+                # the first time somebody moves it.
+                assert left >= 1, (
+                    "added transcription unit start positions cannot overlap "
+                    "original genes at this time"
+                )
+                assert right <= insert_len, (
+                    "added transcription unit end positions cannot exceed new "
+                    "gene end position at this time"
+                )
+                # A reversed span passes both bounds and emerges as a TU whose
+                # end precedes its start. Never present in the base data;
+                # guarded because this block exists to catch payload-authoring
+                # mistakes, and this is one.
+                assert left <= right, (
+                    "added transcription unit start position "
+                    f"({left}) must not follow its end position ({right})"
+                )
+
+                row.update({"left_end_pos": left + insert_pos})
+                row.update({"right_end_pos": right + insert_pos})
 
         return insert_end
 

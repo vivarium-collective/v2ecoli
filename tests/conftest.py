@@ -211,6 +211,10 @@ def make_card_state():
         "v2_bounds": [],
         "config": {},
         "observable_bulk_ids": [],
+        # 0 = no generation window, i.e. grade every generation — the behaviour
+        # before the window was declarable, which is what this 1-generation
+        # fixture pair wants.
+        "generation_lower_bound": 0,
         "v2_dir": REDUX_CARDS_FIXTURE_DIR,
         "ve_dir": REDUX_CARDS_FIXTURE_DIR,
     }

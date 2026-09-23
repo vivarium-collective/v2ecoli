@@ -28,7 +28,11 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from v2ecoli.core import save_sim_input
-from v2ecoli.library.cache_version import read_cache_version
+from v2ecoli.library.cache_version import (
+    StaleCacheError,
+    read_cache_version,
+    verify_cache_version,
+)
 from v2ecoli.processes.parca.data_loader import (
     hydrate_sim_data_from_state, load_parca_state,
 )
@@ -38,11 +42,61 @@ DEFAULT_FIXTURE = "models/parca/parca_state.pkl.gz"
 DEFAULT_CACHE_DIR = "out/cache"
 
 
+def _normalize_strain(value: str | None) -> str | None:
+    """Map wild-type sentinels to ``None`` for build_params consistency.
+
+    ``v2ecoli-parca --new-genes off`` means "no heterologous insertion", i.e.
+    the wild-type build, which :data:`cache_version.DEFAULT_BUILD_PARAMS`
+    represents as ``None`` (and which the in-process ``core.save_sim_input``
+    path records as ``None`` when no strain is passed). Stamping the literal
+    ``"off"`` instead would make a wild-type cache's stored ``new_genes`` differ
+    from a wild-type request's ``None`` and trip ``verify_cache_version``'s
+    wrong-strain check on a cache that is in fact correct. Normalize here so the
+    CLI build path stamps the same value the other build paths do.
+    """
+    if value is None:
+        return None
+    v = value.strip()
+    if v in ("", "off"):
+        return None
+    return v
+
+
+def _cache_is_valid(cache_dir: str) -> bool:
+    """Whether THIS process already sees a compatible cache at ``cache_dir``.
+
+    Runs the same ``verify_cache_version`` the sim load path runs. Used by
+    ``--if-stale`` to skip a redundant rebuild — the a1 fingerprint (with
+    ``$V2E_ROOT`` pinning the source tree) makes "valid for this process" the
+    same answer another session gets, so two sessions that both "rebuild the
+    cache" converge instead of ping-ponging each other's out/cache. Checks
+    code/inputs compatibility only, not the requested strain/condition
+    build_params; use a distinct ``--cache`` dir for a distinct strain.
+    """
+    if read_cache_version(cache_dir) is None:
+        return False
+    try:
+        verify_cache_version(cache_dir)
+        return True
+    except StaleCacheError:
+        return False
+
+
 def build_cache(fixture: str, cache_dir: str,
                 media_condition: str | None = None,
-                fixed_media: str | None = None) -> None:
+                fixed_media: str | None = None,
+                new_genes: str | None = None,
+                bundle_overrides: str | None = None,
+                if_stale: bool = False) -> None:
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     os.chdir(repo_root)
+
+    if if_stale and _cache_is_valid(cache_dir):
+        version = read_cache_version(cache_dir)
+        print(f"--if-stale: cache at {cache_dir} is already valid for this "
+              f"process (inputs_hash {version.inputs_hash[:16]}...); "
+              f"skipping rebuild.")
+        return
 
     t0 = time.time()
     print(f"[{time.strftime('%H:%M:%S')}] Loading fixture {fixture} ...")
@@ -72,8 +126,17 @@ def build_cache(fixture: str, cache_dir: str,
     # all None, configs empty) and clobber the correct file with it, purely
     # to have a `version` object to print inputs_hash from. Read the
     # already-written file back instead: same print, no clobber.
+    # Declare the ParCa chassis this cache is derived from (schema 3): the
+    # fixture pickle becomes the bundle's ``derived_from`` chain, so a swap of
+    # the chassis moves ``inputs_hash`` and its provenance sidecar (if one
+    # sits beside the fixture) is embedded. A schema-3 cache with no declared
+    # chain is rejected by ``verify_cache_version`` (guard a).
     save_sim_input(sim_data, cache_dir,
-                   condition=media_condition, fixed_media=fixed_media)
+                   condition=media_condition, fixed_media=fixed_media,
+                   new_genes=_normalize_strain(new_genes),
+                   bundle_overrides=_normalize_strain(bundle_overrides),
+                   sources=[{"layer": "chassis",
+                             "path": os.path.abspath(fixture)}])
 
     version = read_cache_version(cache_dir)
     print(f"    bundle built in {time.time()-t2:.1f}s")
@@ -98,9 +161,26 @@ def main() -> None:
                              "doubling time (e.g. acetate; default basal)")
     parser.add_argument("--fixed-media", default=None,
                         help="media id pinned for the run (e.g. minimal_acetate)")
+    parser.add_argument("--new-genes", default=None,
+                        help="strain new-gene insertion subdir this cache was built "
+                             "for (e.g. a new-gene strain name). Recorded into the bundle's "
+                             "cache_version.json build_params so verify_cache_version "
+                             "can reject a wrong-strain cache (P1-6). 'off'/empty = "
+                             "wild-type. MUST match the value passed to v2ecoli-parca.")
+    parser.add_argument("--bundle-overrides", default=None,
+                        help="bundle-overrides manifest path this cache was built for. "
+                             "Recorded into build_params alongside --new-genes; same "
+                             "wrong-strain-guard purpose. MUST match v2ecoli-parca.")
+    parser.add_argument("--if-stale", action="store_true",
+                        help="skip the rebuild when this process already sees a "
+                             "valid cache at --cache (verify_cache_version passes). "
+                             "Lets two sessions that both rebuild converge instead "
+                             "of ping-ponging. No-op build when the cache is valid.")
     args = parser.parse_args()
     build_cache(args.fixture, args.cache_dir,
-                media_condition=args.media_condition, fixed_media=args.fixed_media)
+                media_condition=args.media_condition, fixed_media=args.fixed_media,
+                new_genes=args.new_genes, bundle_overrides=args.bundle_overrides,
+                if_stale=args.if_stale)
 
 
 if __name__ == "__main__":

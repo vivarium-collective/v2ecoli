@@ -19,7 +19,7 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis
-from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view, available_columns
 from v2ecoli.workflow.analyses._shims import bulk_count_matrix, ACTIVE_RIBOSOME_SQL
 
 
@@ -35,14 +35,40 @@ def _flat_dir() -> str:
     return str((_ir.files(_flat_pkg) / "transcription_units.tsv").parent)
 
 
-def build_query(columns, history_sql):
-    """Generate SQL query for user-specified parquet columns."""
+def build_query(columns, history_sql, include_generation=False):
+    """Generate SQL query for user-specified parquet columns.
+
+    When ``include_generation`` is set, also carries ``generation`` (a hive
+    partition column) so per-generation consolidation can align rows to
+    generation boundaries. Callers detect the column's presence first — synthetic
+    or narrowed histories (e.g. some tests) may not have it.
+    """
+    gen = ", generation" if include_generation else ""
     query_sql = f"""
-        SELECT {",".join(columns)}, global_time AS time
+        SELECT {",".join(columns)}, global_time AS time{gen}
         FROM ({history_sql})
         ORDER BY time
     """
     return query_sql
+
+
+def _groupby_time_keep_generation(outputs_df):
+    """Collapse to one row per ``time`` while keeping a per-time ``generation``.
+
+    The data columns are summed (element-wise for list/array columns), matching
+    vEcoli semantics. ``generation`` (if present) must NOT be summed — it is a
+    label, so it is carried through as the min generation seen at each ``time``
+    (one cell per time on a single-daughter lineage, so this is exact). Callers
+    that opt into per-generation consolidation read this column back.
+    """
+    gen_by_time = None
+    if "generation" in outputs_df.columns:
+        gen_by_time = outputs_df.groupby("time")["generation"].min()
+        outputs_df = outputs_df.drop(columns=["generation"])
+    outputs_df = outputs_df.groupby("time", as_index=False).sum()
+    if gen_by_time is not None:
+        outputs_df["generation"] = outputs_df["time"].map(gen_by_time).values
+    return outputs_df
 
 
 def read_outputs(
@@ -57,13 +83,13 @@ def read_outputs(
             "bulk__count",
             "listeners__rna_counts__full_mRNA_counts",
         ]
-    query_sql = build_query(columns, history_sql)
+    incl_gen = "generation" in available_columns(conn, history_sql)
+    query_sql = build_query(columns, history_sql, incl_gen)
     outputs_df = conn.sql(query_sql).df()
     # For list/array columns, groupby sum works via element-wise numpy addition.
     # With a single-cell (single scale) query there is typically one row per
     # timestep, so this is effectively identity but preserves vEcoli semantics.
-    outputs_df = outputs_df.groupby("time", as_index=False).sum()
-    return outputs_df
+    return _groupby_time_keep_generation(outputs_df)
 
 
 def retrieve_tu_source(wd_raw):
@@ -133,8 +159,31 @@ def build_bulk2monomers_matrix(sim_data):
     return bulk2monomers, all_monomers
 
 
-def consolidate_timepoints(state_mtx, n_tp, normalized=False):
-    """Generate consolidated relative time points."""
+def consolidate_timepoints(state_mtx, n_tp, normalized=False, generations=None):
+    """Consolidate a time-ordered state matrix into fewer columns.
+
+    Default (``generations=None``): ``n_tp`` evenly-spaced checkpoints by tick,
+    summing (or averaging, ``normalized=True``) each block between them.
+
+    Per-generation (``generations`` = a per-row generation-label array aligned to
+    ``state_mtx`` rows, used by the multigeneration scale): ONE block per
+    generation — each output column is the sum/mean over that generation's ticks,
+    aligned to generation boundaries (not the drifting evenly-spaced checkpoints).
+    Returns ``(blocks, idx)`` where ``idx`` are the first-row indices of each
+    generation, so callers' time-column labelling still works.
+    """
+    if generations is not None:
+        gens = np.asarray(generations)
+        uniq = sorted(set(gens.tolist()))
+        blocks, idx = [], []
+        for g in uniq:
+            mask = gens == g
+            rows = state_mtx[mask]
+            block = rows.sum(axis=0) / len(rows) if normalized else rows.sum(axis=0)
+            blocks.append(block)
+            idx.append(int(np.flatnonzero(mask)[0]))
+        return np.stack(blocks, axis=0), np.array(idx, dtype=int)
+
     checkpoints = np.linspace(0, np.shape(state_mtx)[0] - 1, n_tp, dtype=int)
 
     if normalized:
@@ -158,6 +207,38 @@ def consolidate_timepoints(state_mtx, n_tp, normalized=False):
     return block_sums_final, checkpoints
 
 
+def build_tu_mrna_dict(mrna_mtx, mrna_tu_ids):
+    """Map each mRNA TU id to its emitted count trace, tolerating un-emitted ids.
+
+    ``full_mRNA_counts`` is a positional array whose columns are defined to match
+    sim_data's ``rna_data[is_mRNA]`` order. But sim_data's mRNA id list can be
+    WIDER than the emitted array when sim_data carries a new-gene / reporter mRNA
+    (e.g. an injected GFP reporter, appended to the gene arrays by the ParCa) that
+    the run did not emit a column for. Zero-fill any trailing sim_data id beyond
+    the emitted width instead of overrunning ``mrna_mtx`` — new genes append at
+    the tail, so this keeps every emitted gene aligned. Symmetric with
+    ``bulk_count_matrix`` tolerating un-emitted bulk molecules (cf. #685/#744).
+    """
+    n_emit = mrna_mtx.shape[1]
+    n_ids = len(mrna_tu_ids)
+    if n_ids != n_emit:
+        import warnings
+
+        warnings.warn(
+            f"ptools_rna: {n_ids} sim_data mRNA id(s) vs {n_emit} emitted "
+            f"full_mRNA_counts column(s); zero-filling "
+            f"{max(n_ids - n_emit, 0)} unemitted trailing id(s).",
+            stacklevel=2,
+        )
+    tu_mrna_dict = {}
+    for idx, mrna_tu_id in enumerate(mrna_tu_ids):
+        if idx < n_emit:
+            tu_mrna_dict[mrna_tu_id] = mrna_mtx[:, idx]
+        else:
+            tu_mrna_dict[mrna_tu_id] = np.zeros(mrna_mtx.shape[0], dtype=mrna_mtx.dtype)
+    return tu_mrna_dict
+
+
 # ---------------------------------------------------------------------------
 # Analysis subclass
 # ---------------------------------------------------------------------------
@@ -167,7 +248,12 @@ class PtoolsRna(Analysis):
 
     name = "ptools_rna"
     scale = "single"
-    config_schema = {"n_tp": "integer", "time_unit": "string"}
+    config_schema = {
+        "n_tp": "integer",
+        "time_unit": "string",
+        "per_generation": "boolean",
+        "skip_n_gens": "integer",
+    }
 
     def _do_read_outputs(
         self,
@@ -178,22 +264,21 @@ class PtoolsRna(Analysis):
         """Delegate to module-level read_outputs (overridable by mixins)."""
         return read_outputs(history_sql, conn, columns)
 
-    def analyze(
-        self,
-        *,
-        conn: DuckDBPyConnection,
-        history_sql: str,
-        sim_data,
-        variant_metadata: dict[str, Any] | None = None,
-        **ctx,
-    ) -> dict:
-        params = dict(variant_metadata or {})
-        params.setdefault("n_tp", 8)
-        params.setdefault("time_unit", "minutes")
+    # Multiseed (cross-seed) render spec, consumed by _MultiseedMixin.
+    _ptools_multiseed_spec = {
+        "filename": "ptools_rna_multiseed.tsv",
+        "title": "RNA counts",
+        "color_label": "count",
+        "log_color": False,
+        "sort_rows": False,
+        "take_abs": False,
+    }
 
-        if params["time_unit"] not in ("minutes", "seconds"):
-            params["time_unit"] = "minutes"
-
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Raw ``(time × gene)`` RNA-count matrix + axes; the extraction half of
+        :meth:`analyze`, reused per seed by ``_MultiseedMixin``. Returns
+        ``(matrix, time_vec, feature_ids, generation_vec_or_None)``.
+        """
         wd_raw = _flat_dir()
 
         rna_data = sim_data.process.transcription.rna_data
@@ -224,9 +309,7 @@ class PtoolsRna(Analysis):
             tu_ids=mrna_tu_ids, tu_source=tu_source
         )
 
-        tu_mrna_dict = {}
-        for idx, mrna_tu_id in enumerate(mrna_tu_ids):
-            tu_mrna_dict[mrna_tu_id] = mrna_mtx[:, idx]
+        tu_mrna_dict = build_tu_mrna_dict(mrna_mtx, mrna_tu_ids)
 
         # Retrieve processed RNAs (tRNAs, rRNAs)
         rna_ids_unprocessed = rna_data["id"][rna_data["is_unprocessed"]]
@@ -378,14 +461,41 @@ class PtoolsRna(Analysis):
 
         tu_counts_mtx = np.stack(list(tu_dict_full.values())).transpose()
         rna_counts_gene = np.matmul(tu_counts_mtx, tu_gene_mtx)
+        gens_raw = (
+            output_df["generation"].values
+            if "generation" in output_df.columns else None
+        )
+        return rna_counts_gene, output_df["time"].values, tu_genes_all, gens_raw
+
+    def analyze(
+        self,
+        *,
+        conn: DuckDBPyConnection,
+        history_sql: str,
+        sim_data,
+        variant_metadata: dict[str, Any] | None = None,
+        **ctx,
+    ) -> dict:
+        params = dict(variant_metadata or {})
+        params.setdefault("n_tp", 8)
+        params.setdefault("time_unit", "minutes")
+
+        if params["time_unit"] not in ("minutes", "seconds"):
+            params["time_unit"] = "minutes"
+
+        rna_counts_gene, time_vec, tu_genes_all, gens = self._feature_matrix(
+            history_sql, conn, sim_data, params
+        )
+        if not (params.get("per_generation") and gens is not None):
+            gens = None
 
         n_tp = int(params["n_tp"])
 
         rna_counts_gene_blocksum, tp_idx = consolidate_timepoints(
-            rna_counts_gene, n_tp, normalized=True
+            rna_counts_gene, n_tp, normalized=True, generations=gens
         )
 
-        tp_checkpoints = output_df["time"].values[tp_idx]
+        tp_checkpoints = time_vec[tp_idx]
 
         if params["time_unit"] == "minutes":
             tp_checkpoints = tp_checkpoints / 60

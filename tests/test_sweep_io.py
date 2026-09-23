@@ -45,6 +45,20 @@ def test_history_files_finds_only_history_parquet(local_sweep):
     assert not any("success" in f for f in files)
 
 
+def test_history_files_excludes_stray_flat_default_tree(local_sweep):
+    """A stray non-hive ``default/history/1.pq`` (an emit that fell back to
+    experiment_id "default" and wrote a flat file with no partition keys) must
+    NOT be returned — mixing it into ``read_parquet(hive_partitioning=true)``
+    aborts the whole read with "Hive partition mismatch". Only files under a
+    ``history/experiment_id=…`` segment are real hive history.
+    """
+    _touch(local_sweep / "default" / "history" / "1.pq")
+    files = sweep_io.history_files(str(local_sweep))
+    assert len(files) == 2
+    assert all("experiment_id=" in f for f in files)
+    assert not any(f.endswith("/default/history/1.pq") for f in files)
+
+
 def test_history_files_is_sorted_and_stable(local_sweep):
     files = sweep_io.history_files(str(local_sweep))
     assert files == sorted(files)
@@ -86,8 +100,12 @@ def test_history_files_s3_globs_object_storage(monkeypatch):
     files = sweep_io.history_files("s3://bucket/sweep/")
 
     assert files == ["s3://bucket/sweep/history/experiment_id=e/generation=0/x.pq"]
-    # trailing slash normalized; same **/history/**/*.pq shape as the local glob
-    assert "glob('s3://bucket/sweep/**/history/**/*.pq')" in conn.sql_seen[0]
+    # trailing slash normalized; hive-scoped shape matches the local glob so a
+    # stray flat default/history/*.pq is excluded on S3 too
+    assert (
+        "glob('s3://bucket/sweep/**/history/experiment_id=*/**/*.pq')"
+        in conn.sql_seen[0]
+    )
     assert conn.closed, "the listing connection should not be leaked"
 
 

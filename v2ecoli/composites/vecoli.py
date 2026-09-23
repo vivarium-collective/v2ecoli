@@ -38,17 +38,25 @@ from v2ecoli.core import build_core
 
 # Local fallback for the genuine-vEcoli ParCa simData when ``cache_dir`` has no
 # simData.cPickle. Mirrors scripts/run_comparison_ensemble.py's
-# ``_UPSTREAM_SIMDATA_FALLBACK`` (the same last-resort path the vivarium-process
-# vEcoli loader and matched-initial-state reference both use there).
-_UPSTREAM_SIMDATA_FALLBACK = (
-    "/Users/eranagmon/code/v2ecoli/out/compare_harness/vecoli_parca/"
-    "kb/simData.cPickle")
+# A caller may point at an explicit simData via $V2E_UPSTREAM_SIMDATA; there is
+# no hardcoded developer-path fallback (issue #131).
+_UPSTREAM_SIMDATA_FALLBACK = os.environ.get("V2E_UPSTREAM_SIMDATA", "")
 
 
 def _resolve_sim_data_path(cache_dir: str) -> str:
-    """<cache_dir>/simData.cPickle if present, else the upstream local fallback."""
+    """<cache_dir>/simData.cPickle, else $V2E_UPSTREAM_SIMDATA, else the
+    (possibly not-yet-existing) cache candidate.
+
+    Returns a path WITHOUT requiring it to exist — document construction
+    (agent-id/port wiring) does not read simData, so it must not fail here. The
+    portable cache path replaces the old hardcoded developer fallback (issue
+    #131); a downstream step that actually loads simData still fails loudly, and
+    now names a portable path rather than one developer's machine.
+    """
     candidate = os.path.abspath(os.path.join(cache_dir, "simData.cPickle"))
-    return candidate if os.path.exists(candidate) else _UPSTREAM_SIMDATA_FALLBACK
+    if os.path.exists(candidate):
+        return candidate
+    return _UPSTREAM_SIMDATA_FALLBACK or candidate
 
 
 def _resolve_fork_config(reference_repo: str, fork_config: str | None):
@@ -64,7 +72,17 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
     from scripts._compare.config_adapter import resolve_vecoli_config_local
     fork_dir = reference_repo or os.environ.get("V2E_VECOLI_DIR", "")
     resolved = resolve_vecoli_config_local(fork_config, fork_dir)
-    return resolved.get("swap_processes") or None, resolved.get("flow") or None
+    swap_processes = resolved.get("swap_processes") or None
+    flow = resolved.get("flow") or None
+    # `fork_config` only contributes swap_processes/flow. A generic vEcoli config
+    # (e.g. the stock test_installation.json) has neither, so it is discarded
+    # wholesale — warn rather than silently no-op (issue #131). To load a full
+    # vEcoli config natively, use the `whole_config` param instead.
+    if swap_processes is None and flow is None:
+        print(f"[vecoli] WARNING: fork_config {fork_config!r} has no "
+              f"'swap_processes' or 'flow' keys; nothing from it takes effect. "
+              f"Use the 'whole_config' param to load a full vEcoli config.")
+    return swap_processes, flow
 
 
 @composite_generator(
@@ -100,7 +118,7 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
             "description": "RNG seed for vEcoli's stochastic initialization.",
         },
         "fork_config": {
-            "type": "string",
+            "type": "config_file",
             "default": "",
             "description": (
                 "Optional vEcoli config JSON (path relative to reference_repo, "
@@ -127,10 +145,21 @@ def _resolve_fork_config(reference_repo: str, fork_config: str | None):
         "agent_id": {
             "type": "string",
             "default": "0",
-            "description": "Agent key under 'agents' the vEcoli node lives at.",
+            "description": (
+                "Agent key under 'agents' the vEcoli node lives at — AND the "
+                "wrapped fork's GENERATION INDEX, which is its LENGTH: '0' is "
+                "generation 1, '00' generation 2. Not cosmetic. A config whose "
+                "variant schedules a staged shift (`induction_gen`) fires it "
+                "when len(agent_id) reaches that generation, so two nodes named "
+                "'ref' and 'test' are generations 3 and 4, not two labels. "
+                "⚠ This composite is a SINGLE node with no lineage: the id does "
+                "not advance, so a staged shift either never fires (default '0') "
+                "or fires from a founder state (a longer id). For a lineage that "
+                "advances it per generation, use run_vivarium_ecoli_pbg_multigen."
+            ),
         },
         "whole_config": {
-            "type": "string",
+            "type": "config_file",
             "default": "",
             "description": (
                 "Optional full fork config (path relative to reference_repo or "
@@ -207,7 +236,9 @@ def vecoli(
         fork_config: optional vEcoli config JSON path driving a process swap.
         cache_dir: directory holding the matching ParCa simData.cPickle.
         time_step: simulation time step (seconds).
-        agent_id: agent key under 'agents' the vEcoli node lives at.
+        agent_id: agent key under 'agents' the vEcoli node lives at, and the
+            lineage phylogeny key ("0" -> "00" -> ...). Its LENGTH is the
+            generation index the wrapped fork applies staged shifts on.
         whole_config: optional full fork config loaded NATIVELY by EcoliSim
             (its own add_processes / spatial_environment_config / variants
             applied) instead of the swap-only fork_config path. Empty
@@ -239,6 +270,16 @@ def vecoli(
         if not os.path.isabs(cfg_path):
             base = reference_repo or os.environ.get("V2E_VECOLI_DIR", "")
             cfg_path = os.path.join(base, cfg_path)
+        # Fail LOUDLY when the config can't be found rather than silently
+        # handing EcoliSim a nonexistent path and running on defaults (issue
+        # #131). A relative whole_config with no reference_repo / $V2E_VECOLI_DIR
+        # is the common way this happened.
+        if not os.path.isfile(cfg_path):
+            raise FileNotFoundError(
+                f"whole_config {whole_config!r} resolved to {cfg_path!r}, which "
+                f"does not exist. Pass an absolute path, or set reference_repo / "
+                f"$V2E_VECOLI_DIR so a relative config path resolves against your "
+                f"vEcoli checkout.")
         set_ecolisim_config_file(cfg_path)
         swap_processes, flow = None, None      # native path, not swap
     else:
@@ -258,6 +299,11 @@ def vecoli(
             flow=flow,
             fork_dir=(reference_repo or None),
             variant=int(variant),
+            # ⛔ The wrapped fork reads its GENERATION INDEX off this key
+            # (``LoadSimData``: ``generation = len(agent_id)``), which is what
+            # makes a config's staged induction fire. A declared composite that
+            # dropped it here ran as the founder whatever generation it was.
+            agent_id=str(agent_id),
         )
         proc = VivariumEcoliProcess(config={
             "sim_data_path": sim_data_path,
@@ -266,6 +312,7 @@ def vecoli(
             "time_step": float(time_step),
             "fork_dir": reference_repo or "",
             "variant": int(variant),
+            "agent_id": str(agent_id),
             "observable_bulk_ids": list(observable_bulk_ids or []),
             "observables": list(observables or []),
         }, core=core)
@@ -292,6 +339,6 @@ def vecoli(
             "interval": float(time_step),
         }
     }
-    state = {"agents": {agent_id: cell_state}, "global_time": 0.0}
+    state = {"agents": {str(agent_id): cell_state}, "global_time": 0.0}
 
     return {"schema": {}, "state": state}

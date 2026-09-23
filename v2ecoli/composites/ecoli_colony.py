@@ -92,6 +92,17 @@ DEFAULT_COLONY_VISUALIZATIONS: list = []
             "default": 1.0,
             "description": "Seconds between per-cell EcoliWCM updates.",
         },
+        "transport": {
+            "type": "string",
+            "default": "local",
+            "description": (
+                "Per-cell EcoliWCM transport: 'local' (single-threaded, in-process) "
+                "or 'ray' (one actor pool per shard, distributed across a Ray "
+                "cluster's nodes when the process attaches to a multi-node one). "
+                "make_colony_document already implements both; this exposes the "
+                "existing knob through the registered composite (backlog item 88)."
+            ),
+        },
     },
     visualizations=DEFAULT_COLONY_VISUALIZATIONS,
     core_extensions=[_register_colony_core],
@@ -105,6 +116,7 @@ def colony(
     env_size: float = 30,
     physics_interval: float = 1.0,
     ecoli_interval: float = 1.0,
+    transport: str = "local",
 ) -> dict:
     """Build the colony composite document.
 
@@ -123,6 +135,7 @@ def colony(
         env_size: 2D environment edge length (micrometers).
         physics_interval: PymunkProcess step interval (seconds).
         ecoli_interval: Per-cell EcoliWCM step interval (seconds).
+        transport: 'local' (default) or 'ray' — see make_colony_document.
 
     Returns:
         Process-bigraph document dict with a single ``state`` key.
@@ -143,6 +156,7 @@ def colony(
         ecoli_interval=ecoli_interval,
         cache_dir=cache_dir,
         seed=seed,
+        transport=transport,
     )
 
     return {"state": doc}

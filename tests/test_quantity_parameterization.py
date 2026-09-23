@@ -130,3 +130,93 @@ def test_reify_populates_units_dict(core):
 
     schema2 = core.access('quantity[g/L]')
     assert schema2.units  # populated despite short-form syntax
+
+
+# ---------------------------------------------------------------------------
+# Float <-> Quantity resolution
+# ---------------------------------------------------------------------------
+#
+# A process may declare a port `quantity[<unit>]` (pint) over a store v2 types
+# `float[<unit>]` (bare magnitude) — e.g. a bridged process's `quantity[mM]`
+# port wiring onto `boundary.external`, declared `map[overwrite[float[mM]]]` in
+# Metabolism. Without a Float<->Quantity case the generic resolution raises
+# "cannot resolve types: Float[mM] vs Quantity[mM]". v2's float store is
+# authoritative (Metabolism reads plain floats), so matching units resolve
+# TOWARD the Float; mismatched units still raise.
+
+
+@pytest.mark.parametrize('left,right', [
+    ('float[mM]', 'quantity[mM]'),
+    ('quantity[mM]', 'float[mM]'),
+    ('float[fg]', 'quantity[fg]'),
+    ('quantity[fg]', 'float[fg]'),
+])
+def test_resolve_float_quantity_same_unit_yields_float(core, left, right):
+    """Matching-unit Float/Quantity resolve to the Float (v2-authoritative
+    magnitude store), regardless of which side is `current` vs `update`."""
+    from bigraph_schema.methods.resolve import resolve
+    resolved = resolve(core.access(left), core.access(right))
+    assert isinstance(resolved, Float)
+    assert resolved._units == core.access(left)._units or \
+        resolved._units == core.access(right)._units
+
+
+def test_resolve_float_vs_inferred_quantity_yields_float(core):
+    """A store declared `float[mM]` meets a Quantity INFERRED from a port's pint
+    default (`0.0 * mM`). The inferred Quantity has an empty `_units` and only
+    the `units` dict (`{'millimolar': 1}`), so a `_units` string compare would
+    miss it — the units must be normalized through pint. Both orders -> Float."""
+    from bigraph_schema.methods import infer
+    from bigraph_schema.methods.resolve import resolve
+    from v2ecoli.types.quantity import ureg
+
+    q_inferred, _ = infer(core, 0.0 * ureg.mM)
+    assert q_inferred._units == ''
+    assert q_inferred.units
+    fm = core.access('float[mM]')
+
+    r1 = resolve(fm, q_inferred)
+    assert isinstance(r1, Float) and r1._units == 'mM'
+    r2 = resolve(q_inferred, fm)
+    assert isinstance(r2, Float) and r2._units == 'mM'
+
+
+def test_resolve_float_vs_unitless_quantity_yields_float(core):
+    """A Quantity can reach resolve as `quantity[]` — empty `_units` AND empty
+    `units` dict, having lost its unit upstream. There is nothing to conflict
+    with, so the authoritative `float[mM]` store wins rather than raising."""
+    from bigraph_schema.methods.resolve import resolve
+
+    q_empty = core.access('quantity')
+    assert q_empty._units == '' and not q_empty.units
+    fm = core.access('float[mM]')
+
+    r1 = resolve(fm, q_empty)
+    assert isinstance(r1, Float) and r1._units == 'mM'
+    r2 = resolve(q_empty, fm)
+    assert isinstance(r2, Float) and r2._units == 'mM'
+
+
+def test_resolve_definite_unit_conflict_still_raises(core):
+    """A definite conflict — BOTH sides carry a known, different unit — must
+    still raise (the permissive unitless case must not swallow real mismatches)."""
+    from bigraph_schema.methods import infer
+    from bigraph_schema.methods.resolve import resolve
+    from v2ecoli.types.quantity import ureg
+
+    with pytest.raises(Exception):
+        resolve(core.access('float[uM]'), core.access('quantity[mM]'))
+    with pytest.raises(Exception):
+        resolve(core.access('quantity[mM]'), core.access('float[uM]'))
+    q_um, _ = infer(core, 0.0 * ureg.uM)
+    with pytest.raises(Exception):
+        resolve(core.access('float[mM]'), q_um)
+
+
+def test_resolve_quantity_quantity_unchanged(core):
+    """The pre-existing same-type Quantity/Quantity resolution keeps working
+    (guards against the new dispatches shadowing it)."""
+    from bigraph_schema.methods.resolve import resolve
+    resolved = resolve(core.access('quantity[mM]'), core.access('quantity[mM]'))
+    assert isinstance(resolved, Quantity)
+    assert resolved._units == 'mM'

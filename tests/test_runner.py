@@ -115,3 +115,59 @@ def test_run_engines_omits_the_flag_when_a_study_declares_no_companion(monkeypat
     runner._run_engines(spec, out="out/x", mode="serial")
     for argv in calls:
         assert "--inject-process" not in argv
+
+
+# --------------------------------------------------------------------------- #
+# THE VARIANT BRIDGE — a declaration is only useful if it reaches the engine.
+# --------------------------------------------------------------------------- #
+def test_a_DECLARED_variant_reaches_the_REFERENCE_arm_only(monkeypatch):
+    """⭐ THE WIRE, which is where this class of bug lives.
+
+    `--variant` is applied by the reference arm through the fork's own
+    `apply_variant`; the candidate arm takes its perturbation from `--cache-dir`.
+    Passing it to both would apply the same perturbation twice on the candidate
+    side, so the asymmetry is deliberate and has to be pinned on BOTH arms — the
+    flag present on one and absent on the other.
+
+    ⚠ A study declaring a variant that never reaches the runner is the exact
+    failure this whole change exists to remove: the reference arm then runs the
+    unvaried model and emits a complete-looking result for it.
+    """
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda argv, **k: calls.append(argv))
+    spec = _spec(name="v", condition="basal")
+    spec.variant = 1
+    runner._run_engines(spec, out="out/x", mode="serial")
+    v2, ve = calls
+    assert ve[ve.index("--variant") + 1] == "1", "the reference arm lost the variant"
+    assert "--variant" not in v2, (
+        "the candidate arm was handed the variant; its perturbation comes from "
+        "--cache-dir and this would apply it twice")
+
+
+def test_variant_ZERO_is_passed_EXPLICITLY_not_dropped_as_falsy(monkeypatch):
+    """⛔ `0` IS A DECLARATION, AND DROPPING IT INVERTS ITS MEANING.
+
+    `variant: 0` is a study saying "baseline, deliberately". It is falsy, so a
+    truthiness test here would send NOTHING — and the runner refuses an
+    undeclared variant when the config declares one, so the study's explicit
+    answer would surface as a refusal to run. The opt-out has to travel.
+    """
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda argv, **k: calls.append(argv))
+    spec = _spec(name="v", condition="basal")
+    spec.variant = 0
+    runner._run_engines(spec, out="out/x", mode="serial")
+    _, ve = calls
+    assert ve[ve.index("--variant") + 1] == "0"
+
+
+def test_an_UNDECLARED_variant_sends_no_flag(monkeypatch):
+    """None means undeclared, and the runner is then free to refuse — which it
+    does only when the driving config actually declares variants. A study that
+    drives a config with no variants block is unaffected by any of this."""
+    calls = []
+    monkeypatch.setattr(runner.subprocess, "run", lambda argv, **k: calls.append(argv))
+    runner._run_engines(_spec(name="v", condition="basal"), out="out/x", mode="serial")
+    v2, ve = calls
+    assert "--variant" not in ve and "--variant" not in v2

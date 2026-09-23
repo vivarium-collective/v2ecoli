@@ -151,14 +151,53 @@ def test_an_unperformed_knockout_fails_rather_than_passes(arms):
 # --- the mode trap ------------------------------------------------------------
 
 def test_conditions_fitted_reads_cell_specs_not_conditions():
-    """`conditions` is the full condition LIST and reads 51 in BOTH fast and full
+    """`conditions` is the full condition LIST and reads 52 in BOTH fast and full
     mode; only `cell_specs` distinguishes them. An axis against `conditions` would
-    pass at 51 on a fast build and never discriminate."""
+    pass at 52 on a fast build and never discriminate. (The numbers below are a
+    synthetic fixture, deliberately not the real count -- this test is about the
+    mode trap, not about how many conditions ship.)"""
     fit = gb.measure_fit({"cell_specs": {"basal": {}, "with_aa": {}},
                           "conditions": list(range(51)),
                           "mechanistic_fit_status": {"mechanistic_supply": "ok"}})
     assert fit["conditions_fitted"] == 2
     assert fit["conditions_declared"] == 51
+
+
+class _FakeCondition:
+    def __init__(self, n_defs, n_tf):
+        self.condition_defs = list(range(n_defs))
+        self.tf_condition = list(range(n_tf))
+
+
+class _FakeRawData:
+    def __init__(self, n_defs, n_tf):
+        self.condition = _FakeCondition(n_defs, n_tf)
+
+
+def test_conditions_fitted_reference_derives_from_declared_inputs():
+    """The full-fit condition count is len(condition_defs) + 2*len(tf_condition),
+    derived from the DECLARED inputs -- so it tracks ecoli-sources automatically
+    instead of a hardcoded literal (#584). 6 + 2*23 = 52 with today's data."""
+    assert gb._conditions_fitted_reference(_FakeRawData(6, 23)) == 52
+    # And it moves with the inputs, not a constant:
+    assert gb._conditions_fitted_reference(_FakeRawData(7, 23)) == 53
+    assert gb._conditions_fitted_reference(_FakeRawData(6, 24)) == 54
+
+
+def test_full_mode_conditions_axis_grades_against_the_threaded_reference():
+    """A full-mode card grades conditions_fitted against the input-derived
+    reference passed in -- NOT a hardcoded 52. Proves the value is threaded, so a
+    data change to ecoli-sources can't silently produce a false failure (#584)."""
+    ref = gb._reference(["EG10526"], "full", 3000, conditions_fitted_ref=99)
+    crit = ref["axes"]["fit.conditions_fitted"]["criterion"]
+    assert crit == {"type": "rel_tol", "reference": 99, "tol_rel": 0.0}
+
+
+def test_non_full_mode_leaves_conditions_axis_ungraded():
+    """Fast/no-fit builds leave the axis ungraded (status), so no reference is
+    needed and none is fabricated."""
+    ref = gb._reference(["EG10526"], None, 3000)
+    assert ref["axes"]["fit.conditions_fitted"]["criterion"] == {"type": "status"}
 
 
 def test_absent_parca_state_leaves_fit_axes_ungraded():

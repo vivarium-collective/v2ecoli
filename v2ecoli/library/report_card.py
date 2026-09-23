@@ -71,15 +71,28 @@ def merge_vectors(card: dict, reference: dict, sweep_dir: str,
     """Merge omics + exchange-flux nodes into a measured card by reading the
     sweep parquet (the array columns aren't in the scalar per-cell records).
 
-    Omics nodes merge straight in (``omics.{transcriptome,proteome}.vector``).
-    The exchange-flux ensemble-mean vector populates the scatter axis; named
-    flux KPIs (declared via ``criterion.flux_id`` on a ttest axis) are sliced
-    per-cell from the flux matrix using the ``flux_ids`` order pinned in the
-    reference's scatter criterion. Heavy (~minute) — call at render time."""
+    Omics nodes populate ``omics.{transcriptome,proteome}``. The exchange-flux
+    ensemble-mean vector populates the scatter axis; named flux KPIs (declared
+    via ``criterion.flux_id`` on a ttest axis) are sliced per-cell from the flux
+    matrix using the ``flux_ids`` order pinned in the reference's scatter
+    criterion. Heavy (~minute) — call at render time.
+
+    ⚠ **Both groups are PROJECTED onto the keys the card actually grades, never
+    merged verbatim.** The extractor's node is an artifact of the cache and grows
+    keys on its own schedule (``per_cell`` and ``units`` arrived in extractor v2);
+    the card is a graded document. The flux branch below has always rebuilt its
+    node explicitly for exactly this reason, while omics used to ``.update()``
+    straight in — so the first key the extractor grew would appear in the graded
+    card on one path and be excluded on the other, with no line of code stating
+    the difference. Projecting both makes the card's content a decision rather
+    than a consequence."""
     from v2ecoli.library.card_vectors import extract_vectors
     vec = extract_vectors(sweep_dir, generation_lower_bound)
-    if vec.get("omics"):
-        card.setdefault("omics", {}).update(vec["omics"])
+    for name, node in (vec.get("omics") or {}).items():
+        card.setdefault("omics", {})[name] = {
+            "vector": node["vector"], "n_cells": node.get("n_cells"),
+            "units": node.get("units"),
+        }
     exch = (vec.get("fluxes") or {}).get("exchange")
     if not exch:
         return card

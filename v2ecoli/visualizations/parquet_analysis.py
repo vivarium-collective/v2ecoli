@@ -148,8 +148,12 @@ class ParquetAnalysisView(Visualization):
         import glob
         import os
 
-        hist = glob.glob(os.path.join(sweep_dir, "**", "history", "**", "*.pq"),
-                         recursive=True)
+        # Single source of truth for "which history parquet" — hive-scoped, so a
+        # stray non-hive default/history/*.pq neither passes this gate on its own
+        # nor reaches the duckdb hive read below (via _history_from_clause).
+        from v2ecoli.library.sweep_io import history_files
+
+        hist = history_files(sweep_dir)
         if not hist:
             raise FileNotFoundError(
                 "no parquet history under the run's sweep dir yet")

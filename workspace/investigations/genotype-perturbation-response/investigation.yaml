@@ -72,7 +72,11 @@ executive:
         rather than fail to grow - a genotype-00 outcome, qualitatively unlike the
         translation-level knockout's outcome.
     - question: "Does a ParCa-level TF knockout prune that TF's regulon entries?"
-      status: OPEN - surfaced by genotype-06, but it is a generator-semantics question
+      status: >-
+        OPEN - the BEHAVIOUR is now measured (it does NOT prune; all 7 trpR fold_changes
+        rows survive a trpR deletion, because the transform never touches fold_changes).
+        What stays open is the JUDGEMENT - defect or defensible modelling choice - which
+        genotype-06-trpr-regulon carries as design_pivot_required GENO06-EQ-01.
       context: >-
         fold_changes.tsv is keyed by TF COMMON NAME (trpR has 7 target entries: trpA -1.83,
         trpB -1.77, trpC -1.63, ...), and the chromosome-deletion transform touches only
@@ -90,8 +94,9 @@ scientific_argument:
   evidence_for: []
   caveats:
     - >-
-      Only genotype-00 is authored; 01-06 are named targets, not artifacts. Nothing here
-      has been run.
+      genotype-00, genotype-01 and genotype-06 are authored; the rest are named targets,
+      not artifacts. genotype-00 and genotype-01 have run; genotype-06's findings are static
+      measurements of the model's own parameter tables, and its run arms are not yet executed.
     - >-
       Published essentiality is used as independent structure to read results against, not
       as a grading key. It IS genuinely independent - the model is not fit to it - which is
@@ -132,10 +137,12 @@ at_a_glance:
         AUTHORED. Does a ParCa-level knockout reconstruct into a self-consistent sim_data?
         Graded, not descriptive - the round-trip and inventory invariants are right or wrong
         independently of biology. Gates everything below.
-    - genotype-01-null-control: >-
-        PLANNED. A no-op perturbation plus one well-characterized non-essential knockout;
-        confirms the machinery moves the cell only where it should before anything is read
-        into a result.
+    - genotype-01-control-panel: >-
+        AUTHORED. A control panel spanning gene classes - a no-op perturbation plus
+        well-characterized knockouts - confirming the machinery moves the cell only where it
+        should before anything is read into a result. (Authored under the slug
+        genotype-01-control-panel; this entry previously named a planned
+        genotype-01-null-control.)
     - genotype-02-essentiality-panel: >-
         PLANNED. Single-gene knockouts spanning known-essential, known-non-essential and
         known-conditional genes; characterize the model's response using published
@@ -150,8 +157,10 @@ at_a_glance:
     - genotype-05-knockdown-dose-response: >-
         PLANNED. Graded knockdown of a small gene set; characterize the shape of the
         response across the multiplier series.
-    - genotype-06-trpR-regulon: >-
-        PLANNED, details deliberately open. Knockout of a transcriptional regulator rather
+    - genotype-06-trpr-regulon: >-
+        AUTHORED (design complete, runs not yet executed). Slug is all-lowercase per the
+        workspace convention; the gene is trpR. Knockout of a transcriptional
+        regulator rather
         than an enzyme. Expected to disagree with data, for a mechanistic reason worth
         pinning: the deletion transform never prunes fold_changes, so ParCa keeps fitting
         the trpR regulon after trpR is gone. Sibling of genotype-03 - that one probes the
@@ -168,6 +177,7 @@ acceptance_criteria:
 members:
   - genotype-00-build-integrity
   - genotype-01-control-panel
+  - genotype-06-trpr-regulon
 
 glossary:
   - term: ParCa-level knockout

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 
 _S3_PREFIX = "s3://"
 
@@ -29,10 +30,22 @@ def history_files(sweep_dir: str) -> list[str]:
     Mirrors the local glob for S3 so every caller (FROM-clause builder, cell-key
     enumeration, per-cell record builder) sees one file list regardless of where
     the sweep lives.
+
+    ⚠ Scoped to the HIVE-partitioned tree (``history/experiment_id=*/…/*.pq``), NOT
+    a bare ``history/**/*.pq``. A run's output can also contain a stray, non-hive
+    ``<out>/default/history/1.pq`` — an emit that fell back to experiment_id
+    ``"default"`` (parquet_vecoli's default when the emitter decl carries no
+    experiment_id) and wrote a flat file with none of the hive partition keys. A
+    bare glob picks it up alongside the real hive files, and the downstream
+    ``read_parquet(files, hive_partitioning=true)`` then aborts the whole read with
+    "Hive partition mismatch … key 'agent_id' not found". Requiring the
+    ``experiment_id=`` partition segment selects only real hive history and makes
+    the read robust to any such stray/flat tree.
     """
     if not is_s3_uri(sweep_dir):
         return sorted(glob.glob(
-            os.path.join(sweep_dir, "**", "history", "**", "*.pq"), recursive=True))
+            os.path.join(sweep_dir, "**", "history", "experiment_id=*", "**", "*.pq"),
+            recursive=True))
     # DuckDB's glob() lists object storage through the same httpfs extension the
     # read needs — so listing costs no extra dependency and no parquet read.
     import tempfile
@@ -41,7 +54,7 @@ def history_files(sweep_dir: str) -> list[str]:
 
     conn = create_duckdb_conn(temp_dir=tempfile.gettempdir())
     configure_duckdb_s3(conn)
-    pattern = sweep_dir.rstrip("/") + "/**/history/**/*.pq"
+    pattern = sweep_dir.rstrip("/") + "/**/history/experiment_id=*/**/*.pq"
     try:
         rows = conn.sql(
             f"SELECT file FROM glob('{pattern}')").fetchall()
@@ -93,3 +106,114 @@ def connect_for(sweep_dir: str):
     if is_s3_uri(sweep_dir):
         configure_duckdb_s3(conn)
     return conn
+
+
+# --- Analysis DuckDB memory budget --------------------------------------------
+#
+# ``create_duckdb_conn`` (viva_emitters / vEcoli) already sets a temp_directory
+# so DuckDB spills to disk, ``preserve_insertion_order = false``, and an object
+# cache. What it does NOT set is an explicit ``memory_limit`` -- DuckDB then
+# defaults to ~80% of the DETECTED (host) RAM. Inside a container that reads the
+# HOST's RAM, not the cgroup limit, so a heavy analysis (a ptools view's ORDER BY
+# over the whole hive) budgets far past what the container may use and dies with
+# "failed to pin block ... NGiB/NGiB" instead of spilling. Reading the cgroup and
+# setting a real budget makes DuckDB spill to its temp_directory and finish.
+
+def _container_memory_limit_bytes() -> int | None:
+    """This process's cgroup memory ceiling in bytes, or None if unbounded / not
+    containerized (e.g. macOS, where the cgroup files do not exist)."""
+    for path in ("/sys/fs/cgroup/memory.max",                     # cgroup v2
+                 "/sys/fs/cgroup/memory/memory.limit_in_bytes"):  # cgroup v1
+        try:
+            raw = open(path, encoding="ascii").read().strip()
+        except OSError:
+            continue
+        if raw in ("max", ""):
+            continue
+        try:
+            n = int(raw)
+        except ValueError:
+            continue
+        # cgroup v1 uses a near-INT64_MAX sentinel for "unlimited".
+        if 0 < n < (1 << 62):
+            return n
+    return None
+
+
+def _parse_size(s: str) -> int | None:
+    """Parse a DuckDB-style size string ('8GB', '512MB', '4GiB') to bytes, or
+    None if it is not a plain size (so a budget stays 'unknown' rather than
+    wrong)."""
+    m = re.fullmatch(r"\s*([0-9.]+)\s*([A-Za-z]*)\s*", s or "")
+    if not m:
+        return None
+    units = {"": 1, "B": 1, "KB": 10**3, "MB": 10**6, "GB": 10**9, "TB": 10**12,
+             "KIB": 2**10, "MIB": 2**20, "GIB": 2**30, "TIB": 2**40}
+    unit = m.group(2).upper()
+    if unit not in units:
+        return None
+    try:
+        return int(float(m.group(1)) * units[unit])
+    except ValueError:
+        return None
+
+
+def analysis_memory_limit() -> str | None:
+    """The value for DuckDB ``SET memory_limit`` on an analysis connection, or
+    None to keep DuckDB's default.
+
+    Precedence: ``V2E_ANALYSIS_MEMORY_LIMIT`` verbatim (e.g. '8GB'), else ~70% of
+    the cgroup limit (leaving headroom for the process + spill bookkeeping), else
+    None."""
+    env = os.environ.get("V2E_ANALYSIS_MEMORY_LIMIT")
+    if env:
+        return env
+    n = _container_memory_limit_bytes()
+    if n:
+        return f"{int(n * 0.7) // (1000 * 1000)}MB"
+    return None
+
+
+def analysis_memory_budget_bytes() -> int | None:
+    """The analysis memory budget in bytes (for sizing the worker pool), mirroring
+    :func:`analysis_memory_limit`'s precedence. None when unknown."""
+    env = os.environ.get("V2E_ANALYSIS_MEMORY_LIMIT")
+    if env:
+        return _parse_size(env)
+    n = _container_memory_limit_bytes()
+    return int(n * 0.7) if n else None
+
+
+def apply_analysis_duckdb_config(conn, *, threads: int | None = None,
+                                 max_temp_directory_size: str | None = None) -> None:
+    """Set the explicit memory_limit on an analysis DuckDB connection so it spills
+    to its temp_directory at the container's real budget instead of overshooting
+    host RAM. No-op when no budget is known (keeps DuckDB's default).
+
+    ``threads`` / ``max_temp_directory_size`` are the two other knobs DuckDB
+    itself names in its out-of-memory message ("Reducing the number of threads
+    (SET threads=X)"; "This limit was set by the 'max_temp_directory_size'
+    setting"). Measured on CD2 Run 2's Nextflow gather (sim 683, 10 seeds x 8
+    generations, 27 GB of history): five multiseed modules ran concurrently on a
+    32 GB task, pinned 22.3 GiB and spilled the temp directory's whole 63.7 GiB
+    cap, and all five died. Both are left alone when None.
+    """
+    limit = analysis_memory_limit()
+    if limit:
+        conn.execute(f"SET memory_limit = '{limit}'")
+    if threads:
+        conn.execute(f"SET threads = {int(threads)}")
+    if max_temp_directory_size:
+        conn.execute(f"SET max_temp_directory_size = '{max_temp_directory_size}'")
+
+
+def analysis_temp_dir(preferred: str | None = None) -> str:
+    """Where an analysis DuckDB spills. ``V2E_DUCKDB_TEMP_DIR`` (env) wins, then
+    ``preferred`` (a caller's choice, e.g. the Nextflow task's own work dir --
+    relative paths resolve against cwd), then the system temp dir. Created if
+    missing: DuckDB refuses a temp_directory that does not exist."""
+    import os
+    import tempfile
+    chosen = os.environ.get("V2E_DUCKDB_TEMP_DIR") or preferred or tempfile.gettempdir()
+    os.makedirs(chosen, exist_ok=True)
+    return chosen

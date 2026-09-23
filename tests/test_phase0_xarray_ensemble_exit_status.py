@@ -12,7 +12,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.run_phase0_xarray_ensemble import main
+from scripts.run_phase0_xarray_ensemble import main, run_one
 
 
 def _fake_parallel_result(results, mode="sequential"):
@@ -55,3 +55,33 @@ def test_main_exits_zero_when_at_least_one_seed_succeeds(monkeypatch, tmp_path):
 
     summary = (tmp_path / "summary.json").read_text()
     assert '"n_seeds_successful": 1' in summary
+
+
+@pytest.mark.sim
+def test_run_one_writes_store_at_ray_layout_convention(monkeypatch, tmp_path):
+    """CROSS-REPO CONTRACT: viva-api's GET .../observables/index resolves a seed's
+    store via RayLayout.seed_store_uri(experiment_id, seed) -- "v2ecoli_seed{NN:02d}.zarr"
+    directly under the experiment prefix, the SAME convention chain-dispatch and the
+    multi-node/colony path already write and read correctly. Regression guard against
+    reintroducing the nested seed_NN/store.zarr shape: the S3 sync (RAY_OUT_DIR ->
+    RAY_OUT_S3) faithfully preserves whatever local layout this writes, so a nested
+    store lands in S3 at a path RayLayout never looks for -- the exact bug that 500'd
+    every observables read for a single-generation ("phase0") dispatch, the default
+    path for any request that doesn't ask for generations > 1 or a multi-node
+    composite (cplong, smsvpctest, 2026-08-26)."""
+    import os
+    if not os.path.isdir("out/cache") and not os.environ.get("CI"):
+        pytest.skip("cache dir 'out/cache' not present; "
+                    "build via `python scripts/build_cache.py` (CI builds it automatically)")
+    import scripts.run_phase0_xarray_ensemble as mod
+
+    monkeypatch.setattr(mod, "OUT_ROOT", tmp_path)
+    summary = run_one(seed=0, n_steps=2, chunk=1)
+
+    assert (tmp_path / "v2ecoli_seed00.zarr").exists()
+    assert not (tmp_path / "seed_00" / "store.zarr").exists()
+    # summary.json's own nested location is UNCHANGED -- run_standalone_analysis.py's
+    # build_multiseed_rows reads it from exactly here and never looks at store.zarr's
+    # path at all, so that consumer must keep working unmodified.
+    assert (tmp_path / "seed_00" / "summary.json").exists()
+    assert summary["xarray_store"] == str(tmp_path / "v2ecoli_seed00.zarr")

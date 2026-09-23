@@ -96,7 +96,7 @@ def _resolve_boundary_keys(external: dict, boundary_ext: dict) -> dict[str, str]
     substance onto another — the cost is a missed error, not a mis-route, and
     no in-repo producer emits a wrong tag today (the only two writers of the
     top-level store are EnvironmentDriver, which emits bare ids everywhere in
-    `tests/` and `workspace/`, and ReactorCellCoupler, whose three ids are
+    `tests/` and `workspace/`, and ReactorCellCoupler, whose four ids are
     correctly tagged).
 
     The authoritative fix is `sim_data.external_state.exchange_to_env_map`,
@@ -131,6 +131,39 @@ class EnvironmentMirror(Step):
     """Propagate top-level environment.external_concentrations to each agent's boundary.external."""
 
     name = "environment_mirror"
+
+    description = (
+        "Propagates the top-level environment.external_concentrations down to "
+        "each agent's boundary.external, so every cell senses the shared "
+        "environment. Writes are absolute concentrations (overwrite), resolving "
+        "each driver/coupler molecule id onto the matching bare boundary key."
+    )
+
+    # Structured contract surfaced by the workbench loom viewer (card contract
+    # band + Inspector) and by bigraph_schema.contract.resolve_contract.
+    contract = {
+        "summary": (
+            "Broadcasts the shared top-level environment concentrations onto "
+            "each agent's boundary.external, matching molecule ids to boundary "
+            "keys and writing absolute (overwrite) mM values."
+        ),
+        "inputs": {
+            "environment": "Shared top-level environment.external_concentrations to broadcast (mM).",
+            "agents": "Per-cell agents map whose boundary.external is read to resolve molecule ids and receive the broadcast.",
+        },
+        "outputs": {
+            "agents": "Each agent's boundary.external written with the shared environment concentrations (absolute mM, overwrite).",
+        },
+        "config": {
+            "time_step": "Update step (s).",
+        },
+        "assumptions": [
+            "boundary.external leaves are overwrite[float[mM]], so writes replace rather than add.",
+            "Molecule ids match a bare boundary key exactly, else the compartment tag is stripped and retried; unmatched or ambiguous ids fail closed and are counted.",
+            "NaN or negative concentrations are refused; +inf is allowed as this model's encoding of 'unlimited'.",
+        ],
+    }
+
     config_schema = {
         "time_step": "float",
     }

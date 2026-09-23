@@ -82,9 +82,36 @@ DEFAULT_PARALLEL = "ray"
 DEFAULT_EMITTER = "both"
 DEFAULT_ANALYSES = "applicable"
 
-# Registered but not a real analysis — a test fixture that would otherwise
-# render an empty panel into every multivariant batch.
-_ANALYSIS_DENYLIST = frozenset({"dummy"})
+# Registered but never a real deliverable — test/smoke fixtures that would
+# otherwise render an empty or stub panel into every applicable batch. "dummy"
+# is a multivariant test fixture; "sms_modules_smoke" renders a one-line
+# "sms-modules registered" stub into every cell.
+_ANALYSIS_DENYLIST = frozenset({"dummy", "sms_modules_smoke"})
+
+# Curated named analysis profiles. A profile gives the meaningful default set
+# for a campaign ONE definition, so a config, a ``--modules`` value, and a
+# composite ``analyses`` param all resolve through the same place instead of
+# each re-listing views — or defaulting to "applicable", which expands to every
+# registered analysis at the covered scales and is what generates the per-cell
+# figure sprawl.
+#
+# ``cd2-core`` is the multiseed ptools core — rna/rxns/proteins/metabolites,
+# cross-seed mean+spread, with the pre-steady-state birth generation dropped
+# (skip_n_gens=1). It deliberately omits ptools_overview_multiseed; "core-5"
+# would add it (parked as a container-ceiling view: completes on light
+# genotypes, OOMs on heavy ones). Profiles are intersected with the scales the
+# batch actually produces (see build_analysis_options), so requesting cd2-core
+# on a single-seed run yields nothing rather than a zero-spread panel.
+_ANALYSIS_PROFILES: "dict[str, dict[str, dict[str, dict]]]" = {
+    "cd2-core": {
+        "multiseed": {
+            "ptools_rna_multiseed": {"skip_n_gens": 1},
+            "ptools_rxns_multiseed": {"skip_n_gens": 1},
+            "ptools_proteins_multiseed": {"skip_n_gens": 1},
+            "ptools_metabolites_multiseed": {"skip_n_gens": 1},
+        },
+    },
+}
 
 
 def applicable_analysis_scales(
@@ -125,19 +152,30 @@ def build_analysis_options(
     """Resolve the ``analyses`` parameter into a workflow ``analysis_options`` map.
 
     ``analyses`` is either an explicit ``{scale: {name: params}}`` mapping (used
-    verbatim), the string ``"applicable"`` (every registered analysis at the
-    scales this batch covers — see :func:`applicable_analysis_scales`), or
-    ``"none"`` / empty (no analyses; the flush then only writes visualizations
-    and report cards).
+    verbatim), a named profile (see ``_ANALYSIS_PROFILES``, e.g. ``"cd2-core"``
+    — the curated set, intersected with the scales this batch covers), the
+    string ``"applicable"`` (every registered analysis at the scales this batch
+    covers — see :func:`applicable_analysis_scales`), or ``"none"`` / empty (no
+    analyses; the flush then only writes visualizations and report cards).
     """
     if isinstance(analyses, dict):
         return {k: dict(v or {}) for k, v in analyses.items() if v}
     choice = (analyses or "").strip().lower()
     if choice in ("", "none", "off", "false"):
         return {}
+    if choice in _ANALYSIS_PROFILES:
+        wanted = set(applicable_analysis_scales(
+            n_seeds=n_seeds, n_generations=n_generations,
+            single_daughters=single_daughters, variants=variants))
+        return {
+            scale: {name: dict(params) for name, params in views.items()}
+            for scale, views in _ANALYSIS_PROFILES[choice].items()
+            if scale in wanted
+        }
     if choice != "applicable":
         raise ValueError(
-            f"analyses={analyses!r} — expected 'applicable', 'none', or an "
+            f"analyses={analyses!r} — expected 'applicable', a named profile "
+            f"({', '.join(sorted(_ANALYSIS_PROFILES))}), 'none', or an "
             "explicit {scale: {name: params}} mapping")
 
     # Import for the registration side effects: every ported analysis module
@@ -170,10 +208,23 @@ def build_workflow_config(
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
     variants: "dict | None" = None,
+    variant: int = 0,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    independent_founders: bool = False,
+    founder_sim_data: str = "",
+    injected_processes: "dict | None" = None,
+    features: "list | None" = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    exchange_fluxes: "dict | None" = None,
+    exchange_flux_basis: str = "",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
     initial_carry_state_path: str = "",
     initial_generation_index: int = 0,
     daughter_state_out_path: str = "",
@@ -208,6 +259,12 @@ def build_workflow_config(
         "emitter": emitter or DEFAULT_EMITTER,
         "parallel": parallel or None,
         "variants": dict(variants or {}),
+        # Base offset applied to every branch's variant_index by expand_branches
+        # (mirrors lineage_seed offsetting seed) — baseline()'s `variant` kwarg
+        # threaded through so a batch dispatch partitions its emitter output at
+        # the caller's requested variant index instead of always starting at 0
+        # (P0-10 batch-mode coverage fix).
+        "variant": int(variant),
         "analysis_options": build_analysis_options(
             analyses, n_seeds=n_seeds, n_generations=n_generations,
             single_daughters=single_daughters, variants=variants),
@@ -216,6 +273,11 @@ def build_workflow_config(
         # Threaded to every per-seed baseline() build (see LineageProcess); a
         # lightweight in-cache media shift applied panel-wide across the sweep.
         config["media"] = media
+    if independent_founders and founder_sim_data:
+        # Threaded to every per-seed baseline() build so each seed re-draws its
+        # own founder from founder_sim_data (real cell-to-cell founder variability).
+        config["independent_founders"] = True
+        config["founder_sim_data"] = founder_sim_data
     if study:
         # Lets the flush place analyses/visualizations/report cards into this
         # study's report dir even when out_dir isn't under studies/<slug>/.
@@ -225,6 +287,32 @@ def build_workflow_config(
         # variant grid) — how batch_baseline's `knockouts` knocks a gene out
         # across all seeds without forking a comparison arm.
         config["base_config_overrides"] = dict(base_config_overrides)
+    # Per-cell biological build kwargs -> every generation's baseline() build via
+    # meta_composite._lineage_node -> LineageProcess. WITHOUT threading these an
+    # injected batch (metabolism-redux swap, feature toggles,
+    # exchange-flux readouts, PDMP initiation modes) silently degrades to a basal
+    # single-cell build per generation (pipeline audit). Non-empty/non-default
+    # only, so a plain baseline batch keeps a minimal config.
+    if injected_processes:
+        config["injected_processes"] = dict(injected_processes)
+    if features:
+        config["features"] = list(features)
+    if not ppgpp_regulation:  # default True; only record a deviation
+        config["ppgpp_regulation"] = False
+    if trna_attenuation:
+        config["trna_attenuation"] = True
+    if supercoiling:
+        config["supercoiling"] = True
+    if mass_conservation:
+        config["mass_conservation"] = True
+    if exchange_fluxes:
+        config["exchange_fluxes"] = dict(exchange_fluxes)
+    if exchange_flux_basis:
+        config["exchange_flux_basis"] = exchange_flux_basis
+    if transcript_initiation_mode and transcript_initiation_mode != "discrete":
+        config["transcript_initiation_mode"] = transcript_initiation_mode
+    if polypeptide_initiation_mode and polypeptide_initiation_mode != "discrete":
+        config["polypeptide_initiation_mode"] = polypeptide_initiation_mode
     if initial_carry_state_path:
         # Per-generation checkpoint/resume (backlog item 34): a wave
         # orchestrator's own resume hand-off. initial_generation_index is only
@@ -323,10 +411,23 @@ def dispatch_batch(
     emitter: str = DEFAULT_EMITTER,
     parallel: "str | None" = DEFAULT_PARALLEL,
     variants: "dict | None" = None,
+    variant: int = 0,
     analyses: "str | dict | None" = DEFAULT_ANALYSES,
     study: str = "",
     base_config_overrides: "dict | None" = None,
     media: str = "minimal",
+    independent_founders: bool = False,
+    founder_sim_data: str = "",
+    injected_processes: "dict | None" = None,
+    features: "list | None" = None,
+    ppgpp_regulation: bool = True,
+    trna_attenuation: bool = False,
+    supercoiling: bool = False,
+    mass_conservation: bool = False,
+    exchange_fluxes: "dict | None" = None,
+    exchange_flux_basis: str = "",
+    transcript_initiation_mode: str = "discrete",
+    polypeptide_initiation_mode: str = "discrete",
     initial_carry_state_path: str = "",
     initial_generation_index: int = 0,
     daughter_state_out_path: str = "",
@@ -347,8 +448,15 @@ def dispatch_batch(
         single_daughters=single_daughters, time_step=time_step,
         max_duration=max_duration, cache_dir=cache_dir, out_dir=out_dir,
         experiment_id=experiment_id, emitter=emitter, parallel=parallel,
-        variants=variants, analyses=analyses, study=study,
+        variants=variants, variant=variant, analyses=analyses, study=study,
         base_config_overrides=base_config_overrides, media=media,
+        independent_founders=independent_founders, founder_sim_data=founder_sim_data,
+        injected_processes=injected_processes, features=features,
+        ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
+        supercoiling=supercoiling, mass_conservation=mass_conservation,
+        exchange_fluxes=exchange_fluxes, exchange_flux_basis=exchange_flux_basis,
+        transcript_initiation_mode=transcript_initiation_mode,
+        polypeptide_initiation_mode=polypeptide_initiation_mode,
         initial_carry_state_path=initial_carry_state_path,
         initial_generation_index=initial_generation_index,
         daughter_state_out_path=daughter_state_out_path)
@@ -365,6 +473,23 @@ def dispatch_batch(
 
     seeds = list(range(int(base_seed), int(base_seed) + int(n_seeds)))
     flush = result.get("flush") or {}
+    per_seed = _per_seed_results(
+        result, seeds=seeds, out_dir=out_dir,
+        experiment_id=experiment_id, emitter=config["emitter"])
+    # A batch in which NO seed reported back ran nothing: the workflow returned
+    # without a single branch (a worker died before its first generation, or the
+    # workflow was short-circuited). Reporting ``completed: True`` here is how
+    # a chain-dispatch generation could land as a success with only the outer
+    # document's global_time-only emitter row for output. A PARTIAL batch stays
+    # visible-but-not-fatal (the per-seed ``error`` entries below), matching the
+    # existing contract; an EMPTY one is a failed dispatch.
+    if per_seed and all("error" in entry for entry in per_seed.values()):
+        raise RuntimeError(
+            f"batch_baseline: the workflow reported no result for ANY of the "
+            f"{len(seeds)} seed(s) {seeds} (branches={sorted(result.get('branches') or {})!r}). "
+            f"A batch that ran no lineage is a failed dispatch, not a completed one -- "
+            f"refusing to record it as completed. out_dir={out_dir!r}"
+        )
     return {
         "completed": True,
         "n_seeds": int(n_seeds),
@@ -375,9 +500,7 @@ def dispatch_batch(
         "out_dir": out_dir,
         "emitter": config["emitter"],
         "analysis_scales": sorted(config["analysis_options"]),
-        "seeds": _per_seed_results(
-            result, seeds=seeds, out_dir=out_dir,
-            experiment_id=experiment_id, emitter=config["emitter"]),
+        "seeds": per_seed,
         # What the post-sim flush actually produced. `placed` lists the outputs
         # copied into the owning study's report dir — empty when no study owns
         # the run, in which case `viz_dir` is where the analyses and
@@ -394,6 +517,16 @@ def dispatch_batch(
 class BatchBaselineRunner(Step):
     """One-shot Step that dispatches the seeds × generations batch (see module)."""
 
+    # This Step's single update() IS the run. V2Step's default swallows any
+    # exception update() raises and substitutes {} -- right for a per-tick
+    # listener that trips on unseeded data, catastrophic here: a StaleCacheError,
+    # an injection-seam error or an S3 write failure inside the batch left the
+    # outer composite reporting success with an empty ``batch`` store and only
+    # the global_time-only outer emitter row on disk (the CD2 chain-dispatch
+    # "no emitted output" signature; reproduced locally). Propagate instead, so
+    # the dispatch exits non-zero with the real traceback.
+    raise_update_errors = True
+
     config_schema = {
         "n_seeds": "integer",
         "n_generations": "integer",
@@ -407,6 +540,11 @@ class BatchBaselineRunner(Step):
         "emitter": "string",          # "both" (default) | "parquet" | "xarray"
         "parallel": "string",         # "ray" (default) | "" for sequential
         "variants": "map",
+        # Base offset for every branch's variant_index (mirrors base_seed's
+        # offset of seed) — baseline()'s `variant` kwarg threaded through so a
+        # batch dispatch partitions its emitter output starting at the caller's
+        # requested variant index rather than always 0 (P0-10 batch coverage fix).
+        "variant": "integer",
         # Untyped-with-default (the config_overrides pattern): the value is
         # either a string choice or a {scale: {name: params}} mapping, which no
         # single bigraph-schema type covers.
@@ -419,6 +557,24 @@ class BatchBaselineRunner(Step):
         "base_config_overrides": {"_default": {}},
         # Panel-wide media condition, threaded to every per-seed baseline() build.
         "media": {"_default": "minimal"},
+        # Opt-in per-seed independent founders (re-draw t=0 state per seed).
+        "independent_founders": {"_default": False},
+        "founder_sim_data": {"_default": ""},
+        # Per-cell biological build kwargs, threaded panel-wide to every
+        # generation's baseline() build (audit: batch mode used to drop these,
+        # degrading an injected metabolism-redux batch to basal FBA).
+        # Untyped-with-default for the maps/lists (arbitrary content) and typed
+        # for the scalar toggles/modes.
+        "injected_processes": {"_default": {}},
+        "features": {"_default": []},
+        "ppgpp_regulation": {"_type": "boolean", "_default": True},
+        "trna_attenuation": {"_type": "boolean", "_default": False},
+        "supercoiling": {"_type": "boolean", "_default": False},
+        "mass_conservation": {"_type": "boolean", "_default": False},
+        "exchange_fluxes": {"_default": {}},
+        "exchange_flux_basis": {"_type": "string", "_default": ""},
+        "transcript_initiation_mode": {"_type": "string", "_default": "discrete"},
+        "polypeptide_initiation_mode": {"_type": "string", "_default": "discrete"},
         # Per-generation checkpoint/resume (backlog item 34): a wave
         # orchestrator's own per-seed-per-generation override keys, threaded
         # unrenamed to meta_composite.py's per-branch LineageProcess config.
@@ -448,11 +604,28 @@ class BatchBaselineRunner(Step):
         self.experiment_id = cfg.get("experiment_id") or DEFAULT_EXPERIMENT_ID
         self.emitter = cfg.get("emitter") or DEFAULT_EMITTER
         self.variants = dict(cfg.get("variants") or {})
+        self.variant = int(cfg.get("variant") or 0)
         analyses = cfg.get("analyses")
         self.analyses = DEFAULT_ANALYSES if analyses is None else analyses
         self.study = cfg.get("study") or ""
         self.base_config_overrides = dict(cfg.get("base_config_overrides") or {})
         self.media = cfg.get("media") or "minimal"
+        self.independent_founders = bool(cfg.get("independent_founders") or False)
+        self.founder_sim_data = cfg.get("founder_sim_data") or ""
+        # Per-cell biological build kwargs (audit fix — see config_schema).
+        self.injected_processes = dict(cfg.get("injected_processes") or {})
+        self.features = list(cfg.get("features") or [])
+        pg = cfg.get("ppgpp_regulation")
+        self.ppgpp_regulation = True if pg is None else bool(pg)
+        self.trna_attenuation = bool(cfg.get("trna_attenuation") or False)
+        self.supercoiling = bool(cfg.get("supercoiling") or False)
+        self.mass_conservation = bool(cfg.get("mass_conservation") or False)
+        self.exchange_fluxes = dict(cfg.get("exchange_fluxes") or {})
+        self.exchange_flux_basis = cfg.get("exchange_flux_basis") or ""
+        self.transcript_initiation_mode = (
+            cfg.get("transcript_initiation_mode") or "discrete")
+        self.polypeptide_initiation_mode = (
+            cfg.get("polypeptide_initiation_mode") or "discrete")
         self.initial_carry_state_path = cfg.get("initial_carry_state_path") or ""
         self.initial_generation_index = int(cfg.get("initial_generation_index") or 0)
         self.daughter_state_out_path = cfg.get("daughter_state_out_path") or ""
@@ -462,6 +635,51 @@ class BatchBaselineRunner(Step):
             self.parallel: str | None = DEFAULT_PARALLEL
         else:
             self.parallel = p or None
+
+    def inner_composite(self):
+        """The single-generation cell ``Composite`` this batch runs per generation.
+
+        The ``inner_composite()`` convention (mirrors ``EcoliWCM``) marks this Step
+        as a "Composite Process", so tooling (the workbench loom Explorer) can
+        drill from the batch node into the actual per-generation cell model —
+        with this batch's injected processes (permeability, gillespie, …) as
+        visible nodes, which the batch orchestrator itself never exposes.
+
+        Built at ``n_seeds=1``/``n_generations=1`` (the one-cell build, not the
+        batch orchestration) from THIS runner's own per-cell config, so the drill
+        shows the same wiring each generation actually runs. Lazy + cached, and
+        with ``emitter="null"`` (the wiring is read from ``.state`` directly, never
+        a history) so browsing the model pays no emitter cost.
+        """
+        if getattr(self, "_inner_cell_composite", None) is None:
+            from process_bigraph import Composite
+
+            from v2ecoli.composites.ecoli_baseline import baseline
+            from v2ecoli.core import build_core
+            import v2ecoli.types  # noqa: F401 — register resolve dispatch
+
+            core = build_core()
+            document = baseline(
+                core=core,
+                seed=self.base_seed,
+                cache_dir=self.cache_dir,
+                media=self.media,
+                independent_founders=self.independent_founders,
+                founder_sim_data=self.founder_sim_data,
+                features=self.features,
+                ppgpp_regulation=self.ppgpp_regulation,
+                trna_attenuation=self.trna_attenuation,
+                supercoiling=self.supercoiling,
+                mass_conservation=self.mass_conservation,
+                exchange_fluxes=self.exchange_fluxes,
+                exchange_flux_basis=self.exchange_flux_basis,
+                transcript_initiation_mode=self.transcript_initiation_mode,
+                polypeptide_initiation_mode=self.polypeptide_initiation_mode,
+                config_overrides=self.base_config_overrides,
+                injected_processes=(self.injected_processes or None),
+                n_seeds=1, n_generations=1, emitter="null")
+            self._inner_cell_composite = Composite(document, core=core)
+        return self._inner_cell_composite
 
     def inputs(self) -> dict[str, Any]:
         # Read `batch` so the idempotency guard is persistent (survives the
@@ -514,10 +732,23 @@ class BatchBaselineRunner(Step):
             emitter=self.emitter,
             parallel=self.parallel,
             variants=self.variants,
+            variant=self.variant,
             analyses=self.analyses,
             study=self.study,
             base_config_overrides=self.base_config_overrides,
             media=self.media,
+            independent_founders=self.independent_founders,
+            founder_sim_data=self.founder_sim_data,
+            injected_processes=self.injected_processes,
+            features=self.features,
+            ppgpp_regulation=self.ppgpp_regulation,
+            trna_attenuation=self.trna_attenuation,
+            supercoiling=self.supercoiling,
+            mass_conservation=self.mass_conservation,
+            exchange_fluxes=self.exchange_fluxes,
+            exchange_flux_basis=self.exchange_flux_basis,
+            transcript_initiation_mode=self.transcript_initiation_mode,
+            polypeptide_initiation_mode=self.polypeptide_initiation_mode,
             initial_carry_state_path=self.initial_carry_state_path,
             initial_generation_index=self.initial_generation_index,
             daughter_state_out_path=self.daughter_state_out_path,

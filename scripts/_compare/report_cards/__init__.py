@@ -20,6 +20,12 @@ CARD_INPUTS = {
     "v2_bounds": "list[float]", "config": "tree[map]",
     "v2_dir": "string", "ve_dir": "string",
     "observable_bulk_ids": "list[string]",
+    # Analysis-time generation window: cards grade only generations >= this.
+    # Declared as a port for the same reason `observable_bulk_ids` is — an
+    # undeclared key reaching a card works only because the assembler calls
+    # `step.update(state)` directly, which is a property of one caller rather
+    # than of the card contract.
+    "generation_lower_bound": "integer",
 }
 CARD_OUTPUTS = {
     "card_html": "overwrite[string]",

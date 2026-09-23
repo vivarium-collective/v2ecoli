@@ -1,0 +1,240 @@
+{
+  "E-1_trn_density": {
+    "coverage_fraction_of_mrna_cistrons": 0.5056,
+    "covered_mrna_cistrons": 2198,
+    "distinct_targets": 2231,
+    "distinct_tfs": 150,
+    "fold_changes_nca_rows_total": 4041,
+    "fold_changes_rows_kept": 4209,
+    "fold_changes_rows_total": 907,
+    "note": "BOTH tables are loaded by simulation_data.py:191; NCA wins on overlap.",
+    "targets_not_resolving": [
+      "efeU_2",
+      "ilvG_1",
+      "phnE_1",
+      "phnE_2",
+      "rdoA"
+    ],
+    "targets_resolving_to_a_gene": 2226,
+    "total_cistrons": 4747,
+    "total_mrna_cistrons": 4347
+  },
+  "E-2_model_trpR_regulon": {
+    "fold_change_range": [
+      2.62,
+      4.03
+    ],
+    "n_rows": 12,
+    "targets": {
+      "aroH": {
+        "fold_change": 3.46,
+        "log2_fc": -1.79
+      },
+      "aroL": {
+        "fold_change": 2.62,
+        "log2_fc": -1.39
+      },
+      "aroM": {
+        "fold_change": 2.77,
+        "log2_fc": -1.47
+      },
+      "mtr": {
+        "fold_change": 3.89,
+        "log2_fc": -1.96
+      },
+      "trpA": {
+        "fold_change": 3.94,
+        "log2_fc": -1.98
+      },
+      "trpB": {
+        "fold_change": 3.78,
+        "log2_fc": -1.92
+      },
+      "trpC": {
+        "fold_change": 3.89,
+        "log2_fc": -1.96
+      },
+      "trpD": {
+        "fold_change": 3.71,
+        "log2_fc": -1.89
+      },
+      "trpE": {
+        "fold_change": 3.41,
+        "log2_fc": -1.77
+      },
+      "trpL": {
+        "fold_change": 3.68,
+        "log2_fc": -1.88
+      },
+      "trpR": {
+        "fold_change": 3.73,
+        "log2_fc": -1.9
+      },
+      "yaiA": {
+        "fold_change": 4.03,
+        "log2_fc": -2.01
+      }
+    }
+  },
+  "E-3_trp_attenuation": {
+    "fold_change_range": [
+      5.98,
+      7.36
+    ],
+    "n_rows": 5,
+    "targets": {
+      "trpA": {
+        "fold_change": 7.36,
+        "log2_fc": -2.88
+      },
+      "trpB": {
+        "fold_change": 6.96,
+        "log2_fc": -2.8
+      },
+      "trpC": {
+        "fold_change": 7.16,
+        "log2_fc": -2.84
+      },
+      "trpD": {
+        "fold_change": 6.68,
+        "log2_fc": -2.74
+      },
+      "trpE": {
+        "fold_change": 5.98,
+        "log2_fc": -2.58
+      }
+    }
+  },
+  "E-4_repression_vs_attenuation": {
+    "n_inverted_vs_literature": 5,
+    "per_target": {
+      "trpA": {
+        "attenuation_fold": 7.36,
+        "repression_exceeds_attenuation": false,
+        "trpR_repression_fold": 3.94
+      },
+      "trpB": {
+        "attenuation_fold": 6.96,
+        "repression_exceeds_attenuation": false,
+        "trpR_repression_fold": 3.78
+      },
+      "trpC": {
+        "attenuation_fold": 7.16,
+        "repression_exceeds_attenuation": false,
+        "trpR_repression_fold": 3.89
+      },
+      "trpD": {
+        "attenuation_fold": 6.68,
+        "repression_exceeds_attenuation": false,
+        "trpR_repression_fold": 3.71
+      },
+      "trpE": {
+        "attenuation_fold": 5.98,
+        "repression_exceeds_attenuation": false,
+        "trpR_repression_fold": 3.41
+      }
+    },
+    "shared_targets": [
+      "trpA",
+      "trpB",
+      "trpC",
+      "trpD",
+      "trpE"
+    ]
+  },
+  "E-5_regulon_gaps": {
+    "detail": {
+      "aroH": {
+        "genes": {
+          "aroH": {
+            "gene_id": "EG10080",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          }
+        },
+        "represented_in_model_regulon": true
+      },
+      "aroL": {
+        "genes": {
+          "aroL": {
+            "gene_id": "EG10082",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          }
+        },
+        "represented_in_model_regulon": true
+      },
+      "mtr": {
+        "genes": {
+          "mtr": {
+            "gene_id": "EG10617",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          }
+        },
+        "represented_in_model_regulon": true
+      },
+      "trpLEDCBA": {
+        "genes": {
+          "trpA": {
+            "gene_id": "EG11024",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          },
+          "trpB": {
+            "gene_id": "EG11025",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          },
+          "trpC": {
+            "gene_id": "EG11026",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          },
+          "trpD": {
+            "gene_id": "EG11027",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          },
+          "trpE": {
+            "gene_id": "EG11028",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          },
+          "trpL": {
+            "gene_id": "EG11274",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          }
+        },
+        "represented_in_model_regulon": true
+      },
+      "trpR (autoregulation)": {
+        "genes": {
+          "trpR": {
+            "gene_id": "EG11029",
+            "has_any_tf_edge": true,
+            "has_trpR_edge": true,
+            "in_model": true
+          }
+        },
+        "represented_in_model_regulon": true
+      }
+    },
+    "ecocyc_regions": 5,
+    "regions_represented_in_model": 5
+  },
+  "provenance": {
+    "flat_dir": "reconstruction/ecoli/flat",
+    "note": "All values derived from v2ecoli raw_data + EcoCyc region membership. No simulation, no ParCa, no measured dataset."
+  }
+}

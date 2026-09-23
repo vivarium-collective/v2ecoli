@@ -108,7 +108,19 @@ def run_one(seed: int, n_steps: int, chunk: int) -> dict:
     import shutil
     out_dir = OUT_ROOT / f"seed_{seed:02d}"
     out_dir.mkdir(parents=True, exist_ok=True)
-    store_path = out_dir / "store.zarr"
+    # Flat, not nested under out_dir: viva-api's GET .../observables/index resolves a
+    # seed's store via RayLayout.seed_store_uri(experiment_id, seed), which expects
+    # "v2ecoli_seed{NN:02d}.zarr" directly under the experiment prefix -- the SAME
+    # convention chain-dispatch and the multi-node/colony path already write and read
+    # correctly. This script previously wrote store.zarr nested under seed_NN/, which
+    # the S3 sync (RAY_OUT_DIR -> RAY_OUT_S3, preserving relative layout) faithfully
+    # preserved -- so the store landed in S3 at a path RayLayout never looks for,
+    # 500ing every observables read for a single-generation ("phase0") dispatch, the
+    # DEFAULT path for any request that doesn't ask for generations > 1 or a multi-node
+    # composite. summary.json's own nested seed_NN/ location is UNCHANGED --
+    # scripts/run_standalone_analysis.py's build_multiseed_rows reads it from there and
+    # never looks at store.zarr's path at all, so this is safe for that consumer too.
+    store_path = OUT_ROOT / f"v2ecoli_seed{seed:02d}.zarr"
     if store_path.exists():
         shutil.rmtree(store_path)
 

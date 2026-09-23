@@ -1165,9 +1165,37 @@ def assemble_from_studies(specs, cond_data, conds, verdict_root=None,
                  "plot_trajs": plot_trajs, "v2_bounds": v2_bounds,
                  # config-specific bulk KPIs the study declared (for the bulk_kpi card)
                  "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or []),
+                 # ⚠ Threaded here, UNLIKE the exchange-flux basis below, and the
+                 # difference is the point: the basis describes what the RUN
+                 # EMITTED, so a card re-deriving it can contradict the engine.
+                 # A generation window describes how the CARD AGGREGATES what was
+                 # emitted — it changes no stored value and no engine reads it —
+                 # so study state is its only reader and there is nothing to
+                 # disagree with.
+                 "generation_lower_bound": int(getattr(spec, "generation_lower_bound", 0) or 0),
+                 # ⛔ DELIBERATELY NOT IN `config`. `state["config"]` is what the
+                 # `config` card RENDERS, under a heading that calls it "the source
+                 # of truth for the run shape". Publishing the window there would
+                 # state it as APPLIED — and nothing applies it yet; the consumer is
+                 # a follow-up. An author would read `generation_lower_bound 5` in
+                 # the report and conclude burn-in was dropped from means that in
+                 # fact span every generation. Declared-and-inert is survivable;
+                 # declared-inert-and-REPORTED-AS-APPLIED is a false claim in the
+                 # one card whose job is to say what was run. It is also the wrong
+                 # block on this key's own terms: it is ANALYSIS-TIME and changes
+                 # nothing about the run's shape.
                  "config": {"condition": spec.condition, "seeds": spec.seeds,
                             "generations": spec.gens, "cards": spec.cards,
                             "observable_bulk_ids": list(getattr(spec, "observable_bulk_ids", []) or [])},
+                 # ⚠ The exchange-flux BASIS is deliberately NOT threaded here. A
+                 # card that re-derives it from the study config is a second reader
+                 # of one setting, and the two readers disagreed: the engines took
+                 # `comparison:` only while the card's helper preferred a top-level
+                 # key, so a run could emit a lineage-cumulative total that the card
+                 # then graded as a rate — inside tolerance, because both arms were
+                 # equally wrong. Cards read the basis off the RUN instead
+                 # (`{prefix}_exchange_flux.json`, written beside the stores), which
+                 # cannot disagree with the engine that produced the data.
                  "v2_dir": v2_dir, "ve_dir": ve_dir}
         card_verdicts, viz = {}, []
         for card in spec.cards:

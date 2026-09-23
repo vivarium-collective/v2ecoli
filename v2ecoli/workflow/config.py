@@ -65,6 +65,11 @@ def _merge_configs(base_config: dict, overlay_config: dict) -> None:
         if key in LIST_KEYS_TO_MERGE:
             base_config.setdefault(key, [])
             base_config[key].extend(value)
+            # engine_process_reports values are lists of path-lists, which are
+            # unhashable; convert to tuples before deduplicating (matches
+            # vEcoli runscripts/workflow.py:_merge_configs).
+            if key == "engine_process_reports":
+                base_config[key] = [tuple(path) for path in base_config[key]]
             base_config[key] = sorted(set(base_config[key]))
         elif (
             isinstance(value, dict)

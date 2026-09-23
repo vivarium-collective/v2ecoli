@@ -67,12 +67,18 @@ def test_run_analyses_over_synthetic_records(monkeypatch):
     assert os.path.isfile(os.path.join(d, "analysis.json"))
 
 
-def test_run_analyses_unknown_name_skips(monkeypatch):
+def test_run_analyses_unknown_name_is_error(monkeypatch):
+    """A declared analysis that isn't registered is a loud error, not a silent
+    skip: status goes PARTIAL and the name lands in errors, so a missing KPI
+    (e.g. an sms_modules analysis whose registration import never ran in the
+    container) can't pass as a clean run."""
     import v2ecoli.workflow.analysis_runner as ar
     monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: {})
     import tempfile
     out = ar.run_analyses(tempfile.mkdtemp(), {"single": {"nope_not_real": {}}})
     assert out["single"] == {}
+    assert out["status"] == "PARTIAL"
+    assert any(e.get("name") == "nope_not_real" for e in out["errors"])
 
 
 _CACHE = os.environ.get("V2ECOLI_CACHE", "out/cache")
@@ -191,7 +197,7 @@ def test_duckdb_only_analyses_skip_timeseries_extraction(tmp_path, monkeypatch):
     # no sim_data present the run fails resolving it — and that is the point:
     # reaching sim_data resolution proves record building was skipped, since
     # _boom would have fired first otherwise.
-    with pytest.raises(FileNotFoundError, match="no sim_data pickle"):
+    with pytest.raises(FileNotFoundError, match="could not resolve sim_data"):
         ar.run_analyses(
             str(tmp_path),
             {"multiseed": {"central_carbon_metabolism_scatter": {}}})
@@ -279,6 +285,9 @@ def test_parallel_output_identical_to_serial(monkeypatch, tmp_path):
                               out_dir=str(tmp_path / "out_serial"), max_workers=1)
     parallel = ar.run_analyses(str(tmp_path), opts,
                                 out_dir=str(tmp_path / "out_parallel"), max_workers=4)
+    # `runtime` is wall time / RSS / DuckDB memory per module -- measured, so it
+    # legitimately differs between the two runs; everything else must be identical.
+    assert set(serial.pop("runtime")) == set(parallel.pop("runtime"))
     assert serial == parallel
     assert list(serial["multiseed"]) == ["fake_a", "fake_b", "fake_c"]
     assert list(parallel["multiseed"]) == ["fake_a", "fake_b", "fake_c"], (
@@ -362,25 +371,137 @@ def test_parallel_analyses_use_distinct_cursors_not_shared_connection(monkeypatc
     ar = _duckdb_test_ctx(monkeypatch, tmp_path)
     from v2ecoli.workflow.analysis import Analysis
 
-    seen_conn_ids = []
+    # Hold the CONNECTIONS THEMSELVES, not their id()s. An id() is only unique
+    # among objects that are simultaneously alive: once a cursor is garbage
+    # collected CPython may hand its address to the next allocation, so three
+    # genuinely distinct cursors can report two distinct ids. That made this
+    # test intermittently fail in CI (observed ids [x, y, x] with the first and
+    # third identical) while passing locally -- a flake that accused the
+    # thread-safety design of a bug it did not have. Keeping strong references
+    # makes distinctness a property of the objects rather than of GC timing.
+    seen_conns = []
 
-    class _RecordsConnId(Analysis):
+    class _RecordsConn(Analysis):
         scale = "multiseed"
 
         def update(self, state, interval=None):
-            seen_conn_ids.append(id(state["conn"]))
+            seen_conns.append(state["conn"])
             return {"data": {"ok": True}}
 
     for n in ("c1", "c2", "c3"):
-        _register_fake(monkeypatch, ar, n, _RecordsConnId)
+        _register_fake(monkeypatch, ar, n, _RecordsConn)
     opts = {"multiseed": {n: {} for n in ("c1", "c2", "c3")}}
     ar.run_analyses(str(tmp_path), opts, max_workers=3)
 
-    assert len(seen_conn_ids) == 3
-    assert len(set(seen_conn_ids)) == 3, (
+    assert len(seen_conns) == 3
+    # every reference is still live here, so identity is unambiguous
+    assert len({id(c) for c in seen_conns}) == 3, (
         "two or more modules were handed the identical connection/cursor "
-        f"object (ids: {seen_conn_ids}) — concurrent queries on a shared "
-        "DuckDB connection are not safe")
+        f"object (ids: {[id(c) for c in seen_conns]}) — concurrent queries on a "
+        "shared DuckDB connection are not safe")
+
+
+# ---------------------------------------------------------------------------
+# P1-10 (CD2 audit §3.7): an analysis failure or a missing KPI column must
+# surface as a structured, explicit signal -- never a silent completed:True /
+# a {"n": 0, "mean": 0.0}-shaped panel indistinguishable from a real result.
+# ---------------------------------------------------------------------------
+
+
+def test_analysis_error_marks_run_partial_with_structured_summary(monkeypatch, tmp_path):
+    """One named analysis raising must flip the overall status to PARTIAL and
+    name exactly which analysis failed in `summary`/`errors` -- not just
+    leave an {"error": ...} buried in a per-group dict for the caller to find
+    by walking every group of every analysis."""
+    ar = _duckdb_test_ctx(monkeypatch, tmp_path)
+    from v2ecoli.workflow.analysis import Analysis
+
+    class _Boom(Analysis):
+        scale = "multiseed"
+
+        def update(self, state, interval=None):
+            raise RuntimeError("synthetic failure")
+
+    class _Fine(Analysis):
+        scale = "multiseed"
+
+        def update(self, state, interval=None):
+            return {"data": {"ok": True}}
+
+    _register_fake(monkeypatch, ar, "boom", _Boom)
+    _register_fake(monkeypatch, ar, "fine", _Fine)
+
+    results = ar.run_analyses(str(tmp_path), {"multiseed": {"boom": {}, "fine": {}}})
+
+    assert results["status"] == "PARTIAL"
+    assert results["summary"]["multiseed"]["boom"] == "error"
+    assert results["summary"]["multiseed"]["fine"] == "ok"
+    assert any(e["scale"] == "multiseed" and e["name"] == "boom"
+               and "synthetic failure" in e["error"] for e in results["errors"])
+    # the failing analysis's own per-group data is untouched (unchanged shape)
+    boom_group = next(iter(results["multiseed"]["boom"].values()))
+    assert "error" in boom_group and "synthetic failure" in boom_group["error"]
+
+
+def test_all_passing_analyses_report_ok_status(monkeypatch, tmp_path):
+    """The positive case: nothing failed -> status OK, and every requested
+    analysis is named "ok" in the structured summary."""
+    import v2ecoli.workflow.analysis_runner as ar
+    recs = {
+        (0, 0, 0, "0"): {"variant": 0, "lineage_seed": 0, "generation": 0, "agent_id": "0",
+                        "divided": True, "division_time": 2400.0,
+                        "newborn_dry_mass": 380.0, "final_dry_mass": 700.0,
+                        "timeseries": [{"listeners": {"mass": {"dry_mass": 380.0,
+                           "protein_mass": 180.0, "rRna_mass": 38.0, "dna_mass": 7.0}}}]},
+    }
+    monkeypatch.setattr(ar, "build_cell_records", lambda sweep_dir: recs)
+    options = {"single": {"mass_fraction_summary": {}},
+              "multiseed": {"doubling_time_distribution": {}}}
+    results = ar.run_analyses(str(tmp_path), options)
+
+    assert results["status"] == "OK"
+    assert results["summary"] == {
+        "single": {"mass_fraction_summary": "ok"},
+        "multiseed": {"doubling_time_distribution": "ok"},
+    }
+    assert results["errors"] == []
+    # existing shape is untouched
+    assert len(results["single"]["mass_fraction_summary"]) == 1
+
+
+def test_missing_kpi_column_flags_partial_not_zero_panel(monkeypatch, tmp_path):
+    """build_cell_records() raising over a column the emitter dropped must
+    become an explicit missing_column signal -- never a hollow
+    {"n": 0, "mean": 0.0}-shaped result an analysis would otherwise happily
+    compute over key-only records and report as a clean (if empty) success."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    def _boom(sweep_dir):
+        raise Exception(
+            'Binder Error: Referenced column "listeners__mass__dry_mass" '
+            'not found in FROM clause!')
+
+    monkeypatch.setattr(ar, "build_cell_records", _boom)
+    results = ar.run_analyses(
+        str(tmp_path), {"multiseed": {"doubling_time_distribution": {}}})
+
+    assert results["status"] == "PARTIAL"
+    assert results["summary"]["multiseed"]["doubling_time_distribution"] == "missing_column"
+    group = next(iter(results["multiseed"]["doubling_time_distribution"].values()))
+    assert group["missing_column"] == "listeners__mass__dry_mass"
+    assert "listeners__mass__dry_mass" in group["error"]
+    # never the masquerading-zero shape a real (record-based) analyze() call
+    # would have produced over bogus key-only records
+    assert group != {"n": 0, "mean": 0.0}
+    assert "n_cells" not in group and "doubling_time_mean" not in group
+
+    err = next(e for e in results["errors"]
+              if e["name"] == "doubling_time_distribution")
+    assert err["missing_column"] == "listeners__mass__dry_mass"
+    assert os.path.isfile(os.path.join(str(tmp_path), "analysis.json"))
+    with open(os.path.join(str(tmp_path), "analysis.json")) as f:
+        on_disk = json.load(f)
+    assert on_disk["status"] == "PARTIAL"
 
 
 def test_s3_secret_refresh_is_thread_safe_not_a_catalog_race(monkeypatch, tmp_path):
@@ -438,3 +559,65 @@ def test_s3_secret_refresh_is_thread_safe_not_a_catalog_race(monkeypatch, tmp_pa
         assert group == {"n_rows": 1}, (
             f"{n} produced {group!r} instead of a clean result — a catalog "
             "write-write race corrupted or dropped this module's output")
+
+
+# --- main(): the sweep_dir pre-flight guard, local vs. s3:// (2026-09-09) ---
+#
+# os.path.isdir() never understands s3:// syntax -- it returns False for every
+# s3:// URI, valid or not, so main() unconditionally rejected any S3-sourced
+# sweep_dir despite the module's own documented S3 support. Found live: viva-api's
+# auto-triggered post-simulation analysis job always passes an s3:// sweep_dir and
+# always hit this exact SystemExit (Dispatch 743:Run 3, first real chain-dispatch
+# campaign ever to reach its own analysis trigger).
+
+
+def test_main_still_raises_the_original_message_for_a_missing_local_dir(monkeypatch, tmp_path):
+    """Local-path behavior is unchanged -- still a bare os.path.isdir() check,
+    still the original message, no s3-specific framing."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    missing = str(tmp_path / "does-not-exist")
+    monkeypatch.setattr("sys.argv", ["v2ecoli-analyze", missing])
+    with pytest.raises(SystemExit, match=f"sweep_dir not found: {missing!r}"):
+        ar.main()
+
+
+def test_main_raises_a_clear_error_for_an_s3_sweep_dir_with_no_history_parquet(monkeypatch):
+    """The new branch: an s3:// sweep_dir that genuinely has no history parquet
+    (missing prefix, or exists but empty) still fails loud -- just via the same
+    history_files() existence check run_analyses() itself relies on, not a
+    local-filesystem check that could never have answered this question."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    monkeypatch.setattr(ar, "history_files", lambda sweep_dir: [])
+    monkeypatch.setattr("sys.argv", ["v2ecoli-analyze", "s3://fake-bucket/empty-sweep"])
+    with pytest.raises(SystemExit, match="sweep_dir not found or has no history parquet"):
+        ar.main()
+
+
+def test_main_does_not_call_isdir_on_an_s3_uri(monkeypatch):
+    """Regression guard: an s3:// sweep_dir must never reach os.path.isdir() at
+    all -- that call can only ever return False for an s3:// string, which is
+    exactly the bug this fix closes."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    def _boom(path):
+        raise AssertionError(f"os.path.isdir() called with {path!r} — s3:// paths must skip it")
+
+    monkeypatch.setattr(ar, "history_files", lambda sweep_dir: ["s3://fake-bucket/real-sweep/history/experiment_id=e/variant=0/lineage_seed=0/generation=0/agent_id=0/1.pq"])
+    monkeypatch.setattr(os.path, "isdir", _boom)
+    monkeypatch.setattr("sys.argv", ["v2ecoli-analyze", "s3://fake-bucket/real-sweep"])
+    ar.main()  # must not raise -- passes the guard, then "no analysis_options" no-ops cleanly
+
+
+def test_main_passes_the_guard_for_a_real_s3_sweep_dir_with_history_files(monkeypatch, capsys):
+    """A genuine s3:// sweep with real history parquet clears the pre-flight
+    guard -- no --config given, so main() reaches its own documented
+    "no analysis_options found; nothing to run" no-op rather than raising."""
+    import v2ecoli.workflow.analysis_runner as ar
+
+    monkeypatch.setattr(ar, "history_files", lambda sweep_dir: [
+        "s3://fake-bucket/real-sweep/history/experiment_id=e/variant=0/lineage_seed=0/generation=0/agent_id=0/1.pq"])
+    monkeypatch.setattr("sys.argv", ["v2ecoli-analyze", "s3://fake-bucket/real-sweep"])
+    ar.main()
+    assert "nothing to run" in capsys.readouterr().out

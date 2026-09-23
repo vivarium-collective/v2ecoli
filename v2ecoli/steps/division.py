@@ -183,6 +183,12 @@ class Division(V2Step):
         # (e.g. metabolism-redux) survives division. None for the normal baseline
         # -> daughters rebuild the plain FBA baseline exactly as before.
         self._injected_processes = self.parameters.get('injected_processes')
+        # Opt-in FEATURE list (flagella-cascade investigation, 2026-08-06),
+        # threaded the same way as injected_processes above -- see the note
+        # in ecoli_baseline.py's baseline() (loader._features) and
+        # _helpers.py's 'division' branch. None/empty -> daughters rebuild
+        # with baseline()'s own defaults exactly as before this fix.
+        self._features = self.parameters.get('features')
         # A config_overrides / knockouts perturbation, threaded for the same
         # reason: passed back into each daughter's baseline() rebuild so a
         # variant survives division instead of reverting to the cached configs
@@ -228,6 +234,15 @@ class Division(V2Step):
             # D-period flag MarkDPeriod raises at the chromosome's division_time
             # (consulted only when self.d_period is True).
             "divide": Overwrite(),
+            # flagella_nfsim_complexation.py's own state ports (2026-08-19).
+            # Absent from most composites -- defaults to {} harmlessly when
+            # the flagella_nfsim_complexation feature isn't wired in. Declared
+            # here so divide_cell() can actually see and divide them instead
+            # of daughters silently getting baseline()'s empty-dict default
+            # (see divide_internal_observables/divide_scaffold_species in
+            # v2ecoli/library/division.py for the full rationale).
+            "nfsim_scaffold_species": InPlaceDict(),
+            "nfsim_internal_observables": InPlaceDict(),
         }
 
     def outputs(self):
@@ -319,6 +334,18 @@ class Division(V2Step):
                 'environment': states.get('environment', {}),
                 'boundary': states.get('boundary', {}),
             }
+            # Superseded 2026-09-14 merging origin/main: main's generic
+            # extra_store_keys() mechanism (below) subsumes this -- verified
+            # divide_cell()'s own nfsim handling (library/division.py) keys
+            # off plain dict membership ('nfsim_scaffold_species' in
+            # cell_state), not on how the key got into cell_data, so the
+            # generic loop carries these ports through correctly too. Old
+            # nfsim-specific code kept per standing preserve-old-code rule:
+            # if states.get('nfsim_scaffold_species') is not None:
+            #     cell_data['nfsim_scaffold_species'] = states['nfsim_scaffold_species']
+            # if states.get('nfsim_internal_observables') is not None:
+            #     cell_data['nfsim_internal_observables'] = states['nfsim_internal_observables']
+            #
             # Any INJECTED agent-root store visible on this step's ports rides
             # along under the one carry/division policy (copy by default, split
             # by a registered divider). ``listeners`` is deliberately NOT copied
@@ -407,6 +434,7 @@ class Division(V2Step):
                         core=self.core, seed=seed, cache_dir=self._cache_dir,
                         emitter=_daughter_emitter,
                         injected_processes=self._injected_processes,
+                        features=self._features,
                         config_overrides=self._config_overrides,
                         exchange_fluxes=self._exchange_fluxes,
                         exchange_flux_basis=self._exchange_flux_basis)
@@ -414,7 +442,8 @@ class Division(V2Step):
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
-                for key in ('bulk', 'unique', 'environment', 'boundary'):
+                for key in ('bulk', 'unique', 'environment', 'boundary',
+                            'nfsim_scaffold_species', 'nfsim_internal_observables'):
                     if key in d_data:
                         agent[key] = d_data[key]
                 # Injected agent-root stores: MERGE the divided/copied value onto

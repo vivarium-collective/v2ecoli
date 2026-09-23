@@ -561,6 +561,76 @@ FEATURE_MODULES = {
         'insert_before': 'ecoli-transcript-initiation',
         'steps': ['ppgpp-initiation'],
     },
+    # flagella-cascade investigation (ported from Maya Abdalla's vEcoli `biofilm`
+    # branch): the Kalir & Alon SUM-gate + FlgM secretion gate.
+    #
+    # REMOVED 2026-08-21 (Maya's explicit instruction): the deterministic
+    # flagellar assembly pipeline ('flagella_regulation' feature -- motor-
+    # switch/export-apparatus/motor-complex/filament-nucleation Steps),
+    # having committed to the NFsim rule-based replacement
+    # ('flagella_nfsim_complexation', below) as the one path forward. Full
+    # code + composite wiring archived at
+    # archive/deterministic-flagella-assembly-2026-08/ for reference.
+    # filament-elongation, flgm-secretion, and transcription-regulation
+    # (below) are UNCHANGED and still active -- they were always shared
+    # infrastructure, reused as-is by both pipelines, not deterministic-
+    # assembly-specific.
+    #
+    # NFsim-based complexation (added 2026-08-16): replaces the
+    # deterministic assembly Steps that used to live above (motor-switch,
+    # export-apparatus, motor-complex, filament-nucleation -- archived
+    # 2026-08-21, see archive/deterministic-flagella-assembly-2026-08/)
+    # with the NFsim rule-based reaction network
+    # (flagella_nfsim_complexation.py). filament-elongation, flgm-secretion,
+    # and transcription-regulation are UNCHANGED and reused as-is -- they
+    # only read/write real bulk molecule counts and don't care which
+    # mechanism produced them.
+    #
+    # This is now the only flagellar-assembly pipeline in the repo. Not yet
+    # the default (opt-in via enable_features('flagella_nfsim_complexation'))
+    # while NFsim's own calibration matures (monomer coupling already real;
+    # nucleation rate scaling still a single global constant).
+    'flagella_nfsim_complexation': {
+        'insert_before': 'ecoli-transcript-initiation',
+        'before_steps': [
+            'ecoli-flagella-nfsim-complexation',
+            # Added 2026-08-28: exact closed-form FliS:FliC equilibrium,
+            # replacing that one reaction's role in the shared
+            # ecoli-equilibrium Step (see flagella_flis_flic_equilibrium.py
+            # module docstring for why). Ordered right before elongation,
+            # matching where the shared equilibrium Step used to sit
+            # relative to it, so elongation always reads an up-to-date
+            # FLIS-FLIC-CPLX balance.
+            'ecoli-flagella-flis-flic-equilibrium',
+            'ecoli-flagella-filament-elongation',
+            'ecoli-flagella-flgm-secretion',
+            # Added 2026-09-01: exact closed-form FlgM:FliA equilibrium,
+            # replacing that reaction's role in the shared ecoli-equilibrium
+            # Step (see flagella_flgm_flia_equilibrium.py module docstring).
+            # REVERTED 2026-09-01: population dynamics from this Step judged
+            # not correct on review.
+            # RE-ENABLED then RE-REVERTED 2026-09-22: an ordering diagnostic
+            # (MASTER_DOCUMENT.md Section 3.1, run_flgm_flia_ordering_
+            # diagnostic.py) ruled out same-tick-vs-before-secretion timing
+            # as the cause (A/B trajectories bit-for-bit identical). Then
+            # actually re-wired and run for real (2-gen lineage,
+            # chart 85 2026-09-22): traced the ROOT cause -- fliA is itself
+            # a Class II gene (sim_data.py get_flagella_transcription_
+            # regulation_config, classII_cistron_ids includes EG11355_RNA),
+            # so its own transcription is partly driven by Y (free FliA's
+            # own downstream activity) -- a literal positive-feedback loop.
+            # The FlgM Class III negative feedback can't check it because
+            # nothing degrades FlhDC (the OTHER Class II driver, X) -- see
+            # "no FlhDC shutdown mechanism" gap, §1.4 item 2 / §3.1. The
+            # relaxed Kd was masking this by leaving enough free FlgM around
+            # to keep re-sequestering FliA -- an accidental ceiling, not a
+            # real one. Re-reverted pending a real FlhDC shutdown mechanism
+            # (YdiV candidate, not yet built) -- fixing FlgM:FliA alone
+            # would just hit the same runaway again.
+            # 'ecoli-flagella-flgm-flia-equilibrium',
+            'ecoli-flagella-transcription-regulation',
+        ],
+    },
     'trna_attenuation': {
         'insert_before': 'ecoli-transcript-elongation_requester',
         'steps': ['trna-attenuation-config'],
@@ -623,16 +693,21 @@ def build_execution_layers(features=None):
             continue
         if 'insert_after' in feat:
             ref = feat['insert_after']
+            # 'after_steps' lets a feature split its steps across two anchor
+            # points (falls back to the shared 'steps' key for features that
+            # only use one anchor, unchanged behavior for those).
+            after_steps = feat.get('after_steps', feat.get('steps', []))
             for i, layer in enumerate(layers):
                 if isinstance(layer, list) and ref in layer:
-                    for step_name in feat.get('steps', []):
+                    for step_name in after_steps:
                         layers.insert(i + 1, [step_name])
                     break
         if 'insert_before' in feat:
             ref = feat['insert_before']
+            before_steps = feat.get('before_steps', feat.get('steps', []))
             for i, layer in enumerate(layers):
                 if isinstance(layer, list) and ref in layer:
-                    for step_name in reversed(feat.get('steps', [])):
+                    for step_name in reversed(before_steps):
                         layers.insert(i, [step_name])
                     break
         for listener in feat.get('listeners', []):
@@ -692,6 +767,18 @@ def _get_step_config(
     from v2ecoli.processes.chromosome_replication import ChromosomeReplication
     from v2ecoli.processes.tf_binding import TfBinding
     from v2ecoli.processes.tf_unbinding import TfUnbinding
+    from v2ecoli.processes.flagella_transcription_regulation import (
+        FlagellaTranscriptionRegulation,
+    )
+    from v2ecoli.processes.flagella_flgm_secretion import FlagellaFlgMSecretion
+    from v2ecoli.processes.flagella_filament_elongation import FlagellaFilamentElongation
+    from v2ecoli.processes.flagella_flis_flic_equilibrium import FlagellaFliSFliCEquilibrium
+    # FlagellaFlgMFliAEquilibrium reverted -- see before_steps note ~line 607
+    # (traced 2026-09-22 to fliA's own Class II auto-catalytic wiring,
+    # unchecked by the missing FlhDC shutdown mechanism; needs that fixed
+    # first). Import left commented rather than deleted.
+    # from v2ecoli.processes.flagella_flgm_flia_equilibrium import FlagellaFlgMFliAEquilibrium
+    from v2ecoli.processes.flagella_nfsim_complexation import FlagellaNFsimComplexation
     from v2ecoli.processes.chromosome_structure import ChromosomeStructure
     from v2ecoli.processes.metabolism import Metabolism
     from v2ecoli.steps.partition import Requester, Evolver
@@ -840,6 +927,12 @@ def _get_step_config(
     STANDALONE_STEPS = {
         'ecoli-tf-binding': TfBinding,
         'ecoli-tf-unbinding': TfUnbinding,
+        'ecoli-flagella-transcription-regulation': FlagellaTranscriptionRegulation,
+        'ecoli-flagella-flgm-secretion': FlagellaFlgMSecretion,
+        'ecoli-flagella-filament-elongation': FlagellaFilamentElongation,
+        'ecoli-flagella-flis-flic-equilibrium': FlagellaFliSFliCEquilibrium,
+        # 'ecoli-flagella-flgm-flia-equilibrium': FlagellaFlgMFliAEquilibrium,  # reverted -- see before_steps note above
+        'ecoli-flagella-nfsim-complexation': FlagellaNFsimComplexation,
         'ecoli-chromosome-structure': ChromosomeStructure,
         'ecoli-metabolism': Metabolism,
         'ecoli-protein-degradation': ProteinDegradation,
@@ -2105,6 +2198,21 @@ def baseline(
     # -> metabolism-redux) is lost across generations. Normal FBA baseline has
     # injected_processes=None -> daughters rebuild plain baseline unchanged.
     loader._injected_processes = injected_processes
+    # Same threading, for opt-in FEATURE MODULES (flagella-cascade
+    # investigation, 2026-08-06): division.py's daughter rebuild previously
+    # called baseline(...) with no features= at all, so any opt-in feature
+    # (e.g. flagella_regulation, enabled only via enable_features()/the
+    # _EXTRA_FEATURES global, which is typically cleared right after the
+    # PARENT's build and is empty again by the time division fires mid-
+    # simulation) was silently dropped for daughters. That didn't just
+    # disable the feature quietly -- process_bigraph's own structural-realize
+    # step (core.realize -> edge_class(config, core)) still tried to rebuild
+    # the STALE step node left over from the parent's schema using the Step's
+    # bare config_schema defaults (unresolved raw cistron IDs, not real TU
+    # IDs), crashing with "ValueError: 'EG10322_RNA' is not in list" in
+    # flagella_transcription_regulation.py's initialize(). Fixing "just
+    # don't drop the feature" is therefore also the fix for that crash.
+    loader._features = list(features)
 
     # Same discipline for config_overrides (a variant / sensitivity perturbation)
     # and knockouts — knockouts are already folded INTO config_overrides above, so

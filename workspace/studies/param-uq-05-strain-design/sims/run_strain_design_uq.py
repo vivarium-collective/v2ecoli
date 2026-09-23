@@ -96,7 +96,7 @@ def _setup():
         baseline, set_null_emitter_override, load_cache_bundle)
     from v2ecoli.library.xarray_run import view_from_emit_paths, run_multigen_xarray
     from ecoli.variants.new_gene_internal_shift import modify_new_gene_exp_trl
-    from pbg_emitters.run_reader import RunReader
+    from viva_emitters.run_reader import RunReader
     from process_bigraph import Composite
     _save_sim_input = save_sim_input
     _baseline = baseline

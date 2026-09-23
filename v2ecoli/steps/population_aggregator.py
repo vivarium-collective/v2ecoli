@@ -95,6 +95,44 @@ class PopulationAggregator(Step):
     """
 
     name = "population_aggregator"
+
+    description = (
+        "Aggregates per-cell dry mass and agent count into reactor-scale "
+        "population observables (biomass_concentration_gL, total_biomass_gDW, "
+        "cell_count, OD600). Applies the cells_per_agent representative-sampling "
+        "factor and, in representative_doubling mode, a 2**doublings growth "
+        "factor read from the lineage store — never mutating per-cell state."
+    )
+
+    # Structured contract surfaced by the workbench loom viewer (card contract
+    # band + Inspector) and by bigraph_schema.contract.resolve_contract.
+    contract = {
+        "summary": (
+            "Rolls per-cell dry mass and agent count up to reactor-scale "
+            "population observables, scaled by cells_per_agent (and, in "
+            "representative_doubling mode, by 2**doublings from the lineage store)."
+        ),
+        "inputs": {
+            "agents": "Per-cell agents map (dry masses via listeners.mass.dry_mass, in fg, and cell counts).",
+            "lineage": "Lineage/division bookkeeping (lineage.doublings) used to weight the aggregate in representative_doubling mode.",
+        },
+        "outputs": {
+            "population": "Reactor-scale observables: total_biomass_gDW (g), cell_count, biomass_concentration_gL (g/L), OD600 (cosmetic).",
+        },
+        "config": {
+            "cells_per_agent": "Real cells represented by each simulated agent (representative-sampling scale).",
+            "od_to_gdw": "Optical-density -> grams-dry-weight conversion factor (g/L per OD unit).",
+            "reactor_volume_L": "Working volume used to convert total biomass to concentration (L).",
+            "time_step": "Update step (s).",
+            "population_growth_mode": "How the represented population count evolves: 'fixed' (factor 1.0) or 'representative_doubling' (2**doublings).",
+        },
+        "assumptions": [
+            "dry_mass is read on a DRY basis (fg) and converted with FG_PER_GRAM = 1e-15 g/fg; the cells_per_agent factor applies only to population.* outputs, never per-cell stores.",
+            "OD600 is cosmetic, derived from biomass_concentration_gL / od_to_gdw.",
+            "A missing/empty lineage store yields 0 doublings -> factor 1.0, so non-runner and first-generation builds are unaffected.",
+        ],
+    }
+
     # NOTE on schema syntax: bigraph-schema's `core.fill` resolves
     # `{"_default": <val>}` as an opaque scalar (no type → user overrides
     # are discarded, only the default flows through). Use bare type names

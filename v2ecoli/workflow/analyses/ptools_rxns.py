@@ -16,18 +16,26 @@ import pandas as pd
 from duckdb import DuckDBPyConnection
 
 from v2ecoli.workflow.analysis import Analysis
-from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view
-from v2ecoli.workflow.analyses.ptools_rna import consolidate_timepoints
+from v2ecoli.workflow.analyses._helpers import ptools_heatmap_view, available_columns
+from v2ecoli.workflow.analyses.ptools_rna import (
+    consolidate_timepoints,
+    _groupby_time_keep_generation,
+)
 
 
 # ---------------------------------------------------------------------------
 # Module-level helpers
 # ---------------------------------------------------------------------------
 
-def build_query(columns, history_sql):
-    """Generate SQL query for user-specified parquet columns."""
+def build_query(columns, history_sql, include_generation=False):
+    """Generate SQL query for user-specified parquet columns.
+
+    ``include_generation`` carries the ``generation`` partition column for
+    per-generation consolidation; callers detect its presence first.
+    """
+    gen = ", generation" if include_generation else ""
     query_sql = f"""
-        SELECT {",".join(columns)}, global_time AS time
+        SELECT {",".join(columns)}, global_time AS time{gen}
         FROM ({history_sql})
         ORDER BY time
     """
@@ -42,10 +50,10 @@ def read_outputs(
     """Retrieve specific columns from parquet outputs and return a DataFrame."""
     if columns is None:
         columns = ["listeners__fba_results__base_reaction_fluxes"]
-    query_sql = build_query(columns, history_sql)
+    incl_gen = "generation" in available_columns(conn, history_sql)
+    query_sql = build_query(columns, history_sql, incl_gen)
     outputs_df = conn.sql(query_sql).df()
-    outputs_df = outputs_df.groupby("time", as_index=False).sum()
-    return outputs_df
+    return _groupby_time_keep_generation(outputs_df)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +65,24 @@ class PtoolsRxns(Analysis):
 
     name = "ptools_rxns"
     scale = "single"
-    config_schema = {"n_tp": "integer", "time_unit": "string"}
+    config_schema = {
+        "n_tp": "integer",
+        "time_unit": "string",
+        "per_generation": "boolean",
+        "skip_n_gens": "integer",
+    }
+
+    # Multiseed (cross-seed) render spec, consumed by _MultiseedMixin: reaction
+    # fluxes are heavy-tailed, so the mean/spread panels render on a log color
+    # scale, magnitude-sorted, absolute value.
+    _ptools_multiseed_spec = {
+        "filename": "ptools_rxns_multiseed.tsv",
+        "title": "Reaction fluxes",
+        "color_label": "|flux| (mmol/gDCW/h)",
+        "log_color": True,
+        "sort_rows": True,
+        "take_abs": True,
+    }
 
     def _do_read_outputs(
         self,
@@ -67,6 +92,80 @@ class PtoolsRxns(Analysis):
     ):
         """Delegate to module-level read_outputs (overridable by mixins)."""
         return read_outputs(history_sql, conn, columns)
+
+    def _feature_matrix(self, history_sql, conn, sim_data, params):
+        """Raw ``(time × reaction)`` flux matrix + axes.
+
+        The extraction half of :meth:`analyze`, factored out so the multiseed
+        variant (:class:`~v2ecoli.workflow.analyses.ptools_multiscale._MultiseedMixin`)
+        reuses it per seed before its own cross-seed aggregation.  Returns
+        ``(matrix, time_vec, feature_ids, generation_vec_or_None)`` — ``matrix``
+        is ``(n_timepoints × n_features)``, un-consolidated.
+        """
+        output_columns = ["listeners__fba_results__base_reaction_fluxes"]
+        output_df = self._do_read_outputs(history_sql, conn, output_columns)
+
+        # Drop timestep-0 row where FBA hasn't run yet (flux array is empty at
+        # t=0 because metabolism hasn't been called).  v2ecoli deviation: vEcoli
+        # keeps t=0 in the raw table; we drop it so the first column is the
+        # first real FBA timepoint.
+        flux_col = "listeners__fba_results__base_reaction_fluxes"
+        output_df = output_df[
+            output_df[flux_col].apply(len) > 0
+        ].reset_index(drop=True)
+
+        rxn_mtx = np.stack(output_df[flux_col].values)
+        rxn_ids_base = sim_data.process.metabolism.base_reaction_ids
+
+        # v2ecoli's metabolism listener emits
+        #   base_reaction_fluxes = reaction_mapping_matrix.dot(...)
+        # 1:1 positional with base_reaction_ids: flux column i corresponds to
+        # base_reaction_ids[i].
+        #
+        # Two width cases matter, and they are NOT symmetric:
+        #
+        #  * flux NARROWER than base_reaction_ids (flux_width < n_ids): the caller
+        #    passed a sim_data that does not pair with this parquet (e.g.
+        #    out/kb/simData.cPickle vs out/workflow/simData.cPickle). Mapping would
+        #    silently drop/mislabel reactions via truncation — raise loudly.
+        #
+        #  * flux WIDER than base_reaction_ids (flux_width > n_ids): the sim's
+        #    metabolism was BUILT with reactions that are not in the pickled
+        #    base_reaction_ids — a heterologous pathway injected at build time
+        #    (e.g. an injected heterologous-pathway config appends extra reactions). Those
+        #    reactions are appended AFTER the base set, so base_reaction_ids[i]
+        #    still pairs with flux column i for i < n_ids; only the trailing
+        #    columns are the injected reactions. Label those explicitly and keep
+        #    their flux (dropping it would hide the exact readout an engineered
+        #    strain exists to show) instead of raising. The pickled sim_data does
+        #    not carry the injected ids, so a positional "injected-reaction-k"
+        #    label is used; EcoCyc's Omics Viewer ignores frame IDs it doesn't
+        #    know, so an unmapped heterologous reaction is harmless on the map
+        #    while every base E. coli reaction still paints.
+        n_ids = len(rxn_ids_base)
+        flux_width = rxn_mtx.shape[1]
+        if flux_width < n_ids:
+            raise ValueError(
+                f"base_reaction_ids ({n_ids}) > flux width ({flux_width}); "
+                "sim_data does not pair with this parquet (flux is narrower than "
+                "the reaction id list — wrong sim_data)."
+            )
+        rxn_ids = list(rxn_ids_base)
+        if flux_width > n_ids:
+            extra = flux_width - n_ids
+            print(
+                f"[ptools_rxns] flux width ({flux_width}) exceeds "
+                f"base_reaction_ids ({n_ids}) by {extra}; labeling the trailing "
+                f"{extra} column(s) as injected reaction(s) (e.g. a heterologous "
+                f"pathway added at build time)."
+            )
+            rxn_ids = rxn_ids + [f"injected-reaction-{k}" for k in range(extra)]
+
+        gens = (
+            output_df["generation"].values
+            if "generation" in output_df.columns else None
+        )
+        return rxn_mtx, output_df["time"].values, rxn_ids, gens
 
     def analyze(
         self,
@@ -84,43 +183,19 @@ class PtoolsRxns(Analysis):
         if params["time_unit"] not in ("minutes", "seconds"):
             params["time_unit"] = "minutes"
 
-        output_columns = ["listeners__fba_results__base_reaction_fluxes"]
-        output_df = self._do_read_outputs(history_sql, conn, output_columns)
-
-        # Drop timestep-0 row where FBA hasn't run yet (flux array is empty at
-        # t=0 because metabolism hasn't been called).  v2ecoli deviation: vEcoli
-        # keeps t=0 in the raw table; we drop it so the first column is the
-        # first real FBA timepoint.
-        flux_col = "listeners__fba_results__base_reaction_fluxes"
-        output_df = output_df[
-            output_df[flux_col].apply(len) > 0
-        ].reset_index(drop=True)
-
-        rxn_mtx = np.stack(output_df[flux_col].values)
-
-        rxn_ids_base = sim_data.process.metabolism.base_reaction_ids
-
-        # Sanity-check: v2ecoli's metabolism listener emits
-        #   base_reaction_fluxes = reaction_mapping_matrix.dot(...)
-        # whose length equals len(base_reaction_ids) in the sim_data that
-        # generated this parquet.  They are 1:1 positional — flux column i
-        # corresponds to base_reaction_ids[i].  A mismatch means the caller
-        # passed a sim_data that does NOT pair with this parquet (e.g.
-        # out/kb/simData.cPickle vs out/workflow/simData.cPickle); raise
-        # loudly instead of silently mislabeling reactions via truncation.
-        n_ids = len(rxn_ids_base)
-        flux_width = rxn_mtx.shape[1]
-        if n_ids != flux_width:
-            raise ValueError(
-                f"base_reaction_ids ({n_ids}) != flux width ({flux_width}); "
-                "sim_data does not pair with this parquet"
-            )
+        rxn_mtx, time_vec, rxn_ids, gens = self._feature_matrix(
+            history_sql, conn, sim_data, params
+        )
+        if not (params.get("per_generation") and gens is not None):
+            gens = None
 
         n_tp = int(params["n_tp"])
 
-        rxn_blocksum, tp_idx = consolidate_timepoints(rxn_mtx, n_tp, normalized=True)
+        rxn_blocksum, tp_idx = consolidate_timepoints(
+            rxn_mtx, n_tp, normalized=True, generations=gens
+        )
 
-        tp_checkpoints = output_df["time"].values[tp_idx]
+        tp_checkpoints = time_vec[tp_idx]
 
         if params["time_unit"] == "minutes":
             tp_checkpoints = tp_checkpoints / 60
@@ -130,7 +205,7 @@ class PtoolsRxns(Analysis):
 
         ptools_rxns_df = pd.DataFrame(
             data=np.abs(rxn_blocksum.transpose()),
-            index=rxn_ids_base,
+            index=rxn_ids,
             columns=tp_columns,
         )
         ptools_rxns_df.index.name = "$"

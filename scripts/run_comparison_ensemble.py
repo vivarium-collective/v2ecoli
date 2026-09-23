@@ -275,12 +275,12 @@ def _build_v2ecoli(seed: int, condition: str, cache_dir: str,
         # environment.exchange fluxes onto listeners.exchange_flux.<leaf>.
         kwargs["exchange_fluxes"] = dict(exchange_fluxes)
         kwargs["exchange_flux_basis"] = str(exchange_flux_basis or "counts")
-    # ecoli_baseline is native-only and rejects a non-empty injected_processes
-    # fork_repo; route fork-wrapping builds to ecoli_v1_hybrid (same body,
-    # native=False) instead, keyed on whether a fork_repo is present.
-    _inj = kwargs.get("injected_processes") or {}
-    _cid = "ecoli_v1_hybrid" if _inj.get("fork_repo") else "ecoli_baseline"
-    comp = build_composite(_cid, **kwargs)
+    # v2ecoli is native-only: ecoli_baseline builds injected processes fork-free
+    # off its own bundle simData. Fork-sourcing has been removed, so a run with a
+    # non-empty injected_processes.fork_repo now RAISES inside the composite build
+    # (assert_injection_sourcing) rather than silently fork-wrapping. All runs go
+    # through build_composite("ecoli_baseline").
+    comp = build_composite("ecoli_baseline", **kwargs)
 
     # FAIL-LOUD media assertion (all conditions): the composite must actually run
     # on the media the condition requires. Anything else silently mis-models the
@@ -700,6 +700,14 @@ def _injected_from_resolved(resolved: dict, fork_repo: str,
         "extra_bulk_species": resolved.get("extra_bulk_species") or [],
         "shape_seed_param_store": resolved.get("shape_seed_param_store") or {},
         "shape_seed_literal": resolved.get("shape_seed_literal") or {},
+        # Exchange-store keys baseline() must create so an injected process's
+        # secretion has somewhere to land (environment.exchange accumulates onto
+        # existing keys and never adds one). Forwarded here for the same reason
+        # extra_bulk_species is: this assembly is an ALLOWLIST, so a key it does
+        # not name is silently dropped one layer above baseline()'s own guard —
+        # and the symptom would be a clean run with a zero product, which is the
+        # failure this key exists to prevent.
+        "seed_exchange_species": resolved.get("seed_exchange_species") or [],
     }
     if fork_sim_data:
         inj["fork_sim_data"] = fork_sim_data
@@ -766,7 +774,7 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
     exchange_fluxes = dict(exchange_fluxes or {})
     observables = list(observables or [])
     # Bulk molecule ids to grade as config-specific KPIs — emitted on BOTH arms
-    # under listeners.observable_bulk.<id> (violacein titer, drug-target complex).
+    # under listeners.observable_bulk.<id> (a secreted-product titer, a drug-target complex).
     observable_bulk_ids = list(observable_bulk_ids or [])
 
     # PART 3 (opt-in): translate the vEcoli config into baseline overrides ONCE.
@@ -787,8 +795,18 @@ def make_run_one(*, composite_kind: str, condition: str, cache_dir: str,
             # Build the injected_processes block so the v2 side actually
             # converts+injects the fork's add/swap processes (translate alone
             # passes the raw keys through but never assembles the block).
+            # ⭐ NATIVE candidate arm (fork-free). `composite_kind == "v2ecoli"` is
+            # native-only (fork-sourcing was removed — assert_injection_sourcing in
+            # ecoli_baseline.py hard-errors on any non-empty
+            # injected_processes.fork_repo). `fork_dir` here is used ONLY to read
+            # the fork config's process-set STRUCTURE via
+            # resolve_vecoli_config_local (v2ecoli's own loader, no fork runtime);
+            # it must never be threaded through as `fork_repo`, or a run with
+            # add_processes/swap_processes raises instead of building. Always pass
+            # fork_repo="" so resolve_injections takes its native (fork-free) path
+            # off the candidate's own installed process set.
             inj = _injected_from_resolved(
-                resolved, fork_dir,
+                resolved, "",
                 os.path.abspath(match_vecoli_simdata) if match_vecoli_simdata else None,
                 extra_processes=inject_processes)
             if inj:
@@ -1194,8 +1212,8 @@ def main(argv=None):
                    help="Emit a metabolic exchange flux onto "
                         "listeners.exchange_flux.<leaf> on BOTH arms, read from "
                         "environment.exchange[<exchange_key>] (e.g. "
-                        "glucose_exchange=GLC[p]). Repeatable. The violacein card "
-                        "reads these leaves.")
+                        "glucose_exchange=GLC[p]). Repeatable. The product-KPI cards "
+                        "read these leaves.")
     p.add_argument("--exchange-flux-basis", default="counts",
                    choices=["counts", "gdcw"],
                    help="WHICH QUANTITY the --exchange-flux leaves carry, on "
@@ -1219,8 +1237,8 @@ def main(argv=None):
                    metavar="MOLECULE_ID",
                    help="Emit a bulk molecule count as a config-specific KPI on "
                         "BOTH arms, under listeners.observable_bulk.<id> (e.g. "
-                        "VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] "
-                        "drug-target complex). Repeatable. Graded by the "
+                        "a secreted-product titer or a drug-target complex). "
+                        "Repeatable. Graded by the "
                         "bulk-aware comparison cards.")
     # ⭐ CHAIN STAGE — a later stage of a staged-induction run. All four default
     # to a strict no-op (a fresh, single-stage lineage), so an ordinary run is

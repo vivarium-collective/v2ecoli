@@ -16,6 +16,8 @@ from typing import Callable
 
 import numpy as np
 
+from v2ecoli.workflow import events as _events
+
 from v2ecoli.processes.parca.ecoli.library.schema import bulk_name_to_idx, counts
 from v2ecoli.processes.parca.wholecell.utils import parallelization, units
 from v2ecoli.processes.parca.wholecell.utils.fitting import masses_and_counts_for_homeostatic_target, normalize
@@ -888,54 +890,95 @@ def expressionConverge(
             end="",
         )
 
-    for iteration in range(MAX_FITTING_ITERATIONS):
-        if VERBOSE > 1:
-            print("Iteration: {}".format(iteration))
+    # Progress reporting (sms-ecoli#166). This loop is where most of ParCa's wall
+    # clock goes -- ~6 min per condition on the cluster, across ~9 conditions --
+    # and until now it was silent from the outside: one line before it starts and
+    # one after it converges, with nothing in between and nothing at all if the
+    # process is killed partway. ``degreeOfFit`` is the convergence trajectory,
+    # so reporting it turns "ParCa is still going" into "condition X is at
+    # iteration 37 and the residual is falling", which is the difference between
+    # waiting and knowing.
+    #
+    # Throttled, not per-iteration: the loop runs up to MAX_FITTING_ITERATIONS
+    # (200) and typically converges in 50-100. The span also ends as an error if
+    # the "Fitting did not converge" raise below fires, so a non-converging
+    # condition is visible as a failed span with its last residual attached.
+    with _events.progress_span(
+        "parca.fit_condition", condition=str(conditionKey)
+    ) as _report:
+        for iteration in range(MAX_FITTING_ITERATIONS):
+            if VERBOSE > 1:
+                print("Iteration: {}".format(iteration))
 
-        initialExpression = expression.copy()
-        expression = setInitialRnaExpression(sim_data, expression, doubling_time)
-        bulkContainer = createBulkContainer(sim_data, expression, doubling_time)
-        avgCellDryMassInit, fitAvgSolubleTargetMolMass = (
-            rescaleMassForSolubleMetabolites(
-                sim_data, bulkContainer, concDict, doubling_time
-            )
-        )
-
-        if not disable_rnapoly_capacity_fitting:
-            setRNAPCountsConstrainedByPhysiology(
-                sim_data,
-                bulkContainer,
-                doubling_time,
-                avgCellDryMassInit,
-                variable_elongation_transcription,
-                Km,
-            )
-
-        if not disable_ribosome_capacity_fitting:
-            setRibosomeCountsConstrainedByPhysiology(
-                sim_data, bulkContainer, doubling_time, variable_elongation_translation
-            )
-
-        expression, synthProb, fit_cistron_expression, cistron_expression_res = (
-            fitExpression(
-                sim_data, bulkContainer, doubling_time, avgCellDryMassInit, Km
-            )
-        )
-
-        degreeOfFit = np.sqrt(np.mean(np.square(initialExpression - expression)))
-
-        if VERBOSE > 1:
-            print("degree of fit: {}".format(degreeOfFit))
-            print(
-                f"Average cistron expression residuals: {np.linalg.norm(cistron_expression_res)}"
+            initialExpression = expression.copy()
+            expression = setInitialRnaExpression(sim_data, expression, doubling_time)
+            bulkContainer = createBulkContainer(sim_data, expression, doubling_time)
+            avgCellDryMassInit, fitAvgSolubleTargetMolMass = (
+                rescaleMassForSolubleMetabolites(
+                    sim_data, bulkContainer, concDict, doubling_time
+                )
             )
 
-        if degreeOfFit < FITNESS_THRESHOLD:
-            print("! Fitting converged after {} iterations".format(iteration + 1))
-            break
+            if not disable_rnapoly_capacity_fitting:
+                setRNAPCountsConstrainedByPhysiology(
+                    sim_data,
+                    bulkContainer,
+                    doubling_time,
+                    avgCellDryMassInit,
+                    variable_elongation_transcription,
+                    Km,
+                )
 
-    else:
-        raise Exception("Fitting did not converge")
+            if not disable_ribosome_capacity_fitting:
+                setRibosomeCountsConstrainedByPhysiology(
+                    sim_data, bulkContainer, doubling_time, variable_elongation_translation
+                )
+
+            expression, synthProb, fit_cistron_expression, cistron_expression_res = (
+                fitExpression(
+                    sim_data, bulkContainer, doubling_time, avgCellDryMassInit, Km
+                )
+            )
+
+            degreeOfFit = np.sqrt(np.mean(np.square(initialExpression - expression)))
+
+            if VERBOSE > 1:
+                print("degree of fit: {}".format(degreeOfFit))
+                print(
+                    f"Average cistron expression residuals: {np.linalg.norm(cistron_expression_res)}"
+                )
+
+            # Values, not computations: ``report`` throttles, so anything built
+            # here would be built 200 times to be emitted a handful of times.
+            _report(
+                iteration=iteration,
+                degree_of_fit=float(degreeOfFit),
+                threshold=FITNESS_THRESHOLD,
+            )
+
+            if degreeOfFit < FITNESS_THRESHOLD:
+                print("! Fitting converged after {} iterations".format(iteration + 1))
+                _events.emit(
+                    "parca.fit_condition.converged",
+                    condition=str(conditionKey),
+                    iterations=iteration + 1,
+                    degree_of_fit=float(degreeOfFit),
+                )
+                break
+
+        else:
+            # Unthrottled and deliberate: the span will end as an error from the
+            # raise, but the LAST residual is what says whether it was close or
+            # diverging, and that is exactly what is lost today.
+            _events.emit(
+                "parca.fit_condition.diverged",
+                level="error",
+                condition=str(conditionKey),
+                iterations=MAX_FITTING_ITERATIONS,
+                degree_of_fit=float(degreeOfFit),
+                threshold=FITNESS_THRESHOLD,
+            )
+            raise Exception("Fitting did not converge")
 
     return (
         expression,

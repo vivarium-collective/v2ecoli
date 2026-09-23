@@ -47,7 +47,7 @@ SHARED = ["GLC[p]", "OXYGEN-MOLECULE[p]", "CARBON-DIOXIDE[p]", "ACET[p]",
 def run_fdh(out_dir: str = "") -> None:
     """KETCHUP dynamic FDH fit -> fdh_dynamic.json. Run in the pbg-ketchup env."""
     from process_bigraph import allocate_core
-    from pbg_ketchup import KetchupDynamicEstimator
+    from viva_ketchup import KetchupDynamicEstimator
 
     work = Path(out_dir or "/tmp/fdh_run")
     work.mkdir(parents=True, exist_ok=True)

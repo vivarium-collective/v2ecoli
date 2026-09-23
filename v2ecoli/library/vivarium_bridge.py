@@ -98,15 +98,15 @@ def _deserialize_v1_params(params):
     before it reads them.
 
     vEcoli configs may carry serialized values as tagged strings —
-    ``!ParameterSerializer[mecillinam>pbp2>binding_kf]`` (a parameter read from the
+    ``!ParameterSerializer[<process>>...>...]`` (a parameter read from the
     fork's ``ecoli.library.parameters.param_store``) or ``!units[0 1 / second]`` (a
     pint Quantity). Without deserialization a process like ``gillespie`` receives
     ``"!ParameterSerializer[...]"`` as a bare string and crashes comparing it to a
     number.
 
     ``!units`` resolves against whatever ecoli is loaded, but ``!ParameterSerializer``
-    reads the FORK's ``param_store`` (the installed vEcoli's lacks e.g. mecillinam
-    params). So briefly activate the fork's ``ecoli.*`` (evict installed, fork first
+    reads the FORK's ``param_store`` (the installed vEcoli's lacks e.g. the fork's
+    own extra params). So briefly activate the fork's ``ecoli.*`` (evict installed, fork first
     on ``sys.path``) for the deserialization, then restore — mirroring
     ``inject._fork_registry``. Best-effort: any string no serializer claims is left
     untouched; if the fork can't be resolved we fall back to the loaded serializers."""
@@ -133,7 +133,7 @@ def _deserialize_v1_params(params):
             # Build FRESH serializer instances from the fork's serialize module:
             # the registry's instances were bound to the installed param_store at
             # registration; a fresh ParameterSerializer() binds the fork's (which
-            # actually has e.g. mecillinam params). Put them first.
+            # actually has e.g. the fork's own extra params). Put them first.
             # Importing the fork's ecoli re-registers emitters/processes into
             # vivarium's GLOBAL singleton registries (already populated by the
             # installed ecoli), which errors on duplicate keys — so make

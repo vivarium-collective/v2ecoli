@@ -70,12 +70,38 @@ def test_condition_media_seed_change_fingerprint():
     assert patched.inputs_hash != acetate.inputs_hash
 
 
-def test_dependency_version_in_context_changes_fingerprint():
-    """A changed recorded dependency version moves inputs_hash; identical
-    env -> identical hash.
+def test_unpickle_affecting_version_change_moves_fingerprint():
+    """A bump in an UNPICKLE-affecting package (dill/numpy) moves inputs_hash;
+    identical env -> identical hash.
 
-    Direct regression test for A9: a cache built under one scipy/numpy/etc
-    and loaded under another previously passed verification unchanged.
+    a1.3 narrowed A9's fold set: only ``dill``/``numpy`` (packages whose
+    version genuinely changes how a fitted cache unpickles) are folded into
+    ``inputs_hash``. A version skew there must still be a hard StaleCacheError,
+    since it can silently mis-hydrate the cache deep in a sim step.
+    """
+    real_context = probe_context()
+
+    upgraded_context = dict(real_context)
+    upgraded_context["dill"] = "999.999.999"
+
+    cv_before = compute_cache_version(context=real_context)
+    cv_after = compute_cache_version(context=upgraded_context)
+
+    assert cv_before.inputs_hash != cv_after.inputs_hash
+
+    cv_before_again = compute_cache_version(context=real_context)
+    assert cv_before.inputs_hash == cv_before_again.inputs_hash
+
+
+def test_advisory_package_version_does_not_move_fingerprint():
+    """A bump in a fit-path-but-not-unpickle-affecting package (scipy/numba/...)
+    is recorded but does NOT move inputs_hash (a1.3).
+
+    Rationale: the cache is a fitted artifact; a post-fit scipy bump does not
+    change the fitted bytes on disk, so gating the load on it produced false
+    StaleCacheErrors. The drift is reported to the operator as an advisory
+    warning (see ``verify_cache_version``) and surfaced in ``fingerprint_diff``
+    under ``context_advisory`` instead.
     """
     real_context = probe_context()
 
@@ -85,10 +111,7 @@ def test_dependency_version_in_context_changes_fingerprint():
     cv_before = compute_cache_version(context=real_context)
     cv_after = compute_cache_version(context=upgraded_context)
 
-    assert cv_before.inputs_hash != cv_after.inputs_hash
-
-    cv_before_again = compute_cache_version(context=real_context)
-    assert cv_before.inputs_hash == cv_before_again.inputs_hash
+    assert cv_before.inputs_hash == cv_after.inputs_hash
 
 
 def test_context_block_records_expected_packages():

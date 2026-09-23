@@ -138,13 +138,23 @@ def _fail(msg: str) -> None:
 # Phase-1 canonical data model: documented exceptions to the canonical
 # conditions-form rule (mirrors tests/test_workspace_conformance.py).
 _NO_MODEL = {"parca"}                                          # upstream artifact producer, no model
-_MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism"}  # multi_baseline_needs_human (user decision)
+_MULTI_BASELINE_PENDING = {"mbp-07-millard-kinetic-metabolism",
+    # whole-cell-model-comparison two-arm (candidate ecoli_baseline + vecoli reference); user decision (#817)
+    "acetate", "basal", "no_oxygen", "succinate", "with_aa",
+    "metabolism_redux_acetate", "metabolism_redux_basal", "metabolism_redux_no_oxygen",
+    "metabolism_redux_succinate", "metabolism_redux_with_aa", "statistical", "parca"}  # multi_baseline_needs_human (user decision)
 
 # Study-config <-> generator contract (mirrors tests/test_workspace_conformance.py --
 # keep both in sync):
 _RUN_CONTROL_KEYS = {"n_steps"}                    # engine-stripped run-control key (workbench #611)
 _PARAM_CONTRACT_EXCEPTIONS = {
-    "metabolism_redux",              # swap: not an ecoli_baseline param; pending owner mapping
+    # swap/condition: not ecoli_baseline params; pending owner mapping. Renamed
+    # from the single "metabolism_redux" study into 5 per-condition slugs (#396).
+    "metabolism_redux_basal",
+    "metabolism_redux_with_aa",
+    "metabolism_redux_succinate",
+    "metabolism_redux_no_oxygen",
+    "metabolism_redux_acetate",
     "showcase-1-parca",              # mode: full: not a parca generator param (CLI-only flag)
     "mbp-04-multigeneration-runs",   # features: not a reactor_bird_coupled param; pending owner fix
 }
@@ -301,7 +311,7 @@ def main() -> None:
     if schema_ver != 2:
         _fail(
             f"workspace.yaml is schema v{schema_ver}; "
-            "run `python3 scripts/_migrate_v1_to_v2.py` to migrate to v2 before linting."
+            "this linter requires schema_version: 2 (see .pbg/schemas/workspace.schema.json)."
         )
 
     Draft7Validator(_schema("workspace.schema.json"), format_checker=FormatChecker()).validate(ws)

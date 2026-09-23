@@ -34,7 +34,60 @@ from __future__ import annotations
 # recorded no per-cell samples" and "this file was written by older code" are
 # indistinguishable — and the first is a fact about the run, the second a fact
 # about the tooling.
-EXTRACTOR_VERSION = 2
+#
+# v2 -> v3: a node's CONTENT can change, because a group whose observable column
+# is absent from the sweep is now OMITTED rather than the whole extraction
+# failing. An envelope written by v2 for a sweep that v2 could not read does not
+# exist -- but one written by v2 for a sweep whose column set has since changed
+# would differ, and the cache key is the only thing that distinguishes them.
+#
+# v3 -> v4: cells that are not complete cell cycles are excluded from the
+# ensemble, and a node carries `n_cells_excluded_partial` plus
+# `partial_cell_detection`. Content AND keys change, so the bump is required
+# twice over. A v3 envelope was written WITHOUT the exclusion and its numbers
+# are plausible, so nothing but the key distinguishes them.
+#
+# v4 -> v5: exchange fluxes are DERIVED from per-species dmdt counts on sweeps
+# that do not write the classic array, so a whole GROUP appears that a v4
+# envelope for the same sweep does not contain. ⛔ Without the bump,
+# `load_or_extract` serves the v4 file and the `fluxes` group is silently
+# absent — which is exactly the indistinguishability this doctrine exists to
+# prevent: "this run exchanged nothing we can read" and "this envelope predates
+# the derivation" would look identical, and the first is a fact about the run
+# while the second is a fact about the tooling.
+#
+# v5 -> v6: a cell is identified by EVERY partition key the sweep carries --
+# ``experiment_id`` and ``variant`` join ``(lineage_seed, generation, agent_id)``
+# when present (#776). A sweep whose variants or experiments reuse a lineage seed
+# was merged into one pseudo-cell per generation: ``n_cells`` 1 where ten exist,
+# per-cell means pooled across variants, and the median timestep lagged across a
+# variant boundary, which scales every derived flux. The numbers change for
+# exactly those sweeps and for no other, so only the key tells a v5 envelope for
+# one of them apart from a correct one.
+EXTRACTOR_VERSION = 6
+
+#: A cell whose row count sits below the split is not a complete cell cycle.
+#:
+#: ⛔ **THE SPLIT IS FOUND, NOT ASSUMED — and this function REFUSES rather than
+#: guessing.** A fixed fraction of the longest cell was tried first and was
+#: withdrawn after independent review: on a coarse-emit sweep already in this
+#: tree (per-cell rows ``25, 29, 26, 4``) a genuinely partial cell is 14% of the
+#: longest, so a 10% floor admitted it **while the node affirmatively reported
+#: that nothing had been dropped.** Whether a stub falls under any fixed fraction
+#: is a property of the producing run's emit cadence — the very thing this module
+#: must stop assuming.
+#:
+#: ⇒ Instead: sort the per-cell row counts and look for the largest RATIO gap. A
+#: sweep whose cells separate into "ran a cycle" and "was born and abandoned"
+#: has a gap of orders of magnitude; one that does not, does not. If no gap
+#: reaches this ratio the split is **UNDECIDABLE**, and the extraction says so
+#: (``partial_cell_detection: "ambiguous"``) and excludes NOTHING rather than
+#: excluding arbitrarily.
+#:
+#: ⚠ **"Ambiguous" is not "clean" — a consumer must not read n_cells as complete
+#: cycles in that case.** It is the honest state for a truncated run, where every
+#: cell is partial to a different degree and no split exists to find.
+_MIN_SEPARATION_RATIO = 10.0
 
 #: Rows pulled from DuckDB per batch. Bounds peak memory during extraction: the
 #: rows themselves are released after each batch, so what persists is the
@@ -57,6 +110,42 @@ _VECTOR_COLS = {
     "listeners__fba_results__external_exchange_fluxes": ("fluxes", "exchange", "mmol/gDCW/h"),
 }
 
+
+#: Prefix of the per-species exchange columns ``metabolism_redux`` writes, one
+#: scalar column per species, in molecule COUNTS per timestep.
+#:
+#: ⭐ **Discovered by PREFIX, never enumerated.** Which species a run exchanges is
+#: a property of the model under study, not of this module; listing them here
+#: would make the extractor wrong for every model that exchanges anything else,
+#: and would put study-specific identifiers into a general-purpose library.
+#: The species token is read from the column name and used verbatim as the node
+#: name, so the identity travels with the data.
+#:
+#: ⇒ This is what makes a redux sweep gradeable for exchange at all. The classic
+#: ``external_exchange_fluxes`` above is a POSITIONAL array whose element
+#: identity this module does not record; these columns carry identity in the
+#: name, which is strictly more information.
+_DMDT_PREFIX = "listeners__fba_results__estimated_exchange_dmdt__"
+
+#: Dry-mass column the counts->flux conversion divides by, and the group the
+#: derived nodes land in.
+_DRY_MASS_COL = "listeners__mass__dry_mass"
+_DMDT_GROUP = "fluxes"
+_DMDT_UNITS = "mmol/gDCW/h"
+
+#: counts -> mmol/gDCW/h, per femtogram of dry mass, per second of timestep.
+#:
+#: ``counts / N_A`` is mol; ``x1000`` is mmol; ``/ dry_mass`` makes it specific;
+#: ``x 3600/dt`` makes it hourly. Dry mass is emitted in fg, hence the ``1e-15``.
+#:
+#: `[m@2026-09-09]` This is not a fitted constant. On runs
+#: that ALSO carry the bespoke ``listeners__exchange_flux__*`` columns, deriving
+#: the flux from the dmdt column with this factor reproduces the bespoke value
+#: to a worst-case relative error of **0.000000%** over >130k rows, and the
+#: ratio ``dmdt / bespoke`` divided by dry mass is constant to **CV 0.0000%**.
+_COUNTS_TO_MMOL_PER_GDCW_H = 6.02214076e23 / 1e3 * 1e-15 / 3600.0
+
+
 #: ``(group, name) -> units``. The lookup a resolver uses when it holds a card
 #: path rather than a parquet column — see ``operands.run_operand``, which stamps
 #: units from HERE rather than from the cached node, so that a hand-built or
@@ -64,40 +153,146 @@ _VECTOR_COLS = {
 VECTOR_UNITS = {(group, name): units for group, name, units in _VECTOR_COLS.values()}
 
 
+def _complete_cells(cell_order: list, per_cell_rows: dict) -> tuple[list, int, str]:
+    """Split cells into complete cycles and partials, or decline to.
+
+    Returns ``(included, n_excluded, detection)`` where ``detection`` is
+    ``"clean"`` when a real separation was found and ``"ambiguous"`` when none
+    was — in which case NOTHING is excluded and ``included`` is every cell.
+
+    ⛔ **Declining is a real outcome, not a fallback.** The alternative — pick a
+    threshold anyway — is what the withdrawn version did, and it silently
+    admitted a partial cell on a real sweep while reporting that it had not.
+
+    ⚠ Deliberately makes no claim about WHY a cell is short. A birth stub and a
+    run killed mid-cycle are both "not a complete cycle"; distinguishing them
+    needs the per-cell ``divided`` flag, which is not an emitted column.
+    """
+    if len(cell_order) < 2:
+        # One cell cannot separate into two populations. Not ambiguous in the
+        # interesting sense, but nothing is excludable either.
+        return list(cell_order), 0, "clean" if cell_order else "ambiguous"
+    counts = sorted(per_cell_rows[c] for c in cell_order)
+    best_ratio, split_at = 1.0, None
+    for lo, hi in zip(counts, counts[1:]):
+        ratio = (hi / lo) if lo else float("inf")
+        if ratio > best_ratio:
+            best_ratio, split_at = ratio, hi
+    if split_at is None or best_ratio < _MIN_SEPARATION_RATIO:
+        return list(cell_order), 0, "ambiguous"
+    included = [c for c in cell_order if per_cell_rows[c] >= split_at]
+    return included, len(cell_order) - len(included), "clean"
+
+#: Columns that together identify ONE cell, outermost first. The first two are
+#: optional hive partitions; the last three are required, as they always were.
+_OPTIONAL_CELL_KEYS = ("experiment_id", "variant")
+_REQUIRED_CELL_KEYS = ("lineage_seed", "generation", "agent_id")
+
+
+def _cell_key(raw_cols: list) -> list[str]:
+    """The cell-identity columns for this sweep: every optional partition key it
+    carries, then ``lineage_seed, generation, agent_id``.
+
+    ⛔ **``lineage_seed`` alone does not identify a lineage (#776).** A sweep can
+    run several variants -- or pool several experiments under one directory, since
+    ``history_files`` globs recursively -- that reuse the same seed. Keyed without
+    ``variant``/``experiment_id``, every such cell with the same generation and
+    agent collapses into one, and nothing raises. The optional keys are included
+    only when present, so a sweep laid out without them is read exactly as before.
+    """
+    available = {c.lower() for c in raw_cols}
+    return [c for c in _OPTIONAL_CELL_KEYS if c in available] + list(_REQUIRED_CELL_KEYS)
+
+
+def _timestep_seconds(con, rel: str, cell_key: list[str]) -> float | None:
+    """Median ``global_time`` delta within a cell, or None if undecidable.
+
+    ⛔ MEASURED, NEVER ASSUMED. The counts->flux conversion is inversely
+    proportional to the timestep, so hardcoding 1 s would silently mis-scale
+    every derived flux on any run that does not use it, by exactly the ratio.
+
+    ⚠ The window is partitioned by the FULL cell key. Partitioned by less, the lag
+    is taken between rows of two different cells whose clocks interleave, and the
+    median comes out as the offset between them rather than the timestep.
+    """
+    try:
+        row = con.sql(
+            "SELECT median(d) FROM (SELECT global_time - lag(global_time) OVER "
+            f"(PARTITION BY {', '.join(cell_key)} ORDER BY global_time) d "
+            f"FROM {rel}) WHERE d IS NOT NULL AND d > 0"
+        ).fetchone()
+    except Exception:
+        return None
+    return float(row[0]) if row and row[0] else None
+
+
+def _derived_exchange(raw_cols: list, con, rel: str) -> list:
+    """``[(select_expr, (group, name, units)), ...]`` for redux exchange columns.
+
+    Converts each per-species dmdt column (molecule counts per timestep) to
+    mmol/gDCW/h in SQL, so the streaming accumulator downstream never sees the
+    raw counts and needs no new code path.
+
+    ⚠ **Sign is flipped deliberately.** The dmdt listener reports the change
+    from the environment's side, so a secreted species is negative there and
+    positive in the flux convention this module declares. Measured on two
+    species on two independent runs; see ``_COUNTS_TO_MMOL_PER_GDCW_H``.
+
+    Returns [] — not an error — when the run writes no dmdt columns, or when
+    dry mass is absent and the conversion therefore cannot be made. **Absent
+    means absent**; an unconvertible column is omitted rather than emitted in
+    the wrong units.
+    """
+    cols = sorted(c for c in raw_cols if c.startswith(_DMDT_PREFIX))
+    if not cols or _DRY_MASS_COL not in {c.lower() for c in raw_cols}:
+        return []
+    dt = _timestep_seconds(con, rel, _cell_key(raw_cols))
+    if not dt:
+        return []
+    k = _COUNTS_TO_MMOL_PER_GDCW_H * dt
+    out = []
+    for c in cols:
+        species = c[len(_DMDT_PREFIX):]
+        expr = f'-"{c}" / NULLIF("{_DRY_MASS_COL}" * {k!r}, 0)'
+        out.append((expr, (_DMDT_GROUP, species, _DMDT_UNITS)))
+    return out
+
+
 def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     """Return ``{group: {name: {...}}}`` of cell-first aggregated vectors
     (time-mean within cell, then mean across cells).
 
-    Each node carries the ensemble-mean ``vector``, ``n_cells``, its ``units``,
-    and ``per_cell`` — the n_cells x n_features matrix of per-cell time-mean
-    vectors whose column mean IS ``vector``.
+    Each node carries the ensemble-mean ``vector``, ``n_cells``,
+    ``n_cells_excluded_partial``, its ``units``, and ``per_cell`` — the
+    n_cells x n_features matrix of per-cell time-mean vectors whose column mean
+    IS ``vector``.
 
-    ``per_cell`` used to be emitted for the ``fluxes`` group alone, so that named
-    flux KPIs could be sliced out and graded with the same ttest/violin path as
-    the scalar axes. It is now emitted for every group, because the matrix was
-    always computed for every group and a comparison that grades DISTRIBUTIONS
-    (rather than two centres) cannot be written without it: a mean vector is not
-    a distribution, so any distributional statistic over omics had nothing to
-    consume.
+    ⭐ **Which observable columns exist is CHECKED here rather than assumed.**
+    A sweep is extracted for the columns it has; a group whose column is absent
+    is OMITTED, never zero-filled. Different metabolism processes write
+    different exchange leaves, and that was previously fatal to the whole
+    extraction rather than to the one group.
 
-    ⚠ **The cost is real and was measured before this was made unconditional.**
-    At the ensemble sizes in use the omics matrices dominate the artifact: 104
-    cells x (4345 + 4309) features is ~900k floats, taking a cached envelope from
-    ~279 KB to ~17 MB. That is 0.03% of the sweep it is written beside and it
-    never enters git (the cache is gitignored by contract, see
-    :mod:`v2ecoli.library.sim_vector_cache`), which is what makes unconditional
-    affordable.
+    ⚠ **Partial cells ARE filtered, but only when they SEPARATE.** ``_complete_cells``
+    looks for a ratio gap in the per-cell row counts: a sweep whose cells split
+    into "ran a cycle" and "was born and abandoned" has a gap of orders of
+    magnitude, and one that does not, does not. When no gap reaches
+    ``_MIN_SEPARATION_RATIO`` the split is undecidable, ``partial_cell_detection``
+    is ``"ambiguous"``, and **nothing is excluded**.
+    ⇒ **Read ``partial_cell_detection`` before reading ``n_cells``.** It is a
+    count of complete cycles only when that field says ``"clean"``; under
+    ``"ambiguous"`` every cell is included and some may be partial.
+    ⊕ A fixed-FRACTION heuristic was tried and withdrawn — whether a stub falls
+    under any given fraction is a function of the producing run's emit cadence,
+    so it silently did nothing on coarse-emit sweeps while asserting that it had.
+    The ratio-gap test replaced it precisely because it can DECLINE.
 
-    ★ **It is unconditional rather than opt-in, and that is a deliberate refusal
-    of the cheaper design.** An ``include_per_cell`` flag would sit OUTSIDE the
-    cache key — and the key is the whole integrity story here. A caller passing
-    the flag would get a cache HIT on an envelope written without it and see no
-    per-cell data at all, with nothing distinguishing "this run has none" from
-    "the file was written by a caller that didn't ask". Saving ~16 MB is not
-    worth buying that class of silence. Callers who do not want the matrix in
-    memory opt out at the point of USE (``operands.run_operand``'s
-    ``with_per_cell``), where the choice is a pure function of the arguments and
-    no cache can serve a stale answer.
+    ⚠ **A second, PRE-EXISTING inconsistency, stated because it is easy to
+    assume this function prevents it and it does not:** the ragged-row rule
+    below drops cells per COLUMN, so a cell emitting ``[]`` for one observable
+    is absent from that group and present in the others. Different groups can
+    therefore describe different cell sets, and their ``per_cell`` row indices
+    do not align. Nothing in the output says so.
 
     Ragged/empty array rows are dropped per column: ``external_exchange_fluxes``
     emits a ``[]`` default on some timesteps, so only rows whose array matches
@@ -110,10 +305,68 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     if not files:
         return {}
     con = connect_for(sweep_dir)
-    rel = "read_parquet(" + repr(files) + ", hive_partitioning=true)"
-    cols = ", ".join(_VECTOR_COLS)
+    # ⛔ ``union_by_name`` IS LOAD-BEARING, NOT TIDINESS. Without it DuckDB binds
+    # the glob against the FIRST file's schema, and the two failure modes are
+    # asymmetric: if the first file LACKS a column the later ones have, the group
+    # is silently omitted with no error; if it HAS one the later ones lack, the
+    # read raises a schema-mismatch. The silent branch is reachable whenever a
+    # directory pools runs with different column sets, because ``history_files``
+    # globs recursively.
+    rel = ("read_parquet(" + repr(files)
+           + ", hive_partitioning=true, union_by_name=true)")
+
+    # ⛔ SELECT ONLY THE COLUMNS THIS SWEEP ACTUALLY HAS, and omit the rest from
+    # the result rather than failing the whole extraction.
+    #
+    # **Not every metabolism writes every leaf.** ``metabolism.py`` writes
+    # ``listeners.fba_results.external_exchange_fluxes``; ``metabolism_redux``
+    # does not — it writes ``estimated_exchange_dmdt`` instead. The same
+    # divergence is already documented, and already guarded with an explanatory
+    # refusal, in ``library/vivarium_ecoli_engine.py`` for the ``gdcw``
+    # exchange-flux basis. This function had no equivalent, so a sweep produced
+    # by a metabolism that does not write the leaf died inside DuckDB with a
+    # binder error naming a column — loud, but it reports the symptom rather
+    # than the cause, and it takes the omics groups down with it even though
+    # those columns are present and perfectly extractable.
+    #
+    # ⭐ **Absent means ABSENT — the group is omitted, never emitted as zeros.**
+    # A zero-filled exchange vector is indistinguishable from a cell exchanging
+    # nothing, which is the failure mode the engine's own guard exists to
+    # refuse. A consumer that requires a group it cannot find must say so
+    # itself; silently handing it zeros moves an error into a result.
+    # ⚠ BOTH forms are needed and they are not interchangeable. The membership
+    # test for `_VECTOR_COLS` is case-insensitive; the DERIVED columns must be
+    # quoted back with their ORIGINAL case, because the species token is part of
+    # the identifier (`...__SOME-SPECIES[c]`) and DuckDB matches quoted
+    # identifiers exactly. Lower-casing there would produce a column that does
+    # not exist.
+    raw_cols = list(con.sql(f"SELECT * FROM {rel} LIMIT 0").columns)
+    available = {c.lower() for c in raw_cols}
+    # ⊕ Quoting is safe across casing: DuckDB resolves QUOTED identifiers
+    # case-insensitively (verified directly — unlike Postgres, where quoting
+    # makes them case-sensitive). Membership is tested case-insensitively for
+    # the same reason, since one key is mixed-case (`...__mRNA_cistron_counts`).
+    present = [
+        (f'"{col}"', meta) for col, meta in _VECTOR_COLS.items()
+        if col.lower() in available
+    ]
+    # Derived per-species exchange fluxes, for sweeps whose metabolism writes
+    # counts rather than the classic array. Additive: a sweep carrying BOTH gets
+    # both, and neither shadows the other.
+    present += _derived_exchange(raw_cols, con, rel)
+    if not present:
+        raise ValueError(
+            f"no observable columns found in {sweep_dir!r}. Looked for: "
+            + ", ".join(_VECTOR_COLS)
+            + ". A sweep with none of them is not gradeable — check that the "
+            "run emitted its listeners, and note that the metabolism in use "
+            "determines which exchange leaf (if any) is written."
+        )
+    cols = ", ".join(expr for expr, _ in present)
+    cell_key = _cell_key(raw_cols)
+    nk = len(cell_key)
     result = con.sql(
-        f"SELECT lineage_seed, generation, agent_id, {cols} FROM {rel} "
+        f"SELECT {', '.join(cell_key)}, {cols} FROM {rel} "
         f"WHERE generation >= {int(generation_lower_bound)}"
     )
 
@@ -151,20 +404,31 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
     per_cell_n: dict[tuple, int] = {}
     cell_order: list[tuple] = []          # first-appearance order, which IS the
     seen_cells: set[tuple] = set()        # row order of the per_cell matrix
-    col_len = [0] * len(_VECTOR_COLS)     # modal (max) feature length per column
+    col_len = [0] * len(present)          # modal (max) feature length per column
+    per_cell_rows: dict[tuple, int] = {}  # rows per cell, for the split below
 
     while True:
         batch = result.fetchmany(_FETCH_BATCH_ROWS)
         if not batch:
             break
         for r in batch:
-            cell = (r[0], r[1], r[2])
+            cell = tuple(r[:nk])
             if cell not in seen_cells:
                 seen_cells.add(cell)
                 cell_order.append(cell)
-            for i, val in enumerate(r[3:]):
+            # Counted over ROWS, so membership is a property of the cell rather
+            # than of whichever observable happens to be widest.
+            per_cell_rows[cell] = per_cell_rows.get(cell, 0) + 1
+            for i, val in enumerate(r[nk:]):
                 if val is None:
                     continue
+                # A SCALAR observable is a one-feature vector. Wrapping it here
+                # rather than branching below means the derived exchange fluxes
+                # reuse the whole accumulator unchanged — same per-cell means,
+                # same ensemble mean, same partial-cell membership, same
+                # `per_cell` matrix shape (n_cells x 1).
+                if not isinstance(val, (list, tuple, np.ndarray)):
+                    val = (val,)
                 length = len(val)
                 if length > col_len[i]:
                     col_len[i] = length
@@ -177,13 +441,21 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
                     acc += val
                     per_cell_n[key] += 1
 
+    # ⭐ MEMBERSHIP IS DECIDED ONCE AND APPLIED TO EVERY COLUMN, so the groups
+    # cannot describe different cell sets.
+    # ⚠ The ragged-row rule below can still drop a cell from ONE column (a
+    # listener emitting its `[]` default for a whole cell). That is pre-existing
+    # and NOT fixed here — `n_cells` is therefore per-node, and two nodes may
+    # still differ. Stated rather than implied.
+    included, n_excluded, detection = _complete_cells(cell_order, per_cell_rows)
+
     out: dict[str, dict] = {}
-    for i, (col, (group, name, units)) in enumerate(_VECTOR_COLS.items()):
+    for i, (col, (group, name, units)) in enumerate(present):
         n = col_len[i]
         # per-cell time-mean vector over rows whose array is full-length (drops
         # the [] empties); skip cells with no full-length rows.
         cell_means = []
-        for c in cell_order:
+        for c in included:
             key = (c, i, n)
             count = per_cell_n.get(key)
             if count:
@@ -193,6 +465,10 @@ def extract_vectors(sweep_dir: str, generation_lower_bound: int = 0) -> dict:
         node = {
             "vector": [float(x) for x in ensemble_mean],
             "n_cells": len(cell_means),
+            "n_cells_excluded_partial": n_excluded,
+            # "clean" -> a real split was found. "ambiguous" -> none was, nothing
+            # was excluded, and n_cells is NOT a count of complete cycles.
+            "partial_cell_detection": detection,
             "units": units,
             "per_cell": [[float(x) for x in row] for row in per_cell_means],
         }

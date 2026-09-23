@@ -3,11 +3,6 @@
 Upstream-parity architecture: the partitioned model matches the
 vivarium-collective/vEcoli composite tick-for-tick. See AGENTS.md.
 
-Migration note: the document-building body was migrated from
-``v2ecoli/generate.py:build_document`` and
-``v2ecoli/composite.py:_build_from_cache``.  Both legacy files were deleted
-in Task 14.
-
 Shared helpers (``make_edge``, ``inject_flow_dependencies``,
 ``_seed_state_from_defaults``, ``seed_mass_listener``,
 ``_normalize_boundary_units``, ``_make_instance``, ``_get_special_step``,
@@ -60,6 +55,35 @@ def _apply_match_simdata(cell_state: dict, *, match_simdata: str, seed: int,
         os.environ.get("V2E_VECOLI_DIR"))
     fake_composite = SimpleNamespace(state={"agents": {"0": cell_state}})
     return _apply_bulk_overlay(fake_composite, ref_bulk)
+
+
+def _independent_founder_state(sim_data_path: str, seed: int,
+                               condition: str = "basal") -> dict:
+    """Re-draw a fresh founder (t=0 cell state) for this lineage_seed.
+
+    Opt-in alternative to loading the SHARED cached initial_state: draws a new
+    founder from ``sim_data_path`` seeded by ``seed`` via the SAME generator the
+    cache build uses (``LoadSimData(sim_data_path, seed).generate_initial_state()``
+    — see ``v2ecoli/core.py``'s ``_write_sim_input_bundle``), then round-trips
+    through ``save_initial_state``/``load_initial_state`` so the result is
+    byte-format-identical to a cached founder. Gives each seed of a multiseed
+    ensemble an INDEPENDENT founder, so the spread reflects real cell-to-cell
+    founder variability rather than only downstream per-process stochasticity.
+    Slower than the cached path (loads sim_data + regenerates initial conditions
+    per seed) — opt-in via ``independent_founders``.
+    """
+    import tempfile
+    from v2ecoli.library.sim_data import LoadSimData
+    from v2ecoli.cache import save_initial_state, load_initial_state
+    kwargs = {"sim_data_path": os.path.abspath(sim_data_path), "seed": seed}
+    if condition and condition != "basal":
+        kwargs["condition"] = condition
+    loader = LoadSimData(**kwargs)
+    state = loader.generate_initial_state()
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "initial_state.json")
+        save_initial_state(state, p)
+        return load_initial_state(p)
 
 
 def _derive_process_seed(master_seed: int, process_name: str) -> int:
@@ -332,8 +356,8 @@ class SingleCellXArrayEmitter(Emitter):
         self._leaf_key_paths: list | None = None
         # Declared bulk molecule ids to surface as scalar observables under
         # listeners.observable_bulk.<id> (the two-arm comparison's bulk KPI hook —
-        # e.g. VIOLACEIN[c] titer, mecillinam[p]-EG10606-MONOMER[i] drug-target
-        # complex). Emitting under the `listeners` root reuses the existing view
+        # e.g. a secreted-product titer or a drug-target complex). Emitting under
+        # the `listeners` root reuses the existing view
         # machinery and gives BOTH engines an identical path to compare on.
         self._obs_bulk_ids: list = list(config.get("observable_bulk_ids") or [])
 
@@ -968,6 +992,8 @@ def _build_batch_document(
     knockouts: list[str] | None,
     config_overrides: dict | None,
     media: str,
+    independent_founders: bool = False,
+    founder_sim_data: str = "",
     variant: int = 0,
     injected_processes: dict | None = None,
     features: list | None = None,
@@ -1057,7 +1083,9 @@ def _build_batch_document(
         "parallel": parallel or "",
         "base_config_overrides": base_config_overrides,
         "media": media,
-        # Per-cell biological build kwargs (metabolism-redux/violacein swap,
+        "independent_founders": independent_founders,
+        "founder_sim_data": founder_sim_data,
+        # Per-cell biological build kwargs (metabolism-redux swap,
         # feature toggles, exchange-flux readouts, PDMP initiation modes).
         # WITHOUT these in the runner config they never reach build_workflow_config
         # -> _lineage_node -> each generation's baseline() build, so an injected
@@ -1107,29 +1135,70 @@ def _build_batch_document(
     return {"state": state}
 
 
-def assert_injection_sourcing(native: bool, injected_processes: dict | None) -> None:
-    """Enforce the composite's injection-sourcing policy.
+def validate_seed_exchange_species(injected_processes: dict | None) -> list:
+    """Validate ``injected_processes["seed_exchange_species"]`` and return it.
 
-    ``native`` composites (ecoli_baseline) build injected processes fork-free off
-    their own bundle simData → a non-empty ``fork_repo`` is a caller error.
-    Fork-wrapping composites (ecoli_v1_hybrid) source injections from the vEcoli
-    fork → an add/swap injection needs a non-empty ``fork_repo``.
+    Returns ``[]`` when the key is absent. Raises ``ValueError`` on a shape that
+    would seed the WRONG keys or none at all -- which in this store means a run
+    that completes clean and reads zero, so every case here fails loud.
+
+    ⚠ Called BEFORE the batch/lineage branch as well as on the single-cell path.
+    The seeding itself can only happen where the initial state is assembled, but
+    the *validation* must not: ``n_seeds>1`` / ``n_generations>1`` /
+    ``stop_at_division`` return a batch document early, and a malformed
+    declaration would otherwise be stored verbatim and only raise inside each
+    worker after dispatch. Multi-seed is the production shape, so the guard has
+    to hold there first.
+
+    ⚠ Presence, not truthiness: an explicitly empty/None/false value is a
+    distinct thing from a mistyped one and must not skip the type check.
+    """
+    if injected_processes is None:
+        return []
+    if "seed_exchange_species" not in injected_processes:
+        return []
+    declared = injected_processes["seed_exchange_species"]
+    if declared is None:
+        return []
+    # A bare string is iterable, so `seed_exchange_species: "MY-PRODUCT"` -- the
+    # natural single-item form in a config -- would otherwise seed one key per
+    # CHARACTER and never the declared species. A dict would iterate keys and
+    # silently discard its values.
+    if not isinstance(declared, (list, tuple, set, frozenset)):
+        raise ValueError(
+            "injected_processes['seed_exchange_species'] takes a LIST of "
+            f"exchange species ids; got {type(declared).__name__}. "
+            "A single species must still be a list: ['MY-PRODUCT'].")
+    for species in declared:
+        if not isinstance(species, str) or not species:
+            raise ValueError(
+                "injected_processes['seed_exchange_species'] takes exchange "
+                f"species ids (non-empty strings); got {species!r}.")
+        if species.endswith("]"):
+            raise ValueError(
+                "injected_processes['seed_exchange_species'] takes BARE "
+                f"species ids without a compartment suffix; got {species!r}. "
+                "Writers of environment.exchange strip the compartment, so a "
+                "tagged id would seed a key nothing ever writes to.")
+    return list(declared)
+
+
+def assert_injection_sourcing(injected_processes: dict | None) -> None:
+    """Enforce v2ecoli's native-only injection policy.
+
+    v2ecoli builds injected processes fork-free off its OWN bundle simData.
+    Fork-sourcing has been removed, so a non-empty ``injected_processes.fork_repo``
+    is now a hard error — inject native pbg processes (with ``fork_repo`` empty)
+    instead.
     """
     if not injected_processes:
         return
-    has_add_swap = bool(injected_processes.get("add_processes")
-                        or injected_processes.get("swap_processes"))
     fork_repo = injected_processes.get("fork_repo") or ""
-    if native and fork_repo:
+    if fork_repo:
         raise ValueError(
-            f"ecoli_baseline is native-only but injected_processes.fork_repo="
-            f"{fork_repo!r} is set — use the ecoli_v1_hybrid composite for "
-            f"fork-wrapping injection.")
-    if (not native) and has_add_swap and not fork_repo:
-        raise ValueError(
-            "ecoli_v1_hybrid requires injected_processes.fork_repo to source "
-            "metabolism-redux from the vEcoli fork, but it is empty — use "
-            "ecoli_baseline for native (fork-free) injection.")
+            f"injected_processes.fork_repo={fork_repo!r} is set, but fork-sourcing "
+            f"has been removed — v2ecoli is native-only. Use native pbg processes "
+            f"(fork_repo empty) for injected add/swap.")
 
 
 WCM_PARAMETERS = {
@@ -1222,6 +1291,27 @@ WCM_PARAMETERS = {
                            "unchanged. For a rigorously-calibrated condition, run a "
                            "per-condition ParCa cache instead (see showcase-4).",
         },
+        "independent_founders": {
+            "type": "boolean",
+            "default": False,
+            "description": "Opt-in: re-draw the founder (t=0 cell state) per "
+                           "lineage_seed from founder_sim_data instead of loading "
+                           "the shared cached initial_state, so a multiseed "
+                           "ensemble's spread reflects true cell-to-cell founder "
+                           "variability, not just downstream per-process "
+                           "stochasticity. Requires founder_sim_data. Slower "
+                           "(loads sim_data + regenerates initial conditions per "
+                           "seed); default False keeps the fast shared-founder path.",
+        },
+        "founder_sim_data": {
+            "type": "string",
+            "default": "",
+            "description": "Path to the v2 simData.cPickle to re-draw per-seed "
+                           "founders from when independent_founders is set — the "
+                           "same sim_data the cache was built from. Each seed gets "
+                           "LoadSimData(sim_data_path, seed).generate_initial_state(). "
+                           "Ignored unless independent_founders=True.",
+        },
         "features": {
             "type": "list",
             "default": [],
@@ -1310,9 +1400,17 @@ WCM_PARAMETERS = {
         "injected_processes": {
             "type": "map",
             "default": {},
-            "description": "Fork process-injection spec "
-                           "{fork_repo, add_processes, swap_processes, "
-                           "process_configs, topology, time_step}; empty = none.",
+            "description": "Native process-injection spec "
+                           "{add_processes, swap_processes, process_configs, "
+                           "topology, time_step}; empty = none. fork_repo must be "
+                           "empty — fork-sourcing is removed, v2ecoli is native-only. "
+                           "Also honoured: seed_bulk_species (a list of "
+                           "{id, molar_mass_g_per_mol} SPEC DICTS, ids "
+                           "compartment-TAGGED) and seed_exchange_species (a LIST "
+                           "of BARE environment.exchange id strings, seeded at 0.0 "
+                           "so an injected process's secretion has a key to land "
+                           "in). Note the two differ in BOTH shape and id "
+                           "convention.",
         },
         # --- Batch / lineage knobs (absorbed from the former batch_baseline) ----
         # n_seeds>1 OR n_generations>1 switches baseline from a single 55-process
@@ -1458,12 +1556,13 @@ WCM_PARAMETERS = {
 # a batch when it is set to a non-default value. This makes it structurally
 # impossible for a new baseline() kwarg to be silently dropped in batch mode —
 # the exact defect that dropped `injected_processes` and degraded an injected
-# metabolism-redux/violacein batch to a basal FBA lineage (pipeline audit).
+# metabolism-redux batch to a basal FBA lineage (pipeline audit).
 _BATCH_FORWARDED_PARAMETERS = frozenset({
     # Dispatch switches (consumed by the batch/lineage routing itself).
     "n_seeds", "n_generations", "stop_at_division",
     # Threaded into the batch document / runner config -> workflow config.
     "seed", "cache_dir", "config_overrides", "knockouts", "media",
+    "independent_founders", "founder_sim_data",
     "single_daughters", "time_step", "max_duration", "variants", "variant",
     "out_dir", "experiment_id", "analyses", "study", "parallel", "emitter",
     "initial_carry_state_path", "initial_generation_index",
@@ -1563,6 +1662,8 @@ def baseline(
     config_overrides: dict | None = None,
     knockouts: list[str] | None = None,
     media: str = "minimal",
+    independent_founders: bool = False,
+    founder_sim_data: str = "",
     features: list | None = None,
     ppgpp_regulation: bool = True,
     trna_attenuation: bool = False,
@@ -1574,7 +1675,6 @@ def baseline(
     emitter_out_dir: str = "",
     bundle: dict | None = None,
     injected_processes: dict | None = None,
-    native: bool = True,
     n_seeds: int = 1,
     n_generations: int = 1,
     stop_at_division: bool = False,
@@ -1728,6 +1828,11 @@ def baseline(
     # for n_seeds==1, n_generations==1, stop_at_division=False (bit-identical to
     # plain baseline).
     if int(n_seeds) > 1 or int(n_generations) > 1 or stop_at_division:
+        # Validate the injected seeding declaration BEFORE dispatching: the
+        # batch document is built here but each cell's baseline() runs inside a
+        # worker, so a malformed value would otherwise ride through and raise
+        # once per lineage after dispatch, in the shape production actually uses.
+        validate_seed_exchange_species(injected_processes)
         if match_simdata:
             # Batch mode builds per-seed lineages via BatchBaselineRunner at
             # RUN time, outside this document-building call, so match_simdata
@@ -1751,6 +1856,7 @@ def baseline(
             experiment_id=experiment_id, emitter=emitter, analyses=analyses,
             study=study, parallel=parallel, variants=variants, variant=variant,
             knockouts=knockouts, config_overrides=config_overrides, media=media,
+            independent_founders=independent_founders, founder_sim_data=founder_sim_data,
             injected_processes=injected_processes, features=features,
             ppgpp_regulation=ppgpp_regulation, trna_attenuation=trna_attenuation,
             supercoiling=supercoiling, mass_conservation=mass_conservation,
@@ -1784,7 +1890,13 @@ def baseline(
     # accumulates across samples, eventually triggering a spurious mid-run
     # division). configs is already deep-copied below for the same reason —
     # initial_state needs the same isolation.
-    initial_state = copy.deepcopy(bundle["initial_state"])
+    if independent_founders and founder_sim_data:
+        # Opt-in: draw a fresh founder for THIS lineage's seed instead of the
+        # shared cached one, so a multiseed ensemble varies at t=0 too (real
+        # cell-to-cell founder variability), not only in downstream stochastics.
+        initial_state = _independent_founder_state(founder_sim_data, seed, match_condition)
+    else:
+        initial_state = copy.deepcopy(bundle["initial_state"])
 
     # Injected bulk-species seeding (opt-in, drug-agnostic). The ParCa cache
     # bundle is built without any injected subsystem's extra species, so an
@@ -1803,6 +1915,37 @@ def baseline(
     if _seed_specs:
         from v2ecoli.library.sim_data import seed_bulk_species
         initial_state["bulk"] = seed_bulk_species(initial_state["bulk"], _seed_specs)
+
+    # Product-agnostic EXCHANGE-store seeding, the environment.exchange sibling of
+    # the bulk seeding above: an injected subsystem declares the exchange keys it
+    # needs present via injected_processes["seed_exchange_species"], so the engine
+    # holds no pathway knowledge (the caller supplies the ids).
+    #
+    # Why it is needed at all: environment.exchange is a map[float] store
+    # initialised from the cache bundle with only the media's external molecules.
+    # A bare-float map leaf ACCUMULATES (state + update) -- it updates keys that
+    # already exist and never ADDS one. So an injected metabolism that secretes a
+    # species the ParCa bundle never registered writes into a key nobody created,
+    # and every downstream reader (exchange-flux listeners, a coupled environment)
+    # sees nothing. The process runs, the run completes clean, and the product
+    # reads bit-exact zero with nothing raising.
+    #
+    # setdefault, not assignment: a species the bundle already carries keeps its
+    # real initial value. Opt-in -- absent or empty leaves the built document
+    # byte-identical to today.
+    #
+    # ⚠ BARE names, no compartment suffix. Every writer of this store strips the
+    # compartment (metabolism.py emits `str(molecule[:-3])`), so a compartment-
+    # tagged id would seed a key no writer ever touches -- a clean build with a
+    # zero product, i.e. the very failure this seam closes. NOTE this differs
+    # from the `seed_bulk_species` sibling above, whose ids ARE compartment-
+    # tagged ("X[c]"); the two stores use different id conventions.
+    _exchange_seed = validate_seed_exchange_species(injected_processes)
+    if _exchange_seed:
+        _exchange = initial_state.setdefault("environment", {}).setdefault(
+            "exchange", {})
+        for _species in _exchange_seed:
+            _exchange.setdefault(_species, 0.0)
 
     configs = bundle["configs"]
     if config_overrides:
@@ -1993,6 +2136,14 @@ def baseline(
 
     _emitter_decls = emitter_defaults(baseline)
     _default_decl = _emitter_decls[0] if _emitter_decls else None
+    # An ENCLOSING generator that embeds this cell under agents/<id> and adds
+    # document-level stores of its own (reactor_bird_coupled) publishes ITS
+    # declaration for the per-agent sink we are about to build; it is the
+    # composite actually being built, so its declared emit set wins over the
+    # single-cell default here (see _helpers.set_enclosing_emitter_decl).
+    _enclosing = _h._ENCLOSING_EMITTER_DECL
+    if _enclosing is not None:
+        _default_decl = dict(_enclosing["decl"])
     if _default_decl is not None:
         # Thread the run-identity fields into the declared default (parquet)
         # emitter's config so its hive partition columns are correct per cell.
@@ -2166,7 +2317,23 @@ def baseline(
             injected_processes.get("add_processes")
             or injected_processes.get("swap_processes")
             or injected_processes.get("exclude_processes")):
-        assert_injection_sourcing(native, injected_processes)
+        assert_injection_sourcing(injected_processes)
+        # Thread baseline()'s own cache_dir onto the injection spec. The native
+        # resolver builds an injected process's config from the bundle sim_data
+        # (build_native_redux_config), gated on the spec carrying `cache_dir` —
+        # but resolve_injections sees only the spec, never baseline()'s own args.
+        # Without this seed the redux SWAP gets an empty config (0 metabolites,
+        # 0 homeostatic targets) and collapses to one tick while reporting success
+        # (sms-ecoli#210 Gate 0). A caller-supplied cache_dir on the spec wins
+        # (deliberate override, e.g. a per-seed cache); else seed baseline's.
+        # Copy, don't mutate — the same spec is reused across per-seed builds.
+        # (v2ecoli#667: right for the deployment; that PR closed for the wrong
+        # reason — its no-op was only against the in-repo resolver, while the
+        # image's resolver consumes this key.)
+        injected_processes = {
+            **injected_processes,
+            "cache_dir": injected_processes.get("cache_dir") or cache_dir,
+        }
         import sys, os
         sys.path.insert(0, os.path.join(os.path.dirname(__file__),
                                         "..", "..", "scripts"))
@@ -2177,7 +2344,10 @@ def baseline(
         # when there is something to add.
         if (injected_processes.get("add_processes")
                 or injected_processes.get("swap_processes")):
-            specs = resolve_injections(injected_processes["fork_repo"],
+            # fork_repo is guaranteed empty here (assert_injection_sourcing raises
+            # on a non-empty one — fork-sourcing is removed). resolve_injections'
+            # native path builds specs off the candidate's own bundle simData.
+            specs = resolve_injections(injected_processes.get("fork_repo") or "",
                                        injected_processes)
             apply_injected_processes(cell_state, flow_order, core, specs)
         # Remove half: drop the swapped-out SOURCES and any exclude_processes, so

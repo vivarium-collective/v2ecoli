@@ -15,6 +15,7 @@ import importlib
 import inspect
 import json
 import os
+import re
 import sys
 from typing import Any
 
@@ -102,6 +103,15 @@ def _should_inject_as_step(cls) -> bool:
     fork (no installed ``vivarium``) falls back to the explicit flag only.
     """
     if bool(getattr(cls, "_force_step", False)):
+        return True
+    # A pbg-NATIVE deriver — inputs()/outputs() + update_condition-gated.
+    # A native ecoli-metabolism-redux is pbg-native, NOT a vivarium.Step
+    # subclass, so issubclass(cls, Step) returned False and it was injected as an
+    # interval process → tick-2 non-advancing global_clock collapse. Requiring
+    # inputs()+outputs() excludes a plain vivarium Process (ports_schema, with an
+    # inherited base update_condition); needs no vivarium import.
+    if (hasattr(cls, "update_condition")
+            and hasattr(cls, "inputs") and hasattr(cls, "outputs")):
         return True
     try:
         from vivarium.core.process import Step
@@ -333,9 +343,9 @@ def translate_vivarium_topology(topo: dict, _base: list | None = None) -> dict:
     unmapped subports resolve under the base; this is metabolism's ``environment``
     and matches the pre-existing behavior exactly). A *scattered* nested port —
     vEcoli's antibiotic subsystem, whose sub-ports fan out across stores via
-    ``..``-relative paths (e.g. ``mecillinam.species.bulk -> ["..","bulk"]``,
-    ``mecillinam.reaction_parameters.decay.kf ->
-    ["..","kinetic_parameters","mecillinam","decay_kf"]``) — is preserved as a
+    ``..``-relative paths (e.g. ``<proc>.species.bulk -> ["..","bulk"]``,
+    ``<proc>.reaction_parameters.decay.kf ->
+    ["..","kinetic_parameters","<proc>","decay_kf"]``) — is preserved as a
     nested wires tree so ``make_edge``/``list_paths`` wires each leaf to its real
     store. Collapsing a scattered port to its ``_path`` base silently dropped
     every leaf (the bulk store never reached the process → ``bulk["id"]`` on a
@@ -492,6 +502,178 @@ def _resolve_literal_seeds(mapping: dict) -> dict:
     return seeds
 
 
+# Matches a vEcoli-serialized-value TAG, e.g. ``!ParameterSerializer[path]`` or
+# ``!units[0 count]`` (see ``ecoli.library.serialize`` in the vEcoli fork).
+_SERIALIZER_TAG_RE = re.compile(r"^!\w+\[.*\]$", re.S)
+
+
+def _fork_repo_from_env() -> str:
+    """Best-effort vEcoli fork checkout for resolving ``!ParameterSerializer``
+    tags on the NATIVE path, read from the same env vars a comparison run
+    already sets (``$V2E_VECOLI_DIR`` / ``$VECOLI_REPO``). Empty string when
+    neither is set."""
+    return os.environ.get("V2E_VECOLI_DIR") or os.environ.get("VECOLI_REPO", "")
+
+
+def _iter_serializer_tags(obj):
+    """Yield every serializer-tag string (``!Name[...]``) anywhere in ``obj``."""
+    if isinstance(obj, dict):
+        for v in obj.values():
+            yield from _iter_serializer_tags(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _iter_serializer_tags(v)
+    elif isinstance(obj, str) and _SERIALIZER_TAG_RE.match(obj):
+        yield obj
+
+
+def _deserialize_config_values(obj, fork_repo: str):
+    """Deserialize vEcoli-serialized config values so a pbg_native injection
+    process gets real values, on BOTH the fork-wrapped AND the native path:
+    ``!ParameterSerializer[path]`` -> the FORK ``param_store`` Quantity,
+    ``!units[...]`` -> a pint Quantity (via vivarium's ``deserialize_value``
+    dispatcher). Non-tagged values pass through unchanged.
+
+    THE GAP THIS CLOSES. A fork-wrapped (``vivarium_1``) process has its
+    serializer tags resolved by the bridge's ``initial_state()`` overlay, so it
+    never sees a raw tag. A ``pbg_native`` process does NOT go through that
+    overlay -- it reads ``spec["config"]`` directly. When a genuine (non-baked)
+    vEcoli config is translated straight onto native ``ecoli_baseline`` (e.g.
+    ``--from-vecoli-config ... --composite ecoli_baseline``), its
+    ``process_configs`` still carry raw ``!ParameterSerializer[...]`` tag
+    strings, which then survive into the native process (e.g. a native gillespie
+    port's ``kf > 0`` raises ``TypeError: '>' not supported between instances of
+    'str' and 'int'``; a native transport port's ``_param_magnitude`` never
+    handles a raw tag). The fix belongs in this SHARED gate (not a per-process
+    band-aid), applied to every pbg_native config below in
+    :func:`resolve_injections`.
+
+    A ``!ParameterSerializer[...]`` tag resolves ONLY against the fork's own
+    ``ecoli.library.serialize`` param_store -- the fork provides the calibrated
+    VALUES while the native process provides the LOGIC; this is a legitimate
+    native run. The fork is located via ``fork_repo`` (else ``$V2E_VECOLI_DIR``
+    / ``$VECOLI_REPO``) and activated the same way
+    :func:`_resolve_param_store_seeds` does (evict installed ecoli, fork first on
+    path, idempotent registration, restore) so the FORK's param_store -- not an
+    installed ``ecoli`` shadow -- answers the lookup. ``!units[...]`` (and other
+    non-parameter tags) resolve via vivarium's own dispatcher and need no fork.
+
+    RAISES a clear ``ValueError`` -- naming the offending tag(s) and how to fix
+    it -- when a ``!ParameterSerializer[...]`` tag is present but no fork is
+    reachable (or the fork cannot resolve it), instead of letting a raw tag
+    string reach a downstream numeric comparison. A config carrying NO serializer
+    tags is a true no-op and never touches the fork."""
+    tags = list(_iter_serializer_tags(obj))
+    if not tags:
+        # Pre-baked config (the common native case): nothing to resolve, and the
+        # fork must never be touched.
+        return obj
+
+    param_tags = sorted({t for t in tags if t.startswith("!ParameterSerializer[")})
+    effective_fork = fork_repo or _fork_repo_from_env()
+
+    if param_tags and not effective_fork:
+        raise ValueError(
+            f"native injection config carries unresolved vEcoli serializer "
+            f"tag(s) {param_tags!r}, and no vEcoli fork checkout is available "
+            f"to resolve them. A !ParameterSerializer[...] tag is resolved "
+            f"against the fork's ecoli.library param_store (the fork supplies "
+            f"the calibrated VALUES; the native process supplies the LOGIC). "
+            f"Either set $V2E_VECOLI_DIR / $VECOLI_REPO to a vEcoli fork "
+            f"checkout, or pre-bake the config to plain floats/Quantities (as "
+            f"the repo's *_vecoli_free.json configs do).")
+
+    if not effective_fork:
+        # Only fork-independent tags (e.g. !units[...]) remain: vivarium's own
+        # dispatcher resolves them without any fork.
+        from vivarium.core.serialize import deserialize_value
+
+        def _walk_nofork(o):
+            if isinstance(o, dict):
+                return {k: _walk_nofork(v) for k, v in o.items()}
+            if isinstance(o, list):
+                return [_walk_nofork(v) for v in o]
+            if isinstance(o, str) and _SERIALIZER_TAG_RE.match(o):
+                try:
+                    return deserialize_value(o)
+                except Exception:  # noqa: BLE001 — non-fatal: keep raw units tag
+                    return o
+            return o
+
+        return _walk_nofork(obj)
+
+    # A fork IS reachable: activate it (evict installed ecoli, fork first on
+    # path, restore after) so ``ecoli.library.serialize`` resolves against the
+    # FORK param_store, then walk + deserialize every tag.
+    fork_abs = os.path.abspath(os.path.expanduser(effective_fork))
+    if effective_fork not in sys.path:
+        sys.path.insert(0, effective_fork)
+    saved_real: dict[str, object] = {}
+    for k in [k for k in sys.modules if k == "ecoli" or k.startswith("ecoli.")]:
+        mod = sys.modules.pop(k)
+        if not os.path.abspath(getattr(mod, "__file__", "") or "").startswith(fork_abs):
+            saved_real[k] = mod
+    try:
+        with _idempotent_registration():
+            import ecoli.library.serialize as _fs  # FRESHLY imported FORK serializers
+            from vivarium.core.registry import Serializer
+            from vivarium.core.serialize import deserialize_value
+        # Instantiate the FORK's own Serializer subclasses (their module-level
+        # param_store is now the fork's). Dispatch !-values through these FIRST so
+        # !ParameterSerializer[...] resolves against the FORK param_store, NOT the
+        # installed ecoli's (whose global serializer is what vivarium's
+        # deserialize_value would otherwise use). deserialize_value is the
+        # fallback for the rest (e.g. !units[...], which is fork-independent).
+        fork_serializers = []
+        for _name in dir(_fs):
+            _obj = getattr(_fs, _name)
+            if isinstance(_obj, type) and issubclass(_obj, Serializer) and _obj is not Serializer:
+                try:
+                    fork_serializers.append(_obj())
+                except Exception:  # noqa: BLE001 — skip a serializer that won't instantiate
+                    pass
+
+        def _deser(v):
+            for s in fork_serializers:
+                try:
+                    if s.can_deserialize(v):
+                        return s.deserialize(v)
+                except Exception:  # noqa: BLE001 — try the next serializer
+                    continue
+            try:
+                return deserialize_value(v)
+            except Exception:  # noqa: BLE001 — vivarium can't parse it either
+                pass
+            if v.startswith("!ParameterSerializer["):
+                # A param tag the fork could NOT resolve (e.g. a param_store key
+                # this checkout lacks). Never pass it downstream as a raw string.
+                raise ValueError(
+                    f"native injection config: {v!r} could not be resolved "
+                    f"against the vEcoli fork at {effective_fork!r} (its "
+                    f"ParameterSerializer/param_store has no such entry). It "
+                    f"must not reach a native process as a raw tag string; "
+                    f"check the fork checkout or pre-bake the value.")
+            return v  # a non-param tag vivarium couldn't parse: leave as-is
+
+        def _walk(o):
+            if isinstance(o, dict):
+                return {k: _walk(v) for k, v in o.items()}
+            if isinstance(o, list):
+                return [_walk(v) for v in o]
+            if isinstance(o, str) and _SERIALIZER_TAG_RE.match(o):
+                return _deser(o)
+            return o
+
+        return _walk(obj)
+    except ValueError:
+        raise  # a clear, actionable error — must NOT be swallowed
+    except Exception as e:  # noqa: BLE001 — never block injection on an optional deserialize
+        print(f"[inject] config deserialize unavailable ({type(e).__name__}: {e})")
+        return obj
+    finally:
+        _restore_ecoli(saved_real, effective_fork)
+
+
 def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
     """Resolve add_processes/swap_processes -> a list of InjectionSpec dicts.
 
@@ -552,6 +734,10 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
 
     names = list(config.get("add_processes") or [])
     names += list((config.get("swap_processes") or {}).values())
+    # Swap TARGETS (the process that replaces a baseline one) must end up with a
+    # real config; a bare add_process may legitimately run on config_schema
+    # defaults. Used by the config-less-swap guard below.
+    swap_targets = set((config.get("swap_processes") or {}).values())
 
     specs: list[dict[str, Any]] = []
     for name in names:
@@ -594,6 +780,47 @@ def resolve_injections(fork_repo: str, config: dict) -> list[dict[str, Any]]:
                 print(f"[inject] fork config for {name!r} unavailable "
                       f"({type(e).__name__}); using default. {e}")
                 config_dict = None
+
+        # FAIL LOUD (sms-ecoli#210 Gate 0 / #375 §3d, v2ecoli#667): a SWAP TARGET
+        # that reaches here with no config on the NATIVE (fork-free) path would run
+        # on config_schema defaults. For a swapped metabolism (ecoli-metabolism ->
+        # ecoli-metabolism-redux) those defaults are an empty stoichiometry and zero
+        # homeostatic targets, so the process does nothing, the generation collapses
+        # after one tick, and the run STILL reports success (the exact silent-failure
+        # this exists to stop). The native config builder for redux
+        # (build_native_redux_config, off cache_dir's own bundle sim_data via
+        # v2ecoli's LoadSimData.get_metabolism_redux_config) is NOT yet wired into
+        # this authoritative copy -- it lives in the sms-ecoli vendored inject.py and
+        # must be ported here (entangled with the #211 kinetics-units bridge). Until
+        # then, refuse loudly rather than silently run wild-type.
+        if (config_dict is None
+                and name in swap_targets
+                and not config.get("fork_sim_data")):
+            raise InjectionError(
+                f"{name!r} is a swap target but has NO config on the native "
+                f"(fork-free) path: process_configs names no explicit dict for it, "
+                f"there is no fork_sim_data to build from, and the native "
+                f"cache-derived config builder is not wired into this inject.py yet. "
+                f"Running it now would fall back to config_schema defaults (for "
+                f"metabolism-redux: an empty stoichiometry / 0 homeostatic targets), "
+                f"which silently collapses the generation to one tick and reports "
+                f"success. Fix: provide process_configs[{name!r}] explicitly, or port "
+                f"build_native_redux_config from sms-ecoli scripts/_compare/inject.py "
+                f"and build the config from this run's cache_dir bundle "
+                f"(sms-ecoli#210 Gate 0 / v2ecoli#667).")
+
+        # NATIVE-FIRST: deserialize vEcoli-serialized process_config values —
+        # !ParameterSerializer[path] -> param_store Quantity, !units[...] ->
+        # pint Quantity — before a pbg_native process ever reads its config.
+        # A fork-wrapped (vivarium_1) process has these resolved by the bridge's
+        # initial_state() overlay, but a pbg_native process reads spec["config"]
+        # directly, so a config translated from a genuine (non-baked) vEcoli
+        # config would otherwise hand it a raw tag string. A no-op for a
+        # pre-baked config (no tags, fork untouched); raises a clear error if a
+        # !ParameterSerializer[...] tag survives with no fork reachable. See
+        # _deserialize_config_values.
+        if kind == "pbg_native" and config_dict is not None:
+            config_dict = _deserialize_config_values(config_dict, fork_repo)
 
         topo = topologies.get(name)
         if topo is None:
@@ -878,7 +1105,7 @@ def _materialize_declared_state(cell_state: dict, cls, config: dict | None,
             continue
         # Follow the nested port-key path into the (nested) ports_schema to find
         # this leaf's declared default(s); a scattered antibiotic sub-port like
-        # ``mecillinam.species.bulk`` seeds only the store it actually wires.
+        # ``<proc>.species.bulk`` seeds only the store it actually wires.
         schema_node = pschema if isinstance(pschema, dict) else None
         for k in port_keys:
             schema_node = schema_node.get(k) if isinstance(schema_node, dict) else None

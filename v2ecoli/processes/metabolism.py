@@ -93,6 +93,9 @@ TOPOLOGY = {
     # FBA-bridge: Millard-ODE-derived hard flux pins written by the coupler at
     # the agent root as {fba_reaction_id: flux_bound}.
     "pinned_flux_targets": ("pinned_flux_targets",),
+    # Externally-imposed reaction flux bounds written by an injected subsystem
+    # at the agent root as {reaction_id: {"upper_bound"?: v, "lower_bound"?: v}}.
+    "imposed_flux_bounds": ("imposed_flux_bounds",),
 }
 
 # Unit conversion constants for FBA flux -> molecule count conversion:
@@ -104,6 +107,20 @@ MASS_UNITS = units.g               # mass basis (for dry cell weight)
 TIME_UNITS = units.s               # simulation time basis
 CONC_UNITS = COUNTS_UNITS / VOLUME_UNITS   # mmol/L = mM
 CONVERSION_UNITS = MASS_UNITS * TIME_UNITS / VOLUME_UNITS  # g*s/L
+
+
+def _mM_magnitude(value):
+    """External concentrations are declared ``float[mM]`` in the ports schema and
+    are compared here against the plain-float ``import_constraint_threshold``.
+    The amino-acid-supplemented media path (e.g. ``basal_with_trp``) can leave a
+    pint ``Quantity`` in ``boundary.external`` instead of a bare float, and pint
+    refuses ``Quantity > float`` — the ``metabolism.py:841`` crash that fails the
+    ``_with_trp`` arm while plain ``minimal`` (no AA keys) never hits this path.
+    Return the mM magnitude whether the stored value is already a float or a
+    unit-carrying Quantity, so the availability test is unit-safe either way.
+    Mirrors the ``hasattr(q, "magnitude")`` idiom used elsewhere in this module.
+    """
+    return value.to("mM").magnitude if hasattr(value, "magnitude") else value
 GDCW_BASIS = units.mmol / units.g / units.h  # FBA flux units
 
 USE_KINETICS = True
@@ -367,6 +384,10 @@ class Metabolism(Step):
             # FBA-bridge: {fba_reaction_id: flux_bound} hard pins from the
             # Millard ODE coupler. Absent/empty -> no pins -> no-op.
             'pinned_flux_targets': {'_type': 'map[float]', '_default': {}},
+            # Externally-imposed reaction flux bounds from an injected subsystem
+            # as {reaction_id: {"upper_bound"?: v, "lower_bound"?: v}}. Drug- and
+            # mechanism-agnostic; absent/empty -> no-op. See _apply_imposed_bounds.
+            'imposed_flux_bounds': {'_type': 'map[map[float]]', '_default': {}},
         }
 
     def outputs(self):
@@ -658,6 +679,40 @@ class Metabolism(Step):
         return (delta_metabolites_final, metabolite_counts_final,
                 delta_nutrients, converted_exchange_fluxes, reaction_fluxes)
 
+    def _apply_imposed_bounds(self, fba, imposed_flux_bounds):
+        """Apply externally-imposed reaction flux bounds supplied by an injected
+        subsystem via the ``imposed_flux_bounds`` store, before the LP solve.
+
+        Drug- and mechanism-agnostic: this process only APPLIES the bounds it is
+        handed; the imposing subsystem (e.g. an antibiotic layer in a downstream
+        package) owns which reaction and what value, and computes them from its
+        own state. This keeps ecoli-metabolism free of any drug-specific
+        knowledge. An empty/absent store is a no-op, leaving the LP identical.
+
+        Each entry is ``{reaction_id: {"upper_bound"?: float, "lower_bound"?:
+        float}}`` (either key optional). Unknown reaction ids are skipped with a
+        warning. ``raiseForReversible=False`` matches the pin path's semantics.
+        """
+        if not imposed_flux_bounds:
+            return
+        valid_ids = getattr(self, "_pin_valid_reaction_ids", None)
+        if valid_ids is None:
+            valid_ids = set(fba.getReactionIDs().tolist())
+            self._pin_valid_reaction_ids = valid_ids
+        for rid, bounds in imposed_flux_bounds.items():
+            if rid not in valid_ids:
+                print(f"Warning: ignoring imposed flux bound for unknown "
+                      f"reaction '{rid}'")
+                continue
+            kwargs = {}
+            if "upper_bound" in bounds:
+                kwargs["upperBounds"] = float(bounds["upper_bound"])
+            if "lower_bound" in bounds:
+                kwargs["lowerBounds"] = float(bounds["lower_bound"])
+            if kwargs:
+                fba.setReactionFluxBounds(
+                    rid, raiseForReversible=False, **kwargs)
+
     def _apply_flux_pins(self, fba, pinned_flux_targets):
         """Hard-pin each Millard-ODE-derived reaction flux before the LP solve,
         relaxing to a soft target any pin that makes the LP infeasible.
@@ -838,7 +893,7 @@ class Metabolism(Step):
         if self.mechanistic_aa_transport:
             aa_in_media = np.array(
                 [
-                    states["boundary"]["external"][aa_name]
+                    _mM_magnitude(states["boundary"]["external"][aa_name])
                     > self.import_constraint_threshold
                     for aa_name in self.aa_environment_names
                 ]
@@ -882,6 +937,11 @@ class Metabolism(Step):
         # Solve FBA problem and update states
         n_retries = 3
         fba = self.model.fba
+
+        # Apply any externally-imposed reaction flux bounds supplied by an
+        # injected subsystem via the imposed_flux_bounds store (drug- and
+        # mechanism-agnostic; empty/absent store is a no-op).
+        self._apply_imposed_bounds(fba, states.get("imposed_flux_bounds", {}))
 
         # FBA-bridge: hard-pin Millard-ODE-derived reaction fluxes (if any)
         # before solving; relax any pin that makes the LP infeasible.

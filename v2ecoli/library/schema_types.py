@@ -57,6 +57,12 @@ _GENE_STRUCT = f'unique_array[cistron_index:integer|coordinates:integer|domain_i
 
 _DNAA_BOX_STRUCT = f'unique_array[coordinates:integer|domain_index:integer|DnaA_bound:boolean|pool_label:integer|DnaA_bound_form:integer|{_UNIQUE_TAIL}]'
 
+# flagella-cascade investigation: nascent (in-progress) flagellum, created at
+# hook-basal-body-cap completion (see flagella_nfsim_complexation.py), grown
+# by flagella_filament_elongation.py. Single real attribute -- filament_length
+# -- matches internal_state.py's nascent_flagellum_attributes registration.
+_NASCENT_FLAGELLUM_STRUCT = f'unique_array[filament_length:integer|{_UNIQUE_TAIL}]'
+
 # ---------------------------------------------------------------------------
 # Biological named types
 # ---------------------------------------------------------------------------
@@ -76,6 +82,7 @@ BIOLOGICAL_UNIQUE_TYPES = {
     'chromosomal_segment': _CHROMOSOMAL_SEGMENT_STRUCT,
     'gene': _GENE_STRUCT,
     'DnaA_box': _DNAA_BOX_STRUCT,
+    'nascent_flagellum': _NASCENT_FLAGELLUM_STRUCT,
 }
 PROMOTER_ARRAY = 'promoter'
 RNA_ARRAY = 'rna'
@@ -88,6 +95,7 @@ CHROMOSOME_DOMAIN_ARRAY = 'chromosome_domain'
 CHROMOSOMAL_SEGMENT_ARRAY = 'chromosomal_segment'
 GENE_ARRAY = 'gene'
 DNAA_BOX_ARRAY = 'DnaA_box'
+NASCENT_FLAGELLUM_ARRAY = 'nascent_flagellum'
 
 # ---------------------------------------------------------------------------
 # Convenience mapping: port name → type expression
@@ -115,4 +123,6 @@ UNIQUE_TYPES = {
     'gene': GENE_ARRAY,
     'DnaA_boxes': DNAA_BOX_ARRAY,
     'DnaA_box': DNAA_BOX_ARRAY,
+    'nascent_flagella': NASCENT_FLAGELLUM_ARRAY,
+    'nascent_flagellum': NASCENT_FLAGELLUM_ARRAY,
 }

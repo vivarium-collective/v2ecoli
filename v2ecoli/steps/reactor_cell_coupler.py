@@ -87,6 +87,11 @@ from __future__ import annotations
 from typing import Any
 
 from v2ecoli.steps.base import V2Step as Step
+from v2ecoli.steps.population_aggregator import (
+    LINEAGE_STORE_NAME,
+    founder_id_length,
+    representative_weights,
+)
 from v2ecoli.types.stores import InPlaceDict
 
 
@@ -194,6 +199,7 @@ class ReactorCellCoupler(Step):
             "population": "Cell-population aggregate (counts and summed uptake/secretion), e.g. biomass_concentration_gL and cell_count.",
             "reactor": "BiRD reactor state tree (dissolved gases, glucose, biomass) read to set the cells' environment.",
             "agents": "Per-cell agents map, used to scale a representative agent to population counts via cells_per_agent.",
+            "lineage": "Lineage bookkeeping; when it declares founder_id_length (multi-founder mode) each agent's exchange is weighted by the cells it represents instead of a uniform per-agent share.",
         },
         "outputs": {
             "reactor": "Reactor state written with the population's net exchange: biomass passthrough (g/L) and additive dissolved-gas / medium concentration deltas.",
@@ -225,6 +231,7 @@ class ReactorCellCoupler(Step):
         "reactor":     ("reactor",),
         "environment": ("environment",),
         "agents":      ("agents",),
+        "lineage":     (LINEAGE_STORE_NAME,),
     }
 
     def initialize(self, config: dict | None = None) -> None:
@@ -280,6 +287,7 @@ class ReactorCellCoupler(Step):
             "population": InPlaceDict(),
             "reactor":    InPlaceDict(),
             "agents":     InPlaceDict(),
+            "lineage":    InPlaceDict(),
         }
 
     def outputs(self) -> dict[str, Any]:
@@ -358,10 +366,24 @@ class ReactorCellCoupler(Step):
         glc_counts = 0.0
         nh4_counts = 0.0
         byproduct_counts = {leaf: 0.0 for leaf in BYPRODUCT_LEAVES}
+        # Multi-founder mode: agents represent DIFFERENT numbers of cells
+        # (founders divide at different times), so each agent's exchange is
+        # weighted by its share of the represented population before summing.
+        # The summed counts are then a share-weighted mean per represented cell,
+        # scaled below by the population's total cell_count. Single-founder
+        # mode leaves `shares` None and sums unweighted, exactly as before.
+        shares: dict[str, float] | None = None
+        weights_total = 0.0
+        id_length = founder_id_length(states.get(LINEAGE_STORE_NAME))
+        if id_length is not None and agents:
+            weights = representative_weights(agents.keys(), id_length, self.cells_per_agent)
+            weights_total = sum(weights.values())
+            shares = {aid: w / weights_total for aid, w in weights.items()}
         seen_agents: set[str] = set()
         for _agent_id, agent_state in agents.items():
             exch = _extract_environment_exchange(agent_state)
             seen_agents.add(_agent_id)
+            share = None if shares is None else shares[str(_agent_id)]
             # F4: decide NEW-ness from whether this agent has been SEEN, before
             # setdefault creates its entry. `not prev` was equivalent only while
             # every tick wrote a baseline for every key; with the absent-key
@@ -404,13 +426,22 @@ class ReactorCellCoupler(Step):
                 prev[key] = total
                 return 0.0 if previous is None else total - previous
 
-            o2_counts += _tick_delta(O2_EXCHANGE_KEY)
-            co2_counts += _tick_delta(CO2_EXCHANGE_KEY)
-            if self.track_medium:
-                glc_counts += _tick_delta(GLUCOSE_EXCHANGE_KEY)
-                nh4_counts += _tick_delta(AMMONIUM_EXCHANGE_KEY)
-                for leaf, key in BYPRODUCT_LEAVES.items():
-                    byproduct_counts[leaf] += _tick_delta(key)
+            if share is None:
+                o2_counts += _tick_delta(O2_EXCHANGE_KEY)
+                co2_counts += _tick_delta(CO2_EXCHANGE_KEY)
+                if self.track_medium:
+                    glc_counts += _tick_delta(GLUCOSE_EXCHANGE_KEY)
+                    nh4_counts += _tick_delta(AMMONIUM_EXCHANGE_KEY)
+                    for leaf, key in BYPRODUCT_LEAVES.items():
+                        byproduct_counts[leaf] += _tick_delta(key)
+            else:
+                o2_counts += share * _tick_delta(O2_EXCHANGE_KEY)
+                co2_counts += share * _tick_delta(CO2_EXCHANGE_KEY)
+                if self.track_medium:
+                    glc_counts += share * _tick_delta(GLUCOSE_EXCHANGE_KEY)
+                    nh4_counts += share * _tick_delta(AMMONIUM_EXCHANGE_KEY)
+                    for leaf, key in BYPRODUCT_LEAVES.items():
+                        byproduct_counts[leaf] += share * _tick_delta(key)
             if new_agent:
                 self.first_observation_ticks += 1
         # Drop agents that are gone (division retires the parent id) so the
@@ -452,7 +483,16 @@ class ReactorCellCoupler(Step):
             # switching scales silently.
             n_agents = len(agents)
             cell_count = _as_float(population.get("cell_count"))
-            if cell_count > 0.0 and n_agents:
+            if shares is not None:
+                # Multi-founder: the counts above are already a share-weighted
+                # mean per represented cell, so scale by the WHOLE population.
+                # Fallback: the same weights the aggregator uses, summed here.
+                if cell_count > 0.0:
+                    cells_per_agent_effective = cell_count
+                else:
+                    cells_per_agent_effective = weights_total
+                    self.scale_fallbacks += 1
+            elif cell_count > 0.0 and n_agents:
                 cells_per_agent_effective = cell_count / n_agents
             else:
                 cells_per_agent_effective = self.cells_per_agent

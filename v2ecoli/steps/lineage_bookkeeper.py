@@ -48,6 +48,15 @@ byte-identical. It only acts in the single-lineage-following mode the mbp
 coupled studies use. The runner's own ``prune``/``set_lineage_doublings`` calls
 become harmless idempotent reassertions of the same state.
 
+Multi-founder mode
+------------------
+When the lineage store declares ``founder_id_length`` (L), several founder
+lineages share the agents map. The Step then follows ONE descendant per founder
+(agents grouped by ``agent_id[:L]``), never pruning across lineages, and writes
+no scalar doublings — each agent's doublings are ``len(agent_id) - L``, read off
+its own id by the aggregator and coupler. Without that key, more than one
+single-character (founder) id raises rather than silently pruning to one.
+
 The follow-policy — keep the daughter whose id ends in ``"0"`` — is the SAME
 rule the runners use to choose which lineage to follow and rotate the emitter
 onto (``run_multigen_sqlite``: ``next(i for i in sorted(ids) if i.endswith("0"))``),
@@ -65,6 +74,9 @@ from v2ecoli.types.stores import InPlaceDict
 from v2ecoli.steps.population_aggregator import (
     LINEAGE_DOUBLINGS_KEY,
     LINEAGE_GENERATION_KEY,
+    LINEAGE_FOUNDER_ID_LENGTH_KEY,
+    founder_id_length,
+    founder_of,
 )
 
 
@@ -80,6 +92,19 @@ def followed_lineage_id(agent_ids: list[str]) -> str | None:
     if not ids:
         return None
     return next((i for i in ids if i.endswith("0")), ids[0])
+
+
+def followed_ids_per_founder(agent_ids: list[str], id_length: int) -> list[str]:
+    """Multi-founder mode: one followed lineage per founder.
+
+    Groups agents by founder (``agent_id[:id_length]``) and applies
+    :func:`followed_lineage_id` within each group, so pruning happens WITHIN a
+    lineage and never across lineages.
+    """
+    groups: dict[str, list[str]] = {}
+    for aid in agent_ids:
+        groups.setdefault(founder_of(aid, id_length), []).append(str(aid))
+    return sorted(followed_lineage_id(ids) for ids in groups.values())
 
 
 def doublings_for(followed_id: str) -> float:
@@ -131,6 +156,29 @@ class LineageBookkeeper(Step):
 
         agents = states.get("agents", {}) or {}
         agent_ids = list(agents.keys())
+
+        # Multi-founder mode: follow one descendant per founder. No scalar
+        # doublings are written -- each agent's doublings are derived from its
+        # own id (see population_aggregator.representative_weights).
+        id_length = founder_id_length(states.get("lineage"))
+        if id_length is not None:
+            keep = set(followed_ids_per_founder(agent_ids, id_length))
+            to_remove = [aid for aid in agent_ids if aid not in keep]
+            return {"agents": {"_remove": to_remove}} if to_remove else {}
+
+        # Single-founder mode prunes to ONE lineage. More than one founder-length
+        # (single-character) id means several founders share the agents map, and
+        # pruning here would silently delete all but one of them on the first
+        # tick. Daughters always have ids of length >= 2, so this cannot fire
+        # at a division.
+        founders = sorted(aid for aid in agent_ids if len(str(aid)) == 1)
+        if len(founders) > 1:
+            raise ValueError(
+                f"LineageBookkeeper: {len(founders)} founders {founders} in "
+                "single-founder mode would be pruned to one. Set "
+                f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} to follow one lineage "
+                "per founder.")
+
         followed = followed_lineage_id(agent_ids)
         if followed is None:
             return {}

@@ -86,6 +86,77 @@ LINEAGE_STORE_NAME: str = "lineage"
 LINEAGE_DOUBLINGS_KEY: str = "doublings"
 LINEAGE_GENERATION_KEY: str = "generation"
 
+# --- Multi-founder mode: several lineages sharing one environment ------------
+# With ONE founder the followed lineage's doubling count is a single scalar
+# (`lineage.doublings`). With N founders in one agents map, founders divide at
+# different times, so each agent needs its OWN represented-cell weight. The
+# weight is derived statelessly from the agent's phylogeny id, the same device
+# the LineageBookkeeper uses (#588): agent keys ARE phylogeny ids, founders all
+# have the same id length L, and every division appends one character
+# (`daughter_phylogeny_id`), so an agent's doublings since its founder are
+# `len(agent_id) - L` and its founder is `agent_id[:L]`.
+#
+# The mode is switched on by the presence of `lineage.founder_id_length` (L).
+# Absent -> the single-founder behaviour above, unchanged.
+LINEAGE_FOUNDER_ID_LENGTH_KEY: str = "founder_id_length"
+
+
+def founder_id_length(lineage: Any) -> int | None:
+    """Founder id length L if the lineage store declares multi-founder mode, else None."""
+    if not isinstance(lineage, dict):
+        return None
+    value = lineage.get(LINEAGE_FOUNDER_ID_LENGTH_KEY)
+    if value is None:
+        return None
+    length = int(value)
+    if length < 1:
+        raise ValueError(
+            f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} must be >= 1, got {value!r}")
+    return length
+
+
+def founder_ids(n_founders: int) -> list[str]:
+    """Phylogeny ids for ``n_founders`` founders, all of one length.
+
+    ``["0"]`` for one founder (the single-founder id), ``"0".."9"`` for up to
+    ten, zero-padded beyond that so every founder has the same length L and no
+    founder id can collide with a descendant of another.
+    """
+    if n_founders < 1:
+        raise ValueError(f"n_founders must be >= 1, got {n_founders}")
+    width = len(str(n_founders - 1))
+    return [str(k).zfill(width) for k in range(n_founders)]
+
+
+def founder_of(agent_id: str, id_length: int) -> str:
+    """The founder an agent descends from: the first ``id_length`` characters of its id."""
+    return str(agent_id)[:id_length]
+
+
+def doublings_since_founder(agent_id: str, id_length: int) -> int:
+    """Divisions between an agent and its founder: ``len(agent_id) - id_length``."""
+    depth = len(str(agent_id)) - id_length
+    if depth < 0:
+        raise ValueError(
+            f"agent id {agent_id!r} is shorter than the founder id length {id_length}")
+    return depth
+
+
+def representative_weights(
+    agent_ids, id_length: int, cells_per_agent: float,
+) -> dict[str, float]:
+    """Real cells each agent represents under representative doubling.
+
+    ``cells_per_agent * 2**doublings_since_founder``: each founder starts at
+    ``cells_per_agent`` cells, and following one daughter per division doubles
+    the cells it stands for. Division conserves the sum: the kept daughter's
+    weight doubles while its mass halves.
+    """
+    return {
+        str(aid): cells_per_agent * 2.0 ** doublings_since_founder(aid, id_length)
+        for aid in agent_ids
+    }
+
 
 class PopulationAggregator(Step):
     """Aggregate per-cell mass + agent count into reactor-scale observables.
@@ -114,7 +185,7 @@ class PopulationAggregator(Step):
         ),
         "inputs": {
             "agents": "Per-cell agents map (dry masses via listeners.mass.dry_mass, in fg, and cell counts).",
-            "lineage": "Lineage/division bookkeeping (lineage.doublings) used to weight the aggregate in representative_doubling mode.",
+            "lineage": "Lineage/division bookkeeping (lineage.doublings) used to weight the aggregate in representative_doubling mode. When it declares founder_id_length (multi-founder mode), each agent is instead weighted by its own doublings since its founder, len(agent_id) - founder_id_length.",
         },
         "outputs": {
             "population": "Reactor-scale observables: total_biomass_gDW (g), cell_count, biomass_concentration_gL (g/L), OD600 (cosmetic).",
@@ -130,6 +201,7 @@ class PopulationAggregator(Step):
             "dry_mass is read on a DRY basis (fg) and converted with FG_PER_GRAM = 1e-15 g/fg; the cells_per_agent factor applies only to population.* outputs, never per-cell stores.",
             "OD600 is cosmetic, derived from biomass_concentration_gL / od_to_gdw.",
             "A missing/empty lineage store yields 0 doublings -> factor 1.0, so non-runner and first-generation builds are unaffected.",
+            "Multi-founder mode requires representative_doubling; each agent represents cells_per_agent * 2**(len(agent_id) - founder_id_length) cells, and the sum over agents is continuous through every division.",
         ],
     }
 
@@ -184,6 +256,10 @@ class PopulationAggregator(Step):
                 od600=0.0,
             )}
 
+        id_length = founder_id_length((states or {}).get(LINEAGE_STORE_NAME))
+        if id_length is not None:
+            return self._multi_founder_update(agents, id_length)
+
         sum_dry_mass_fg = 0.0
         for _agent_id, agent_state in agents.items():
             dry_mass = _extract_dry_mass_fg(agent_state)
@@ -219,6 +295,37 @@ class PopulationAggregator(Step):
 
     def update(self, state, interval=None):
         return self.next_update(state.get("timestep", 1.0), state)
+
+    # --- multi-founder mode --------------------------------------------------
+
+    def _multi_founder_update(self, agents, id_length: int):
+        """Aggregate N founder lineages, each agent weighted by its own doublings.
+
+        Biomass is ``sum(dry_mass_i * weight_i)`` and cell_count is
+        ``sum(weight_i)``, so agents of different sizes and generations are
+        represented in proportion to the cells they stand for.
+        """
+        if self.population_growth_mode != GROWTH_MODE_DOUBLING:
+            raise ValueError(
+                "multi-founder mode (lineage.founder_id_length set) requires "
+                f"population_growth_mode={GROWTH_MODE_DOUBLING!r}; got "
+                f"{self.population_growth_mode!r}")
+        weights = representative_weights(agents.keys(), id_length, self.cells_per_agent)
+        weighted_dry_mass_fg = 0.0
+        for agent_id, agent_state in agents.items():
+            dry_mass = _extract_dry_mass_fg(agent_state)
+            if dry_mass is not None:
+                weighted_dry_mass_fg += dry_mass * weights[str(agent_id)]
+        total_biomass_gDW = weighted_dry_mass_fg * FG_PER_GRAM
+        cell_count = float(sum(weights.values()))
+        biomass_concentration_gL = total_biomass_gDW / self.reactor_volume_L
+        od600 = biomass_concentration_gL / self.od_to_gdw if self.od_to_gdw else 0.0
+        return {"population": _build_population_dict(
+            total_biomass_gDW=total_biomass_gDW,
+            cell_count=cell_count,
+            biomass_concentration_gL=biomass_concentration_gL,
+            od600=od600,
+        )}
 
     # --- representative-growing-population factor ---------------------------
 

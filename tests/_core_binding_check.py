@@ -8,7 +8,7 @@ build) without threading ``core=`` through. ``.core`` is only ever read
 later, by ``bigraph_schema``'s ``Link.serialize``
 (``instance.core.access(...)``), so this ships a composite that builds and
 runs without error and only crashes at the very last step of a real run —
-confirmed live via sim 154 (sms-ecoli build 64, commit c2ae8eb) and via a
+confirmed live via sim 154 (build 64, commit c2ae8eb) and via a
 local repro against real ``ecoli_baseline``/``baseline_millard`` composites.
 """
 

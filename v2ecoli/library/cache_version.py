@@ -589,8 +589,8 @@ def _default_repo_root() -> str:
 def candidate_repo_roots() -> list[str]:
     """Ordered, de-duplicated roots to search for an INPUT_FILES-style entry.
 
-    When v2ecoli is consumed as an INSTALLED dependency (e.g. sms-ecoli
-    depending on it via git), its SOURCE files live under the package
+    When v2ecoli is consumed as an INSTALLED dependency (e.g. a downstream
+    workspace depending on it via git), its SOURCE files live under the package
     (``site-packages/v2ecoli/...``, anchored by :func:`_default_repo_root`)
     but its DATA files (``models/parca/parca_state.pkl.gz``) live in the
     consuming WORKSPACE — so no single root resolves both.

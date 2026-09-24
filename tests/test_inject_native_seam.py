@@ -284,7 +284,7 @@ def test_lineage_injected_processes_list_timeline_survives_config_realize():
 # config. On the NATIVE path (fork_repo="") it used to be SKIPPED, on the
 # assumption a fork-free config is pre-baked to plain values. A genuine
 # (non-baked) vEcoli config translated straight onto native ecoli_baseline
-# (e.g. --from-vecoli-config configs/mecillinam_wellmixed.json --composite
+# (e.g. --from-vecoli-config configs/antibiotic_wellmixed.json --composite
 # ecoli_baseline) breaks that assumption: raw tags survive into EVERY native
 # injection process -- gillespie's ``kf > 0`` raises ``TypeError: '>' not
 # supported between 'str' and 'int'``; antibiotic_transport's _param_magnitude
@@ -311,7 +311,7 @@ def _write_fake_vecoli_fork(tmp_path):
         "from vivarium.core.registry import Serializer\n"
         "\n"
         "_PARAM_STORE = {\n"
-        '    "mecillinam": {"pbp2": {"binding_kf": 123.456, "unbinding_kf": 0.02}},\n'
+        '    "drugX": {"pbp2": {"binding_kf": 123.456, "unbinding_kf": 0.02}},\n'
         "}\n"
         "\n"
         "\n"
@@ -358,16 +358,16 @@ def test_native_config_tags_deserialize_for_both_gillespie_and_transport(tmp_pat
         # ``kf > 0`` -- a raw tag string here is the reported TypeError.
         "initial_reaction_parameters": {
             "binding": {
-                "kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]",
+                "kf": "!ParameterSerializer[drugX>pbp2>binding_kf]",
                 "kr": "!units[0 1 / second]",
             },
         },
         # antibiotic-transport-shaped: _param_magnitude reads a nested rate and
         # tolerates a Quantity/float, never a raw tag string.
         "kinetic_parameters": {
-            "mecillinam": {
+            "drugX": {
                 "PBP2": {
-                    "kcat": "!ParameterSerializer[mecillinam>pbp2>unbinding_kf]",
+                    "kcat": "!ParameterSerializer[drugX>pbp2>unbinding_kf]",
                 },
             },
         },
@@ -381,7 +381,7 @@ def test_native_config_tags_deserialize_for_both_gillespie_and_transport(tmp_pat
     kr = resolved["initial_reaction_parameters"]["binding"]["kr"]
     assert hasattr(kr, "magnitude") and float(kr.magnitude) == 0.0
     # transport kcat: resolved the SAME way through the SAME gate.
-    assert resolved["kinetic_parameters"]["mecillinam"]["PBP2"]["kcat"] == 0.02
+    assert resolved["kinetic_parameters"]["drugX"]["PBP2"]["kcat"] == 0.02
 
 
 def test_native_param_tag_resolves_via_env_var(tmp_path, monkeypatch):
@@ -391,7 +391,7 @@ def test_native_param_tag_resolves_via_env_var(tmp_path, monkeypatch):
     fork_dir = _write_fake_vecoli_fork(tmp_path)
     monkeypatch.setenv("V2E_VECOLI_DIR", fork_dir)
     monkeypatch.delenv("VECOLI_REPO", raising=False)
-    cfg = {"p": {"kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]"}}
+    cfg = {"p": {"kf": "!ParameterSerializer[drugX>pbp2>binding_kf]"}}
     resolved = inject._deserialize_config_values(cfg, "")
     assert resolved["p"]["kf"] == 123.456
 
@@ -405,7 +405,7 @@ def test_native_param_tag_without_a_fork_raises_a_clear_error(monkeypatch):
     cfg = {
         "initial_reaction_parameters": {
             "binding": {
-                "kf": "!ParameterSerializer[mecillinam>pbp2>binding_kf]",
+                "kf": "!ParameterSerializer[drugX>pbp2>binding_kf]",
                 "kr": 0,
             },
         },

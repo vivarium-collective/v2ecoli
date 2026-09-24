@@ -138,7 +138,7 @@ def apply_carry_state(agent, carry_state):
     Also overlays every INJECTED agent-root store the carry state holds (see
     :func:`v2ecoli.library.division.extra_store_keys`). Those are MERGED leaf by
     leaf onto the fresh node rather than replacing it, because the fresh build
-    may have stamped the node with its declared ``_type`` (sms-ecoli's
+    may have stamped the node with its declared ``_type`` (a downstream workspace's
     ``fields`` is materialized as
     ``{"_type": "map[overwrite[array[float]]]", <mol>: zeros}``) — replacing it
     with a raw dict would drop the type and with it the overwrite updater,
@@ -1032,7 +1032,7 @@ class LineageProcess(Process):
         became 3,600 x generations completed, the summary ``duration`` was wrong,
         every generation reported ``timed_out``, and a cumulative-time dose
         (Run 3's ``field_timeline`` onset at 10,000 s) fired ~2,900 s of simulated
-        time early (sim 898, sms-ecoli#166, 2026-09-10).
+        time early (sim 898, 2026-09-10).
 
         Precedence: (1) a division timestamp stamped onto a NEW daughter agent
         (``global_time``) -- but only if it ADVANCES the clock. The Division step
@@ -1195,7 +1195,7 @@ class LineageProcess(Process):
             cell.get("listeners", {}).get("mass", {}).get("dry_mass", 0.0)
         )
 
-        # sms-ecoli#210, item106: temporary, opt-in diagnostic for Run 3's real,
+        # item106: temporary, opt-in diagnostic for Run 3's real,
         # not-yet-root-caused one-tick collapse (global_time reaches ~1.0 with no
         # exception at all) — reports exactly which of the 3 division signals
         # fired plus the real state values behind them, since static reading of
@@ -1311,8 +1311,8 @@ class LineageProcess(Process):
         # the emitter's 400-row batch) never land and the sweep has no history
         # parquet for the analyses to read.
         # Observability for the division→checkpoint window. This is exactly where
-        # dispatch 313 stalled — idle, no error, right before the checkpoint write
-        # (sms-ecoli#210). The emitter flush and the checkpoint write are both S3
+        # dispatch 313 stalled — idle, no error, right before the checkpoint write.
+        # The emitter flush and the checkpoint write are both S3
         # I/O; without these markers a stall in either is indistinguishable and
         # invisible. Printed (flushed) so it lands in the run log, and timed so a
         # slow/blocked step is obvious rather than silent.

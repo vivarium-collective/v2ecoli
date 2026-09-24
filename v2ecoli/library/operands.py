@@ -422,8 +422,8 @@ def run_operand(sweep_dir: str | Path, entity_ids,
 
     ⚠ **No non-test caller yet, deliberately.** `vs_experiment.py` resolves side
     A via ``promoted_operand`` and side B via ``fixture_operand``; wiring this in
-    is the private-side change that lands with the ambr250 investigation
-    (`sms-ecoli#77`), and it cannot be written here because that card is
+    is the private-side change that lands with the ambr250 investigation,
+    and it cannot be written here because that card is
     private-only. Recorded rather than left to be rediscovered: a public path
     with only test callers looks like dead code to the next reader, and the
     honest status is "the consumer is blocked on a sync, not missing". A sweep is read through the run-keyed cache
@@ -859,7 +859,7 @@ def _join_vectors(a, b) -> dict:
         "n_b_rows": int(len(b.frame)), "n_b_detected": int(len(b_rows)),
         # DEPRECATED aliases — identical values, kept so a downstream tree that
         # vendors this file can migrate on its own schedule instead of in
-        # lockstep with a sync. Remove once sms-ecoli's vs_experiment.py reads
+        # lockstep with a sync. Remove once a downstream workspace's vs_experiment.py reads
         # the symmetric names.
         "exp": a_ppm, "sim": b_ppm,
         "n_measured": int(len(a.frame)),

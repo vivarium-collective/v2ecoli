@@ -6,7 +6,7 @@ in ``baseline()``'s arguments, which it cannot see. A caller that declares only
 ``swap_processes`` therefore gets a process built with NO config: every
 ``config_schema`` default fires. For a swapped metabolism-redux that is an empty
 stoichiometry / 0 homeostatic targets, which collapses the generation to one tick
-while reporting success (sms-ecoli#210 Gate 0).
+while reporting success (Gate 0).
 
 Test structure (not behavior): the fix is a one-line seed, but it must be the
 right shape — copied not mutated, override-wins, and BEFORE the resolve call —

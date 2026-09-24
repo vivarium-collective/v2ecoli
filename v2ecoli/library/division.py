@@ -278,7 +278,7 @@ UNIQUE_DIVIDERS = {
 # knows how to split -- ``bulk`` (binomial), ``unique`` (domain), ``environment``
 # and ``boundary`` (copied to both daughters). Everything else at the agent root
 # is either per-tick runtime bookkeeping (rebuilt identically every generation)
-# or a store some INJECTED process wired there: sms-ecoli's ``fields`` (the drug
+# or a store some INJECTED process wired there: a downstream workspace's ``fields`` (the drug
 # field), ``imposed_flux_bounds``, ``<drug>_env`` / ``<drug>_exchange``,
 # ``periplasm``, ``cytoplasm``, ``counts``, ``kinetic_parameters``, the
 # peptidoglycan wall ``pg_cellwall``, ...
@@ -345,7 +345,7 @@ NON_CARRIED_ROOT_KEYS = frozenset({
 #: neither listed nor excluded, and were silently copied).
 #: One line of reason each:
 CARRIED_BY_COPY = frozenset({
-    # injected environment / dose fields (sms-ecoli field_timeline, well-mixed
+    # injected environment / dose fields (downstream field_timeline, well-mixed
     # fields): the daughter lives in the mother's medium; the runner's fire-once
     # timeline re-fires from the cumulative offset, so a copy is the intent
     'fields',
@@ -363,7 +363,7 @@ CARRIED_BY_COPY = frozenset({
 })
 
 #: Downstream-registered copied roots (an injected composite's own stores --
-#: sms-ecoli's ``fields``, ``kinetic_parameters``, ``<drug>_env`` ... -- are
+#: a downstream workspace's ``fields``, ``kinetic_parameters``, ``<drug>_env`` ... -- are
 #: unknown to this module). Same shape as the divider registry: the module that
 #: declares the store registers its classification, and the lineage runner's
 #: ``lineage.division`` report stops flagging it as unclassified.
@@ -424,7 +424,7 @@ def extra_store_keys(cell_state) -> Tuple[str, ...]:
 #: {...}}`` block: seeds, index arrays, maxima) is bound by the registrant, via
 #: a closure or ``functools.partial``. A divider that raises is NOT swallowed.
 #:
-#: Downstream adoption is one line. sms-ecoli's ``pg_maturation.py`` already
+#: Downstream adoption is one line. A downstream workspace's ``pg_maturation.py`` already
 #: builds exactly that config for its ``pg_cellwall`` port; in ``initialize()``
 #: (where ``self.seed`` and ``self.idx`` exist) it registers:
 #:
@@ -437,7 +437,7 @@ STORE_DIVIDERS: Dict[str, Any] = {}
 
 #: Listener LEAF paths (tuples relative to the agent's ``listeners`` store) that
 #: survive a division / generation boundary. ``listeners`` is otherwise entirely
-#: re-derived; this is the narrow opt-out for a LATCH -- e.g. sms-ecoli's
+#: re-derived; this is the narrow opt-out for a LATCH -- e.g. a downstream workspace's
 #: ``("peptidoglycan_shape", "lysed")``, which must stay latched once set.
 CARRIED_LISTENER_PATHS: List[Tuple[str, ...]] = []
 
@@ -505,7 +505,7 @@ def merge_carried_store(fresh, carried):
     """Overlay a CARRIED store value onto the freshly built node, typed-safely.
 
     The fresh daughter / next-generation document may represent an injected root
-    as a dict that carries a ``_type`` key (sms-ecoli's
+    as a dict that carries a ``_type`` key (a downstream workspace's
     ``_materialize_native_declared_state`` stamps e.g.
     ``fields: {"_type": "map[overwrite[array[float]]]", <mol>: zeros}``).
     REPLACING that node with the carried raw dict would drop the ``_type`` and

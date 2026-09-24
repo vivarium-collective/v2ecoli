@@ -112,15 +112,15 @@ def test_seed_overrides_none_is_byte_identical_to_omitted():
 def test_exchange_fluxes_threaded_onto_every_lineage():
     """Item 106: a caller-supplied exchange-flux map must reach every lineage's
     own config, unmodified -- needed for a real product-exchange-flux column
-    (e.g. CD2 Run 2's violacein_exchange) rather than only raw state."""
+    (e.g. CD2 Run 2's product-exchange column) rather than only raw state."""
     doc = build_lineage_ray_batch_document(
         n_seeds=2, n_generations=1, experiment_id="exp1", out_dir="s3://bucket/out",
-        exchange_fluxes={"violacein_exchange": "VIOLACEIN", "glucose_exchange": "GLC"},
+        exchange_fluxes={"acetate_exchange": "ACET", "glucose_exchange": "GLC"},
         exchange_flux_basis="gdcw",
     )
     for node in ("lineage_0000", "lineage_0001"):
         cfg = doc["state"][node]["config"]
-        assert cfg["exchange_fluxes"] == {"violacein_exchange": "VIOLACEIN", "glucose_exchange": "GLC"}
+        assert cfg["exchange_fluxes"] == {"acetate_exchange": "ACET", "glucose_exchange": "GLC"}
         assert cfg["exchange_flux_basis"] == "gdcw"
 
 

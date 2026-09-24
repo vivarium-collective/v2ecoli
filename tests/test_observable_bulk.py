@@ -14,15 +14,15 @@ import numpy as np
 
 def test_with_observable_bulk_selects_by_id_and_is_pure():
     from v2ecoli.library.xarray_run import _with_observable_bulk
-    rec = np.array([("VIOLACEIN[c]", 199000), ("GLC[p]", 5),
-                    ("mecillinam[p]-EG10606-MONOMER[i]", 96)],
+    rec = np.array([("TRP[c]", 199000), ("GLC[p]", 5),
+                    ("drugX[p]-EG10606-MONOMER[i]", 96)],
                    dtype=[("id", "U60"), ("count", "<i8")])
     agent = {"bulk": rec, "listeners": {"mass": {"cell_mass": 1200.0}}}
     out = _with_observable_bulk(
-        agent, ["VIOLACEIN[c]", "mecillinam[p]-EG10606-MONOMER[i]", "ABSENT[c]"])
+        agent, ["TRP[c]", "drugX[p]-EG10606-MONOMER[i]", "ABSENT[c]"])
     ob = out["listeners"]["observable_bulk"]
-    assert ob["VIOLACEIN[c]"] == 199000.0
-    assert ob["mecillinam[p]-EG10606-MONOMER[i]"] == 96.0
+    assert ob["TRP[c]"] == 199000.0
+    assert ob["drugX[p]-EG10606-MONOMER[i]"] == 96.0
     assert ob["ABSENT[c]"] == 0.0          # missing id -> 0.0 (continuous trace)
     assert out["listeners"]["mass"]["cell_mass"] == 1200.0  # existing preserved
     assert "observable_bulk" not in agent["listeners"]      # live state untouched
@@ -45,9 +45,9 @@ def test_reference_process_declares_unified_observable_bulk_path(monkeypatch):
                         type("H", (), {"engine": object()})())
     from bigraph_schema import allocate_core
     proc = ve.VivariumEcoliProcess(
-        config={"sim_data_path": "x", "observable_bulk_ids": ["VIOLACEIN[c]"]},
+        config={"sim_data_path": "x", "observable_bulk_ids": ["TRP[c]"]},
         core=allocate_core())
     out = proc.outputs()
     assert "observable_bulk" in out["listeners"]
-    assert "VIOLACEIN[c]" in out["listeners"]["observable_bulk"]
+    assert "TRP[c]" in out["listeners"]["observable_bulk"]
     assert "bulk" not in out  # no separate bulk root — unified under listeners

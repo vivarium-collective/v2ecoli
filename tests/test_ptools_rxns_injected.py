@@ -1,8 +1,8 @@
 """ptools_rxns handles a flux array wider than base_reaction_ids.
 
 An engineered strain whose metabolism is BUILT with an extra reaction not in the
-pickled ``base_reaction_ids`` — e.g. ``include_violacein_reactions`` appends a
-violacein reaction to the FBA network — emits a ``base_reaction_fluxes`` array one
+pickled ``base_reaction_ids`` — e.g. an injected pathway that appends a reaction
+to the FBA network — emits a ``base_reaction_fluxes`` array one
 (or more) wider than ``base_reaction_ids``. The injected reactions are appended
 after the base set, so the base reactions still pair 1:1 with the leading flux
 columns; the analysis must keep the trailing flux and label it, not raise.

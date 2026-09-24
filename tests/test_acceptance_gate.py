@@ -1,6 +1,6 @@
 """Acceptance gate: content checks that turn silent-success into loud failure.
 
-Covers the failure classes from sms-ecoli#210: a required column missing, present
+Covers the failure classes: a required column missing, present
 but all-null, no hive parquet at all, and a declared process absent from what ran.
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ def sweep(tmp_path):
     _write_hive(tmp_path, pa.table({
         "global_time": [0.0, 1.0, 2.0],
         "listeners__mass__dry_mass": [430.0, 431.0, 432.0],
-        "environment__exchange__VIOLACEIN": [0.0, 0.01, 0.02],
+        "environment__exchange__GLC": [0.0, 0.01, 0.02],
         "all_null_col": pa.array([None, None, None], type=pa.float64()),
         "dead_const_col": [7.0, 7.0, 7.0],
     }))

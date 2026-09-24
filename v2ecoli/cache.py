@@ -34,7 +34,7 @@ def is_s3_uri(path: str) -> bool:
 # applies no effective socket timeout to a stalled connection, so a hung S3 write
 # can block indefinitely with no error — observed as a lineage checkpoint upload
 # leaving a GovCloud run IDLE for 4+ hours right before the checkpoint was written
-# (sms-ecoli#210 / dispatch 313). An explicit connect/read timeout plus bounded
+# (dispatch 313). An explicit connect/read timeout plus bounded
 # retries turns a stalled transfer into a loud failure in minutes instead of a
 # silent hang. read_timeout is per-request (per multipart part), so a legitimately
 # large upload is NOT killed — only a genuinely stuck part is.

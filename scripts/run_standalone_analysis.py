@@ -189,7 +189,7 @@ def _register_extra_analysis_modules() -> list[dict[str, str]]:
     Downstream packages register Analysis ports into the SAME registry purely as
     an import side effect, but they live outside v2ecoli, so this script never
     imported them and every such name silently resolved to "unknown analysis"
-    in ``run()`` -- e.g. sms-ecoli's whole ``sms_modules`` suite
+    in ``run()`` -- e.g. a downstream workspace's whole ``sms_modules`` suite
     (ptools_metabolites_multiseed, the fss_* family) was invisible to every
     standalone flush. A caller names those modules in the env var (comma- or
     whitespace-separated, e.g. ``sms_modules``); each is imported here.

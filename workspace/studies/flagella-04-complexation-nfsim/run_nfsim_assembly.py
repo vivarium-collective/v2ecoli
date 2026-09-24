@@ -41,8 +41,16 @@ import argparse
 import os
 
 # --- shim: bionetgen 0.8.6 does `from pkg_resources import packaging` (removed) ---
-import pkg_resources
+# UPDATED 2026-09-22: setuptools>=80 removed pkg_resources entirely, not just
+# its .packaging attribute -- construct a minimal stand-in module if missing.
+import sys
+import types
 import packaging as _packaging
+try:
+    import pkg_resources
+except ModuleNotFoundError:
+    pkg_resources = types.ModuleType("pkg_resources")
+    sys.modules["pkg_resources"] = pkg_resources
 if not hasattr(pkg_resources, "packaging"):
     pkg_resources.packaging = _packaging
 # ----------------------------------------------------------------------------------

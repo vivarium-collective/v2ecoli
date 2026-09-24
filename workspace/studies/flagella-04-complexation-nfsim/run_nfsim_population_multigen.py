@@ -313,6 +313,35 @@ def _plot_filament_panel(ax, rows):
     ax.set_ylabel("subunits")
 
 
+def _plot_per_agent_panel(ax, rows, stat_key):
+    """One line per agent_id for a single scalar per-agent statistic
+    (a key into _agent_stats()'s returned dict), population-wide -- same
+    visual convention as _plot_filament_panel, generalized from filaments
+    to any scalar metric. A division shows up as one line splitting into
+    two diverging lines under the daughters' own agent_ids, so you can
+    see exactly which daughter ends up with what, instead of only the
+    summed/meaned population total."""
+    flat_t, flat_aid, flat_val = [], [], []
+    for row in rows:
+        for aid, stats in row["per_agent"].items():
+            flat_t.append(row["t_cum"] / 60.0)
+            flat_aid.append(aid)
+            flat_val.append(stats.get(stat_key, 0))
+    if flat_aid:
+        flat_t = np.array(flat_t); flat_val = np.array(flat_val)
+        flat_aid = np.array(flat_aid)
+        for aid in sorted(np.unique(flat_aid)):
+            mask = flat_aid == aid
+            order = np.argsort(flat_t[mask])
+            ax.plot(flat_t[mask][order], flat_val[mask][order], "-o", ms=2, lw=1,
+                    label=f"agent {aid}")
+        ax.legend(fontsize=6, ncol=3)
+    else:
+        ax.text(0.5, 0.5, "no agents", ha="center", va="center",
+                transform=ax.transAxes, fontsize=8, color="#888888")
+    ax.set_ylabel("count")
+
+
 # Panels, in temporal/logical order -- population context first, then the
 # same regulatory -> FliS protection -> assembly cascade -> terminal-output
 # chain used in run_nfsim_wired_test.py's "full panel" figure, all summed
@@ -354,6 +383,12 @@ def _panel_spec():
         ("__filament__", None),
         ("Free FliC, population total", "EG10321-MONOMER[e]"),
         ("__complete_flagella__", None),
+        # Added 2026-09-22 (Maya's request): same 3 metrics broken out per
+        # agent_id instead of summed, so a division shows as one line
+        # splitting into two -- see _plot_per_agent_panel docstring.
+        ("__per_agent_flag__", None),
+        ("__per_agent_hook__", None),
+        ("__per_agent_nascent__", None),
     ]
     # Added 2026-08-27 (Maya's request): C-ring/export apparatus/motor
     # complex are fast-flowing intermediates, LIVE count usually 0-1 even
@@ -419,6 +454,15 @@ def _render_panel(ax, panel_title, key, rows, t, n_agents, tot,
         ax.plot(t, tot("CPLX0-7452[j]"), "-o", ms=2, color="#d62728")
         ax.set_ylabel("count")
         panel_title = "Complete flagella — population aggregate"
+    elif panel_title == "__per_agent_flag__":
+        _plot_per_agent_panel(ax, rows, "flag")
+        panel_title = "Complete flagella, per agent (daughter tracking)"
+    elif panel_title == "__per_agent_hook__":
+        _plot_per_agent_panel(ax, rows, "flagella_internal_cumulative")
+        panel_title = "Hook-basal-body complete (internal), per agent (daughter tracking)"
+    elif panel_title == "__per_agent_nascent__":
+        _plot_per_agent_panel(ax, rows, "n_nascent")
+        panel_title = "nascent_flagellum, per agent (daughter tracking)"
     elif key in cumulative_overlay:
         ax.plot(t, tot(key), "-o", ms=2, color=COLORS.get(key, "#333333"), label="live count")
         ax.plot(t, tot(cumulative_overlay[key]), "-o", ms=2, color="#7f7f7f",

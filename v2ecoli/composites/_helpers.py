@@ -1821,8 +1821,15 @@ def _get_special_step(loader, step_name, core):
             # dropped from 1 to 0 in the population total exactly at a
             # division boundary, which a correct binomial split of 1 could
             # never produce (0+1 or 1+0, never 0+0).
-            'nfsim_scaffold_species': ('nfsim_scaffold_species',),
-            'nfsim_internal_observables': ('nfsim_internal_observables',),
+            # GATED 2026-09-22: these two stores only exist when
+            # flagella_nfsim_complexation is enabled -- wiring them
+            # unconditionally changed EVERY composite's Division topology
+            # (not just ecoli_baseline's), breaking golden-document parity
+            # tests for unrelated composites (e.g. baseline_millard) that
+            # share this same generic division-handling code path.
+            **({'nfsim_scaffold_species': ('nfsim_scaffold_species',),
+                'nfsim_internal_observables': ('nfsim_internal_observables',)}
+               if 'flagella_nfsim_complexation' in (_features or []) else {}),
             'agents': ('..',),
         }
         return instance, topo, 'step'

@@ -31,8 +31,15 @@ import sys
 STUDY_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(STUDY_DIR, "models"))
 
-import pkg_resources
+# UPDATED 2026-09-22: setuptools>=80 removed pkg_resources entirely, not just
+# its .packaging attribute -- construct a minimal stand-in module if missing.
+import types
 import packaging as _packaging
+try:
+    import pkg_resources
+except ModuleNotFoundError:
+    pkg_resources = types.ModuleType("pkg_resources")
+    sys.modules["pkg_resources"] = pkg_resources
 if not hasattr(pkg_resources, "packaging"):
     pkg_resources.packaging = _packaging
 

@@ -74,8 +74,19 @@ def _import_nfsim_process():
     # bionetgen 0.8.6 does `from pkg_resources import packaging` (removed on
     # py3.12); shim it from the standalone `packaging` before importing
     # pbg_nfsim -- same shim used throughout this investigation.
-    import pkg_resources
+    # UPDATED 2026-09-22: setuptools>=80 (this repo's locked 83.0.0) removed
+    # pkg_resources ENTIRELY, not just its .packaging attribute -- a bare
+    # `import pkg_resources` now raises ModuleNotFoundError outright.
+    # Construct a minimal stand-in module in that case instead of assuming
+    # one already exists to patch.
+    import sys
+    import types
     import packaging as _packaging
+    try:
+        import pkg_resources
+    except ModuleNotFoundError:
+        pkg_resources = types.ModuleType("pkg_resources")
+        sys.modules["pkg_resources"] = pkg_resources
     if not hasattr(pkg_resources, "packaging"):
         pkg_resources.packaging = _packaging
     from pbg_nfsim.processes import NFSimProcess
@@ -197,6 +208,24 @@ class FlagellaNFsimComplexation(Step):
         self.id_to_obs = model.bulk_id_to_observable_name()
         self._real_ids = list(self.id_to_obs.keys())
 
+        # Structural monomer bill-of-materials for one completed hook-basal-
+        # body (2026-09-24, see module docstring's MASS CONSERVATION note):
+        # every real-bulk-ID species consumed (negative coefficient) across
+        # the structural chain (every reaction except 'flhDC', which is
+        # regulatory, not structural) that is NEVER itself a produced
+        # (positive coefficient) output anywhere in the table -- i.e. a
+        # genuine external raw monomer, not a pass-through intermediate
+        # (CPLX0-7450[i]/CPLX0-7451[j]/FLAGELLAR-MOTOR-COMPLEX[j] are
+        # produced-then-consumed and correctly excluded by this rule).
+        stoich = model.COMPLEXATION_STOICHIOMETRY
+        produced = {sid for rxn in stoich.values() for sid, coeff in rxn.items() if coeff > 0}
+        self._structural_stoich = {
+            sid: -coeff
+            for rxn_name, rxn in stoich.items() if rxn_name != "flhDC"
+            for sid, coeff in rxn.items()
+            if coeff < 0 and sid not in produced
+        }
+
         nfsim_core = allocate_core()
         self.nfsim = NFSimProcess(
             config={
@@ -208,6 +237,7 @@ class FlagellaNFsimComplexation(Step):
         )
 
         self.reactant_idx = None
+        self._hbb_mass_per_completion = None
 
     def update_condition(self, timestep, states):
         return states["next_update_time"] <= states["global_time"]
@@ -216,6 +246,16 @@ class FlagellaNFsimComplexation(Step):
         if self.reactant_idx is None:
             bulk_ids = states["bulk"]["id"]
             self.reactant_idx = bulk_name_to_idx(self._real_ids, bulk_ids)
+            # Real per-molecule masses aren't available until now (bulk
+            # submass columns live on `states`, not `config`) -- exact sum
+            # since the structural stoichiometry above is fixed/non-
+            # branching, not an approximation.
+            struct_idx = bulk_name_to_idx(list(self._structural_stoich.keys()), bulk_ids)
+            submass = states["bulk"]["protein_submass"]
+            self._hbb_mass_per_completion = float(sum(
+                count * submass[struct_idx[i]]
+                for i, count in enumerate(self._structural_stoich.values())
+            ))
 
         update = {"next_update_time": states["global_time"] + self.interval}
 
@@ -304,8 +344,16 @@ class FlagellaNFsimComplexation(Step):
         # them from here on, unchanged.
         n_new = int(round(deltas_by_name.get("flagella", 0.0)))
         if n_new > 0:
+            # MASS CONSERVATION (2026-09-24): structural monomers consumed
+            # above have real mass -- without this, new entries start at
+            # massDiff_protein=0 and that mass silently vanishes. Fixed:
+            # self._hbb_mass_per_completion = exact bill-of-materials mass.
             update["nascent_flagellum"] = {
-                "add": {"filament_length": np.zeros(n_new, dtype=np.int64)}
+                "add": {
+                    "filament_length": np.zeros(n_new, dtype=np.int64),
+                    "massDiff_protein": np.full(
+                        n_new, self._hbb_mass_per_completion, dtype=np.float64),
+                }
             }
 
         return update

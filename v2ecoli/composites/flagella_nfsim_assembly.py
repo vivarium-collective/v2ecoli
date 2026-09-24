@@ -56,8 +56,17 @@ def _import_local_model():
 def _import_pbg_nfsim():
     # bionetgen 0.8.6 does `from pkg_resources import packaging` (removed on
     # py3.12); shim it from the standalone `packaging` before importing pbg_nfsim.
-    import pkg_resources
+    # UPDATED 2026-09-22: setuptools>=80 (this repo's locked 83.0.0) removed
+    # pkg_resources ENTIRELY, not just its .packaging attribute -- construct
+    # a minimal stand-in module in that case instead of assuming one exists.
+    import sys
+    import types
     import packaging as _packaging
+    try:
+        import pkg_resources
+    except ModuleNotFoundError:
+        pkg_resources = types.ModuleType("pkg_resources")
+        sys.modules["pkg_resources"] = pkg_resources
     if not hasattr(pkg_resources, "packaging"):
         pkg_resources.packaging = _packaging
     import pbg_nfsim

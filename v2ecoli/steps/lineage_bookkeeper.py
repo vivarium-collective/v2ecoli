@@ -54,8 +54,9 @@ When the lineage store declares ``founder_id_length`` (L), several founder
 lineages share the agents map. The Step then follows ONE descendant per founder
 (agents grouped by ``agent_id[:L]``), never pruning across lineages, and writes
 no scalar doublings — each agent's doublings are ``len(agent_id) - L``, read off
-its own id by the aggregator and coupler. Without that key, more than one
-single-character (founder) id raises rather than silently pruning to one.
+its own id by the aggregator and coupler. In either mode a prune may only remove
+the followed agent's SIBLING; anything else (a founder, or a whole lineage)
+raises rather than being deleted silently.
 
 The follow-policy — keep the daughter whose id ends in ``"0"`` — is the SAME
 rule the runners use to choose which lineage to follow and rotate the emitter
@@ -105,6 +106,44 @@ def followed_ids_per_founder(agent_ids: list[str], id_length: int) -> list[str]:
     for aid in agent_ids:
         groups.setdefault(founder_of(aid, id_length), []).append(str(aid))
     return sorted(followed_lineage_id(ids) for ids in groups.values())
+
+
+def is_sibling(a: str, b: str, id_length: int) -> bool:
+    """True if ``a`` and ``b`` are the two daughters of one division.
+
+    Daughters share their mother's id and differ only in a final ``"0"``/``"1"``
+    (``daughter_phylogeny_id``). Founder ids (length ``id_length``) are never
+    siblings: they share no mother.
+    """
+    a, b = str(a), str(b)
+    return (
+        a != b
+        and len(a) == len(b) > id_length
+        and a[:-1] == b[:-1]
+        and {a[-1], b[-1]} <= {"0", "1"}
+    )
+
+
+def assert_prunes_only_siblings(
+    keep: set[str], to_remove: list[str], id_length: int,
+) -> None:
+    """Refuse any prune that would delete something other than a kept agent's sibling.
+
+    Pruning exists to drop the un-followed daughter at a division. Anything
+    else it could remove is a whole lineage -- a founder, or a founder's
+    descendant -- which is the silent failure this guards against (N founders
+    becoming one on the first tick, or a mis-set ``founder_id_length`` merging
+    founders into one group).
+    """
+    orphans = sorted(
+        r for r in to_remove if not any(is_sibling(k, r, id_length) for k in keep))
+    if orphans:
+        raise ValueError(
+            f"LineageBookkeeper: pruning {orphans} would delete whole lineages, "
+            f"not the followed agent's sibling (kept {sorted(keep)}, founder id "
+            f"length {id_length}). Several founders share the agents map: set "
+            f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} to the founder id length "
+            "to follow one lineage per founder.")
 
 
 def doublings_for(followed_id: str) -> float:
@@ -164,20 +203,8 @@ class LineageBookkeeper(Step):
         if id_length is not None:
             keep = set(followed_ids_per_founder(agent_ids, id_length))
             to_remove = [aid for aid in agent_ids if aid not in keep]
+            assert_prunes_only_siblings(keep, to_remove, id_length)
             return {"agents": {"_remove": to_remove}} if to_remove else {}
-
-        # Single-founder mode prunes to ONE lineage. More than one founder-length
-        # (single-character) id means several founders share the agents map, and
-        # pruning here would silently delete all but one of them on the first
-        # tick. Daughters always have ids of length >= 2, so this cannot fire
-        # at a division.
-        founders = sorted(aid for aid in agent_ids if len(str(aid)) == 1)
-        if len(founders) > 1:
-            raise ValueError(
-                f"LineageBookkeeper: {len(founders)} founders {founders} in "
-                "single-founder mode would be pruned to one. Set "
-                f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} to follow one lineage "
-                "per founder.")
 
         followed = followed_lineage_id(agent_ids)
         if followed is None:
@@ -195,6 +222,9 @@ class LineageBookkeeper(Step):
         # integrate a sibling. Structural _remove; the framework rebuilds the
         # instance-path caches (Division relies on the same).
         to_remove = [aid for aid in agent_ids if aid != followed]
+        # Single-founder ids start at length 1 ("0"). Several founders in the map
+        # would otherwise be pruned to one, silently, on the first tick.
+        assert_prunes_only_siblings({followed}, to_remove, 1)
         if to_remove:
             update["agents"] = {"_remove": to_remove}
 

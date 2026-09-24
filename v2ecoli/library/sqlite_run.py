@@ -150,6 +150,18 @@ def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
     ``multigen-sqlite-daughter-run-crashes``.
     """
     state = composite.state or {}
+    # Multi-founder mode (lineage.founder_id_length) keeps one lineage PER
+    # founder; this helper keeps exactly one agent, so it would delete every
+    # other founder. The runners do not follow multiple lineages yet -- refuse
+    # rather than prune them silently. (The in-composite LineageBookkeeper
+    # handles multi-founder pruning.)
+    from v2ecoli.steps.population_aggregator import (
+        LINEAGE_STORE_NAME, founder_id_length)
+    if founder_id_length(state.get(LINEAGE_STORE_NAME)) is not None:
+        raise NotImplementedError(
+            "prune_to_followed_lineage keeps ONE agent and would delete the other "
+            "founders' lineages; multi-founder runs (lineage.founder_id_length set) "
+            "are not supported by the multigen runners yet.")
     agents = state.get("agents") or {}
     to_drop = [aid for aid in list(agents.keys()) if aid != followed_id]
     for aid in to_drop:

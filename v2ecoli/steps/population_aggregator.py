@@ -109,9 +109,10 @@ def founder_id_length(lineage: Any) -> int | None:
     if value is None:
         return None
     length = int(value)
-    if length < 1:
+    if length != value or length < 1:
         raise ValueError(
-            f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} must be >= 1, got {value!r}")
+            f"lineage.{LINEAGE_FOUNDER_ID_LENGTH_KEY} must be a whole number >= 1, "
+            f"got {value!r}")
     return length
 
 
@@ -310,6 +311,16 @@ class PopulationAggregator(Step):
                 "multi-founder mode (lineage.founder_id_length set) requires "
                 f"population_growth_mode={GROWTH_MODE_DOUBLING!r}; got "
                 f"{self.population_growth_mode!r}")
+        # Weights assume ONE agent per founder lineage (the followed daughter,
+        # standing for its pruned sibling). Two agents from one founder -- both
+        # daughters live, or no LineageBookkeeper -- would double-count that
+        # lineage at every division.
+        founders = [founder_of(a, id_length) for a in agents]
+        if len(founders) != len(set(founders)):
+            shared = sorted({f for f in founders if founders.count(f) > 1})
+            raise ValueError(
+                f"multi-founder mode needs one agent per founder lineage; founders "
+                f"{shared} have more than one. Is single_daughters pruning on?")
         weights = representative_weights(agents.keys(), id_length, self.cells_per_agent)
         weighted_dry_mass_fg = 0.0
         for agent_id, agent_state in agents.items():

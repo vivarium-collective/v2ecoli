@@ -201,7 +201,7 @@ def test_bookkeeper_refuses_to_prune_founders_in_single_founder_mode():
     Control: a normal division (siblings '00'/'01') still prunes without error.
     """
     bk = _bookkeeper()
-    with pytest.raises(ValueError, match="founders"):
+    with pytest.raises(ValueError, match="whole lineages"):
         bk.next_update(1.0, {"agents": {"0": {}, "1": {}}, "lineage": {}})
     out = bk.next_update(1.0, {"agents": {"00": {}, "01": {}}, "lineage": {}})
     assert out["agents"] == {"_remove": ["01"]}
@@ -235,17 +235,82 @@ def test_coupler_weights_exchange_by_represented_cells(core):
     assert uniform != pytest.approx(expected, rel=1e-6)
 
 
-def test_coupler_first_tick_fallback_uses_the_same_weights(core):
-    """Before the aggregator's cell_count reaches the coupler, it falls back to
-    the summed weights -- the same number the aggregator would publish."""
+def test_coupler_multi_founder_scale_ignores_a_stale_cell_count(core):
+    """The represented population is computed from THIS tick's agents.
+
+    A population.cell_count one tick stale (here: before '1' divided to '10')
+    must not change the result; before the fix it scaled every agent by 2/3.
+    """
     cpa = 1.0e9
-    c = ReactorCellCoupler(config={"cells_per_agent": cpa, "reactor_volume_L": 1.0}, core=core)
-    states = {"reactor": {"dissolved_o2": 1.0e6, "dissolved_co2": 0.0, "volume_L": 1.0},
-              "population": {}, "lineage": _multi(),
-              "agents": {"1": _o2_agent(0.0), "00": _o2_agent(0.0)}}
-    c.next_update(1.0, states)
-    assert c.scale_fallbacks == 1
-    states["agents"] = {"1": _o2_agent(-3.0e6), "00": _o2_agent(-5.0e6)}
-    out = c.next_update(1.0, states)["reactor"]["dissolved_o2"]
-    expected = (cpa * -3.0e6 + 2 * cpa * -5.0e6) / AVOGADRO * 1000.0 / 1.0 * MW_O2
-    assert out == pytest.approx(expected, rel=1e-12)
+
+    def second_tick(cell_count):
+        c = ReactorCellCoupler(config={"cells_per_agent": cpa, "reactor_volume_L": 1.0}, core=core)
+        base = {"reactor": {"dissolved_o2": 1.0e6, "dissolved_co2": 0.0, "volume_L": 1.0},
+                "population": {"cell_count": cell_count}, "lineage": _multi()}
+        c.next_update(1.0, {**base, "agents": {"0": _o2_agent(0.0), "10": _o2_agent(0.0)}})
+        out = c.next_update(
+            1.0, {**base, "agents": {"0": _o2_agent(-3.0e6), "10": _o2_agent(-5.0e6)}})
+        return out["reactor"]["dissolved_o2"], c.scale_fallbacks
+
+    expected = (cpa * -3.0e6 + 2 * cpa * -5.0e6) / AVOGADRO * 1000.0 * MW_O2
+    for cell_count in (3 * cpa, 2 * cpa, 0.0):
+        value, fallbacks = second_tick(cell_count)
+        assert value == pytest.approx(expected, rel=1e-12), cell_count
+        assert fallbacks == 0
+
+
+@pytest.mark.parametrize("agents,lineage", [
+    # 11 founders in single-founder mode: two-character ids, not single ones.
+    ({i: {} for i in founder_ids(11)}, {}),
+    # A wrong founder_id_length merges founders "00".."09" into one group.
+    ({i: {} for i in founder_ids(11)}, {LINEAGE_FOUNDER_ID_LENGTH_KEY: 1.0}),
+    # Founder "0" and an unrelated deeper lineage, single-founder mode.
+    ({"0": {}, "10": {}}, {}),
+])
+def test_bookkeeper_refuses_any_prune_that_is_not_a_sibling(agents, lineage):
+    with pytest.raises(ValueError, match="whole lineages"):
+        _bookkeeper().next_update(1.0, {"agents": agents, "lineage": lineage})
+
+
+def test_bookkeeper_accepts_eleven_founders_with_the_right_id_length():
+    """Control for the case above: the same eleven founders, L=2, prune nothing."""
+    agents = {i: {} for i in founder_ids(11)}
+    assert _bookkeeper().next_update(1.0, {"agents": agents, "lineage": _multi(2)}) == {}
+
+
+def test_aggregator_refuses_two_agents_from_one_founder(core):
+    """Both daughters of founder '0' live (no pruning) would double-count it."""
+    agg = _aggregator(core, 1.0e9)
+    with pytest.raises(ValueError, match="one agent per founder"):
+        agg.next_update(1.0, {"agents": {"00": _mass_agent(1.0), "01": _mass_agent(1.0)},
+                              "lineage": _multi()})
+
+
+def test_founder_id_length_must_be_a_whole_number(core):
+    agg = _aggregator(core, 1.0e9)
+    with pytest.raises(ValueError, match="whole number"):
+        agg.next_update(1.0, {"agents": {"0": _mass_agent(1.0)},
+                              "lineage": {LINEAGE_FOUNDER_ID_LENGTH_KEY: 1.5}})
+
+
+def test_runner_prune_refuses_multi_founder_state():
+    """The multigen runners keep ONE agent; in multi-founder mode that deletes
+    every other founder, so the shared helper refuses. Control: single-founder
+    state still prunes the sibling."""
+    from v2ecoli.library.sqlite_run import prune_to_followed_lineage
+
+    class FakeComposite:
+        def __init__(self, state):
+            self.state = state
+
+        def find_instance_paths(self, state):
+            pass
+
+    multi = FakeComposite({"agents": {"00": {}, "1": {}}, "lineage": _multi()})
+    with pytest.raises(NotImplementedError):
+        prune_to_followed_lineage(multi, "00")
+    assert set(multi.state["agents"]) == {"00", "1"}
+
+    single = FakeComposite({"agents": {"00": {}, "01": {}}, "lineage": {"doublings": 1.0}})
+    assert prune_to_followed_lineage(single, "00") == 1
+    assert set(single.state["agents"]) == {"00"}

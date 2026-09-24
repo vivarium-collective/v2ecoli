@@ -370,8 +370,8 @@ class ReactorCellCoupler(Step):
         # (founders divide at different times), so each agent's exchange is
         # weighted by its share of the represented population before summing.
         # The summed counts are then a share-weighted mean per represented cell,
-        # scaled below by the population's total cell_count. Single-founder
-        # mode leaves `shares` None and sums unweighted, exactly as before.
+        # scaled below by the total represented cells. Single-founder mode
+        # leaves `shares` None and sums unweighted, exactly as before.
         shares: dict[str, float] | None = None
         weights_total = 0.0
         id_length = founder_id_length(states.get(LINEAGE_STORE_NAME))
@@ -484,14 +484,13 @@ class ReactorCellCoupler(Step):
             n_agents = len(agents)
             cell_count = _as_float(population.get("cell_count"))
             if shares is not None:
-                # Multi-founder: the counts above are already a share-weighted
-                # mean per represented cell, so scale by the WHOLE population.
-                # Fallback: the same weights the aggregator uses, summed here.
-                if cell_count > 0.0:
-                    cells_per_agent_effective = cell_count
-                else:
-                    cells_per_agent_effective = weights_total
-                    self.scale_fallbacks += 1
+                # Multi-founder: the counts above are a share-weighted mean per
+                # represented cell, so scale by the represented population
+                # computed from THIS tick's agents -- sum(w_i * d_i) exactly.
+                # Not population.cell_count: when current it equals
+                # weights_total, and when it is a tick stale (e.g. across a
+                # division) it would mis-scale every agent. No fallback needed.
+                cells_per_agent_effective = weights_total
             elif cell_count > 0.0 and n_agents:
                 cells_per_agent_effective = cell_count / n_agents
             else:

@@ -54,12 +54,33 @@ def test_multi_founder_needs_founder_sim_data():
 
 
 @pytest.mark.parametrize("overrides", [
-    {"single_daughters": False},
-    {"population_growth_mode": "fixed"},
+    {"single_daughters": False},                       # literal needs fixed
+    {"population_growth_mode": "fixed"},               # weighted needs doubling
 ])
-def test_multi_founder_needs_single_daughters_and_representative_doubling(overrides):
-    with pytest.raises(ValueError, match="n_founders > 1 requires"):
+def test_multi_founder_needs_a_weighted_or_literal_mode(overrides):
+    with pytest.raises(ValueError, match="weighted mode"):
         _build(**overrides)
+
+
+def test_literal_mode_refuses_phase_offsets():
+    with pytest.raises(ValueError, match="founder_cycle_s"):
+        _build(single_daughters=False, population_growth_mode="fixed", founder_cycle_s=1000.0)
+
+
+@pytest.mark.sim
+def test_literal_mode_keeps_founders_unweighted():
+    """Literal mode: distinct founders, no founder_id_length, so every agent is
+    cells_per_agent cells and the population is the plain uniform sum."""
+    c = _build(single_daughters=False, population_growth_mode="fixed")
+    assert sorted(c.state["agents"]) == ["0", "1"]
+    assert LINEAGE_FOUNDER_ID_LENGTH_KEY not in c.state["lineage"]
+    assert "lineage_bookkeeper" not in c.state
+    c.run(3)
+    agents = c.state["agents"]
+    population = c.state["population"]
+    assert population["cell_count"] == pytest.approx(2 * CPA, rel=1e-12)
+    assert population["total_biomass_gDW"] == pytest.approx(
+        sum(_dry_mass_fg(a) for a in agents.values()) * CPA * 1e-15, rel=1e-9)
 
 
 def test_founders_are_distinct_lineages(two_founders):

@@ -110,6 +110,7 @@ def add_founders(
     config_overrides: dict | None = None,
     injected_processes: dict | None = None,
     founder_cycle_s: float = 0.0,
+    weighted: bool = True,
 ) -> dict:
     """Replace a single-founder document's cell with ``n_founders`` distinct founders.
 
@@ -119,6 +120,10 @@ def add_founders(
     including the first -- is its own ParCa draw rather than the shared cached
     cell. ``cells_per_agent`` is untouched: it stays per agent, and a caller that
     wants the same inoculum at any N divides it by N.
+
+    ``weighted=False`` (the literal mode) leaves ``lineage`` undeclared, so the
+    founders and every daughter they produce are plain ``cells_per_agent``
+    agents summed uniformly -- the reference the weighted mode is checked against.
 
     ``founder_cycle_s > 0`` spreads the founders across one cell cycle (see the
     module docstring): founder ``k`` is pre-advanced ``k * founder_cycle_s / N``
@@ -143,6 +148,8 @@ def add_founders(
 
     if founder_cycle_s < 0:
         raise ValueError(f"founder_cycle_s must be >= 0, got {founder_cycle_s}")
+    if founder_cycle_s > 0 and not weighted:
+        raise ValueError("founder_cycle_s needs weighted=True (phase weights)")
     ids = founder_ids(n_founders)
     founders: dict[str, dict] = {}
     for k, fid in enumerate(ids):
@@ -168,6 +175,8 @@ def add_founders(
 
     agents.clear()
     agents.update(founders)
+    if not weighted:
+        return document
     lineage[LINEAGE_FOUNDER_ID_LENGTH_KEY] = float(len(ids[0]))
     if founder_cycle_s > 0:
         for fid, weight in zip(ids, phase_weights(n_founders)):

@@ -442,10 +442,11 @@ def _register_ecoli_core(core):
         # reactor trajectory is chunk-independent. Default False = no-op.
         "single_daughters": {"type": "boolean", "default": False},
         # Multi-founder mode: N founder lineages sharing one reactor, each its
-        # own ParCa draw (seed + k from founder_sim_data) and weighted by the
-        # cells it represents. Requires single_daughters=True and
-        # population_growth_mode="representative_doubling". cells_per_agent stays
-        # PER AGENT -- divide it by n_founders to keep the same inoculum.
+        # own ParCa draw (seed + k from founder_sim_data). Weighted mode
+        # (single_daughters=True + representative_doubling) follows one lineage
+        # per founder; literal mode (single_daughters=False + fixed) keeps every
+        # daughter. cells_per_agent stays PER AGENT -- divide it by n_founders
+        # to keep the same inoculum.
         "n_founders": {"type": "int", "default": 1},
         "founder_sim_data": {"type": "string", "default": ""},
         # Spread the founders across one cell cycle of this length (s): founder k
@@ -533,17 +534,32 @@ def reactor_bird_coupled(
     ``external_store`` mode with the mirror active.
 
     ``n_founders > 1`` builds N founder lineages in the one reactor (see
-    ``v2ecoli/composites/_founders.py``); ``n_founders == 1`` is unchanged.
+    ``v2ecoli/composites/_founders.py``) in one of two modes:
+
+    * **weighted** -- ``single_daughters=True`` +
+      ``population_growth_mode="representative_doubling"``: each founder is
+      followed as one lineage and weighted by the cells it represents.
+    * **literal** -- ``single_daughters=False`` + ``population_growth_mode="fixed"``:
+      every daughter is kept and every agent is ``cells_per_agent`` cells. No
+      weighting is declared; this is the reference the weighted mode is
+      validated against, and its agent count grows as N * 2**(g-1).
+
+    ``n_founders == 1`` is unchanged.
     """
     n_founders = int(n_founders)
-    if n_founders > 1 and not (
-            single_daughters and population_growth_mode == "representative_doubling"):
+    weighted = single_daughters and population_growth_mode == "representative_doubling"
+    literal = (not single_daughters) and population_growth_mode == "fixed"
+    if n_founders > 1 and not (weighted or literal):
         raise ValueError(
-            "n_founders > 1 requires single_daughters=True and "
-            "population_growth_mode='representative_doubling' (each founder is "
-            "followed as one lineage and weighted by the cells it represents); got "
+            "n_founders > 1 needs either the weighted mode (single_daughters=True, "
+            "population_growth_mode='representative_doubling') or the literal mode "
+            "(single_daughters=False, population_growth_mode='fixed'); got "
             f"single_daughters={single_daughters!r}, "
             f"population_growth_mode={population_growth_mode!r}")
+    if n_founders > 1 and literal and founder_cycle_s:
+        raise ValueError(
+            "founder_cycle_s (phase offsets) needs the weighted mode: its "
+            "age-distribution weights have nothing to attach to in the literal mode")
     if core is None:
         from v2ecoli.core import build_core
         core = build_core()
@@ -585,6 +601,7 @@ def reactor_bird_coupled(
                 carbon_exhaustion_arrest, carbon_source_ids),
             injected_processes=injected_processes,
             founder_cycle_s=float(founder_cycle_s),
+            weighted=weighted,
         )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

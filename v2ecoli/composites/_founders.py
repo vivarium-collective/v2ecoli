@@ -15,6 +15,16 @@ divides into ``"30"``/``"31"`` and never collides with another lineage.
 
 Founders' in-document emitters are built ``null``: with N cells, N per-agent
 sinks would all write the same partition. The multigen runner owns emission.
+
+Phase offsets (``founder_cycle_s = T``): founders started together divide in
+lockstep, and a brief per-cell event then shows up in the population at its
+full per-cell size. Founder ``k`` is instead PRE-ADVANCED -- run on its own, in
+the baseline medium, for ``k * T / N`` seconds -- and carried into the shared
+document at that phase (``overlay_cell_data``, the device Division uses for
+daughters). Each founder's base weight follows an exponentially growing
+culture's age distribution, ``n(a) ∝ 2**(1 - a)`` at phase ``a = k / N``,
+normalised to a mean of 1 so the total represented cells stay
+``n_founders * cells_per_agent``.
 """
 
 from __future__ import annotations
@@ -25,6 +35,7 @@ from v2ecoli.steps.population_aggregator import (
     LINEAGE_FOUNDER_ID_LENGTH_KEY,
     LINEAGE_STORE_NAME,
     founder_ids,
+    founder_weight_key,
 )
 
 
@@ -40,6 +51,54 @@ def repoint_division(cell_state: dict, agent_id: str) -> None:
         inst.agent_id = agent_id
 
 
+def phase_weights(n_founders: int) -> list[float]:
+    """Base weight of founder ``k`` at phase ``k / N``: ``2**(1 - k/N)``, mean 1."""
+    raw = [2.0 ** (1.0 - k / n_founders) for k in range(n_founders)]
+    mean = sum(raw) / n_founders
+    return [w / mean for w in raw]
+
+
+def pre_advance_snapshot(
+    core: Any, *, seed: int, seconds: int, founder_sim_data: str, cache_dir: str,
+    config_overrides: dict | None = None, injected_processes: dict | None = None,
+) -> dict:
+    """Run one founder on its own for ``seconds`` and snapshot its cell state.
+
+    The snapshot has :func:`divide_cell`'s shape (core stores, injected
+    agent-root stores, ``_carried_listeners``), ready for ``overlay_cell_data``.
+    Raises if the founder divided: the offset must be shorter than its cycle.
+    """
+    import copy
+
+    from process_bigraph import Composite
+
+    from v2ecoli.composites.ecoli_baseline import baseline
+    from v2ecoli.library.division import collect_carried_listeners, extra_store_keys
+
+    doc = baseline(
+        core=core, seed=seed, cache_dir=cache_dir,
+        config_overrides=config_overrides, injected_processes=injected_processes,
+        independent_founders=True, founder_sim_data=founder_sim_data,
+        emitter="null",
+    )
+    composite = Composite(doc, core=core)
+    composite.run(int(seconds))
+    agents = composite.state["agents"]
+    if list(agents) != ["0"]:
+        raise ValueError(
+            f"founder (seed {seed}) divided during a {seconds}s pre-advance (agents "
+            f"{sorted(agents)}); founder_cycle_s must be shorter than its cell cycle")
+    cell = agents["0"]
+    snapshot = {k: copy.deepcopy(cell[k])
+                for k in ("bulk", "unique", "environment", "boundary") if k in cell}
+    for key in extra_store_keys(cell):
+        snapshot[key] = copy.deepcopy(cell[key])
+    carried = collect_carried_listeners(cell)
+    if carried:
+        snapshot["_carried_listeners"] = carried
+    return snapshot
+
+
 def add_founders(
     document: dict,
     core: Any,
@@ -50,6 +109,7 @@ def add_founders(
     cache_dir: str,
     config_overrides: dict | None = None,
     injected_processes: dict | None = None,
+    founder_cycle_s: float = 0.0,
 ) -> dict:
     """Replace a single-founder document's cell with ``n_founders`` distinct founders.
 
@@ -59,6 +119,10 @@ def add_founders(
     including the first -- is its own ParCa draw rather than the shared cached
     cell. ``cells_per_agent`` is untouched: it stays per agent, and a caller that
     wants the same inoculum at any N divides it by N.
+
+    ``founder_cycle_s > 0`` spreads the founders across one cell cycle (see the
+    module docstring): founder ``k`` is pre-advanced ``k * founder_cycle_s / N``
+    seconds and weighted by :func:`phase_weights`.
     """
     from v2ecoli.composites.ecoli_baseline import baseline
 
@@ -77,6 +141,8 @@ def add_founders(
     if not isinstance(lineage, dict):
         raise ValueError("document has no lineage store; build it with add_population_aggregator")
 
+    if founder_cycle_s < 0:
+        raise ValueError(f"founder_cycle_s must be >= 0, got {founder_cycle_s}")
     ids = founder_ids(n_founders)
     founders: dict[str, dict] = {}
     for k, fid in enumerate(ids):
@@ -88,10 +154,22 @@ def add_founders(
             emitter="null",
         )
         cell = doc_k["state"]["agents"]["0"]
+        offset = int(round(k * founder_cycle_s / n_founders))
+        if offset > 0:
+            from v2ecoli.library.division import overlay_cell_data
+            snapshot = pre_advance_snapshot(
+                core, seed=seed + k, seconds=offset,
+                founder_sim_data=founder_sim_data, cache_dir=cache_dir,
+                config_overrides=config_overrides,
+                injected_processes=injected_processes)
+            overlay_cell_data(cell, snapshot, core)
         repoint_division(cell, fid)
         founders[fid] = cell
 
     agents.clear()
     agents.update(founders)
     lineage[LINEAGE_FOUNDER_ID_LENGTH_KEY] = float(len(ids[0]))
+    if founder_cycle_s > 0:
+        for fid, weight in zip(ids, phase_weights(n_founders)):
+            lineage[founder_weight_key(fid)] = weight
     return document

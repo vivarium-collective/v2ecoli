@@ -345,7 +345,7 @@ class Division(V2Step):
             # Build daughter docs via the new composite generator API.
             # baseline() loads wiring from the cache; we then overlay the
             # daughter's divided biological state on top.
-            from v2ecoli.composites.ecoli_baseline import baseline, seed_mass_listener
+            from v2ecoli.composites.ecoli_baseline import baseline
             from v2ecoli.composites._helpers import (
                 _PARQUET_EMITTER_OVERRIDE, set_parquet_emitter_override)
             d1_seed = (self._seed + 1) % (2**31)
@@ -414,25 +414,8 @@ class Division(V2Step):
                     if _saved is not None:
                         set_parquet_emitter_override(_saved)
                 agent = doc['state']['agents']['0']
-                for key in ('bulk', 'unique', 'environment', 'boundary'):
-                    if key in d_data:
-                        agent[key] = d_data[key]
-                # Injected agent-root stores: MERGE the divided/copied value onto
-                # the freshly built node instead of replacing it, so a node the
-                # fresh build stamped with its declared ``_type`` (e.g. a
-                # ``fields`` map typed ``map[overwrite[array[float]]]``) keeps
-                # that type — and with it its overwrite updater — while the
-                # carried leaves replace the fresh zero seeds. Replacing the node
-                # with a raw dict is the ``exchange_data`` trap (see
-                # _FRESH_ENVIRONMENT_SUBSTORES in v2ecoli/workflow/lineage.py).
-                from v2ecoli.library.division import (
-                    apply_carried_listeners, extra_store_keys as _extra_keys,
-                    merge_carried_store)
-                for key in _extra_keys(d_data):
-                    agent[key] = merge_carried_store(agent.get(key), d_data[key])
-                agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
-                apply_carried_listeners(agent, d_data.get('_carried_listeners'))
-                seed_mass_listener(agent, self.core)
+                from v2ecoli.library.division import overlay_cell_data
+                overlay_cell_data(agent, d_data, self.core)
                 # Advance the phylogeny. baseline() always wires the daughter's
                 # OWN internal division Step with the default agent_id='0' (see
                 # _helpers._get_step_config). Re-point it at this daughter's

@@ -376,7 +376,9 @@ class ReactorCellCoupler(Step):
         weights_total = 0.0
         id_length = founder_id_length(states.get(LINEAGE_STORE_NAME))
         if id_length is not None and agents:
-            weights = representative_weights(agents.keys(), id_length, self.cells_per_agent)
+            weights = representative_weights(
+                agents.keys(), id_length, self.cells_per_agent,
+                states.get(LINEAGE_STORE_NAME))
             weights_total = sum(weights.values())
             shares = {aid: w / weights_total for aid, w in weights.items()}
         seen_agents: set[str] = set()

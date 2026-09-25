@@ -143,20 +143,34 @@ def doublings_since_founder(agent_id: str, id_length: int) -> int:
     return depth
 
 
+# Optional per-founder base weight, ``lineage["founder_weight__<founder id>"]``:
+# a founder that stands for more (or fewer) inoculum cells than the others, e.g.
+# founders at different cell-cycle phases weighted by a growing culture's age
+# distribution. Absent -> 1.0.
+FOUNDER_WEIGHT_KEY_PREFIX: str = "founder_weight__"
+
+
+def founder_weight_key(founder_id: str) -> str:
+    return f"{FOUNDER_WEIGHT_KEY_PREFIX}{founder_id}"
+
+
 def representative_weights(
-    agent_ids, id_length: int, cells_per_agent: float,
+    agent_ids, id_length: int, cells_per_agent: float, lineage: Any = None,
 ) -> dict[str, float]:
     """Real cells each agent represents under representative doubling.
 
-    ``cells_per_agent * 2**doublings_since_founder``: each founder starts at
-    ``cells_per_agent`` cells, and following one daughter per division doubles
-    the cells it stands for. Division conserves the sum: the kept daughter's
-    weight doubles while its mass halves.
+    ``cells_per_agent * base * 2**doublings_since_founder``: each founder starts
+    at ``cells_per_agent * base`` cells (``base`` from
+    ``lineage["founder_weight__<founder>"]``, default 1.0), and following one
+    daughter per division doubles the cells it stands for. Division conserves
+    the sum: the kept daughter's weight doubles while its mass halves.
     """
-    return {
-        str(aid): cells_per_agent * 2.0 ** doublings_since_founder(aid, id_length)
-        for aid in agent_ids
-    }
+    lineage = lineage if isinstance(lineage, dict) else {}
+    out = {}
+    for aid in agent_ids:
+        base = float(lineage.get(founder_weight_key(founder_of(aid, id_length)), 1.0))
+        out[str(aid)] = cells_per_agent * base * 2.0 ** doublings_since_founder(aid, id_length)
+    return out
 
 
 class PopulationAggregator(Step):
@@ -259,7 +273,8 @@ class PopulationAggregator(Step):
 
         id_length = founder_id_length((states or {}).get(LINEAGE_STORE_NAME))
         if id_length is not None:
-            return self._multi_founder_update(agents, id_length)
+            return self._multi_founder_update(
+                agents, id_length, (states or {}).get(LINEAGE_STORE_NAME))
 
         sum_dry_mass_fg = 0.0
         for _agent_id, agent_state in agents.items():
@@ -299,7 +314,7 @@ class PopulationAggregator(Step):
 
     # --- multi-founder mode --------------------------------------------------
 
-    def _multi_founder_update(self, agents, id_length: int):
+    def _multi_founder_update(self, agents, id_length: int, lineage=None):
         """Aggregate N founder lineages, each agent weighted by its own doublings.
 
         Biomass is ``sum(dry_mass_i * weight_i)`` and cell_count is
@@ -321,7 +336,8 @@ class PopulationAggregator(Step):
             raise ValueError(
                 f"multi-founder mode needs one agent per founder lineage; founders "
                 f"{shared} have more than one. Is single_daughters pruning on?")
-        weights = representative_weights(agents.keys(), id_length, self.cells_per_agent)
+        weights = representative_weights(
+            agents.keys(), id_length, self.cells_per_agent, lineage)
         weighted_dry_mass_fg = 0.0
         for agent_id, agent_state in agents.items():
             dry_mass = _extract_dry_mass_fg(agent_state)

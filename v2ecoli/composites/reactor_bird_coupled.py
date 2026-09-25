@@ -448,6 +448,10 @@ def _register_ecoli_core(core):
         # PER AGENT -- divide it by n_founders to keep the same inoculum.
         "n_founders": {"type": "int", "default": 1},
         "founder_sim_data": {"type": "string", "default": ""},
+        # Spread the founders across one cell cycle of this length (s): founder k
+        # is pre-advanced k * founder_cycle_s / n_founders seconds on its own and
+        # weighted by a growing culture's age distribution. 0 = all start at t=0.
+        "founder_cycle_s": {"type": "number", "default": 0.0},
         # Medium glucose recipe seed (mmol/L) for the coupler's drawdown
         # accumulator (substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
@@ -520,6 +524,7 @@ def reactor_bird_coupled(
     injected_processes: dict | None = None,
     n_founders: int = 1,
     founder_sim_data: str = "",
+    founder_cycle_s: float = 0.0,
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
@@ -579,6 +584,7 @@ def reactor_bird_coupled(
             config_overrides=_carbon_arrest_overrides(
                 carbon_exhaustion_arrest, carbon_source_ids),
             injected_processes=injected_processes,
+            founder_cycle_s=float(founder_cycle_s),
         )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)

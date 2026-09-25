@@ -565,6 +565,33 @@ def apply_carried_listeners(agent, carried_listeners) -> None:
 # Top-level cell division
 # ---------------------------------------------------------------------------
 
+def overlay_cell_data(agent, data, core) -> None:
+    """Put a cell's biological state onto a freshly built agent node, in place.
+
+    ``data`` is a cell snapshot shaped like :func:`divide_cell`'s output (core
+    stores, any injected agent-root stores, ``_carried_listeners``). Used by the
+    Division step to build each daughter, and by multi-founder pre-advance to
+    carry a founder that ran on its own into the shared document.
+    """
+    for key in ('bulk', 'unique', 'environment', 'boundary'):
+        if key in data:
+            agent[key] = data[key]
+    # Injected agent-root stores: MERGE the divided/copied value onto
+    # the freshly built node instead of replacing it, so a node the
+    # fresh build stamped with its declared ``_type`` (e.g. a
+    # ``fields`` map typed ``map[overwrite[array[float]]]``) keeps
+    # that type — and with it its overwrite updater — while the
+    # carried leaves replace the fresh zero seeds. Replacing the node
+    # with a raw dict is the ``exchange_data`` trap (see
+    # _FRESH_ENVIRONMENT_SUBSTORES in v2ecoli/workflow/lineage.py).
+    for key in extra_store_keys(data):
+        agent[key] = merge_carried_store(agent.get(key), data[key])
+    agent['listeners']['mass'] = {'dry_mass': 0.0, 'cell_mass': 0.0}
+    apply_carried_listeners(agent, data.get('_carried_listeners'))
+    from v2ecoli.composites.ecoli_baseline import seed_mass_listener
+    seed_mass_listener(agent, core)
+
+
 def daughter_phylogeny_id(mother_id):
     """Generate daughter IDs from mother ID."""
     return [str(mother_id) + '0', str(mother_id) + '1']

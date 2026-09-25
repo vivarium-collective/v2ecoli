@@ -314,3 +314,53 @@ def test_runner_prune_refuses_multi_founder_state():
     single = FakeComposite({"agents": {"00": {}, "01": {}}, "lineage": {"doublings": 1.0}})
     assert prune_to_followed_lineage(single, "00") == 1
     assert set(single.state["agents"]) == {"00"}
+
+
+# --- Phase offsets: per-founder base weights ---------------------------------
+
+def test_phase_weights_follow_the_age_distribution_with_mean_one():
+    from v2ecoli.composites._founders import phase_weights
+    w = phase_weights(4)
+    assert sum(w) == pytest.approx(4.0, rel=1e-12)
+    # Consecutive founders a quarter-cycle apart: ratio 2**(1/4), youngest heaviest.
+    for a, b in zip(w, w[1:]):
+        assert a / b == pytest.approx(2 ** 0.25, rel=1e-12)
+
+
+def test_founder_base_weight_scales_that_founders_cells(core):
+    """lineage.founder_weight__<id> multiplies only that founder's cells.
+    Control: without the keys every founder weighs 1."""
+    from v2ecoli.steps.population_aggregator import founder_weight_key
+    agg = _aggregator(core, 1.0e9)
+    agents = {"0": _mass_agent(400.0), "10": _mass_agent(300.0)}
+    weighted = agg.next_update(1.0, {"agents": agents, "lineage": _multi(**{
+        founder_weight_key("0"): 1.5, founder_weight_key("1"): 0.5})})["population"]
+    assert weighted["cell_count"] == pytest.approx(1.0e9 * (1.5 + 0.5 * 2), rel=1e-12)
+    assert weighted["total_biomass_gDW"] == pytest.approx(
+        1.0e9 * (400.0 * 1.5 + 300.0 * 0.5 * 2) * 1e-15, rel=1e-12)
+    plain = agg.next_update(1.0, {"agents": agents, "lineage": _multi()})["population"]
+    assert plain["cell_count"] == pytest.approx(1.0e9 * 3, rel=1e-12)
+
+
+# --- overlay_cell_data (shared by Division and pre-advance) -----------------
+
+def test_overlay_cell_data_carries_state_onto_a_fresh_agent(monkeypatch):
+    import numpy as np
+
+    import v2ecoli.composites.ecoli_baseline as eb
+    from v2ecoli.library.division import overlay_cell_data
+    monkeypatch.setattr(eb, "seed_mass_listener", lambda agent, core: None)
+
+    fresh = {"bulk": np.zeros(2), "unique": {}, "environment": {}, "boundary": {},
+             "listeners": {"mass": {"dry_mass": 99.0}},
+             "fields": {"_type": "map[overwrite[float]]", "X": 0.0},
+             "division": {"_type": "step", "instance": None}}
+    data = {"bulk": np.array([5.0, 7.0]), "unique": {"u": 1}, "environment": {"e": 2},
+            "boundary": {"b": 3}, "fields": {"X": 4.0}}
+    overlay_cell_data(fresh, data, core=None)
+    assert fresh["bulk"].tolist() == [5.0, 7.0]
+    assert (fresh["unique"], fresh["environment"], fresh["boundary"]) == ({"u": 1}, {"e": 2}, {"b": 3})
+    # Injected store merged, keeping the fresh node's _type; mass listener reset.
+    assert fresh["fields"] == {"_type": "map[overwrite[float]]", "X": 4.0}
+    assert fresh["listeners"]["mass"] == {"dry_mass": 0.0, "cell_mass": 0.0}
+    assert fresh["division"] == {"_type": "step", "instance": None}

@@ -566,6 +566,8 @@ def run_multigen_xarray(
 
     Returns: ``{"steps": int, "generations": list[int], "store": str}``.
     """
+    from v2ecoli.library.sqlite_run import refuse_multi_founder
+    refuse_multi_founder(composite, "run_multigen_xarray")
     store_path = Path(store_path)
     # ⛔⛔ AND THE DEFAULT WOULD DELETE THE PREDECESSOR. ``overwrite=True`` (the
     # default) rmtree's the store, so a resumed stage run with default arguments

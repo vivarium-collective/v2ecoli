@@ -253,6 +253,15 @@ def run_multigen_parquet(
     # ``v2ecoli.library.parquet_emitter`` is just a re-export shim.
     from viva_emitters import ParquetEmitter
 
+    from v2ecoli.steps.population_aggregator import (
+        LINEAGE_STORE_NAME, founder_id_length)
+    id_length = founder_id_length((composite.state or {}).get(LINEAGE_STORE_NAME))
+    if id_length is not None and not emit_paths:
+        raise ValueError(
+            "run_multigen_parquet: multi-founder mode (lineage.founder_id_length "
+            "set) needs an explicit, reduced emit_paths. An empty list means the "
+            "whole-cell declared set, emitted once per founder.")
+
     if division_detector is None:
         def division_detector(prev: set[str], curr: set[str]) -> tuple[bool, str | None]:
             new = sorted(curr - prev)
@@ -297,7 +306,8 @@ def run_multigen_parquet(
         print(f"[multigen_parquet] discovered output_metadata labels for: "
               f"{list(_named_metadata.keys())}")
 
-    def _make_emitter(agent_id: str, generation: int) -> ParquetEmitter:
+    def _make_emitter(agent_id: str, generation: int,
+                      schema: dict | None = None) -> ParquetEmitter:
         metadata: dict[str, Any] = {
             "experiment_id": experiment_id,
             "variant": initial_variant,
@@ -317,7 +327,7 @@ def run_multigen_parquet(
 
         return ParquetEmitter(
             config={
-                "emit": emit_schema,
+                "emit": emit_schema if schema is None else schema,
                 "out_dir": out_dir,
                 "batch_size": batch_size,
                 "threaded": threaded,
@@ -335,6 +345,18 @@ def run_multigen_parquet(
     from v2ecoli.steps.division import daughter_phylogeny_id
 
     max_steps = int(max_steps)
+    if id_length is not None:
+        agent_schema = _build_emit_schema(leaves)
+        if _EMIT_UNIQUE:
+            _merge_into(agent_schema, _unique_emit_schema())
+        return _run_founders(
+            composite, id_length=id_length, leaves=leaves, root_leaves=root_leaves,
+            make_emitter=lambda aid, gen, schema: _make_emitter(aid, gen, schema),
+            agent_schema=agent_schema,
+            root_schema=_build_emit_schema(root_leaves) if root_leaves else None,
+            max_steps=max_steps, max_generations=max_generations, chunk=chunk,
+            initial_generation=int(initial_generation), out_dir=out_dir)
+
     # ``followed`` = the key the inner composite uses for the cell we track.
     # The inner Division step always names its mother "0", so EVERY division
     # produces daughters "00"/"01" regardless of lineage depth — the followed
@@ -460,3 +482,117 @@ def run_multigen_parquet(
         em.close(success=True)
 
     return {"steps": done, "generations": gens_seen, "out_dir": out_dir}
+
+
+# Hive ``agent_id`` of the document-level rows (reactor / population / lineage)
+# in a multi-founder run: written once per tick, not once per founder.
+POPULATION_PARTITION_AGENT_ID = "population"
+
+
+def _run_founders(
+    composite: Any, *, id_length: int, leaves, root_leaves, make_emitter,
+    agent_schema: dict, root_schema: dict | None, max_steps: int,
+    max_generations: int, chunk: int, initial_generation: int, out_dir: str,
+) -> dict:
+    """Multi-founder loop: one followed lineage and one emitter PER FOUNDER.
+
+    Each founder's rows go to ``generation=<g>/agent_id=<phylogeny id>`` (``3``,
+    ``30``, ...; ids grow along the phylogeny, see ``daughter_phylogeny_id``);
+    the document roots go to ``generation=0/agent_id=population`` once per tick.
+    The in-composite ``LineageBookkeeper`` prunes each lineage to its followed
+    daughter, so the runner never prunes -- it only reads which agent survives
+    in each founder's group. A division is that surviving id changing.
+
+    Stops at ``max_steps``, or when any founder divides past ``max_generations``:
+    a founder past its cap cannot be removed without changing the shared
+    reactor, so the run ends rather than carrying on with it unrecorded.
+    Returns per-founder generations and ROW COUNTS -- judge completeness from
+    those, not from the run returning.
+    """
+    from v2ecoli.steps.population_aggregator import founder_of
+
+    def groups(agents: dict) -> dict[str, list[str]]:
+        out: dict[str, list[str]] = {}
+        for aid in agents:
+            out.setdefault(founder_of(aid, id_length), []).append(str(aid))
+        return out
+
+    def state() -> dict:
+        return composite.state or {}
+
+    start = groups(state().get("agents") or {})
+    if not start or any(len(ids) != 1 for ids in start.values()):
+        raise ValueError(
+            "multi-founder runner needs exactly one agent per founder at start; "
+            f"got {start}")
+    followed = {f: ids[0] for f, ids in start.items()}
+    gen = {f: initial_generation for f in followed}
+    generations = {f: [initial_generation] for f in followed}
+    rows = {f: 0 for f in followed}
+    emitters = {f: make_emitter(followed[f], gen[f], agent_schema) for f in followed}
+    pop_emitter = (make_emitter(POPULATION_PARTITION_AGENT_ID, 0, root_schema)
+                   if root_schema is not None else None)
+    pop_rows = 0
+    done = 0
+    stopped = "max_steps"
+
+    try:
+        while done < max_steps:
+            n = min(chunk, max_steps - done)
+            try:
+                composite.run(n)
+            except Exception as e:
+                stopped = f"composite error at tick {done}: {type(e).__name__}: {str(e)[:120]}"
+                print(f"[multigen_parquet] {stopped}")
+                break
+            done += n
+            agents = state().get("agents") or {}
+            current = groups(agents)
+            if set(current) != set(followed):
+                raise RuntimeError(
+                    f"founder lineages changed: expected {sorted(followed)}, "
+                    f"got {sorted(current)}")
+
+            capped = None
+            for f in sorted(followed):
+                ids = current[f]
+                if len(ids) != 1:
+                    raise RuntimeError(
+                        f"founder {f!r} has {len(ids)} agents {ids}; multi-founder "
+                        "runs need single_daughters pruning")
+                if ids[0] == followed[f]:
+                    continue
+                if gen[f] >= max_generations:
+                    capped = f
+                    break
+                emitters[f].close(success=True)
+                followed[f] = ids[0]
+                gen[f] += 1
+                generations[f].append(gen[f])
+                emitters[f] = make_emitter(followed[f], gen[f], agent_schema)
+                print(f"[multigen_parquet] founder {f!r}: gen {gen[f]} -> "
+                      f"following {followed[f]!r} at tick {done}")
+            if capped is not None:
+                stopped = f"founder {capped!r} divided past max_generations={max_generations}"
+                print(f"[multigen_parquet] {stopped} at tick {done}")
+                break
+
+            for f, aid in followed.items():
+                payload = _filter_agent_state(agents[aid], leaves)
+                update: dict = {"global_time": float(done), **payload}
+                if _EMIT_UNIQUE:
+                    _merge_into(update, _extract_unique_attrs(agents[aid]))
+                emitters[f].update(update)
+                rows[f] += 1
+            if pop_emitter is not None:
+                pop_emitter.update({"global_time": float(done),
+                                    **_filter_root_state(state(), root_leaves)})
+                pop_rows += 1
+    finally:
+        for em in emitters.values():
+            em.close(success=True)
+        if pop_emitter is not None:
+            pop_emitter.close(success=True)
+
+    return {"steps": done, "generations": generations, "rows": rows,
+            "population_rows": pop_rows, "stopped": stopped, "out_dir": out_dir}

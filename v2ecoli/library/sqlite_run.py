@@ -112,6 +112,20 @@ def _build_emit_schema(leaves: list[tuple[str, ...]]) -> dict:
     return schema
 
 
+def refuse_multi_founder(composite: Any, runner: str) -> None:
+    """Raise at run START if ``composite`` is a multi-founder document.
+
+    Only ``run_multigen_parquet`` follows one lineage per founder. The other
+    runners follow ONE agent and would silently record a single founder.
+    """
+    from v2ecoli.steps.population_aggregator import (
+        LINEAGE_STORE_NAME, founder_id_length)
+    if founder_id_length((composite.state or {}).get(LINEAGE_STORE_NAME)) is not None:
+        raise NotImplementedError(
+            f"{runner} follows a single lineage; multi-founder runs "
+            "(lineage.founder_id_length set) need run_multigen_parquet.")
+
+
 def prune_to_followed_lineage(composite: Any, followed_id: str) -> int:
     """Drop all agents from ``composite.state['agents']`` except ``followed_id``.
 
@@ -328,6 +342,7 @@ def run_multigen_sqlite(
         the SQLiteEmitter writes durably to ``db_file`` as we go.
         Caller should query the db directly.
     """
+    refuse_multi_founder(composite, "run_multigen_sqlite")
     from process_bigraph.emitter import SQLiteEmitter
     from viva_emitters.sqlite_emitter import save_simulation_metadata
     from v2ecoli.library.output_metadata import output_metadata as _get_output_metadata

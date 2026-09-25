@@ -441,6 +441,13 @@ def _register_ecoli_core(core):
         # single_daughters); adds the in-composite LineageBookkeeper so the
         # reactor trajectory is chunk-independent. Default False = no-op.
         "single_daughters": {"type": "boolean", "default": False},
+        # Multi-founder mode: N founder lineages sharing one reactor, each its
+        # own ParCa draw (seed + k from founder_sim_data) and weighted by the
+        # cells it represents. Requires single_daughters=True and
+        # population_growth_mode="representative_doubling". cells_per_agent stays
+        # PER AGENT -- divide it by n_founders to keep the same inoculum.
+        "n_founders": {"type": "int", "default": 1},
+        "founder_sim_data": {"type": "string", "default": ""},
         # Medium glucose recipe seed (mmol/L) for the coupler's drawdown
         # accumulator (substrate/glucose-conc axis).
         "initial_glucose_mM": {"type": "number",
@@ -511,13 +518,27 @@ def reactor_bird_coupled(
     initial_glucose_mM: float = DEFAULT_INITIAL_GLUCOSE_MM,
     initial_ammonium_mM: float = DEFAULT_INITIAL_AMMONIUM_MM,
     injected_processes: dict | None = None,
+    n_founders: int = 1,
+    founder_sim_data: str = "",
 ) -> dict:
     """Build the reactor_bird_coupled document.
 
     Extends ``baseline_population`` (cell side) with the BiRD reactor transport
     process + the reactor<->cell coupler, and switches the environment driver to
     ``external_store`` mode with the mirror active.
+
+    ``n_founders > 1`` builds N founder lineages in the one reactor (see
+    ``v2ecoli/composites/_founders.py``); ``n_founders == 1`` is unchanged.
     """
+    n_founders = int(n_founders)
+    if n_founders > 1 and not (
+            single_daughters and population_growth_mode == "representative_doubling"):
+        raise ValueError(
+            "n_founders > 1 requires single_daughters=True and "
+            "population_growth_mode='representative_doubling' (each founder is "
+            "followed as one lineage and weighted by the cells it represents); got "
+            f"single_daughters={single_daughters!r}, "
+            f"population_growth_mode={population_growth_mode!r}")
     if core is None:
         from v2ecoli.core import build_core
         core = build_core()
@@ -548,6 +569,17 @@ def reactor_bird_coupled(
         )
     finally:
         set_enclosing_emitter_decl(None)
+
+    if n_founders > 1:
+        from v2ecoli.composites._founders import add_founders
+        from v2ecoli.composites.ecoli_population import _carbon_arrest_overrides
+        add_founders(
+            document, core, n_founders=n_founders, seed=seed,
+            founder_sim_data=founder_sim_data, cache_dir=cache_dir,
+            config_overrides=_carbon_arrest_overrides(
+                carbon_exhaustion_arrest, carbon_source_ids),
+            injected_processes=injected_processes,
+        )
 
     # --- env hook + reactor + coupler (shared with reactor_bird_coupled_millard)
     return add_reactor_coupling(

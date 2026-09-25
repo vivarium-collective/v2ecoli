@@ -200,6 +200,9 @@ INPUT_FILES: tuple[str, ...] = (
     # it, exactly like a change to the composite file itself.
     "v2ecoli/composites/_helpers.py",
     "v2ecoli/composites/_millard_helpers.py",
+    # Multi-founder document builder: splices N founder cells into the
+    # reactor-coupled document, so it shapes that document like the files above.
+    "v2ecoli/composites/_founders.py",
 )
 
 

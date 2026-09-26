@@ -62,13 +62,16 @@ def _all_ports(manifests):
         yield from outs.keys()
 
 
-def test_step_registry_has_nine_steps():
-    """``ALL_STEP_CLASSES`` exposes one class per pipeline stage."""
-    assert len(ALL_STEP_CLASSES) == 9
+def test_step_registry_has_ten_steps():
+    """``ALL_STEP_CLASSES`` exposes one class per pipeline stage, plus the
+    optional SimInputWriteStep (N5) that persists sim_data but is not part of
+    the ordered pipeline (not in STEP_ORDER)."""
+    assert len(ALL_STEP_CLASSES) == 10
     expected = {
         'InitializeStep', 'InputAdjustmentsStep', 'BasalSpecsStep',
         'TfConditionSpecsStep', 'FitConditionStep', 'PromoterBindingStep',
         'AdjustPromotersStep', 'SetConditionsStep', 'FinalAdjustmentsStep',
+        'SimInputWriteStep',
     }
     assert set(ALL_STEP_CLASSES) == expected
 

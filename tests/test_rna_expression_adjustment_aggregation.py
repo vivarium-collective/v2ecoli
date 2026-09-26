@@ -182,3 +182,42 @@ def test_an_unknown_id_raises_rather_than_being_skipped():
 def test_the_result_is_always_renormalized():
     for adjustments in ({"cisA": 1000.0}, {"cisA": 0.001, "solo_geneB": 7.0}):
         assert _adjust(adjustments).sum() == pytest.approx(1.0)
+
+
+# --- the default surfaces (but does not refuse) a direction-discordant TU -----
+
+def test_geometric_warns_on_a_direction_discordant_tu():
+    """gm(0.5, 8) == 2.0 is a valid number for a transcript that is measured
+    both down and up — a contradiction the default must not resolve silently.
+    max_guarded refuses it; geometric proceeds but warns."""
+    with pytest.warns(UserWarning, match="direction-discordant"):
+        out = adjust_rna_expression(
+            RNA_IDS, CISTRON_IDS, BASE.copy(),
+            {"cisA": 0.5, "cisB": 8.0}, CISTRON_TO_RNA_INDEXES,
+        )
+    # still combined (not refused): gm(0.5, 8) = 2.0 on TU 0
+    expected = np.array([0.5 * 2.0, 0.3, 0.2])
+    assert out == pytest.approx(expected / expected.sum())
+
+
+def test_geometric_warns_when_a_knockout_sits_beside_an_upregulation():
+    """gm(0, 3) == 0 keeps the knockout and discards the up-regulation — a real
+    loss of information, so it warns."""
+    with pytest.warns(UserWarning, match="direction-discordant"):
+        out = adjust_rna_expression(
+            RNA_IDS, CISTRON_IDS, BASE.copy(),
+            {"cisA": 0.0, "cisB": 3.0}, CISTRON_TO_RNA_INDEXES,
+        )
+    assert out[0] == 0.0
+
+
+def test_geometric_does_not_warn_on_a_same_direction_tu():
+    """A concordant operon (all up, or all down) is genuine repeated observation
+    — no discordance warning, even though the shared-TU notice still fires."""
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        adjust_rna_expression(
+            RNA_IDS, CISTRON_IDS, BASE.copy(),
+            {"cisA": 2.0, "cisB": 5.0, "cisC": 3.0}, CISTRON_TO_RNA_INDEXES,
+        )
+    assert not [w for w in caught if "direction-discordant" in str(w.message)]

@@ -95,10 +95,29 @@ def _combine_geometric(factors):
     (a knockout) survives: gm(0, x) == 0.
     """
     factors = np.asarray(factors, dtype=float)
-    if np.any(factors == 0.0):
-        return 0.0
     if np.any(factors < 0.0):
         raise ValueError(f"negative adjustment factor in {list(factors)}")
+    # A direction-discordant TU — factors on both sides of 1.0, a 0.0 knockout
+    # included — is not noise around one value; it is two observations of the
+    # SAME transcript that disagree on direction. The geometric mean still
+    # returns a number (gm(0.5, 8) == 2.0; gm(0, 3) == 0.0 discards the
+    # up-regulation), so the default would otherwise resolve a contradiction
+    # silently. Surface it — as a warning, not a raise: refusing is max_guarded's
+    # job, and the default must not fail a build. Same discordance test
+    # max_guarded uses, so the two combiners agree on WHAT is discordant and only
+    # differ on whether to proceed.
+    if np.any(factors > 1.0) and np.any(factors < 1.0):
+        warnings.warn(
+            f"geometric combiner is pooling a direction-discordant "
+            f"transcription unit {list(factors)}: the co-located cistrons "
+            f"disagree on direction (up and down, or a knockout beside an "
+            f"up-regulation), so the mean is not a repeated observation of one "
+            f"value. Check the operon annotation or resolve upstream; "
+            f"max_guarded refuses this input.",
+            stacklevel=2,
+        )
+    if np.any(factors == 0.0):
+        return 0.0
     return float(np.exp(np.mean(np.log(factors))))
 
 
